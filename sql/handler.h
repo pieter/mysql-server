@@ -571,6 +571,9 @@ typedef struct
    uint (*partition_flags)();
    uint (*alter_table_flags)(uint flags);
    int (*alter_tablespace)(THD *thd, st_alter_tablespace *ts_info);
+   int (*fill_files_table)(THD *thd,
+                           struct st_table_list *tables,
+                           class Item *cond);
    uint32 flags;                                /* global handler flags */
    /* 
       Handlerton functions are not set in the different storage
@@ -794,7 +797,7 @@ typedef struct st_partition_iter
 
 typedef int (*get_partitions_in_range_iter)(partition_info *part_info,
                                             bool is_subpart,
-                                            byte *min_val, byte *max_val,
+                                            char *min_val, char *max_val,
                                             uint flags,
                                             PARTITION_ITERATOR *part_iter);
 
@@ -1713,6 +1716,8 @@ public:
   { return FALSE; }
   virtual char* get_foreign_key_create_info()
   { return(NULL);}  /* gets foreign key create string from InnoDB */
+  virtual char* get_tablespace_name()
+  { return(NULL);}  /* gets tablespace name from handler */
   /* used in ALTER TABLE; 1 if changing storage engine is allowed */
   virtual bool can_switch_engines() { return 1; }
   /* used in REPLACE; is > 0 if table is referred by a FOREIGN KEY */

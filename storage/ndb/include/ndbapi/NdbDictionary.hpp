@@ -162,6 +162,7 @@ public:
 
   class Table; // forward declaration
   class Tablespace; // forward declaration
+//  class NdbEventOperation; // forward declaration
 
   /**
    * @class Column
@@ -783,7 +784,7 @@ public:
     void setTablespace(const char * name);
     void setTablespace(const class Tablespace &);
     const char * getTablespace() const;
-    Uint32 getTablespaceId() const;
+    bool getTablespace(Uint32 *id= 0, Uint32 *version= 0) const;
 
     /**
      * Get table object type
@@ -885,6 +886,7 @@ public:
 #ifndef DOXYGEN_SHOULD_SKIP_INTERNAL
     friend class NdbDictionaryImpl;
     friend class NdbTableImpl;
+    friend class NdbEventOperationImpl;
 #endif
     class NdbTableImpl & m_impl;
     Table(NdbTableImpl&);
@@ -1182,6 +1184,12 @@ public:
      * Get unique identifier for the event
      */
     const char *getName() const;
+    /**
+     * Get table that the event is defined on
+     *
+     * @return pointer to table or NULL if no table has been defined
+     */
+    const NdbDictionary::Table * getTable() const;
     /**
      * Define table on which events should be detected
      *
@@ -1736,6 +1744,7 @@ public:
     int createTablespace(const Tablespace &);
     int dropTablespace(const Tablespace&);
     Tablespace getTablespace(const char * name);
+    Tablespace getTablespace(Uint32 tablespaceId);
 
     int createDatafile(const Datafile &, bool overwrite_existing = false);
     int dropDatafile(const Datafile&);

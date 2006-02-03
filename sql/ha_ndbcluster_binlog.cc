@@ -1041,15 +1041,18 @@ int ndbcluster_log_schema_op(THD *thd, NDB_SHARE *share,
       break;
     }
 err:
-    if (trans->getNdbError().status == NdbError::TemporaryError)
+    const NdbError *this_error= trans ?
+      &trans->getNdbError() : &ndb->getNdbError();
+    if (this_error->status == NdbError::TemporaryError)
     {
       if (retries--)
       {
-        ndb->closeTransaction(trans);
+        if (trans)
+          ndb->closeTransaction(trans);
         continue; // retry
       }
     }
-    ndb_error= &trans->getNdbError();
+    ndb_error= this_error;
     break;
   }
 end:
@@ -1235,15 +1238,18 @@ ndbcluster_update_slock(THD *thd,
       break;
     }
   err:
-    if (trans->getNdbError().status == NdbError::TemporaryError)
+    const NdbError *this_error= trans ?
+      &trans->getNdbError() : &ndb->getNdbError();
+    if (this_error->status == NdbError::TemporaryError)
     {
       if (retries--)
       {
-        ndb->closeTransaction(trans);
+        if (trans)
+          ndb->closeTransaction(trans);
         continue; // retry
       }
     }
-    ndb_error= &trans->getNdbError();
+    ndb_error= this_error;
     break;
   }
 end:
@@ -1464,6 +1470,14 @@ ndb_binlog_thread_handle_schema_event(THD *thd, Ndb *ndb,
       (void) pthread_mutex_lock(&share->mutex);
       bitmap_clear_all(&share->subscriber_bitmap[node_id]);
       DBUG_PRINT("info",("NODE_FAILURE UNSUBSCRIBE[%d]", node_id));
+      if (ndb_extra_logging)
+      {
+        sql_print_information("NDB Binlog: Node: %d, down,"
+                              " Subscriber bitmask %x%x",
+                              pOp->getNdbdNodeId(),
+                              share->subscriber_bitmap[node_id].bitmap[1],
+                              share->subscriber_bitmap[node_id].bitmap[0]);
+      }
       (void) pthread_mutex_unlock(&share->mutex);
       (void) pthread_cond_signal(&injector_cond);
       break;
@@ -1476,6 +1490,15 @@ ndb_binlog_thread_handle_schema_event(THD *thd, Ndb *ndb,
       (void) pthread_mutex_lock(&share->mutex);
       bitmap_set_bit(&share->subscriber_bitmap[node_id], req_id);
       DBUG_PRINT("info",("SUBSCRIBE[%d] %d", node_id, req_id));
+      if (ndb_extra_logging)
+      {
+        sql_print_information("NDB Binlog: Node: %d, subscribe from node %d,"
+                              " Subscriber bitmask %x%x",
+                              pOp->getNdbdNodeId(),
+                              req_id,
+                              share->subscriber_bitmap[node_id].bitmap[1],
+                              share->subscriber_bitmap[node_id].bitmap[0]);
+      }
       (void) pthread_mutex_unlock(&share->mutex);
       (void) pthread_cond_signal(&injector_cond);
       break;
@@ -1488,6 +1511,15 @@ ndb_binlog_thread_handle_schema_event(THD *thd, Ndb *ndb,
       (void) pthread_mutex_lock(&share->mutex);
       bitmap_clear_bit(&share->subscriber_bitmap[node_id], req_id);
       DBUG_PRINT("info",("UNSUBSCRIBE[%d] %d", node_id, req_id));
+      if (ndb_extra_logging)
+      {
+        sql_print_information("NDB Binlog: Node: %d, unsubscribe from node %d,"
+                              " Subscriber bitmask %x%x",
+                              pOp->getNdbdNodeId(),
+                              req_id,
+                              share->subscriber_bitmap[node_id].bitmap[1],
+                              share->subscriber_bitmap[node_id].bitmap[0]);
+      }
       (void) pthread_mutex_unlock(&share->mutex);
       (void) pthread_cond_signal(&injector_cond);
       break;

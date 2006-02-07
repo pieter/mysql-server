@@ -1172,7 +1172,7 @@ bool Table_triggers_list::process_triggers(THD *thd, trg_event_type event,
 
     fill_effective_table_privileges(thd,
                                     &subject_table_grants[event][time_type],
-                                    table->s->db, table->s->table_name);
+                                    table->s->db.str, table->s->table_name.str);
 
     /* Check that the definer has TRIGGER privilege on the subject table. */
 

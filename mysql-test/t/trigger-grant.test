@@ -424,8 +424,7 @@ CREATE TABLE t4(col CHAR(20)); # table for "write-value" trigger
 
 CREATE USER mysqltest_u1@localhost;
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM mysqltest_u1@localhost;
-GRANT SUPER ON *.* TO mysqltest_u1@localhost;
-GRANT SELECT ON mysqltest_db1.t1 TO mysqltest_u1@localhost; # to allow connect
+GRANT TRIGGER ON mysqltest_db1.* TO mysqltest_u1@localhost;
 
 SET @mysqltest_var = NULL;
 
@@ -441,7 +440,6 @@ SET @mysqltest_var = NULL;
 
 use mysqltest_db1;
 
-REVOKE SELECT ON mysqltest_db1.t1 FROM mysqltest_u1@localhost;
 GRANT DELETE ON mysqltest_db1.* TO mysqltest_u1@localhost;
 SHOW GRANTS FOR mysqltest_u1@localhost;
 

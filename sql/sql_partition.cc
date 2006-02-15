@@ -3754,7 +3754,7 @@ void get_partition_set(const TABLE *table, byte *buf, const uint index,
         subpartitions. This is a range without holes.
       */
       DBUG_ASSERT(sub_part == no_parts);
-      part_spec->start_part= part_part * part_info->no_parts;
+      part_spec->start_part= part_part * part_info->no_subparts;
       part_spec->end_part= part_spec->start_part+part_info->no_subparts - 1;
     }
     else
@@ -6009,7 +6009,10 @@ static uint32 get_next_partition_via_walking(PARTITION_ITERATOR *part_iter)
     field->store(part_iter->field_vals.start, FALSE);
     part_iter->field_vals.start++;
     longlong dummy;
-    if (!part_iter->part_info->get_partition_id(part_iter->part_info, 
+    if (is_sub_partitioned(part_iter->part_info) &&
+        !part_iter->part_info->get_part_partition_id(part_iter->part_info,
+                                                     &part_id, &dummy) ||
+        !part_iter->part_info->get_partition_id(part_iter->part_info,
                                                 &part_id, &dummy))
       return part_id;
   }

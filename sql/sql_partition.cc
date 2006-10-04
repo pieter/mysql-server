@@ -3597,7 +3597,7 @@ static int fast_end_partition(THD *thd, ulonglong copied,
   int error;
   DBUG_ENTER("fast_end_partition");
 
-  thd->proc_info="end";
+  THD_SET_PROC_INFO(thd, "end");
   if (!is_empty)
     query_cache_invalidate3(thd, table_list, 0);
   error= ha_commit_stmt(thd);

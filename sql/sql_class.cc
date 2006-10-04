@@ -451,6 +451,28 @@ void THD::cleanup(void)
 }
 
 
+/*
+   Set the proc_info field.
+   Do not use this method directly, use THD_SET_PROC_INFO instead.
+ */
+#ifndef DBUG_OFF
+void THD::set_proc_info(const char* file, int line, const char* info)
+{
+  /*
+     Implementation note:
+     file and line correspond to the __FILE__ and __LINE__ where
+     THD_SET_PROC_INFO was called.
+     These two parameters are provided to help instrumenting the code.
+   */
+
+  DBUG_PRINT("info", ("THD::set_proc_info(%s, %d, %s)",
+                      file, line, (info ? info : NullS)));
+
+  proc_info= info;
+}
+#endif
+
+
 THD::~THD()
 {
   THD_CHECK_SENTRY(this);

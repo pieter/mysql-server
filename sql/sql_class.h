@@ -877,11 +877,25 @@ public:
 
   /* remote (peer) port */
   uint16 peer_port;
+
   /*
     Points to info-string that we show in SHOW PROCESSLIST
-    You are supposed to update thd->proc_info only if you have coded
+    You are supposed to call THD_SET_PROC_INFO only if you have coded
     a time-consuming piece that MySQL can get stuck in for a long time.
   */
+#ifndef DBUG_OFF
+  #define THD_SET_PROC_INFO(thd, info) \
+    (thd)->set_proc_info(__FILE__, __LINE__, (info))
+
+  void set_proc_info(const char* file, int line, const char* info);
+#else
+  #define THD_SET_PROC_INFO(thd, info) \
+    (thd)->proc_info= (info)
+#endif
+
+  inline const char* get_proc_info() { return proc_info;}
+
+  /* left public for the the storage engines, please avoid direct use */
   const char *proc_info;
 
   ulong client_capabilities;		/* What the client supports */

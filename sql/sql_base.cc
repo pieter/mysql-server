@@ -868,7 +868,7 @@ bool close_cached_tables(THD *thd, bool if_wait_for_refresh,
     */
     thd->mysys_var->current_mutex= &LOCK_open;
     thd->mysys_var->current_cond= &COND_refresh;
-    thd->proc_info="Flushing tables";
+    THD_SET_PROC_INFO(thd, "Flushing tables");
 
     close_old_data_files(thd,thd->open_tables,1,1);
     mysql_ha_flush(thd, tables, MYSQL_HA_REOPEN_ON_USAGE | MYSQL_HA_FLUSH_ALL,
@@ -912,7 +912,7 @@ bool close_cached_tables(THD *thd, bool if_wait_for_refresh,
     pthread_mutex_lock(&thd->mysys_var->mutex);
     thd->mysys_var->current_mutex= 0;
     thd->mysys_var->current_cond= 0;
-    thd->proc_info=0;
+    THD_SET_PROC_INFO(thd, 0);
     pthread_mutex_unlock(&thd->mysys_var->mutex);
   }
   DBUG_RETURN(result);
@@ -1686,7 +1686,7 @@ void wait_for_condition(THD *thd, pthread_mutex_t *mutex, pthread_cond_t *cond)
   thd->mysys_var->current_mutex= mutex;
   thd->mysys_var->current_cond= cond;
   proc_info=thd->proc_info;
-  thd->proc_info="Waiting for table";
+  THD_SET_PROC_INFO(thd, "Waiting for table");
   DBUG_ENTER("wait_for_condition");
   if (!thd->killed)
     (void) pthread_cond_wait(cond, mutex);
@@ -1706,7 +1706,7 @@ void wait_for_condition(THD *thd, pthread_mutex_t *mutex, pthread_cond_t *cond)
   pthread_mutex_lock(&thd->mysys_var->mutex);
   thd->mysys_var->current_mutex= 0;
   thd->mysys_var->current_cond= 0;
-  thd->proc_info= proc_info;
+  THD_SET_PROC_INFO(thd, proc_info);
   pthread_mutex_unlock(&thd->mysys_var->mutex);
   DBUG_VOID_RETURN;
 }
@@ -2425,7 +2425,7 @@ bool wait_for_tables(THD *thd)
   bool result;
   DBUG_ENTER("wait_for_tables");
 
-  thd->proc_info="Waiting for tables";
+  THD_SET_PROC_INFO(thd, "Waiting for tables");
   pthread_mutex_lock(&LOCK_open);
   while (!thd->killed)
   {
@@ -2441,12 +2441,12 @@ bool wait_for_tables(THD *thd)
   else
   {
     /* Now we can open all tables without any interference */
-    thd->proc_info="Reopen tables";
+    THD_SET_PROC_INFO(thd, "Reopen tables");
     thd->version= refresh_version;
     result=reopen_tables(thd,0,0);
   }
   pthread_mutex_unlock(&LOCK_open);
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   DBUG_RETURN(result);
 }
 
@@ -2846,7 +2846,7 @@ int open_tables(THD *thd, TABLE_LIST **start, uint *counter, uint flags)
  restart:
   *counter= 0;
   query_tables_last_own= 0;
-  thd->proc_info="Opening tables";
+  THD_SET_PROC_INFO(thd, "Opening tables");
 
   /*
     If we are not already executing prelocked statement and don't have
@@ -3019,7 +3019,7 @@ process_view_routines:
   }
 
  err:
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   free_root(&new_frm_mem, MYF(0));              // Free pre-alloced block
 
   if (query_tables_last_own)
@@ -3093,7 +3093,7 @@ TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type lock_type)
   bool refresh;
   DBUG_ENTER("open_ltable");
 
-  thd->proc_info="Opening table";
+  THD_SET_PROC_INFO(thd, "Opening table");
   thd->current_tablenr= 0;
   /* open_ltable can be used only for BASIC TABLEs */
   table_list->required_type= FRMTYPE_TABLE;
@@ -3127,7 +3127,7 @@ TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type lock_type)
 	  table= 0;
     }
   }
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   DBUG_RETURN(table);
 }
 
@@ -6302,7 +6302,7 @@ int init_ftfuncs(THD *thd, SELECT_LEX *select_lex, bool no_order)
     List_iterator<Item_func_match> li(*(select_lex->ftfunc_list));
     Item_func_match *ifm;
     DBUG_PRINT("info",("Performing FULLTEXT search"));
-    thd->proc_info="FULLTEXT initialization";
+    THD_SET_PROC_INFO(thd, "FULLTEXT initialization");
 
     while ((ifm=li++))
       ifm->init_search(no_order);

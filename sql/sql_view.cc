@@ -560,7 +560,7 @@ bool mysql_create_view(THD *thd,
   DBUG_RETURN(0);
 
 err:
-  thd->proc_info= "end";
+  THD_SET_PROC_INFO(thd, "end");
   lex->link_first_table_back(view, link_to_local);
   unit->cleanup();
   DBUG_RETURN(res || thd->net.report_error);

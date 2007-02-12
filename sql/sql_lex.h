@@ -39,8 +39,8 @@ class Event_parse_data;
 #ifdef MYSQL_YACC
 #define LEX_YYSTYPE void *
 #else
-#include "lex_symbol.h"
 #if MYSQL_LEX
+#include "lex_symbol.h"
 #include "sql_yacc.h"
 #define LEX_YYSTYPE YYSTYPE *
 #else
@@ -1013,6 +1013,7 @@ typedef struct st_lex : public Query_tables_list
   union {
     enum ha_rkey_function ha_rkey_mode;
     enum xa_option_words xa_opt;
+    bool lock_transactional;            /* For LOCK TABLE ... IN ... MODE */
   };
   enum enum_var_type option_type;
   enum enum_view_create_mode create_view_mode;

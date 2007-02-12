@@ -3442,6 +3442,9 @@ typedef struct st_sp_table
   thr_lock_type lock_type; /* lock type used for prelocking */
   uint lock_count;
   uint query_lock_count;
+  /* For transactional locking. */
+  int           lock_timeout;           /* NOWAIT or WAIT [X]               */
+  bool          lock_transactional;     /* If transactional lock requested. */
 } SP_TABLE;
 
 byte *
@@ -3516,7 +3519,11 @@ sp_head::merge_table_list(THD *thd, TABLE_LIST *table, LEX *lex_for_tmp_check)
            tab->temp))
       {
         if (tab->lock_type < table->lock_type)
-          tab->lock_type= table->lock_type; // Use the table with the highest lock type
+          tab->lock_type= table->lock_type; // Use the highest lock type
+        if (tab->lock_timeout > table->lock_timeout)
+          tab->lock_timeout= table->lock_timeout; // Use the lowest timeout
+        if (!table->lock_transactional)
+          tab->lock_transactional= FALSE; // Non-transactional locks win
         tab->query_lock_count++;
         if (tab->query_lock_count > tab->lock_count)
           tab->lock_count++;
@@ -3540,6 +3547,8 @@ sp_head::merge_table_list(THD *thd, TABLE_LIST *table, LEX *lex_for_tmp_check)
         tab->table_name_length= table->table_name_length;
         tab->db_length= table->db_length;
         tab->lock_type= table->lock_type;
+        tab->lock_timeout= table->lock_timeout;
+        tab->lock_transactional= table->lock_transactional;
         tab->lock_count= tab->query_lock_count= 1;
 	my_hash_insert(&m_sptabs, (byte *)tab);
       }
@@ -3615,6 +3624,8 @@ sp_head::add_used_tables_to_table_list(THD *thd,
       table->table_name_length= stab->table_name_length;
       table->alias= table->table_name + table->table_name_length + 1;
       table->lock_type= stab->lock_type;
+      table->lock_timeout= stab->lock_timeout;
+      table->lock_transactional= stab->lock_transactional;
       table->cacheable_table= 1;
       table->prelocking_placeholder= 1;
       table->belong_to_view= belong_to_view;
@@ -3660,6 +3671,8 @@ sp_add_to_query_tables(THD *thd, LEX *lex,
   table->table_name= thd->strmake(name, table->table_name_length);
   table->alias= thd->strdup(name);
   table->lock_type= locktype;
+  table->lock_timeout= -1;      /* default timeout */
+  table->lock_transactional= 1; /* allow transactional locks */
   table->select_lex= lex->current_select;
   table->cacheable_table= 1;
   

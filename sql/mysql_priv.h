@@ -1707,6 +1707,10 @@ bool make_global_read_lock_block_commit(THD *thd);
 bool set_protect_against_global_read_lock(void);
 void unset_protect_against_global_read_lock(void);
 void broadcast_refresh(void);
+int try_transactional_lock(THD *thd, TABLE_LIST *table_list);
+int check_transactional_lock(THD *thd, TABLE_LIST *table_list);
+int set_handler_table_locks(THD *thd, TABLE_LIST *table_list,
+                            bool transactional);
 
 /* Lock based on name */
 int lock_and_wait_for_table_name(THD *thd, TABLE_LIST *table_list);

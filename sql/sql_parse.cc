@@ -1444,6 +1444,8 @@ int mysql_table_dump(THD *thd, LEX_STRING *db, char *tbl_name)
   table_list->db= db->str;
   table_list->table_name= table_list->alias= tbl_name;
   table_list->lock_type= TL_READ_NO_INSERT;
+  table_list->lock_timeout= -1;      /* default timeout */
+  table_list->lock_transactional= 1; /* allow transactional locks */
   table_list->prev_global= &table_list;	// can be removed after merge with 4.1
 
   if (check_db_name(db))
@@ -3790,10 +3792,49 @@ end_with_restore_list:
     send_ok(thd);
     break;
   case SQLCOM_LOCK_TABLES:
+    if (check_table_access(thd, LOCK_TABLES_ACL | SELECT_ACL, all_tables, 0))
+      goto error;
+    /*
+      We try to take transactional locks if
+      - only transactional locks are requested (lex->lock_transactional) and
+      - no non-transactional locks exist (!thd->locked_tables).
+    */
+    DBUG_PRINT("lock_info", ("lex->lock_transactional: %d  "
+                             "thd->locked_tables: 0x%lx",
+                             lex->lock_transactional,
+                             (long) thd->locked_tables));
+    if (lex->lock_transactional && !thd->locked_tables)
+    {
+      int rc;
+      /*
+        All requested locks are transactional and no non-transactional
+        locks exist.
+      */
+      if ((rc= try_transactional_lock(thd, all_tables)) == -1)
+        goto error;
+      if (rc == 0)
+      {
+        send_ok(thd);
+        break;
+      }
+      /*
+        Non-transactional locking has been requested or
+        non-transactional locks exist already or transactional locks are
+        not supported by all storage engines. Take non-transactional
+        locks.
+      */
+    }
+    /*
+      One or more requested locks are non-transactional and/or
+      non-transactional locks exist or a storage engine does not support
+      transactional locks. Check if at least one transactional lock is
+      requested. If yes, warn about the conversion to non-transactional
+      locks or abort in strict mode.
+    */
+    if (check_transactional_lock(thd, all_tables))
+      goto error;
     unlock_locked_tables(thd);
     if (end_active_trans(thd))
-      goto error;
-    if (check_table_access(thd, LOCK_TABLES_ACL | SELECT_ACL, all_tables, 0))
       goto error;
     thd->in_lock_tables=1;
     thd->options|= OPTION_TABLE_LOCK;
@@ -3806,6 +3847,9 @@ end_with_restore_list:
 #endif /*HAVE_QUERY_CACHE*/
       thd->locked_tables=thd->lock;
       thd->lock=0;
+      (void) set_handler_table_locks(thd, all_tables, FALSE);
+      DBUG_PRINT("lock_info", ("thd->locked_tables: 0x%lx",
+                               (long) thd->locked_tables));
       send_ok(thd);
     }
     else
@@ -6449,6 +6493,8 @@ TABLE_LIST *st_select_lex::add_table_to_list(THD *thd,
   ptr->table_name=table->table.str;
   ptr->table_name_length=table->table.length;
   ptr->lock_type=   lock_type;
+  ptr->lock_timeout= -1;      /* default timeout */
+  ptr->lock_transactional= 1; /* allow transactional locks */
   ptr->updating=    test(table_options & TL_OPTION_UPDATING);
   ptr->force_index= test(table_options & TL_OPTION_FORCE_INDEX);
   ptr->ignore_leaves= test(table_options & TL_OPTION_IGNORE_LEAVES);

@@ -148,6 +148,22 @@ class ha_innobase: public handler
 	int discard_or_import_tablespace(my_bool discard);
 	int extra(enum ha_extra_function operation);
         int reset();
+        int lock_table(THD *thd, int lock_type, int lock_timeout)
+        {
+          /*
+            Preliminarily call the pre-existing internal method for
+            transactional locking and ignore non-transactional locks.
+          */
+          if (!lock_timeout)
+          {
+            /* Preliminarily show both possible errors for NOWAIT. */
+            if (lock_type == F_WRLCK)
+              return HA_ERR_UNSUPPORTED;
+            else
+              return HA_ERR_LOCK_WAIT_TIMEOUT;
+          }
+          return transactional_table_lock(thd, lock_type);
+        }
 	int external_lock(THD *thd, int lock_type);
 	int transactional_table_lock(THD *thd, int lock_type);
 	int start_stmt(THD *thd, thr_lock_type lock_type);

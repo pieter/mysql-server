@@ -342,6 +342,7 @@ void case_stmt_action_end_case(LEX *lex, bool simple)
   enum Item_udftype udf_type;
   CHARSET_INFO *charset;
   thr_lock_type lock_type;
+  struct st_table_lock_info table_lock_info;
   interval_type interval, interval_time_st;
   timestamp_type date_time_type;
   st_select_lex *select_lex;
@@ -524,6 +525,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  EVENTS_SYM
 %token  EVENT_SYM
 %token  EVERY_SYM                     /* SQL-2003-N */
+%token  EXCLUSIVE_SYM
 %token  EXECUTE_SYM                   /* SQL-2003-R */
 %token  EXISTS                        /* SQL-2003-R */
 %token  EXIT_SYM
@@ -694,6 +696,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  NOT2_SYM
 %token  NOT_SYM                       /* SQL-2003-R */
 %token  NOW_SYM
+%token  NOWAIT_SYM
 %token  NO_SYM                        /* SQL-2003-R */
 %token  NO_WAIT_SYM
 %token  NO_WRITE_TO_BINLOG
@@ -970,7 +973,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 	text_string opt_gconcat_separator
 
 %type <num>
-	type int_type real_type order_dir lock_option
+	type int_type real_type order_dir
 	udf_type if_exists opt_local opt_table_options table_options
         table_option opt_if_not_exists opt_no_write_to_binlog
         delete_option opt_temporary all_or_any opt_distinct
@@ -980,6 +983,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         opt_natural_language_mode opt_query_expansion
         opt_ev_status opt_ev_on_completion ev_on_completion opt_ev_comment
         ev_alter_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
+        opt_transactional_lock_timeout
+        /* opt_lock_timeout_value */
 
 %type <ulong_num>
 	ulong_num real_ulong_num merge_insert_types
@@ -992,6 +997,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %type <lock_type>
 	replace_lock_option opt_low_priority insert_lock_option load_data_lock
+        transactional_lock_mode
+
+%type <table_lock_info>
+        table_lock_info
 
 %type <item>
 	literal text_literal insert_ident order_ident
@@ -9697,6 +9706,7 @@ keyword_sp:
 	| EVENT_SYM		{}
 	| EVENTS_SYM		{}
 	| EVERY_SYM             {}
+	| EXCLUSIVE_SYM         { /* purecov: tested */ }
 	| EXPANSION_SYM         {}
 	| EXTENDED_SYM		{}
 	| EXTENT_SIZE_SYM       {}
@@ -9782,6 +9792,7 @@ keyword_sp:
 	| NO_WAIT_SYM           {}
 	| NODEGROUP_SYM         {}
 	| NONE_SYM		{}
+	| NOWAIT_SYM            { /* purecov: tested */ }
 	| NVARCHAR_SYM		{}
 	| OFFSET_SYM		{}
 	| OLD_PASSWORD		{}
@@ -10306,7 +10317,19 @@ set_expr_or_default:
 /* Lock function */
 
 lock:
-	LOCK_SYM table_or_tables
+	LOCK_SYM
+        {
+          /*
+            Transactional locks can be taken only if all requested locks
+            are transactional. Initialize lex->lock_transactional as
+            TRUE. Any non-transactional lock request turns this to FALSE.
+            Table specific variables keep track of the locking method
+            requested for the table. This is used to warn about a
+            changed locking method later.
+          */
+          Lex->lock_transactional= TRUE;
+        }
+        table_or_tables
 	{
 	  LEX *lex= Lex;
 
@@ -10330,19 +10353,73 @@ table_lock_list:
 	| table_lock_list ',' table_lock;
 
 table_lock:
-	table_ident opt_table_alias lock_option
-	{
-	  if (!Select->add_table_to_list(YYTHD, $1, $2, 0, (thr_lock_type) $3))
-	   YYABORT;
-	}
+        table_ident opt_table_alias table_lock_info
+        {
+          TABLE_LIST *tlist;
+          if (!(tlist= Select->add_table_to_list(YYTHD, $1, $2, 0,
+                                                 $3.lock_type)))
+            YYABORT; /* purecov: inspected */
+          tlist->lock_timeout= $3.lock_timeout;
+          /* Store the requested lock method for later warning. */
+          tlist->lock_transactional= $3.lock_transactional;
+          /* Compute the resulting lock method for all tables. */
+          if (!$3.lock_transactional)
+            Lex->lock_transactional= FALSE;
+        }
         ;
 
-lock_option:
-	READ_SYM	{ $$=TL_READ_NO_INSERT; }
-	| WRITE_SYM     { $$=YYTHD->update_lock_default; }
-	| LOW_PRIORITY WRITE_SYM { $$=TL_WRITE_LOW_PRIORITY; }
-	| READ_SYM LOCAL_SYM { $$= TL_READ; }
+table_lock_info:
+        READ_SYM
+        {
+          $$.lock_type=          TL_READ_NO_INSERT;
+          $$.lock_timeout=       -1;
+          $$.lock_transactional= FALSE;
+        }
+        | WRITE_SYM
+        {
+          $$.lock_type=          YYTHD->update_lock_default;
+          $$.lock_timeout=       -1;
+          $$.lock_transactional= FALSE;
+        }
+        | LOW_PRIORITY WRITE_SYM
+        {
+          $$.lock_type=          TL_WRITE_LOW_PRIORITY;
+          $$.lock_timeout=       -1;
+          $$.lock_transactional= FALSE;
+        }
+        | READ_SYM LOCAL_SYM
+        {
+          $$.lock_type=          TL_READ;
+          $$.lock_timeout=       -1;
+          $$.lock_transactional= FALSE;
+        }
+        | IN_SYM transactional_lock_mode MODE_SYM opt_transactional_lock_timeout
+        {
+          $$.lock_type=          $2;
+          $$.lock_timeout=       $4;
+          $$.lock_transactional= TRUE;
+        }
         ;
+
+/* Use thr_lock_type here for easier fallback to non-trans locking. */
+transactional_lock_mode:
+        SHARE_SYM       { $$= TL_READ_NO_INSERT; }
+        | EXCLUSIVE_SYM { $$= YYTHD->update_lock_default; }
+        ;
+
+opt_transactional_lock_timeout:
+        /* empty */     { $$= -1; }
+        | NOWAIT_SYM    { $$= 0; }
+        /* | WAIT_SYM opt_lock_timeout_value { $$= $2; } */
+        ;
+
+/*
+  We have a timeout resolution of milliseconds. The WAIT argument is in
+  seconds with decimal fragments for sub-second resolution. E.g. 22.5, 0.015
+*/
+/* opt_lock_timeout_value: */
+        /* empty { $$= -1; } */
+        /* | NUM       { $$= (int) (atof($1.str) * 1000.0 + 0.5); } */
 
 unlock:
 	UNLOCK_SYM

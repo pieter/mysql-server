@@ -2,7 +2,7 @@
 #
 # Transactional LOCK TABLE tests
 
-eval SET SESSION STORAGE_ENGINE = $engine_type;
+# eval SET SESSION STORAGE_ENGINE = $engine_type;
 
 --disable_warnings
 DROP DATABASE  IF EXISTS mysqltest;
@@ -18,9 +18,9 @@ DROP TRIGGER   IF EXISTS t1_ai;
 --echo # WL3561 - transactional LOCK TABLE - Syntax tests
 --echo # ================================================
 #
-CREATE TABLE t1 (c1 INT);
-CREATE TABLE t2 (c2 INT);
-CREATE TABLE t3 (c3 INT);
+eval CREATE TABLE t1 (c1 INT ) ENGINE=$engine_type;
+eval CREATE TABLE t2 (c2 INT ) ENGINE=$engine_type;
+eval CREATE TABLE t3 (c3 INT ) ENGINE=$engine_type;
 #
 --echo #
 --echo # Valid syntax for non-transactional locks.
@@ -76,7 +76,7 @@ LOCK TABLE information_schema.tables WRITE;
 #
 --echo #
 --echo # The new keywords EXCLUSIVE and NOWAIT are not reserved words.
-CREATE TABLE t4 (exclusive INT, nowait INT);
+eval CREATE TABLE t4 (exclusive INT, nowait INT) ENGINE=$engine_type;
 DROP TABLE t4;
 #
 --echo #
@@ -209,15 +209,15 @@ INSERT INTO t4 VALUES(444);
 INSERT INTO t1 VALUES(111);
 UNLOCK TABLES;
 DROP VIEW v1;
-DELETE FROM t4;
+TRUNCATE t4;
 #
 --echo #
 --echo # Insufficient privileges do not unlock tables nor end transactions.
 --echo # Prepare database, tables and an user with insufficient privileges.
 --echo # Make a new connection with this user.
 CREATE DATABASE mysqltest;
-CREATE TABLE mysqltest.t5 (c5 INT);
-CREATE TABLE mysqltest.t6 (c6 INT);
+eval CREATE TABLE mysqltest.t5 (c5 INT) ENGINE=$engine_type;
+eval CREATE TABLE mysqltest.t6 (c6 INT) ENGINE=$engine_type;
 CREATE USER mysqltest_1@localhost;
 GRANT SELECT, INSERT ON mysqltest.* TO mysqltest_1@localhost;
 connect (conn1,localhost,mysqltest_1,,);
@@ -283,7 +283,7 @@ connect (conn1,localhost,mysqltest_1,,);
     UNLOCK TABLES;
     --echo # Show that the inserted value had been committed.
     SELECT * FROM t1;
-    DELETE FROM t1;
+    TRUNCATE t1;
     disconnect conn1;
 --echo # connection default.
 connection default;
@@ -299,8 +299,8 @@ DROP TABLE t1, t2, t3, t4;
 #
 --echo # Prepare tables and connections.
 --echo # Set AUTOCOMMIT= 0 in each connection.
-CREATE TABLE t1 (c1 INT);
-CREATE TABLE t2 (c2 INT);
+eval CREATE TABLE t1 (c1 INT) ENGINE=$engine_type;
+eval CREATE TABLE t2 (c2 INT) ENGINE=$engine_type;
 connect (conn1,localhost,root,,);
     --echo # connection conn1.
     connection conn1;
@@ -313,6 +313,9 @@ connect (conn2,localhost,root,,);
 connection default;
 SET AUTOCOMMIT= 0;
 #
+
+if ($transactional)
+{
 --echo #
 --echo # Transactional lock behaviour:
 --echo # LOCK TABLE does _not_ commit a transaction.
@@ -404,7 +407,7 @@ SELECT * FROM t1;
 ROLLBACK;
 --echo # Show that the inserted value is still in the table.
 SELECT * FROM t1;
-DELETE FROM t1;
+TRUNCATE t1;
 --echo #
 --echo # START TRANSACTION removes a previous lock.
 --echo # Take an exclusive lock.
@@ -464,6 +467,8 @@ UNLOCK TABLES;
 SET AUTOCOMMIT= 0;
 COMMIT;
 #
+} 
+
 --echo #
 --echo # Normal WRITE locks go before readers (autocommit).
 --echo # Set AUTOCOMMIT= 1.
@@ -485,7 +490,6 @@ connection default;
 while (`SELECT COUNT(*) < 1 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
         --echo # connection conn2.
@@ -501,7 +505,6 @@ connection default;
 while (`SELECT COUNT(*) < 2 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
 --echo # Unlock this connections non-transactional lock.
@@ -524,7 +527,7 @@ UNLOCK TABLES;
         UNLOCK TABLES;
 --echo # connection default.
 connection default;
-DELETE FROM t1;
+TRUNCATE t1;
 --echo #
 --echo # LOW_PRIORITY WRITE locks wait for readers (autocommit).
 --echo # Insert a value.
@@ -542,7 +545,6 @@ connection default;
 while (`SELECT COUNT(*) < 1 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
         --echo # connection conn2.
@@ -571,9 +573,12 @@ UNLOCK TABLES;
     SET AUTOCOMMIT= 0;
 --echo # connection default.
 connection default;
-DELETE FROM t1;
+TRUNCATE t1;
 SET AUTOCOMMIT= 0;
 COMMIT;
+
+if ($transactional) 
+{
 --echo #
 --echo # Normal WRITE locks go before readers (transaction).
 --echo # Insert a value.
@@ -592,7 +597,6 @@ connection default;
 while (`SELECT COUNT(*) < 1 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
         --echo # connection conn2.
@@ -606,7 +610,6 @@ connection default;
 while (`SELECT COUNT(*) < 2 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
 --echo # Unlock this connections non-transactional lock.
@@ -629,7 +632,7 @@ UNLOCK TABLES;
         UNLOCK TABLES;
 --echo # connection default.
 connection default;
-DELETE FROM t1;
+TRUNCATE t1;
 COMMIT;
 --echo #
 --echo # LOW_PRIORITY WRITE behaves like WRITE in transaction mode.
@@ -649,7 +652,6 @@ connection default;
 while (`SELECT COUNT(*) < 1 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
         --echo # connection conn2.
@@ -663,7 +665,6 @@ connection default;
 while (`SELECT COUNT(*) < 2 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
 --echo # Unlock this connections non-transactional lock.
@@ -686,9 +687,11 @@ UNLOCK TABLES;
         UNLOCK TABLES;
 --echo # connection default.
 connection default;
-DELETE FROM t1;
+TRUNCATE t1;
 COMMIT;
 #
+}
+
 if ($nowait_support)
 {
 --echo #
@@ -706,6 +709,9 @@ connection default;
 --echo # Commit.
 COMMIT;
 }
+
+if ($transactional)
+{
 #
 --echo #
 --echo # Transactional table locks do not interfere with the global read lock.
@@ -815,7 +821,7 @@ SELECT * FROM t1;
 COMMIT;
 --echo # Now select sees current data.
 SELECT * FROM t1;
-DELETE FROM t1;
+TRUNCATE t1;
 COMMIT;
 --echo #
 --echo # Access conflict on UPDATE with share lock.
@@ -851,9 +857,11 @@ UPDATE t1 SET c1= 111333;
 --echo # connection default.
 connection default;
 SELECT * FROM t1;
-DELETE FROM t1;
+TRUNCATE t1;
 COMMIT;
 #
+}
+
 --echo #
 --echo # LOCK TABLE is prohibited in stored procedure.
 --error ER_SP_BADSTATEMENT
@@ -866,6 +874,9 @@ CREATE PROCEDURE lock_t1_excl()
 CREATE TRIGGER t1_ai AFTER INSERT ON t1 FOR EACH ROW
   LOCK TABLE t2 IN EXCLUSIVE MODE;
 #
+
+if ($transactional)
+{
 --echo #
 --echo # LOCK TABLE on a pre-locked table through a trigger.
 --echo # Create a trigger on t1 that updates t2.
@@ -947,7 +958,6 @@ connection default;
 while (`SELECT COUNT(*) < 1 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
 --echo # Take an exclusive lock.
@@ -971,8 +981,8 @@ COMMIT;
 --echo # Show the results.
 SELECT * FROM t1;
 SELECT * FROM t2;
-DELETE FROM t1;
-DELETE FROM t2;
+TRUNCATE t1;
+TRUNCATE t2;
 COMMIT;
 DROP TRIGGER t1_ai;
 #
@@ -1005,7 +1015,6 @@ connection default;
 while (`SELECT COUNT(*) < 1 FROM INFORMATION_SCHEMA.PROCESSLIST
         WHERE STATE LIKE '%lock%'`)
 {
-  #SELECT STATE, INFO FROM INFORMATION_SCHEMA.PROCESSLIST;
   --sleep 0.1
 }
 --echo # Take a write lock. This waits until the trigger times out.
@@ -1030,10 +1039,12 @@ COMMIT;
 --echo # Show the results.
 SELECT * FROM t1;
 SELECT * FROM t2;
-DELETE FROM t1;
-DELETE FROM t2;
+TRUNCATE t1;
+TRUNCATE t2;
 COMMIT;
 DROP TRIGGER t1_ai;
+}
+
 #
 --echo ## Cleanup.
 connection default;

@@ -3497,7 +3497,7 @@ bool mysql_create_table_internal(THD *thd,
     }
   }
 
-  thd->proc_info="creating table";
+  THD_SET_PROC_INFO(thd, "creating table");
   create_info->table_existed= 0;		// Mark that table is created
 
   if (thd->variables.sql_mode & MODE_NO_DIR_IN_CREATE)
@@ -3537,7 +3537,7 @@ unlock_and_end:
   VOID(pthread_mutex_unlock(&LOCK_open));
 
 err:
-  thd->proc_info="After create";
+  THD_SET_PROC_INFO(thd, "After create");
   delete file;
   DBUG_RETURN(error);
 
@@ -4902,7 +4902,7 @@ mysql_discard_or_import_tablespace(THD *thd,
     ALTER TABLE
   */
 
-  thd->proc_info="discard_or_import_tablespace";
+  THD_SET_PROC_INFO(thd, "discard_or_import_tablespace");
 
   discard= test(tablespace_op == DISCARD_TABLESPACE);
 
@@ -4919,7 +4919,7 @@ mysql_discard_or_import_tablespace(THD *thd,
 
   error=table->file->discard_or_import_tablespace(discard);
 
-  thd->proc_info="end";
+  THD_SET_PROC_INFO(thd, "end");
 
   if (error)
     goto err;
@@ -5366,7 +5366,7 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
     }
   }
 
-  thd->proc_info="init";
+  THD_SET_PROC_INFO(thd, "init");
   if (!(create_info= copy_create_info(lex_create_info)))
   {
     DBUG_RETURN(TRUE);
@@ -5538,7 +5538,7 @@ view_err:
     DBUG_RETURN(TRUE);
   }
   
-  thd->proc_info="setup";
+  THD_SET_PROC_INFO(thd, "setup");
   if (!(alter_info->flags & ~(ALTER_RENAME | ALTER_KEYS_ONOFF)) &&
       !table->s->tmp_table) // no need to touch frm
   {
@@ -5593,7 +5593,7 @@ view_err:
 
     if (!error && (new_name != table_name || new_db != db))
     {
-      thd->proc_info="rename";
+      THD_SET_PROC_INFO(thd, "rename");
       /* Then do a 'simple' rename of the table */
       if (!access(new_name_buff,F_OK))
       {
@@ -6242,7 +6242,7 @@ view_err:
   /* Copy the data if necessary. */
   thd->count_cuted_fields= CHECK_FIELD_WARN;	// calc cuted fields
   thd->cuted_fields=0L;
-  thd->proc_info="copy to tmp table";
+  THD_SET_PROC_INFO(thd, "copy to tmp table");
   copied=deleted=0;
   if (new_table && !(new_table->file->ha_table_flags() & HA_NO_COPY_ON_ALTER))
   {
@@ -6467,7 +6467,7 @@ view_err:
     from the cache, free all locks, close the old table and remove it.
   */
 
-  thd->proc_info="rename result table";
+  THD_SET_PROC_INFO(thd, "rename result table");
   my_snprintf(old_name, sizeof(old_name), "%s2-%lx-%lx", tmp_file_prefix,
 	      current_pid, thd->thread_id);
   if (lower_case_table_names)
@@ -6642,7 +6642,7 @@ view_err:
     if (error)
       goto err;
   }
-  thd->proc_info="end";
+  THD_SET_PROC_INFO(thd, "end");
 
   ha_binlog_log_query(thd, create_info->db_type, LOGCOM_ALTER_TABLE,
                       thd->query, thd->query_length,

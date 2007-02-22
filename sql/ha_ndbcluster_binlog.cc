@@ -454,8 +454,8 @@ static void ndbcluster_binlog_wait(THD *thd)
     ulonglong wait_epoch= *p_latest_trans_gci;
     int count= 30;
     if (thd)
-      thd->proc_info= "Waiting for ndbcluster binlog update to "
-	"reach current position";
+      THD_SET_PROC_INFO(thd,
+        "Waiting for ndbcluster binlog update to reach current position");
     while (count && ndb_binlog_running &&
            ndb_latest_handled_binlog_epoch < wait_epoch)
     {
@@ -463,7 +463,7 @@ static void ndbcluster_binlog_wait(THD *thd)
       sleep(1);
     }
     if (thd)
-      thd->proc_info= save_info;
+      THD_SET_PROC_INFO(thd, save_info);
     DBUG_VOID_RETURN;
   }
 }
@@ -2211,7 +2211,7 @@ static int open_ndb_binlog_index(THD *thd, TABLE_LIST *tables,
   tables->db= repdb;
   tables->alias= tables->table_name= reptable;
   tables->lock_type= TL_WRITE;
-  thd->proc_info= "Opening " NDB_REP_DB "." NDB_REP_TABLE;
+  THD_SET_PROC_INFO(thd, "Opening " NDB_REP_DB "." NDB_REP_TABLE);
   tables->required_type= FRMTYPE_TABLE;
   uint counter;
   thd->clear_error();
@@ -2220,11 +2220,11 @@ static int open_ndb_binlog_index(THD *thd, TABLE_LIST *tables,
     sql_print_error("NDB Binlog: Opening ndb_binlog_index: %d, '%s'",
                     thd->net.last_errno,
                     thd->net.last_error ? thd->net.last_error : "");
-    thd->proc_info= save_proc_info;
+    THD_SET_PROC_INFO(thd, save_proc_info);
     return -1;
   }
   *ndb_binlog_index= tables->table;
-  thd->proc_info= save_proc_info;
+  THD_SET_PROC_INFO(thd, save_proc_info);
   (*ndb_binlog_index)->use_all_columns();
   return 0;
 }
@@ -3005,7 +3005,7 @@ ndbcluster_handle_drop_table(Ndb *ndb, const char *event_name,
   const char *save_proc_info= thd->proc_info;
 #define SYNC_DROP_
 #ifdef SYNC_DROP_
-  thd->proc_info= "Syncing ndb table schema operation and binlog";
+  THD_SET_PROC_INFO(thd, "Syncing ndb table schema operation and binlog");
   (void) pthread_mutex_lock(&share->mutex);
   safe_mutex_assert_owner(&LOCK_open);
   (void) pthread_mutex_unlock(&LOCK_open);
@@ -3042,7 +3042,7 @@ ndbcluster_handle_drop_table(Ndb *ndb, const char *event_name,
   share->op= 0;
   (void) pthread_mutex_unlock(&share->mutex);
 #endif
-  thd->proc_info= save_proc_info;
+  THD_SET_PROC_INFO(thd, save_proc_info);
 
   DBUG_RETURN(0);
 }
@@ -3576,7 +3576,7 @@ restart:
     Main NDB Injector loop
   */
   {
-    thd->proc_info= "Waiting for ndbcluster to start";
+    THD_SET_PROC_INFO(thd, "Waiting for ndbcluster to start");
 
     pthread_mutex_lock(&injector_mutex);
     while (!ndb_schema_share ||
@@ -3610,7 +3610,7 @@ restart:
 
   {
     // wait for the first event
-    thd->proc_info= "Waiting for first event from ndbcluster";
+    THD_SET_PROC_INFO(thd, "Waiting for first event from ndbcluster");
     int schema_res, res;
     Uint64 schema_gci;
     do
@@ -3699,7 +3699,7 @@ restart:
     /*
       now we don't want any events before next gci is complete
     */
-    thd->proc_info= "Waiting for event from ndbcluster";
+    THD_SET_PROC_INFO(thd, "Waiting for event from ndbcluster");
     thd->set_time();
     
     /* wait for event or 1000 ms */
@@ -3716,9 +3716,9 @@ restart:
     while (gci > schema_gci && schema_res >= 0)
     {
       static char buf[64];
-      thd->proc_info= "Waiting for schema epoch";
+      THD_SET_PROC_INFO(thd, "Waiting for schema epoch");
       my_snprintf(buf, sizeof(buf), "%s %u(%u)", thd->proc_info, (unsigned) schema_gci, (unsigned) gci);
-      thd->proc_info= buf;
+      THD_SET_PROC_INFO(thd, buf);
       schema_res= s_ndb->pollEvents(10, &schema_gci);
     }
 
@@ -3748,7 +3748,7 @@ restart:
 
     if (unlikely(schema_res > 0))
     {
-      thd->proc_info= "Processing events from schema table";
+      THD_SET_PROC_INFO(thd, "Processing events from schema table");
       s_ndb->
         setReportThreshEventGCISlip(ndb_report_thresh_binlog_epoch_slip);
       s_ndb->
@@ -3795,7 +3795,7 @@ restart:
     if (res > 0)
     {
       DBUG_PRINT("info", ("pollEvents res: %d", res));
-      thd->proc_info= "Processing events";
+      THD_SET_PROC_INFO(thd, "Processing events");
       NdbEventOperation *pOp= i_ndb->nextEvent();
       ndb_binlog_index_row row;
       while (pOp != NULL)
@@ -3987,7 +3987,7 @@ restart:
         if (trans.good())
         {
           //DBUG_ASSERT(row.n_inserts || row.n_updates || row.n_deletes);
-          thd->proc_info= "Committing events to binlog";
+          THD_SET_PROC_INFO(thd, "Committing events to binlog");
           injector::transaction::binlog_pos start= trans.start_pos();
           if (int r= trans.commit())
           {
@@ -4036,7 +4036,7 @@ restart:
 err:
   sql_print_information("Stopping Cluster Binlog");
   DBUG_PRINT("info",("Shutting down cluster binlog thread"));
-  thd->proc_info= "Shutting down";
+  THD_SET_PROC_INFO(thd, "Shutting down");
   close_thread_tables(thd);
   pthread_mutex_lock(&injector_mutex);
   /* don't mess with the injector_ndb anymore from other threads */

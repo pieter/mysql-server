@@ -1104,7 +1104,7 @@ void execute_init_command(THD *thd, sys_var_str *init_command_var,
   Vio* save_vio;
   ulong save_client_capabilities;
 
-  thd->proc_info= "Execution of init_command";
+  THD_SET_PROC_INFO(thd, "Execution of init_command");
   /*
     We need to lock init_command_var because
     during execution of init_command_var query
@@ -1208,7 +1208,7 @@ pthread_handler_t handle_one_connection(void *arg)
       net->compress=1;				// Use compression
 
     thd->version= refresh_version;
-    thd->proc_info= 0;
+    THD_SET_PROC_INFO(thd, 0);
     thd->command= COM_SLEEP;
     thd->set_time();
     thd->init_for_queries();
@@ -1225,7 +1225,7 @@ pthread_handler_t handle_one_connection(void *arg)
                           sctx->host_or_ip, "init_connect command failed");
         sql_print_warning("%s", net->last_error);
       }
-      thd->proc_info=0;
+      THD_SET_PROC_INFO(thd, 0);
       thd->set_time();
       thd->init_for_queries();
     }
@@ -1312,7 +1312,7 @@ pthread_handler_t handle_bootstrap(void *arg)
   if (thd->variables.max_join_size == HA_POS_ERROR)
     thd->options |= OPTION_BIG_SELECTS;
 
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   thd->version=refresh_version;
   thd->security_ctx->priv_user=
     thd->security_ctx->user= (char*) my_strdup("boot", MYF(MY_WME));
@@ -2221,7 +2221,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   if (thd->lock || thd->open_tables || thd->derived_tables ||
       thd->prelocked_mode)
   {
-    thd->proc_info="closing tables";
+    THD_SET_PROC_INFO(thd, "closing tables");
     close_thread_tables(thd);			/* Free tables */
   }
   /*
@@ -2244,9 +2244,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
   log_slow_statement(thd);
 
-  thd->proc_info="cleaning up";
+  THD_SET_PROC_INFO(thd, "cleaning up");
   VOID(pthread_mutex_lock(&LOCK_thread_count)); // For process list
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   thd->command=COM_SLEEP;
   thd->query=0;
   thd->query_length=0;
@@ -2280,7 +2280,7 @@ void log_slow_statement(THD *thd)
   */
   if (thd->enable_slow_log && !thd->user_time)
   {
-    thd->proc_info="logging slow query";
+    THD_SET_PROC_INFO(thd, "logging slow query");
 
     if ((ulong) (thd->start_time - thd->time_after_lock) >
 	thd->variables.long_query_time ||
@@ -3629,7 +3629,7 @@ end_with_restore_list:
     if (add_item_to_list(thd, new Item_null()))
       goto error;
 
-    thd->proc_info="init";
+    THD_SET_PROC_INFO(thd, "init");
     if ((res= open_and_lock_tables(thd, all_tables)))
       break;
 
@@ -5267,7 +5267,7 @@ create_sp_error:
     break;
   }
 
-  thd->proc_info="query end";
+  THD_SET_PROC_INFO(thd, "query end");
 
   /*
     Binlog-related cleanup:
@@ -6198,7 +6198,7 @@ void mysql_parse(THD *thd, char *inBuf, uint length)
       query_cache_abort(&thd->net);
       lex->unit.cleanup();
     }
-    thd->proc_info="freeing items";
+    THD_SET_PROC_INFO(thd, "freeing items");
     thd->end_statement();
     thd->cleanup_after_query();
     DBUG_ASSERT(thd->change_list.is_empty());

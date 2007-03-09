@@ -4615,6 +4615,8 @@ static TRP_RANGE *get_key_scans_params(PARAM *param, SEL_TREE *tree,
   TRP_RANGE* read_plan= NULL;
   DBUG_ENTER("get_key_scans_params");
   LINT_INIT(best_records); /* protected by key_to_read */
+  LINT_INIT(best_mrr_flags); /* protected by key_to_read */
+  LINT_INIT(best_buf_size); /* protected by key_to_read */
   /*
     Note that there may be trees that have type SEL_TREE::KEY but contain no
     key reads at all, e.g. tree for expression "key1 is not null" where key1

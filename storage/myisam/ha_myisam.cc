@@ -446,9 +446,10 @@ ha_myisam::ha_myisam(handlerton *hton, TABLE_SHARE *table_arg)
                   HA_NEED_READ_RANGE_BUFFER | HA_MRR_CANT_SORT),
    can_enable_indexes(1),
    cond_keyno(MAX_KEY),
-   ds_mrr(this, (DsMrr_impl::range_check_toggle_func_t)
-                 &ha_myisam::toggle_range_check)
-{}
+   ds_mrr((DsMrr_impl::range_check_toggle_func_t)&ha_myisam::toggle_range_check)
+{
+  ds_mrr.h= this;
+}
 
 handler *ha_myisam::clone(MEM_ROOT *mem_root)
 {

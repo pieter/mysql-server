@@ -1803,8 +1803,8 @@ class DsMrr_impl
 public:
   typedef void (handler::*range_check_toggle_func_t)(bool on);
 
-  DsMrr_impl(handler *handler_par, range_check_toggle_func_t func)
-    : last_idx_tuple(NULL), h(handler_par), range_check_toggle_func(func) {};
+  DsMrr_impl(range_check_toggle_func_t func)
+    : last_idx_tuple(NULL), range_check_toggle_func(func) {};
   byte *rowids_buf;       // rows buffer
 
   byte *rowids_buf_cur;   // current position in rowids buffer

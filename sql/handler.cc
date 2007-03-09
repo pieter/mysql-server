@@ -3293,6 +3293,7 @@ int handler::multi_range_read_next(char **range_info)
   int result;
   int range_res;
   DBUG_ENTER("handler::multi_range_read_next");
+  LINT_INIT(result);
 
   if (!mrr_have_range)
   {

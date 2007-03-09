@@ -3102,9 +3102,9 @@ row_sel_push_cache_row_for_mysql(
 	}
         if (start_field_no) {
           for (i=0; i < start_field_no; i++) {
+            register ulint offs;
 	    mysql_row_templ_t* templ;
             templ = prebuilt->mysql_template + i;
-            register ulint offs;
 
             if (templ->mysql_null_bit_mask) {
               offs= templ->mysql_null_byte_offset;
@@ -4133,11 +4133,12 @@ no_gap_lock:
 idx_cond_check:
         if (prebuilt->idx_cond_func)
         {
+          int res;
           ut_ad(prebuilt->template_type != ROW_MYSQL_DUMMY_TEMPLATE);
           offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, &heap);
           row_sel_store_mysql_rec(buf, prebuilt, rec,
                                   offsets, 0, prebuilt->n_index_fields);
-          int res= prebuilt->idx_cond_func(prebuilt->idx_cond_func_arg);
+          res= prebuilt->idx_cond_func(prebuilt->idx_cond_func_arg);
           if (res == 0)
             goto next_rec;
           if (res == 2)

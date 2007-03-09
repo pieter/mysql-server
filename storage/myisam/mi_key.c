@@ -247,8 +247,8 @@ uint _mi_pack_key(register MI_INFO *info, uint keynr, uchar *key, uchar *old,
       */
       if (k_length > 0 && k_length < MI_MAX_KEY_LENGTH)
       {
-        pos=old;
         my_off_t rowid;
+        pos=old;
         rowid= my_get_ptr(pos, k_length);
         _mi_dpointer(info, key, rowid);
         pos+=length;

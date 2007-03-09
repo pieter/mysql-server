@@ -7761,7 +7761,7 @@ static my_bool index_cond_func_innodb(void *arg)
     if (h->compare_key(h->end_range) > 0)
       return 2; /* caller should return HA_ERR_END_OF_FILE already */
   }
-  return h->idx_cond->val_int();
+  return (my_bool)h->idx_cond->val_int();
 }
 
 C_MODE_END

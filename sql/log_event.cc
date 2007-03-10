@@ -6704,7 +6704,15 @@ replace_record(THD *thd, TABLE *table,
      */
     if (table->file->ha_table_flags() & HA_DUPLICATE_POS)
     {
+      if (table->file->inited && (error= table->file->ha_index_end()))
+        DBUG_RETURN(error);
+      if ((error= table->file->ha_rnd_init(FALSE)))
+        DBUG_RETURN(error);
+      
       error= table->file->rnd_pos(table->record[1], table->file->dup_ref);
+      int err2= table->file->ha_rnd_end();
+      if (!error && err2)
+        error= err2;
       if (error)
         DBUG_RETURN(error);
     }
@@ -6871,7 +6879,18 @@ static int find_and_fetch_row(TABLE *table, byte *key)
 
     */
     table->file->position(table->record[0]);
-    int error= table->file->rnd_pos(table->record[0], table->file->ref);
+    int error;
+    if (table->file->inited && (error= table->file->ha_index_end()))
+      DBUG_RETURN(error);
+    if ((error= table->file->ha_rnd_init(FALSE)))
+      DBUG_RETURN(error);
+
+    error= table->file->rnd_pos(table->record[0], table->file->ref);
+
+    int err2= table->file->ha_rnd_end();
+    if (!error && err2)
+       error=err2;
+
     /*
       rnd_pos() returns the record in table->record[0], so we have to
       move it to table->record[1].

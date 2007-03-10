@@ -6243,6 +6243,7 @@ Item *make_cond_remainder(Item *cond, bool exclude_index)
 
   if (cond->type() == Item::COND_ITEM)
   {
+    table_map tbl_map= 0;
     if (((Item_cond*) cond)->functype() == Item_func::COND_AND_FUNC)
     {
       /* Create new top level AND item */
@@ -6255,7 +6256,10 @@ Item *make_cond_remainder(Item *cond, bool exclude_index)
       {
 	Item *fix= make_cond_remainder(item, exclude_index);
 	if (fix)
+        {
 	  new_cond->argument_list()->push_back(fix);
+          tbl_map |= fix->used_tables();
+        }
       }
       switch (new_cond->argument_list()->elements) {
       case 0:
@@ -6264,6 +6268,7 @@ Item *make_cond_remainder(Item *cond, bool exclude_index)
 	return new_cond->argument_list()->head();
       default:
 	new_cond->quick_fix_field();
+        ((Item_cond*)new_cond)->used_tables_cache= tbl_map;
 	return new_cond;
       }
     }
@@ -6280,8 +6285,10 @@ Item *make_cond_remainder(Item *cond, bool exclude_index)
 	if (!fix)
 	  return (COND*) 0;
 	new_cond->argument_list()->push_back(fix);
+        tbl_map |= fix->used_tables();
       }
       new_cond->quick_fix_field();
+      ((Item_cond*)new_cond)->used_tables_cache= tbl_map;
       new_cond->top_level_item();
       return new_cond;
     }
@@ -6331,6 +6338,8 @@ static void push_index_cond(JOIN_TAB *tab, uint keyno, bool other_tbls_ok)
         {
           tab->select_cond= new Item_cond_and(row_cond, idx_remainder_cond);
 	  tab->select_cond->quick_fix_field();
+          ((Item_cond_and*)tab->select_cond)->used_tables_cache= 
+            row_cond->used_tables() | idx_remainder_cond->used_tables();
         }
       }
       else

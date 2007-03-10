@@ -7689,6 +7689,23 @@ FT_SELECT *get_ft_select(THD *thd, TABLE *table, uint key)
     return fts;
 }
 
+static bool
+key_has_nulls(const KEY* key_info, const byte *key, uint key_len)
+{
+  KEY_PART_INFO *curr_part, *end_part;
+  const byte* end_ptr= key + key_len;
+  curr_part= key_info->key_part;
+  end_part= curr_part + key_info->key_parts;
+
+  for (; curr_part != end_part && key < end_ptr; curr_part++)
+  {
+    if (curr_part->null_bit && *key)
+      return TRUE;
+
+    key += curr_part->store_length;
+  }
+  return FALSE;
+}
 
 /*
   Create quick select from ref/ref_or_null scan.
@@ -7785,8 +7802,25 @@ QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,
       goto err;
   }
 
-  return quick;
+  /* Call multi_range_read_info() to get the MRR flags and buffer size */
+  quick->mrr_flags= HA_MRR_NO_ASSOCIATION | 
+                    (table->key_read ? HA_MRR_INDEX_ONLY : 0);
+  if (thd->lex->sql_command != SQLCOM_SELECT)
+    quick->mrr_flags |= HA_MRR_USE_DEFAULT_IMPL;
+#ifdef WITH_NDBCLUSTER_STORAGE_ENGINE
+  if (!ref->null_ref_key && !key_has_nulls(key_info, range->min_key,
+                                           ref->key_length))
+    quick->mrr_flags |= HA_MRR_NO_NULL_ENDPOINTS;
+#endif
 
+  quick->mrr_buf_size= thd->variables.read_rnd_buff_size;
+  COST_VECT cost;
+  if (table->file->multi_range_read_info(quick->index, 1, records,
+                                         &quick->mrr_buf_size,
+                                         &quick->mrr_flags, &cost))
+    goto err;
+
+  return quick;
 err:
   delete quick;
   return 0;

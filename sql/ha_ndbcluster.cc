@@ -8162,6 +8162,7 @@ ha_ndbcluster::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
                                      uint *bufsz, uint *flags, COST_VECT *cost)
 {
   int res;
+  uint save_bufsize= *bufsz;
   res= handler::multi_range_read_info(keyno, n_ranges, keys, bufsz, flags,
                                       cost);
   if (uses_blob_value() || !(*flags & HA_MRR_NO_NULL_ENDPOINTS))
@@ -8172,7 +8173,7 @@ ha_ndbcluster::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
   else
   {
     *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
-    *bufsz= min(*bufsz, keys * table_share->reclength);
+    *bufsz= min(save_bufsize, keys * table_share->reclength);
   }
   return res;
 }
@@ -8196,7 +8197,7 @@ int ha_ndbcluster::multi_range_read_init(RANGE_SEQ_IF *seq_funcs,
   m_write_op= FALSE;
   int res;
   Thd_ndb *thd_ndb= get_thd_ndb(current_thd);
-  DBUG_ENTER("ha_ndbcluster::read_multi_range_first");
+  DBUG_ENTER("ha_ndbcluster::multi_range_read_init");
 
   if (mode & HA_MRR_USE_DEFAULT_IMPL)
   {

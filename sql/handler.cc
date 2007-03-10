@@ -3126,8 +3126,19 @@ handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   while (!seq->next(seq_it, &range))
   {
     n_ranges++;
-    key_range *min_endp= range.start_key.length? &range.start_key : NULL;
-    key_range *max_endp= range.end_key.length? &range.end_key : NULL;
+    key_range *min_endp, *max_endp;
+    if (range.range_flag & GEOM_FLAG)
+    {
+      /* In this case tmp_min_flag contains the handler-read-function */
+      range.start_key.flag= (ha_rkey_function) (range.range_flag ^ GEOM_FLAG);
+      min_endp= &range.start_key;
+      max_endp= NULL;
+    }
+    else
+    {
+      min_endp= range.start_key.length? &range.start_key : NULL;
+      max_endp= range.end_key.length? &range.end_key : NULL;
+    }
     if ((range.range_flag & UNIQUE_RANGE) && !(range.range_flag & NULL_RANGE))
       rows= 1; /* there can be at most one row */
     else

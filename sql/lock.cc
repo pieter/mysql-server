@@ -1400,3 +1400,229 @@ void broadcast_refresh(void)
 }
 
 
+/*
+  Try to get transactional table locks for the tables in the list.
+
+  SYNOPSIS
+    try_transactional_lock()
+      thd                       Thread handle
+      table_list                List of tables to lock
+
+  DESCRIPTION
+    This is called if transactional table locks are requested for all
+    tables in table_list and no non-transactional locks pre-exist.
+
+  RETURN
+    0                   OK. All tables are transactional locked.
+    1                   Error: must fall back to non-transactional locks.
+    -1                  Error: no recovery possible.
+*/
+
+int try_transactional_lock(THD *thd, TABLE_LIST *table_list)
+{
+  uint          dummy_counter;
+  int           error;
+  int           result= 0;
+  DBUG_ENTER("try_transactional_lock");
+
+  /* Need to open the tables to be able to access engine methods. */
+  if (open_tables(thd, &table_list, &dummy_counter, 0))
+  {
+    /* purecov: begin tested */
+    DBUG_PRINT("lock_info", ("aborting, open_tables failed"));
+    DBUG_RETURN(-1);
+    /* purecov: end */
+  }
+
+  /* Required by InnoDB. */
+  thd->in_lock_tables= TRUE;
+
+  if ((error= set_handler_table_locks(thd, table_list, TRUE)))
+  {
+    /*
+      Not all transactional locks could be taken. If the error was
+      something else but "unsupported by storage engine", abort the
+      execution of this statement.
+    */
+    if (error != HA_ERR_WRONG_COMMAND)
+    {
+      DBUG_PRINT("lock_info", ("aborting, lock_table failed"));
+      result= -1;
+      goto err;
+    }
+    /*
+      Fall back to non-transactional locks because transactional locks
+      are unsupported by a storage engine. No need to unlock the
+      successfully taken transactional locks. They go away at end of
+      transaction anyway.
+    */
+    DBUG_PRINT("lock_info", ("fall back to non-trans lock: no SE support"));
+    result= 1;
+  }
+
+ err:
+  /* We need to explicitly commit if autocommit mode is active. */
+  (void) ha_autocommit_or_rollback(thd, 0);
+  /* Close the tables. The locks (if taken) persist in the storage engines. */
+  close_tables_for_reopen(thd, &table_list);
+  thd->in_lock_tables= FALSE;
+  DBUG_PRINT("lock_info", ("result: %d", result));
+  DBUG_RETURN(result);
+}
+
+
+/*
+  Check if lock method conversion was done and was allowed.
+
+  SYNOPSIS
+    check_transactional_lock()
+      thd                       Thread handle
+      table_list                List of tables to lock
+
+  DESCRIPTION
+
+    Lock method conversion can be done during parsing if one of the
+    locks is non-transactional. It can also happen if non-transactional
+    table locks exist when the statement is executed or if a storage
+    engine does not support transactional table locks.
+
+    Check if transactional table locks have been converted to
+    non-transactional and if this was allowed. In a running transaction
+    or in strict mode lock method conversion is not allowed - report an
+    error. Otherwise it is allowed - issue a warning.
+
+  RETURN
+    0                   OK. Proceed with non-transactional locks.
+    -1                  Error: Lock conversion is prohibited.
+*/
+
+int check_transactional_lock(THD *thd, TABLE_LIST *table_list)
+{
+  TABLE_LIST    *tlist;
+  int           result= 0;
+  char          warn_buff[MYSQL_ERRMSG_SIZE];
+  DBUG_ENTER("check_transactional_lock");
+
+  for (tlist= table_list; tlist; tlist= tlist->next_global)
+  {
+    if (tlist->placeholder() || !tlist->lock_transactional)
+      continue;
+
+    /* We must not convert the lock method in strict mode. */
+    if (thd->variables.sql_mode & (MODE_STRICT_ALL_TABLES |
+                                   MODE_STRICT_TRANS_TABLES))
+    {
+      my_error(ER_NO_AUTO_CONVERT_LOCK_STRICT, MYF(0),
+               tlist->alias ? tlist->alias : tlist->table_name);
+      result= -1;
+      continue;
+    }
+
+    /* We must not convert the lock method within an active transaction. */
+    if (thd->active_transaction())
+    {
+      my_error(ER_NO_AUTO_CONVERT_LOCK_TRANSACTION, MYF(0),
+               tlist->alias ? tlist->alias : tlist->table_name);
+      result= -1;
+      continue;
+    }
+
+    /* Warn about the conversion. */
+    my_snprintf(warn_buff, sizeof(warn_buff), ER(ER_WARN_AUTO_CONVERT_LOCK),
+                tlist->alias ? tlist->alias : tlist->table_name);
+    push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
+                 ER_WARN_AUTO_CONVERT_LOCK, warn_buff);
+  }
+
+  DBUG_PRINT("lock_info", ("result: %d", result));
+  DBUG_RETURN(result);
+}
+
+
+/*
+  Set table locks in the table handler.
+
+  SYNOPSIS
+    set_handler_table_locks()
+      thd                       Thread handle
+      table_list                List of tables to lock
+      transactional             If to lock transactional or non-transactional
+
+  RETURN
+    0                   OK.
+    != 0                Error code from handler::lock_table().
+*/
+
+int set_handler_table_locks(THD *thd, TABLE_LIST *table_list,
+                            bool transactional)
+{
+  TABLE_LIST    *tlist;
+  int           error= 0;
+  DBUG_ENTER("set_handler_table_locks");
+  DBUG_PRINT("lock_info", ("transactional: %d", transactional));
+
+  for (tlist= table_list; tlist; tlist= tlist->next_global)
+  {
+    int lock_type;
+    int lock_timeout= -1; /* Use default for non-transactional locks. */
+
+    if (tlist->placeholder())
+      continue;
+
+    DBUG_ASSERT((tlist->lock_type == TL_READ) ||
+                (tlist->lock_type == TL_READ_NO_INSERT) ||
+                (tlist->lock_type == TL_WRITE) ||
+                (tlist->lock_type == TL_WRITE_LOW_PRIORITY));
+
+    /*
+      Every tlist object has a proper lock_type set. Even if it came in
+      the list as a base table from a view only.
+    */
+    lock_type= ((tlist->lock_type <= TL_READ_NO_INSERT) ?
+                HA_LOCK_IN_SHARE_MODE : HA_LOCK_IN_EXCLUSIVE_MODE);
+
+    if (transactional)
+    {
+      /*
+        The lock timeout is not set if this table belongs to a view. We
+        need to take it from the top-level view. After this loop
+        iteration, lock_timeout is not needed any more. Not even if the
+        locks are converted to non-transactional locks later.
+        Non-transactional locks do not support a lock_timeout.
+      */
+      lock_timeout= tlist->top_table()->lock_timeout;
+      DBUG_PRINT("lock_info",
+                 ("table: '%s'  tlist==top_table: %d  lock_timeout: %d",
+                  tlist->table_name, tlist==tlist->top_table(), lock_timeout));
+
+      /*
+        For warning/error reporting we need to set the intended lock
+        method in the TABLE_LIST object. It will be used later by
+        check_transactional_lock(). The lock method is not set if this
+        table belongs to a view. We can safely set it to transactional
+        locking here. Even for non-view tables. This function is not
+        called if non-transactional locking was requested for any
+        object.
+      */
+      tlist->lock_transactional= TRUE;
+    }
+
+    /*
+      Because we need to set the lock method (see above) for all
+      involved tables, we cannot break the loop on an error.
+      But we do not try more locks after the first error.
+      However, for non-transactional locking handler::lock_table() is
+      a hint only. So we continue to call it for other tables.
+    */
+    if (!error || !transactional)
+    {
+      error= tlist->table->file->lock_table(thd, lock_type, lock_timeout);
+      if (error && transactional && (error != HA_ERR_WRONG_COMMAND))
+        tlist->table->file->print_error(error, MYF(0));
+    }
+  }
+
+  DBUG_RETURN(error);
+}
+
+

@@ -217,6 +217,10 @@
 #define HA_BLOCK_LOCK		256	/* unlock when reading some records */
 #define HA_OPEN_TEMPORARY	512
 
+/* For transactional LOCK TABLE. handler::lock_table() */
+#define HA_LOCK_IN_SHARE_MODE      F_RDLCK
+#define HA_LOCK_IN_EXCLUSIVE_MODE  F_WRLCK
+
 	/* Some key definitions */
 #define HA_KEY_NULL_LENGTH	1
 #define HA_KEY_BLOB_LENGTH	2
@@ -1597,6 +1601,39 @@ public:
     but we don't have a primary key
   */
   virtual void use_hidden_primary_key();
+
+  /*
+    Lock table.
+
+    SYNOPSIS
+      handler::lock_table()
+        thd                     Thread handle
+        lock_type               HA_LOCK_IN_SHARE_MODE     (F_RDLCK)
+                                HA_LOCK_IN_EXCLUSIVE_MODE (F_WRLCK)
+        lock_timeout            -1 default timeout
+                                0  no wait
+                                >0 wait timeout in milliseconds.
+
+    NOTE
+      lock_timeout >0 is not used by MySQL currently. If the storage
+      engine does not support NOWAIT (lock_timeout == 0) it should
+      return an error. But if it does not support WAIT X (lock_timeout
+      >0) it should treat it as lock_timeout == -1 and wait a default
+      (or even hard-coded) timeout.
+
+    RETURN
+      HA_ERR_WRONG_COMMAND      Storage engine does not support lock_table()
+      HA_ERR_UNSUPPORTED        Storage engine does not support NOWAIT
+      HA_ERR_LOCK_WAIT_TIMEOUT  Lock request timed out or
+                                lock conflict with NOWAIT option
+      HA_ERR_LOCK_DEADLOCK      Deadlock detected
+  */
+  virtual int lock_table(THD *thd         __attribute__((unused)),
+                         int lock_type    __attribute__((unused)),
+                         int lock_timeout __attribute__((unused)))
+  {
+    return HA_ERR_WRONG_COMMAND;
+  }
 
 private:
   /*

@@ -6053,3 +6053,16 @@ ER_DUP_ENTRY_WITH_KEY_NAME 23000 S1009
 ER_BINLOG_PURGE_EMFILE
         eng "Too many files opened, please execute the command again"
         ger "Zu viele offene Dateien, bitte führen Sie den Befehl noch einmal aus"
+
+ER_WARN_AUTO_CONVERT_LOCK
+        eng "Converted to non-transactional lock on '%-.64s'"
+        ger "Umgewandelt zu nicht-transaktionalen Sperren auf '%-.64s'"
+
+ER_NO_AUTO_CONVERT_LOCK_STRICT
+        eng "Cannot convert to non-transactional lock in strict mode on '%-.64s'"
+        ger "Im strikten Modus ist die Umwandlung zu nicht-transaktionalen Sperren verboten. Betrifft '%-.64s'"
+
+ER_NO_AUTO_CONVERT_LOCK_TRANSACTION
+        eng "Cannot convert to non-transactional lock in an active transaction on '%-.64s'"
+        ger "In einer laufenden Transaktion ist die Umwandlung zu nicht-transaktionalen Sperren verboten. Betrifft '%-.64s'"
+

@@ -849,6 +849,9 @@ typedef struct st_table_list
     used for implicit LOCK TABLES only and won't be used in real statement.
   */
   bool          prelocking_placeholder;
+  /* For transactional locking. */
+  int           lock_timeout;           /* NOWAIT or WAIT [X]               */
+  bool          lock_transactional;     /* If transactional lock requested. */
 
   enum enum_schema_table_state schema_table_state;
   void calc_md5(char *buffer);

@@ -5113,11 +5113,8 @@ prev_record_reads(JOIN *join, uint idx, table_map found_ref)
           non-trivial code and add overhead. 2. The value of records_read
           is an inprecise estimate and adding 1 (or, in the worst case,
           #max_nested_outer_joins=64-1) will not make it any more precise.
-
-        - Actually we either have records_read=0.0 or records_read > 1.0. We
-          compare with 0.0001 to avoid valgrind failures on x64.
       */
-      if (pos->records_read > 0.0001)
+      if (pos->records_read > DBL_EPSILON)
         found*= pos->records_read;
     }
   }

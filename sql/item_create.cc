@@ -1732,19 +1732,6 @@ protected:
 };
 
 
-class Create_func_reverse : public Create_func_arg1
-{
-public:
-  virtual Item* create(THD *thd, Item *arg1);
-
-  static Create_func_reverse s_singleton;
-
-protected:
-  Create_func_reverse() {}
-  virtual ~Create_func_reverse() {}
-};
-
-
 class Create_func_round : public Create_native_func
 {
 public:
@@ -4170,15 +4157,6 @@ Create_func_release_lock::create(THD *thd, Item *arg1)
 }
 
 
-Create_func_reverse Create_func_reverse::s_singleton;
-
-Item*
-Create_func_reverse::create(THD *thd, Item *arg1)
-{
-  return new (thd->mem_root) Item_func_reverse(arg1);
-}
-
-
 Create_func_round Create_func_round::s_singleton;
 
 Item*
@@ -4834,7 +4812,6 @@ static Native_func_registry func_array[] =
   { C_STRING_WITH_LEN("RADIANS"), BUILDER(Create_func_radians)},
   { C_STRING_WITH_LEN("RAND"), BUILDER(Create_func_rand)},
   { C_STRING_WITH_LEN("RELEASE_LOCK"), BUILDER(Create_func_release_lock)},
-  { C_STRING_WITH_LEN("REVERSE"), BUILDER(Create_func_reverse)},
   { C_STRING_WITH_LEN("ROUND"), BUILDER(Create_func_round)},
   { C_STRING_WITH_LEN("ROW_COUNT"), BUILDER(Create_func_row_count)},
   { C_STRING_WITH_LEN("RPAD"), BUILDER(Create_func_rpad)},

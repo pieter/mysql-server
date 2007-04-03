@@ -362,17 +362,20 @@ static int my_strcasecmp_ucs2(CHARSET_INFO *cs, const char *s, const char *t)
 }
 
 
-static int my_strnxfrm_ucs2(CHARSET_INFO *cs, 
-	uchar *dst, uint dstlen, const uchar *src, uint srclen)
+static int
+my_strnxfrm_ucs2(CHARSET_INFO *cs, 
+                 uchar *dst, uint dstlen, uint nweights,
+                 const uchar *src, uint srclen, uint flags)
 {
   my_wc_t wc;
   int res;
   int plane;
-  uchar *de = dst + dstlen;
-  const uchar *se = src + srclen;
+  uchar *de= dst + dstlen;
+  uchar *d0= dst;
+  const uchar *se= src + srclen;
   MY_UNICASE_INFO **uni_plane= cs->caseinfo;
 
-  while( src < se && dst < de )
+  for (; src < se && dst < de && nweights; nweights--)
   {
     if ((res=my_ucs2_uni(cs,&wc, src, se))<0)
     {
@@ -390,9 +393,7 @@ static int my_strnxfrm_ucs2(CHARSET_INFO *cs,
     }
     dst+=res;
   }
-  if (dst < de)
-    cs->cset->fill(cs, (char*) dst, (uint) (de - dst), ' ');
-  return dstlen;
+  return my_strxfrm_pad_desc_and_reverse(cs, d0, dst, de, nweights, flags, 0);
 }
 
 
@@ -1467,15 +1468,17 @@ int my_strcasecmp_ucs2_bin(CHARSET_INFO *cs, const char *s, const char *t)
 
 
 static
-int my_strnxfrm_ucs2_bin(CHARSET_INFO *cs __attribute__((unused)),
-			 uchar *dst, uint dstlen,
-			 const uchar *src, uint srclen)
+int my_strnxfrm_ucs2_bin(CHARSET_INFO *cs,
+			 uchar *dst, uint dstlen, uint nweights,
+			 const uchar *src, uint srclen, uint flags)
 {
+  uint frmlen;
+  if ((frmlen= min(dstlen, nweights * 2)) > srclen)
+    frmlen= srclen;
   if (dst != src)
-    memcpy(dst,src,srclen= min(dstlen,srclen));
-  if (dstlen > srclen)
-    cs->cset->fill(cs, (char*) dst + srclen, dstlen - srclen, ' ');
-  return dstlen;
+    memcpy(dst, src, frmlen);
+  return my_strxfrm_pad_desc_and_reverse(cs, dst, dst + frmlen, dst + dstlen,
+                                         nweights - frmlen / 2, flags, 0);
 }
 
 
@@ -1699,6 +1702,8 @@ CHARSET_INFO my_charset_ucs2_general_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_general_ci_handler
 };
@@ -1731,6 +1736,8 @@ CHARSET_INFO my_charset_ucs2_bin=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_bin_handler
 };

@@ -633,17 +633,18 @@ ret:
 */
 
 static
-int my_strnxfrm_tis620(CHARSET_INFO *cs __attribute__((unused)),
-                       uchar * dest, uint len,
-                       const uchar * src, uint srclen)
+int my_strnxfrm_tis620(CHARSET_INFO *cs,
+                       uchar *dst, uint dstlen, uint nweights,
+                       const uchar *src, uint srclen, uint flags)
 {
-  uint dstlen= len;
-  len= (uint) (strmake((char*) dest, (char*) src, min(len, srclen)) -
-	       (char*) dest);
-  len= thai2sortable(dest, len);
-  if (dstlen > len)
-    bfill(dest + len, dstlen - len, ' ');
-  return dstlen;
+  uint len;
+  len= (uint) (strmake((char*) dst, (char*) src, min(dstlen, srclen)) -
+	               (char*) dst);
+  len= thai2sortable(dst, len);
+  set_if_smaller(dstlen, nweights);
+  set_if_smaller(len, dstlen); 
+  return my_strxfrm_pad_desc_and_reverse(cs, dst, dst + len, dst + dstlen,
+                                         dstlen - len, flags, 0);
 }
 
 
@@ -925,6 +926,8 @@ CHARSET_INFO my_charset_tis620_thai_ci=
     255,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_handler,
     &my_collation_ci_handler
 };
@@ -957,6 +960,8 @@ CHARSET_INFO my_charset_tis620_bin=
     255,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_handler,
     &my_collation_8bit_bin_handler
 };

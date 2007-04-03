@@ -782,6 +782,21 @@ public:
   table_map not_null_tables() const { return 0; }
 };
 
+
+class Item_func_weight_string :public Item_str_func
+{
+  String tmp_value;
+  uint flags;
+  uint nweights;
+public:
+  Item_func_weight_string(Item *a, uint nweights_arg, uint flags_arg)
+  :Item_str_func(a) { nweights= nweights_arg; flags= flags_arg; }
+  const char *func_name() const { return "weight_string"; }
+  String *val_str(String *);
+  void fix_length_and_dec();
+};
+
+
 class Item_func_crc32 :public Item_int_func
 {
   String value;

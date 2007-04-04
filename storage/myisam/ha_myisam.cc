@@ -477,9 +477,14 @@ ha_myisam::ha_myisam(handlerton *hton, TABLE_SHARE *table_arg)
                   HA_DUPLICATE_POS | HA_CAN_INDEX_BLOBS | HA_AUTO_PART_KEY |
                   HA_FILE_BASED | HA_CAN_GEOMETRY | HA_NO_TRANSACTIONS |
                   HA_CAN_INSERT_DELAYED | HA_CAN_BIT_FIELD | HA_CAN_RTREEKEYS |
-                  HA_HAS_RECORDS | HA_STATS_RECORDS_IS_EXACT),
-   can_enable_indexes(1)
-{}
+                  HA_HAS_RECORDS | HA_STATS_RECORDS_IS_EXACT |
+                  HA_NEED_READ_RANGE_BUFFER | HA_MRR_CANT_SORT),
+   can_enable_indexes(1),
+   cond_keyno(MAX_KEY),
+   ds_mrr((DsMrr_impl::range_check_toggle_func_t)&ha_myisam::toggle_range_check)
+{
+  ds_mrr.h= this;
+}
 
 handler *ha_myisam::clone(MEM_ROOT *mem_root)
 {
@@ -691,7 +696,8 @@ int ha_myisam::open(const char *name, int mode, uint test_if_locked)
     int_table_flags|=HA_REC_NOT_IN_SEQ;
   if (file->s->options & (HA_OPTION_CHECKSUM | HA_OPTION_COMPRESS_RECORD))
     int_table_flags|=HA_HAS_CHECKSUM;
-
+  
+  keys_with_parts.clear_all();
   for (i= 0; i < table->s->keys; i++)
   {
     struct st_plugin_int *parser= table->key_info[i].parser;
@@ -699,6 +705,17 @@ int ha_myisam::open(const char *name, int mode, uint test_if_locked)
       file->s->keyinfo[i].parser=
         (struct st_mysql_ftparser *)parser->plugin->info;
     table->key_info[i].block_size= file->s->keyinfo[i].block_length;
+
+    KEY_PART_INFO *kp= table->key_info[i].key_part;
+    KEY_PART_INFO *kp_end= kp + table->key_info[i].key_parts;
+    for (; kp != kp_end; kp++)
+    {
+      if (!kp->field->part_of_key.is_set(i))
+      {
+        keys_with_parts.set_bit(i);
+        break;
+      }
+    }
   }
   my_errno= 0;
   goto end;
@@ -1608,6 +1625,41 @@ int ha_myisam::delete_row(const byte * buf)
   return mi_delete(file,buf);
 }
 
+C_MODE_START
+
+my_bool index_cond_func_myisam(void *arg)
+{
+  ha_myisam *h= (ha_myisam*)arg;
+  if (h->in_range_read)
+  {
+    if (h->compare_key(h->end_range) > 0)
+      return 2; /* caller should return HA_ERR_END_OF_FILE already */
+  }
+  return (my_bool)h->idx_cond->val_int();
+}
+
+C_MODE_END
+
+
+int ha_myisam::index_init(uint idx, bool sorted)
+{ 
+  active_index=idx;
+  in_range_read= FALSE;
+  if (cond_keyno == idx)
+    mi_set_index_cond_func(file, index_cond_func_myisam, this);
+  return 0; 
+}
+
+
+int ha_myisam::index_end()
+{
+  active_index=MAX_KEY;
+  mi_set_index_cond_func(file, NULL, 0);
+  in_range_check_pushed_down= FALSE;
+  return 0; 
+}
+
+
 int ha_myisam::index_read(byte *buf, const byte *key, key_part_map keypart_map,
                           enum ha_rkey_function find_flag)
 {
@@ -1693,6 +1745,31 @@ int ha_myisam::index_next_same(byte * buf,
   int error=mi_rnext_same(file,buf);
   table->status=error ? STATUS_NOT_FOUND: 0;
   return error;
+}
+
+int ha_myisam::read_range_first(const key_range *start_key,
+		 	        const key_range *end_key,
+			        bool eq_range_arg,
+                                bool sorted /* ignored */)
+{
+  int res;
+  if (!eq_range_arg)
+    in_range_read= TRUE;
+
+  res= handler::read_range_first(start_key, end_key, eq_range_arg, sorted);
+
+  if (res)
+    in_range_read= FALSE;
+  return res;
+}
+
+
+int ha_myisam::read_range_next()
+{
+  int res= handler::read_range_next();
+  if (res)
+    in_range_read= FALSE;
+  return res;
 }
 
 
@@ -1809,6 +1886,8 @@ int ha_myisam::extra(enum ha_extra_function operation)
 
 int ha_myisam::reset(void)
 {
+  cond_keyno= MAX_KEY;
+  mi_set_index_cond_func(file, NULL, 0);
   return mi_reset(file);
 }
 
@@ -2062,6 +2141,62 @@ static int myisam_init(void *p)
   myisam_hton->flags= HTON_CAN_RECREATE | HTON_SUPPORT_LOG_TABLES;
   return 0;
 }
+
+
+/****************************************************************************
+ * MyISAM MRR implementation: use DS-MRR
+ ***************************************************************************/
+
+int ha_myisam::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
+                                     uint n_ranges, uint mode, 
+                                     HANDLER_BUFFER *buf)
+{
+  return ds_mrr.dsmrr_init(this, &table->key_info[active_index], 
+                           seq, seq_init_param, n_ranges, mode, buf);
+}
+
+int ha_myisam::multi_range_read_next(char **range_info)
+{
+  return ds_mrr.dsmrr_next(this, range_info);
+}
+
+ha_rows ha_myisam::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                               void *seq_init_param, 
+                                               uint n_ranges, uint *bufsz,
+                                               uint *flags, COST_VECT *cost)
+{
+  return ds_mrr.dsmrr_info_const(keyno, seq, seq_init_param, n_ranges, bufsz,
+                                 flags, cost);
+}
+
+int ha_myisam::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                                     uint *bufsz, uint *flags, COST_VECT *cost)
+{
+  return ds_mrr.dsmrr_info(keyno, n_ranges, keys, bufsz, flags, cost);
+}
+
+/* MyISAM MRR implementation ends */
+
+
+/* Index condition pushdown implementation*/
+
+
+Item *ha_myisam::idx_cond_push(uint keyno_arg, Item* idx_cond_arg)
+{
+  cond_keyno= keyno_arg;
+  idx_cond= idx_cond_arg;
+  in_range_check_pushed_down= TRUE;
+  if (active_index == cond_keyno)
+    mi_set_index_cond_func(file, index_cond_func_myisam, this);
+  return NULL;
+}
+
+void ha_myisam::add_explain_extra_info(uint keyno, String *extra)
+{
+  if (cond_keyno != MAX_KEY && idx_cond && keyno==cond_keyno)
+    extra->append(STRING_WITH_LEN("; Using index condition"));
+}
+
 
 struct st_mysql_storage_engine myisam_storage_engine=
 { MYSQL_HANDLERTON_INTERFACE_VERSION };

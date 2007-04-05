@@ -380,3 +380,18 @@ select hex(convert(_eucjpms 0xA5FE41 using ucs2));
 # the next character, which is a single byte character 0x41.
 select hex(convert(_eucjpms 0x8FABF841 using ucs2));
 
+--echo End of 5.1 tests
+
+set names eucjpms;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+--source include/weight_string_A1A1.inc
+--source include/weight_string_8EA1.inc
+--source include/weight_string_8FA2C3.inc
+
+set collation_connection=eucjpms_bin;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+--source include/weight_string_A1A1.inc
+--source include/weight_string_8EA1.inc
+--source include/weight_string_8FA2C3.inc

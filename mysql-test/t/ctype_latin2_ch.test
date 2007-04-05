@@ -27,6 +27,19 @@ select * from t1 where tt like 'AA%';
 select * from t1 ignore index (primary) where tt like 'AA%';
 select * from t1 where tt like '%AA%';
 
+drop table t1;
+
 # End of 4.1 tests
 
-drop table t1;
+
+set names latin2 collate latin2_czech_cs;
+--source include/ctype_pad_space.inc
+--source include/ctype_filesort.inc
+--source include/weight_string.inc
+--source include/weight_string_chde.inc
+--source include/weight_string_l1.inc
+--source include/weight_string_l2.inc
+--source include/weight_string_l3.inc
+--source include/weight_string_l4.inc
+--source include/weight_string_l12.inc
+--source include/weight_string_l14.inc

@@ -859,6 +859,10 @@ typedef struct st_table_list
   int view_check_option(THD *thd, bool ignore_failure);
   bool setup_underlying(THD *thd);
   void cleanup_items();
+  /*
+    If you change placeholder(), please check the condition in
+    check_transactional_lock() too.
+  */
   bool placeholder() {return derived || view || schema_table || !table; }
   void print(THD *thd, String *str);
   bool check_single_table(st_table_list **table, table_map map,

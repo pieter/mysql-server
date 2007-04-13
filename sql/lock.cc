@@ -1505,10 +1505,25 @@ int check_transactional_lock(THD *thd, TABLE_LIST *table_list)
 
   for (tlist= table_list; tlist; tlist= tlist->next_global)
   {
-    if (tlist->placeholder() || !tlist->lock_transactional)
+    DBUG_PRINT("lock_info", ("checking table: '%s'", tlist->table_name));
+
+    /*
+      Unfortunately we cannot use tlist->placeholder() here. This method
+      returns TRUE if the table is not open, which is always the case
+      here. Whenever the definition of TABLE_LIST::placeholder() is
+      changed, probably this condition needs to be changed too.
+    */
+    if (tlist->derived || tlist->view || tlist->schema_table ||
+        !tlist->lock_transactional)
+    {
+      DBUG_PRINT("lock_info", ("skipping placeholder: %d  transactional: %d",
+                               tlist->placeholder(),
+                               tlist->lock_transactional));
       continue;
+    }
 
     /* We must not convert the lock method in strict mode. */
+    DBUG_PRINT("lock_info", ("sql_mode: %lu", thd->variables.sql_mode));
     if (thd->variables.sql_mode & (MODE_STRICT_ALL_TABLES |
                                    MODE_STRICT_TRANS_TABLES))
     {

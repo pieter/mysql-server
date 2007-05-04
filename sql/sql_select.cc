@@ -5140,7 +5140,7 @@ prev_record_reads(JOIN *join, uint idx, table_map found_ref)
           is an inprecise estimate and adding 1 (or, in the worst case,
           #max_nested_outer_joins=64-1) will not make it any more precise.
       */
-      if (pos->records_read)
+      if (pos->records_read > DBL_EPSILON)
         found*= pos->records_read;
     }
   }

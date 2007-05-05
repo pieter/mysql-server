@@ -58,7 +58,7 @@ $Devel::Trace::TRACE= 0;       # Don't trace boring init stuff
 use File::Path;
 use File::Basename;
 use File::Copy;
-use File::Temp qw / tempdir /;
+use File::Temp qw /tempdir/;
 use Cwd;
 use Getopt::Long;
 use Sys::Hostname;
@@ -723,7 +723,6 @@ sub command_line_setup () {
   else
   {
     $mysqld_variables{'port'}= 3306;
-    $mysqld_variables{'master-port'}= 3306;
     $opt_skip_ndbcluster= 1;
     $opt_skip_im= 1;
   }
@@ -1066,9 +1065,9 @@ sub command_line_setup () {
    path_myddir   => "$opt_vardir/master-data",
    path_myerr    => "$opt_vardir/log/master.err",
    path_mylog    => "$opt_vardir/log/master.log",
-   path_pid    => "$opt_vardir/run/master.pid",
-   path_sock   => "$sockdir/master.sock",
-   port   =>  $opt_master_myport,
+   path_pid      => "$opt_vardir/run/master.pid",
+   path_sock     => "$sockdir/master.sock",
+   port          =>  $opt_master_myport,
    start_timeout =>  400, # enough time create innodb tables
    cluster       =>  0, # index in clusters list
    start_opts    => [],
@@ -1082,9 +1081,9 @@ sub command_line_setup () {
    path_myddir   => "$opt_vardir/master1-data",
    path_myerr    => "$opt_vardir/log/master1.err",
    path_mylog    => "$opt_vardir/log/master1.log",
-   path_pid    => "$opt_vardir/run/master1.pid",
-   path_sock   => "$sockdir/master1.sock",
-   port   => $opt_master_myport + 1,
+   path_pid      => "$opt_vardir/run/master1.pid",
+   path_sock     => "$sockdir/master1.sock",
+   port          => $opt_master_myport + 1,
    start_timeout => 400, # enough time create innodb tables
    cluster       =>  0, # index in clusters list
    start_opts    => [],
@@ -1146,8 +1145,8 @@ sub command_line_setup () {
    path_pid =>        "$opt_vardir/run/im.pid",
    path_angel_pid =>  "$opt_vardir/run/im.angel.pid",
    path_sock =>       "$sockdir/im.sock",
-   port =>            $im_port,
-   start_timeout =>   $master->[0]->{'start_timeout'},
+   port =>             $im_port,
+   start_timeout =>    $master->[0]->{'start_timeout'},
    admin_login =>     'im_admin',
    admin_password =>  'im_admin_secret',
    admin_sha1 =>      '*598D51AD2DFF7792045D6DF3DDF9AA1AF737B295',
@@ -1773,7 +1772,6 @@ sub environment_setup () {
   $ENV{'SLAVE_MYPORT1'}=      $slave->[1]->{'port'};
   $ENV{'SLAVE_MYPORT2'}=      $slave->[2]->{'port'};
   $ENV{'MYSQL_TCP_PORT'}=     $mysqld_variables{'port'};
-  $ENV{'DEFAULT_MASTER_PORT'}= $mysqld_variables{'master-port'};
 
   $ENV{'IM_PATH_SOCK'}=       $instance_manager->{path_sock};
   $ENV{'IM_USERNAME'}=        $instance_manager->{admin_login};
@@ -3789,12 +3787,6 @@ sub mysqld_arguments ($$$$$) {
     }
     else
     {
-      mtr_add_arg($args, "%s--master-user=root", $prefix);
-      mtr_add_arg($args, "%s--master-connect-retry=1", $prefix);
-      mtr_add_arg($args, "%s--master-host=127.0.0.1", $prefix);
-      mtr_add_arg($args, "%s--master-password=", $prefix);
-      mtr_add_arg($args, "%s--master-port=%d", $prefix,
-                  $master->[0]->{'port'}); # First master
       mtr_add_arg($args, "%s--server-id=%d", $prefix, $slave_server_id);
       mtr_add_arg($args, "%s--rpl-recovery-rank=%d", $prefix, $slave_rpl_rank);
     }

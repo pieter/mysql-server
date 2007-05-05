@@ -34,8 +34,6 @@ LDADD=				@CLIENT_EXTRA_LDFLAGS@ $(CLIENT_THREAD_LIBS) \
 noinst_HEADERS =		sql_string.h completion_hash.h my_readline.h \
 				client_priv.h
 
-EXTRA_DIST =			get_password.c CMakeLists.txt
-
 bin_PROGRAMS =			mysql \
 				mysqladmin \
 				mysqlbinlog \

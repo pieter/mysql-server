@@ -254,10 +254,7 @@ sys_var_key_cache_long  sys_key_cache_age_threshold("key_cache_age_threshold",
 							      param_age_threshold));
 sys_var_bool_ptr	sys_local_infile("local_infile",
 					 &opt_local_infile);
-sys_var_trust_routine_creators
-sys_trust_routine_creators("log_bin_trust_routine_creators",
-                           &trust_function_creators);
-sys_var_bool_ptr       
+sys_var_bool_ptr
 sys_trust_function_creators("log_bin_trust_function_creators",
                             &trust_function_creators);
 sys_var_bool_ptr
@@ -453,8 +450,6 @@ sys_updatable_views_with_limit("updatable_views_with_limit",
                                &SV::updatable_views_with_limit,
                                &updatable_views_with_limit_typelib);
 
-sys_var_thd_table_type  sys_table_type("table_type",
-				       &SV::table_type);
 sys_var_thd_storage_engine sys_storage_engine("storage_engine",
 				       &SV::table_type);
 #ifdef HAVE_REPLICATION
@@ -1021,7 +1016,6 @@ SHOW_VAR init_vars[]= {
   {"table_definition_cache",  (char*) &table_def_size,              SHOW_LONG},
   {"table_lock_wait_timeout", (char*) &table_lock_wait_timeout,     SHOW_LONG },
   {"table_open_cache",        (char*) &table_cache_size,            SHOW_LONG},
-  {sys_table_type.name,	      (char*) &sys_table_type,	            SHOW_SYS},
   {sys_thread_cache_size.name,(char*) &sys_thread_cache_size,       SHOW_SYS},
 #ifdef HAVE_THR_SETCONCURRENCY
   {"thread_concurrency",      (char*) &concurrency,                 SHOW_LONG},
@@ -3614,24 +3608,6 @@ bool sys_var_thd_storage_engine::update(THD *thd, set_var *var)
   return 0;
 }
 
-void sys_var_thd_table_type::warn_deprecated(THD *thd)
-{
-  WARN_DEPRECATED(thd, "5.2", "table_type", "'storage_engine'");
-}
-
-void sys_var_thd_table_type::set_default(THD *thd, enum_var_type type)
-{
-  warn_deprecated(thd);
-  sys_var_thd_storage_engine::set_default(thd, type);
-}
-
-bool sys_var_thd_table_type::update(THD *thd, set_var *var)
-{
-  warn_deprecated(thd);
-  return sys_var_thd_storage_engine::update(thd, var);
-}
-
-
 /****************************************************************************
  Functions to handle sql_mode
 ****************************************************************************/
@@ -3871,24 +3847,6 @@ bool process_key_caches(int (* func) (const char *name, KEY_CACHE *))
   return 0;
 }
 
-
-void sys_var_trust_routine_creators::warn_deprecated(THD *thd)
-{
-  WARN_DEPRECATED(thd, "5.2", "log_bin_trust_routine_creators",
-                      "'log_bin_trust_function_creators'");
-}
-
-void sys_var_trust_routine_creators::set_default(THD *thd, enum_var_type type)
-{
-  warn_deprecated(thd);
-  sys_var_bool_ptr::set_default(thd, type);
-}
-
-bool sys_var_trust_routine_creators::update(THD *thd, set_var *var)
-{
-  warn_deprecated(thd);
-  return sys_var_bool_ptr::update(thd, var);
-}
 
 bool sys_var_opt_readonly::update(THD *thd, set_var *var)
 {

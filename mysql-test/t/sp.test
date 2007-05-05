@@ -5247,16 +5247,12 @@ drop procedure bug5967|
 #
 --disable_warnings
 drop procedure if exists bug13012|
-# Disable warnings also for BACKUP/RESTORE: they are deprecated.
+--enable_warnings
 create procedure bug13012()
 BEGIN
   REPAIR TABLE t1;
-  BACKUP TABLE t1 to '../tmp';
-  DROP TABLE t1;
-  RESTORE TABLE t1 FROM '../tmp';
 END|
 call bug13012()|
---enable_warnings
 drop procedure bug13012|
 create view v1 as select * from t1|
 create procedure bug13012()

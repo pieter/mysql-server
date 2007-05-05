@@ -1482,7 +1482,7 @@ static void test_prepare_field_result()
   myquery(rc);
 
   rc= mysql_query(mysql, "CREATE TABLE test_prepare_field_result(int_c int, "
-                         "var_c varchar(50), ts_c timestamp(14), "
+                         "var_c varchar(50), ts_c timestamp, "
                          "char_c char(4), date_c date, extra tinyint)");
   myquery(rc);
 
@@ -3971,11 +3971,11 @@ static void test_fetch_date()
   myquery(rc);
 
   rc= mysql_query(mysql, "CREATE TABLE test_bind_result(c1 date, c2 time, \
-                                                        c3 timestamp(14), \
+                                                        c3 timestamp, \
                                                         c4 year, \
                                                         c5 datetime, \
-                                                        c6 timestamp(4), \
-                                                        c7 timestamp(6))");
+                                                        c6 timestamp, \
+                                                        c7 timestamp)");
   myquery(rc);
 
   rc= mysql_query(mysql, "SET SQL_MODE=''");
@@ -4289,7 +4289,7 @@ static void test_prepare_ext()
                " c12 numeric(8, 4),"
                " c13 date,"
                " c14 datetime,"
-               " c15 timestamp(14),"
+               " c15 timestamp,"
                " c16 time,"
                " c17 year,"
                " c18 bit,"
@@ -5320,7 +5320,7 @@ static void test_manual_sample()
   }
   if (mysql_query(mysql, "CREATE TABLE test_table(col1 int, col2 varchar(50), \
                                                  col3 smallint, \
-                                                 col4 timestamp(14))"))
+                                                 col4 timestamp)"))
   {
     fprintf(stderr, "\n create table failed");
     fprintf(stderr, "\n %s", mysql_error(mysql));
@@ -6216,7 +6216,7 @@ static void test_date()
   rc= mysql_query(mysql, "DROP TABLE IF EXISTS test_date");
   myquery(rc);
 
-  rc= mysql_query(mysql, "CREATE TABLE test_date(c1 TIMESTAMP(14), \
+  rc= mysql_query(mysql, "CREATE TABLE test_date(c1 TIMESTAMP, \
                                                  c2 TIME, \
                                                  c3 DATETIME, \
                                                  c4 DATE)");
@@ -6282,10 +6282,10 @@ static void test_date_ts()
   rc= mysql_query(mysql, "DROP TABLE IF EXISTS test_date");
   myquery(rc);
 
-  rc= mysql_query(mysql, "CREATE TABLE test_date(c1 TIMESTAMP(10), \
-                                                 c2 TIMESTAMP(14), \
+  rc= mysql_query(mysql, "CREATE TABLE test_date(c1 TIMESTAMP, \
+                                                 c2 TIMESTAMP, \
                                                  c3 TIMESTAMP, \
-                                                 c4 TIMESTAMP(6))");
+                                                 c4 TIMESTAMP)");
 
   myquery(rc);
 
@@ -6962,7 +6962,7 @@ static void test_field_misc()
   mysql_free_result(result);
   mysql_stmt_close(stmt);
 
-  stmt= mysql_simple_prepare(mysql, "SELECT @@table_type");
+  stmt= mysql_simple_prepare(mysql, "SELECT @@storage_engine");
   check_stmt(stmt);
 
   rc= mysql_stmt_execute(stmt);
@@ -6987,7 +6987,7 @@ static void test_field_misc()
 
   mysql_stmt_close(stmt);
 
-  stmt= mysql_simple_prepare(mysql, "SELECT @@table_type");
+  stmt= mysql_simple_prepare(mysql, "SELECT @@storage_engine");
   check_stmt(stmt);
 
   result= mysql_stmt_result_metadata(stmt);
@@ -7000,7 +7000,7 @@ static void test_field_misc()
   DIE_UNLESS(1 == my_process_stmt_result(stmt));
 
   verify_prepare_field(result, 0,
-                       "@@table_type", "",   /* field and its org name */
+                       "@@storage_engine", "",   /* field and its org name */
                        mysql_get_server_version(mysql) <= 50000 ?
                        MYSQL_TYPE_STRING : MYSQL_TYPE_VAR_STRING,
                        "", "",              /* table and its org name */
@@ -8021,7 +8021,7 @@ static void test_fetch_seek()
 
   myquery(rc);
 
-  rc= mysql_query(mysql, "create table t1(c1 int primary key auto_increment, c2 char(10), c3 timestamp(14))");
+  rc= mysql_query(mysql, "create table t1(c1 int primary key auto_increment, c2 char(10), c3 timestamp)");
   myquery(rc);
 
   rc= mysql_query(mysql, "insert into t1(c2) values('venu'), ('mysql'), ('open'), ('source')");

@@ -97,7 +97,7 @@ class MASTER_INFO
   long clock_diff_with_master;
 };
 
-void init_master_info_with_options(MASTER_INFO* mi);
+void init_master_log_pos(MASTER_INFO* mi);
 int init_master_info(MASTER_INFO* mi, const char* master_info_fname,
 		     const char* slave_info_fname,
 		     bool abort_if_no_master_info_file,

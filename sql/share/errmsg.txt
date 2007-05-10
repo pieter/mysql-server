@@ -4303,9 +4303,9 @@ ER_BAD_SLAVE
         ita "Il server non e' configurato come 'slave', correggere il file di configurazione cambiando CHANGE MASTER TO"
         por "O servidor nЦo estА configurado como 'slave'. Acerte o arquivo de configuraГЦo ou use CHANGE MASTER TO"
         rus "Этот сервер не настроен как подчиненный. Исправьте с помощью CHANGE MASTER TO"
-        serbian "Server nije konfigurisan kao podreПeni server, ispravite konfiguracioni file ili na njemu izvr ite komandu 'CHANGE MASTER TO'"
+        serbian "Server nije konfigurisan kao podreПeni server, na njemu izvr ite komandu 'CHANGE MASTER TO'"
         spa "El servidor no estА configurado como esclavo, edite el archivo config file o con CHANGE MASTER TO"
-        swe "Servern Дr inte konfigurerade som en replikationsslav. дndra konfigurationsfilen eller gЖr CHANGE MASTER TO"
+        swe "Servern Дr inte konfigurerad som replikationsslav. AnvДnd 'CHANGE MASTER TO' fЖr att konfigurera slavservern"
         ukr "Сервер не зконф╕гуровано як п╕длеглий, виправте це за допомогою CHANGE MASTER TO"
 ER_MASTER_INFO  
         eng "Could not initialize master info structure; more error messages can be found in the MySQL error log"

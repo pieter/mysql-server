@@ -4396,17 +4396,10 @@ drop procedure if exists bug13012|
 create procedure bug13012()
 BEGIN
 REPAIR TABLE t1;
-BACKUP TABLE t1 to '../tmp';
-DROP TABLE t1;
-RESTORE TABLE t1 FROM '../tmp';
 END|
 call bug13012()|
 Table	Op	Msg_type	Msg_text
 test.t1	repair	status	OK
-Table	Op	Msg_type	Msg_text
-test.t1	backup	status	OK
-Table	Op	Msg_type	Msg_text
-test.t1	restore	status	OK
 drop procedure bug13012|
 create view v1 as select * from t1|
 create procedure bug13012()

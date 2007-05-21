@@ -1352,15 +1352,6 @@ public:
   int check_old_types();
   /* to be actually called to get 'check()' functionality*/
   int ha_check(THD *thd, HA_CHECK_OPT *check_opt);
-   
-  virtual int backup(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
-  /*
-    restore assumes .frm file must exist, and that generate_table() has been
-    called; It will just copy the data file and run repair.
-  */
-  virtual int restore(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
 protected:
   virtual int repair(THD* thd, HA_CHECK_OPT* check_opt)
   { return HA_ADMIN_NOT_IMPLEMENTED; }
@@ -1377,7 +1368,6 @@ public:
   /* end of the list of admin commands */
 
   virtual bool check_and_repair(THD *thd) { return HA_ERR_WRONG_COMMAND; }
-  virtual int dump(THD* thd, int fd = -1) { return HA_ERR_WRONG_COMMAND; }
   virtual int disable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int enable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int indexes_are_disabled(void) {return 0;}
@@ -1393,7 +1383,6 @@ public:
   }
   virtual int discard_or_import_tablespace(my_bool discard)
   {return HA_ERR_WRONG_COMMAND;}
-  virtual int net_read_dump(NET* net) { return HA_ERR_WRONG_COMMAND; }
   virtual char *update_table_comment(const char * comment)
   { return (char*) comment;}
   virtual void append_create_info(String *packet) {}

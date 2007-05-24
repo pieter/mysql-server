@@ -236,7 +236,7 @@ file '%s')", fname);
     */
     if (lines >= LINES_IN_MASTER_INFO_WITH_SSL)
     {
-      if (init_intvar_from_file(&ssl, &mi->file, master_ssl) ||
+      if (init_intvar_from_file(&ssl, &mi->file, 0) ||
           init_strvar_from_file(mi->ssl_ca, sizeof(mi->ssl_ca),
                                 &mi->file, 0) ||
           init_strvar_from_file(mi->ssl_capath, sizeof(mi->ssl_capath),

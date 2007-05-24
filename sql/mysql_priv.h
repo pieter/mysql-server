@@ -109,17 +109,13 @@ void net_set_read_timeout(NET *net, uint timeout);
     "The syntax 'BAD' is deprecated and will be removed in MySQL 6.2. Please
     use 'GOOD' instead"
 
- Note that in macro arguments BAD is not quoted, while 'GOOD' is.
- Note that the version is TWO numbers, separated with a comma
+ Note, that in macro arguments BAD is not quoted, while 'GOOD' is.
+ Note, that the version is TWO numbers, separated with a comma
  (two macro arguments, that is)
 */
-#ifdef compile_time_assert
-#error change the macro below to use compile_time_assert
-#endif
 #define WARN_DEPRECATED(Thd,VerHi,VerLo,Old,New)                            \
   do {                                                                      \
-    char t[MYSQL_VERSION_ID < VerHi * 10000 + VerLo * 100 ? 1 : -1]         \
-                __attribute__((unused));                                    \
+    compile_time_assert(MYSQL_VERSION_ID < VerHi * 10000 + VerLo * 100);    \
     if (Thd)                                                                \
       push_warning_printf((Thd), MYSQL_ERROR::WARN_LEVEL_WARN,              \
                         ER_WARN_DEPRECATED_SYNTAX,                          \

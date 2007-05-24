@@ -492,18 +492,6 @@ public:
   byte *value_ptr(THD *thd, enum_var_type type, LEX_STRING *base);
 };
 
-class sys_var_thd_table_type :public sys_var_thd_storage_engine
-{
-public:
-  sys_var_thd_table_type(sys_var_chain *chain, const char *name_arg, 
-                         plugin_ref SV::*offset_arg)
-    :sys_var_thd_storage_engine(chain, name_arg, offset_arg)
-  {}
-  void warn_deprecated(THD *thd);
-  void set_default(THD *thd, enum_var_type type);
-  bool update(THD *thd, set_var *var);
-};
-
 class sys_var_thd_bit :public sys_var_thd
 {
   sys_check_func check_func;
@@ -911,19 +899,6 @@ public:
   SHOW_TYPE show_type() { return SHOW_INT; }
   byte *value_ptr(THD *thd, enum_var_type type, LEX_STRING *base);
 };
-
-class sys_var_trust_routine_creators :public sys_var_bool_ptr
-{
-  /* We need a derived class only to have a warn_deprecated() */
-public:
-  sys_var_trust_routine_creators(sys_var_chain *chain, const char *name_arg, 
-                                 my_bool *value_arg) :
-    sys_var_bool_ptr(chain, name_arg, value_arg) {};
-  void warn_deprecated(THD *thd);
-  void set_default(THD *thd, enum_var_type type);
-  bool update(THD *thd, set_var *var);
-};
-
 
 /**
   Handler for setting the system variable --read-only.

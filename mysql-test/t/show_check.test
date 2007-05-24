@@ -543,11 +543,6 @@ drop database mysqltest;
 #
 
 --disable_result_log
-show full plugin;
---enable_result_log
-show warnings;
---disable_result_log
-show plugin;
 show plugins;
 --enable_result_log
 

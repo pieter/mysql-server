@@ -217,6 +217,10 @@
 #define HA_BLOCK_LOCK		256	/* unlock when reading some records */
 #define HA_OPEN_TEMPORARY	512
 
+/* For transactional LOCK TABLE. handler::lock_table() */
+#define HA_LOCK_IN_SHARE_MODE      F_RDLCK
+#define HA_LOCK_IN_EXCLUSIVE_MODE  F_WRLCK
+
 	/* Some key definitions */
 #define HA_KEY_NULL_LENGTH	1
 #define HA_KEY_BLOB_LENGTH	2
@@ -1404,15 +1408,6 @@ public:
   int check_old_types();
   /* to be actually called to get 'check()' functionality*/
   int ha_check(THD *thd, HA_CHECK_OPT *check_opt);
-   
-  virtual int backup(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
-  /*
-    restore assumes .frm file must exist, and that generate_table() has been
-    called; It will just copy the data file and run repair.
-  */
-  virtual int restore(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
 protected:
   virtual int repair(THD* thd, HA_CHECK_OPT* check_opt)
   { return HA_ADMIN_NOT_IMPLEMENTED; }
@@ -1429,7 +1424,6 @@ public:
   /* end of the list of admin commands */
 
   virtual bool check_and_repair(THD *thd) { return HA_ERR_WRONG_COMMAND; }
-  virtual int dump(THD* thd, int fd = -1) { return HA_ERR_WRONG_COMMAND; }
   virtual int disable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int enable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int indexes_are_disabled(void) {return 0;}
@@ -1445,7 +1439,6 @@ public:
   }
   virtual int discard_or_import_tablespace(my_bool discard)
   {return HA_ERR_WRONG_COMMAND;}
-  virtual int net_read_dump(NET* net) { return HA_ERR_WRONG_COMMAND; }
   virtual char *update_table_comment(const char * comment)
   { return (char*) comment;}
   virtual void append_create_info(String *packet) {}
@@ -1668,6 +1661,39 @@ public:
     but we don't have a primary key
   */
   virtual void use_hidden_primary_key();
+
+  /*
+    Lock table.
+
+    SYNOPSIS
+      handler::lock_table()
+        thd                     Thread handle
+        lock_type               HA_LOCK_IN_SHARE_MODE     (F_RDLCK)
+                                HA_LOCK_IN_EXCLUSIVE_MODE (F_WRLCK)
+        lock_timeout            -1 default timeout
+                                0  no wait
+                                >0 wait timeout in milliseconds.
+
+    NOTE
+      lock_timeout >0 is not used by MySQL currently. If the storage
+      engine does not support NOWAIT (lock_timeout == 0) it should
+      return an error. But if it does not support WAIT X (lock_timeout
+      >0) it should treat it as lock_timeout == -1 and wait a default
+      (or even hard-coded) timeout.
+
+    RETURN
+      HA_ERR_WRONG_COMMAND      Storage engine does not support lock_table()
+      HA_ERR_UNSUPPORTED        Storage engine does not support NOWAIT
+      HA_ERR_LOCK_WAIT_TIMEOUT  Lock request timed out or
+                                lock conflict with NOWAIT option
+      HA_ERR_LOCK_DEADLOCK      Deadlock detected
+  */
+  virtual int lock_table(THD *thd         __attribute__((unused)),
+                         int lock_type    __attribute__((unused)),
+                         int lock_timeout __attribute__((unused)))
+  {
+    return HA_ERR_WRONG_COMMAND;
+  }
 
 private:
   /*

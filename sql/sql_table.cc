@@ -212,7 +212,7 @@ uint build_tmptable_filename(THD* thd, char *buff, size_t bufflen)
 
   char *p= strnmov(buff, mysql_tmpdir, bufflen);
   my_snprintf(p, bufflen - (p - buff), "/%s%lx_%lx_%x%s",
-              tmp_file_prefix, current_pid,
+	      tmp_file_prefix, current_pid,
               thd->thread_id, thd->tmp_table++, reg_ext);
 
   if (lower_case_table_names)
@@ -2100,7 +2100,7 @@ int prepare_create_field(create_field *sql_field,
       sql_field->pack_flag|=FIELDFLAG_BINARY;
     sql_field->unireg_check=Field::INTERVAL_FIELD;
     if (check_duplicates_in_interval("ENUM",sql_field->field_name,
-                                     sql_field->interval,
+                                 sql_field->interval,
                                      sql_field->charset, &dup_val_count))
       DBUG_RETURN(1);
     break;
@@ -2111,7 +2111,7 @@ int prepare_create_field(create_field *sql_field,
       sql_field->pack_flag|=FIELDFLAG_BINARY;
     sql_field->unireg_check=Field::BIT_FIELD;
     if (check_duplicates_in_interval("SET",sql_field->field_name,
-                                     sql_field->interval,
+                                 sql_field->interval,
                                      sql_field->charset, &dup_val_count))
       DBUG_RETURN(1);
     /* Check that count of unique members is not more then 64 */
@@ -3526,10 +3526,10 @@ bool mysql_create_table_no_lock(THD *thd,
       case HA_ERR_TABLE_EXIST:
         DBUG_PRINT("info", ("Table existed in handler"));
 
-        if (create_if_not_exists)
-          goto warn;
-        my_error(ER_TABLE_EXISTS_ERROR,MYF(0),table_name);
-        goto unlock_and_end;
+      if (create_if_not_exists)
+        goto warn;
+      my_error(ER_TABLE_EXISTS_ERROR,MYF(0),table_name);
+      goto unlock_and_end;
         break;
       default:
         DBUG_PRINT("info", ("error: %u from storage engine", retcode));
@@ -3651,9 +3651,9 @@ bool mysql_create_table(THD *thd, const char *db, const char *table_name,
   }
 
   result= mysql_create_table_no_lock(thd, db, table_name, create_info,
-                                     fields, keys, internal_tmp_table,
-                                     select_field_count,
-                                     use_copy_create_info);
+                                      fields, keys, internal_tmp_table,
+                                      select_field_count,
+                                      use_copy_create_info);
 
 unlock:
   if (name_lock)
@@ -3885,70 +3885,6 @@ static int send_check_errmsg(THD *thd, TABLE_LIST* table,
   if (protocol->write())
     return -1;
   return 1;
-}
-
-
-static int prepare_for_restore(THD* thd, TABLE_LIST* table,
-			       HA_CHECK_OPT *check_opt)
-{
-  DBUG_ENTER("prepare_for_restore");
-
-  if (table->table) // do not overwrite existing tables on restore
-  {
-    DBUG_RETURN(send_check_errmsg(thd, table, "restore",
-				  "table exists, will not overwrite on restore"
-				  ));
-  }
-  else
-  {
-    char* backup_dir= thd->lex->backup_dir;
-    char src_path[FN_REFLEN], dst_path[FN_REFLEN], uname[FN_REFLEN];
-    char* table_name= table->table_name;
-    char* db= table->db;
-
-    VOID(tablename_to_filename(table->table_name, uname, sizeof(uname)));
-
-    if (fn_format_relative_to_data_home(src_path, uname, backup_dir, reg_ext))
-      DBUG_RETURN(-1); // protect buffer overflow
-
-    build_table_filename(dst_path, sizeof(dst_path),
-                         db, table_name, reg_ext, 0);
-
-    if (lock_and_wait_for_table_name(thd,table))
-      DBUG_RETURN(-1);
-
-    if (my_copy(src_path, dst_path, MYF(MY_WME)))
-    {
-      pthread_mutex_lock(&LOCK_open);
-      unlock_table_name(thd, table);
-      pthread_mutex_unlock(&LOCK_open);
-      DBUG_RETURN(send_check_errmsg(thd, table, "restore",
-				    "Failed copying .frm file"));
-    }
-    if (mysql_truncate(thd, table, 1))
-    {
-      pthread_mutex_lock(&LOCK_open);
-      unlock_table_name(thd, table);
-      pthread_mutex_unlock(&LOCK_open);
-      DBUG_RETURN(send_check_errmsg(thd, table, "restore",
-				    "Failed generating table from .frm file"));
-    }
-  }
-
-  /*
-    Now we should be able to open the partially restored table
-    to finish the restore in the handler later on
-  */
-  pthread_mutex_lock(&LOCK_open);
-  if (reopen_name_locked_table(thd, table, TRUE))
-  {
-    unlock_table_name(thd, table);
-    pthread_mutex_unlock(&LOCK_open);
-    DBUG_RETURN(send_check_errmsg(thd, table, "restore",
-                                  "Failed to open partially restored table"));
-  }
-  pthread_mutex_unlock(&LOCK_open);
-  DBUG_RETURN(0);
 }
 
 
@@ -4519,25 +4455,6 @@ send_result_message:
   if (table)
     table->table=0;
   DBUG_RETURN(TRUE);
-}
-
-
-bool mysql_backup_table(THD* thd, TABLE_LIST* table_list)
-{
-  DBUG_ENTER("mysql_backup_table");
-  DBUG_RETURN(mysql_admin_table(thd, table_list, 0,
-				"backup", TL_READ, 0, 0, 0, 0,
-				&handler::backup, 0));
-}
-
-
-bool mysql_restore_table(THD* thd, TABLE_LIST* table_list)
-{
-  DBUG_ENTER("mysql_restore_table");
-  DBUG_RETURN(mysql_admin_table(thd, table_list, 0,
-				"restore", TL_WRITE, 1, 1, 0,
-				&prepare_for_restore,
-				&handler::restore, 0));
 }
 
 
@@ -6713,8 +6630,8 @@ view_err:
         if (!(name_lock= table_cache_insert_placeholder(thd, key,
                                                         key_length)))
         {
-          VOID(pthread_mutex_unlock(&LOCK_open));
-          goto err;
+      VOID(pthread_mutex_unlock(&LOCK_open));
+        goto err;
         }
         name_lock->next= thd->open_tables;
         thd->open_tables= name_lock;

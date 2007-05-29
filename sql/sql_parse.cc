@@ -4744,9 +4744,11 @@ check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
       goto deny;
   }
   thd->security_ctx= backup_ctx;
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
   if (grant_option)
     return check_grant(thd,want_access & ~EXTRA_ACL,org_tables,
 		       test(want_access & EXTRA_ACL), UINT_MAX, no_errors);
+#endif
   return FALSE;
 deny:
   thd->security_ctx= backup_ctx;

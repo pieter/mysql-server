@@ -912,7 +912,7 @@ BEGIN
 END//
 DELIMITER ;//
 --echo # Create a view with t1 and the function.
-CREATE VIEW v1 AS SELECT COUNT(*), count_t2() FROM t1;
+CREATE VIEW v1 AS SELECT COUNT(*), count_t2() FROM t1 GROUP BY 2;
 --echo # Take an exclusive lock on v1.
 --echo # This pre-locks t2 through the view.
 LOCK TABLE v1 IN EXCLUSIVE MODE;

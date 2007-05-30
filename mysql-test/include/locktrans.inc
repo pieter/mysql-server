@@ -293,12 +293,16 @@ DROP USER mysqltest_1@localhost;
 DROP DATABASE mysqltest;
 DROP TABLE t1, t2, t3, t4;
 #
+# Overcome timing problems DROP t1 -> CREATE t1 (*locktrans_myisam).
+--sleep 0.1
+#
 --echo #
 --echo # WL3594 - transactional LOCK TABLE Testing - Functional tests
 --echo # ============================================================
 #
 --echo # Prepare tables and connections.
 --echo # Set AUTOCOMMIT= 0 in each connection.
+SET AUTOCOMMIT= 0;
 eval CREATE TABLE t1 (c1 INT) ENGINE=$engine_type;
 eval CREATE TABLE t2 (c2 INT) ENGINE=$engine_type;
 connect (conn1,localhost,root,,);
@@ -311,7 +315,6 @@ connect (conn2,localhost,root,,);
         SET AUTOCOMMIT= 0;
 --echo # connection default.
 connection default;
-SET AUTOCOMMIT= 0;
 #
 
 if ($transactional)

@@ -287,6 +287,7 @@ DROP TABLE t1, t2, t3, t4;
 # ============================================================
 # Prepare tables and connections.
 # Set AUTOCOMMIT= 0 in each connection.
+SET AUTOCOMMIT= 0;
 CREATE TABLE t1 (c1 INT) ENGINE=InnoDB;
 CREATE TABLE t2 (c2 INT) ENGINE=InnoDB;
 # connection conn1.
@@ -294,7 +295,6 @@ SET AUTOCOMMIT= 0;
 # connection conn2.
 SET AUTOCOMMIT= 0;
 # connection default.
-SET AUTOCOMMIT= 0;
 #
 # Transactional lock behaviour:
 # LOCK TABLE does _not_ commit a transaction.

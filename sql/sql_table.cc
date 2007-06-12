@@ -2759,6 +2759,36 @@ static int mysql_prepare_table(THD *thd, HA_CREATE_INFO *create_info,
     if (key_info->block_size)
       key_info->flags|= HA_USES_BLOCK_SIZE;
 
+    uint tmp_len= system_charset_info->cset->charpos(system_charset_info,
+                                           key->key_create_info.comment.str,
+                                           key->key_create_info.comment.str +
+                                           key->key_create_info.comment.length,
+                                           INDEX_COMMENT_MAXLEN);
+
+    if (tmp_len < key->key_create_info.comment.length)
+    {
+      if ((thd->variables.sql_mode &
+	   (MODE_STRICT_TRANS_TABLES | MODE_STRICT_ALL_TABLES)))
+      {
+        my_error(ER_WRONG_STRING_LENGTH, MYF(0),
+                   key->key_create_info.comment.str,"INDEX COMMENT",
+                   (uint) INDEX_COMMENT_MAXLEN);
+        DBUG_RETURN(-1);
+      }
+      push_warning_printf(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
+                          ER_WRONG_STRING_LENGTH, ER(ER_WRONG_STRING_LENGTH),
+                          key->key_create_info.comment.str,"INDEX COMMENT",
+                          (uint) INDEX_COMMENT_MAXLEN);
+      key->key_create_info.comment.length= tmp_len;
+    }
+
+    key_info->comment.length= key->key_create_info.comment.length;
+    if (key_info->comment.length > 0)
+    {
+      key_info->flags|= HA_USES_COMMENT;
+      key_info->comment.str= key->key_create_info.comment.str;
+    }
+
     List_iterator<key_part_spec> cols(key->columns), cols2(key->columns);
     CHARSET_INFO *ft_key_charset=0;  // for FULLTEXT
     for (uint column_nr=0 ; (column=cols++) ; column_nr++)
@@ -5919,6 +5949,8 @@ view_err:
         key_create_info.block_size= key_info->block_size;
       if (key_info->flags & HA_USES_PARSER)
         key_create_info.parser_name= *key_info->parser_name;
+      if (key_info->flags & HA_USES_COMMENT)
+        key_create_info.comment= key_info->comment;
 
       key_list.push_back(new Key(key_info->flags & HA_SPATIAL ? Key::SPATIAL :
 				 (key_info->flags & HA_NOSAME ?

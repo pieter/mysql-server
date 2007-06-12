@@ -1937,7 +1937,7 @@ ulong next_io_size(ulong pos);
 void append_unescaped(String *res, const char *pos, uint length);
 int create_frm(THD *thd, const char *name, const char *db, const char *table,
                uint reclength, uchar *fileinfo,
-	       HA_CREATE_INFO *create_info, uint keys);
+	       HA_CREATE_INFO *create_info, uint keys, KEY *key_info);
 void update_create_info_from_table(HA_CREATE_INFO *info, TABLE *form);
 int rename_file_ext(const char * from,const char * to,const char * ext);
 bool check_db_name(LEX_STRING *db);

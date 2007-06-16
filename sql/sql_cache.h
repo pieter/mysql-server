@@ -64,6 +64,8 @@ struct Query_cache_table;
 struct Query_cache_query;
 struct Query_cache_result;
 class Query_cache;
+struct Query_cache_tls;
+struct st_lex;
 
 
 struct Query_cache_block_table
@@ -110,7 +112,7 @@ struct Query_cache_query
   ulonglong limit_found_rows;
   rw_lock_t lock;
   Query_cache_block *res;
-  NET *wri;
+  Query_cache_tls *wri;
   ulong len;
   uint8 tbls_type;
   unsigned int last_pkt_nr;
@@ -121,8 +123,8 @@ struct Query_cache_query
   inline void found_rows(ulonglong rows)   { limit_found_rows= rows; }
   inline Query_cache_block *result()	   { return res; }
   inline void result(Query_cache_block *p) { res= p; }
-  inline NET *writer()			   { return wri; }
-  inline void writer(NET *p)		   { wri= p; }
+  inline Query_cache_tls *writer()	   { return wri; }
+  inline void writer(Query_cache_tls *p)   { wri= p; }
   inline uint8 tables_type()               { return tbls_type; }
   inline void tables_type(uint8 type)      { tbls_type= type; }
   inline ulong length()			   { return len; }
@@ -367,8 +369,9 @@ protected:
     (query without tables not cached)
   */
   static
-  TABLE_COUNTER_TYPE is_cacheable(THD *thd, uint32 query_len, char *query,
-				  LEX *lex, TABLE_LIST *tables_used,
+  TABLE_COUNTER_TYPE is_cacheable(THD *thd, size_t query_len,
+                                  const char *query,
+				  struct st_lex *lex, TABLE_LIST *tables_used,
 				  uint8 *tables_type);
 
   static my_bool ask_handler_allowance(THD *thd, TABLE_LIST *tables_used);
@@ -419,10 +422,13 @@ protected:
 
   void destroy();
 
-  friend void query_cache_init_query(NET *net);
-  friend void query_cache_insert(NET *net, const char *packet, ulong length);
-  friend void query_cache_end_of_result(THD *thd);
-  friend void query_cache_abort(NET *net);
+  void insert(Query_cache_tls *query_cache_tls,
+              const char *packet,
+              ulong length,
+              unsigned pkt_nr);
+
+  void end_of_result(THD *thd);
+  void abort(Query_cache_tls *query_cache_tls);
 
   /*
     The following functions are only used when debugging
@@ -445,9 +451,4 @@ protected:
 
 extern Query_cache query_cache;
 extern TYPELIB query_cache_type_typelib;
-void query_cache_init_query(NET *net);
-void query_cache_insert(NET *net, const char *packet, ulong length);
-void query_cache_end_of_result(THD *thd);
-void query_cache_abort(NET *net);
-
 #endif

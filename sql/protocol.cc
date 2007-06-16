@@ -164,7 +164,7 @@ net_printf_error(THD *thd, uint errcode, ...)
 
   thd->query_error=  1; // needed to catch query errors during replication
 #ifndef EMBEDDED_LIBRARY
-  query_cache_abort(net);	// Safety
+  query_cache_abort(&thd->query_cache_tls);	// Safety
 #endif
   va_start(args,errcode);
   /*

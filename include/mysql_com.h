@@ -220,10 +220,9 @@ typedef struct st_net {
   unsigned char error;
 
   /*
-    'query_cache_query' should be accessed only via query cache
-    functions and methods to maintain proper locking.
+    Unused, please remove with the next incompatible ABI change.
   */
-  unsigned char *query_cache_query;
+  unsigned char *unused;
 
   my_bool report_error; /* We should report error (we have unreported error) */
   my_bool return_errno;

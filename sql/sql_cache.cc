@@ -565,19 +565,20 @@ uchar *query_cache_query_get_key(const uchar *record, size_t *length,
   Note on double-check locking (DCL) usage.
 
   Below, in query_cache_insert(), query_cache_abort() and
-  query_cache_end_of_result() we use what is called double-check
-  locking (DCL) for NET::query_cache_query.  I.e. we test it first
-  without a lock, and, if positive, test again under the lock.
+  Query_cache::end_of_result() we use what is called double-check
+  locking (DCL) for Query_cache_tls::first_query_block.
+  I.e. we test it first without a lock, and, if positive, test again
+  under the lock.
 
-  This means that if we see 'NET::query_cache_query == 0' without a
+  This means that if we see 'first_query_block == 0' without a
   lock we will skip the operation.  But this is safe here: when we
   started to cache a query, we called Query_cache::store_query(), and
-  NET::query_cache_query was set to non-zero in this thread (and the
+  'first_query_block' was set to non-zero in this thread (and the
   thread always sees results of its memory operations, mutex or not).
-  If later we see 'NET::query_cache_query == 0' without locking a
+  If later we see 'first_query_block == 0' without locking a
   mutex, that may only mean that some other thread have reset it by
   invalidating the query.  Skipping the operation in this case is the
-  right thing to do, as NET::query_cache_query won't get non-zero for
+  right thing to do, as first_query_block won't get non-zero for
   this query again.
 
   See also comments in Query_cache::store_query() and
@@ -586,51 +587,52 @@ uchar *query_cache_query_get_key(const uchar *record, size_t *length,
   NOTE, however, that double-check locking is not applicable in
   'invalidate' functions, as we may erroneously skip invalidation,
   because the thread doing invalidation may never see non-zero
-  NET::query_cache_query.
+  'first_query_block'.
 */
 
 
-void query_cache_init_query(NET *net)
+/**
+  libmysql convenience wrapper to insert data into query cache.
+*/
+void query_cache_insert(const char *packet, ulong length,
+                        unsigned pkt_nr)
 {
-  /*
-    It is safe to initialize 'NET::query_cache_query' without a lock
-    here, because before it will be accessed from different threads it
-    will be set in this thread under a lock, and access from the same
-    thread is always safe.
-  */
-  net->query_cache_query= 0;
+  query_cache.insert(&current_thd->query_cache_tls,
+                     packet, length,
+                     pkt_nr);
 }
 
 
-/*
+/**
   Insert the packet into the query cache.
 */
 
-void query_cache_insert(NET *net, const char *packet, ulong length)
+void
+Query_cache::insert(Query_cache_tls *query_cache_tls,
+                    const char *packet, ulong length,
+                    unsigned pkt_nr)
 {
-  DBUG_ENTER("query_cache_insert");
+  DBUG_ENTER("Query_cache::insert");
 
   /* See the comment on double-check locking usage above. */
-  if (net->query_cache_query == 0)
+  if (query_cache_tls->first_query_block == NULL)
     DBUG_VOID_RETURN;
 
-  STRUCT_LOCK(&query_cache.structure_guard_mutex);
+  STRUCT_LOCK(&structure_guard_mutex);
 
-  if (unlikely(query_cache.query_cache_size == 0 ||
-               query_cache.flush_in_progress))
+  if (query_cache_size == 0 || flush_in_progress)
   {
-    STRUCT_UNLOCK(&query_cache.structure_guard_mutex);
+    STRUCT_UNLOCK(&structure_guard_mutex);
     DBUG_VOID_RETURN;
   }
 
-  Query_cache_block *query_block = ((Query_cache_block*)
-				    net->query_cache_query);
+  Query_cache_block *query_block = query_cache_tls->first_query_block;
   if (query_block)
   {
     Query_cache_query *header = query_block->query();
     Query_cache_block *result = header->result();
 
-    DUMP(&query_cache);
+    DUMP(this);
     BLOCK_LOCK_WR(query_block);
     DBUG_PRINT("qcache", ("insert packet %lu bytes long",length));
 
@@ -639,102 +641,102 @@ void query_cache_insert(NET *net, const char *packet, ulong length)
       done by query_cache.append_result_data if success (if not we need
       query_cache.structure_guard_mutex locked to free query)
     */
-    if (!query_cache.append_result_data(&result, length, (uchar*) packet,
-					query_block))
+    if (!append_result_data(&result, length, (uchar*) packet,
+                            query_block))
     {
       DBUG_PRINT("warning", ("Can't append data"));
       header->result(result);
       DBUG_PRINT("qcache", ("free query 0x%lx", (ulong) query_block));
       // The following call will remove the lock on query_block
-      query_cache.free_query(query_block);
+      free_query(query_block);
       // append_result_data no success => we need unlock
-      STRUCT_UNLOCK(&query_cache.structure_guard_mutex);
+      STRUCT_UNLOCK(&structure_guard_mutex);
       DBUG_VOID_RETURN;
     }
     header->result(result);
-    header->last_pkt_nr= net->pkt_nr;
+    header->last_pkt_nr= pkt_nr;
     BLOCK_UNLOCK_WR(query_block);
-    DBUG_EXECUTE("check_querycache",query_cache.check_integrity(0););
+    DBUG_EXECUTE("check_querycache", check_integrity(0););
   }
   else
-    STRUCT_UNLOCK(&query_cache.structure_guard_mutex);
+    STRUCT_UNLOCK(&structure_guard_mutex);
   DBUG_VOID_RETURN;
 }
 
 
-void query_cache_abort(NET *net)
+void
+Query_cache::abort(Query_cache_tls *query_cache_tls)
 {
   DBUG_ENTER("query_cache_abort");
 
   /* See the comment on double-check locking usage above. */
-  if (net->query_cache_query == 0)
+  if (query_cache_tls->first_query_block == NULL)
     DBUG_VOID_RETURN;
 
-  STRUCT_LOCK(&query_cache.structure_guard_mutex);
+  STRUCT_LOCK(&structure_guard_mutex);
 
-  if (unlikely(query_cache.query_cache_size == 0 ||
-               query_cache.flush_in_progress))
+  if (query_cache_size == 0 || flush_in_progress)
   {
-    STRUCT_UNLOCK(&query_cache.structure_guard_mutex);
+    STRUCT_UNLOCK(&structure_guard_mutex);
     DBUG_VOID_RETURN;
   }
 
-  Query_cache_block *query_block= ((Query_cache_block*)
-                                   net->query_cache_query);
+  Query_cache_block *query_block= query_cache_tls->first_query_block;
   if (query_block)			// Test if changed by other thread
   {
-    DUMP(&query_cache);
+    DUMP(this);
     BLOCK_LOCK_WR(query_block);
     // The following call will remove the lock on query_block
-    query_cache.free_query(query_block);
-    net->query_cache_query= 0;
-    DBUG_EXECUTE("check_querycache",query_cache.check_integrity(1););
+    free_query(query_block);
+    query_cache_tls->first_query_block= NULL;
+    DBUG_EXECUTE("check_querycache", check_integrity(1););
   }
 
-  STRUCT_UNLOCK(&query_cache.structure_guard_mutex);
+  STRUCT_UNLOCK(&structure_guard_mutex);
 
   DBUG_VOID_RETURN;
 }
 
 
-void query_cache_end_of_result(THD *thd)
+void Query_cache::end_of_result(THD *thd)
 {
   Query_cache_block *query_block;
-  DBUG_ENTER("query_cache_end_of_result");
+  Query_cache_tls *query_cache_tls= &thd->query_cache_tls;
+  ulonglong limit_found_rows= thd->limit_found_rows;
+  DBUG_ENTER("Query_cache::end_of_result");
 
   /* See the comment on double-check locking usage above. */
-  if (thd->net.query_cache_query == 0)
+  if (query_cache_tls->first_query_block == NULL)
     DBUG_VOID_RETURN;
 
 #ifdef EMBEDDED_LIBRARY
-  query_cache_insert(&thd->net, (char*)thd, 
-                     emb_count_querycache_size(thd));
+  insert(query_cache_tls, (char*)thd,
+                     emb_count_querycache_size(thd), 0);
 #endif
 
-  STRUCT_LOCK(&query_cache.structure_guard_mutex);
+  STRUCT_LOCK(&structure_guard_mutex);
 
-  if (unlikely(query_cache.query_cache_size == 0 ||
-               query_cache.flush_in_progress))
+  if (query_cache_size == 0 || flush_in_progress)
     goto end;
 
-  query_block= ((Query_cache_block*) thd->net.query_cache_query);
+  query_block= query_cache_tls->first_query_block;
   if (query_block)
   {
-    DUMP(&query_cache);
+    DUMP(this);
     BLOCK_LOCK_WR(query_block);
     Query_cache_query *header= query_block->query();
     Query_cache_block *last_result_block= header->result()->prev;
     ulong allign_size= ALIGN_SIZE(last_result_block->used);
-    ulong len= max(query_cache.min_allocation_unit, allign_size);
-    if (last_result_block->length >= query_cache.min_allocation_unit + len)
-      query_cache.split_block(last_result_block,len);
+    ulong len= max(min_allocation_unit, allign_size);
+    if (last_result_block->length >= min_allocation_unit + len)
+      split_block(last_result_block,len);
 
 #ifndef DBUG_OFF
     if (header->result() == 0)
     {
       DBUG_PRINT("error", ("end of data whith no result. query '%s'",
                            header->query()));
-      query_cache.wreck(__LINE__, "");
+      wreck(__LINE__, "");
 
       /*
         We do not need call of BLOCK_UNLOCK_WR(query_block); here because
@@ -744,17 +746,16 @@ void query_cache_end_of_result(THD *thd)
       goto end;
     }
 #endif
-    header->found_rows(current_thd->limit_found_rows);
+    header->found_rows(limit_found_rows);
     header->result()->type= Query_cache_block::RESULT;
     header->writer(0);
-    thd->net.query_cache_query= 0;
+    query_cache_tls->first_query_block= NULL;
     BLOCK_UNLOCK_WR(query_block);
-    DBUG_EXECUTE("check_querycache",query_cache.check_integrity(1););
-
+    DBUG_EXECUTE("check_querycache", check_integrity(1););
   }
 
 end:
-  STRUCT_UNLOCK(&query_cache.structure_guard_mutex);
+  STRUCT_UNLOCK(&structure_guard_mutex);
   DBUG_VOID_RETURN;
 }
 
@@ -984,8 +985,8 @@ def_week_frmt: %lu",
 	double_linked_list_simple_include(query_block, &queries_blocks);
 	inserts++;
 	queries_in_cache++;
-	net->query_cache_query= (uchar*) query_block;
-	header->writer(net);
+	thd->query_cache_tls.first_query_block= query_block;
+	header->writer(&thd->query_cache_tls);
 	header->tables_type(tables_type);
 
 	STRUCT_UNLOCK(&structure_guard_mutex);
@@ -1041,6 +1042,7 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
   Query_cache_block_table *block_table, *block_table_end;
   ulong tot_length;
   Query_cache_query_flags flags;
+  Query_cache_tls *query_cache_tls= &thd->query_cache_tls;
   DBUG_ENTER("Query_cache::send_result_to_client");
 
   /*
@@ -1095,7 +1097,7 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
   }
 
   /* Check that we haven't forgot to reset the query cache variables */
-  DBUG_ASSERT(thd->net.query_cache_query == 0);
+  DBUG_ASSERT(query_cache_tls->first_query_block == NULL);
 
   Query_cache_block *query_block;
 
@@ -1936,7 +1938,7 @@ void Query_cache::free_query_internal(Query_cache_block *query_block)
   if (query->writer() != 0)
   {
     /* Tell MySQL that this query should not be cached anymore */
-    query->writer()->query_cache_query= 0;
+    query->writer()->first_query_block= NULL;
     query->writer(0);
   }
   double_linked_list_exclude(query_block, &queries_blocks);
@@ -3058,7 +3060,8 @@ static TABLE_COUNTER_TYPE process_and_count_tables(TABLE_LIST *tables_used,
 */
 
 TABLE_COUNTER_TYPE
-Query_cache::is_cacheable(THD *thd, uint32 query_len, char *query, LEX *lex,
+Query_cache::is_cacheable(THD *thd, size_t query_len, const char *query,
+                          LEX *lex,
                           TABLE_LIST *tables_used, uint8 *tables_type)
 {
   TABLE_COUNTER_TYPE table_count;
@@ -3358,10 +3361,10 @@ my_bool Query_cache::move_by_type(uchar **border,
       If someone is writing to this block, inform the writer that the block
       has been moved.
     */
-    NET *net = new_block->query()->writer();
-    if (net != 0)
+    Query_cache_tls *query_cache_tls= new_block->query()->writer();
+    if (query_cache_tls != NULL)
     {
-      net->query_cache_query= (uchar*) new_block;
+      query_cache_tls->first_query_block= new_block;
     }
     /* Fix hash to point at moved block */
     hash_replace(&queries, &record_idx, (uchar*) new_block);

@@ -485,3 +485,20 @@ CREATE TABLE t1 (
 insert into t1 values (''),('a');
 SELECT COUNT(*), c1 FROM t1 GROUP BY c1;
 DROP TABLE IF EXISTS t1;
+
+--echo End of 5.1 tests
+
+set collation_connection=ucs2_unicode_ci;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+
+set @@collation_connection=utf8_unicode_ci;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+
+set @@collation_connection=utf8_czech_ci;
+--source include/weight_string_chde.inc
+
+set @@collation_connection=ucs2_czech_ci;
+--source include/weight_string_chde.inc
+

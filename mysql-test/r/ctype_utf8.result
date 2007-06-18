@@ -1657,3 +1657,127 @@ colA	colB	colA	colB
 1	foo	1	foo
 2	foo bar	2	foo bar
 DROP TABLE t1, t2;
+End of 5.1 tests
+set names utf8;
+select @@collation_connection;
+@@collation_connection
+utf8_general_ci
+select hex(weight_string('a'));
+hex(weight_string('a'))
+0041
+select hex(weight_string('A'));
+hex(weight_string('A'))
+0041
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+004100420043
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+00410042
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+004100420043
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+00410042004300200020
+select @@collation_connection;
+@@collation_connection
+utf8_general_ci
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+0041
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+0041
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+004100420043
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+00410042
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+004100420043
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+00410042004300200020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+20002000430042004100
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+FFBEFFBDFFBCFFDFFFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFFFDFFFBCFFBDFFBEFF
+set @@collation_connection=utf8_bin;
+select @@collation_connection;
+@@collation_connection
+utf8_bin
+select hex(weight_string('a'));
+hex(weight_string('a'))
+0061
+select hex(weight_string('A'));
+hex(weight_string('A'))
+0041
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+006100620063
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+00610062
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+006100620063
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+00610062006300200020
+select @@collation_connection;
+@@collation_connection
+utf8_bin
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+0061
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+0041
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+006100620063
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+00610062
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+006100620063
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+00610062006300200020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+20002000630062006100
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+FF9EFF9DFF9CFFDFFFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFFFDFFF9CFF9DFF9EFF
+set max_sort_length=5;
+select @@max_sort_length;
+@@max_sort_length
+5
+create table t1 (a varchar(128) character set utf8 collate utf8_general_ci);
+insert into t1 values ('a'),('b'),('c');
+select * from t1 order by a;
+a
+a
+b
+c
+alter table t1 modify a varchar(128) character set utf8 collate utf8_bin;
+select * from t1 order by a;
+a
+a
+b
+c
+drop table t1;
+set max_sort_length=default;

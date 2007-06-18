@@ -2662,29 +2662,35 @@ static int my_strnncollsp_gbk(CHARSET_INFO * cs __attribute__((unused)),
 }
 
 
-static int my_strnxfrm_gbk(CHARSET_INFO *cs __attribute__((unused)),
-                    uchar * dest, uint len,
-                    const uchar * src, uint srclen)
+static int
+my_strnxfrm_gbk(CHARSET_INFO *cs,
+                uchar *dst, uint dstlen, uint nweights,
+                const uchar *src, uint srclen, uint flags)
 {
-  uint16 e;
-  uint dstlen= len;
-
-  len = srclen;
-  while (len--)
+  uchar *d0= dst;
+  uchar *de= dst + dstlen;
+  const uchar *se= src + srclen;
+  const uchar *sort_order= cs->sort_order;
+  
+  for (; dst < de && src < se && nweights; nweights--)
   {
-    if ((len > 0) && isgbkcode(*src, *(src+1)))
+    if (cs->cset->ismbchar(cs, (const char*) src, (const char*) se))
     {
-      e = gbksortorder((uint16) gbkcode(*src, *(src+1)));
-      *dest++ = gbkhead(e);
-      *dest++ = gbktail(e);
-      src+=2;
-      len--;
-    } else 
-      *dest++ = sort_order_gbk[(uchar) *src++];
+      /*
+        Note, it is safe not to check (src < se)
+        in the code below, because ismbchar() would
+        not return TRUE if src was too short
+      */
+      uint16 e= gbksortorder((uint16) gbkcode(*src, *(src + 1)));
+      *dst++= gbkhead(e);
+      if (dst < de)
+        *dst++= gbktail(e);
+      src+= 2;
+    }
+    else
+      *dst++= sort_order ? sort_order[*src++] : *src++;
   }
-  if (dstlen > srclen)
-    bfill(dest, dstlen - srclen, ' ');
-  return dstlen;
+  return my_strxfrm_pad_desc_and_reverse(cs, d0, dst, de, nweights, flags, 0);
 }
 
 
@@ -9988,6 +9994,7 @@ static MY_COLLATION_HANDLER my_collation_ci_handler =
   my_propagate_simple
 };
 
+
 static MY_CHARSET_HANDLER my_charset_handler=
 {
   NULL,			/* init */
@@ -10048,6 +10055,8 @@ CHARSET_INFO my_charset_gbk_chinese_ci=
     255,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_handler,
     &my_collation_ci_handler
 };
@@ -10080,6 +10089,8 @@ CHARSET_INFO my_charset_gbk_bin=
     255,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_handler,
     &my_collation_mb_bin_handler
 };

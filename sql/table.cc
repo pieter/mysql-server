@@ -2200,7 +2200,7 @@ File create_frm(THD *thd, const char *name, const char *db,
   char fill[IO_SIZE];
   int create_flags= O_RDWR | O_TRUNC;
   ulong key_comment_total_bytes= 0;
-  int i;
+  uint i;
 
   if (create_info->options & HA_LEX_CREATE_TMP_TABLE)
     create_flags|= O_EXCL | O_NOFOLLOW;

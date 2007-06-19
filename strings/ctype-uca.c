@@ -7256,31 +7256,34 @@ static void my_hash_sort_uca(CHARSET_INFO *cs,
 
 static int my_strnxfrm_uca(CHARSET_INFO *cs, 
                            my_uca_scanner_handler *scanner_handler,
-                           uchar *dst, uint dstlen,
-                           const uchar *src, uint srclen)
+                           uchar *dst, uint dstlen, uint nweights,
+                           const uchar *src, uint srclen, uint flags)
 {
-  uchar *de = dst + (dstlen & (uint) ~1); /* add even length for easier code */
+  uchar *d0= dst;
+  uchar *de= dst + (dstlen & (uint) ~1); /* add even length for easier code */
   int   s_res;
   my_uca_scanner scanner;
   scanner_handler->init(&scanner, cs, src, srclen);
   
-  while (dst < de && (s_res= scanner_handler->next(&scanner)) >0)
+  for (; dst < de && nweights &&
+         (s_res= scanner_handler->next(&scanner)) > 0 ; nweights--)
   {
-    dst[0]= s_res >> 8;
-    dst[1]= s_res & 0xFF;
-    dst+= 2;
+    *dst++= s_res >> 8;
+    *dst++= s_res & 0xFF;
   }
-  s_res= cs->sort_order_big[0][0x20 * cs->sort_order[0]];
-  while (dst < de)
-  {
-    dst[0]= s_res >> 8;
-    dst[1]= s_res & 0xFF;
-    dst+= 2;
-  }
-  if (dstlen & 1) /* if odd number then fill the last char */
-    *dst= '\0';
   
-  return dstlen;
+  if (dst < de && nweights && (flags & MY_STRXFRM_PAD_WITH_SPACE))
+  {
+    uint space_count= min((uint) (de - dst) / 2, nweights);
+    s_res= cs->sort_order_big[0][0x20 * cs->sort_order[0]];
+    for (; space_count ; space_count--)
+    {
+      *dst++= s_res >> 8;
+      *dst++= s_res & 0xFF;
+    }
+  }
+  my_strxfrm_desc_and_reverse(d0, dst, flags, 0);
+  return dst - d0;
 }
 
 
@@ -8012,11 +8015,11 @@ static void my_hash_sort_any_uca(CHARSET_INFO *cs,
 }
 
 static int my_strnxfrm_any_uca(CHARSET_INFO *cs, 
-                               uchar *dst, uint dstlen,
-                               const uchar *src, uint srclen)
+                               uchar *dst, uint dstlen, uint nweights,
+                               const uchar *src, uint srclen, uint flags)
 {
   return my_strnxfrm_uca(cs, &my_any_uca_scanner_handler,
-                         dst, dstlen, src, srclen);
+                         dst, dstlen, nweights, src, srclen, flags);
 }
 
 
@@ -8051,11 +8054,11 @@ static void my_hash_sort_ucs2_uca(CHARSET_INFO *cs,
 }
 
 static int my_strnxfrm_ucs2_uca(CHARSET_INFO *cs, 
-                                uchar *dst, uint dstlen,
-                                const uchar *src, uint srclen)
+                                uchar *dst, uint dstlen, uint nweights,
+                                const uchar *src, uint srclen, uint flags)
 {
   return my_strnxfrm_uca(cs, &my_ucs2_uca_scanner_handler,
-                         dst, dstlen, src, srclen);
+                         dst, dstlen, nweights, src, srclen, flags);
 }
 
 MY_COLLATION_HANDLER my_collation_ucs2_uca_handler =
@@ -8101,6 +8104,8 @@ CHARSET_INFO my_charset_ucs2_general_uca=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8133,6 +8138,8 @@ CHARSET_INFO my_charset_ucs2_icelandic_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8165,6 +8172,8 @@ CHARSET_INFO my_charset_ucs2_latvian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8197,6 +8206,8 @@ CHARSET_INFO my_charset_ucs2_romanian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8229,6 +8240,8 @@ CHARSET_INFO my_charset_ucs2_slovenian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8261,6 +8274,8 @@ CHARSET_INFO my_charset_ucs2_polish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8293,6 +8308,8 @@ CHARSET_INFO my_charset_ucs2_estonian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8325,6 +8342,8 @@ CHARSET_INFO my_charset_ucs2_spanish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8357,6 +8376,8 @@ CHARSET_INFO my_charset_ucs2_swedish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8389,6 +8410,8 @@ CHARSET_INFO my_charset_ucs2_turkish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8421,6 +8444,8 @@ CHARSET_INFO my_charset_ucs2_czech_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8454,6 +8479,8 @@ CHARSET_INFO my_charset_ucs2_danish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8486,6 +8513,8 @@ CHARSET_INFO my_charset_ucs2_lithuanian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8518,6 +8547,8 @@ CHARSET_INFO my_charset_ucs2_slovak_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8550,6 +8581,8 @@ CHARSET_INFO my_charset_ucs2_spanish2_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8583,6 +8616,8 @@ CHARSET_INFO my_charset_ucs2_roman_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8616,6 +8651,8 @@ CHARSET_INFO my_charset_ucs2_persian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8649,6 +8686,8 @@ CHARSET_INFO my_charset_ucs2_esperanto_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8682,6 +8721,8 @@ CHARSET_INFO my_charset_ucs2_hungarian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_ucs2_handler,
     &my_collation_ucs2_uca_handler
 };
@@ -8762,6 +8803,8 @@ CHARSET_INFO my_charset_utf8_general_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -8795,6 +8838,8 @@ CHARSET_INFO my_charset_utf8_icelandic_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -8827,6 +8872,8 @@ CHARSET_INFO my_charset_utf8_latvian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -8859,6 +8906,8 @@ CHARSET_INFO my_charset_utf8_romanian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -8891,6 +8940,8 @@ CHARSET_INFO my_charset_utf8_slovenian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -8923,6 +8974,8 @@ CHARSET_INFO my_charset_utf8_polish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -8955,6 +9008,8 @@ CHARSET_INFO my_charset_utf8_estonian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -8987,6 +9042,8 @@ CHARSET_INFO my_charset_utf8_spanish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9019,6 +9076,8 @@ CHARSET_INFO my_charset_utf8_swedish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9051,6 +9110,8 @@ CHARSET_INFO my_charset_utf8_turkish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9083,6 +9144,8 @@ CHARSET_INFO my_charset_utf8_czech_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9116,6 +9179,8 @@ CHARSET_INFO my_charset_utf8_danish_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9148,6 +9213,8 @@ CHARSET_INFO my_charset_utf8_lithuanian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9180,6 +9247,8 @@ CHARSET_INFO my_charset_utf8_slovak_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9212,6 +9281,8 @@ CHARSET_INFO my_charset_utf8_spanish2_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9244,6 +9315,8 @@ CHARSET_INFO my_charset_utf8_roman_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9276,6 +9349,8 @@ CHARSET_INFO my_charset_utf8_persian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9308,6 +9383,8 @@ CHARSET_INFO my_charset_utf8_esperanto_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };
@@ -9340,6 +9417,8 @@ CHARSET_INFO my_charset_utf8_hungarian_uca_ci=
     0xFFFF,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_any_uca_handler
 };

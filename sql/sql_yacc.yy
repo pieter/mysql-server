@@ -6849,8 +6849,7 @@ function_call_conflict:
           }
 	| WEIGHT_STRING_SYM '(' expr AS BINARY ws_nweights ')'
 	  {
-            $3= create_func_cast(YYTHD, $3, ITEM_CAST_CHAR, $6, 0,
-                                 &my_charset_bin);
+            $3= create_func_char_cast(YYTHD, $3, $6, &my_charset_bin);
             $$= new (YYTHD->mem_root)
                 Item_func_weight_string($3, $6, MY_STRXFRM_PAD_WITH_SPACE);
           }

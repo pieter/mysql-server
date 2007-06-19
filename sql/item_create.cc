@@ -4949,6 +4949,14 @@ find_qualified_function_builder(THD *thd)
 }
 
 
+Item*
+create_func_char_cast(THD *thd, Item *a, int len, CHARSET_INFO *cs)
+{
+  CHARSET_INFO *real_cs= (cs ? cs : thd->variables.collation_connection);
+  return new (thd->mem_root) Item_char_typecast(a, len, real_cs);
+}
+
+
 Item *
 create_func_cast(THD *thd, Item *a, Cast_target cast_type,
                  const char *c_len, const char *c_dec,
@@ -4993,9 +5001,7 @@ create_func_cast(THD *thd, Item *a, Cast_target cast_type,
   }
   case ITEM_CAST_CHAR:
   {
-    CHARSET_INFO *real_cs= (cs ? cs : thd->variables.collation_connection);
-    len= c_len ? atoi(c_len) : -1;
-    res= new (thd->mem_root) Item_char_typecast(a, len, real_cs);
+    res= create_func_char_cast(thd, a, len, cs);
     break;
   }
   default:

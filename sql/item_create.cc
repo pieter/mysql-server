@@ -5001,6 +5001,7 @@ create_func_cast(THD *thd, Item *a, Cast_target cast_type,
   }
   case ITEM_CAST_CHAR:
   {
+    len= c_len ? atoi(c_len) : -1;
     res= create_func_char_cast(thd, a, len, cs);
     break;
   }

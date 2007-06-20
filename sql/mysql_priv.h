@@ -93,16 +93,35 @@ char* query_table_status(THD *thd,const char *db,const char *table_name);
 #define PREV_BITS(type,A)	((type) (((type) 1 << (A)) -1))
 #define all_bits_set(A,B) ((A) & (B) != (B))
 
-#define WARN_DEPRECATED(Thd,Ver,Old,New)                                             \
-  do {                                                                               \
-    DBUG_ASSERT(strncmp(Ver, MYSQL_SERVER_VERSION, sizeof(Ver)-1) > 0);              \
-    if (((uchar*)Thd) != NULL)                                                         \
-      push_warning_printf(((THD *)Thd), MYSQL_ERROR::WARN_LEVEL_WARN,                \
-                        ER_WARN_DEPRECATED_SYNTAX, ER(ER_WARN_DEPRECATED_SYNTAX),    \
-                        (Old), (Ver), (New));                                        \
-    else                                                                             \
-      sql_print_warning("The syntax %s is deprecated and will be removed "           \
-                        "in MySQL %s. Please use %s instead.", (Old), (Ver), (New)); \
+/*
+  Generates a warning that a feature is deprecated. After a specified version
+  asserts that the feature is removed.
+
+  Using it as
+
+    WARN_DEPRECATED(thd, 6,2, "BAD", "'GOOD'");
+
+ Will result in a warning
+
+    "The syntax 'BAD' is deprecated and will be removed in MySQL 6.2. Please
+    use 'GOOD' instead"
+
+ Note, that in macro arguments BAD is not quoted, while 'GOOD' is.
+ Note, that the version is TWO numbers, separated with a comma
+ (two macro arguments, that is)
+*/
+#define WARN_DEPRECATED(Thd,VerHi,VerLo,Old,New)                            \
+  do {                                                                      \
+    compile_time_assert(MYSQL_VERSION_ID < VerHi * 10000 + VerLo * 100);    \
+    if (Thd)                                                                \
+      push_warning_printf((Thd), MYSQL_ERROR::WARN_LEVEL_WARN,              \
+                        ER_WARN_DEPRECATED_SYNTAX,                          \
+                        ER(ER_WARN_DEPRECATED_SYNTAX),                      \
+                        (Old), #VerHi "." #VerLo, (New));                   \
+    else                                                                    \
+      sql_print_warning("The syntax %s is deprecated and will be removed "  \
+                        "in MySQL %s. Please use %s instead.",              \
+                        (Old), #VerHi "." #VerLo, (New));                   \
   } while(0)
 
 extern CHARSET_INFO *system_charset_info, *files_charset_info ;
@@ -1786,6 +1805,10 @@ bool make_global_read_lock_block_commit(THD *thd);
 bool set_protect_against_global_read_lock(void);
 void unset_protect_against_global_read_lock(void);
 void broadcast_refresh(void);
+int try_transactional_lock(THD *thd, TABLE_LIST *table_list);
+int check_transactional_lock(THD *thd, TABLE_LIST *table_list);
+int set_handler_table_locks(THD *thd, TABLE_LIST *table_list,
+                            bool transactional);
 
 /* Lock based on name */
 int lock_and_wait_for_table_name(THD *thd, TABLE_LIST *table_list);
@@ -1903,7 +1926,7 @@ ulong next_io_size(ulong pos);
 void append_unescaped(String *res, const char *pos, uint length);
 int create_frm(THD *thd, const char *name, const char *db, const char *table,
                uint reclength, uchar *fileinfo,
-	       HA_CREATE_INFO *create_info, uint keys);
+	       HA_CREATE_INFO *create_info, uint keys, KEY *key_info);
 void update_create_info_from_table(HA_CREATE_INFO *info, TABLE *form);
 int rename_file_ext(const char * from,const char * to,const char * ext);
 bool check_db_name(LEX_STRING *db);

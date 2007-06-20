@@ -929,6 +929,9 @@ typedef struct st_table_list
     ... SELECT implementation).
   */
   bool          create;
+  /* For transactional locking. */
+  int           lock_timeout;           /* NOWAIT or WAIT [X]               */
+  bool          lock_transactional;     /* If transactional lock requested. */
 
   enum enum_schema_table_state schema_table_state;
   void calc_md5(char *buffer);
@@ -936,6 +939,10 @@ typedef struct st_table_list
   int view_check_option(THD *thd, bool ignore_failure);
   bool setup_underlying(THD *thd);
   void cleanup_items();
+  /*
+    If you change placeholder(), please check the condition in
+    check_transactional_lock() too.
+  */
   bool placeholder()
   {
     return derived || view || schema_table || create && !table->db_stat ||

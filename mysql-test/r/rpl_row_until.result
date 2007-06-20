@@ -19,7 +19,7 @@ n
 2
 3
 4
-SHOW SLAVE STATUS;;
+show slave status;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
@@ -27,7 +27,7 @@ Master_Port	MASTER_MYPORT
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	744
-Relay_Log_File	slave-relay-bin.000004
+Relay_Log_File	slave-relay-bin.000003
 Relay_Log_Pos	#
 Relay_Master_Log_File	master-bin.000001
 Slave_IO_Running	#
@@ -61,7 +61,7 @@ n
 2
 3
 4
-SHOW SLAVE STATUS;;
+show slave status;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
@@ -69,7 +69,7 @@ Master_Port	MASTER_MYPORT
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	744
-Relay_Log_File	slave-relay-bin.000004
+Relay_Log_File	slave-relay-bin.000003
 Relay_Log_Pos	#
 Relay_Master_Log_File	master-bin.000001
 Slave_IO_Running	#
@@ -96,12 +96,12 @@ Master_SSL_Cipher
 Master_SSL_Key	
 Seconds_Behind_Master	#
 Master_SSL_Verify_Server_Cert	No
-start slave until relay_log_file='slave-relay-bin.000004', relay_log_pos=728;
+start slave until relay_log_file='slave-relay-bin.000003', relay_log_pos=728;
 select * from t2;
 n
 1
 2
-SHOW SLAVE STATUS;;
+show slave status;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
@@ -109,7 +109,7 @@ Master_Port	MASTER_MYPORT
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	744
-Relay_Log_File	slave-relay-bin.000004
+Relay_Log_File	slave-relay-bin.000003
 Relay_Log_Pos	#
 Relay_Master_Log_File	master-bin.000001
 Slave_IO_Running	#
@@ -126,7 +126,7 @@ Skip_Counter	0
 Exec_Master_Log_Pos	590
 Relay_Log_Space	#
 Until_Condition	Relay
-Until_Log_File	slave-relay-bin.000004
+Until_Log_File	slave-relay-bin.000003
 Until_Log_Pos	728
 Master_SSL_Allowed	No
 Master_SSL_CA_File	
@@ -139,7 +139,7 @@ Master_SSL_Verify_Server_Cert	No
 start slave;
 stop slave;
 start slave until master_log_file='master-bin.000001', master_log_pos=740;
-SHOW SLAVE STATUS;;
+show slave status;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
@@ -147,7 +147,7 @@ Master_Port	MASTER_MYPORT
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	744
-Relay_Log_File	slave-relay-bin.000004
+Relay_Log_File	slave-relay-bin.000003
 Relay_Log_Pos	#
 Relay_Master_Log_File	master-bin.000001
 Slave_IO_Running	Yes

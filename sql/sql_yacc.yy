@@ -472,6 +472,7 @@ Item* handle_sql2003_note184_exception(THD *thd, Item* left, bool equal,
   enum Item_udftype udf_type;
   CHARSET_INFO *charset;
   thr_lock_type lock_type;
+  struct st_table_lock_info table_lock_info;
   interval_type interval, interval_time_st;
   timestamp_type date_time_type;
   st_select_lex *select_lex;
@@ -491,10 +492,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %pure_parser					/* We have threads */
 /*
-  Currently there is 286 shift/reduce conflict. We should not introduce
+  Currently there is 285 shift/reduce conflict. We should not introduce
   new conflicts any more.
 */
-%expect 286
+%expect 285
 
 /*
    Comments for TOKENS.
@@ -660,6 +661,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  EVENTS_SYM
 %token  EVENT_SYM
 %token  EVERY_SYM                     /* SQL-2003-N */
+%token  EXCLUSIVE_SYM
 %token  EXECUTE_SYM                   /* SQL-2003-R */
 %token  EXISTS                        /* SQL-2003-R */
 %token  EXIT_SYM
@@ -718,7 +720,6 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  INFILE
 %token  INITIAL_SIZE_SYM
 %token  INNER_SYM                     /* SQL-2003-R */
-%token  INNOBASE_SYM
 %token  INOUT_SYM                     /* SQL-2003-R */
 %token  INSENSITIVE_SYM               /* SQL-2003-R */
 %token  INSERT                        /* SQL-2003-R */
@@ -831,6 +832,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  NOT2_SYM
 %token  NOT_SYM                       /* SQL-2003-R */
 %token  NOW_SYM
+%token  NOWAIT_SYM
 %token  NO_SYM                        /* SQL-2003-R */
 %token  NO_WAIT_SYM
 %token  NO_WRITE_TO_BINLOG
@@ -1107,7 +1109,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 	text_string opt_gconcat_separator
 
 %type <num>
-	type int_type real_type order_dir lock_option
+	type int_type real_type order_dir
 	udf_type if_exists opt_local opt_table_options table_options
         table_option opt_if_not_exists opt_no_write_to_binlog
         delete_option opt_temporary all_or_any opt_distinct
@@ -1117,6 +1119,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         opt_natural_language_mode opt_query_expansion
         opt_ev_status opt_ev_on_completion ev_on_completion opt_ev_comment
         ev_alter_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
+        opt_transactional_lock_timeout
+        /* opt_lock_timeout_value */
 
 %type <ulong_num>
 	ulong_num real_ulong_num merge_insert_types
@@ -1129,6 +1133,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %type <lock_type>
 	replace_lock_option opt_low_priority insert_lock_option load_data_lock
+        transactional_lock_mode
+
+%type <table_lock_info>
+        table_lock_info
 
 %type <item>
 	literal text_literal insert_ident order_ident
@@ -1219,7 +1227,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 	show describe load alter optimize keycache preload flush
 	reset purge begin commit rollback savepoint release
 	slave master_def master_defs master_file_def slave_until_opts
-	repair restore backup analyze check start checksum
+	repair analyze check start checksum
 	field_list field_list_item field_spec kill column_def key_def
 	keycache_list assign_to_keycache preload_list preload_keys
 	select_item_list select_item values_list no_braces
@@ -1248,7 +1256,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         prepare prepare_src execute deallocate
 	statement sp_suid
 	sp_c_chistics sp_a_chistics sp_chistic sp_c_chistic xa
-        load_data opt_field_or_var_spec fields_or_vars opt_load_data_set_spec
+        opt_field_or_var_spec fields_or_vars opt_load_data_set_spec
         definer view_replace_or_algorithm view_replace
         view_algorithm view_or_trigger_or_sp_or_event
         view_or_trigger_or_sp_or_event_tail
@@ -1308,7 +1316,6 @@ verb_clause:
 statement:
 	  alter
 	| analyze
-	| backup
 	| binlog_base64_event
 	| call
 	| change
@@ -1342,7 +1349,6 @@ statement:
 	| repair
 	| replace
 	| reset
-	| restore
 	| revoke
 	| rollback
 	| savepoint
@@ -3606,7 +3612,7 @@ create2:
             Lex->create_info.options|= HA_LEX_CREATE_TABLE_LIKE;
             if (!Lex->select_lex.add_table_to_list(YYTHD, $2, NULL, 0, TL_READ))
               MYSQL_YYABORT;
-          }
+            }
         | '(' LIKE table_ident ')'
           {
             Lex->create_info.options|= HA_LEX_CREATE_TABLE_LIKE;
@@ -4287,13 +4293,6 @@ create_table_options:
 
 create_table_option:
 	ENGINE_SYM opt_equal storage_engines    { Lex->create_info.db_type= $3; Lex->create_info.used_fields|= HA_CREATE_USED_ENGINE; }
-	| TYPE_SYM opt_equal storage_engines
-          {
-            Lex->create_info.db_type= $3;
-            WARN_DEPRECATED(yythd, "5.2", "TYPE=storage_engine",
-                            "'ENGINE=storage_engine'");
-            Lex->create_info.used_fields|= HA_CREATE_USED_ENGINE;
-          }
 	| MAX_ROWS opt_equal ulonglong_num	{ Lex->create_info.max_rows= $3; Lex->create_info.used_fields|= HA_CREATE_USED_MAX_ROWS;}
 	| MIN_ROWS opt_equal ulonglong_num	{ Lex->create_info.min_rows= $3; Lex->create_info.used_fields|= HA_CREATE_USED_MIN_ROWS;}
 	| AVG_ROW_LENGTH opt_equal ulong_num	{ Lex->create_info.avg_row_length=$3; Lex->create_info.used_fields|= HA_CREATE_USED_AVG_ROW_LENGTH;}
@@ -4499,14 +4498,14 @@ key_def:
 	    LEX *lex=Lex;
             const char *key_name= $4 ? $4 : $1;
             Key *key= new foreign_key(key_name, lex->col_list,
-                                      $8,
-                                      lex->ref_list,
-                                      lex->fk_delete_opt,
-                                      lex->fk_update_opt,
+				    $8,
+				    lex->ref_list,
+				    lex->fk_delete_opt,
+				    lex->fk_update_opt,
                                       lex->fk_match_option);
             lex->alter_info.key_list.push_back(key);
             key= new Key(Key::MULTIPLE, key_name,
-                         &default_key_create_info, 1,
+					    &default_key_create_info, 1,
                          lex->col_list);
             lex->alter_info.key_list.push_back(key);
 	    lex->col_list.empty();		/* Alloced by sql_alloc */
@@ -4595,21 +4594,19 @@ type:
 	| nvarchar '(' NUM ')' opt_bin_mod { Lex->length=$3.str;
 					  $$= MYSQL_TYPE_VARCHAR;
 					  Lex->charset=national_charset_info; }
-	| VARBINARY '(' NUM ')' 	{ Lex->length=$3.str;
+        | VARBINARY '(' NUM ')'         { Lex->length=$3.str;
 					  Lex->charset=&my_charset_bin;
 					  $$= MYSQL_TYPE_VARCHAR; }
 	| YEAR_SYM opt_len field_options { $$=MYSQL_TYPE_YEAR; }
 	| DATE_SYM			{ $$=MYSQL_TYPE_DATE; }
 	| TIME_SYM			{ $$=MYSQL_TYPE_TIME; }
-	| TIMESTAMP opt_len
+	| TIMESTAMP
 	  {
 	    if (YYTHD->variables.sql_mode & MODE_MAXDB)
 	      $$=MYSQL_TYPE_DATETIME;
 	    else
             {
-              /* 
-                Unlike other types TIMESTAMP fields are NOT NULL by default.
-              */
+              /* Unlike other types TIMESTAMP fields are NOT NULL by default */
               Lex->type|= NOT_NULL_FLAG;
 	      $$=MYSQL_TYPE_TIMESTAMP;
             }
@@ -5035,6 +5032,7 @@ key_opt:
         key_using_alg
 	| KEY_BLOCK_SIZE opt_equal ulong_num
 	  { Lex->key_create_info.block_size= $3; }
+	| COMMENT_SYM TEXT_STRING_sys { Lex->key_create_info.comment= $2; }
 	| WITH PARSER_SYM IDENT_sys
           {
             if (plugin_is_ready(&$3, MYSQL_FTPARSER_PLUGIN))
@@ -5109,7 +5107,7 @@ alter:
 	  lex->create_info.db_type= 0;
 	  lex->create_info.default_table_charset= NULL;
 	  lex->create_info.row_type= ROW_TYPE_NOT_USED;
-          lex->alter_info.reset();
+	  lex->alter_info.reset();
           lex->no_write_to_binlog= 0;
           lex->create_info.storage_media= HA_SM_DEFAULT;	
 	}
@@ -5573,7 +5571,7 @@ alter_list_item:
 	    size_t dummy;
 	    lex->select_lex.db=$3->db.str;
             if (lex->select_lex.db == NULL &&
-	                thd->copy_db_to(&lex->select_lex.db, &dummy))
+                thd->copy_db_to(&lex->select_lex.db, &dummy))
             {
               MYSQL_YYABORT;
             }
@@ -5745,27 +5743,6 @@ slave_until:
 slave_until_opts:
        master_file_def
        | slave_until_opts ',' master_file_def ;
-
-
-restore:
-	RESTORE_SYM table_or_tables
-	{
-	   Lex->sql_command = SQLCOM_RESTORE_TABLE;
-	}
-	table_list FROM TEXT_STRING_sys
-        {
-	  Lex->backup_dir = $6.str;
-        };
-
-backup:
-	BACKUP_SYM table_or_tables
-	{
-	   Lex->sql_command = SQLCOM_BACKUP_TABLE;
-	}
-	table_list TO_SYM TEXT_STRING_sys
-        {
-	  Lex->backup_dir = $6.str;
-        };
 
 checksum:
         CHECKSUM_SYM table_or_tables
@@ -8632,14 +8609,6 @@ show_param:
             if (prepare_schema_table(YYTHD, lex, 0, SCH_OPEN_TABLES))
               MYSQL_YYABORT;
 	  }
-        | opt_full PLUGIN_SYM
-	  {
-	    LEX *lex= Lex;
-	    WARN_DEPRECATED(yythd, "5.2", "SHOW PLUGIN", "'SHOW PLUGINS'");
-            lex->sql_command= SQLCOM_SHOW_PLUGINS;
-            if (prepare_schema_table(YYTHD, lex, 0, SCH_PLUGINS))
-              MYSQL_YYABORT;
-	  }
         | PLUGINS_SYM
 	  {
 	    LEX *lex= Lex;
@@ -8697,12 +8666,6 @@ show_param:
 	    LEX *lex=Lex;
 	    lex->sql_command= SQLCOM_SHOW_COLUMN_TYPES;
 	  }
-	| TABLE_SYM TYPES_SYM
-	  {
-	    LEX *lex=Lex;
-	    lex->sql_command= SQLCOM_SHOW_STORAGE_ENGINES;
-	    WARN_DEPRECATED(yythd, "5.2", "SHOW TABLE TYPES", "'SHOW [STORAGE] ENGINES'");
-	  }
 	| opt_storage ENGINES_SYM
 	  {
 	    LEX *lex=Lex;
@@ -8740,30 +8703,6 @@ show_param:
             lex->option_type= $1;
             if (prepare_schema_table(YYTHD, lex, 0, SCH_STATUS))
               MYSQL_YYABORT;
-	  }
-        | INNOBASE_SYM STATUS_SYM
-          {
-            LEX *lex= Lex;
-            lex->sql_command = SQLCOM_SHOW_ENGINE_STATUS;
-            if (!(lex->create_info.db_type=
-                  ha_resolve_by_legacy_type(YYTHD, DB_TYPE_INNODB)))
-            {
-	      my_error(ER_UNKNOWN_STORAGE_ENGINE, MYF(0), "InnoDB");
-	      MYSQL_YYABORT;
-            }
-            WARN_DEPRECATED(yythd, "5.2", "SHOW INNODB STATUS", "'SHOW ENGINE INNODB STATUS'");
-	  }
-        | MUTEX_SYM STATUS_SYM
-          {
-	    LEX *lex= Lex;
-            lex->sql_command = SQLCOM_SHOW_ENGINE_MUTEX;
-            if (!(lex->create_info.db_type=
-                  ha_resolve_by_legacy_type(YYTHD, DB_TYPE_INNODB)))
-            {
-	      my_error(ER_UNKNOWN_STORAGE_ENGINE, MYF(0), "InnoDB");
-	      MYSQL_YYABORT;
-            }
-            WARN_DEPRECATED(yythd, "5.2", "SHOW MUTEX STATUS", "'SHOW ENGINE INNODB MUTEX'");
 	  }
 	| opt_full PROCESSLIST_SYM
 	  { Lex->sql_command= SQLCOM_SHOW_PROCESSLIST;}
@@ -9110,34 +9049,15 @@ load:   LOAD DATA_SYM
 	  }
           lex->fname_start= lip->ptr;
         }
-        load_data
-        {}
-        |
-        LOAD TABLE_SYM table_ident FROM MASTER_SYM
-        {
-	  LEX *lex=Lex;
-          WARN_DEPRECATED(yythd, "5.2", "LOAD TABLE FROM MASTER",
-                          "MySQL Administrator (mysqldump, mysql)");
-          if (lex->sphead)
-	  {
-	    my_error(ER_SP_BADSTATEMENT, MYF(0), "LOAD TABLE");
-	    MYSQL_YYABORT;
-	  }
-          lex->sql_command = SQLCOM_LOAD_MASTER_TABLE;
-          if (!Select->add_table_to_list(YYTHD, $3, NULL, TL_OPTION_UPDATING))
-            MYSQL_YYABORT;
-        };
-
-load_data:
 	load_data_lock opt_local INFILE TEXT_STRING_filesystem
 	{
 	  LEX *lex=Lex;
 	  lex->sql_command= SQLCOM_LOAD;
-	  lex->lock_option= $1;
-	  lex->local_file=  $2;
+	  lex->lock_option= $4;
+	  lex->local_file=  $5;
 	  lex->duplicates= DUP_ERROR;
 	  lex->ignore= 0;
-	  if (!(lex->exchange= new sql_exchange($4.str, 0)))
+	  if (!(lex->exchange= new sql_exchange($7.str, 0)))
 	    MYSQL_YYABORT;
         }
         opt_duplicate INTO
@@ -9150,7 +9070,7 @@ load_data:
         TABLE_SYM table_ident
         {
           LEX *lex=Lex;
-          if (!Select->add_table_to_list(YYTHD, $10, NULL, TL_OPTION_UPDATING,
+          if (!Select->add_table_to_list(YYTHD, $13, NULL, TL_OPTION_UPDATING,
                                          lex->lock_option))
             MYSQL_YYABORT;
           lex->field_list.empty();
@@ -9158,18 +9078,11 @@ load_data:
           lex->value_list.empty();
         }
         opt_load_data_charset
-	{ Lex->exchange->cs= $12; }
+	{ Lex->exchange->cs= $15; }
         opt_field_term opt_line_term opt_ignore_lines opt_field_or_var_spec
         opt_load_data_set_spec
         {}
-        |
-	FROM MASTER_SYM
-        {
-	  Lex->sql_command = SQLCOM_LOAD_MASTER_DATA;
-          WARN_DEPRECATED(yythd, "5.2", "LOAD DATA FROM MASTER",
-                          "mysqldump or future "
-                          "BACKUP/RESTORE DATABASE facility");
-        };
+        ;
 
 opt_local:
 	/* empty */	{ $$=0;}
@@ -9904,6 +9817,7 @@ keyword_sp:
 	| EVENT_SYM		{}
 	| EVENTS_SYM		{}
 	| EVERY_SYM             {}
+	| EXCLUSIVE_SYM         { /* purecov: tested */ }
 	| EXPANSION_SYM         {}
 	| EXTENDED_SYM		{}
 	| EXTENT_SIZE_SYM       {}
@@ -9930,7 +9844,6 @@ keyword_sp:
 	| INITIAL_SIZE_SYM      {}
 	| ISOLATION		{}
 	| ISSUER_SYM		{}
-	| INNOBASE_SYM		{}
 	| INSERT_METHOD		{}
 	| KEY_BLOCK_SIZE	{}
 	| LAST_SYM		{}
@@ -9989,6 +9902,7 @@ keyword_sp:
 	| NO_WAIT_SYM           {}
 	| NODEGROUP_SYM         {}
 	| NONE_SYM		{}
+	| NOWAIT_SYM            { /* purecov: tested */ }
 	| NVARCHAR_SYM		{}
 	| OFFSET_SYM		{}
 	| OLD_PASSWORD		{}
@@ -10513,7 +10427,19 @@ set_expr_or_default:
 /* Lock function */
 
 lock:
-	LOCK_SYM table_or_tables
+	LOCK_SYM
+        {
+          /*
+            Transactional locks can be taken only if all requested locks
+            are transactional. Initialize lex->lock_transactional as
+            TRUE. Any non-transactional lock request turns this to FALSE.
+            Table specific variables keep track of the locking method
+            requested for the table. This is used to warn about a
+            changed locking method later.
+          */
+          Lex->lock_transactional= TRUE;
+        }
+        table_or_tables
 	{
 	  LEX *lex= Lex;
 
@@ -10537,19 +10463,73 @@ table_lock_list:
 	| table_lock_list ',' table_lock;
 
 table_lock:
-	table_ident opt_table_alias lock_option
-	{
-	  if (!Select->add_table_to_list(YYTHD, $1, $2, 0, (thr_lock_type) $3))
-	   MYSQL_YYABORT;
-	}
+        table_ident opt_table_alias table_lock_info
+        {
+          TABLE_LIST *tlist;
+          if (!(tlist= Select->add_table_to_list(YYTHD, $1, $2, 0,
+                                                 $3.lock_type)))
+            MYSQL_YYABORT; /* purecov: inspected */
+          tlist->lock_timeout= $3.lock_timeout;
+          /* Store the requested lock method for later warning. */
+          tlist->lock_transactional= $3.lock_transactional;
+          /* Compute the resulting lock method for all tables. */
+          if (!$3.lock_transactional)
+            Lex->lock_transactional= FALSE;
+        }
         ;
 
-lock_option:
-	READ_SYM	{ $$=TL_READ_NO_INSERT; }
-	| WRITE_SYM     { $$=TL_WRITE_DEFAULT; }
-	| LOW_PRIORITY WRITE_SYM { $$=TL_WRITE_LOW_PRIORITY; }
-	| READ_SYM LOCAL_SYM { $$= TL_READ; }
+table_lock_info:
+        READ_SYM
+        {
+          $$.lock_type=          TL_READ_NO_INSERT;
+          $$.lock_timeout=       -1;
+          $$.lock_transactional= FALSE;
+        }
+        | WRITE_SYM
+        {
+          $$.lock_type=          TL_WRITE_DEFAULT;
+          $$.lock_timeout=       -1;
+          $$.lock_transactional= FALSE;
+        }
+        | LOW_PRIORITY WRITE_SYM
+        {
+          $$.lock_type=          TL_WRITE_LOW_PRIORITY;
+          $$.lock_timeout=       -1;
+          $$.lock_transactional= FALSE;
+        }
+        | READ_SYM LOCAL_SYM
+        {
+          $$.lock_type=          TL_READ;
+          $$.lock_timeout=       -1;
+          $$.lock_transactional= FALSE;
+        }
+        | IN_SYM transactional_lock_mode MODE_SYM opt_transactional_lock_timeout
+        {
+          $$.lock_type=          $2;
+          $$.lock_timeout=       $4;
+          $$.lock_transactional= TRUE;
+        }
         ;
+
+/* Use thr_lock_type here for easier fallback to non-trans locking. */
+transactional_lock_mode:
+        SHARE_SYM       { $$= TL_READ_NO_INSERT; }
+        | EXCLUSIVE_SYM { $$= TL_WRITE_DEFAULT; }
+        ;
+
+opt_transactional_lock_timeout:
+        /* empty */     { $$= -1; }
+        | NOWAIT_SYM    { $$= 0; }
+        /* | WAIT_SYM opt_lock_timeout_value { $$= $2; } */
+        ;
+
+/*
+  We have a timeout resolution of milliseconds. The WAIT argument is in
+  seconds with decimal fragments for sub-second resolution. E.g. 22.5, 0.015
+*/
+/* opt_lock_timeout_value: */
+        /* empty { $$= -1; } */
+        /* | NUM       { $$= (int) (atof($1.str) * 1000.0 + 0.5); } */
 
 unlock:
 	UNLOCK_SYM

@@ -98,6 +98,7 @@ typedef struct st_key {
     int  bdb_return_if_eq;
   } handler;
   struct st_table *table;
+  LEX_STRING comment;
 } KEY;
 
 

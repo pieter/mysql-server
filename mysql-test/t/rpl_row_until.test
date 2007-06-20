@@ -46,7 +46,7 @@ wait_for_slave_to_stop;
 --query_vertical SHOW SLAVE STATUS;
 
 # try replicate all up to and not including the second insert to t2;
-start slave until relay_log_file='slave-relay-bin.000004', relay_log_pos=728;
+start slave until relay_log_file='slave-relay-bin.000003', relay_log_pos=728;
 sleep 2;
 wait_for_slave_to_stop;
 select * from t2;

@@ -734,7 +734,6 @@ sub command_line_setup () {
   else
   {
     $mysqld_variables{'port'}= 3306;
-    $mysqld_variables{'master-port'}= 3306;
   }
 
   if ( $opt_comment )
@@ -884,14 +883,14 @@ sub command_line_setup () {
   }
   elsif ( $mysql_version_id < 50000 )
   {
-    # Instance manager is not supported until 5.0
-    $opt_skip_im= 1;
-  }
+      # Instance manager is not supported until 5.0
+      $opt_skip_im= 1;
+    }
   elsif ( $glob_win32 )
   {
     mtr_report("Disable Instance manager - testing not supported on Windows");
-    $opt_skip_im= 1;
-  }
+      $opt_skip_im= 1;
+    }
 
   # --------------------------------------------------------------------------
   # Record flag
@@ -1058,9 +1057,9 @@ sub command_line_setup () {
    idx           => 0,
    path_myddir   => "$opt_vardir/master-data",
    path_myerr    => "$opt_vardir/log/master.err",
-   path_pid    => "$opt_vardir/run/master.pid",
-   path_sock   => "$sockdir/master.sock",
-   port   =>  $opt_master_myport,
+   path_pid      => "$opt_vardir/run/master.pid",
+   path_sock     => "$sockdir/master.sock",
+   port          =>  $opt_master_myport,
    start_timeout =>  400, # enough time create innodb tables
    cluster       =>  0, # index in clusters list
    start_opts    => [],
@@ -1073,9 +1072,9 @@ sub command_line_setup () {
    idx           => 1,
    path_myddir   => "$opt_vardir/master1-data",
    path_myerr    => "$opt_vardir/log/master1.err",
-   path_pid    => "$opt_vardir/run/master1.pid",
-   path_sock   => "$sockdir/master1.sock",
-   port   => $opt_master_myport + 1,
+   path_pid      => "$opt_vardir/run/master1.pid",
+   path_sock     => "$sockdir/master1.sock",
+   port          => $opt_master_myport + 1,
    start_timeout => 400, # enough time create innodb tables
    cluster       =>  0, # index in clusters list
    start_opts    => [],
@@ -1134,8 +1133,8 @@ sub command_line_setup () {
    path_pid =>        "$opt_vardir/run/im.pid",
    path_angel_pid =>  "$opt_vardir/run/im.angel.pid",
    path_sock =>       "$sockdir/im.sock",
-   port =>            $im_port,
-   start_timeout =>   $master->[0]->{'start_timeout'},
+   port =>             $im_port,
+   start_timeout =>    $master->[0]->{'start_timeout'},
    admin_login =>     'im_admin',
    admin_password =>  'im_admin_secret',
    admin_sha1 =>      '*598D51AD2DFF7792045D6DF3DDF9AA1AF737B295',
@@ -1550,7 +1549,7 @@ sub executable_setup () {
 
   if (!$opt_extern)
   {
-    # Look for SQL scripts directory
+  # Look for SQL scripts directory
     if ( mtr_file_exists("$path_share/mysql_system_tables.sql") ne "")
     {
       # The SQL scripts are in path_share
@@ -1558,8 +1557,8 @@ sub executable_setup () {
     }
     else
     {
-      $path_sql_dir= mtr_path_exists("$glob_basedir/share",
-				     "$glob_basedir/scripts");
+  $path_sql_dir= mtr_path_exists("$glob_basedir/share",
+				 "$glob_basedir/scripts");
     }
 
     if ( $mysql_version_id >= 50100 )
@@ -1843,7 +1842,6 @@ sub environment_setup () {
   $ENV{'SLAVE_MYPORT1'}=      $slave->[1]->{'port'};
   $ENV{'SLAVE_MYPORT2'}=      $slave->[2]->{'port'};
   $ENV{'MYSQL_TCP_PORT'}=     $mysqld_variables{'port'};
-  $ENV{'DEFAULT_MASTER_PORT'}= $mysqld_variables{'master-port'};
 
   $ENV{'IM_PATH_SOCK'}=       $instance_manager->{path_sock};
   $ENV{'IM_USERNAME'}=        $instance_manager->{admin_login};
@@ -2046,7 +2044,7 @@ sub environment_setup () {
     $ENV{'MYSQL_FIX_SYSTEM_TABLES'}=  $cmdline_mysql_fix_system_tables;
 
   }
-  $ENV{'MYSQL_FIX_PRIVILEGE_TABLES'}=  $file_mysql_fix_privilege_tables;
+    $ENV{'MYSQL_FIX_PRIVILEGE_TABLES'}=  $file_mysql_fix_privilege_tables;
 
   # ----------------------------------------------------
   # Setup env so childs can execute my_print_defaults
@@ -3898,29 +3896,19 @@ sub mysqld_arguments ($$$$) {
     }
     else
     {
-      if ($mysql_version_id < 50200)
-      {
-        mtr_add_arg($args, "%s--master-user=root", $prefix);
-        mtr_add_arg($args, "%s--master-connect-retry=1", $prefix);
-        mtr_add_arg($args, "%s--master-host=127.0.0.1", $prefix);
-        mtr_add_arg($args, "%s--master-password=", $prefix);
-        mtr_add_arg($args, "%s--master-port=%d", $prefix,
-    	            $master->[0]->{'port'}); # First master
-      }
       my $slave_server_id=  2 + $idx;
       my $slave_rpl_rank= $slave_server_id;
       mtr_add_arg($args, "%s--server-id=%d", $prefix, $slave_server_id);
       mtr_add_arg($args, "%s--rpl-recovery-rank=%d", $prefix, $slave_rpl_rank);
     }
 
-    my $cluster= $clusters->[$mysqld->{'cluster'}];
-    if ( $cluster->{'pid'} ||         # Slave cluster is started
-	 $cluster->{'use_running'} )  # Using running slave cluster
+   my $cluster= $clusters->[$mysqld->{'cluster'}];
+   if ( $cluster->{'pid'} ||         # Slave cluster is started
+        $cluster->{'use_running'} )  # Using running slave cluster
     {
       mtr_add_arg($args, "%s--ndbcluster", $prefix);
       mtr_add_arg($args, "%s--ndb-connectstring=%s", $prefix,
-		  $cluster->{'connect_string'});
-
+                  $cluster->{'connect_string'});
       if ( $mysql_version_id >= 50100 )
       {
 	mtr_add_arg($args, "%s--ndb-extra-logging", $prefix);
@@ -3930,13 +3918,12 @@ sub mysqld_arguments ($$$$) {
     {
       mtr_add_arg($args, "%s--loose-skip-ndbcluster", $prefix);
     }
-
   } # end slave
 
   if ( $opt_debug )
   {
     mtr_add_arg($args, "%s--debug=d:t:i:A,%s/log/%s%s.trace",
-		$prefix, $path_vardir_trace, $mysqld->{'type'}, $sidx);
+                $prefix, $path_vardir_trace, $mysqld->{'type'}, $sidx);
   }
 
   mtr_add_arg($args, "%s--key_buffer_size=1M", $prefix);

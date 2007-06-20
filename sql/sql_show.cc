@@ -759,33 +759,6 @@ mysqld_list_fields(THD *thd, TABLE_LIST *table_list, const char *wild)
 }
 
 
-int
-mysqld_dump_create_info(THD *thd, TABLE_LIST *table_list, int fd)
-{
-  Protocol *protocol= thd->protocol;
-  String *packet= protocol->storage_packet();
-  DBUG_ENTER("mysqld_dump_create_info");
-  DBUG_PRINT("enter",("table: %s",table_list->table->s->table_name.str));
-
-  protocol->prepare_for_resend();
-  if (store_create_info(thd, table_list, packet, NULL))
-    DBUG_RETURN(-1);
-
-  if (fd < 0)
-  {
-    if (protocol->write())
-      DBUG_RETURN(-1);
-    protocol->flush();
-  }
-  else
-  {
-    if (my_write(fd, (const uchar*) packet->ptr(), packet->length(),
-		 MYF(MY_WME)))
-      DBUG_RETURN(-1);
-  }
-  DBUG_RETURN(0);
-}
-
 /*
   Go through all character combinations and ensure that sql_lex.cc can
   parse it as an identifier.
@@ -1405,6 +1378,15 @@ static void store_key_options(THD *thd, String *packet, TABLE *table,
       packet->append(STRING_WITH_LEN(" KEY_BLOCK_SIZE="));
       end= longlong10_to_str(key_info->block_size, buff, 10);
       packet->append(buff, (uint) (end - buff));
+    }
+
+    DBUG_ASSERT(test(key_info->flags & HA_USES_COMMENT) == 
+               (key_info->comment.length > 0));
+    if (key_info->flags & HA_USES_COMMENT)
+    {
+      packet->append(STRING_WITH_LEN(" COMMENT "));
+      append_unescaped(packet, key_info->comment.str, 
+                       key_info->comment.length);
     }
   }
 }
@@ -3585,6 +3567,11 @@ static int get_schema_stat_record(THD *thd, struct st_table_list *tables,
         else
           table->field[14]->store("", 0, cs);
         table->field[14]->set_notnull();
+        DBUG_ASSERT(test(key_info->flags & HA_USES_COMMENT) == 
+                   (key_info->comment.length > 0));
+        if (key_info->flags & HA_USES_COMMENT)
+          table->field[15]->store(key_info->comment.str, 
+                                  key_info->comment.length, cs);
         if (schema_table_store_record(thd, table))
           DBUG_RETURN(1);
       }
@@ -5284,7 +5271,7 @@ ST_FIELD_INFO tables_fields_info[]=
   {"CHECKSUM", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0,
    (MY_I_S_MAYBE_NULL | MY_I_S_UNSIGNED), "Checksum"},
   {"CREATE_OPTIONS", 255, MYSQL_TYPE_STRING, 0, 1, "Create_options"},
-  {"TABLE_COMMENT", 80, MYSQL_TYPE_STRING, 0, 0, "Comment"},
+  {"TABLE_COMMENT", TABLE_COMMENT_MAXLEN, MYSQL_TYPE_STRING, 0, 0, "Comment"},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0}
 };
 
@@ -5315,7 +5302,7 @@ ST_FIELD_INFO columns_fields_info[]=
   {"COLUMN_KEY", 3, MYSQL_TYPE_STRING, 0, 0, "Key"},
   {"EXTRA", 20, MYSQL_TYPE_STRING, 0, 0, "Extra"},
   {"PRIVILEGES", 80, MYSQL_TYPE_STRING, 0, 0, "Privileges"},
-  {"COLUMN_COMMENT", 255, MYSQL_TYPE_STRING, 0, 0, "Comment"},
+  {"COLUMN_COMMENT", COLUMN_COMMENT_MAXLEN, MYSQL_TYPE_STRING, 0, 0, "Comment"},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0}
 };
 
@@ -5434,6 +5421,7 @@ ST_FIELD_INFO stat_fields_info[]=
   {"NULLABLE", 3, MYSQL_TYPE_STRING, 0, 0, "Null"},
   {"INDEX_TYPE", 16, MYSQL_TYPE_STRING, 0, 0, "Index_type"},
   {"COMMENT", 16, MYSQL_TYPE_STRING, 0, 1, "Comment"},
+  {"INDEX_COMMENT", INDEX_COMMENT_MAXLEN, MYSQL_TYPE_STRING, 0, 0, "Index_Comment"},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0}
 };
 

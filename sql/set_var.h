@@ -911,8 +911,6 @@ public:
   bool update(THD *thd, set_var *var);
 };
 
->>>>>>>
-
 /**
   Handler for setting the system variable --read-only.
 */

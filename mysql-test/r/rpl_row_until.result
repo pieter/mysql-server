@@ -19,7 +19,7 @@ n
 2
 3
 4
-show slave status;
+SHOW SLAVE STATUS;;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
@@ -61,7 +61,7 @@ n
 2
 3
 4
-show slave status;
+SHOW SLAVE STATUS;;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
@@ -101,7 +101,7 @@ select * from t2;
 n
 1
 2
-show slave status;
+SHOW SLAVE STATUS;;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
@@ -139,7 +139,7 @@ Master_SSL_Verify_Server_Cert	No
 start slave;
 stop slave;
 start slave until master_log_file='master-bin.000001', master_log_pos=740;
-show slave status;
+SHOW SLAVE STATUS;;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root

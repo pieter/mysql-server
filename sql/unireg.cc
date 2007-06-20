@@ -163,7 +163,7 @@ bool mysql_create_frm(THD *thd, const char *file_name,
       my_error(ER_WRONG_STRING_LENGTH, MYF(0),
                  create_info->comment.str,"TABLE COMMENT",
                  (uint) TABLE_COMMENT_MAXLEN);
-      my_free((gptr) screen_buff,MYF(0));
+      my_free(screen_buff,MYF(0));
       DBUG_RETURN(1);
     }
     push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_WARN,
@@ -271,8 +271,8 @@ bool mysql_create_frm(THD *thd, const char *file_name,
   {
     uchar comment_length_buff[2];
     int2store(comment_length_buff,create_info->comment.length);
-    if (my_write(file, (byte*) comment_length_buff, 2, MYF(MY_NABP)) ||
-        my_write(file, (byte*) create_info->comment.str,
+    if (my_write(file, comment_length_buff, 2, MYF(MY_NABP)) ||
+        my_write(file, (uchar*)create_info->comment.str,
                   create_info->comment.length, MYF(MY_NABP)))
       goto err;
   }

@@ -502,7 +502,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   if (!(pos=get_form_pos(file,head,(TYPELIB*) 0)))
     goto err;                                   /* purecov: inspected */
   VOID(my_seek(file,pos,MY_SEEK_SET,MYF(0)));
-  if (my_read(file,(byte*) forminfo,288,MYF(MY_NABP)))
+  if (my_read(file,forminfo,288,MYF(MY_NABP)))
     goto err;
 
   share->frm_version= head[2];
@@ -838,7 +838,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           goto err;
       }
       share->comment.length = uint2korr(next_chunk);
-      if (! (share->comment.str= strmake_root(&share->mem_root, next_chunk + 2,                                        share->comment.length)))
+      if (! (share->comment.str= strmake_root(&share->mem_root,
+                               (char*)next_chunk + 2, share->comment.length)))
       {
           my_free(buff, MYF(0));
           goto err;

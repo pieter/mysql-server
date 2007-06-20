@@ -141,10 +141,11 @@ Item_func::fix_fields(THD *thd, Item **ref)
 {
   DBUG_ASSERT(fixed == 0);
   Item **arg,**arg_end;
+  void *save_thd_marker= thd->thd_marker;
 #ifndef EMBEDDED_LIBRARY			// Avoid compiler warning
   char buff[STACK_BUFF_ALLOC];			// Max argument in function
 #endif
-
+  thd->thd_marker= 0;
   used_tables_cache= not_null_tables_cache= 0;
   const_item_cache=1;
 
@@ -190,7 +191,30 @@ Item_func::fix_fields(THD *thd, Item **ref)
   if (thd->net.report_error) // An error inside fix_length_and_dec occured
     return TRUE;
   fixed= 1;
+  thd->thd_marker= save_thd_marker;
   return FALSE;
+}
+
+
+void Item_func::fix_after_pullout(st_select_lex *new_parent, Item **ref)
+{
+  Item **arg,**arg_end;
+
+  used_tables_cache= not_null_tables_cache= 0;
+  const_item_cache=1;
+
+  if (arg_count)
+  {
+    for (arg=args, arg_end=args+arg_count; arg != arg_end ; arg++)
+    {
+      (*arg)->fix_after_pullout(new_parent, arg);
+      Item *item= *arg;
+
+      used_tables_cache|=     item->used_tables();
+      not_null_tables_cache|= item->not_null_tables();
+      const_item_cache&=      item->const_item();
+    }
+  }
 }
 
 

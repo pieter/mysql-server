@@ -5874,6 +5874,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
   SELECT_LEX *select_lex= thd->lex->current_select;
   Query_arena *arena= thd->stmt_arena, backup;
   TABLE_LIST *table= NULL;	// For HP compilers
+  void *save_thd_marker= thd->thd_marker;
   /*
     it_is_update set to TRUE when tables of primary SELECT_LEX (SELECT_LEX
     which belong to LEX, i.e. most up SELECT) will be updated by
@@ -5901,6 +5902,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
       goto err_no_arena;
   }
 
+  thd->thd_marker= (void*)1;
   if (*conds)
   {
     thd->where="where clause";
@@ -5908,6 +5910,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
 	(*conds)->check_cols(1))
       goto err_no_arena;
   }
+  thd->thd_marker= save_thd_marker;
 
   /*
     Apply fix_fields() to all ON clauses at all levels of nesting,
@@ -5923,6 +5926,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
       if (embedded->on_expr)
       {
         /* Make a join an a expression */
+        thd->thd_marker= (void*)embedded;
         thd->where="on clause";
         if (!embedded->on_expr->fixed &&
             embedded->on_expr->fix_fields(thd, &embedded->on_expr) ||
@@ -5947,6 +5951,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
       }
     }
   }
+  thd->thd_marker= save_thd_marker;
 
   if (!thd->stmt_arena->is_conventional())
   {

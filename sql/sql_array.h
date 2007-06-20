@@ -53,6 +53,11 @@ public:
     return array.elements;
   }
 
+  void clear()
+  {
+    array.elements= 0;
+  }
+
   ~Dynamic_array()
   {
     delete_dynamic(&array);

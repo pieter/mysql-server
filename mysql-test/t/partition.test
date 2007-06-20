@@ -1428,7 +1428,6 @@ WHERE t1.id IN (
     WHERE taken BETWEEN @f_date AND date_add(@t_date, INTERVAL 1 DAY))
 ORDER BY t1.id
 ;
-
 drop table t1, t2, t4;
 
 CREATE TABLE t1 (

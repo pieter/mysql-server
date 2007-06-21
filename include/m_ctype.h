@@ -165,9 +165,9 @@ typedef struct my_collation_handler_st
   int     (*strnncollsp)(struct charset_info_st *,
                          const uchar *, size_t, const uchar *, size_t,
                          my_bool diff_if_only_endspace_difference);
-  int     (*strnxfrm)(struct charset_info_st *,
-		      uchar *dst, size_t dstlen, uint nweights,
-		      const uchar *src, size_t srclen, uint flags);
+  size_t  (*strnxfrm)(struct charset_info_st *,
+                      uchar *dst, size_t dstlen, uint nweights,
+                      const uchar *src, size_t srclen, uint flags);
   size_t    (*strnxfrmlen)(struct charset_info_st *, size_t);
   my_bool (*like_range)(struct charset_info_st *,
 			const char *s, size_t s_length,
@@ -342,8 +342,8 @@ extern CHARSET_INFO my_charset_filename;
 
 /* declarations for simple charsets */
 extern size_t my_strnxfrm_simple(CHARSET_INFO *,
-                               uchar *dst, size_t dstlen, uint nweights,
-                               const uchar *src, size_t srclen, uint flags);
+                                 uchar *dst, size_t dstlen, uint nweights,
+                                 const uchar *src, size_t srclen, uint flags);
 size_t my_strnxfrmlen_simple(CHARSET_INFO *, size_t);
 extern int  my_strnncoll_simple(CHARSET_INFO *, const uchar *, size_t,
 				const uchar *, size_t, my_bool);
@@ -499,9 +499,9 @@ int my_strcasecmp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
 void my_hash_sort_mb_bin(CHARSET_INFO *cs __attribute__((unused)),
                          const uchar *key, size_t len,ulong *nr1, ulong *nr2);
 
-int  my_strnxfrm_mb(CHARSET_INFO *,
-                    uchar *dst, size_t dstlen, uint nweights,
-                    const uchar *src, size_t srclen, uint flags);
+size_t my_strnxfrm_mb(CHARSET_INFO *,
+                      uchar *dst, size_t dstlen, uint nweights,
+                      const uchar *src, size_t srclen, uint flags);
 
 int my_wildcmp_unicode(CHARSET_INFO *cs,
                        const char *str, const char *str_end,
@@ -521,9 +521,9 @@ my_bool my_propagate_complex(CHARSET_INFO *cs, const uchar *str, size_t len);
 uint my_strxfrm_flag_normalize(uint flags, uint nlevels);
 void my_strxfrm_desc_and_reverse(uchar *str, uchar *strend,
                                  uint flags, uint level);
-uint my_strxfrm_pad_desc_and_reverse(CHARSET_INFO *cs,
-                                     uchar *str, uchar *frmend, uchar *strend,
-                                     uint nweights, uint flags, uint level);
+size_t my_strxfrm_pad_desc_and_reverse(CHARSET_INFO *cs,
+                                       uchar *str, uchar *frmend, uchar *strend,
+                                       uint nweights, uint flags, uint level);
 
 
 #define	_MY_U	01	/* Upper case */

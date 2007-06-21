@@ -474,7 +474,7 @@ int my_strnncollsp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
   characters having multibyte weights *equal* to their codes:
   cp932, euckr, gb2312, sjis, eucjpms, ujis.
 */
-int
+size_t
 my_strnxfrm_mb(CHARSET_INFO *cs,
                uchar *dst, size_t dstlen, uint nweights,
                const uchar *src, size_t srclen, uint flags)

@@ -1892,9 +1892,10 @@ void my_strxfrm_desc_and_reverse(uchar *str, uchar *strend,
 }
 
 
-uint my_strxfrm_pad_desc_and_reverse(CHARSET_INFO *cs,
-                                     uchar *str, uchar *frmend, uchar *strend,
-                                     uint nweights, uint flags, uint level)
+size_t
+my_strxfrm_pad_desc_and_reverse(CHARSET_INFO *cs,
+                                uchar *str, uchar *frmend, uchar *strend,
+                                uint nweights, uint flags, uint level)
 {
   if (nweights && frmend < strend && (flags & MY_STRXFRM_PAD_WITH_SPACE))
   {

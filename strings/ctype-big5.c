@@ -301,7 +301,7 @@ static int my_strnncollsp_big5(CHARSET_INFO * cs __attribute__((unused)),
 }
 
 
-static int
+static size_t
 my_strnxfrm_big5(CHARSET_INFO *cs,
                  uchar *dst, size_t dstlen, uint nweights,
                  const uchar *src, size_t srclen, uint flags)

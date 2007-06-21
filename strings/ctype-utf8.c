@@ -2617,9 +2617,10 @@ static size_t my_strnxfrm_utf8(CHARSET_INFO *cs,
 }
 
 
-static int my_strnxfrm_utf8_bin(CHARSET_INFO *cs,
-                                uchar *dst, uint dstlen, uint nweights,
-                                const uchar *src, uint srclen, uint flags)
+static size_t
+my_strnxfrm_utf8_bin(CHARSET_INFO *cs,
+                     uchar *dst, size_t dstlen, uint nweights,
+                     const uchar *src, size_t srclen, uint flags)
 {
   my_wc_t wc;
   int res;

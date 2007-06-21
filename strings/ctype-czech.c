@@ -428,7 +428,7 @@ my_strnncollsp_czech(CHARSET_INFO * cs __attribute__((unused)),
   Returns the number of bytes required for strnxfrm().
 */
 static size_t
-my_strnxfrmlen_czech(CHARSET_INFO *cs __attribute__((unused)), uint len)
+my_strnxfrmlen_czech(CHARSET_INFO *cs __attribute__((unused)), size_t len)
 {
   return len * 4 + 4;
 }

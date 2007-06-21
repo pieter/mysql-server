@@ -168,7 +168,7 @@ typedef struct my_collation_handler_st
   int     (*strnxfrm)(struct charset_info_st *,
 		      uchar *dst, size_t dstlen, uint nweights,
 		      const uchar *src, size_t srclen, uint flags);
-  uint    (*strnxfrmlen)(struct charset_info_st *, size_t);
+  size_t    (*strnxfrmlen)(struct charset_info_st *, size_t);
   my_bool (*like_range)(struct charset_info_st *,
 			const char *s, size_t s_length,
 			pchar w_prefix, pchar w_one, pchar w_many, 
@@ -341,10 +341,10 @@ extern CHARSET_INFO my_charset_cp1250_czech_ci;
 extern CHARSET_INFO my_charset_filename;
 
 /* declarations for simple charsets */
-extern int  my_strnxfrm_simple(CHARSET_INFO *,
+extern size_t my_strnxfrm_simple(CHARSET_INFO *,
                                uchar *dst, size_t dstlen, uint nweights,
                                const uchar *src, size_t srclen, uint flags);
-uint  my_strnxfrmlen_simple(CHARSET_INFO *, size_t);
+size_t my_strnxfrmlen_simple(CHARSET_INFO *, size_t);
 extern int  my_strnncoll_simple(CHARSET_INFO *, const uchar *, size_t,
 				const uchar *, size_t, my_bool);
 
@@ -479,13 +479,13 @@ uint my_instr_mb(struct charset_info_st *,
                  my_match_t *match, uint nmatch);
 
 int my_strnncoll_mb_bin(CHARSET_INFO * cs,
-                        const uchar *s, uint slen,
-                        const uchar *t, uint tlen,
+                        const uchar *s, size_t slen,
+                        const uchar *t, size_t tlen,
                         my_bool t_is_prefix);
 
 int my_strnncollsp_mb_bin(CHARSET_INFO *cs,
-                          const uchar *a, uint a_length, 
-                          const uchar *b, uint b_length,
+                          const uchar *a, size_t a_length,
+                          const uchar *b, size_t b_length,
                           my_bool diff_if_only_endspace_difference);
 
 int my_wildcmp_mb_bin(CHARSET_INFO *cs,
@@ -497,11 +497,11 @@ int my_strcasecmp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
                          const char *s, const char *t);
 
 void my_hash_sort_mb_bin(CHARSET_INFO *cs __attribute__((unused)),
-                         const uchar *key, uint len,ulong *nr1, ulong *nr2);
+                         const uchar *key, size_t len,ulong *nr1, ulong *nr2);
 
 int  my_strnxfrm_mb(CHARSET_INFO *,
-                    uchar *dst, uint dstlen, uint nweights,
-                    const uchar *src, uint srclen, uint flags); 
+                    uchar *dst, size_t dstlen, uint nweights,
+                    const uchar *src, size_t srclen, uint flags);
 
 int my_wildcmp_unicode(CHARSET_INFO *cs,
                        const char *str, const char *str_end,

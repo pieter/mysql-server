@@ -46,10 +46,6 @@ master-bin.000001	1091	Query	1	1170	use `test`; DROP TABLE t4
 End of 5.0 tests
 SHOW BINLOG EVENTS FROM 364;
 ERROR HY000: Error when executing command SHOW BINLOG EVENTS: Wrong offset or I/O error
-End of 5.1 tests
-master-bin.000001	820	Query	1	1039	use `test`; INSERT INTO t4 VALUES ( NAME_CONST('ins1',_latin1 0x466F6F2773206120426172),  NAME_CONST('ins2',_cp932 0xED40ED41ED42),  NAME_CONST('ind',47.93))
-master-bin.000001	1039	Query	1	1128	use `test`; DROP PROCEDURE bug18293
-master-bin.000001	1128	Query	1	1207	use `test`; DROP TABLE t4
 set names cp932;
 select @@collation_connection;
 @@collation_connection
@@ -220,3 +216,4 @@ hex(weight_string(cast(0x40814081408140 as char) as char(3)))
 select hex(weight_string(cast(0x4040814081408140 as char) as char(3)));
 hex(weight_string(cast(0x4040814081408140 as char) as char(3)))
 40408140
+End of 5.1 tests

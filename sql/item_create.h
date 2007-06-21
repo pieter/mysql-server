@@ -150,6 +150,9 @@ protected:
 #endif
 
 
+Item*
+create_func_char_cast(THD *thd, Item *a, int len, CHARSET_INFO *cs);
+
 /**
   Builder for cast expressions.
   @param thd The current thread

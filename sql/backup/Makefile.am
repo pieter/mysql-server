@@ -15,16 +15,22 @@
 
 ## Process this file with automake to create Makefile.in
 
+noinst_LTLIBRARIES = libbackup.la
+
 INCLUDES = \
 	-I.. \
 	-I$(top_builddir)/include \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/regex
 
+libbackup_la_SOURCES = \
+	stream.cc
+
 noinst_HEADERS = \
 	api_types.h \
 	backup_engine.h \
-    debug.h
+    debug.h \
+    stream.h 
 
 DEFS = \
 	-DMYSQL_SERVER \

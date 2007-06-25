@@ -2952,3 +2952,5 @@ win/vs71cache.txt
 win/vs8cache.txt
 zlib/*.ds?
 zlib/*.vcproj
+sql/cscope.out
+cscope.out

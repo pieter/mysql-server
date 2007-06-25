@@ -24,13 +24,16 @@ INCLUDES = \
 	-I$(top_srcdir)/regex
 
 libbackup_la_SOURCES = \
-	stream.cc
+	stream.cc \
+	logger.cc
 
 noinst_HEADERS = \
 	api_types.h \
 	backup_engine.h \
     debug.h \
-    stream.h 
+    error.h \
+    stream.h \
+    logger.h 
 
 DEFS = \
 	-DMYSQL_SERVER \

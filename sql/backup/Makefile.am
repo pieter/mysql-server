@@ -25,15 +25,24 @@ INCLUDES = \
 
 libbackup_la_SOURCES = \
 	stream.cc \
-	logger.cc
+	logger.cc \
+	string_pool.cc \
+	archive.cc \
+	meta_backup.cc \
+	data_backup.cc \
+	sql_backup.cc
 
 noinst_HEADERS = \
 	api_types.h \
 	backup_engine.h \
+	backup_kernel.h \
     debug.h \
     error.h \
     stream.h \
-    logger.h 
+    logger.h \
+    string_pool.h \
+    archive.h \
+    meta_backup.h
 
 DEFS = \
 	-DMYSQL_SERVER \

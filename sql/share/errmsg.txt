@@ -6105,6 +6105,8 @@ ER_BACKUP_LIST_TABLES
         eng "Can't enumerate server tables"
 ER_BACKUP_LIST_DB_TABLES
         eng "Can't enumerate tables in database %-.64s"
+ER_BACKUP_SKIP_VIEW
+        eng "Skipping view %-.64s in database &-64.s"
 ER_BACKUP_READ_HEADER
         eng "Can't read backup archive preamble"
 ER_BACKUP_WRITE_HEADER

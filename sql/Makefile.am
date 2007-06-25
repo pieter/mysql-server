@@ -32,7 +32,7 @@ SUPPORTING_LIBS =	$(top_builddir)/vio/libvio.a \
 			$(top_builddir)/dbug/libdbug.a \
 			$(top_builddir)/regex/libregex.a \
 			$(top_builddir)/strings/libmystrings.a
-mysqld_DEPENDENCIES=	@mysql_plugin_libs@ $(SUPPORTING_LIBS)
+mysqld_DEPENDENCIES=	@mysql_plugin_libs@ $(SUPPORTING_LIBS) backup/libbackup.la
 LDADD = $(SUPPORTING_LIBS) @ZLIB_LIBS@ @NDB_SCI_LIBS@
 mysqld_LDADD =		@MYSQLD_EXTRA_LDFLAGS@ \
 			@pstack_libs@ \

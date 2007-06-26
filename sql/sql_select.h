@@ -51,6 +51,11 @@ typedef struct keyuse_t {
     NULL  - Otherwise (the source equality can't be turned off)
   */
   bool *cond_guard;
+  /*
+     0..64    <=> This was created from semi-join IN-equality # sj_pred_no.
+     MAX_UINT  Otherwise
+  */
+  uint         sj_pred_no;
 } KEYUSE;
 
 class store_key;
@@ -228,16 +233,23 @@ typedef struct st_join_table {
   */
   TABLE_LIST    *emb_sj_nest;
 
-  /* Variables to control NL-Join executioner */
+  /* Variables for semi-join duplicate elimination */
   SJ_TMP_TABLE  *flush_weedout_table;
   SJ_TMP_TABLE  *check_weed_out_table;
   struct st_join_table  *do_firstmatch;
-  
+ 
   /* 
-    TRUE<=> this tab is covered by SJ dups range (used to disable join
-    buffering) [slated for removal]
+     ptr  - this join tab should do an InsideOut scan. Points 
+            to the tab for which we'll need to check tab->found_match.
+
+     NULL - Not an insideout scan.
   */
-  bool inside_sj_dups_range;
+  struct st_join_table *insideout_match_tab;
+  byte *insideout_buf; // Buffer to save index tuple to be able to skip dups
+
+  /* Used by InsideOut scan. Just set to true when have found a row. */
+  bool found_match;
+
   enum { 
     /* If set, the rowid of this table must be put into the temptable. */
     KEEP_ROWID=1, 
@@ -299,6 +311,8 @@ typedef struct st_position
 
   /* If ref-based access is used: bitmap of tables this table depends on  */
   table_map ref_depend_map;
+
+  bool use_insideout_scan;
 } POSITION;
 
 
@@ -328,16 +342,13 @@ typedef struct st_rollup
 class SJ_TMP_TABLE : public Sql_alloc
 {
 public:
-  uint start_idx;
-  uint end_idx;
-
   /* Array of pointers to tables that should be "used" */
   class TAB
   {
   public:
     JOIN_TAB *join_tab;
     uint rowid_offset;
-    byte *null_addr;
+    byte null_byte;
     byte null_bit;
   };
   TAB *tabs;
@@ -364,6 +375,7 @@ class JOIN :public Sql_alloc
 public:
   JOIN_TAB *join_tab,**best_ref;
   JOIN_TAB **map2table;    // mapping between table indexes and JOIN_TABs
+  JOIN_TAB *join_tab_save; // saved join_tab for subquery reexecution
   TABLE    **table,**all_tables,*sort_by_table;
   uint	   tables;        /* Number of tables in the join */
   uint     outer_tables;  /* Number of tables that are not inside semijoin */
@@ -467,11 +479,12 @@ public:
   bool union_part; // this subselect is part of union 
   bool optimized; // flag to avoid double optimization in EXPLAIN
   
-  //psergey-todo: Those two leak memory atm. Pre-alloc on pool?
-  Dynamic_array<Item_in_subselect*> sj_subselects;
+  Array<Item_in_subselect> sj_subselects;
 
   /* Descriptions of temporary tables used to weed-out semi-join duplicates */
   SJ_TMP_TABLE  *sj_tmp_tables;
+
+  table_map cur_emb_sj_nests;
 
   /* 
     storage for caching buffers allocated during query execution. 
@@ -487,7 +500,7 @@ public:
 
   JOIN(THD *thd_arg, List<Item> &fields_arg, ulonglong select_options_arg,
        select_result *result_arg)
-    :fields_list(fields_arg)
+    :fields_list(fields_arg), sj_subselects(thd_arg->mem_root, 4)
   {
     init(thd_arg, fields_arg, select_options_arg, result_arg);
   }

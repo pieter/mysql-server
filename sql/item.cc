@@ -5606,10 +5606,18 @@ void Item_outer_ref::fix_after_pullout(st_select_lex *new_parent, Item **ref)
   if (depended_from == new_parent)
   {
     *ref= outer_field;
-    outer_field->fix_after_pullout(new_parent, ref);//psergey-melt-add
+    outer_field->fix_after_pullout(new_parent, ref);
   }
 }
 
+void Item_ref::fix_after_pullout(st_select_lex *new_parent, Item **refptr)
+{
+  if (depended_from == new_parent)
+  {
+    (*ref)->fix_after_pullout(new_parent, ref);
+    depended_from= NULL;
+  }
+}
 
 /*
   Compare two view column references for equality.

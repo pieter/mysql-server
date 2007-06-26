@@ -81,7 +81,7 @@ static store_key *get_store_key(THD *thd,
 static bool make_simple_join(JOIN *join,TABLE *tmp_table);
 static void make_outerjoin_info(JOIN *join);
 static bool make_join_select(JOIN *join,SQL_SELECT *select,COND *item);
-static void make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after);
+static bool make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after);
 static bool only_eq_ref_tables(JOIN *join, ORDER *order, table_map tables);
 static void update_depend_map(JOIN *join);
 static void update_depend_map(JOIN *join, ORDER *order);
@@ -105,6 +105,11 @@ static void restore_prev_nj_state(JOIN_TAB *last);
 static void reset_nj_counters(List<TABLE_LIST> *join_list);
 static uint build_bitmap_for_nested_joins(List<TABLE_LIST> *join_list,
                                           uint first_unused);
+
+static 
+void advance_sj_state(const table_map remaining_tables, const JOIN_TAB *tab);
+static void restore_prev_sj_state(const table_map remaining_tables, 
+                                  const JOIN_TAB *tab);
 
 static COND *optimize_cond(JOIN *join, COND *conds,
                            List<TABLE_LIST> *join_list,
@@ -147,12 +152,13 @@ static int join_read_always_key(JOIN_TAB *tab);
 static int join_read_last_key(JOIN_TAB *tab);
 static int join_no_more_records(READ_RECORD *info);
 static int join_read_next(READ_RECORD *info);
+static int join_read_next_different(READ_RECORD *info);
 static int join_init_quick_read_record(JOIN_TAB *tab);
 static int test_if_quick_select(JOIN_TAB *tab);
 static int join_init_read_record(JOIN_TAB *tab);
 static int join_read_first(JOIN_TAB *tab);
-static int join_read_next(READ_RECORD *info);
 static int join_read_next_same(READ_RECORD *info);
+static int join_read_next_same_diff(READ_RECORD *info);
 static int join_read_last(JOIN_TAB *tab);
 static int join_read_prev_same(READ_RECORD *info);
 static int join_read_prev(READ_RECORD *info);
@@ -219,6 +225,18 @@ static void select_describe(JOIN *join, bool need_tmp_table,bool need_order,
 static Item *remove_additional_cond(Item* conds);
 static void add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab);
 
+/*
+  This is used to mark equalities that were made from i-th IN-equality.
+  We limit semi-join InsideOut optimization to handling max 64 inequalities,
+  The following variable occupies 64 addresses.
+*/
+const char *subq_sj_cond_name=
+  "0123456789ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef-sj-cond";
+
+static bool bitmap_covers(const table_map x, const table_map y)
+{
+  return !test(y & ~x);
+}
 
 /*
   This handles SELECT with and without UNION
@@ -499,7 +517,7 @@ JOIN::prepare(Item ***rref_pointer_array,
         }
 
         /* Register the subquery for further processing */
-        select_lex->outer_select()->join->sj_subselects.append(in_subs);
+        select_lex->outer_select()->join->sj_subselects.append(thd->mem_root, in_subs);
         in_subs->expr_join_nest= (TABLE_LIST*)thd->thd_marker;
       }
       else
@@ -717,10 +735,6 @@ static void save_index_subquery_explain_info(JOIN_TAB *join_tab, Item* where)
 }
 
 
-static bool bitmap_covers(const table_map x, const table_map y)
-{
-  return !test(y & ~x);
-}
 
 
 /*
@@ -780,31 +794,95 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd, uint uniq_tuple_length_arg,
 
 
 /*
-  SemiJoinDuplicateElimination: Setup the temporary tables
+  Setup the strategies to eliminate semi-join duplicates.
   
   SYNOPSIS
     setup_semijoin_dups_elimination()
-      join          Join to process
-      options       
-      no_jbuf_after 
+      join           Join to process
+      options        Join options (needed to see if join buffering will be 
+                     used or not)
+      no_jbuf_after  Another bit of information re where join buffering will
+                     be used.
 
   DESCRIPTION
-    SemiJoinDuplicateElimination strategy: setup the temporary tables needed 
-    to handle semi-joins with strategy.
+    Setup the strategies to eliminate semi-join duplicates. ATM there are 3
+    strategies:
 
-    We have the join order. SJ-nest(s) have their members "dispersed" in the
-    join order. Each SJ-nest has a range that needs to be covered by a
-    temptable. The range is
+    1. DuplicateWeedout (use of temptable to remove duplicates based on rowids
+                         of row combinations)
+    2. FirstMatch (pick only the 1st matching row combination of inner tables)
+    3. InsideOut (scanning the sj-inner table in a way that groups duplicates
+                  together and picking the 1st one)
+    
+    The join order has "duplicate-generating ranges", and every range is
+    served by one strategy or a combination of FirstMatch with with some
+    other strategy.
+    
+    "Duplicate-generating range" is defined as a range within the join order
+    that contains all of the inner tables of a semi-join. All ranges must be
+    disjoint, if tables of several semi-joins are interleaved, then the ranges
+    are joined together, which is equivalent to converting
+      SELECT ... WHERE oe1 IN (SELECT ie1 ...) AND oe2 IN (SELECT ie2 )
+    to
+      SELECT ... WHERE (oe1, oe2) IN (SELECT ie1, ie2 ... ...)
+    .
 
-     [first-inner-table; latest(last-inner-table, last-correlated-table)]
-   
-    If ranges of tow SJ-nests have non-empty intersection, they need to be
-    joined into one range.
+    Applicability conditions are as follows:
 
-    This function calculates those ranges, joining them if necessary.
+    DuplicateWeedout strategy
+    ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    This optimization is performed at plan refinement stage so it is
-    naturally a per-EXECUTE optimization.
+      (ot|nt)*  [ it ((it|ot|nt)* (it|ot))]  (nt)*
+      +------+  +=========================+  +---+
+        (1)                 (2)               (3)
+
+       (1) - Prefix of OuterTables (those that participate in 
+             IN-equality and/or are correlated with subquery) and outer 
+             Noncorrelated Tables.
+       (2) - The handled range. The range starts with the first sj-inner
+             table, and covers all sj-inner and outer tables 
+             Within the range,  Inner, Outer, outer Noncorrelated tables
+             may follow in any order.
+       (3) - The suffix of outer Noncorrelated tables.
+    
+    FirstMatch strategy
+    ~~~~~~~~~~~~~~~~~~~
+
+      (ot|nt)*  [ it ((it|nt)* it) ]  (nt)*
+      +------+  +==================+  +---+
+        (1)             (2)          (3)
+
+      (1) - Prefix of outer and non-correlated tables
+      (2) - The handled range, which may contain only inner and
+            non-correlated tables.
+      (3) - The suffix of outer Noncorrelated tables.
+
+    InsideOut strategy 
+    ~~~~~~~~~~~~~~~~~~
+
+     (ot|ct|nt) [ insideout_tbl (ot|nt|it)* it ]  (ot|nt)*
+     +--------+   +===========+ +=============+   +------+
+        (1)           (2)          (3)              (4)
+     
+      (1) - Prefix that may contain any outer tables. The prefix must contain
+            all the non-trivially correlated outer tables. (non-trivially means
+            that the correlation is not just through the IN-equality).
+      
+      (2) - Inner table for which the InsideOut scan is performed.
+
+      (3) - The remainder of the duplicate-generating range. It is served by 
+            application of FirstMatch strategy, with the exception that
+            outer IN-correlated tables are considered to be non-correlated.
+
+      (4) - THe suffix of outer and outer non-correlated tables.
+
+    If several strategies are applicable, their relative priorities are:
+      1. InsideOut
+      2. FirstMatch 
+      3. DuplicateWeedout
+
+    This function walks over the join order and sets up the strategies by
+    setting appropriate members in join_tab structures.
 
   RETURN
     FALSE  OK 
@@ -814,198 +892,236 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd, uint uniq_tuple_length_arg,
 static
 int setup_semijoin_dups_elimination(JOIN *join, ulonglong options, uint no_jbuf_after)
 {
-  THD *thd= join->thd;
-  SJ_TMP_TABLE **next_sjtbl_ptr= &join->sj_tmp_tables;
-
-  SJ_TMP_TABLE::TAB  sjtabs[MAX_TABLES];
-  uint jt_start_idx;  // Start of dups-producing join order range 
-  uint jt_rowid_offset; // # tuple bytes are already occupied (w/o NULL bytes)
-  uint jt_null_bits;    // # null bits in tuple bytes
-  SJ_TMP_TABLE::TAB *jt_first_tab; // First temptable participant
-  SJ_TMP_TABLE::TAB *jt_last_tab;  // Last temptable participant + 1
-  table_map emb_sj_map= 0;  /* A bitmap of sj-nests we're currently in */
-  table_map emb_outer_tables= 0; /* outer tables for those sj-nests */
   table_map cur_map= join->const_table_map;
-  bool dealing_with_jbuf= FALSE;
-  bool jt_firstmatch_suffix= FALSE;
+  struct {
+    /* 
+      0 - invalid (EOF marker), 
+      1 - InsideOut, 
+      2 - Temptable (maybe confluent),
+      3 - Temptable with join buffering
+    */
+    uint strategy;
+    uint start_idx; /* Left range bound */
+    uint end_idx;   /* Right range bound */
+    /* 
+      For Temptable strategy: Bitmap of all outer and correlated tables from 
+      all involved join nests.
+    */
+    table_map outer_tables;
+  } dups_ranges [MAX_TABLES];
+
+  TABLE_LIST *emb_insideout_nest= NULL;
+  table_map emb_sj_map= 0;  /* A bitmap of sj-nests (that is, their sj-inner
+                               tables) whose ranges we're in */
+  table_map emb_outer_tables= 0; /* sj-outer tables for those sj-nests */
+  table_map range_start_map; /* table_map at current range start */
+  bool dealing_with_jbuf= FALSE; /* TRUE <=> table within cur range uses join buf */
+  int cur_range= 0;
   uint i;
-  JOIN_TAB *shortcut_to;
 
   DBUG_ENTER("setup_semijoin_dups_elimination");
-
-  jt_last_tab= jt_first_tab= sjtabs;
-
+  /*
+    First pass: locate the duplicate-generating ranges and pick the strategies.
+  */
   for (i=join->const_tables ; i < join->tables ; i++)
   {
     JOIN_TAB *tab=join->join_tab+i;
     TABLE *table=tab->table;
     cur_map |= table->map;
 
-    if (tab->emb_sj_nest)
+    if (tab->emb_sj_nest) // Encountered an sj-inner table
     {
       if (!emb_sj_map)
       {
-        jt_start_idx= i;
-        jt_rowid_offset= 0;
-        jt_null_bits= 0;
-        jt_firstmatch_suffix= 0;
+        dups_ranges[cur_range].start_idx= i;
+        range_start_map= cur_map & ~table->map;
+        /*
+          Remember if this is a possible start of range that is covered by
+          the InsideOut strategy (the reason that it is not covered could
+          be that it overlaps with anther semi-join's range. we don't
+          support InsideOut for joined ranges)
+        */
+        if (join->best_positions[i].use_insideout_scan)
+          emb_insideout_nest= tab->emb_sj_nest;
       }
-      /* 
-        If we're entering the coverage of another SJ-nest, record that we need
-        all of its tables
-      */
+
+      emb_sj_map |= tab->emb_sj_nest->sj_inner_tables;
       emb_outer_tables |= tab->emb_sj_nest->nested_join->sj_depends_on;
-      emb_sj_map |= tab->emb_sj_nest->sj_inner_tables |
-                    tab->emb_sj_nest->nested_join->sj_depends_on;
+
+      if (tab->emb_sj_nest != emb_insideout_nest)
+      {
+        /*
+          Two different semi-joins interleave. This cannot be handled by
+          InsideOut strategy.
+        */
+        emb_insideout_nest= NULL;
+      }
     }
 
-    /*
-      If we're in SJ-nest and current table should be included in it, add
-      it.
-    */
-    if (emb_sj_map)
+    if (emb_sj_map) /* We're in duplicate-generating range */
     {
-      tab->inside_sj_dups_range= TRUE;
-      if (sj_table_is_included(join, tab))
-      {
-        /* Get a TAB for this Item. */
-        jt_last_tab->join_tab= tab;
-        jt_last_tab->rowid_offset= jt_rowid_offset;
-        jt_rowid_offset += table->file->ref_length;
-        if (tab->table->maybe_null)
-        {
-          jt_last_tab->null_bit= jt_null_bits++;
-        }
-        jt_last_tab++;
-        tab->table->prepare_for_position();
-        tab->rowid_keep_flags= JOIN_TAB::KEEP_ROWID | JOIN_TAB::CALL_POSITION;
-      }
-    
       if (i != join->const_tables && !(options & SELECT_NO_JOIN_CACHE) &&
           tab->type == JT_ALL && tab->use_quick != 2 && !tab->first_inner &&
           i <= no_jbuf_after && !dealing_with_jbuf)
       {
         /*
-          This table uses join buffering, which invalidates the usual
-          assumptions.
-           x x [x  x]  x  [x x x] x [x x X* x] x
+          This table uses join buffering, which makes use of FirstMatch or 
+          InsideOut strategies impossible for the current and (we assume) 
+          preceding duplicate-producing ranges.
+          That is, for the join order:
 
-          We'll have to use temptable-based elimination w/o prefix tables.
-          
+              x x [ x  x]  x  [x x x]  x  [x x X*  x] x
+                  |     |     |     |          | \
+                  +-----+     +-----+          |  join buffering use
+                     r1          r2         we're here
 
-          All preceding temptables are eliminated.
-          include all of the preceding tables.
+          we'll have to remove r1 and r2 and use duplicate-elimination
+          strategy that spans all the tables, starting from the very 1st
+          one.
         */
         dealing_with_jbuf= TRUE;
+        emb_insideout_nest= FALSE;
 
-        /* Reset the current sj nest processor: */
-        jt_start_idx= 0;
-        jt_rowid_offset= 0;
-        jt_null_bits= 0;
-
-        // Remove all other tables:
-        join->sj_tmp_tables= NULL; 
-        next_sjtbl_ptr= &join->sj_tmp_tables;
-        jt_last_tab= jt_first_tab= sjtabs;
-
-        JOIN_TAB *prev_tab;
-        for (prev_tab= join->join_tab + join->const_tables; 
-             prev_tab != tab+1; prev_tab++)
+        /* 
+          Absorb all preceding duplicate-eliminating ranges. Their strategies
+          do not matter: 
+        */
+        for (int prev_range= 0; prev_range < cur_range; prev_range++)
         {
-          /* Remove temptable-based weedout tables */
-          prev_tab->flush_weedout_table= NULL;
-          prev_tab->check_weed_out_table= NULL;
-
-          if (sj_table_is_included(join, prev_tab))
-          {
-            jt_last_tab->join_tab= prev_tab;
-            jt_last_tab->rowid_offset= jt_rowid_offset;
-            jt_rowid_offset += table->file->ref_length;
-            if (tab->table->maybe_null)
-            {
-              jt_last_tab->null_bit= jt_null_bits++;
-            }
-            jt_last_tab++;
-            prev_tab->table->prepare_for_position();
-            prev_tab->rowid_keep_flags= JOIN_TAB::KEEP_ROWID | JOIN_TAB::CALL_POSITION;
-          }
+          dups_ranges[cur_range].outer_tables |= 
+            dups_ranges[prev_range].outer_tables;
         }
+        dups_ranges[0].start_idx= 0; /* Will need to start from the 1st table */
+        dups_ranges[0].outer_tables= dups_ranges[cur_range].outer_tables;
+        cur_range=  0;
       }
 
-      /* 
-        Check if we've entered a covered area that matches this pattern:
-          (itX|otX|ntX)*  {ntX|otX} (itX | ntX)*
-                              ^------------------- we're here
-        we get there when all emb_outer_tables are in the cur_map
-      */
-      if (!jt_firstmatch_suffix && bitmap_covers(cur_map, emb_outer_tables))
-      {
-        jt_firstmatch_suffix= true;
-        shortcut_to= tab;
-      }
-      
-      /* 
-        if we're in the FirstMatch suffix, and current table is an outer 
-        uncorrelated table (checked as "neither inner, nor outer correlated")
-      */
-      if (jt_firstmatch_suffix && !(table->map & emb_sj_map))
-      {
-        // Setup jumps if needed
-        if (shortcut_to != tab - 1)
-        {
-          tab->do_firstmatch= shortcut_to;
-        }
-        shortcut_to= tab;
-      }
       /*
-        Check if the partial join order now contains all tables of all 
-        leaving coverage of all semi-joins.
+        Check if we are at the end of duplicate-producing range. We are if
+
+        1. It's an InsideOut range (which presumes all correlated tables are
+           in the prefix), and all inner tables are in the join order prefix,
+           or
+        2. It's a DuplicateElimination range (possibly covering several
+           SJ-nests), and all inner, outer, and correlated tables of all 
+           sj-nests are in the join order prefix.
       */
-      if (bitmap_covers(cur_map, emb_sj_map & ~PSEUDO_TABLE_BITS))
+      bool end_of_range= FALSE;
+      if (emb_insideout_nest && 
+          bitmap_covers(cur_map, emb_insideout_nest->sj_inner_tables))
       {
-        /* Ok, this table concludes the duplicate-producing range */
-        if (jt_first_tab != jt_last_tab)
-        {
-          /* Need to use temptable */
-          SJ_TMP_TABLE *sjtbl;
-          uint tabs_size= (jt_last_tab - jt_first_tab) *
-                          sizeof(SJ_TMP_TABLE::TAB);
-          if (!(sjtbl= (SJ_TMP_TABLE*)thd->alloc(sizeof(SJ_TMP_TABLE))) ||
-              !(sjtbl->tabs= (SJ_TMP_TABLE::TAB*) thd->alloc(tabs_size)))
-            DBUG_RETURN(TRUE);
-          memcpy(sjtbl->tabs, jt_first_tab, tabs_size);
-          sjtbl->tabs_end= sjtbl->tabs + (jt_last_tab - jt_first_tab);
-          sjtbl->start_idx= jt_start_idx;
-          sjtbl->end_idx=   i;
-          sjtbl->rowid_len= jt_rowid_offset;
-          sjtbl->null_bits= jt_null_bits;
-          sjtbl->null_bytes= (jt_null_bits + 7)/8;
+        /* Save that this range is handled with InsideOut: */
+        dups_ranges[cur_range].strategy= 1;
+        end_of_range= TRUE;
+      }
+      else if (bitmap_covers(cur_map, emb_outer_tables | emb_sj_map))
+      {
+        /*
+          This is a complete range to be handled with either DuplicateWeedout 
+          or FirstMatch
+        */
+        dups_ranges[cur_range].strategy= dealing_with_jbuf? 2 : 3;
+        /* 
+          This will hold tables from within the range that need to be put 
+          into the join buffer before we can use the FirstMatch on its tail.
+        */
+        dups_ranges[cur_range].outer_tables= emb_outer_tables & 
+                                             ~range_start_map;
+        end_of_range= TRUE;
+      }
 
-          *next_sjtbl_ptr= sjtbl;
-          next_sjtbl_ptr= &(sjtbl->next);
-          sjtbl->next= NULL;
-
-          sjtbl->tmp_table= 
-            create_duplicate_weedout_tmp_table(thd, 
-                                               sjtbl->rowid_len + 
-                                               sjtbl->null_bytes,
-                                               sjtbl);
-
-          join->join_tab[jt_start_idx].flush_weedout_table= sjtbl;
-          tab->check_weed_out_table= sjtbl;
-        }
-        else
-        {
-          /*
-            No need to use temptable, setup shortcutting from tab #i to 
-            "just before tab #jt_start_idx".
-          */
-          tab->do_firstmatch= join->join_tab + ((jt_start_idx > 0)? 
-                                                jt_start_idx - 1 : 0);
-        }
-        emb_sj_map= 0;
-        emb_outer_tables= 0;
+      if (end_of_range)
+      {
+        dups_ranges[cur_range].end_idx= i+1;
+        emb_sj_map= emb_outer_tables= 0;
+        emb_insideout_nest= NULL;
         dealing_with_jbuf= FALSE;
+        dups_ranges[++cur_range].strategy= 0;
+      }
+    }
+  }
+
+  THD *thd= join->thd;
+  SJ_TMP_TABLE **next_sjtbl_ptr= &join->sj_tmp_tables;
+  /*
+    Second pass: setup the chosen strategies    
+  */
+  for (int j= 0; j < cur_range; j++)
+  {
+    JOIN_TAB *tab=join->join_tab + dups_ranges[j].start_idx;
+    JOIN_TAB *jump_to;
+    if (dups_ranges[j].strategy == 1)  // InsideOut strategy
+    {
+      tab->insideout_match_tab= join->join_tab + dups_ranges[j].end_idx - 1;
+      jump_to= tab++;
+    }
+    else // DuplicateWeedout strategy
+    {
+      SJ_TMP_TABLE::TAB sjtabs[MAX_TABLES];
+      table_map cur_map= 0;
+      uint jt_rowid_offset= 0; // # tuple bytes are already occupied (w/o NULL bytes)
+      uint jt_null_bits= 0;    // # null bits in tuple bytes
+      SJ_TMP_TABLE::TAB *last_tab= sjtabs;
+      jump_to= tab;
+      uint rowid_keep_flags= JOIN_TAB::CALL_POSITION |
+                             (dups_ranges[j].strategy == 2) ?
+                             JOIN_TAB::KEEP_ROWID : 0;
+
+      while (!bitmap_covers(cur_map, dups_ranges[j].outer_tables))
+      {
+        if (sj_table_is_included(join, tab))
+        {
+          last_tab->join_tab= tab;
+          last_tab->rowid_offset= jt_rowid_offset;
+          jt_rowid_offset += tab->table->file->ref_length;
+          if (tab->table->maybe_null)
+          {
+            last_tab->null_byte= jt_null_bits / 8;
+            last_tab->null_bit= jt_null_bits++;
+          }
+          last_tab++;
+          tab->table->prepare_for_position();
+          tab->rowid_keep_flags= rowid_keep_flags;
+        }
+        tab++;
+      }
+
+      if (jt_rowid_offset) /* Temptable has at least one rowid */
+      {
+        SJ_TMP_TABLE *sjtbl;
+        uint tabs_size= (last_tab - sjtabs) * sizeof(SJ_TMP_TABLE::TAB);
+        if (!(sjtbl= (SJ_TMP_TABLE*)thd->alloc(sizeof(SJ_TMP_TABLE))) ||
+            !(sjtbl->tabs= (SJ_TMP_TABLE::TAB*) thd->alloc(tabs_size)))
+          DBUG_RETURN(TRUE);
+        memcpy(sjtbl->tabs, sjtabs, tabs_size);
+        sjtbl->tabs_end= sjtbl->tabs + (last_tab - sjtabs);
+        sjtbl->rowid_len= jt_rowid_offset;
+        sjtbl->null_bits= jt_null_bits;
+        sjtbl->null_bytes= (jt_null_bits + 7)/8;
+
+        *next_sjtbl_ptr= sjtbl;
+        next_sjtbl_ptr= &(sjtbl->next);
+        sjtbl->next= NULL;
+
+        sjtbl->tmp_table= 
+          create_duplicate_weedout_tmp_table(thd, 
+                                             sjtbl->rowid_len + 
+                                             sjtbl->null_bytes,
+                                             sjtbl);
+
+        join->join_tab[dups_ranges[j].start_idx].flush_weedout_table= sjtbl;
+        tab->check_weed_out_table= sjtbl;
+      }
+      jump_to= tab++;
+    }
+
+    /* Create the FirstMatch tail */
+    for (; tab < join->join_tab + dups_ranges[j].end_idx; tab++)
+    {
+      if (!tab->emb_sj_nest && (jump_to != tab - 1))
+      {
+        tab->do_firstmatch= jump_to; 
+        jump_to= tab;
       }
     }
   }
@@ -1486,12 +1602,13 @@ JOIN::optimize()
     (select_lex->ftfunc_list->elements ?  SELECT_NO_JOIN_CACHE : 0);
 
   sj_tmp_tables= NULL;
-  if (select_lex->sj_nests.elements())
+  if (!select_lex->sj_nests.is_empty())
     setup_semijoin_dups_elimination(this, select_opts_for_readinfo,
                                     no_jbuf_after);
 
   // No cache for MATCH == 'Don't use join buffering when we use MATCH'.
-  make_join_readinfo(this, select_opts_for_readinfo, no_jbuf_after);
+  if (make_join_readinfo(this, select_opts_for_readinfo, no_jbuf_after))
+    DBUG_RETURN(1);
 
   /* Perform FULLTEXT search before all regular searches */
   if (!(select_options & SELECT_DESCRIBE))
@@ -2584,7 +2701,7 @@ err:
 
 
 int subq_sj_candidate_cmp(Item_in_subselect* const *el1, 
-                          Item_in_subselect * const *el2)
+                          Item_in_subselect* const *el2)
 {
   return ((*el1)->sj_convert_priority < (*el2)->sj_convert_priority) ? 1 : 
          ( ((*el1)->sj_convert_priority == (*el2)->sj_convert_priority)? 0 : -1);
@@ -2844,23 +2961,61 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
        subq_pred->left_expr->fix_fields(thd, &subq_pred->left_expr));
   thd->lex->current_select=save_lex;
 
+  sj_nest->nested_join->sj_corr_tables= subq_pred->used_tables();
   sj_nest->nested_join->sj_depends_on=  subq_pred->used_tables() |
                                         subq_pred->left_expr->used_tables();
   sj_nest->sj_on_expr= subq_lex->where;
+
+  /*
+    Create the IN-equalities and inject them into semi-join's ON expression.
+    Additionally, for InsideOut strategy
+     - Record the number of IN-equalities.
+     - Create list of pointers to (oe1, ..., ieN). We'll need the list to
+       see which of the expressions are bound and which are not (for those
+       we'll produce a distinct stream of (ie_i1,...ie_ik).
+
+       (TODO: can we just create a list of pointers and hope the expressions
+       will not substitute themselves on fix_fields()? or we need to wrap
+       them into Item_direct_view_refs and store pointers to those. The
+       pointers to Item_direct_view_refs are guaranteed to be stable as 
+       Item_direct_view_refs doesn't substitute itself with anything in 
+       Item_direct_view_ref::fix_fields.
+  */
+  sj_nest->sj_in_exprs= subq_pred->left_expr->cols();
+  sj_nest->nested_join->sj_outer_expr_list.empty();
+
   if (subq_pred->left_expr->cols() == 1)
   {
-    Item *item_eq= 
-      new Item_func_eq(subq_pred->left_expr, 
-                       subq_lex->ref_pointer_array[0]);
+    /*
+      psergey-insideout-todo: 
+      Figure out if we can just collect a list of items or will need 
+      to wrap them into item-refs instead, like this:
+
+      (and if we do wrap, we will have to use a permanent place to store
+      pointers. (is that one of ref-pointer-array's functions?))
+
+      new Item_direct_view_ref(&subq_lex->context,
+                               subq_lex->ref_pointer_array[0],
+                               (char *)"<no matter>",
+                               (char *)"<list ref>");
+    */
+    nested_join->sj_outer_expr_list.push_back(subq_pred->left_expr);
+
+    Item *item_eq= new Item_func_eq(subq_pred->left_expr, 
+                                    subq_lex->ref_pointer_array[0]);
+    item_eq->name= (char*)subq_sj_cond_name;
     sj_nest->sj_on_expr= and_items(sj_nest->sj_on_expr, item_eq);
   }
   else
   {
     for (uint i= 0; i < subq_pred->left_expr->cols(); i++)
     {
+      nested_join->sj_outer_expr_list.push_back(subq_pred->left_expr->
+                                                element_index(i));
       Item *item_eq= 
         new Item_func_eq(subq_pred->left_expr->element_index(i), 
                          subq_lex->ref_pointer_array[i]);
+      item_eq->name= (char*)subq_sj_cond_name + (i % 64);
       sj_nest->sj_on_expr= and_items(sj_nest->sj_on_expr, item_eq);
     }
   }
@@ -3098,23 +3253,25 @@ bool find_eq_ref_candidate(TABLE *table, table_map sj_inner_tables)
 int pull_out_semijoin_tables(JOIN *join)
 {
   DBUG_ENTER("pull_out_semijoin_tables");
-  TABLE_LIST **sj_nest, **sj_nest_end;
+  TABLE_LIST *sj_nest;//, **sj_nest_end;
+  List_iterator<TABLE_LIST> sj_list_it(join->select_lex->sj_nests);
    
   /* Try pulling out of the each of the semi-joins */
-  for (sj_nest= join->select_lex->sj_nests.front(), 
-       sj_nest_end= join->select_lex->sj_nests.back();
-       sj_nest != sj_nest_end; sj_nest++)
+//  for (sj_nest= join->select_lex->sj_nests.front(), 
+//       sj_nest_end= join->select_lex->sj_nests.back();
+//       sj_nest != sj_nest_end; sj_nest++)
+  while ((sj_nest= sj_list_it++))
   {
     /* Action #1: Mark the constant tables to be pulled out */
     table_map pulled_tables= 0;
      
-    List_iterator<TABLE_LIST> child_li((*sj_nest)->nested_join->join_list);
+    List_iterator<TABLE_LIST> child_li(sj_nest->nested_join->join_list);
     TABLE_LIST *tbl;
     while ((tbl= child_li++))
     {
       if (tbl->table)
       {
-        tbl->table->reginfo.join_tab->emb_sj_nest= *sj_nest;
+        tbl->table->reginfo.join_tab->emb_sj_nest= sj_nest;
         if (tbl->table->map & join->const_table_map)
           pulled_tables |= tbl->table->map;
       }
@@ -3134,7 +3291,7 @@ int pull_out_semijoin_tables(JOIN *join)
       {
         if (tbl->table && !(pulled_tables & tbl->table->map))
         {
-          if (find_eq_ref_candidate(tbl->table, (*sj_nest)->nested_join->used_tables))
+          if (find_eq_ref_candidate(tbl->table, sj_nest->nested_join->used_tables))
           {
             pulled_a_table= TRUE;
             pulled_tables |= tbl->table->map;
@@ -3144,9 +3301,9 @@ int pull_out_semijoin_tables(JOIN *join)
     } while (pulled_a_table);
  
     child_li.rewind();
-    if ((*sj_nest)->nested_join->used_tables == pulled_tables)
+    if ((sj_nest)->nested_join->used_tables == pulled_tables)
     {
-      (*sj_nest)->sj_inner_tables= 0;
+      (sj_nest)->sj_inner_tables= 0;
       fprintf(stderr, "subq nest removed\n");
       while ((tbl= child_li++))
       {
@@ -3157,15 +3314,15 @@ int pull_out_semijoin_tables(JOIN *join)
     else
     {
       /* Record the bitmap of inner tables, mark the inner tables */
-      table_map inner_tables=(*sj_nest)->nested_join->used_tables & 
+      table_map inner_tables=(sj_nest)->nested_join->used_tables & 
                              ~pulled_tables;
-      (*sj_nest)->sj_inner_tables= inner_tables;
+      (sj_nest)->sj_inner_tables= inner_tables;
       while ((tbl= child_li++))
       {
         if (tbl->table)
         {
           if (inner_tables & tbl->table->map)
-            tbl->table->reginfo.join_tab->emb_sj_nest= (*sj_nest);
+            tbl->table->reginfo.join_tab->emb_sj_nest= (sj_nest);
           else
             tbl->table->reginfo.join_tab->emb_sj_nest= NULL;
         }
@@ -3680,7 +3837,8 @@ typedef struct key_field_t {		// Used when finding key fields
     when val IS NULL.
   */
   bool          null_rejecting; 
-  bool         *cond_guard; /* See KEYUSE::cond_guard */
+  bool          *cond_guard; /* See KEYUSE::cond_guard */
+  uint          sj_pred_no; /* See KEYUSE::sj_pred_no */
 } KEY_FIELD;
 
 /*
@@ -3973,6 +4131,9 @@ add_key_field(KEY_FIELD **key_fields,uint and_level, Item_func *cond,
                                   ((*value)->type() == Item::FIELD_ITEM) &&
                                   ((Item_field*)*value)->field->maybe_null());
   (*key_fields)->cond_guard= NULL;
+  (*key_fields)->sj_pred_no= (cond->name >= subq_sj_cond_name && 
+                              cond->name < subq_sj_cond_name + 64)? 
+                              cond->name - subq_sj_cond_name: UINT_MAX;
   (*key_fields)++;
 }
 
@@ -4269,6 +4430,7 @@ add_key_part(DYNAMIC_ARRAY *keyuse_array,KEY_FIELD *key_field)
 	  keyuse.optimize= key_field->optimize & KEY_OPTIMIZE_REF_OR_NULL;
           keyuse.null_rejecting= key_field->null_rejecting;
           keyuse.cond_guard= key_field->cond_guard;
+          keyuse.sj_pred_no= key_field->sj_pred_no;
 	  VOID(insert_dynamic(keyuse_array,(gptr) &keyuse));
 	}
       }
@@ -4741,6 +4903,38 @@ set_position(JOIN *join,uint idx,JOIN_TAB *table,KEYUSE *key)
 
 
 /*
+  Walk over IN-equalites and see which are bound.
+  (Q: where do we get them?)
+   A1: keep left/right list... (A2: accumulate...)
+  This step has an additional merit over KEYUSE-based bind detection 
+  because it handles ie_i's that are not keyparts.
+*/
+
+ulonglong get_bound_sj_equalities(TABLE_LIST *sj_nest, 
+                                  table_map remaining_tables)
+{
+  List_iterator<Item> li(sj_nest->nested_join->sj_outer_expr_list);
+  Item *item;
+  uint i= 0;
+  ulonglong res= 0;
+  while ((item= li++))
+  {
+    /*
+      Q: should this take into account equality propagation and how?
+      A: If e->outer_side is an Item_field, walk over the equality
+         class and see if there is an element that is bound?
+      (this is an optional feature)
+    */
+    if (!(item->used_tables() & remaining_tables))
+    {
+      res |= 1ULL < i;
+    }
+  }
+  return res;
+}
+
+
+/*
   Find the best access path for an extension of a partial execution plan and
   add this path to the plan.
 
@@ -4786,6 +4980,7 @@ best_access_path(JOIN      *join,
   table_map best_ref_depends_map= 0;
   double tmp;
   ha_rows rec;
+  uint best_is_sj_inside_out=    0;
   DBUG_ENTER("best_access_path");
 
   if (s->keyuse)
@@ -4794,6 +4989,29 @@ best_access_path(JOIN      *join,
     KEYUSE *keyuse,*start_key=0;
     double best_records= DBL_MAX;
     uint max_key_part=0;
+    ulonglong bound_sj_equalities= 0;
+    bool try_sj_inside_out= FALSE;
+    /*
+      Discover the bound equalites. We need to do this, if
+        1. The next table is an SJ-inner table, and
+        2. It is the first table from that semijoin, and
+        3. We're not within a semi-join range (i.e. all semi-joins either have
+           all or none of their tables in join_table_map), except
+           s->emb_sj_nest (which we've just entered).
+        3. All correlation references from this sj-nest are bound
+    */
+    if (s->emb_sj_nest &&                                                 // (1)
+        s->emb_sj_nest->sj_in_exprs < 64 && 
+        ((remaining_tables & s->emb_sj_nest->sj_inner_tables) ==           // (2)
+         s->emb_sj_nest->sj_inner_tables) &&                               // (2)
+        join->cur_emb_sj_nests == s->emb_sj_nest->sj_inner_tables &&       // (3)
+        !(remaining_tables & s->emb_sj_nest->nested_join->sj_corr_tables)) // (4)
+    {
+      /* This table is an InsideOut scan candidate */
+      bound_sj_equalities= get_bound_sj_equalities(s->emb_sj_nest, 
+                                                   remaining_tables);
+      try_sj_inside_out= TRUE;
+    }
 
     /* Test how we can use keys */
     rec= s->records/MATCHING_ROWS_IN_OTHER_TABLE;  // Assumed records/key
@@ -4811,6 +5029,8 @@ best_access_path(JOIN      *join,
 
       /* Calculate how many key segments of the current key we can use */
       start_key= keyuse;
+      ulonglong handled_sj_equalities=0;
+      key_part_map sj_insideout_map= 0;
 
       do /* For each keypart */
       {
@@ -4849,6 +5069,18 @@ best_access_path(JOIN      *join,
             if (keyuse->optimize & KEY_OPTIMIZE_REF_OR_NULL)
               ref_or_null_part |= keyuse->keypart_map;
           }
+
+          if (try_sj_inside_out && keyuse->sj_pred_no != UINT_MAX)
+          {
+            if (!(remaining_tables & keyuse->used_tables))
+              bound_sj_equalities |= 1 << keyuse->sj_pred_no;
+            else
+            {
+              handled_sj_equalities |= 1 << keyuse->sj_pred_no;
+              sj_insideout_map |= 1 << keyuse->keypart;
+            }
+          }
+
           keyuse++;
         } while (keyuse->table == table && keyuse->key == key &&
                  keyuse->keypart == keypart);
@@ -4858,12 +5090,13 @@ best_access_path(JOIN      *join,
       /*
         Assume that that each key matches a proportional part of table.
       */
-      if (!found_part && !ft_key)
+      if (!found_part && !ft_key && !handled_sj_equalities)
         continue;                               // Nothing usable found
 
       if (rec < MATCHING_ROWS_IN_OTHER_TABLE)
         rec= MATCHING_ROWS_IN_OTHER_TABLE;      // Fix for small tables
 
+      bool sj_inside_out_scan= FALSE;
       /*
         ft-keys require special treatment
       */
@@ -4879,6 +5112,53 @@ best_access_path(JOIN      *join,
       else
       {
         found_constraint= 1;
+        // psergey:
+        /*
+          Check if InsideOut scan is applicable:
+          1. All IN-equalities are either "bound" or "handled"
+          2. Index keyparts are 
+             ...
+        */
+        if (try_sj_inside_out && 
+            (handled_sj_equalities | bound_sj_equalities) ==     // (1)
+            PREV_BITS(ulonglong, s->emb_sj_nest->sj_in_exprs)) // (1)
+        {
+          uint n_fixed_parts= max_part_bit(found_part);
+          if (n_fixed_parts != keyinfo->key_parts &&
+              (PREV_BITS(uint, n_fixed_parts) | sj_insideout_map) ==
+               PREV_BITS(uint, keyinfo->key_parts))
+          {
+            /* 
+              Not all parts are fixed. Produce bitmap of remaining bits and 
+              check if all of them are covered.
+            */
+            sj_inside_out_scan= TRUE;
+            DBUG_PRINT("info", ("Using sj InsideOut scan"));
+            if (!n_fixed_parts)
+            {
+              /* 
+                It's a confluent ref scan.
+
+                That is, all found KEYUSE elements refer to IN-equalities, 
+                and there is really no ref access because there is no
+                  t.keypart0 = {bound expression}
+                
+                Calculate the cost of complete loose index scan. 
+              */
+              records= s->table->file->stats.records;
+
+              /* The cost is entire index scan cost (divided by 2) */
+              best_time= s->table->file->index_only_read_time(key, records);
+
+              /* Now figure how many different keys we will get */
+              ulong rpc;
+              if ((rpc= keyinfo->rec_per_key[keyinfo->key_parts-1]))
+                records= records / rpc;
+              start_key= NULL;
+            }
+          }
+        }
+
         /*
           Check if we found full key
         */
@@ -5133,6 +5413,16 @@ best_access_path(JOIN      *join,
           else
             tmp= best_time;                    // Do nothing
         }
+
+        //psergey-todo: check if we get here when no ref scan has been
+        //constructed.
+        if (sj_inside_out_scan && !start_key)
+        {
+          tmp= tmp/2;
+          if (records)
+            records= records/2;
+        }
+
       } /* not ft_key */
       if (tmp < best_time - records/(double) TIME_FOR_COMPARE)
       {
@@ -5142,6 +5432,7 @@ best_access_path(JOIN      *join,
         best_key= start_key;
         best_max_key_part= max_key_part;
         best_ref_depends_map= found_ref;
+        best_is_sj_inside_out= sj_inside_out_scan;
       }
     }
     records= best_records;
@@ -5272,6 +5563,7 @@ best_access_path(JOIN      *join,
       best_key= 0;
       /* range/index_merge/ALL/index access method are "independent", so: */
       best_ref_depends_map= 0;
+      best_is_sj_inside_out= FALSE;
     }
   }
 
@@ -5281,6 +5573,7 @@ best_access_path(JOIN      *join,
   join->positions[idx].key=          best_key;
   join->positions[idx].table=        s;
   join->positions[idx].ref_depend_map= best_ref_depends_map;
+  join->positions[idx].use_insideout_scan= best_is_sj_inside_out;
 
   if (!best_key &&
       idx == join->const_tables &&
@@ -5332,7 +5625,7 @@ choose_plan(JOIN *join, table_map join_tables)
   */
   qsort(join->best_ref + join->const_tables, join->tables - join->const_tables,
         sizeof(JOIN_TAB*), straight_join?join_tab_cmp_straight:join_tab_cmp);
-  
+  join->cur_emb_sj_nests= 0;
   if (straight_join)
   {
     optimize_straight_join(join, join_tables);
@@ -5499,6 +5792,7 @@ optimize_straight_join(JOIN *join, table_map join_tables)
   for (JOIN_TAB **pos= join->best_ref + idx ; (s= *pos) ; pos++)
   {
     /* Find the best access method from 's' to the current partial plan */
+    advance_sj_state(join_tables, s);
     best_access_path(join, s, join->thd, join_tables, idx,
                      record_count, read_time);
     /* compute the cost of the new plan extended with 's' */
@@ -5811,7 +6105,15 @@ best_extension_by_limited_search(JOIN      *join,
         (!idx || !check_interleaving_with_nj(join->positions[idx-1].table, s)))
     {
       double current_record_count, current_read_time;
+      advance_sj_state(remaining_tables, s);
 
+      /*
+        psergey-insideout-todo: 
+          when best_access_path() detects it could do an InsideOut scan or 
+          some other scan, have it return an insideout scan and a flag that 
+          requests to "fork" this loop iteration. (Q: how does that behave 
+          when the depth is insufficient??)
+      */
       /* Find the best access method from 's' to the current partial plan */
       best_access_path(join, s, thd, remaining_tables, idx,
                        record_count, read_time);
@@ -5831,6 +6133,7 @@ best_extension_by_limited_search(JOIN      *join,
                                         (double) TIME_FOR_COMPARE),
                                        "prune_by_cost"););
         restore_prev_nj_state(s);
+        restore_prev_sj_state(remaining_tables, s);
         continue;
       }
 
@@ -5863,6 +6166,7 @@ best_extension_by_limited_search(JOIN      *join,
                                          current_read_time,
                                          "pruned_by_heuristic"););
           restore_prev_nj_state(s);
+          restore_prev_sj_state(remaining_tables, s);
           continue;
         }
       }
@@ -5905,6 +6209,7 @@ best_extension_by_limited_search(JOIN      *join,
                                        "full_plan"););
       }
       restore_prev_nj_state(s);
+      restore_prev_sj_state(remaining_tables, s);
     }
   }
   DBUG_VOID_RETURN;
@@ -5950,6 +6255,7 @@ find_best(JOIN *join,table_map rest_tables,uint idx,double record_count,
         (!idx|| !check_interleaving_with_nj(join->positions[idx-1].table, s)))
     {
       double records, best;
+      advance_sj_state(rest_tables, s);
       best_access_path(join, s, thd, rest_tables, idx, record_count, 
                        read_time);
       records= join->positions[idx].records_read;
@@ -5979,6 +6285,7 @@ find_best(JOIN *join,table_map rest_tables,uint idx,double record_count,
 	swap_variables(JOIN_TAB*, join->best_ref[idx], *pos);
       }
       restore_prev_nj_state(s);
+      restore_prev_sj_state(rest_tables, s);
       if (join->select_options & SELECT_STRAIGHT_JOIN)
 	break;				// Don't test all combinations
     }
@@ -7096,7 +7403,7 @@ uint make_join_orderinfo(JOIN *join)
       no_jbuf_after  X.
 */
 
-static void
+static bool
 make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 {
   uint i;
@@ -7132,6 +7439,13 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 
     tab->sorted= sorted;
     sorted= 0;                                  // only first must be sorted
+    if (tab->insideout_match_tab)
+    {
+      if (!(tab->insideout_buf= (byte*)join->thd->alloc(tab->table->key_info
+                                                        [tab->index].
+                                                        key_length)))
+        return TRUE;
+    }
     switch (tab->type) {
     case JT_SYSTEM:				// Only happens with left join
       table->status=STATUS_NO_RECORD;
@@ -7186,7 +7500,8 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
       if (tab->type == JT_REF)
       {
 	tab->read_first_record= join_read_always_key;
-	tab->read_record.read_record= join_read_next_same;
+	tab->read_record.read_record= tab->insideout_match_tab? 
+           join_read_next_same : join_read_next_same_diff;
       }
       else
       {
@@ -7206,7 +7521,8 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
       */
       table->status=STATUS_NO_RECORD;
       if (i != join->const_tables && !(options & SELECT_NO_JOIN_CACHE) &&
-          tab->use_quick != 2 && !tab->first_inner && i <= no_jbuf_after)
+          tab->use_quick != 2 && !tab->first_inner && i <= no_jbuf_after &&
+          !tab->insideout_match_tab)
       {
 	if ((options & SELECT_DESCRIBE) ||
 	    !join_init_cache(join->thd,join->join_tab+join->const_tables,
@@ -7271,7 +7587,8 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 	  else if (!table->used_keys.is_clear_all() &&
 		   !(tab->select && tab->select->quick))
 	  {					// Only read index tree
-	    tab->index=find_shortest_key(table, & table->used_keys);
+            if (!tab->insideout_match_tab)
+              tab->index=find_shortest_key(table, & table->used_keys);
 	    tab->read_first_record= join_read_first;
 	    tab->type=JT_NEXT;		// Read with index_first / index_next
 	  }
@@ -7287,7 +7604,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
     }
   }
   join->join_tab[join->tables-1].next_select=0; /* Set by do_select */
-  DBUG_VOID_RETURN;
+  return FALSE;
 }
 
 
@@ -8018,19 +8335,26 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
       */
        return TRUE;
     }
-      
+    
+    //psergey-insideout:
+    bool copy_item_name= test(item->name >= subq_sj_cond_name && 
+                              item->name < subq_sj_cond_name + 64);
     /* Copy the found multiple equalities at the current level if needed */
     if (left_copyfl)
     {
       /* left_item_equal of an upper level contains left_item */
       left_item_equal= new Item_equal(left_item_equal);
       cond_equal->current_level.push_back(left_item_equal);
+      if (copy_item_name)
+        left_item_equal->name = item->name;
     }
     if (right_copyfl)
     {
       /* right_item_equal of an upper level contains right_item */
       right_item_equal= new Item_equal(right_item_equal);
       cond_equal->current_level.push_back(right_item_equal);
+      if (copy_item_name)
+        right_item_equal->name = item->name;
     }
 
     if (left_item_equal)
@@ -8052,13 +8376,19 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
     { 
       /* left item was not found neither the current nor in upper levels  */
       if (right_item_equal)
+      {
         right_item_equal->add((Item_field *) left_item);
+        if (copy_item_name)
+          right_item_equal->name = item->name;
+      }
       else 
       {
         /* None of the fields was found in multiple equalities */
         Item_equal *item_equal= new Item_equal((Item_field *) left_item,
                                                (Item_field *) right_item);
         cond_equal->current_level.push_back(item_equal);
+        if (copy_item_name)
+          item_equal->name = item->name;
       }
     }
     return TRUE;
@@ -9326,7 +9656,7 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, COND *conds, bool top,
          If this is a semi-join that is not contained within another semi-join, 
          leave it intact (otherwise it is flattened)
        */
-      join->select_lex->sj_nests.append(table);
+      join->select_lex->sj_nests.push_back(table);
     }
     else if (nested_join && !table->on_expr)
     {
@@ -9599,6 +9929,44 @@ static void restore_prev_nj_state(JOIN_TAB *last)
       join->cur_embedding_map &= last_emb->nested_join->nj_map;
     }
     last_emb= last_emb->embedding;
+  }
+}
+
+
+/*
+  //psergey-todo: better naming
+*/
+
+static 
+void advance_sj_state(const table_map remaining_tables, const JOIN_TAB *tab)
+{
+  TABLE_LIST *emb_sj_nest;
+  if ((emb_sj_nest= tab->emb_sj_nest))
+  {
+    tab->join->cur_emb_sj_nests |= emb_sj_nest->sj_inner_tables;
+    /* Remove the sj_nest if all of its SJ-inner tables are in cur_table_map */
+    if (!(remaining_tables & emb_sj_nest->sj_inner_tables))
+      tab->join->cur_emb_sj_nests &= ~emb_sj_nest->sj_inner_tables;
+  }
+}
+
+
+/*
+  we assume remaining_tables doesnt contain @tab.
+*/
+
+static void restore_prev_sj_state(const table_map remaining_tables, 
+                                  const JOIN_TAB *tab)
+{
+  TABLE_LIST *emb_sj_nest;
+  if ((emb_sj_nest= tab->emb_sj_nest))
+  {
+    /* If we're removing the last SJ-inner table, remove the sj-nest */
+    if ((remaining_tables & emb_sj_nest->sj_inner_tables) == 
+        (emb_sj_nest->sj_inner_tables & ~tab->table->map))
+    {
+      tab->join->cur_emb_sj_nests &= ~emb_sj_nest->sj_inner_tables;
+    }
   }
 }
 
@@ -12111,6 +12479,7 @@ int do_sj_dups_weedout(THD *thd, SJ_TMP_TABLE *sjtbl)
   SJ_TMP_TABLE::TAB *tab= sjtbl->tabs;
   SJ_TMP_TABLE::TAB *tab_end= sjtbl->tabs_end;
   byte *ptr= sjtbl->tmp_table->record[0] + 1;
+  byte *nulls_ptr= ptr;
   
   /* Put the the rowids tuple into table->record[0]: */
 
@@ -12126,7 +12495,7 @@ int do_sj_dups_weedout(THD *thd, SJ_TMP_TABLE *sjtbl)
     ptr += 2;
   }
 
-  // 2. Zero the length 
+  // 2. Zero the null bytes 
   if (sjtbl->null_bytes)
   {
     bzero(ptr, sjtbl->null_bytes);
@@ -12140,7 +12509,7 @@ int do_sj_dups_weedout(THD *thd, SJ_TMP_TABLE *sjtbl)
     if (tab->join_tab->table->maybe_null && tab->join_tab->table->null_row)
     {
       /* It's a NULL-complemented row */
-      *(tab->null_addr) |= tab->null_bit;
+      *(nulls_ptr + tab->null_byte) |= tab->null_bit;
       bzero(ptr + tab->rowid_offset, h->ref_length);
     }
     else
@@ -12260,6 +12629,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab,
     }
 
     JOIN_TAB *return_tab= join->return_tab;
+    join_tab->found_match= TRUE;
     if (join_tab->check_weed_out_table)
     {
       int res= do_sj_dups_weedout(join->thd, join_tab->check_weed_out_table);
@@ -12758,6 +13128,37 @@ join_no_more_records(READ_RECORD *info __attribute__((unused)))
   return -1;
 }
 
+static int
+join_read_next_same_diff(READ_RECORD *info)
+{
+  TABLE *table= info->table;
+  JOIN_TAB *tab=table->reginfo.join_tab;
+  if (tab->insideout_match_tab->found_match)
+  {
+    KEY *key= tab->table->key_info + tab->index;
+    do 
+    {
+      int error;
+      /* Save index tuple from record to the buffer */
+      key_copy(tab->insideout_buf, info->record, key, 0);
+
+      if ((error=table->file->index_next_same(table->record[0],
+                                              tab->ref.key_buff,
+                                              tab->ref.key_length)))
+      {
+        if (error != HA_ERR_END_OF_FILE)
+          return report_error(table, error);
+        table->status= STATUS_GARBAGE;
+        return -1;
+      }
+    } while (!key_cmp(tab->table->key_info[tab->index].key_part, 
+                      tab->insideout_buf, key->key_length));
+    tab->insideout_match_tab->found_match= 0;
+    return 0;
+  }
+  else
+    return join_read_next_same(info);
+}
 
 static int
 join_read_next_same(READ_RECORD *info)
@@ -12849,11 +13250,22 @@ join_read_first(JOIN_TAB *tab)
     table->file->extra(HA_EXTRA_KEYREAD);
   }
   tab->table->status=0;
-  tab->read_record.read_record=join_read_next;
   tab->read_record.table=table;
   tab->read_record.file=table->file;
   tab->read_record.index=tab->index;
   tab->read_record.record=table->record[0];
+  if (tab->insideout_match_tab)
+  {
+    tab->read_record.do_insideout_scan= tab;
+    tab->read_record.read_record=join_read_next_different;
+    tab->insideout_match_tab->found_match= 0;
+  }
+  else
+  {
+    tab->read_record.read_record=join_read_next;
+    tab->read_record.do_insideout_scan= 0;
+  }
+
   if (!table->file->inited)
     table->file->ha_index_init(tab->index, tab->sorted);
   if ((error=tab->table->file->index_first(tab->table->record[0])))
@@ -12863,6 +13275,32 @@ join_read_first(JOIN_TAB *tab)
     return -1;
   }
   return 0;
+}
+
+
+static int
+join_read_next_different(READ_RECORD *info)
+{
+  JOIN_TAB *tab= info->do_insideout_scan;
+  if (tab->insideout_match_tab->found_match)
+  {
+    KEY *key= tab->table->key_info + tab->index;
+    do 
+    {
+      int error;
+      /* Save index tuple from record to the buffer */
+      key_copy(tab->insideout_buf, info->record, key, 0);
+
+      if ((error=info->file->index_next(info->record)))
+        return report_error(info->table, error);
+      
+    } while (!key_cmp(tab->table->key_info[tab->index].key_part, 
+                      tab->insideout_buf, key->key_length));
+    tab->insideout_match_tab->found_match= 0;
+    return 0;
+  }
+  else
+    return join_read_next(info);
 }
 
 
@@ -16946,6 +17384,12 @@ static void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
             }
           }
         }
+
+        if (tab->insideout_match_tab)
+        {
+          extra.append(STRING_WITH_LEN("; LooseScan"));
+        }
+
         if (tab->flush_weedout_table)
           extra.append(STRING_WITH_LEN("; Start temporary"));
         else if (tab->check_weed_out_table)

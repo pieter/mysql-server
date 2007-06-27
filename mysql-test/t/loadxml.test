@@ -29,6 +29,11 @@ delete from t1;
 --eval load xml infile '$MYSQL_TMP_DIR/loadxml-dump.xml' into table t1 rows identified by '<row>';
 select * from t1 order by a;
 
+--echo --Check that default row tag is '<row>
+delete from t1;
+--eval load xml infile '$MYSQL_TMP_DIR/loadxml-dump.xml' into table t1;
+select * from t1 order by a;
+
 --echo -- Check that 'xml' is not a keyword
 select 1 as xml;
 

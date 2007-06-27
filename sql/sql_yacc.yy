@@ -9150,9 +9150,8 @@ load:   LOAD data_or_xml
 	  lex->local_file=  $5;
 	  lex->duplicates= DUP_ERROR;
 	  lex->ignore= 0;
-	  if (!(lex->exchange= new sql_exchange($7.str, 0)))
+	  if (!(lex->exchange= new sql_exchange($7.str, 0, $2)))
 	    MYSQL_YYABORT;
-          lex->exchange->filetype= $2;
         }
         opt_duplicate INTO
         {

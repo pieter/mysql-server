@@ -29,6 +29,14 @@ a	b
 111	b111
 112	b112 & < > " ' &unknown; -- check entities
 212	b212
+--Check that default row tag is '<row>
+delete from t1;
+load xml infile '/home/bar/mysql-work/mysql-5.2.wl1397/mysql-test/var/tmp/loadxml-dump.xml' into table t1;;
+select * from t1 order by a;
+a	b
+111	b111
+112	b112 & < > " ' &unknown; -- check entities
+212	b212
 -- Check that 'xml' is not a keyword
 select 1 as xml;
 xml

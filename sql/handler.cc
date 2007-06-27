@@ -3216,7 +3216,7 @@ int handler::multi_range_read_info(uint keyno, uint n_ranges, uint n_rows,
   else
     cost->io_count= read_time(keyno, n_ranges, n_rows);
   return 0;
-
+}
 
 
 /*
@@ -3868,7 +3868,9 @@ bool DsMrr_impl::get_disk_sweep_mrr_cost(uint keynr, ha_rows rows, uint flags,
   else
   {
     cost->zero();
-    *buffer_size= rows_in_last_step * elem_size;
+    *buffer_size= max(*buffer_size, 
+                      (size_t)(1.2*rows_in_last_step) * elem_size + 
+                      h->ref_length + h->table->key_info[keynr].key_length);
   }
   
   COST_VECT last_step_cost;

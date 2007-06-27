@@ -238,7 +238,9 @@ uint _mi_pack_key(register MI_INFO *info, uint keynr, uchar *key, uchar *old,
     uint char_length;
     uchar *pos;
     CHARSET_INFO *cs=keyseg->charset;
-    /* psergey: we probably don't need all this as we will be cloning handlers instead
+    /* psergey: we probably don't need all this as we will be cloning
+     handlers instead*/
+#if 0     
     if (!type)
     {
       /*
@@ -265,7 +267,7 @@ uint _mi_pack_key(register MI_INFO *info, uint keynr, uchar *key, uchar *old,
       }
       break;
     }
-*/
+#endif 
     keypart_map>>= 1;
     if (keyseg->null_bit)
     {

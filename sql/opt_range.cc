@@ -729,10 +729,11 @@ static ha_rows check_quick_select(PARAM *param, uint idx, bool index_only,
                                   SEL_ARG *tree, bool update_tbl_stats, 
                                   uint *mrr_flags, uint *bufsize,
                                   COST_VECT *cost);
-                                  bool update_tbl_stats);
-static ha_rows check_quick_keys(PARAM *param,uint index,SEL_ARG *key_tree,
+                                  //bool update_tbl_stats);
+/*static ha_rows check_quick_keys(PARAM *param,uint index,SEL_ARG *key_tree,
                                 char *min_key, uint min_key_flag, int,
                                 char *max_key, uint max_key_flag, int);
+*/
 
 QUICK_RANGE_SELECT *get_quick_select(PARAM *param,uint index,
                                      SEL_ARG *key_tree, uint mrr_flags, 
@@ -7098,6 +7099,9 @@ typedef struct st_range_seq_entry
     min_key_flag may have NULL_RANGE set.
   */
   uint min_key_flag, max_key_flag;
+  
+  /* Number of key parts */
+  uint min_key_parts, max_key_parts;
   SEL_ARG *key_tree;
 } RANGE_SEQ_ENTRY;
 
@@ -7139,8 +7143,11 @@ range_seq_t sel_arg_range_seq_init(void *init_param, uint n_ranges, uint flags)
   seq->stack[0].key_tree= NULL;
   seq->stack[0].min_key= seq->param->min_key;
   seq->stack[0].min_key_flag= 0;
+  seq->stack[0].min_key_parts= 0;
+
   seq->stack[0].max_key= seq->param->max_key;
   seq->stack[0].max_key_flag= 0;
+  seq->stack[0].max_key_parts= 0;
   seq->i= 0;
   return init_param;
 }
@@ -7154,10 +7161,20 @@ static void step_down_to(SEL_ARG_RANGE_SEQ *arg, SEL_ARG *key_tree)
   cur->key_tree= key_tree;
   cur->min_key= prev->min_key;
   cur->max_key= prev->max_key;
-  
+  cur->min_key_parts= prev->min_key_parts;
+  cur->max_key_parts= prev->max_key_parts;
+
+  uint16 stor_length= arg->param->key[arg->keyno][key_tree->part].store_length;
+  /* psergey-merge-done:
   key_tree->store(arg->param->key[arg->keyno][key_tree->part].store_length,
                   &cur->min_key, prev->min_key_flag,
                   &cur->max_key, prev->max_key_flag);
+  */
+  cur->min_key_parts += key_tree->store_min(stor_length, &cur->min_key,
+                                            prev->min_key_flag);
+  cur->max_key_parts += key_tree->store_max(stor_length, &cur->max_key,
+                                            prev->max_key_flag);
+
   cur->min_key_flag= prev->min_key_flag | key_tree->min_flag;
   cur->max_key_flag= prev->max_key_flag | key_tree->max_flag;
 
@@ -7199,7 +7216,7 @@ uint sel_arg_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range)
   {
     key_tree= seq->start;
     seq->at_start= FALSE;
-    goto walk_up_right;
+    goto walk_up_n_right;
   }
 
   key_tree= seq->stack[seq->i].key_tree;
@@ -7213,7 +7230,7 @@ uint sel_arg_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range)
     step_down_to(seq, key_tree->next);
     key_tree= key_tree->next;
     seq->param->is_ror_scan= FALSE;
-    goto walk_right_up;
+    goto walk_right_n_up;
   }
 
   /* Ok, can't step down, walk left until we can step down */
@@ -7240,27 +7257,30 @@ uint sel_arg_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range)
     Ok, we've stepped down from the path to previous tuple.
     Walk right-up while we can
   */
-walk_right_up:
+walk_right_n_up:
   while (key_tree->next_key_part && key_tree->next_key_part != &null_element && 
          key_tree->next_key_part->part == key_tree->part + 1)
   {
     {
-      uint min_key_length= seq->stack[seq->i].min_key - seq->param->min_key;
-      uint max_key_length= seq->stack[seq->i].max_key - seq->param->max_key;
-      uint len= seq->stack[seq->i].min_key - seq->stack[seq->i-1].min_key;
+      RANGE_SEQ_ENTRY *cur= &seq->stack[seq->i];
+      uint min_key_length= cur->min_key - seq->param->min_key;
+      uint max_key_length= cur->max_key - seq->param->max_key;
+      uint len= cur->min_key - cur[-1].min_key;
       if (!(min_key_length == max_key_length &&
-            !memcmp(seq->stack[seq->i-1].min_key, seq->stack[seq->i-1].max_key, len) &&
+            !memcmp(cur[-1].min_key, cur[-1].max_key, len) &&
             !key_tree->min_flag && !key_tree->max_flag))
       {
         seq->param->is_ror_scan= FALSE;
         if (!key_tree->min_flag)
-          key_tree->next_key_part->store_min_key(seq->param->key[seq->keyno], 
-                                                 &seq->stack[seq->i].min_key,
-                                                 &seq->stack[seq->i].min_key_flag);
+          cur->min_key_parts += 
+            key_tree->next_key_part->store_min_key(seq->param->key[seq->keyno],
+                                                   &cur->min_key,
+                                                   &cur->min_key_flag);
         if (!key_tree->max_flag)
-          key_tree->next_key_part->store_max_key(seq->param->key[seq->keyno], 
-                                                 &seq->stack[seq->i].max_key,
-                                                 &seq->stack[seq->i].max_key_flag);
+          cur->max_key_parts += 
+            key_tree->next_key_part->store_max_key(seq->param->key[seq->keyno],
+                                                   &cur->max_key,
+                                                   &cur->max_key_flag);
         break;
       }
     }
@@ -7271,7 +7291,7 @@ walk_right_up:
     */
     key_tree= key_tree->next_key_part;
 
-walk_up_right:
+walk_up_n_right:
     while (key_tree->prev && key_tree->prev != &null_element)
     {
       /* Step up */
@@ -7300,6 +7320,7 @@ walk_up_right:
     
     range->start_key.key=    (byte*)seq->param->min_key;
     range->start_key.length= cur->min_key - seq->param->min_key;
+    range->start_key.keypart_map= make_prev_keypart_map(cur->min_key_parts);
     range->start_key.flag=   (cur->min_key_flag & NEAR_MIN ? HA_READ_AFTER_KEY : 
                                                              HA_READ_KEY_EXACT);
 
@@ -7307,6 +7328,7 @@ walk_up_right:
     range->end_key.length= cur->max_key - seq->param->max_key;
     range->end_key.flag=   (cur->max_key_flag & NEAR_MAX ? HA_READ_BEFORE_KEY : 
                                                            HA_READ_AFTER_KEY);
+    range->end_key.keypart_map= make_prev_keypart_map(cur->max_key_parts);
     if (!(cur->min_key_flag & ~NULL_RANGE) && !cur->max_key_flag &&
         (uint)key_tree->part+1 == seq->param->table->key_info[seq->real_keyno].key_parts &&
         (seq->param->table->key_info[seq->real_keyno].flags & (HA_NOSAME | HA_END_SPACE_KEY)) ==
@@ -7331,6 +7353,7 @@ walk_up_right:
             !memcmp(range->start_key.key, range->end_key.key, range->start_key.length) &&
             is_key_scan_ror(seq->param, seq->real_keyno, key_tree->part + 1)))
         seq->param->is_ror_scan= FALSE;
+    }
   }
   seq->param->range_count++;
   seq->param->max_key_part=max(seq->param->max_key_part,key_tree->part);
@@ -8342,11 +8365,13 @@ uint quick_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range)
 
   start_key->key=    (const byte*)cur->min_key;
   start_key->length= cur->min_length;
+  start_key->keypart_map= cur->min_keypart_map;
   start_key->flag=   ((cur->flag & NEAR_MIN) ? HA_READ_AFTER_KEY :
                       (cur->flag & EQ_RANGE) ?
                       HA_READ_KEY_EXACT : HA_READ_KEY_OR_NEXT);
   end_key->key=      (const byte*)cur->max_key;
   end_key->length=   cur->max_length;
+  end_key->keypart_map= cur->max_keypart_map;
   /*
     We use HA_READ_AFTER_KEY here because if we are reading on a key
     prefix. We want to find all keys with this prefix.
@@ -8447,7 +8472,7 @@ int QUICK_RANGE_SELECT::get_next()
   }
 
   int result= file->multi_range_read_next(&dummy);
-  //psergey-merge-todo: set start_key->keypart_map and end_key->keypart_map
+
   if (in_ror_merged_scan)
   {
     /* Restore bitmaps set on entry */

@@ -103,8 +103,10 @@ backup_state::Initializer init;
   This class defines how buffers are allocated for data transfers
   (@c get_buf() method). Each block is written as a separate chunk of data.
  */
-struct Block_writer
+class Block_writer
 {
+ public:
+ 
   enum result_t { OK, NO_RES, ERROR };
 
   result_t  get_buf(Buffer &);
@@ -120,7 +122,7 @@ struct Block_writer
   OStream  &m_str;
   size_t   buf_size;
 
-  friend struct Backup_pump;
+  friend class Backup_pump;
 };
 
 /**
@@ -482,8 +484,10 @@ namespace backup {
 /**
   Used to iterate over backup pumps of a scheduler.
  */
-struct Scheduler::Pump_iterator
+class Scheduler::Pump_iterator
 {
+ public:
+ 
   LIST  *el;
 
   Pump* operator->()

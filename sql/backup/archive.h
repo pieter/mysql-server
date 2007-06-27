@@ -45,8 +45,10 @@ typedef Image_info* Img_list[MAX_IMAGES]; ///< List (vector) of image descriptio
   When reading or writing backup archive, statistics about the size of its parts
   is stored in the members of this class for later reporting.
  */
-struct Archive_info
+class Archive_info
 {
+ public:
+ 
    static const version_t  ver=1;
    uint  img_count;       ///< number of images in the archive
    uint  table_count;     ///< total number of tables in the archive
@@ -110,8 +112,10 @@ struct Archive_info
   - defines how image's format is described inside backup archive
     (via @c do_write_description() method)
  */
-struct Image_info
+class Image_info
 {
+ public:
+ 
   enum image_type {NATIVE_IMAGE, DEFAULT_IMAGE};
 
   virtual image_type type() const =0; ///< Return type of the image.
@@ -192,7 +196,7 @@ struct Image_info
      node *m_head, *m_last;
      uint m_count;
 
-     friend struct Table_ref;
+     friend class Table_ref;
      friend class  Archive_info::Table_item;
    };
 

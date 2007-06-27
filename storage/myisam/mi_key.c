@@ -531,7 +531,7 @@ int _mi_read_key_record(MI_INFO *info, my_off_t filepos, uchar *buf)
     2   Index condition is not satisfied, end the scan. 
 */
 
-int mi_check_index_cond(register MI_INFO *info, uint keynr, byte *record)
+int mi_check_index_cond(register MI_INFO *info, uint keynr, uchar *record)
 {
   if (_mi_put_key_in_record(info, keynr, record))
   {

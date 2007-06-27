@@ -775,7 +775,7 @@ void mi_setup_functions(register MYISAM_SHARE *share);
 my_bool mi_dynmap_file(MI_INFO *info, my_off_t size);
 void mi_remap_file(MI_INFO *info, my_off_t size);
 
-int mi_check_index_cond(register MI_INFO *info, uint keynr, byte *record);
+int mi_check_index_cond(register MI_INFO *info, uint keynr, uchar *record);
 
     /* Functions needed by mi_check */
 volatile int *killed_ptr(MI_CHECK *param);

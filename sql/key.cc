@@ -173,7 +173,7 @@ void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
   DESCRIPTION
 */
 
-void key_zero_nulls(byte *tuple, KEY *key_info)
+void key_zero_nulls(uchar *tuple, KEY *key_info)
 {
   KEY_PART_INFO *key_part= key_info->key_part;
   KEY_PART_INFO *key_part_end= key_part + key_info->key_parts;

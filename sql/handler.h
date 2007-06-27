@@ -845,8 +845,8 @@ typedef struct st_ha_check_opt
 
 typedef struct st_handler_buffer
 {
-  const uchar *buffer;         /* Buffer one can start using */
-  const uchar *buffer_end;     /* End of buffer */
+  uchar *buffer;         /* Buffer one can start using */
+  uchar *buffer_end;     /* End of buffer */
   uchar *end_of_used_area;     /* End of area that was used by handler */
 } HANDLER_BUFFER;
 
@@ -1912,14 +1912,14 @@ public:
 
   DsMrr_impl(range_check_toggle_func_t func)
     : last_idx_tuple(NULL), range_check_toggle_func(func) {};
-  byte *rowids_buf;       // rows buffer
+  uchar *rowids_buf;       // rows buffer
 
-  byte *rowids_buf_cur;   // current position in rowids buffer
-  byte *rowids_buf_last;  // just-after-the-end position in rowids buffer 
-  byte *rowids_buf_end;
+  uchar *rowids_buf_cur;   // current position in rowids buffer
+  uchar *rowids_buf_last;  // just-after-the-end position in rowids buffer 
+  uchar *rowids_buf_end;
   
   KEY  *mrr_key;
-  byte *last_idx_tuple;
+  uchar *last_idx_tuple;
   uint mrr_keyno;
   bool dsmrr_eof;
 

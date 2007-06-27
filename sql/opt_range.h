@@ -355,11 +355,10 @@ private:
   QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,
                                                struct st_table_ref *ref,
                                                ha_rows records);
-  friend bool get_quick_keys(PARAM *param,
-                             QUICK_RANGE_SELECT *quick,KEY_PART *key,
-                             SEL_ARG *key_tree,
-                             char *min_key, uint min_key_flag,
-                             char *max_key, uint max_key_flag);
+  friend bool get_quick_keys(PARAM *param, QUICK_RANGE_SELECT *quick, 
+                             KEY_PART *key, SEL_ARG *key_tree, 
+                             uchar *min_key, uint min_key_flag,
+                             uchar *max_key, uint max_key_flag);
   friend QUICK_RANGE_SELECT *get_quick_select(PARAM*,uint idx,
                                               SEL_ARG *key_tree,
                                               uint mrr_flags,

@@ -3450,12 +3450,12 @@ int DsMrr_impl::dsmrr_init(handler *h, KEY *key,
   }
   use_default_impl= FALSE;
   
-  rowids_buf= (byte*)buf->buffer;
+  rowids_buf= buf->buffer;
   last_idx_tuple= rowids_buf;
   rowids_buf += key->key_length + h->ref_length;
 
   is_mrr_assoc= !test(mode & HA_MRR_NO_ASSOCIATION);
-  rowids_buf_end= (byte*)buf->buffer_end;
+  rowids_buf_end= buf->buffer_end;
   
   elem_size= h->ref_length + (int)is_mrr_assoc * sizeof(void*);
   rowids_buf_last= rowids_buf + 
@@ -3499,7 +3499,7 @@ int DsMrr_impl::dsmrr_init(handler *h, KEY *key,
 }
 
 
-static int rowid_cmp(void *h, byte *a, byte *b)
+static int rowid_cmp(void *h, uchar *a, uchar *b)
 {
   return ((handler*)h)->cmp_ref(a, b);
 }
@@ -3536,7 +3536,7 @@ int DsMrr_impl::dsmrr_fill_buffer(handler *h)
          !(res= h->handler::multi_range_read_next(&range_info)))
   {
     /* Put rowid, or {rowid, range_id} pair into the buffer */
-    h->position((const byte*)(h->table->record[0]));
+    h->position(h->table->record[0]);
     memcpy(rowids_buf_cur, h->ref, h->ref_length);
     rowids_buf_cur += h->ref_length;
 
@@ -3649,7 +3649,7 @@ int DsMrr_impl::dsmrr_next(handler *h, char **range_info)
     return HA_ERR_END_OF_FILE;
   }
 
-  res= h->rnd_pos((byte*)h->table->record[0], rowids_buf_cur);
+  res= h->rnd_pos(h->table->record[0], rowids_buf_cur);
   rowids_buf_cur += h->ref_length;
   
   if (is_mrr_assoc)

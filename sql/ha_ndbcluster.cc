@@ -8474,6 +8474,7 @@ ha_ndbcluster::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
                                            void *seq_init_param, 
                                            uint n_ranges_arg, uint *bufsz,
                                            uint *flags, COST_VECT *cost)
+{
   KEY_MULTI_RANGE range;
   range_seq_t seq_it;
   ha_rows rows, total_rows= 0;
@@ -8613,7 +8614,7 @@ int ha_ndbcluster::multi_range_read_init(RANGE_SEQ_IF *seq_funcs,
      * This as we don't want mysqld to reuse the buffer when we read
      *   the remaining ranges
      */
-    buffer->end_of_used_area= (byte*)multi_range_buffer->buffer_end;
+    buffer->end_of_used_area= multi_range_buffer->buffer_end;
   }
   else
   {

@@ -7096,7 +7096,7 @@ typedef struct st_range_seq_entry
     Pointers in min and max keys. They point to right-after-end of key
     images. The 0-th entry has these pointing to key tuple start.
   */
-  char *min_key, *max_key;
+  uchar *min_key, *max_key;
   
   /* 
     Flags, for {keypart0, keypart1, ... this_keypart} subtuple.
@@ -7314,7 +7314,7 @@ walk_up_n_right:
     range->range_flag= cur->min_key_flag;
 
     /* Here minimum contains also function code bits, and maximum is +inf */
-    range->start_key.key=    (byte*)seq->param->min_key;
+    range->start_key.key=    seq->param->min_key;
     range->start_key.length= min_key_length;
     range->start_key.flag=  (ha_rkey_function) (cur->min_key_flag ^ GEOM_FLAG);
   }
@@ -7322,17 +7322,18 @@ walk_up_n_right:
   {
     range->range_flag= cur->min_key_flag | cur->max_key_flag;
     
-    range->start_key.key=    (byte*)seq->param->min_key;
+    range->start_key.key=    seq->param->min_key;
     range->start_key.length= cur->min_key - seq->param->min_key;
     range->start_key.keypart_map= make_prev_keypart_map(cur->min_key_parts);
-    range->start_key.flag=   (cur->min_key_flag & NEAR_MIN ? HA_READ_AFTER_KEY : 
-                                                             HA_READ_KEY_EXACT);
+    range->start_key.flag= (cur->min_key_flag & NEAR_MIN ? HA_READ_AFTER_KEY : 
+                                                           HA_READ_KEY_EXACT);
 
-    range->end_key.key=    (byte*)seq->param->max_key;
+    range->end_key.key=    seq->param->max_key;
     range->end_key.length= cur->max_key - seq->param->max_key;
-    range->end_key.flag=   (cur->max_key_flag & NEAR_MAX ? HA_READ_BEFORE_KEY : 
-                                                           HA_READ_AFTER_KEY);
+    range->end_key.flag= (cur->max_key_flag & NEAR_MAX ? HA_READ_BEFORE_KEY : 
+                                                         HA_READ_AFTER_KEY);
     range->end_key.keypart_map= make_prev_keypart_map(cur->max_key_parts);
+
     if (!(cur->min_key_flag & ~NULL_RANGE) && !cur->max_key_flag &&
         (uint)key_tree->part+1 == seq->param->table->key_info[seq->real_keyno].key_parts &&
         (seq->param->table->key_info[seq->real_keyno].flags & (HA_NOSAME | HA_END_SPACE_KEY)) ==
@@ -7441,6 +7442,7 @@ ha_rows check_quick_select(PARAM *param, uint idx, bool index_only,
   {
     param->table->quick_rows[keynr]=rows;
     if (update_tbl_stats)
+    {
       param->table->quick_keys.set_bit(keynr);
       param->table->quick_key_parts[keynr]=param->max_key_part+1;
       param->table->quick_n_ranges[keynr]= param->range_count;
@@ -7834,10 +7836,10 @@ FT_SELECT *get_ft_select(THD *thd, TABLE *table, uint key)
 }
 
 static bool
-key_has_nulls(const KEY* key_info, const byte *key, uint key_len)
+key_has_nulls(const KEY* key_info, const uchar *key, uint key_len)
 {
   KEY_PART_INFO *curr_part, *end_part;
-  const byte* end_ptr= key + key_len;
+  const uchar* end_ptr= key + key_len;
   curr_part= key_info->key_part;
   end_part= curr_part + key_info->key_parts;
 
@@ -8366,13 +8368,13 @@ uint quick_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range)
   key_range *start_key= &range->start_key;
   key_range *end_key=   &range->end_key;
 
-  start_key->key=    (const byte*)cur->min_key;
+  start_key->key=    cur->min_key;
   start_key->length= cur->min_length;
   start_key->keypart_map= cur->min_keypart_map;
   start_key->flag=   ((cur->flag & NEAR_MIN) ? HA_READ_AFTER_KEY :
                       (cur->flag & EQ_RANGE) ?
                       HA_READ_KEY_EXACT : HA_READ_KEY_OR_NEXT);
-  end_key->key=      (const byte*)cur->max_key;
+  end_key->key=      cur->max_key;
   end_key->length=   cur->max_length;
   end_key->keypart_map= cur->max_keypart_map;
   /*

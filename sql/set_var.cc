@@ -353,7 +353,7 @@ TYPELIB optimizer_use_mrr_typelib= {
   optimizer_use_mrr_names, NULL
 };
 
-sys_var_thd_enum        sys_optimizer_use_mrr("optimizer_use_mrr",
+static sys_var_thd_enum        sys_optimizer_use_mrr(&vars, "optimizer_use_mrr",
                                               &SV::optimizer_use_mrr,
                                               &optimizer_use_mrr_typelib,
                                               NULL);

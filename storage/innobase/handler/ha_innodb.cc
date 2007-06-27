@@ -54,6 +54,8 @@ bool innodb_inited= 0;
   This needs to exist until the query cache callback is removed
   or learns to pass hton.
 */
+static handlerton *innodb_hton_ptr;
+
 C_MODE_START
 static my_bool index_cond_func_innodb(void *arg);
 C_MODE_END
@@ -7662,6 +7664,14 @@ bool ha_innobase::check_if_incompatible_data(
 	uint		table_changes)
 {
 	if (table_changes != IS_EQUAL_YES) {
+
+		return COMPATIBLE_DATA_NO;
+	}
+
+	/* Check that auto_increment value was not changed */
+	if ((info->used_fields & HA_CREATE_USED_AUTO) &&
+		info->auto_increment_value != 0) {
+
 		return COMPATIBLE_DATA_NO;
 	}
 
@@ -7959,7 +7969,6 @@ int ha_innobase::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
   return ds_mrr.dsmrr_info(keyno, n_ranges, keys, bufsz, flags, cost);
 }
 
-#endif
 
 
 /**
@@ -8027,3 +8036,4 @@ int ha_innobase::read_range_next()
   return res;
 }
 
+#endif

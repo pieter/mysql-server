@@ -282,7 +282,6 @@ int mysql_backup(THD *thd,
   DBUG_ASSERT(info.is_valid());
 
   size_t start_bytes= s.bytes;
-  int res= 0;
 
   BACKUP_SYNC("backup_meta");
 

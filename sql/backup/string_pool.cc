@@ -57,7 +57,7 @@ result_t StringPool::save(OStream &str)
     String buf;
     uint  skip=0, i=0;
 
-    DBUG_PRINT("string_pool",("saving pool of size %d",count()));
+    DBUG_PRINT("string_pool",("saving pool of size %lu",(unsigned long)count()));
 
     for (i=0 ; TRUE ; ++i)
     {
@@ -190,7 +190,7 @@ result_t StringPool::read(IStream &str)
     if (i >= size) // Not enough space to store the string
     {
       DBUG_PRINT("string_pool",("Not enough space to store string at pos %d"
-                                " (size=%d)",i,size));
+                                " (size=%lu)",i,(unsigned long)size));
       DBUG_RETURN(ERROR);
     }
 

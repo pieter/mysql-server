@@ -372,7 +372,7 @@ int silent_exec_query(THD *thd, String &query)
               ("error executing query %s!", thd->query));
     DBUG_PRINT("restore",("last error (%d): %s",thd->net.last_errno
                                                ,thd->net.last_error));
-    return thd->net.last_errno ? thd->net.last_errno : -1;
+    return thd->net.last_errno ? (int)thd->net.last_errno : -1;
   }
 
   return 0;

@@ -39,7 +39,9 @@ noinst_HEADERS = \
     debug.h \
     error.h \
     stream.h \
+    backup_aux.h \
     logger.h \
+    map.h \
     string_pool.h \
     archive.h \
     meta_backup.h

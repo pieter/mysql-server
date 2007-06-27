@@ -67,7 +67,7 @@ namespace backup {
 #define BACKUP_SYNC(S) \
  do { \
   DBUG_PRINT("backup",("== synchronization on '%s' ==",(S))); \
-  debug_sync_point((S),BACKUP_SYNC_TIMEOUT); \
+  DBUG_SYNC_POINT((S),BACKUP_SYNC_TIMEOUT); \
  } while (0)
 
 #else

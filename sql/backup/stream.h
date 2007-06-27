@@ -140,7 +140,7 @@ IStream<SW>::readbyte(byte &x)
 {
   Result res;
 
-  if ((res= m_win.set_length(1)) != stream_result::OK)
+  if ((res= m_win.set_length(1)) != Result(stream_result::OK))
     return res;
 
   x= *m_win.head();
@@ -155,7 +155,7 @@ OStream<SW>::writebyte(const byte x)
 {
   Result res;
 
-  if ((res= m_win.set_length(1)) != stream_result::OK)
+  if ((res= m_win.set_length(1)) != Result(stream_result::OK))
     return res;
 
   (*m_win.head())= x;
@@ -170,7 +170,7 @@ IStream<SW>::read2int(uint &x)
 {
   Result res;
 
-  if ((res= m_win.set_length(2)) != stream_result::OK)
+  if ((res= m_win.set_length(2)) != Result(stream_result::OK))
    return res;
 
   x= uint2korr(m_win.head());
@@ -185,7 +185,7 @@ OStream<SW>::write2int(const int x)
 {
   Result res;
 
-  if ((res= m_win.set_length(2)) != stream_result::OK)
+  if ((res= m_win.set_length(2)) != Result(stream_result::OK))
     return res;
 
   int2store(m_win.head(),x);
@@ -201,7 +201,7 @@ IStream<SW>::read4int(ulong &x)
 {
   Result res;
 
-  if ((res= m_win.set_length(4)) != stream_result::OK)
+  if ((res= m_win.set_length(4)) != Result(stream_result::OK))
    return res;
 
   x= uint4korr(m_win.head());
@@ -216,7 +216,7 @@ OStream<SW>::write4int(const ulong x)
 {
   Result res;
 
-  if ((res= m_win.set_length(4)) != stream_result::OK)
+  if ((res= m_win.set_length(4)) != Result(stream_result::OK))
     return res;
 
   int4store(m_win.head(),x);
@@ -234,7 +234,7 @@ IStream<SW>::readint(ulong &x)
 {
   Result res;
 
-  if ((res= m_win.set_length(1)) != stream_result::OK)
+  if ((res= m_win.set_length(1)) != Result(stream_result::OK))
     return res;
 
   x= *m_win.head();
@@ -265,7 +265,7 @@ OStream<SW>::writeint(const ulong x)
 {
   Result res;
 
-  if ((res= m_win.set_length(1)) != stream_result::OK)
+  if ((res= m_win.set_length(1)) != Result(stream_result::OK))
     return res;
 
   if (x < 251)
@@ -274,11 +274,11 @@ OStream<SW>::writeint(const ulong x)
   if (x < (1UL<<16))
   {
     res= writebyte(252);
-    return res == stream_result::OK ? write2int(x) : res;
+    return res == Result(stream_result::OK) ? write2int(x) : res;
   }
 
   res= writebyte(253);
-  return res == stream_result::OK ? write4int(x) : res;
+  return res == Result(stream_result::OK) ? write4int(x) : res;
 }
 
 
@@ -292,10 +292,10 @@ IStream<SW>::readstr(String &s)
   Result  res;
   uint    len;
 
-  if ((res= readint(len)) != stream_result::OK)
+  if ((res= readint(len)) != Result(stream_result::OK))
     return res;
 
-  if ((res= m_win.set_length(len)) != stream_result::OK)
+  if ((res= m_win.set_length(len)) != Result(stream_result::OK))
     return res;
 
   s.free();
@@ -312,10 +312,10 @@ OStream<SW>::writestr(const String &s)
   Result  res;
   uint    len= s.length();
 
-  if ((res= writeint(len)) != stream_result::OK)
+  if ((res= writeint(len)) != Result(stream_result::OK))
     return res;
 
-  if ((res= m_win.set_length(len)) != stream_result::OK)
+  if ((res= m_win.set_length(len)) != Result(stream_result::OK))
     return res;
 
   memcpy(m_win.head(), s.ptr(), len);
@@ -352,34 +352,37 @@ namespace backup {
 
 struct stream_result
 {
-  enum {
+  enum value {
     OK=    util::stream_result::OK,
     NIL=   util::stream_result::NIL,
     ERROR= util::stream_result::ERROR,
     EOC,    // end of chunk
     EOS     // end of stream
   };
-
-  class value
-  {
-    int m_val;
-
-   public:
-
-    value(): m_val(OK) {}
-    value(const int val): m_val(val) {}
-
-    operator int() { return m_val; }
-
-    operator result_t()
-    {
-      return m_val == stream_result::ERROR ? backup::ERROR :
-             m_val == stream_result::EOC || m_val == stream_result::EOS ?
-             backup::DONE : backup::OK;
-    }
-  };
 };
 
+/**
+  Convert stream_result into a corresponding result_t value.
+  
+  End of stream or chunk is reported as DONE, errors as ERROR and
+  other stream results (OK,NIL) as OK.
+ */ 
+inline
+result_t report_stream_result(const stream_result::value &res)
+{
+  switch (res) {
+  
+  case stream_result::ERROR:
+    return ERROR;
+    
+  case stream_result::EOC:
+  case stream_result::EOS:
+    return DONE;
+    
+  default:
+    return OK;
+  }
+}
 
 /**
   Implementation of stream window interface to be used by util::{I,O}Stream

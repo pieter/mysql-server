@@ -92,23 +92,20 @@ execute_backup_command(THD *thd, LEX *lex)
 
     if (!stream)
     {
-      res= -1;
       my_error(ER_BACKUP_READ_LOC,MYF(0),loc->describe());
-      goto finish_restore;
+      goto restore_error;
     }
     else
     {
       backup::Restore_info info(*stream);
 
       if (check_info(thd,info))
-      {
-        res= -2;
-        goto finish_restore;
-      }
+        goto restore_error;
 
       if (lex->sql_command == SQLCOM_SHOW_ARCHIVE)
       {
         my_error(ER_NOT_ALLOWED_COMMAND,MYF(0));
+        goto restore_error;
         /*
           Uncomment when mysql_show_archive() is implemented
 
@@ -125,17 +122,14 @@ execute_backup_command(THD *thd, LEX *lex)
         info.restore_all_dbs();
 
         if (check_info(thd,info))
-        {
-          res= -3;
-          goto finish_restore;
-        }
+          goto restore_error;
 
         info.clear_saved_errors();
 
         if (mysql_restore(thd,info,*stream))
         {
-          res= -4;
           report_errors(thd,ER_BACKUP_RESTORE,info);
+          goto restore_error;
         }
         else
         {
@@ -148,6 +142,12 @@ execute_backup_command(THD *thd, LEX *lex)
       }
     } // if (!stream)
 
+    goto finish_restore;
+    
+   restore_error:
+
+    res= res ? res : backup::ERROR;
+    
    finish_restore:
 
     if (stream)
@@ -162,19 +162,15 @@ execute_backup_command(THD *thd, LEX *lex)
 
     if (!stream)
     {
-      res= -5;
       my_error(ER_BACKUP_WRITE_LOC,MYF(0),loc->describe());
-      goto finish_backup;
+      goto backup_error;
     }
     else
     {
       backup::Backup_info info(thd);
 
       if (check_info(thd,info))
-      {
-        res= -6;
-        goto finish_backup;
-      }
+        goto backup_error;
 
       info.report_error(backup::log_level::INFO,ER_BACKUP_BACKUP_START);
 
@@ -194,25 +190,19 @@ execute_backup_command(THD *thd, LEX *lex)
       }
 
       if (check_info(thd,info))
-      {
-        res= -7;
-        goto finish_backup;
-      }
+        goto backup_error;
 
       info.close();
 
       if (check_info(thd,info))
-      {
-        res= -8;
-        goto finish_backup;
-      }
+        goto backup_error;
 
       info.clear_saved_errors();
 
       if (mysql_backup(thd,info,*stream))
       {
-        res= -9;
         report_errors(thd,ER_BACKUP_BACKUP,info);
+        goto backup_error;
       }
       else
       {
@@ -223,6 +213,12 @@ execute_backup_command(THD *thd, LEX *lex)
       // TODO: unfreeze DDL here
     } // if (!stream)
 
+    goto finish_backup;
+   
+   backup_error:
+   
+    res= res ? res : backup::ERROR;
+   
    finish_backup:
 
     if (stream)
@@ -293,37 +289,30 @@ int mysql_backup(THD *thd,
   DBUG_PRINT("backup",("Writing image header"));
 
   if (info.save(s))
-  {
-    res= -1;
-    goto finish;
-  }
+    goto error;
 
   DBUG_PRINT("backup",("Writing meta-data"));
 
   if (backup::write_meta_data(thd,info,s))
-  {
-    res= -2;
-    goto finish;
-  }
+    goto error;
 
   DBUG_PRINT("backup",("Writing table data"));
 
   BACKUP_SYNC("backup_data");
 
   if (backup::write_table_data(thd,info,s))
-  {
-    res= -3;
-    goto finish;
-  }
+    goto error;
 
   DBUG_PRINT("backup",("Backup done."));
   BACKUP_SYNC("backup_done");
 
   info.total_size= s.bytes - start_bytes;
 
- finish:
+  DBUG_RETURN(0);
 
-  DBUG_RETURN(res);
+ error:
+
+  DBUG_RETURN(backup::ERROR);
 }
 
 namespace backup {
@@ -507,7 +496,7 @@ int Backup_info::save(OStream &s)
   if (OK != Archive_info::save(s))
   {
     report_error(ER_BACKUP_WRITE_HEADER);
-    return -1;
+    return ERROR;
   }
 
   return 0;
@@ -542,7 +531,6 @@ class Backup_info::Db_ref: public backup::Db_ref
 int Backup_info::add_dbs(List< ::LEX_STRING > &dbs)
 {
   List_iterator< ::LEX_STRING > it(dbs);
-  int res= 0;
   ::LEX_STRING *s;
   String unknown_dbs; // comma separated list of databases which don't exist
 
@@ -552,43 +540,37 @@ int Backup_info::add_dbs(List< ::LEX_STRING > &dbs)
 
     if (db_exists(db))
     {
-      // In case of error, we just compose unknown_dbs list
-      if (res)
+      if (!unknown_dbs.is_empty()) // we just compose unknown_dbs list
         continue;
 
       Db_item *it= add_db(db);
 
       if (!it)
-      {
-        res= -1;
-        goto finish;
-      }
+        goto error;
 
       if (add_db_items(*it))
-      {
-        res= -2;
-        goto finish;
-      }
+        goto error;
     }
     else
     {
-      if (res)
+      if (!unknown_dbs.is_empty())
         unknown_dbs.append(",");
-      else
-        res= -3;
       unknown_dbs.append(db.name());
     }
   }
 
-  if (res == -3)
+  if (!unknown_dbs.is_empty())
+  {
     report_error(ER_BAD_DB_ERROR,unknown_dbs.c_ptr());
+    goto error;
+  }
+  
+  return 0;
+  
+ error:
 
- finish:
-
-  if (res)
-    m_state= ERROR;
-
-  return res;
+  m_state= ERROR;
+  return backup::ERROR;
 }
 
 static const LEX_STRING is_string = "information_schema";
@@ -607,7 +589,7 @@ int Backup_info::add_all_dbs()
   if (!db_table)
   {
     report_error(ER_BACKUP_LIST_DBS);
-    return -1;
+    return ERROR;
   }
 
   ::handler *ha = db_table->file;
@@ -734,7 +716,7 @@ int Backup_info::add_db_items(Db_item &db)
   if (ha->ha_rnd_init(TRUE) || TEST_ERROR)
   {
     report_error(ER_BACKUP_LIST_DB_TABLES,db.name().ptr());
-    return -1;
+    return ERROR;
   }
 
   int res= 0;
@@ -767,8 +749,7 @@ int Backup_info::add_db_items(Db_item &db)
     {
       Table_ref::describe_buf buf;
       report_error(ER_NO_STORAGE_ENGINE,t.describe(buf,sizeof(buf)));
-      res= -2;
-      break;
+      goto error;
     }
 
     if (t.db() == db)
@@ -779,19 +760,21 @@ int Backup_info::add_db_items(Db_item &db)
       // add_table method selects/creates sub-image appropriate for storing given table
       Table_item *ti= add_table(db,t);
       if (!ti)
-      {
-        res= -3;
-        break;
-      }
+        goto error;
 
       if (add_table_items(*ti))
-      {
-        res= -4;
-        break;
-      }
+        goto error;
     }
   }
 
+  goto finish;
+  
+ error:
+ 
+  res= res ? res : ERROR;
+ 
+ finish:
+ 
   ha->ha_rnd_end();
 
   return res;
@@ -925,12 +908,12 @@ int mysql_restore(THD *thd, backup::Restore_info &info, backup::IStream &s)
   DBUG_PRINT("restore",("Restoring meta-data"));
 
   if (backup::restore_meta_data(thd, info, s))
-    DBUG_RETURN(-1);
+    DBUG_RETURN(backup::ERROR);
 
   DBUG_PRINT("restore",("Restoring table data"));
 
   if (backup::restore_table_data(thd,info,s))
-    DBUG_RETURN(-2);
+    DBUG_RETURN(backup::ERROR);
 
   DBUG_PRINT("restore",("Done."));
 

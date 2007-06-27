@@ -217,7 +217,7 @@ result_t Archive_info::read(IStream &s)
   {
     DBUG_PRINT("restore",("Error when reading image list (%d images read)",
                           img_count));
-    return ERROR;
+    DBUG_RETURN(ERROR);
   }
 
   /*
@@ -340,7 +340,7 @@ Image_info::create_from_stream(Archive_info &info, IStream &s, Image_info* &ptr)
 
   // if we are at end of data chunk or stream, we should tell the caller
   if (res != stream_result::OK)
-    return (result_t)res;
+    return report_stream_result(res);
 
   res= s.read2int(ver);
 
@@ -423,7 +423,7 @@ Archive_info::Item::create_from_stream(const Archive_info &info,
   stream_result::value res= s.readbyte(b);
 
   if (res != stream_result::OK)
-    return (result_t)res;
+    return report_stream_result(res);
 
   ptr= NULL;
 
@@ -471,7 +471,7 @@ Archive_info::Db_item::create_from_stream(const Archive_info &i,
   stream_result::value res= s.readint(k);
 
   if (res != stream_result::OK)
-    return (result_t)res;
+    return report_stream_result(res);
 
   return (ptr= new Db_item(i,k)) ? OK : ERROR;
 }
@@ -503,7 +503,7 @@ Archive_info::Table_item::create_from_stream(const Archive_info &i,
   stream_result::value res= s.readint(img);
 
   if (res != stream_result::OK)
-    return (result_t)res;
+    return report_stream_result(res);
 
   res= s.readint(no);
 
@@ -702,7 +702,7 @@ Image_info::Tables::read(IStream &s)
 
   // If unexpected result, report an error or end of stream/chunk
   if (res != stream_result::OK && res != stream_result::NIL)
-    return (result_t)res;
+    DBUG_RETURN(report_stream_result(res));
 
   // empty the list
   clear();
@@ -774,7 +774,7 @@ Native_image::create_from_stream(version_t ver,
   stream_result::value res= s.readstr(name);
 
   if (res != stream_result::OK)
-    return (result_t)res;
+    return report_stream_result(res);
 
   LEX_STRING name_lex= name;
 

@@ -91,7 +91,7 @@ class Item
     statements and then it doesn't have to worry about this method.
   */
   virtual int build_create_stmt(THD*)
-  { return -1; }
+  { return ERROR; }
 
 };
 

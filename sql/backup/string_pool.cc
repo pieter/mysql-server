@@ -137,7 +137,7 @@ result_t StringPool::read(IStream &str)
     // In that case there is an error or we hit end of data
     if (res != stream_result::ERROR)
       DBUG_PRINT("string_pool",("End of data hit"));
-    DBUG_RETURN((result_t)res);
+    DBUG_RETURN(report_stream_result(res));
   }
 
   clear();

@@ -41,7 +41,7 @@ int Logger::write_message(log_level::value level, int error_code,
      DBUG_PRINT("backup log",("[Info] %s",msg));
      return 0;
 
-   default: return -1;
+   default: return ERROR;
    }
 }
 

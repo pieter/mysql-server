@@ -315,7 +315,6 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
   Scheduler   sch(s,&info);         // scheduler instance
   List<Scheduler::Pump>  inactive;  // list of images not yet being created
   size_t      max_init_size=0;      // keeps maximal init size for images in inactive list
-  int         res= 0;               // 0 or error code to return
 
   size_t      start_bytes= s.bytes;
 
@@ -335,7 +334,6 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
     if (!p || !p->is_valid())
     {
       info.report_error(ER_OUT_OF_RESOURCES);
-      res= -1;
       goto error;
     }
 
@@ -344,10 +342,7 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
     if (init_size == Driver::UNKNOWN_SIZE)
     {
       if (sch.add(p))
-      {
-        res= -2;
         goto error;
-      }
     }
     else
     {
@@ -409,19 +404,13 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
       max_init_size= second_max;
 
       if (sch.add(p1))
-      {
-        return -3;
         goto error;
-      }
     }
 
     // poll drivers
 
     if (sch.step())
-    {
-      res= -4;
       goto error;
-    }
   }
 
   {
@@ -433,50 +422,32 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
     while ((p= it1++))
     if (sch.add(p))
-    {
-      res= -5;
       goto error;
-    };
 
     while (sch.init_count > 0)
     if (sch.step())
-    {
-      res= -6;
       goto error;
-    };
 
     // prepare for VP
     DBUG_PRINT("backup/data",("-- PREPARE PHASE --"));
     BACKUP_SYNC("data_prepare");
 
     if (sch.prepare())
-    {
-      res= -7;
       goto error;
-    }
 
     while (sch.prepare_count > 0)
     if (sch.step())
-    {
-      res= -8;
       goto error;
-    }
 
     // VP creation
     DBUG_PRINT("backup/data",("-- SYNC PHASE --"));
     BACKUP_SYNC("data_lock");
     if (sch.lock())
-    {
-      res= -9;
       goto error;
-    }
 
     BACKUP_SYNC("data_unlock");
     if (sch.unlock())
-    {
-      res= -10;
       goto error;
-    }
 
     // get final data from drivers
     DBUG_PRINT("backup/data",("-- FINISH PHASE --"));
@@ -484,10 +455,7 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
     while (sch.finish_count > 0)
     if (sch.step())
-    {
-      res= -11;
       goto error;
-    }
 
     DBUG_PRINT("backup/data",("-- DONE --"));
   }
@@ -498,7 +466,7 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
  error:
 
-  DBUG_RETURN(res ? res : -12);
+  DBUG_RETURN(ERROR);
 }
 
 } // backup namespace
@@ -646,7 +614,7 @@ int Scheduler::step()
                               m_count, init_count, prepare_count, finish_count));
   }
 
-  return res ? -1 : 0;
+  return res;
 }
 
 /**
@@ -713,7 +681,7 @@ int Scheduler::add(Pump *p)
 
   delete p;
   cancel_backup();
-  return -1;
+  return ERROR;
 }
 
 /// Move backup pump to the end of scheduler's list.
@@ -788,7 +756,7 @@ int Scheduler::prepare()
     if (it->prepare())
     {
       cancel_backup();
-      return -1;
+      return ERROR;
     }
     if (it->state == backup_state::PREPARING)
      prepare_count++;
@@ -811,7 +779,7 @@ int Scheduler::lock()
    if (it->lock())
    {
      cancel_backup();
-     return -1;
+     return ERROR;
    }
 
   DBUG_PRINT("backup/data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
@@ -830,7 +798,7 @@ int Scheduler::unlock()
     if (it->unlock())
     {
       cancel_backup();
-      return -1;
+      return ERROR;
     }
     if (it->state == backup_state::FINISHING)
       finish_count++;
@@ -884,7 +852,7 @@ int Backup_pump::begin()
     // be replaced with "if (m_log)"
     DBUG_ASSERT(m_log);
       m_log->report_error(ER_BACKUP_INIT_BACKUP_DRIVER,m_name);
-    return -1;
+    return ERROR;
   }
 
   return 0;
@@ -902,7 +870,7 @@ int Backup_pump::end()
       state= backup_state::ERROR;
       DBUG_ASSERT(m_log);
         m_log->report_error(ER_BACKUP_STOP_BACKUP_DRIVER,m_name);
-      return -1;
+      return ERROR;
     }
 
     state= backup_state::SHUT_DOWN;
@@ -931,7 +899,7 @@ int Backup_pump::prepare()
     state= backup_state::ERROR;
     DBUG_ASSERT(m_log);
       m_log->report_error(ER_BACKUP_PREPARE_DRIVER, m_name);
-      return -1;
+      return ERROR;
   }
 
   DBUG_PRINT("backup/data",(" preparing %s, goes to %s state",
@@ -948,7 +916,7 @@ int Backup_pump::lock()
     state= backup_state::ERROR;
     DBUG_ASSERT(m_log);
       m_log->report_error(ER_BACKUP_CREATE_VP,m_name);
-    return -1;
+    return ERROR;
   }
 
   return 0;
@@ -964,7 +932,7 @@ int Backup_pump::unlock()
     state= backup_state::ERROR;
     DBUG_ASSERT(m_log);
       m_log->report_error(ER_BACKUP_UNLOCK_DRIVER,m_name);
-    return -1;
+    return ERROR;
   }
 
   return 0;
@@ -977,7 +945,7 @@ int Backup_pump::cancel()
     state= backup_state::ERROR;
     DBUG_ASSERT(m_log);
       m_log->report_error(ER_BACKUP_CANCEL_BACKUP,m_name);
-    return -1;
+    return ERROR;
   }
   state= backup_state::CANCELLED;
   return 0;
@@ -1010,7 +978,7 @@ int Backup_pump::pump(size_t *howmuch)
 
   // we have detected error before - report it once more
   if (state == backup_state::ERROR)
-    return -1;
+    return ERROR;
 
   // we are done and thus there is nothing to do
   if (state == backup_state::DONE)
@@ -1071,7 +1039,7 @@ int Backup_pump::pump(size_t *howmuch)
           DBUG_ASSERT(m_log);
             m_log->report_error(ER_BACKUP_GET_BUF);
           state= backup_state::ERROR;
-          return -2;
+          return ERROR;
         }
 
       DBUG_ASSERT(m_buf_head);
@@ -1122,7 +1090,7 @@ int Backup_pump::pump(size_t *howmuch)
         DBUG_ASSERT(m_log);
           m_log->report_error(ER_BACKUP_GET_DATA,m_name);
         state= backup_state::ERROR;
-        return -3;
+        return ERROR;
 
       case BUSY:
 
@@ -1151,7 +1119,7 @@ int Backup_pump::pump(size_t *howmuch)
         DBUG_ASSERT(m_log);
           m_log->report_error(ER_BACKUP_WRITE_DATA, m_name, m_buf.table_no);
         state= backup_state::ERROR;
-        return -4;
+        return ERROR;
 
       default:  // retry write
         break;
@@ -1196,12 +1164,11 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
   if (info.img_count > MAX_IMAGES)
   {
     info.report_error(ER_BACKUP_TOO_MANY_IMAGES, info.img_count, MAX_IMAGES);
-    DBUG_RETURN(-1);
+    DBUG_RETURN(ERROR);
   }
 
   // Initializing restore drivers
   result_t res;
-  int      ret=0;
 
   for (uint no=0; no < info.img_count; ++no)
   {
@@ -1217,7 +1184,6 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
     if (res == backup::ERROR)
     {
       info.report_error(ER_BACKUP_CREATE_RESTORE_DRIVER,img->name());
-      ret= -2;
       goto error;
     };
 
@@ -1225,7 +1191,6 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
     if (res == backup::ERROR)
     {
       info.report_error(ER_BACKUP_INIT_RESTORE_DRIVER,img->name());
-      ret= -3;
       goto error;
     }
   }
@@ -1265,7 +1230,6 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
           info.report_error(ER_BACKUP_READ_DATA);
         default:
           state= ERROR;
-          ret= -4;
           goto error;
 
         }
@@ -1322,7 +1286,6 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
             info.report_error(ER_BACKUP_NEXT_CHUNK);
           default:
             state= ERROR;
-            ret= -5;
             goto error;
           }
 
@@ -1333,7 +1296,6 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
           {
             info.report_error(ER_BACKUP_SEND_DATA, buf.table_no, img->name());
             state= ERROR;
-            ret= -6;
             goto error;
           }
           errors++;
@@ -1346,7 +1308,6 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
           {
             info.report_error(ER_BACKUP_SEND_DATA_RETRY, repeats, img->name());
             state= ERROR;
-            ret= -7;
             goto error;
           }
           repeats++;
@@ -1380,7 +1341,6 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
       res= drv[no]->end();
       if (res == backup::ERROR)
       {
-        ret= -8;
         state= ERROR;
 
         if (!bad_drivers.is_empty())
@@ -1394,7 +1354,7 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
       info.report_error(ER_BACKUP_STOP_RESTORE_DRIVERS, bad_drivers.c_ptr());
   }
 
-  DBUG_RETURN(state == ERROR ? -9 : 0);
+  DBUG_RETURN(state == ERROR ? backup::ERROR : 0);
 
  error:
 
@@ -1409,7 +1369,7 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
     drv[no]->free();
   }
 
-  DBUG_RETURN(ret);
+  DBUG_RETURN(backup::ERROR);
 }
 
 } // backup namespace

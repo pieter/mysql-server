@@ -63,12 +63,12 @@ int write_meta_data(THD *thd, Backup_info &info, OStream &s)
       meta::Item::description_buf buf;
       info.report_error(ER_BACKUP_WRITE_META,
                          it->meta().describe(buf,sizeof(buf)));
-      DBUG_RETURN(-1);
+      DBUG_RETURN(ERROR);
     }
   }
 
   if (stream_result::ERROR == s.end_chunk())
-    DBUG_RETURN(-2);
+    DBUG_RETURN(ERROR);
 
   info.meta_size= s.bytes - start_bytes;
 
@@ -120,7 +120,7 @@ restore_meta_data(THD *thd, Restore_info &info, IStream &s)
        meta::Item::description_buf buf;
        info.report_error(ER_BACKUP_CREATE_META,
                           it->meta().describe(buf,sizeof(buf)));
-       DBUG_RETURN(-1);
+       DBUG_RETURN(ERROR);
      }
 
      delete it;
@@ -132,7 +132,7 @@ restore_meta_data(THD *thd, Restore_info &info, IStream &s)
   if (res != DONE)
   {
     info.report_error(ER_BACKUP_READ_META);
-    DBUG_RETURN(-2);
+    DBUG_RETURN(ERROR);
   }
 
   DBUG_ASSERT(res == DONE);
@@ -140,7 +140,7 @@ restore_meta_data(THD *thd, Restore_info &info, IStream &s)
   if (stream_result::ERROR == s.next_chunk())
   {
     info.report_error(ER_BACKUP_NEXT_CHUNK);
-    DBUG_RETURN(-3);
+    DBUG_RETURN(ERROR);
   };
 
   info.meta_size= s.bytes - start_bytes;
@@ -199,7 +199,7 @@ meta::Item::read(IStream &s)
   stream_result::value res= s.readstr(create_stmt);
 
   // Saved string should not be NIL
-  return res == stream_result::NIL ? ERROR : (result_t)res;
+  return res == stream_result::NIL ? ERROR : report_stream_result(res);
 }
 
 /**

@@ -484,6 +484,7 @@ Item* handle_sql2003_note184_exception(THD *thd, Item* left, bool equal,
   sp_head *sphead;
   struct p_elem_val *p_elem_value;
   enum index_hint_type index_hint;
+  enum enum_filetype filetype;
 }
 
 %{
@@ -1067,6 +1068,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  WRITE_SYM                     /* SQL-2003-N */
 %token  X509_SYM
 %token  XA_SYM
+%token  XML_SYM
 %token  XOR
 %token  YEAR_MONTH_SYM
 %token  YEAR_SYM                      /* SQL-2003-R */
@@ -1288,6 +1290,7 @@ END_OF_INPUT
 %type <spname> sp_name
 %type <index_hint> index_hint_type
 %type <num> index_hint_clause
+%type <filetype> data_or_xml
 
 %type <NONE>
 	'-' '+' '*' '/' '%' '(' ')'
@@ -9125,7 +9128,7 @@ use:	USE_SYM ident
 
 /* import, export of files */
 
-load:   LOAD DATA_SYM
+load:   LOAD data_or_xml
         {
           THD *thd= YYTHD;
           LEX *lex= thd->lex;
@@ -9133,7 +9136,8 @@ load:   LOAD DATA_SYM
 
 	  if (lex->sphead)
 	  {
-	    my_error(ER_SP_BADSTATEMENT, MYF(0), "LOAD DATA");
+	    my_error(ER_SP_BADSTATEMENT, MYF(0), 
+                     $2 == FILETYPE_CSV ? "LOAD DATA" : "LOAD XML");
 	    MYSQL_YYABORT;
 	  }
           lex->fname_start= lip->ptr;
@@ -9148,6 +9152,7 @@ load:   LOAD DATA_SYM
 	  lex->ignore= 0;
 	  if (!(lex->exchange= new sql_exchange($7.str, 0)))
 	    MYSQL_YYABORT;
+          lex->exchange->filetype= $2;
         }
         opt_duplicate INTO
         {
@@ -9167,10 +9172,16 @@ load:   LOAD DATA_SYM
           lex->value_list.empty();
         }
         opt_load_data_charset
-	{ Lex->exchange->cs= $15; }
+        { Lex->exchange->cs= $15; }
+        opt_xml_rows_identified_by
         opt_field_term opt_line_term opt_ignore_lines opt_field_or_var_spec
         opt_load_data_set_spec
         {}
+        ;
+
+data_or_xml:
+        DATA_SYM  { $$= FILETYPE_CSV; }
+        | XML_SYM { $$= FILETYPE_XML; }
         ;
 
 opt_local:
@@ -9251,13 +9262,23 @@ line_term:
             Lex->exchange->line_start= $3;
           };
 
+opt_xml_rows_identified_by:
+        /* empty */ { }
+        | ROWS_SYM IDENTIFIED_SYM BY text_string
+          { Lex->exchange->line_term = $4; };
+
 opt_ignore_lines:
 	/* empty */
-        | IGNORE_SYM NUM LINES
+        | IGNORE_SYM NUM lines_or_rows
           {
             DBUG_ASSERT(Lex->exchange != 0);
             Lex->exchange->skip_lines= atol($2.str);
           };
+
+lines_or_rows:
+        LINES { }
+        | ROWS_SYM { }
+        ;
 
 opt_field_or_var_spec:
 	/* empty */	          { }
@@ -10095,6 +10116,7 @@ keyword_sp:
 	| WORK_SYM		{}
 	| X509_SYM		{}
 	| YEAR_SYM		{}
+        | XML_SYM               {}
 	;
 
 /* Option functions */

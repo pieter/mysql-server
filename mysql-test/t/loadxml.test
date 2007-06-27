@@ -1,0 +1,41 @@
+#
+# Tests for "LOAD XML" - a contributed patch from Erik Wetterberg.
+#
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (a int, b varchar(64));
+
+
+--echo -- Load a static XML file
+load xml infile '../std_data_ln/loadxml.dat' into table t1
+rows identified by '<row>';
+select * from t1 order by a;
+delete from t1;
+
+
+--echo -- Load a static XML file with 'IGNORE num ROWS'
+load xml infile '../std_data_ln/loadxml.dat' into table t1
+rows identified by '<row>' ignore 4 rows;
+select * from t1 order by a;
+
+
+--echo -- Check 'mysqldump --xml' + 'LOAD XML' round trip
+--exec $MYSQL_DUMP --xml test t1 > "$MYSQL_TMP_DIR/loadxml-dump.xml" 2>&1
+delete from t1;
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
+--eval load xml infile '$MYSQL_TMP_DIR/loadxml-dump.xml' into table t1 rows identified by '<row>';
+select * from t1 order by a;
+
+--echo -- Check that 'xml' is not a keyword
+select 1 as xml;
+
+
+#
+# Clean up
+#
+--system rm $MYSQL_TMP_DIR/loadxml-dump.xml
+drop table t1;
+

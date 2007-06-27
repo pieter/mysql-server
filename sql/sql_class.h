@@ -43,6 +43,7 @@ enum enum_check_fields
 { CHECK_FIELD_IGNORE, CHECK_FIELD_WARN, CHECK_FIELD_ERROR_FOR_NULL };
 enum enum_mark_columns
 { MARK_COLUMNS_NONE, MARK_COLUMNS_READ, MARK_COLUMNS_WRITE};
+enum enum_filetype { FILETYPE_CSV, FILETYPE_XML };
 
 extern char internal_table_name[2];
 extern char empty_c_string[1];
@@ -1821,6 +1822,7 @@ private:
 class sql_exchange :public Sql_alloc
 {
 public:
+  enum enum_filetype filetype; /* load XML, Added by Arnold & Erik */ 
   char *file_name;
   String *field_term,*enclosed,*line_term,*line_start,*escaped;
   bool opt_enclosed;

@@ -994,9 +994,9 @@ int Backup_pump::cancel()
   Each block of data obtained from a driver is prefixed with the image
   number and the table number stored in @c buf.table_no before it is written to
   the stream:
-  <pre>
+  @verbatim
     | img no | table no | data from the driver |
-  </pre>
+  @endverbatim
  */
 
 // Consider: report number of bytes *written* to stream.

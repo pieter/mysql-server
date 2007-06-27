@@ -106,7 +106,7 @@ class Logger
 
    /// Return a pointer to most recent saved error.
    MYSQL_ERROR *last_saved_error()
-   { return errors.head(); }
+   { return errors.is_empty() ? NULL : errors.head(); }
 
  private:
 

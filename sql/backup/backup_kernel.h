@@ -49,10 +49,7 @@ namespace backup {
 
 struct Location
 {
-  /*
-    As we don't use rtti we need these to find out the real type
-    of a location object.
-   */
+  /// Type of location  
   enum enum_type {SERVER_FILE, INVALID};
   bool read;
 
@@ -116,6 +113,7 @@ class Backup_info: public Archive_info, public Logger
 
     case ERROR:
       ok= FALSE;
+      break;
 
     case INIT:
       ok= (i_s_tables != NULL);

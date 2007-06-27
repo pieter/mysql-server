@@ -273,15 +273,15 @@ class Archive_info::Item
   Used to iterate over meta-data items.
 
   Usage:
-  <pre>
+  @code
    Item *head;
    for (Item::Iterator it(head); it ; it++)
    {
      it->archive_item_method()
    }
-  </pre>
+  @endcode
   or
-  <pre>
+  @code
    Item *head, *p;
    Item::Iterator it(head);
 
@@ -289,7 +289,7 @@ class Archive_info::Item
    {
      @<use p here>
    }
-  </pre>
+  @endcode
  */
 class Archive_info::Item::Iterator
 {
@@ -326,7 +326,7 @@ class Archive_info::Item::Iterator
 
   A database is identified by a key into Archive_info::db_names string pool.
   Using the key one can read database name from the pool. The key is saved
-  as a var-lenght coded integer.
+  as a var-length coded integer.
  */
 class Archive_info::Db_item:
   public Item, public meta::Db, public Db_ref

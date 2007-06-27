@@ -27,8 +27,7 @@ typedef unsigned char byte;
 /**
   Values returned by backup/restore driver methods and other backup functions.
 
-  @see <code>Backup_driver::get_data</code> and
-  <code>Restore_driver::send_data</code>
+  @see @c Backup_driver::get_data and @c Restore_driver::send_data
  */
 
 enum result_t { OK=0, READY, PROCESSING, BUSY, DONE, ERROR };
@@ -38,29 +37,28 @@ typedef uint  version_t;
 //@{
 
 /**
- * Classes Db_ref and Table_ref are used to identify databases and tables
- * inside mysql server instance.
- *
- * These classes abstract the way a table or database is identified inside mysqld,
- * so that when this changes (introduction of global db/table ids, introduction
- * of catalogues) it is easy to adapt backup code to the new identification schema.
- *
- * Regardless of the internal representation, classes provide methods returning
- * db/table name as a String object. Also, each table belongs to some database
- * and a method returning Db_ref object identifying this database is present. For
- * Db_ref objects there is catalog() method returning name of the catalogue, but
- * currently it always returns null string.
- *
- * Classes are implemented so that the memory for storing names can be allocated
- * outside an instance. This is used in the Tables class implementing
- * Table_list interface to share space used for storing database names among
- * several Table_ref instances.
- *
- * Instances of Table_ref and Db_ref should be considered cheap to use, equivalent
- * to using pointers or other base types. Currently, single instance of each class
- * uses as much memory as a single pointer (+some external memory to store names
- * which can be shared among different instances). The methods are inlined to avoid
- * function call costs.
+   Classes @c Db_ref and @c Table_ref are used to identify databases and tables
+   inside mysql server instance.
+
+   These classes abstract the way a table or database is identified inside mysqld,
+   so that when this changes (introduction of global db/table ids, introduction
+   of catalogues) it is easy to adapt backup code to the new identification schema.
+
+   Regardless of the internal representation, classes provide methods returning
+   db/table name as a @c String object. Also, each table belongs to some database
+   and a method returning @c Db_ref object identifying this database is present. 
+   For @c Db_ref objects there is @c catalog() method returning name of the 
+   catalogue, but currently it always returns null string.
+
+   Classes are implemented so that the memory for storing names can be allocated
+   outside an instance. This allows for sharing space used e.g., to store 
+   database names among several @c Table_ref instances.
+
+   Instances of @c Table_ref and @c Db_ref should be considered cheap to use, 
+   equivalent to using pointers or other base types. Currently, single instance 
+   of each class uses as much memory as a single pointer (+some external memory 
+   to store names which can be shared among different instances). The methods 
+   are inlined to avoid function call costs.
  */
 
 class Db_ref
@@ -157,26 +155,26 @@ class Table_ref
 
 
 /**
- * @class Table_list
- *
- * @brief This abstract class defines interface used to access a list of
- * tables (e.g. when such a list is passed to a backup/restore driver).
- *
- * Elements of the list can be accessed by index, counting from 0. E.g.
- * @code
- *  Table_list &tables;
- *  Table_ref  t2 = tables[1];  // t2 refers to the second element of the list.
- * @endcode
- *
- * Interface is made abstract, so that different implementations can be
- * used in the backup code. For example it is possible to create a class which
- * adds this interface to a list of tables represented by a linked list of
- * TABLE_LIST structures as used elsewhere in the code. On the other hand, much
- * more space efficient implementations are possible, as for each table we need
- * to store only table's identity (db/table name). In any case, the interface
- * to the list remains the same, as defined by this class.
- *
- * TODO: add iterators.
+   @class Table_list
+
+   @brief This abstract class defines interface used to access a list of
+   tables (e.g. when such a list is passed to a backup/restore driver).
+
+   Elements of the list can be accessed by index, counting from 0. E.g.
+   @code
+    Table_list &tables;
+    Table_ref  t2 = tables[1];  // t2 refers to the second element of the list.
+   @endcode
+
+   Interface is made abstract, so that different implementations can be
+   used in the backup code. For example it is possible to create a class which
+   adds this interface to a list of tables represented by a linked list of
+   @c TABLE_LIST structures as used elsewhere in the code. On the other hand, 
+   much more space efficient implementations are possible, as for each table we 
+   need to store only table's identity (db/table name). In any case, the interface
+   to the list remains the same, as defined by this class.
+
+   TODO: add iterators.
  */
 
 class Table_list
@@ -199,34 +197,34 @@ class Table_list
   @brief Used for data transfers between backup kernel and backup/restore
   drivers.
 
-  Apart from allocated memory a Buffer structure contains fields informing about
+  Apart from allocated memory a @c Buffer structure contains fields informing about
   its size and holding other information about contained data. Buffers are
   created and memory is allocated by backup kernel. It is also kernel's
   responsibility to write contents of buffers to a backup stream.
 
   Data created by a backup driver is opaque to the kernel. However, to support
   selective restores, each block of data can be assigned to one of the tables
-  being backed-up. This is done by setting <code>table_no</code> member of the
+  being backed-up. This is done by setting @c table_no member of the
   buffer structure to the number of the table to which this data belongs. Tables
   are numbered from 1 according to their position in the list passed when driver
-  is created (<code>m_tables</code> member of <code>Driver</code> class). If
+  is created (@c m_tables member of @c Driver class). If
   some of the data doesn't correspond to any particular table, then
-  <code>table_no</code> should be set to 0.
+  @c table_no should be set to 0.
 
   This way, driver can create several "streams" of data blocks. For each table
   there is a stream corresponding to that table and there is one "shared stream"
-  consisting of blocks with <code>table_no</code> set to 0. Upon restore, kernel
+  consisting of blocks with @c table_no set to 0. Upon restore, kernel
   sends to a restore driver only blocks corresponding to the tables being
   restored plus all the blocks from the shared stream.
 
   For example, consider backing-up three tables t1, t2 and t3. Data blocks
   produced by a backup driver are divided into four streams:
-  <pre>
+  @verbatim
   #0: shared data
   #1: data for table t1
   #2: data for table t2
   #3: data for table t3
-  </pre>
+  @endverbatim
   When a user restores tables t1 and t3, only blocks from streams #0, #1 and #3
   will be sent to a restore driver, but not the ones from stream #2.
 
@@ -238,17 +236,17 @@ class Table_list
   upon a selective restore.
 
   Backup driver signals end of data in a given stream by setting
-  <code>buf.last</code> flag to TRUE when get_data(buf) fills the last block of
-  data from that stream (otherwise <code>buf.last</code> should be FALSE). This
+  @c buf.last flag to TRUE when get_data(buf) fills the last block of
+  data from that stream (otherwise @c buf.last should be FALSE). This
   should be done for each stream used by the driver. Upon restore, kernel sets
-  <code>buf.last</code> to TRUE when sending to a restore driver the last block
+  @c buf.last to TRUE when sending to a restore driver the last block
   of data from a stream.
 
   A driver learns about the size of a buffer provided by the kernel from its
-  <code>size</code> member. It does not have to fill the buffer completely.
-  It should update the <code>size</code> member to reflect the actual size
+  @c size member. It does not have to fill the buffer completely.
+  It should update the @c size member to reflect the actual size
   of the data in the buffer. It is possible to return no data in which case
-  <code>size</code> should be zero. Such empty buffers are ignored by the
+  @c size should be zero. Such empty buffers are ignored by the
   kernel (no data is written to the archive).
  */
 
@@ -256,7 +254,7 @@ struct Buffer
 {
   size_t  size;       ///< size of the buffer (of memory block pointed by data).
   uint    table_no;   ///< Number of the table to which data in the buffer belongs.
-  bool    last;       ///< <code>TRUE</code> if this is last block of data in the stream.
+  bool    last;       ///< TRUE if this is last block of data in the stream.
   byte    *data;      ///< Pointer to data area.
 
   Buffer(): data(NULL),size(0),table_no(0),last(FALSE)

@@ -254,9 +254,9 @@ execute_backup_command(THD *thd, LEX *lex)
 
 
 /*************************************************
- *
- *                 BACKUP
- *
+
+                   BACKUP
+
  *************************************************/
 
 // Declarations for functions used in backup operation
@@ -755,7 +755,7 @@ int Backup_info::add_db_items(Db_item &db)
       String name, db_name;
       
       i_s_tables->field[1]->val_str(&db_name);
-      i_s_tables->field[1]->val_str(&name);
+      i_s_tables->field[2]->val_str(&name);
       report_error(log_level::WARNING,ER_BACKUP_SKIP_VIEW,
                    name.c_ptr(),db_name.c_ptr());
       continue;
@@ -888,13 +888,13 @@ int Backup_info::add_table_items(Table_item&)
   return 0;
 }
 
-} // backup namespcae
+} // backup namespace
 
 
 /*************************************************
- *
- *                 RESTORE
- *
+
+                   RESTORE
+
  *************************************************/
 
 // Declarations of functions used in restore operation
@@ -940,9 +940,9 @@ int mysql_restore(THD *thd, backup::Restore_info &info, backup::IStream &s)
 }
 
 /*************************************************
- *
- *             BACKUP LOCATIONS
- *
+
+               BACKUP LOCATIONS
+
  *************************************************/
 
 namespace backup {
@@ -1017,7 +1017,7 @@ OStream* open_for_write(const Location &loc)
 Location*
 Location::find(const LEX_STRING &where)
 {
-  return new File_loc(where.str);
+  return where.str && where.length ? new File_loc(where.str) : NULL;
 }
 
 } // backup namespace
@@ -1044,8 +1044,10 @@ int report_errors(THD *thd,int error_code, Logger &log, ...)
   MYSQL_ERROR *error= log.last_saved_error();
 
   if (error && !util::report_mysql_error(thd,error,error_code))
+  {  
     if (error->code)
       error_code= error->code;
+  }
   else // there are no error information in the logger - report error_code
   {
     char buf[ERRMSGSIZE + 20];
@@ -1118,41 +1120,6 @@ bool send_summary(THD *thd, const Archive_info &info, bool backup)
   item->maybe_null= TRUE;
   protocol->send_fields(&field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
 
-  /*
-    Loop through the catalog and list the contents by
-    database.
-
-    Enable this code when functions for browsing archive contents are
-    implemented.
-
-    List<schema_ref> cat1= *catalog;
-    List_iterator<schema_ref> cat(cat1);
-    schema_ref *tmp;
-
-    for (Archive_info::Db_iterator it(info); it; ++it)
-    while ((tmp= cat++))
-    {
-      uint howmuch= 0;
-
-      for (Archive_info::DItem_iterator dit(it); dit; ++dit)
-        howmuch++;
-
-      my_snprintf(buf,sizeof(buf),"%s %3u %s in database %s.",
-                  backup? "Backed up" : "Restored",
-                  howmuch, howmuch != 1 ? "tables" : " table",
-                  it->name().c_ptr());
-
-      protocol->prepare_for_resend();
-      protocol->store(buf,system_charset_info);
-      protocol->write();
-    }
-
-    my_snprintf(buf,sizeof(buf)," ");
-    protocol->prepare_for_resend();
-    protocol->store(buf,system_charset_info);
-    protocol->write();
-  */
-
   my_snprintf(buf,sizeof(buf)," header     = %-8lu bytes",(unsigned long)info.header_size);
   protocol->prepare_for_resend();
   protocol->store(buf,system_charset_info);
@@ -1218,7 +1185,7 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
   thd->lex->wild = NULL;
   thd->lex->sql_command = enum_sql_command(0);
 
-  /* context for fill_table */
+  // context for fill_table
   arg.table= t;
 
   /*
@@ -1268,255 +1235,4 @@ TABLE_LIST *build_table_list(const Table_list &tables, thr_lock_type lock)
   return tl;
 }
 
-
 } // backup namespace
-
-
-/****************************
-
-  Old code to be integrated into the current framework.
-
- ****************************/
-
-#if FALSE
-
-/*
-  Get the metadata for the backup file specified and display
-  it to the client interface.
-
-  SYNOPSIS
-    show_archive_catalog()
-    THD *thd     - The current thread instance.
-    Location loc - The name of the archive with path.
-
-  DESCRIPTION
-    This procedure opens the archive and extracts the metadata
-    for the databases and tables stored in the archive. A simple
-    list of the tables by database is sent to the client.
-
-  RETURNS
-    0  - no errors.
-    -1 - database cannot be read or doesn't exist.
-*/
-int mysql_show_archive(THD *thd, const backup::Location &loc)
-{
-  Protocol   *protocol= thd->protocol;
-  List<Item> field_list;
-  Item       *item;
-
-  DBUG_ENTER("backup::show_archive_catalog");
-  field_list.push_back(item= new Item_empty_string("Database",255));
-  field_list.push_back(item= new Item_empty_string("Table",255));
-  field_list.push_back(item= new Item_empty_string("Metadata",255));
-  item->maybe_null= TRUE;
-  protocol->send_fields(&field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
-  backup::Restore_info   info;
-
-  backup::IStream *backup_str= backup::open_for_read(loc);
-
-  if (!backup_str)
-    DBUG_RETURN(-1);
-
-  // for debug purposes -- grep for 'stream: ' in server trace
-  backup::dump_stream(*backup_str);
-
-  backup_str->rewind();
-
-  bool res= backup::read_header(*backup_str,info);
-  DBUG_ASSERT(res);
-
-  res= backup::read_catalog(*backup_str,info);
-  DBUG_ASSERT(res);
-
-  backup_str->close();
-
-  // send catalog to client
-
-  /*
-    Loop through the catalog and list the contents by
-    database.
-  */
-  List<backup::schema_ref> cat1= info.catalog;
-  List_iterator<backup::schema_ref> catalog(cat1);
-  backup::schema_ref *tmp;
-  while ((tmp= catalog++))
-  {
-    List_iterator<backup::table_info> tbls(tmp->tables);
-    backup::table_info *t;
-    while ((t= tbls++))
-    {
-      /*
-        Send the following data:
-          database name (from tmp->db_name)
-          table name (from t->table_name)
-          CREATE TABLE SQL for the table (first string in table_metadata)
-     */
-      protocol->prepare_for_resend();
-      protocol->store(tmp->db_name.c_ptr(),system_charset_info);
-      protocol->store(t->table_name.c_ptr(),system_charset_info);
-      List_iterator<String> tbl_meta(t->table_metadata);
-      String *tmp= tbl_meta++;  //just get the first string which is create
-      protocol->store(tmp->c_ptr(),system_charset_info);
-      protocol->write();
-    }
-  }
-  send_eof(thd);
-  DBUG_RETURN(backup::OK);
-}
-
-#endif
-
-#if FALSE
-
-bool collect_tables_to_backup(THD *,Backup_info &);
-bool collect_databases_to_backup(THD *thd, Backup_info &info);
-
-
-// Collect tables to be backed-up and fill Backup_info structure describing backup image.
-// Currently we try to backup all tables in 'test' database (but only tables for which
-// appropriate backup engine is found will be included in the image).
-
-bool collect_tables_to_backup(THD *thd,Backup_info &info)
-{
-  LEX_STRING *tmp;
-  schema_ref *cat;
-  String     db_name;
-
-  DBUG_ENTER("backup::collect_tables_to_backup");
-
-  // open and scan I_S.TABLES table
-
-  TABLE *i_s_tables = get_schema_table(thd, ::get_schema_table(SCH_TABLES) );
-
-  if( !i_s_tables )
-  {
-    DBUG_PRINT("backup",("get_schema_table returned NULL!"));
-    DBUG_ERROR(ERROR);
-  }
-
-  ::handler *ha = i_s_tables->file;
-
-  // TODO: locking
-
-  /*
-    Build catalog for writing...
-      For each database in the db_list,
-        create a new catalog struct
-        fill with tables and their metadata
-        add catalog to list
-  */
-  List_iterator<LEX_STRING> databases(*info.db_list);
-
-  table_info *ti;
-  while ((tmp= databases++))
-  {
-    /*
-      Save this database in the catalog along with metadata
-    */
-    cat= new schema_ref();          // create a new catalog struct
-    //cat->db_name= new (current_thd->mem_root) String();
-    cat->db_name.length(0);
-    cat->db_name.append(tmp->str); // save the database name
-
-    DBUG_PRINT("backup", ("Creating database metadata."));
-    get_db_metadata(thd, cat->db_name.c_ptr(), &cat->db_metadata);
-    DBUG_PRINT("backup", ("Database metadata created."));
-
-    ha->ha_rnd_init(TRUE);
-
-    // TODO: use conditions, do it properly
-    while( ! ha->rnd_next(i_s_tables->record[0]) )
-    {
-      Table tbl(i_s_tables);
-      db_name= tbl.db().name();
-      if (tbl && !my_strcasecmp(system_charset_info,
-         db_name.c_ptr(), tmp->str) &&
-         my_strcasecmp(system_charset_info,
-         db_name.c_ptr(), "information_schema") &&
-         my_strcasecmp(system_charset_info,
-         db_name.c_ptr(), "mysql"))
-      {
-        DBUG_PRINT("backup", ("Found table %s for database %s",
-                               tbl.name().ptr(), tmp->str));
-        // Backup_info::add method selects/creates sub-image appropriate for storing given table
-        info.add(tbl,tbl.hton());
-        /*
-          Add the table to this database's table list
-        */
-        ti= new table_info();
-        ti->table_name.length(0);
-        ti->table_name.append(tbl.name());
-        /*
-          Get the metadata for the table
-        */
-        TABLE_LIST *ptr=
-          build_table_list_str((char *)tbl.name().ptr(), db_name.c_ptr(), TL_READ);
-        get_table_metadata(thd, ptr, &ti->table_metadata);
-        /*
-          Save the table_info to the tables list for this database
-        */
-        cat->tables.push_back(ti);
-      }
-    }
-    info.catalog.push_back(cat); //add this catalog to the list of catalogs
-  }
-
-  DBUG_PRINT("backup", ("No more tables in I_S"));
-
-  ha->ha_rnd_end();
-
-  ::free_tmp_table(thd,i_s_tables);
-
-  DBUG_RETURN(TRUE);
-}
-
-bool collect_databases_to_backup(THD *thd, Backup_info &info)
-{
-  LEX_STRING *tmp;
-  String     db_name;
-
-  DBUG_ENTER("backup::collect_databases_to_backup");
-
-  // open and scan I_S.TABLES table
-
-  TABLE *db_table = get_schema_table(thd, ::get_schema_table(SCH_SCHEMATA));
-
-  if (!db_table)
-  {
-    DBUG_PRINT("backup",("get_schema_table returned NULL!"));
-    DBUG_ERROR(ERROR);
-  }
-
-  ::handler *ha = db_table->file;
-
-  // TODO: locking
-
-  ha->ha_rnd_init(TRUE);
-
-  // TODO: use conditions, do it properly
-  while (!ha->rnd_next(db_table->record[0]))
-  {
-    db_name.length(0);
-    db_table->field[1]->val_str(&db_name);
-    if (my_strcasecmp(system_charset_info,
-       db_name.c_ptr(), "information_schema") &&
-       my_strcasecmp(system_charset_info,
-       db_name.c_ptr(), "mysql"))
-    {
-      DBUG_PRINT("backup", ("Found database %s", db_name.ptr()));
-      tmp= (LEX_STRING *)thd->alloc(sizeof(LEX_STRING));
-      tmp->str= my_malloc(MAX_ALIAS_NAME, MYF(MY_WME));
-      strcpy(tmp->str, db_name.c_ptr());
-      info.db_list->push_back(tmp);
-    }
-  }
-
-  DBUG_PRINT("backup", ("No more databases in I_S"));
-
-  ha->ha_rnd_end();
-
-  db_table->file->close();
-  DBUG_RETURN(TRUE);
-}
-
-#endif

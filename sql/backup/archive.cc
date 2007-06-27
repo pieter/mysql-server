@@ -54,7 +54,7 @@ Archive_info::~Archive_info()
 
   Next chunk contains the pool of database names. After that there is one chunk
   per image containing list of tables whose data is saved in that image.
-  <pre>
+  @verbatim
   =====================
    version number        }
   ---------------------  }  header
@@ -70,7 +70,7 @@ Archive_info::~Archive_info()
   =====================  }
    tables of image N     }
   =====================
-  </pre>
+  @endverbatim
   In the picture "====" denotes chunk boundaries. Number of images is known
   from the header.
 
@@ -297,9 +297,9 @@ namespace backup {
   Write entry describing (format of) a backup driver's image.
 
   Entry has the form:
-  <pre>
+  @verbatim
   | type | version | image description |
-  </pre>
+  @endverbatim
   where type is a byte holding Image_info::image_type value, version is 2 byte
   integer holding image format version. The format of optional image description
   is determined by @c X::do_write_description() method where X is a subclass of
@@ -373,9 +373,9 @@ namespace backup {
   Write an entry describing single meta-data item.
 
   Entry has format:
-  <pre>
+  @verbatim
   | type | id data | create data |
-  </pre>
+  @endverbatim
   Type is a single byte holding meta::Item::enum_type value. Id data is
   used to determine which item (from the archive catalogue) the entry
   corresponds to. Create data is used to create the item.
@@ -790,7 +790,7 @@ Native_image::create_from_stream(version_t ver,
 
   if (ver > img->ver)
   {
-    DBUG_PRINT("restore",("Restore diver ver %d can't read image version %d",
+    DBUG_PRINT("restore",("Restore diver version %d can't read image version %d",
                           img->ver,ver));
     return ERROR;
   }

@@ -74,7 +74,7 @@ int Logger::v_write_message(log_level::value level, int error_code,
   char buf[ERRMSGSIZE + 20];
 
   my_vsnprintf(buf,sizeof(buf),format,args);
-  return write_message(level,0,buf);
+  return write_message(level,error_code,buf);
 }
 
 

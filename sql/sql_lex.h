@@ -85,7 +85,7 @@ enum enum_sql_command {
   SQLCOM_COMMIT, SQLCOM_SAVEPOINT, SQLCOM_RELEASE_SAVEPOINT,
   SQLCOM_SLAVE_START, SQLCOM_SLAVE_STOP,
   SQLCOM_BEGIN, SQLCOM_CHANGE_MASTER,
-  SQLCOM_RENAME_TABLE,
+  SQLCOM_RENAME_TABLE,  
   SQLCOM_RESET, SQLCOM_PURGE, SQLCOM_PURGE_BEFORE, SQLCOM_SHOW_BINLOGS,
   SQLCOM_SHOW_OPEN_TABLES,
   SQLCOM_HA_OPEN, SQLCOM_HA_CLOSE, SQLCOM_HA_READ,
@@ -113,7 +113,8 @@ enum enum_sql_command {
   SQLCOM_CREATE_SERVER, SQLCOM_DROP_SERVER, SQLCOM_ALTER_SERVER,
   SQLCOM_CREATE_EVENT, SQLCOM_ALTER_EVENT, SQLCOM_DROP_EVENT,
   SQLCOM_SHOW_CREATE_EVENT, SQLCOM_SHOW_EVENTS, 
-
+  SQLCOM_SHOW_ARCHIVE,
+  SQLCOM_BACKUP, SQLCOM_RESTORE,
   /* This should be the last !!! */
 
   SQLCOM_END
@@ -1118,7 +1119,7 @@ typedef struct st_lex : public Query_tables_list
   char *length,*dec,*change;
   LEX_STRING name;
   char *help_arg;
-  char *backup_dir;				/* For RESTORE/BACKUP */
+  LEX_STRING backup_dir;				/* For RESTORE/BACKUP */
   char* to_log;                                 /* For PURGE MASTER LOGS TO */
   char* x509_subject,*x509_issuer,*ssl_cipher;
   String *wild;

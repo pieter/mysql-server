@@ -1227,7 +1227,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 	show describe load alter optimize keycache preload flush
 	reset purge begin commit rollback savepoint release
 	slave master_def master_defs master_file_def slave_until_opts
-	repair analyze check start checksum
+	repair restore backup analyze check start checksum
 	field_list field_list_item field_spec kill column_def key_def
 	keycache_list assign_to_keycache preload_list preload_keys
 	select_item_list select_item values_list no_braces
@@ -1316,6 +1316,7 @@ verb_clause:
 statement:
 	  alter
 	| analyze
+  | backup
 	| binlog_base64_event
 	| call
 	| change
@@ -1349,6 +1350,7 @@ statement:
 	| repair
 	| replace
 	| reset
+  | restore
 	| revoke
 	| rollback
 	| savepoint
@@ -5744,6 +5746,44 @@ slave_until_opts:
        master_file_def
        | slave_until_opts ',' master_file_def ;
 
+restore:
+	RESTORE_SYM 
+	{
+	   Lex->sql_command = SQLCOM_RESTORE;
+     Lex->db_list.empty();
+	}
+	/*database_list*/ FROM TEXT_STRING_sys
+  {
+	  Lex->backup_dir = $4; 
+  };
+
+backup:
+	BACKUP_SYM DATABASE
+	{
+	   Lex->sql_command = SQLCOM_BACKUP;
+     Lex->db_list.empty();
+	}
+	database_list TO_SYM TEXT_STRING_sys
+  {
+	  Lex->backup_dir = $6; 
+  };
+
+database_list:
+  '*'
+  {}
+  | ident 
+  {
+     if (Lex->db_list.push_back((LEX_STRING*)
+         sql_memdup(&$1, sizeof(LEX_STRING))))
+       YYABORT;
+  }
+  | database_list ',' ident
+  {
+     if (Lex->db_list.push_back((LEX_STRING*)
+         sql_memdup(&$3, sizeof(LEX_STRING))))
+       YYABORT;
+  };
+
 checksum:
         CHECKSUM_SYM table_or_tables
 	{
@@ -8833,6 +8873,11 @@ show_param:
             Lex->spname= $3;
             Lex->sql_command = SQLCOM_SHOW_CREATE_EVENT;
           }
+      | BACKUP_SYM TEXT_STRING_sys
+      {
+        Lex->sql_command = SQLCOM_SHOW_ARCHIVE;
+	      Lex->backup_dir = $2; 
+      }
       ;
 
 show_engine_param:

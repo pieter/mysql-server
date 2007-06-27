@@ -204,6 +204,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CREATE_DB]=      CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_DB]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_RENAME_TABLE]=   CF_CHANGES_DATA;
+  sql_command_flags[SQLCOM_RESTORE]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_INDEX]=     CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_CREATE_VIEW]=    CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_VIEW]=      CF_CHANGES_DATA;
@@ -1845,6 +1846,15 @@ mysql_execute_command(THD *thd)
     break;
   }
 #endif
+
+  case SQLCOM_SHOW_ARCHIVE:
+  case SQLCOM_BACKUP:
+  case SQLCOM_RESTORE:
+  {
+    sql_print_information("\nOnline backup command stub reached.\n");
+    send_ok(thd); 
+    break;
+  }
 
   case SQLCOM_ASSIGN_TO_KEYCACHE:
   {

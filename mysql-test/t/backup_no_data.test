@@ -3,6 +3,9 @@ connect (restore,localhost,root,,);
 
 connection backup;
 
+# save empty test database on the side
+--exec cp -rf $MYSQLTEST_VARDIR/master-data/test $MYSQLTEST_VARDIR/test.orig
+
 --disable warnings
 DROP DATABASE IF EXISTS empty_db;
 --enable warnings
@@ -71,4 +74,9 @@ USE empty_db;
 
 SHOW TABLES;
 DROP DATABASE IF EXISTS empty_db;
+
+# restore test database to the exact state from the beginning of this test
+--exec rm -rf $MYSQLTEST_VARDIR/master-data/test
+--exec cp -rf $MYSQLTEST_VARDIR/test.orig $MYSQLTEST_VARDIR/master-data/test
+--exec rm -rf $MYSQLTEST_VARDIR/test.orig
 

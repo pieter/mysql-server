@@ -66,7 +66,7 @@ bool Protocol_binary::net_store_data(const uchar *from, size_t length)
 */
 
 #ifndef EMBEDDED_LIBRARY
-bool Protocol::net_store_data(const char *from, size_t length,
+bool Protocol::net_store_data(const uchar *from, size_t length,
                               CHARSET_INFO *from_cs, CHARSET_INFO *to_cs)
 {
   uint dummy_errors;
@@ -85,8 +85,9 @@ bool Protocol::net_store_data(const char *from, size_t length,
       Thus conversion directly to "packet" is not worthy.
       Let's use "convert" as a temporary buffer.
     */
-    return convert->copy(from, length, from_cs, to_cs, &dummy_errors) ||
-           net_store_data(convert->ptr(), convert->length());
+    return (convert->copy((const char*) from, length, from_cs,
+                          to_cs, &dummy_errors) ||
+            net_store_data((const uchar*) convert->ptr(), convert->length()));
   }
 
   ulong packet_length= packet->length();
@@ -99,9 +100,9 @@ bool Protocol::net_store_data(const char *from, size_t length,
   char *to= length_pos + 1;
 
   to+= copy_and_convert(to, conv_length, to_cs,
-                        from, length, from_cs, &dummy_errors);
+                        (const char*) from, length, from_cs, &dummy_errors);
 
-  net_store_length(length_pos, to - length_pos - 1);
+  net_store_length((uchar*) length_pos, to - length_pos - 1);
   packet->length((uint) (to - packet->ptr()));
   return 0;
 }

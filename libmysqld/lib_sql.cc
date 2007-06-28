@@ -1083,7 +1083,7 @@ bool Protocol::net_store_data(const uchar *from, size_t length)
 }
 
 
-bool Protocol::net_store_data(const char *from, uint length,
+bool Protocol::net_store_data(const uchar *from, size_t length,
                               CHARSET_INFO *from_cs, CHARSET_INFO *to_cs)
 {
   uint conv_length= to_cs->mbmaxlen * length / from_cs->mbminlen;
@@ -1092,11 +1092,11 @@ bool Protocol::net_store_data(const char *from, uint length,
   if (!thd->mysql)            // bootstrap file handling
     return false;
 
-  if (!(field_buf= alloc_root(alloc, conv_length + sizeof(uint) + 1)))
+  if (!(field_buf= (char*) alloc_root(alloc, conv_length + sizeof(uint) + 1)))
     return true;
   *next_field= field_buf + sizeof(uint);
   length= copy_and_convert(*next_field, conv_length, to_cs,
-                           from, length, from_cs, &dummy_error);
+                           (const char*) from, length, from_cs, &dummy_error);
   *(uint *) field_buf= length;
   (*next_field)[length]= 0;
   if (next_mysql_field->max_length < length)

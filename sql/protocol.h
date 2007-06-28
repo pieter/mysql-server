@@ -42,6 +42,8 @@ protected:
   MYSQL_FIELD *next_mysql_field;
   MEM_ROOT *alloc;
 #endif
+  bool net_store_data(const char *from, uint length,
+                      CHARSET_INFO *fromcs, CHARSET_INFO *tocs);
   bool store_string_aux(const char *from, uint length,
                         CHARSET_INFO *fromcs, CHARSET_INFO *tocs);
 public:

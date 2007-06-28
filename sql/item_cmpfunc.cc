@@ -1494,7 +1494,7 @@ bool Item_in_optimizer::is_null()
     @retval NULL if an error occurred
 */
 
-Item *Item_in_optimizer::transform(Item_transformer transformer, byte *argument)
+Item *Item_in_optimizer::transform(Item_transformer transformer, uchar *argument)
 {
   Item *new_item;
 

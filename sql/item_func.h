@@ -989,7 +989,7 @@ class Item_udf_func :public Item_func
 {
 protected:
   udf_handler udf;
-  bool is_expensive_processor(byte *arg) { return TRUE; }
+  bool is_expensive_processor(uchar *arg) { return TRUE; }
 
 public:
   Item_udf_func(udf_func *udf_arg)
@@ -1486,7 +1486,7 @@ private:
   bool init_result_field(THD *thd);
   
 protected:
-  bool is_expensive_processor(byte *arg) { return TRUE; }
+  bool is_expensive_processor(uchar *arg) { return TRUE; }
 
 public:
 

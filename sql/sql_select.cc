@@ -6214,7 +6214,7 @@ make_join_select(JOIN *join,SQL_SELECT *select,COND *cond)
           JOIN_TAB *cond_tab= join_tab->first_inner;
           COND *tmp= make_cond_for_table(*join_tab->on_expr_ref,
                                          join->const_table_map,
-                                         (table_map) 0);
+                                         (table_map) 0, 0);
           if (!tmp)
             continue;
           tmp= new Item_func_trig_cond(tmp, &cond_tab->not_null_compl);

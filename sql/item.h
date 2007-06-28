@@ -448,7 +448,7 @@ class Item {
   void operator=(Item &);
   /* Cache of the result of is_expensive(). */
   int8 is_expensive_cache;
-  virtual bool is_expensive_processor(byte *arg) { return 0; }
+  virtual bool is_expensive_processor(uchar *arg) { return 0; }
 
 public:
   static void *operator new(size_t size)
@@ -961,7 +961,7 @@ public:
   virtual bool is_expensive()
   {
     if (is_expensive_cache < 0)
-      is_expensive_cache= walk(&Item::is_expensive_processor, 0, (byte*)0);
+      is_expensive_cache= walk(&Item::is_expensive_processor, 0, (uchar*)0);
     return test(is_expensive_cache);
   }
 };

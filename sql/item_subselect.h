@@ -334,7 +334,7 @@ public:
   bool setup_hash_sj_engine();
   bool init_left_expr_cache();
   bool test_if_left_expr_changed();
-  bool is_expensive_processor(byte *arg);
+  bool is_expensive_processor(uchar *arg);
 
   friend class Item_ref_null_helper;
   friend class Item_is_not_null_test;

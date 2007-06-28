@@ -1721,7 +1721,7 @@ bool Item_in_subselect::test_if_left_expr_changed()
   @retval FALSE otherwise
 */
 
-bool Item_in_subselect::is_expensive_processor(byte *arg)
+bool Item_in_subselect::is_expensive_processor(uchar *arg)
 {
   return use_hash_sj;
 }
@@ -2551,10 +2551,20 @@ void subselect_union_engine::print(String *str)
 
 void subselect_uniquesubquery_engine::print(String *str)
 {
+  char *table_name= tab->table->s->table_name.str;
   str->append(STRING_WITH_LEN("<primary_index_lookup>("));
   tab->ref.items[0]->print(str);
   str->append(STRING_WITH_LEN(" in "));
-  str->append(tab->table->s->table_name.str, tab->table->s->table_name.length);
+  if (table_name[0] == '#')
+  {
+    /*
+      Temporary tables' names change across runs, so they can't be used for
+      EXPLAIN EXTENDED.
+    */
+    str->append(STRING_WITH_LEN("<temporary table>"));
+  }
+  else
+    str->append(table_name, tab->table->s->table_name.length);
   KEY *key_info= tab->table->key_info+ tab->ref.key;
   str->append(STRING_WITH_LEN(" on "));
   str->append(key_info->name);
@@ -2843,7 +2853,7 @@ bool subselect_hash_sj_engine::init_permanent(List<Item> *tmp_columns)
   tab->ref.key= 0; /* The only temp table index. */
   tab->ref.key_length= tmp_key->key_length;
   if (!(tab->ref.key_buff=
-        (byte*) thd->calloc(ALIGN_SIZE(tmp_key->key_length) * 2)) ||
+        (uchar*) thd->calloc(ALIGN_SIZE(tmp_key->key_length) * 2)) ||
       !(tab->ref.key_copy=
         (store_key**) thd->alloc((sizeof(store_key*) *
                                   (tmp_key_parts + 1)))) ||
@@ -2853,7 +2863,7 @@ bool subselect_hash_sj_engine::init_permanent(List<Item> *tmp_columns)
 
   KEY_PART_INFO *cur_key_part= tmp_key->key_part;
   store_key **ref_key= tab->ref.key_copy;
-  byte *cur_ref_buff= tab->ref.key_buff;
+  uchar *cur_ref_buff= tab->ref.key_buff;
   
   for (uint i= 0; i < tmp_key_parts; i++, cur_key_part++, ref_key++)
   {

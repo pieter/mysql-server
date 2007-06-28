@@ -84,62 +84,74 @@ struct stream_result
 template<class SWin>
 class IStream
 {
-  SWin  &m_win;
+  SWin  *m_win;
 
  public:
 
   typedef typename SWin::Result Result;
 
-  IStream(SWin *swin): m_win(*swin)
+  IStream(): m_win(NULL)
+  {}
+  
+  // Note: we need to set m_win after instance has been created.
+  void set_win(SWin *win)
   {
-    DBUG_ASSERT(swin);
+    m_win= win;
   }
 
   Result readbyte(byte &x)
   {
     Result res;
+    
+    DBUG_ASSERT(m_win);
   
-    if ((res= m_win.set_length(1)) != Result(stream_result::OK))
+    if ((res= m_win->set_length(1)) != Result(stream_result::OK))
       return res;
   
-    x= *m_win.head();
+    x= *m_win->head();
   
-    return m_win.move(1);
+    return m_win->move(1);
   }
   
   Result read2int(uint &x)
   {
     Result res;
   
-    if ((res= m_win.set_length(2)) != Result(stream_result::OK))
+    DBUG_ASSERT(m_win);
+
+    if ((res= m_win->set_length(2)) != Result(stream_result::OK))
      return res;
   
-    x= uint2korr(m_win.head());
+    x= uint2korr(m_win->head());
   
-    return m_win.move(2);
+    return m_win->move(2);
   }
   
   Result read4int(ulong &x)
   {
     Result res;
   
-    if ((res= m_win.set_length(4)) != Result(stream_result::OK))
+    DBUG_ASSERT(m_win);
+
+    if ((res= m_win->set_length(4)) != Result(stream_result::OK))
      return res;
   
-    x= uint4korr(m_win.head());
+    x= uint4korr(m_win->head());
   
-    return m_win.move(4);
+    return m_win->move(4);
   }
 
   Result readint(ulong &x)
   {
     Result res;
   
-    if ((res= m_win.set_length(1)) != Result(stream_result::OK))
+    DBUG_ASSERT(m_win);
+
+    if ((res= m_win->set_length(1)) != Result(stream_result::OK))
       return res;
   
-    x= *m_win.head();
-    m_win.move(1);
+    x= *m_win->head();
+    m_win->move(1);
   
     switch( x ) {
     case 251:
@@ -174,16 +186,18 @@ class IStream
     Result  res;
     uint    len;
   
+    DBUG_ASSERT(m_win);
+
     if ((res= readint(len)) != Result(stream_result::OK))
       return res;
   
-    if ((res= m_win.set_length(len)) != Result(stream_result::OK))
+    if ((res= m_win->set_length(len)) != Result(stream_result::OK))
       return res;
   
     s.free();
-    s.copy((const char*)m_win.head(), len, &::my_charset_bin);
+    s.copy((const char*)m_win->head(), len, &::my_charset_bin);
   
-    return m_win.move(len);
+    return m_win->move(len);
   }
 
 };
@@ -192,56 +206,69 @@ class IStream
 template<class SWin>
 class OStream
 {
-  SWin &m_win;
+  SWin *m_win;
 
  public:
 
   typedef typename SWin::Result Result;
 
-  OStream(SWin &swin): m_win(swin)
+  OStream(): m_win(NULL)
   {}
+
+  void set_win(SWin *win)
+  {
+    m_win= win;
+  }
 
   Result writebyte(const byte x)
   {
     Result res;
   
-    if ((res= m_win.set_length(1)) != Result(stream_result::OK))
+    DBUG_ASSERT(m_win);
+
+    if ((res= m_win->set_length(1)) != Result(stream_result::OK))
       return res;
   
-    (*m_win.head())= x;
+    (*m_win->head())= x;
   
-    return m_win.move(1);
+    return m_win->move(1);
   }
 
   Result write2int(const int x)
   {
     Result res;
   
-    if ((res= m_win.set_length(2)) != Result(stream_result::OK))
+    DBUG_ASSERT(m_win);
+
+    if ((res= m_win->set_length(2)) != Result(stream_result::OK))
       return res;
   
-    int2store(m_win.head(),x);
+    int2store(m_win->head(),x);
   
-    return m_win.move(2);
+    return m_win->move(2);
   }
 
   Result write4int(const ulong x)
   {
     Result res;
   
-    if ((res= m_win.set_length(4)) != Result(stream_result::OK))
+    DBUG_ASSERT(m_win);
+
+    if ((res= m_win->set_length(4)) != Result(stream_result::OK))
       return res;
   
-    int4store(m_win.head(),x);
+    int4store(m_win->head(),x);
   
-    return m_win.move(4);
+    return m_win->move(4);
   }
 
   Result writeint(const ulong x)
   {
     Result res;
   
-    if ((res= m_win.set_length(1)) != Result(stream_result::OK))
+    DBUG_ASSERT(m_win);
+
+    if ((res= m_win->set_length(1)) != Result(stream_result::OK))
       return res;
   
     if (x < 251)
@@ -265,12 +292,12 @@ class OStream
     if ((res= writeint(len)) != Result(stream_result::OK))
       return res;
   
-    if ((res= m_win.set_length(len)) != Result(stream_result::OK))
+    if ((res= m_win->set_length(len)) != Result(stream_result::OK))
       return res;
   
-    memcpy(m_win.head(), s.ptr(), len);
+    memcpy(m_win->head(), s.ptr(), len);
   
-    return m_win.move(len);
+    return m_win->move(len);
   }
 
   Result writestr(const char *s)
@@ -498,9 +525,8 @@ class OStream:
   }
 
   OStream(const String &name):
-    Stream(name,O_WRONLY|O_CREAT|O_TRUNC),
-    Base3(static_cast<Window&>(*this))
-  {}
+    Stream(name,O_WRONLY|O_CREAT|O_TRUNC), Base3()
+  { set_win(this); }
 
 };
 
@@ -568,10 +594,11 @@ class IStream:
   }
 
   IStream(const String &name):
-    Stream(name,O_RDONLY),
-    Base3(this),
-    bytes(0)
-  { last_byte= m_buf; }
+    Stream(name,O_RDONLY), Base3(), bytes(0)
+  { 
+    set_win(this);
+    last_byte= m_buf; 
+  }
 
  private:
 

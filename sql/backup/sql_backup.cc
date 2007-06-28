@@ -404,9 +404,14 @@ int Backup_info::find_image(const Backup_info::Table_ref &tbl)
      DBUG_PRINT("backup",("%s image added to archive",img->name()));
      img_count++;
 
+#ifdef DBUG_OFF 
+     // avoid "unused variable" compilation warning
+     img->accept(tbl,hton);
+#else
      // native image should accept all tables from its own engine
      bool res= img->accept(tbl,hton);
      DBUG_ASSERT(res);
+#endif
 
      DBUG_RETURN(no);
    }

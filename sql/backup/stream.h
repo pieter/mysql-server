@@ -144,11 +144,13 @@ class IStream
       return Result(stream_result::NIL);
   
     case 252:
-      uint y;
+    {
+      uint y= 0;
       res= read2int(y);
       x= y;
       return res;
-  
+    }
+    
     case 253:
       return read4int(x);
   
@@ -159,7 +161,7 @@ class IStream
 
   Result readint(uint &x)
   {
-    ulong y;
+    ulong y= 0;
     Result res= readint(y);
     x= y;
     return res;

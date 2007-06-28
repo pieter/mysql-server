@@ -1044,27 +1044,17 @@ int report_errors(THD *thd,int error_code, Logger &log, ...)
   return error_code;
 }
 
-
-template<class Info>
-static
-int check_info(THD *thd, Info &info, int error_code)
-{
-  if (info.is_valid())
-    return OK;
-
-  return report_errors(thd,error_code,(Logger&)info);
-}
-
-template int check_info(THD*,Backup_info&,int);
-template int check_info(THD*,Restore_info&,int);
-
 inline
 int check_info(THD *thd, Backup_info &info)
-{ return check_info<Backup_info>(thd,info,ER_BACKUP_BACKUP_PREPARE); }
+{ 
+  return info.is_valid() ? OK : report_errors(thd,ER_BACKUP_BACKUP_PREPARE,info); 
+}
 
 inline
 int check_info(THD *thd, Restore_info &info)
-{ return check_info<Restore_info>(thd,info,ER_BACKUP_RESTORE_PREPARE); }
+{ 
+  return info.is_valid() ? OK : report_errors(thd,ER_BACKUP_RESTORE_PREPARE,info); 
+}
 
 /**
   Send a summary of the backup/restore operation to the client.

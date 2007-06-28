@@ -446,6 +446,10 @@ typedef void (*Cond_traverser) (const Item *item, void *arg);
 class Item {
   Item(const Item &);			/* Prevent use of these */
   void operator=(Item &);
+  /* Cache of the result of is_expensive(). */
+  int8 is_expensive_cache;
+  virtual bool is_expensive_processor(byte *arg) { return 0; }
+
 public:
   static void *operator new(size_t size)
   { return sql_alloc(size); }
@@ -494,7 +498,7 @@ public:
   DTCollation collation;
   my_bool with_subselect;               /* If this item is a subselect or some
                                            of its arguments is or contains a
-                                           subselect */
+                                           subselect. Computed by fix_fields. */
   Item_result cmp_context;              /* Comparison context */
   // alloc & destruct is done as start of select using sql_alloc
   Item();
@@ -823,7 +827,6 @@ public:
   virtual bool find_item_in_field_list_processor(uchar *arg) { return 0; }
   virtual bool change_context_processor(uchar *context) { return 0; }
   virtual bool reset_query_id_processor(uchar *query_id_arg) { return 0; }
-  virtual bool is_expensive_processor(uchar *arg) { return 0; }
   virtual bool register_field_in_read_map(uchar *arg) { return 0; }
   /*
     Check if a partition function is allowed
@@ -943,6 +946,24 @@ public:
   */
   virtual bool result_as_longlong() { return FALSE; }
   bool is_datetime();
+
+  /*
+    Test whether an expression is expensive to compute. Used during
+    optimization to avoid computing expensive expressions during this
+    phase. Also used to force temp tables when sorting on expensive
+    functions.
+    TODO:
+    Normally we should have a method:
+      cost Item::execution_cost(),
+    where 'cost' is either 'double' or some structure of various cost
+    parameters.
+  */
+  virtual bool is_expensive()
+  {
+    if (is_expensive_cache < 0)
+      is_expensive_cache= walk(&Item::is_expensive_processor, 0, (byte*)0);
+    return test(is_expensive_cache);
+  }
 };
 
 

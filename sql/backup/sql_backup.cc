@@ -77,7 +77,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
   if (!loc)
   {
-    my_error(ER_BACKUP_INVALID_LOC,MYF(0),lex->backup_dir);
+    my_error(ER_BACKUP_INVALID_LOC,MYF(0),lex->backup_dir.str);
     DBUG_RETURN(ER_BACKUP_INVALID_LOC);
   }
 

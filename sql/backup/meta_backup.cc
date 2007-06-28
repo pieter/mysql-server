@@ -141,7 +141,7 @@ restore_meta_data(THD *thd, Restore_info &info, IStream &s)
   {
     info.report_error(ER_BACKUP_NEXT_CHUNK);
     DBUG_RETURN(ERROR);
-  };
+  }
 
   info.meta_size= s.bytes - start_bytes;
 
@@ -255,7 +255,7 @@ meta::Item::drop(THD *thd)
   drop_stmt.append(sql_name());
 
   return silent_exec_query(thd,drop_stmt) ? ERROR : OK;
-};
+}
 
 /**** SAVE/RESTORE DATABASES ***********************************/
 

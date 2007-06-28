@@ -33,7 +33,7 @@ struct StringDom
   static int cmp(const Element &x, const Element &y)
   { return stringcmp(&x,&y); }
 
-  static unsigned int hash(const Element &x)
+  static unsigned int hash(const Element&)
   { return 0; }
 };
 

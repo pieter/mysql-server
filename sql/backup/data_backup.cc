@@ -137,8 +137,10 @@ class Block_writer
   to backup driver to implement multi-engine synchronization.
 */
 
-struct Backup_pump
+class Backup_pump
 {
+ public:
+ 
   backup_state::value  state; ///< State of the backup driver.
 
   enum { READING, ///< Pump is polling driver for data.
@@ -262,7 +264,7 @@ class Scheduler
 
   Scheduler(OStream &s, Logger *log):
     init_count(0), prepare_count(0), finish_count(0),
-    m_log(log), m_pumps(NULL), m_last(NULL),
+    m_pumps(NULL), m_last(NULL), m_log(log),
     m_count(0), m_total(0), m_init_left(0), m_known_count(0),
     m_str(s), cancelled(FALSE)
   {}

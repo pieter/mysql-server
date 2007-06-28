@@ -257,7 +257,7 @@ struct Buffer
   bool    last;       ///< TRUE if this is last block of data in the stream.
   byte    *data;      ///< Pointer to data area.
 
-  Buffer(): data(NULL),size(0),table_no(0),last(FALSE)
+  Buffer(): size(0),table_no(0),last(FALSE), data(NULL)
   {}
 
   void reset(size_t len)

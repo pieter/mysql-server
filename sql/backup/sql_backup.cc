@@ -364,11 +364,11 @@ int Backup_info::find_image(const Backup_info::Table_ref &tbl)
    // If table has no handlerton something is really bad - we crash here
    DBUG_ASSERT(hton);
 
-   DBUG_PRINT("backup",("Adding table %s.%s (%s,%p) to archive.",
+   DBUG_PRINT("backup",("Adding table %s.%s using storage %s to archive%s",
                         tbl.db().name().ptr(),
                         tbl.name().ptr(),
                         ::ha_resolve_storage_engine_name(hton),
-                        hton->get_backup_engine) );
+                        hton->get_backup_engine ? " (has native backup)." : "."));
 
    // Point 3: try existing images but not the default one.
 
@@ -440,7 +440,7 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st);
   closed when the structure is closed with the @c close() method.
  */
 Backup_info::Backup_info(THD *thd):
-  default_image_no(-1), m_thd(thd), i_s_tables(NULL), m_state(INIT),
+  m_state(INIT), default_image_no(-1), m_thd(thd), i_s_tables(NULL),
   m_items(NULL), m_last_item(NULL), m_last_db(NULL)
 {
   i_s_tables= get_schema_table(m_thd, ::get_schema_table(SCH_TABLES));
@@ -804,8 +804,7 @@ Backup_info::Table_ref::Table_ref(TABLE *t):
  */
 
 Backup_info::Table_item*
-Backup_info::add_table(Db_item &db,
-                       const Table_ref &t)
+Backup_info::add_table(Db_item&, const Table_ref &t)
 {
   int no= find_image(t); // Note: find_image reports errors
 
@@ -1053,7 +1052,7 @@ int check_info(THD *thd, Info &info, int error_code)
   if (info.is_valid())
     return OK;
 
-  return report_errors(thd,error_code,info);
+  return report_errors(thd,error_code,(Logger&)info);
 }
 
 template int check_info(THD*,Backup_info&,int);

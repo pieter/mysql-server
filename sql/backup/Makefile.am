@@ -18,9 +18,9 @@
 noinst_LTLIBRARIES = libbackup.la
 
 INCLUDES = \
-	-I.. \
 	-I$(top_builddir)/include \
 	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/sql \
 	-I$(top_srcdir)/regex
 
 libbackup_la_SOURCES = \

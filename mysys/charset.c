@@ -242,7 +242,7 @@ static int add_collation(CHARSET_INFO *cs)
         new->max_sort_char= my_charset_ucs2_general_uca.max_sort_char;
         new->mbminlen= 2;
         new->mbmaxlen= 2;
-        new->state |= MY_CS_AVAILABLE | MY_CS_LOADED;
+        new->state |= MY_CS_AVAILABLE | MY_CS_LOADED | MY_CS_NONASCII;
 #endif        
       }
       else
@@ -266,6 +266,8 @@ static int add_collation(CHARSET_INFO *cs)
         if (sort_order && sort_order['A'] < sort_order['a'] &&
                           sort_order['a'] < sort_order['B'])
           all_charsets[cs->number]->state|= MY_CS_CSSORT; 
+        if (!my_charset_is_ascii_compatible(cs))
+          all_charsets[cs->number]->state|= MY_CS_NONASCII;
       }
     }
     else

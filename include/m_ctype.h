@@ -86,6 +86,7 @@ extern MY_UNI_CTYPE my_uni_ctype[256];
 #define MY_CS_AVAILABLE	512    /* If either compiled-in or loaded*/
 #define MY_CS_CSSORT	1024   /* if case sensitive sort order   */
 #define MY_CS_HIDDEN	2048   /* don't display in SHOW          */	
+#define MY_CS_NONASCII  4096   /* if not ASCII-compatible        */
 #define MY_CHARSET_UNDEFINED 0
 
 /* Flags for strxfrm */
@@ -525,6 +526,7 @@ size_t my_strxfrm_pad_desc_and_reverse(CHARSET_INFO *cs,
                                        uchar *str, uchar *frmend, uchar *strend,
                                        uint nweights, uint flags, uint level);
 
+my_bool my_charset_is_ascii_compatible(CHARSET_INFO *cs);
 
 #define	_MY_U	01	/* Upper case */
 #define	_MY_L	02	/* Lower case */

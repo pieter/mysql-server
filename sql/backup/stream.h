@@ -90,8 +90,10 @@ class IStream
 
   typedef typename SWin::Result Result;
 
-  IStream(SWin &swin): m_win(swin)
-  {}
+  IStream(SWin *swin): m_win(*swin)
+  {
+    DBUG_ASSERT(swin);
+  }
 
   Result readbyte(byte &x)
   {
@@ -567,7 +569,7 @@ class IStream:
 
   IStream(const String &name):
     Stream(name,O_RDONLY),
-    Base3(static_cast<Window&>(*this)),
+    Base3(this),
     bytes(0)
   { last_byte= m_buf; }
 

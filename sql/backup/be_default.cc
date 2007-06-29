@@ -467,7 +467,7 @@ result_t Backup::get_data(Buffer &buf)
   * @retval ERROR  if cannot create restore driver class.
   * @retval OK     on success.
   */
-result_t Engine::get_restore(version_t ver, const uint32, 
+result_t Engine::get_restore(version_t, const uint32, 
                              const Table_list &tables, Restore_driver* &drv)
 {
   DBUG_ENTER("Engine::get_restore");

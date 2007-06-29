@@ -930,10 +930,10 @@ int Backup_info::add_table_items(Table_item&)
 namespace backup {
 
 // defined in meta_backup.cc
-bool restore_meta_data(THD*, Restore_info&, IStream&);
+int restore_meta_data(THD*, Restore_info&, IStream&);
 
 // defined in data_backup.cc
-bool restore_table_data(THD*, Restore_info&, IStream&);
+int restore_table_data(THD*, Restore_info&, IStream&);
 
 } // backup namespace
 

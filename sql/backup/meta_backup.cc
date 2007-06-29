@@ -83,8 +83,7 @@ int write_meta_data(THD *thd, Backup_info &info, OStream &s)
   @pre  Stream is at the beginning of a saved meta-data chunk.
   @post Stream is at the beginning of the next chunk.
  */
-int
-restore_meta_data(THD *thd, Restore_info &info, IStream &s)
+int restore_meta_data(THD *thd, Restore_info &info, IStream &s)
 {
   DBUG_ENTER("restore_meta_data");
   Archive_info::Item *it; // save pointer to item read form the stream

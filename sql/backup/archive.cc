@@ -538,7 +538,7 @@ struct Image_info::Tables::node {
   String          name;
   node            *next;
 
-  node(const Image_info::Tables &t,
+  node(const Image_info::Tables&,
        const StringPool::Key &k,
        const String &nm): db(k), next(NULL)
   {

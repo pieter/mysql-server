@@ -15,7 +15,7 @@ using backup::Table_list;
 using backup::Table_ref;
 using backup::Buffer;
 
-const uint META_SIZE= 1;
+const size_t META_SIZE= 1;
 
 /*
   The following are the flags for the first byte in the data layout for

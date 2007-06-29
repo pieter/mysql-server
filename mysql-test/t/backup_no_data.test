@@ -6,9 +6,9 @@ connection backup;
 # save empty test database on the side
 --exec cp -rf $MYSQLTEST_VARDIR/master-data/test $MYSQLTEST_VARDIR/test.orig
 
---disable warnings
+--disable_warnings
 DROP DATABASE IF EXISTS empty_db;
---enable warnings
+--enable_warnings
 
 CREATE DATABASE empty_db;
 
@@ -54,9 +54,9 @@ CREATE TABLE t1 (
 
 USE empty_db;
 
---disable warnings
+--disable_warnings
 DROP VIEW IF EXISTS v1;
---enable warnings
+--enable_warnings
 
 CREATE VIEW v1 AS SELECT * FROM test.t1;
 

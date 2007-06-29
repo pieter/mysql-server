@@ -1,6 +1,4 @@
 DROP DATABASE IF EXISTS empty_db;
-Warnings:
-Note	1008	Can't drop database 'empty_db'; database doesn't exist
 CREATE DATABASE empty_db;
 BACKUP DATABASE empty_db TO 'empty_db.bak';
 Backup Summary
@@ -80,8 +78,6 @@ CREATE TABLE t1 (
 ) ENGINE=myisam DEFAULT CHARSET=latin1;
 USE empty_db;
 DROP VIEW IF EXISTS v1;
-Warnings:
-Note	1051	Unknown table 'empty_db.v1'
 CREATE VIEW v1 AS SELECT * FROM test.t1;
 BACKUP DATABASE empty_db TO 'empty_db.bak';
 Backup Summary

@@ -36,7 +36,7 @@
  * @param  buff_ptr (in) a pointer to a block of memory
  * @param  size     (in) the maximum size of the data
  */
-int Buffer_iterator::initialize(byte *buff_ptr, long size)
+int Buffer_iterator::initialize(byte *buff_ptr, size_t size)
 {
   DBUG_ENTER("buffer_iterator::initialize(buff_ptr, size, window)");
   buffer= buff_ptr;
@@ -56,7 +56,7 @@ int Buffer_iterator::initialize(byte *buff_ptr, long size)
  *
  * @param  size     (in) the maximum size of the data
  */
-int Buffer_iterator::initialize(long size)
+int Buffer_iterator::initialize(size_t size)
 {
   DBUG_ENTER("buffer_iterator::initialize(size, window)");
   buffer= (byte *)my_malloc(size, MYF(MY_WME));
@@ -94,9 +94,9 @@ int Buffer_iterator::reset()
  * 
  * @retval the size of the window
  */
-long Buffer_iterator::get_next(byte **buff_ptr, long window)
+size_t Buffer_iterator::get_next(byte **buff_ptr, size_t window)
 {
-  long bytes_read;
+  size_t bytes_read;
 
   DBUG_ENTER("buffer_iterator::get_next()");
   *buff_ptr= cur_ptr;
@@ -136,7 +136,7 @@ long Buffer_iterator::get_next(byte **buff_ptr, long window)
  * @retval 0  success
  * @retval 1  window size exceeds maximum size of the block of data
  */
-int Buffer_iterator::put_next(byte *buff_ptr, long size)
+int Buffer_iterator::put_next(byte *buff_ptr, size_t size)
 {
   DBUG_ENTER("buffer_iterator::put_next()");
   /*
@@ -163,7 +163,7 @@ int Buffer_iterator::put_next(byte *buff_ptr, long size)
  *
  * @retval the number of windows left to read
  */
-int Buffer_iterator::num_windows(long size)
+int Buffer_iterator::num_windows(size_t size)
 {
   int num_windows;
   DBUG_ENTER("buffer_iterator::num_windows()");

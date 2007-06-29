@@ -7902,9 +7902,9 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
     sorted= 0;                                  // only first must be sorted
     if (tab->insideout_match_tab)
     {
-      if (!(tab->insideout_buf= (byte*)join->thd->alloc(tab->table->key_info
-                                                        [tab->index].
-                                                        key_length)))
+      if (!(tab->insideout_buf= (uchar*)join->thd->alloc(tab->table->key_info
+                                                         [tab->index].
+                                                         key_length)))
         return TRUE;
     }
     switch (tab->type) {
@@ -12991,7 +12991,7 @@ int do_sj_dups_weedout(THD *thd, SJ_TMP_TABLE *sjtbl)
   SJ_TMP_TABLE::TAB *tab= sjtbl->tabs;
   SJ_TMP_TABLE::TAB *tab_end= sjtbl->tabs_end;
   uchar *ptr= sjtbl->tmp_table->record[0] + 1;
-  byte *nulls_ptr= ptr;
+  uchar *nulls_ptr= ptr;
   
   /* Put the the rowids tuple into table->record[0]: */
 

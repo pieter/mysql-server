@@ -260,7 +260,7 @@ typedef struct st_join_table {
      NULL - Not an insideout scan.
   */
   struct st_join_table *insideout_match_tab;
-  byte *insideout_buf; // Buffer to save index tuple to be able to skip dups
+  uchar *insideout_buf; // Buffer to save index tuple to be able to skip dups
 
   /* Used by InsideOut scan. Just set to true when have found a row. */
   bool found_match;

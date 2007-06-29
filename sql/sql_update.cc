@@ -1573,12 +1573,10 @@ bool multi_update::send_data(List<Item> &not_used_values)
                                          tmp_table_param[offset].start_recinfo,
                                          &tmp_table_param[offset].recinfo,
                                          error, 1))
-	{
-	  do_update=0;
+        {
+          do_update=0;
 	  DBUG_RETURN(1);			// Not a table_is_full error
 	}
-      }
-      else
         found++;
       }
     }

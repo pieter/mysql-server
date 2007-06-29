@@ -166,7 +166,7 @@ static Item* part_of_refkey(TABLE *form,Field *field);
 uint find_shortest_key(TABLE *table, const key_map *usable_keys);
 static bool test_if_skip_sort_order(JOIN_TAB *tab,ORDER *order,
 				    ha_rows select_limit, bool no_changes,
-                                    key_map *map);
+                                    const key_map *map);
 static bool list_contains_unique_index(TABLE *table,
                           bool (*find_func) (Field *, void *), void *data);
 static bool find_field_in_item_list (Field *field, void *data);
@@ -2715,7 +2715,7 @@ static TABLE_LIST *alloc_join_nest(THD *thd)
   if (!(tbl= (TABLE_LIST*) thd->calloc(ALIGN_SIZE(sizeof(TABLE_LIST))+
                                        sizeof(NESTED_JOIN))))
     return NULL;
-  tbl->nested_join= (NESTED_JOIN*) ((byte*)tbl + 
+  tbl->nested_join= (NESTED_JOIN*) ((uchar*)tbl + 
                                     ALIGN_SIZE(sizeof(TABLE_LIST)));
   return tbl;
 }
@@ -7535,7 +7535,9 @@ uint make_join_orderinfo(JOIN *join)
     if ((table == join->sort_by_table &&
          (!join->order || join->skip_sort_order ||
           test_if_skip_sort_order(tab, join->order, join->select_limit,
-                                  1))
+                                  FALSE, &table->keys_in_use_for_order_by)) 
+         //psergey-merge-todo: ^ check what should be instead of the above
+         // FALSE! check the last argument!
         ) ||
         (join->sort_by_table == (TABLE *) 1 && i != join->const_tables))
     {
@@ -7560,7 +7562,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 {
   uint i;
   bool statistics= test(!(join->select_options & SELECT_DESCRIBE));
-  //bool ordered_set= 0;
+  bool ordered_set= 0; //psergey-merge-todo: sort this out!
   bool sorted= 1;
   DBUG_ENTER("make_join_readinfo");
 
@@ -11484,8 +11486,8 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   Field **reg_field;
   KEY_PART_INFO *key_part_info;
   KEY *keyinfo;
-  byte *group_buff;
-  byte *bitmaps;
+  uchar *group_buff;
+  uchar *bitmaps;
   uint *blob_field;
   MI_COLUMNDEF *recinfo, *start_recinfo;
   bool using_unique_constraint=FALSE;
@@ -11493,7 +11495,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   Field *field, *key_field;
   uint blob_count, null_pack_length, null_count;
   uchar *null_flags;
-  byte *pos;
+  uchar *pos;
   DBUG_ENTER("create_duplicate_weedout_tmp_table");
   
   /*
@@ -11559,7 +11561,8 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   table->copy_blobs= 1;
   table->in_use= thd;
   table->quick_keys.init();
-  table->used_keys.init();
+  table->covering_keys.init(); //psergey-todo: check if we need to set a bit there 
+  //table->used_keys.init();
   table->keys_in_use_for_query.init();
 
   table->s= share;
@@ -11607,14 +11610,16 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   uint reclength= field->pack_length();
   if (using_unique_constraint)
   { 
+    share->db_plugin= ha_lock_engine(0, myisam_hton);
     table->file= get_new_handler(share, &table->mem_root,
-                                 share->db_type= myisam_hton);
+                                 share->db_type());
     DBUG_ASSERT(uniq_tuple_length_arg <= table->file->max_key_length());
   }
   else
   {
+    share->db_plugin= ha_lock_engine(0, heap_hton);
     table->file= get_new_handler(share, &table->mem_root,
-                                 share->db_type= heap_hton);
+                                 share->db_type());
   }
   if (!table->file)
     goto err;
@@ -11628,7 +11633,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   {
     uint alloc_length=ALIGN_SIZE(share->reclength + MI_UNIQUE_HASH_LENGTH+1);
     share->rec_buff_length= alloc_length;
-    if (!(table->record[0]= (byte*)
+    if (!(table->record[0]= (uchar*)
                             alloc_root(&table->mem_root, alloc_length*3)))
       goto err;
     table->record[1]= table->record[0]+alloc_length;
@@ -11641,7 +11646,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   pos=table->record[0]+ null_pack_length;
   if (null_pack_length)
   {
-    bzero((byte*) recinfo,sizeof(*recinfo));
+    bzero((uchar*) recinfo,sizeof(*recinfo));
     recinfo->type=FIELD_NORMAL;
     recinfo->length=null_pack_length;
     recinfo++;
@@ -11656,8 +11661,8 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   {
     //Field *field= *reg_field;
     uint length;
-    bzero((byte*) recinfo,sizeof(*recinfo));
-    field->move_field((char*) pos,(uchar*) 0,0);
+    bzero((uchar*) recinfo,sizeof(*recinfo));
+    field->move_field(pos,(uchar*) 0,0);
 
     field->reset();
     /*
@@ -11690,7 +11695,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   if (thd->variables.tmp_table_size == ~ (ulonglong) 0)		// No limit
     share->max_rows= ~(ha_rows) 0;
   else
-    share->max_rows= (ha_rows) (((share->db_type == heap_hton) ?
+    share->max_rows= (ha_rows) (((share->db_type() == heap_hton) ?
                                  min(thd->variables.tmp_table_size,
                                      thd->variables.max_heap_table_size) :
                                  thd->variables.tmp_table_size) /
@@ -11722,7 +11727,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
       if (!using_unique_constraint)
       {
 	if (!(key_field= field->new_key_field(thd->mem_root, table,
-                                              (char*) group_buff,
+                                              group_buff,
                                               field->null_ptr,
                                               field->null_bit)))
 	  goto err;
@@ -11735,7 +11740,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   if (thd->is_fatal_error)				// If end of memory
     goto err;
   share->db_record_offset= 1;
-  if (share->db_type == myisam_hton)
+  if (share->db_type() == myisam_hton)
   {
     recinfo++;
     if (create_myisam_tmp_table(table, keyinfo, start_recinfo, &recinfo, 0))
@@ -12617,7 +12622,7 @@ int do_sj_dups_weedout(THD *thd, SJ_TMP_TABLE *sjtbl)
   int error;
   SJ_TMP_TABLE::TAB *tab= sjtbl->tabs;
   SJ_TMP_TABLE::TAB *tab_end= sjtbl->tabs_end;
-  byte *ptr= sjtbl->tmp_table->record[0] + 1;
+  uchar *ptr= sjtbl->tmp_table->record[0] + 1;
   
   /* Put the the rowids tuple into table->record[0]: */
 
@@ -14462,17 +14467,25 @@ find_field_in_item_list (Field *field, void *data)
 /*
   Test if we can skip the ORDER BY by using an index.
 
+  SYNOPSIS
+    test_if_skip_sort_order()
+      tab
+      order
+      select_limit
+      no_changes
+      map
+
   If we can use an index, the JOIN_TAB / tab->select struct
   is changed to use the index.
 
-  Return:
-     0 We have to use filesort to do the sorting
-     1 We can use an index.
+  RETURN
+    0 We have to use filesort to do the sorting
+    1 We can use an index.
 */
 
 static bool
 test_if_skip_sort_order(JOIN_TAB *tab,ORDER *order,ha_rows select_limit,
-			bool no_changes, key_map *map)
+			bool no_changes, const key_map *map)
 {
   int ref_key;
   uint ref_key_parts;
@@ -15317,7 +15330,7 @@ join_init_cache(THD *thd,JOIN_TAB *tables,uint table_count)
     /* SemiJoinDuplicateElimination: Allocate space for rowid if needed */
     if (tables[i].rowid_keep_flags & JOIN_TAB::KEEP_ROWID)
     {
-      copy->str= (char*)tables[i].table->file->ref;
+      copy->str= tables[i].table->file->ref;
       copy->length= tables[i].table->file->ref_length;
       copy->strip=0;
       copy->blob_field=0;
@@ -17470,20 +17483,26 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
         
       if (tab->info)
 	item_list.push_back(new Item_string(tab->info,strlen(tab->info),cs));
-      else 
+      else if (tab->packed_info & TAB_INFO_HAVE_VALUE)
       {
-        if (tab->packed_info & TAB_INFO_HAVE_VALUE)
+        if (tab->packed_info & TAB_INFO_USING_INDEX)
+          extra.append(STRING_WITH_LEN("; Using index"));
+        if (tab->packed_info & TAB_INFO_USING_WHERE)
+          extra.append(STRING_WITH_LEN("; Using where"));
+        if (tab->packed_info & TAB_INFO_FULL_SCAN_ON_NULL)
+          extra.append(STRING_WITH_LEN("; Full scan on NULL key"));
+        /* Skip initial "; "*/
+        const char *str= extra.ptr();
+        uint32 len= extra.length();
+        if (len)
         {
-          if (tab->packed_info & TAB_INFO_USING_INDEX)
-            extra.append(STRING_WITH_LEN("; Using index"));
-          if (tab->packed_info & TAB_INFO_USING_WHERE)
-            extra.append(STRING_WITH_LEN("; Using where"));
-          if (tab->packed_info & TAB_INFO_FULL_SCAN_ON_NULL)
-            extra.append(STRING_WITH_LEN("; Full scan on NULL key"));
+          str += 2;
+          len -= 2;
         }
-	//psergey-merge3: remove:? item_list.push_back(new Item_string(str, len, cs));
-        else
-        {
+	item_list.push_back(new Item_string(str, len, cs));
+      }
+      else
+      {
         uint keyno= MAX_KEY;
         if (tab->ref.key_parts)
           keyno= tab->ref.key;
@@ -17491,49 +17510,50 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
           keyno = tab->select->quick->index;
 
         tab->table->file->add_explain_extra_info(keyno, &extra);
+        if (quick_type == QUICK_SELECT_I::QS_TYPE_ROR_UNION || 
+            quick_type == QUICK_SELECT_I::QS_TYPE_ROR_INTERSECT ||
+            quick_type == QUICK_SELECT_I::QS_TYPE_INDEX_MERGE)
         {
-          if (quick_type == QUICK_SELECT_I::QS_TYPE_ROR_UNION || 
-              quick_type == QUICK_SELECT_I::QS_TYPE_ROR_INTERSECT ||
-              quick_type == QUICK_SELECT_I::QS_TYPE_INDEX_MERGE)
-          {
-            extra.append(STRING_WITH_LEN("; Using "));
-            tab->select->quick->add_info_string(&extra);
-          }
+          extra.append(STRING_WITH_LEN("; Using "));
+          tab->select->quick->add_info_string(&extra);
+        }
           if (tab->select)
+	{
+	  if (tab->use_quick == 2)
+	  {
+            char buf[MAX_KEY/8+1];
+            extra.append(STRING_WITH_LEN("; Range checked for each "
+                                         "record (index map: 0x"));
+            extra.append(tab->keys.print(buf));
+            extra.append(')');
+	  }
+	  else if (tab->select->cond)
           {
-            if (tab->use_quick == 2)
-            {
-              char buf[MAX_KEY/8+1];
-              extra.append(STRING_WITH_LEN("; Range checked for each "
-                                           "record (index map: 0x"));
-              extra.append(tab->keys.print(buf));
-              extra.append(')');
-            }
-            else if (tab->select->cond)
-            {
-              const COND *pushed_cond= tab->table->file->pushed_cond;
+            const COND *pushed_cond= tab->table->file->pushed_cond;
 
-              if (thd->variables.engine_condition_pushdown && pushed_cond)
+            if (thd->variables.engine_condition_pushdown && pushed_cond)
+            {
+              extra.append(STRING_WITH_LEN("; Using where with pushed "
+                                           "condition"));
+              if (thd->lex->describe & DESCRIBE_EXTENDED)
               {
-                extra.append(STRING_WITH_LEN("; Using where with pushed "
-                                             "condition"));
-                if (thd->lex->describe & DESCRIBE_EXTENDED)
-                {
-                  extra.append(STRING_WITH_LEN(": "));
-                  ((COND *)pushed_cond)->print(&extra);
-                }
+                extra.append(STRING_WITH_LEN(": "));
+                ((COND *)pushed_cond)->print(&extra);
               }
-              else
-                extra.append(STRING_WITH_LEN("; Using where"));
             }
-          }
-          if (key_read)
-          {
-            if (quick_type == QUICK_SELECT_I::QS_TYPE_GROUP_MIN_MAX)
-              extra.append(STRING_WITH_LEN("; Using index for group-by"));
             else
-              extra.append(STRING_WITH_LEN("; Using index"));
+              extra.append(STRING_WITH_LEN("; Using where"));
           }
+        }
+        if (key_read)
+        {
+          if (quick_type == QUICK_SELECT_I::QS_TYPE_GROUP_MIN_MAX)
+            extra.append(STRING_WITH_LEN("; Using index for group-by"));
+          else
+            extra.append(STRING_WITH_LEN("; Using index"));
+        }
+        if (table->reginfo.not_exists_optimize)
+          extra.append(STRING_WITH_LEN("; Not exists"));
           
         if (quick_type == QUICK_SELECT_I::QS_TYPE_RANGE &&
             !(((QUICK_RANGE_SELECT*)(tab->select->quick))->mrr_flags &
@@ -17542,30 +17562,19 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
 	  extra.append(STRING_WITH_LEN("; Using MRR"));
         }
 
-          if (table->reginfo.not_exists_optimize)
-            extra.append(STRING_WITH_LEN("; Not exists"));
-          if (need_tmp_table)
-          {
-            need_tmp_table=0;
-            extra.append(STRING_WITH_LEN("; Using temporary"));
-          }
-          if (need_order)
-          {
-            need_order=0;
-            extra.append(STRING_WITH_LEN("; Using filesort"));
-          }
-          if (distinct & test_all_bits(used_tables,thd->used_tables))
-            extra.append(STRING_WITH_LEN("; Distinct"));
-
-          for (uint part= 0; part < tab->ref.key_parts; part++)
-          {
-            if (tab->ref.cond_guards[part])
-            {
-              extra.append(STRING_WITH_LEN("; Full scan on NULL key"));
-              break;
-            }
-          }
+        if (need_tmp_table)
+        {
+          need_tmp_table=0;
+          extra.append(STRING_WITH_LEN("; Using temporary"));
         }
+        if (need_order)
+        {
+          need_order=0;
+          extra.append(STRING_WITH_LEN("; Using filesort"));
+        }
+        if (distinct & test_all_bits(used_tables,thd->used_tables))
+          extra.append(STRING_WITH_LEN("; Distinct"));
+
         if (tab->flush_weedout_table)
           extra.append(STRING_WITH_LEN("; Start temporary"));
         else if (tab->check_weed_out_table)
@@ -17596,9 +17605,10 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
             break;
           }
         }
+
         if (i > 0 && tab[-1].next_select == sub_select_cache)
           extra.append(STRING_WITH_LEN("; Using join buffer"));
- //psergey-merge3: ^ make order in the above.       
+
         /* Skip initial "; "*/
         const char *str= extra.ptr();
         uint32 len= extra.length();
@@ -17608,7 +17618,6 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
           len -= 2;
         }
         item_list.push_back(new Item_string(str, len, cs));
-
       }
       // For next iteration
       used_tables|=table->map;

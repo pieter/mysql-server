@@ -5725,12 +5725,6 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
     later just by comparing the pointers, avoiding the need for strcmp.
   */
   THD_SET_PROC_INFO(thd, "init");
-/* psergey-merge3: DONT need the below right?
-  if (!(create_info= copy_create_info(lex_create_info)))
-  {
-    DBUG_RETURN(TRUE);
-  }
-*/
   table_name=table_list->table_name;
   alias= (lower_case_table_names == 2) ? table_list->alias : table_name;
   db=table_list->db;

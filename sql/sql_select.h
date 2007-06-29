@@ -352,8 +352,8 @@ public:
   public:
     JOIN_TAB *join_tab;
     uint rowid_offset;
-    byte *null_addr;
-    byte null_bit;
+    uchar *null_addr;
+    uchar null_bit;
   };
   TAB *tabs;
   TAB *tabs_end;
@@ -379,6 +379,7 @@ class JOIN :public Sql_alloc
 public:
   JOIN_TAB *join_tab,**best_ref;
   JOIN_TAB **map2table;    // mapping between table indexes and JOIN_TABs
+  JOIN_TAB *join_tab_save; // saved join_tab for subquery reexecution
   TABLE    **table,**all_tables,*sort_by_table;
   uint	   tables;        /* Number of tables in the join */
   uint     outer_tables;  /* Number of tables that are not inside semijoin */

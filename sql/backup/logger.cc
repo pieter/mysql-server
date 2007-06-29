@@ -22,23 +22,28 @@ namespace backup {
 int Logger::write_message(log_level::value level, int error_code,
                           const char *msg)
 {
+   const char *prefix= m_type == BACKUP ? "Backup" : "Restore";
+   char buf[ERRMSGSIZE + 30];
+   
+   my_snprintf(buf,sizeof(buf),"%s: %s",prefix,msg);
+  
    switch (level) {
    case log_level::ERROR:
      if (m_save_errors)
        errors.push_front(new MYSQL_ERROR(::current_thd,error_code,
                                          MYSQL_ERROR::WARN_LEVEL_ERROR,msg));
-     sql_print_error(msg);
-     DBUG_PRINT("backup log",("[ERROR] %s",msg));
+     sql_print_error(buf);
+     DBUG_PRINT("backup log",("[ERROR] %s",buf));
      return 0;
 
    case log_level::WARNING:
-     sql_print_warning(msg);
-     DBUG_PRINT("backup log",("[Warning] %s",msg));
+     sql_print_warning(buf);
+     DBUG_PRINT("backup log",("[Warning] %s",buf));
      return 0;
 
    case log_level::INFO:
-     sql_print_information(msg);
-     DBUG_PRINT("backup log",("[Info] %s",msg));
+     sql_print_information(buf);
+     DBUG_PRINT("backup log",("[Info] %s",buf));
      return 0;
 
    default: return ERROR;

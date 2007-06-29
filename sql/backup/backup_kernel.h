@@ -194,7 +194,7 @@ class Restore_info: public Archive_info, public Logger
 
  public:
 
-  Restore_info(IStream &s): m_valid(TRUE)
+  Restore_info(IStream &s): Logger(Logger::RESTORE), m_valid(TRUE)
   {
     result_t res= read(s);
     if (res == ERROR)

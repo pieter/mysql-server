@@ -486,6 +486,7 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st);
   closed when the structure is closed with the @c close() method.
  */
 Backup_info::Backup_info(THD *thd):
+  Logger(Logger::BACKUP),
   m_state(INIT), default_image_no(-1), snapshot_image_no(-2), 
   m_thd(thd), i_s_tables(NULL),
   m_items(NULL), m_last_item(NULL), m_last_db(NULL)

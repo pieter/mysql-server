@@ -76,7 +76,7 @@ SHOW TABLES;
 DROP DATABASE IF EXISTS empty_db;
 
 # restore test database to the exact state from the beginning of this test
---exec rm -rf $MYSQLTEST_VARDIR/master-data/test
+--exec rm -rf $MYSQLTEST_VARDIR/master-data/test/*
 --exec cp -rf $MYSQLTEST_VARDIR/test.orig $MYSQLTEST_VARDIR/master-data/test
---exec rm -rf $MYSQLTEST_VARDIR/test.orig
+--exec rm -rf $MYSQLTEST_VARDIR/test.orig/*
 

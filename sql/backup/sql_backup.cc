@@ -28,6 +28,7 @@
 #include "meta_backup.h"
 #include "archive.h"
 #include "debug.h"
+#include "be_default.h"
 
 namespace backup {
 
@@ -351,6 +352,8 @@ class Backup_info::Table_ref:
    3. Otherwise check if one of the existing sub-images would accept table from
       this location.
 
+   4. When everything else fails, use default (blocking) backup driver.
+
    Note: 1 is not implemented yet and hence we start with 3.
  */
 
@@ -415,6 +418,24 @@ int Backup_info::find_image(const Backup_info::Table_ref &tbl)
 
      DBUG_RETURN(no);
    }
+
+   // Points 4: try default driver...
+
+   int ino= default_image_no; //now try default driver
+
+   if (ino < 0) //image doesn't exist
+   {
+     ino= img_count;
+     default_image_no= img_count;
+     images[default_image_no]= new Default_image(*this);
+     img_count++;
+     DBUG_PRINT("backup",("Default image added to archive"));
+   }
+
+   img= images[ino];
+   DBUG_ASSERT(img);
+   if (img->accept(tbl,hton))
+     DBUG_RETURN(ino); // table accepted
 
    Table_ref::describe_buf buf;
    report_error(ER_BACKUP_NO_BACKUP_DRIVER,tbl.describe(buf,sizeof(buf)));

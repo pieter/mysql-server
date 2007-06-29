@@ -30,13 +30,20 @@
 
   - If an error from driver is ignored (and operation retried) leave trace
     of the error in the log.
+
+  - Move the open_and_lock_tables in restore_table_data to before the begin()
+    calls for the drivers.
+
+  - The table locking code in backup and restore for default and snapshot drivers
+    should be replaced by something better in version beta.
+
  */
 
 #include "backup_engine.h"
 #include "stream.h"
 #include "backup_kernel.h"
 #include "debug.h"
-
+#include "be_default.h"
 
 /***********************************************
 
@@ -297,6 +304,55 @@ class Scheduler::Pump: public Backup_pump
   { return start_pos + bytes_in; }
 };
 
+/*
+  Collect tables from default and snapshot for open and lock tables.
+  There should be at most only 1 of each driver.
+*/
+int get_default_snapshot_tables(backup::Backup_driver *backup_drv, 
+                                backup::Restore_driver *restore_drv,
+                                TABLE_LIST **tables,
+                                TABLE_LIST **tables_last)
+{
+  TABLE_LIST *table_list= *tables;
+  TABLE_LIST *table_list_last= *tables_last;
+
+  DBUG_ENTER("backup::get_default_snapshot_tables");
+  /* 
+    If the table list is defined and the last pointer is
+    defined then we are seeing a duplicate of either default
+    or snapshot drivers. There should be at most 1 of each.
+  */
+  if (table_list && table_list_last->next_global)
+  {
+    DBUG_PRINT("restore",("Duplicate default or snapshot subimage"));
+    DBUG_RETURN(ERROR); 
+  }
+  /*
+    If the table list is empty, use the first one and loop 
+    until the end then record the end of the first one.
+  */
+  if (!table_list)
+  {
+    if (backup_drv)
+      table_list= ((default_backup::Backup *)backup_drv)->get_table_list();
+    else if (restore_drv)
+      table_list= ((default_backup::Restore *)restore_drv)->get_table_list();
+    else
+      DBUG_RETURN(ERROR);
+    *tables= table_list;
+    table_list_last= table_list;
+    while (table_list_last->next_global != NULL)
+      table_list_last= table_list_last->next_global;
+  }
+  else
+    if (backup_drv)
+     (*tables_last)->next_global= ((default_backup::Backup *)backup_drv)->get_table_list();
+    else if (restore_drv)
+     (*tables_last)->next_global= ((default_backup::Restore *)restore_drv)->get_table_list();
+    else
+      DBUG_RETURN(ERROR);
+  DBUG_RETURN(0);
+}
 
 /**
   Save data from tables being backed up.
@@ -309,6 +365,7 @@ class Scheduler::Pump: public Backup_pump
  */
 int write_table_data(THD*, Backup_info &info, OStream &s)
 {
+  my_bool def_or_snap_used= FALSE;  // Are default or snapshot used?
   DBUG_ENTER("backup::write_table_data");
 
   info.data_size= 0;
@@ -323,6 +380,9 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
   size_t      start_bytes= s.bytes;
 
   DBUG_PRINT("backup/data",("initializing scheduler"));
+
+  TABLE_LIST *table_list= 0;
+  TABLE_LIST *table_list_last= 0;
 
   // add unknown "at end" drivers to scheduler, rest to inactive list
 
@@ -355,6 +415,11 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
       inactive.push_back(p);
     }
+    if (!def_or_snap_used)
+      def_or_snap_used=  (i->type() == Image_info::DEFAULT_IMAGE);
+    if (def_or_snap_used)
+      get_default_snapshot_tables(&p->drv(), NULL, 
+                                  &table_list, &table_list_last);
   }
 
   /*
@@ -439,6 +504,22 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
     if (sch.prepare())
       goto error;
 
+    /*
+      Open tables for default and snapshot drivers.
+    */
+    if (table_list)
+    {
+      if (open_and_lock_tables(::current_thd, table_list))
+      {
+        DBUG_PRINT("backup", 
+          ( "error on open tables for default and snapshot drivers!" ));
+        info.report_error(ER_BACKUP_OPEN_TABLES, "backup");
+        DBUG_RETURN(ERROR);
+      }
+      if (table_list_last)
+        table_list_last->next_global= NULL; // break lists
+    }
+
     while (sch.prepare_count > 0)
     if (sch.step())
       goto error;
@@ -463,6 +544,12 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
     DBUG_PRINT("backup/data",("-- DONE --"));
   }
+
+  /*
+    If the default or snapshot drivers are used, close the tables.
+  */
+  if (def_or_snap_used)
+    close_thread_tables(::current_thd);
 
   info.data_size= s.bytes - start_bytes;
 
@@ -1167,6 +1254,9 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
 
   Restore_driver* drv[MAX_IMAGES];
 
+  TABLE_LIST *table_list= 0;
+  TABLE_LIST *table_list_last= 0;
+
   if (info.img_count > MAX_IMAGES)
   {
     info.report_error(ER_BACKUP_TOO_MANY_IMAGES, info.img_count, MAX_IMAGES);
@@ -1199,6 +1289,13 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
       info.report_error(ER_BACKUP_INIT_RESTORE_DRIVER,img->name());
       goto error;
     }
+    /*
+      Collect tables from default and snapshot for open and lock tables.
+      There should be at most only 1 of each driver.
+    */
+    if (img->type() == Image_info::DEFAULT_IMAGE)
+      get_default_snapshot_tables(NULL, (default_backup::Restore *)drv[no], 
+                                  &table_list, &table_list_last);
   }
 
   {
@@ -1213,6 +1310,24 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
 
     Restore_driver  *drvr= NULL;  // pointer to the current driver
     Image_info      *img= NULL;   // corresponding restore image object
+
+    /*
+      Open tables for default and snapshot drivers.
+    */
+    if (table_list)
+    {
+      table_list->lock_type= TL_WRITE;
+      query_cache.invalidate_locked_for_write(table_list);
+      if (open_and_lock_tables(::current_thd, table_list))
+      {
+        DBUG_PRINT("restore", 
+          ( "error on open tables for default and snapshot drivers!" ));
+        info.report_error(ER_BACKUP_OPEN_TABLES, "restore");
+        DBUG_RETURN(backup::ERROR);
+      }
+      if (table_list_last)
+        table_list_last->next_global= NULL; // break lists
+    }
 
     // main data reading loop
 
@@ -1359,6 +1474,12 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
     if (!bad_drivers.is_empty())
       info.report_error(ER_BACKUP_STOP_RESTORE_DRIVERS, bad_drivers.c_ptr());
   }
+
+  /*
+    Close all tables if default or snapshot driver used.
+  */
+  if (table_list)
+    close_thread_tables(::current_thd);
 
   DBUG_RETURN(state == ERROR ? backup::ERROR : 0);
 

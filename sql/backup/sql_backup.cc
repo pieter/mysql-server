@@ -687,8 +687,8 @@ int Backup_info::add_all_dbs()
 
  finish:
 
-  if (ha)
-    ha->close();
+  if (db_table)
+    ::free_tmp_table(m_thd, db_table);
 
   if (res)
     m_state= ERROR;

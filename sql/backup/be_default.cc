@@ -692,6 +692,7 @@ result_t Restore::send_data(Buffer &buf)
         {
           ptr= (byte *)my_malloc(size, MYF(MY_WME));
           memcpy(cur_table->record[0], (byte *)buf.data + META_SIZE, size);
+          my_free(ptr, MYF(0));
           mode= CHECK_BLOBS;
           DBUG_RETURN(PROCESSING);
         }

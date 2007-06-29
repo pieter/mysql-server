@@ -263,8 +263,6 @@ SELECT COUNT(*) FROM bup_default.wide;
 
 BACKUP DATABASE bup_default TO "bup_default.bak";
 
-connection restore;
-
 # Now restore the database and then check to make sure the data is there.
 
 DROP DATABASE bup_default;
@@ -284,5 +282,5 @@ SELECT COUNT(*) FROM bup_default.wide;
 DROP DATABASE IF EXISTS bup_default;
 --enable_warnings
 
---exec rm $MYSQLTEST_VARDIR/master-data/bup_default.bak
+#--exec rm $MYSQLTEST_VARDIR/master-data/bup_default.bak
 

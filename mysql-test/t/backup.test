@@ -237,7 +237,7 @@ Your configuration may require slightly differing steps in the process to match 
 
 Remember to keep the server_id the same as it was when the promoted slave was a slave!
 
-If you have applications that use embedded hostnames or IP addresses in their connections to the master, you have two choices; 1) you can change the slave’s hostname and IP to that of the master and restart the server, or 2) you can redirect your clients to the promoted slave.
+If you have applications that use embedded hostnames or IP addresses in their connections to the master, you have two choices; 1) you can change the slave's hostname and IP to that of the master and restart the server, or 2) you can redirect your clients to the promoted slave.
 
 Failover and Invoked Objects
 ----------------------------

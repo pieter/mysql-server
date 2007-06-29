@@ -325,7 +325,7 @@ result_t Backup::get_data(Buffer &buf)
         byte *rec_ptr= 0;
 
         rec_buffer.initialize(cur_table->record[0], size);
-        rec_size= rec_buffer.get_next((::byte **)&rec_ptr, 
+        rec_size= rec_buffer.get_next((byte **)&rec_ptr, 
           (buf.size - META_SIZE));
         *buf.data= RCD_FIRST; // first part
         memcpy((byte *)buf.data + META_SIZE, rec_ptr, rec_size);
@@ -343,7 +343,7 @@ result_t Backup::get_data(Buffer &buf)
   {
     uint rec_size= 0; 
 
-    rec_size= rec_buffer.get_next((::byte **)&ptr, (buf.size - META_SIZE));
+    rec_size= rec_buffer.get_next((byte **)&ptr, (buf.size - META_SIZE));
     if (rec_buffer.num_windows(buf.size - META_SIZE) == 0)
     {
       *buf.data= RCD_LAST;
@@ -413,12 +413,12 @@ result_t Backup::get_data(Buffer &buf)
       byte *blob_ptr= 0;
 
       ((Field_blob*) cur_table->field[*cur_blob])->get_ptr((uchar **)&ptr);
-      blob_buffer.initialize((::byte *)ptr, size);
+      blob_buffer.initialize((byte *)ptr, size);
       *buf.data= BLOB_FIRST;   //first block
       uint32 field_size= 
         ((Field_blob*) cur_table->field[*cur_blob])->get_length();
       int4store(buf.data + META_SIZE, field_size);     //save max size
-      bb_size= blob_buffer.get_next((::byte **)&blob_ptr, 
+      bb_size= blob_buffer.get_next((byte **)&blob_ptr, 
         (buf.size - META_SIZE - 4));
       memcpy((byte *)buf.data + META_SIZE + 4, blob_ptr, bb_size);
       buf.size = bb_size + META_SIZE + 4;
@@ -434,7 +434,7 @@ result_t Backup::get_data(Buffer &buf)
   {
     uint bb_size= 0;
 
-    bb_size= blob_buffer.get_next((::byte **)&ptr, (buf.size - META_SIZE));
+    bb_size= blob_buffer.get_next((byte **)&ptr, (buf.size - META_SIZE));
     if (blob_buffer.num_windows(buf.size - META_SIZE) == 0)
     {
       *buf.data= BLOB_LAST;
@@ -705,7 +705,7 @@ result_t Restore::send_data(Buffer &buf)
       case RCD_FIRST:
       {
         rec_buffer.initialize(cur_table->s->reclength);
-        rec_buffer.put_next((::byte *)buf.data + META_SIZE, size);
+        rec_buffer.put_next((byte *)buf.data + META_SIZE, size);
         mode= WRITE_RCD;
         break;
       }
@@ -715,7 +715,7 @@ result_t Restore::send_data(Buffer &buf)
       */
       case RCD_DATA:
       {
-        rec_buffer.put_next((::byte *)buf.data + META_SIZE, size);
+        rec_buffer.put_next((byte *)buf.data + META_SIZE, size);
         mode= WRITE_RCD;
         break;
 
@@ -725,7 +725,7 @@ result_t Restore::send_data(Buffer &buf)
       */
       case RCD_LAST:
       {
-        rec_buffer.put_next((::byte *)buf.data + META_SIZE, size);
+        rec_buffer.put_next((byte *)buf.data + META_SIZE, size);
         ptr= (byte *)rec_buffer.get_base_ptr();
         memcpy(cur_table->record[0], ptr, cur_table->s->reclength);
         mode= CHECK_BLOBS;
@@ -809,7 +809,7 @@ result_t Restore::send_data(Buffer &buf)
       max_blob_size= uint4korr(buf.data + META_SIZE);
       blob_buffer.initialize(max_blob_size);
       size= buf.size - META_SIZE - 4;
-      blob_buffer.put_next((::byte *)buf.data + META_SIZE + 4, size);
+      blob_buffer.put_next((byte *)buf.data + META_SIZE + 4, size);
       mode= WRITE_BLOB;
       break;
     }
@@ -819,7 +819,7 @@ result_t Restore::send_data(Buffer &buf)
     */
     case BLOB_DATA:
     {
-      blob_buffer.put_next((::byte *)buf.data + META_SIZE, size);
+      blob_buffer.put_next((byte *)buf.data + META_SIZE, size);
       mode= WRITE_BLOB;
       break;
     }
@@ -829,7 +829,7 @@ result_t Restore::send_data(Buffer &buf)
     */
     case BLOB_LAST:
     {
-      blob_buffer.put_next((::byte *)buf.data + META_SIZE, size);
+      blob_buffer.put_next((byte *)buf.data + META_SIZE, size);
       ptr= (byte *)blob_buffer.get_base_ptr();
       ((Field_blob*) cur_table->field[*cur_blob])->set_ptr(max_blob_size, 
         (uchar *)ptr);

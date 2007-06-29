@@ -3,6 +3,8 @@
 
 #include "mysql_priv.h"
 
+using backup::byte;
+
 /**
  * @class Buffer_iterator
  *

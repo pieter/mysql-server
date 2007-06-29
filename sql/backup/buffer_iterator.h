@@ -72,21 +72,21 @@ using backup::byte;
 class Buffer_iterator
 {
   public:
-    int initialize(byte *buff_ptr, long size);
-    int initialize(long size);
+    int initialize(byte *buff_ptr, size_t size);
+    int initialize(size_t size);
     int reset();
-    long get_next(byte **buff_ptr, long window);
-    int put_next(byte *buff_ptr, long size);
-    int num_windows(long size);
+    size_t get_next(byte **buff_ptr, size_t window);
+    int put_next(byte *buff_ptr, size_t size);
+    int num_windows(size_t size);
     byte *get_base_ptr();
 
   private: 
-    byte *buffer;        ///< The pointer to the block of data to iterate
-    byte *cur_ptr;       ///< The current position in the buffer
-    long max_size;       ///< The maximum size of the block of data
-    long window_size;    ///< The size of the window to read
-    long cur_bytes_read; ///< The number of bytes read
-    bool alloc_used;     ///< Indicates whether to dealloc memory or not
+    byte *buffer;          ///< The pointer to the block of data to iterate
+    byte *cur_ptr;         ///< The current position in the buffer
+    size_t max_size;       ///< The maximum size of the block of data
+    size_t window_size;    ///< The size of the window to read
+    size_t cur_bytes_read; ///< The number of bytes read
+    bool alloc_used;       ///< Indicates whether to dealloc memory or not
 };
 
 #endif

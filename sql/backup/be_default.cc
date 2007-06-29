@@ -321,7 +321,7 @@ result_t Backup::get_data(Buffer &buf)
       }
       else
       {
-        uint rec_size= 0;
+        size_t rec_size= 0;
         byte *rec_ptr= 0;
 
         rec_buffer.initialize(cur_table->record[0], size);
@@ -341,7 +341,7 @@ result_t Backup::get_data(Buffer &buf)
   */
   case READ_RCD_BUFFER:
   {
-    uint rec_size= 0; 
+    size_t rec_size= 0; 
 
     rec_size= rec_buffer.get_next((byte **)&ptr, (buf.size - META_SIZE));
     if (rec_buffer.num_windows(buf.size - META_SIZE) == 0)
@@ -409,7 +409,7 @@ result_t Backup::get_data(Buffer &buf)
     }
     else
     {
-      uint bb_size= 0;
+      size_t bb_size= 0;
       byte *blob_ptr= 0;
 
       ((Field_blob*) cur_table->field[*cur_blob])->get_ptr((uchar **)&ptr);
@@ -432,7 +432,7 @@ result_t Backup::get_data(Buffer &buf)
 */
   case READ_BLOB_BUFFER:
   {
-    uint bb_size= 0;
+    size_t bb_size= 0;
 
     bb_size= blob_buffer.get_next((byte **)&ptr, (buf.size - META_SIZE));
     if (blob_buffer.num_windows(buf.size - META_SIZE) == 0)
@@ -813,7 +813,7 @@ result_t Restore::send_data(Buffer &buf)
       mode= WRITE_BLOB;
       break;
     }
-
+ 
     /*
       Save the part and keep reading.
     */

@@ -801,6 +801,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
     general_log_print(thd, command, format, thd->query_length, thd->query);
     DBUG_PRINT("query",("%-.4096s",thd->query));
+    //psergey-b4-commit: remove: fprintf(stderr, "query: %s\n",thd->query);
 
     if (!(specialflag & SPECIAL_NO_PRIOR))
       my_pthread_setprio(pthread_self(),QUERY_PRIOR);

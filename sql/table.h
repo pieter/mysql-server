@@ -762,6 +762,8 @@ typedef struct st_table_list
     nest's children).
   */
   table_map     sj_inner_tables;
+  /* Number of IN-compared expressions */
+  uint          sj_in_exprs; 
   /*
     The structure of ON expression presented in the member above
     can be changed during certain optimizations. This member
@@ -1156,6 +1158,9 @@ typedef struct st_nested_join
     that are used within the semi-join's ON condition.
   */
   table_map         sj_depends_on;
+  /* Outer non-trivially correlated tables */
+  table_map         sj_corr_tables;
+  List<Item>        sj_outer_expr_list;
 } NESTED_JOIN;
 
 

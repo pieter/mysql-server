@@ -3069,6 +3069,40 @@ void ha_binlog_log_query(THD *thd, handlerton *hton,
 }
 #endif
 
+
+/*
+  Calculate cost of 'index only' scan for given index and number of records
+
+  SYNOPSIS
+    index_only_read_time()
+      keynr    Index number
+      records  Estimated number of records to be retrieved
+
+  NOTES
+    It is assumed that we will read trough the whole key range and that all
+    key blocks are half full (normally things are much better). It is also
+    assumed that each time we read the next key from the index, the handler
+    performs a random seek, thus the cost is proportional to the number of
+    blocks read.
+
+  TODO
+    Consider joining this function and handler::read_time() into one
+    handler::read_time(keynr, records, ranges, bool index_only) function.
+
+  RETURN
+    Estimated cost of 'index only' scan
+*/
+
+double handler::index_only_read_time(uint keynr, double records)
+{
+  double read_time;
+  uint keys_per_block= (stats.block_size/2/
+			(table->key_info[keynr].key_length + ref_length) + 1);
+  read_time=((double) (records + keys_per_block-1) /
+             (double) keys_per_block);
+  return read_time;
+}
+
 /*
   Calculate cost of 'index only' scan for given index and number of records
 

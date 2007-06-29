@@ -141,10 +141,11 @@ Item_func::fix_fields(THD *thd, Item **ref)
 {
   DBUG_ASSERT(fixed == 0);
   Item **arg,**arg_end;
+  void *save_thd_marker= thd->thd_marker;
 #ifndef EMBEDDED_LIBRARY			// Avoid compiler warning
   uchar buff[STACK_BUFF_ALLOC];			// Max argument in function
 #endif
-
+  thd->thd_marker= 0;
   used_tables_cache= not_null_tables_cache= 0;
   const_item_cache=1;
 
@@ -190,7 +191,30 @@ Item_func::fix_fields(THD *thd, Item **ref)
   if (thd->net.report_error) // An error inside fix_length_and_dec occured
     return TRUE;
   fixed= 1;
+  thd->thd_marker= save_thd_marker;
   return FALSE;
+}
+
+
+void Item_func::fix_after_pullout(st_select_lex *new_parent, Item **ref)
+{
+  Item **arg,**arg_end;
+
+  used_tables_cache= not_null_tables_cache= 0;
+  const_item_cache=1;
+
+  if (arg_count)
+  {
+    for (arg=args, arg_end=args+arg_count; arg != arg_end ; arg++)
+    {
+      (*arg)->fix_after_pullout(new_parent, arg);
+      Item *item= *arg;
+
+      used_tables_cache|=     item->used_tables();
+      not_null_tables_cache|= item->not_null_tables();
+      const_item_cache&=      item->const_item();
+    }
+  }
 }
 
 
@@ -3389,7 +3413,7 @@ void debug_sync_point(const char* lock_name, uint lock_timeout)
     Structure is now initialized.  Try to get the lock.
     Set up control struct to allow others to abort locks
   */
-  thd->proc_info="User lock";
+  THD_SET_PROC_INFO(thd, "User lock");
   thd->mysys_var->current_mutex= &LOCK_user_locks;
   thd->mysys_var->current_cond=  &ull->cond;
 
@@ -3414,7 +3438,7 @@ void debug_sync_point(const char* lock_name, uint lock_timeout)
   }
   pthread_mutex_unlock(&LOCK_user_locks);
   pthread_mutex_lock(&thd->mysys_var->mutex);
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   thd->mysys_var->current_mutex= 0;
   thd->mysys_var->current_cond=  0;
   pthread_mutex_unlock(&thd->mysys_var->mutex);
@@ -3501,7 +3525,7 @@ longlong Item_func_get_lock::val_int()
     Structure is now initialized.  Try to get the lock.
     Set up control struct to allow others to abort locks.
   */
-  thd->proc_info="User lock";
+  THD_SET_PROC_INFO(thd, "User lock");
   thd->mysys_var->current_mutex= &LOCK_user_locks;
   thd->mysys_var->current_cond=  &ull->cond;
 
@@ -3544,7 +3568,7 @@ longlong Item_func_get_lock::val_int()
   pthread_mutex_unlock(&LOCK_user_locks);
 
   pthread_mutex_lock(&thd->mysys_var->mutex);
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   thd->mysys_var->current_mutex= 0;
   thd->mysys_var->current_cond=  0;
   pthread_mutex_unlock(&thd->mysys_var->mutex);

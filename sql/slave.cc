@@ -894,6 +894,7 @@ err:
   DBUG_RETURN(0);
 }
 
+
 static bool wait_for_relay_log_space(RELAY_LOG_INFO* rli)
 {
   bool slave_killed=0;
@@ -1268,9 +1269,9 @@ static int init_slave_thread(THD* thd, SLAVE_THD_TYPE thd_type)
   }
 
   if (thd_type == SLAVE_THD_SQL)
-    thd->proc_info= "Waiting for the next event in relay log";
+    THD_SET_PROC_INFO(thd, "Waiting for the next event in relay log");
   else
-    thd->proc_info= "Waiting for master update";
+    THD_SET_PROC_INFO(thd, "Waiting for master update");
   thd->version=refresh_version;
   thd->set_time();
   DBUG_RETURN(0);
@@ -1761,7 +1762,7 @@ pthread_handler_t handle_slave_io(void *arg)
     goto err;
   }
 
-  thd->proc_info = "Connecting to master";
+  THD_SET_PROC_INFO(thd, "Connecting to master");
   // we can get killed during safe_connect
   if (!safe_connect(thd, mysql, mi))
   {
@@ -1788,7 +1789,7 @@ connected:
   // TODO: the assignment below should be under mutex (5.0)
   mi->slave_running= MYSQL_SLAVE_RUN_CONNECT;
   thd->slave_net = &mysql->net;
-  thd->proc_info = "Checking master version";
+  THD_SET_PROC_INFO(thd, "Checking master version");
   if (get_master_version_and_clock(mysql, mi))
     goto err;
 
@@ -1799,7 +1800,7 @@ connected:
       If fails, this is not fatal - we just print the error message and go
       on with life.
     */
-    thd->proc_info = "Registering slave on master";
+    THD_SET_PROC_INFO(thd, "Registering slave on master");
     if (register_slave_on_master(mysql) ||  update_slave_list(mysql, mi))
       goto err;
   }
@@ -1808,7 +1809,7 @@ connected:
   while (!io_slave_killed(thd,mi))
   {
     bool suppress_warnings= 0;
-    thd->proc_info = "Requesting binlog dump";
+    THD_SET_PROC_INFO(thd, "Requesting binlog dump");
     if (request_dump(mysql, mi, &suppress_warnings))
     {
       sql_print_error("Failed on request_dump()");
@@ -1820,7 +1821,7 @@ dump");
       }
 
       mi->slave_running= MYSQL_SLAVE_RUN_NOT_CONNECT;
-      thd->proc_info= "Waiting to reconnect after a failed binlog dump request";
+      THD_SET_PROC_INFO(thd, "Waiting to reconnect after a failed binlog dump request");
 #ifdef SIGNAL_WITH_VIO_CLOSE
       thd->clear_active_vio();
 #endif
@@ -1844,7 +1845,7 @@ dump");
         goto err;
       }
 
-      thd->proc_info = "Reconnecting after a failed binlog dump request";
+      THD_SET_PROC_INFO(thd, "Reconnecting after a failed binlog dump request");
       if (!suppress_warnings)
         sql_print_error("Slave I/O thread: failed dump request, \
 reconnecting to try again, log '%s' at postion %s", IO_RPL_LOG_NAME,
@@ -1870,7 +1871,7 @@ after reconnect");
          important thing is to not confuse users by saying "reading" whereas
          we're in fact receiving nothing.
       */
-      thd->proc_info= "Waiting for master to send event";
+      THD_SET_PROC_INFO(thd, "Waiting for master to send event");
       event_len= read_event(mysql, mi, &suppress_warnings);
       if (io_slave_killed(thd,mi))
       {
@@ -1898,7 +1899,7 @@ max_allowed_packet",
           goto err;
         }
         mi->slave_running= MYSQL_SLAVE_RUN_NOT_CONNECT;
-        thd->proc_info = "Waiting to reconnect after a failed master event read";
+        THD_SET_PROC_INFO(thd, "Waiting to reconnect after a failed master event read");
 #ifdef SIGNAL_WITH_VIO_CLOSE
         thd->clear_active_vio();
 #endif
@@ -1917,7 +1918,7 @@ max_allowed_packet",
 reconnect after a failed read");
           goto err;
         }
-        thd->proc_info = "Reconnecting after a failed master event read";
+        THD_SET_PROC_INFO(thd, "Reconnecting after a failed master event read");
         if (!suppress_warnings)
           sql_print_information("Slave I/O thread: Failed reading log event, \
 reconnecting to retry, log '%s' position %s", IO_RPL_LOG_NAME,
@@ -1934,7 +1935,7 @@ reconnect done to recover from failed read");
       } // if (event_len == packet_error)
 
       retry_count=0;                    // ok event, reset retry counter
-      thd->proc_info = "Queueing master event to the relay log";
+      THD_SET_PROC_INFO(thd, "Queueing master event to the relay log");
       if (queue_event(mi,(const char*)mysql->net.read_pos + 1,
                       event_len))
       {
@@ -2007,7 +2008,7 @@ err:
     mi->mysql=0;
   }
   write_ignored_events_info_to_relay_log(thd, mi);
-  thd->proc_info = "Waiting for slave mutex on exit";
+  THD_SET_PROC_INFO(thd, "Waiting for slave mutex on exit");
   pthread_mutex_lock(&mi->run_lock);
 
   /* Forget the relay log's format */
@@ -2177,7 +2178,7 @@ Slave SQL thread aborted. Can't execute init_slave query");
 
   while (!sql_slave_killed(thd,rli))
   {
-    thd->proc_info = "Reading event from the relay log";
+    THD_SET_PROC_INFO(thd, "Reading event from the relay log");
     DBUG_ASSERT(rli->sql_thd == thd);
     THD_CHECK_SENTRY(thd);
     if (exec_relay_log_event(thd,rli))
@@ -2263,7 +2264,7 @@ the slave SQL thread with \"SLAVE START\". We stopped at log \
   thd->query= thd->db= thd->catalog= 0;
   thd->query_length= thd->db_length= 0;
   VOID(pthread_mutex_unlock(&LOCK_thread_count));
-  thd->proc_info = "Waiting for slave mutex on exit";
+  THD_SET_PROC_INFO(thd, "Waiting for slave mutex on exit");
   pthread_mutex_lock(&rli->run_lock);
   /* We need data_lock, at least to wake up any waiting master_pos_wait() */
   pthread_mutex_lock(&rli->data_lock);

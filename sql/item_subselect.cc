@@ -642,7 +642,7 @@ bool Item_in_subselect::test_limit(SELECT_LEX_UNIT *unit_arg)
 Item_in_subselect::Item_in_subselect(Item * left_exp,
 				     st_select_lex *select_lex):
   Item_exists_subselect(), optimizer(0), transformed(0),
-  pushed_cond_guards(NULL), upper_item(0)
+  pushed_cond_guards(NULL), upper_item(0), converted_to_sj(FALSE)
 {
   DBUG_ENTER("Item_in_subselect::Item_in_subselect");
   left_expr= left_exp;
@@ -1555,7 +1555,11 @@ void Item_in_subselect::print(String *str)
 bool Item_in_subselect::fix_fields(THD *thd_arg, Item **ref)
 {
   bool result = 0;
-  
+  ref_ptr= ref;
+
+  if (converted_to_sj)
+    return !( (*ref)= new Item_int(1));
+
   if (thd_arg->lex->view_prepare_mode && left_expr && !left_expr->fixed)
     result = left_expr->fix_fields(thd_arg, &left_expr);
 

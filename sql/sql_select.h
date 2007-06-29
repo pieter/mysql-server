@@ -23,11 +23,16 @@
 #include "procedure.h"
 #include <myisam.h>
 
+/* Values in optimize */
+#define KEY_OPTIMIZE_EXISTS		1
+#define KEY_OPTIMIZE_REF_OR_NULL	2
+
 typedef struct keyuse_t {
   TABLE *table;
   Item	*val;				/* or value if no field */
   table_map used_tables;
-  uint	key, keypart, optimize;
+  uint	key, keypart;
+  uint optimize; // 0, or KEY_OPTIMIZE_*
   key_part_map keypart_map;
   ha_rows      ref_table_rows;
   /* 
@@ -89,17 +94,40 @@ typedef struct st_table_ref
 */
 
 typedef struct st_cache_field {
+  /* 
+    Where source data is located (i.e. this points to somewhere in 
+    tableX->record[0])
+  */
   uchar *str;
-  uint length, blob_length;
+  uint length; /* Length of data at *str, in bytes */
+  uint blob_length; /* Valid IFF blob_field != 0 */
   Field_blob *blob_field;
-  bool strip;
+  bool strip; /* TRUE <=> Strip endspaces ?? */
+
+  TABLE *get_rowid; /* _ != NULL <=> */
 } CACHE_FIELD;
 
 
-typedef struct st_join_cache {
-  uchar *buff,*pos,*end;
-  uint records,record_nr,ptr_record,fields,length,blobs;
-  CACHE_FIELD *field,**blob_ptr;
+typedef struct st_join_cache 
+{
+  uchar *buff;
+  uchar *pos;    /* Start of free space in the buffer */
+  uchar *end;
+  uint records;  /* # of row cominations currently stored in the cache */
+  uint record_nr;
+  uint ptr_record; 
+  /* 
+    Number of fields (i.e. cache_field objects). Those correspond to table
+    columns, and there are also special fields for
+     - table's column null bits
+     - table's null-complementation byte
+     - [new] table's rowid.
+  */
+  uint fields; 
+  uint length; 
+  uint blobs;
+  CACHE_FIELD *field;
+  CACHE_FIELD **blob_ptr;
   SQL_SELECT *select;
 } JOIN_CACHE;
 
@@ -126,6 +154,8 @@ enum enum_nested_loop_state
 #define TAB_INFO_USING_INDEX 2
 #define TAB_INFO_USING_WHERE 4
 #define TAB_INFO_FULL_SCAN_ON_NULL 8
+
+class SJ_TMP_TABLE;
 
 typedef enum_nested_loop_state
 (*Next_select_func)(JOIN *, struct st_join_table *, bool);
@@ -205,7 +235,40 @@ typedef struct st_join_table {
   TABLE_REF	ref;
   JOIN_CACHE	cache;
   JOIN		*join;
-  /* Bitmap of nested joins this table is part of */
+
+  /* SemiJoinDuplicateElimination variables: */
+  /*
+    Embedding SJ-nest (may be not the direct parent), or NULL if none.
+    This variable holds the result of table pullout.
+  */
+  TABLE_LIST    *emb_sj_nest;
+
+  /* Variables to control NL-Join executioner */
+  SJ_TMP_TABLE  *flush_weedout_table;
+  SJ_TMP_TABLE  *check_weed_out_table;
+  struct st_join_table  *do_firstmatch;
+  
+  /* 
+    TRUE<=> this tab is covered by SJ dups range (used to disable join
+    buffering) [slated for removal]
+  */
+  bool inside_sj_dups_range;
+  enum { 
+    /* If set, the rowid of this table must be put into the temptable. */
+    KEEP_ROWID=1, 
+    /* 
+      If set, one should call h->position() to obtain the rowid,
+      otherwise, the rowid is assumed to already be in h->ref
+      (this is because join caching and filesort() save the rowid and then
+      put it back into h->ref)
+    */
+    CALL_POSITION=2
+  };
+  /* A set of flags from the above enum */
+  int  rowid_keep_flags;
+
+
+  /* NestedOuterJoins: Bitmap of nested joins this table is part of */
   nested_join_map embedding_map;
 
   void cleanup();
@@ -264,6 +327,51 @@ typedef struct st_rollup
 } ROLLUP;
 
 
+/*
+  Describes use of one temporary table to weed out join duplicates.
+  The temporar
+
+  Used to
+    - create a temp table
+    - when we reach the weed-out tab, walk through rowid-ed tabs and
+      and copy rowids.
+      For each table we need
+       - rowid offset
+       - null bit address.
+*/
+
+class SJ_TMP_TABLE : public Sql_alloc
+{
+public:
+  uint start_idx;
+  uint end_idx;
+
+  /* Array of pointers to tables that should be "used" */
+  class TAB
+  {
+  public:
+    JOIN_TAB *join_tab;
+    uint rowid_offset;
+    byte *null_addr;
+    byte null_bit;
+  };
+  TAB *tabs;
+  TAB *tabs_end;
+
+  uint null_bits;
+  uint null_bytes;
+  uint rowid_len;
+
+  TABLE *tmp_table;
+
+  MI_COLUMNDEF *start_recinfo;
+  MI_COLUMNDEF *recinfo;
+
+  /* Pointer to next table (next->start_idx > this->end_idx) */
+  SJ_TMP_TABLE *next; 
+};
+
+
 class JOIN :public Sql_alloc
 {
   JOIN(const JOIN &rhs);                        /* not implemented */
@@ -271,9 +379,10 @@ class JOIN :public Sql_alloc
 public:
   JOIN_TAB *join_tab,**best_ref;
   JOIN_TAB **map2table;    // mapping between table indexes and JOIN_TABs
-  JOIN_TAB *join_tab_save; // saved join_tab for subquery reexecution
   TABLE    **table,**all_tables,*sort_by_table;
-  uint	   tables,const_tables;
+  uint	   tables;        /* Number of tables in the join */
+  uint     outer_tables;  /* Number of tables that are not inside semijoin */
+  uint     const_tables;
   uint	   send_group_parts;
   bool	   sort_and_group,first_record,full_join,group, no_field_update;
   bool	   do_send_rows;
@@ -372,6 +481,12 @@ public:
   
   bool union_part; // this subselect is part of union 
   bool optimized; // flag to avoid double optimization in EXPLAIN
+  
+  //psergey-todo: Those two leak memory atm. Pre-alloc on pool?
+  Dynamic_array<Item_in_subselect*> sj_subselects;
+
+  /* Descriptions of temporary tables used to weed-out semi-join duplicates */
+  SJ_TMP_TABLE  *sj_tmp_tables;
 
   /* 
     storage for caching buffers allocated during query execution. 
@@ -444,6 +559,7 @@ public:
     tmp_table_param.init();
     tmp_table_param.end_write_records= HA_POS_ERROR;
     rollup.state= ROLLUP::STATE_NONE;
+    sj_tmp_tables= NULL;
   }
 
   int prepare(Item ***rref_pointer_array, TABLE_LIST *tables, uint wind_num,
@@ -456,6 +572,7 @@ public:
   int destroy();
   void restore_tmp();
   bool alloc_func_list();
+  bool flatten_subqueries();
   bool make_sum_func_list(List<Item> &all_fields, List<Item> &send_fields,
 			  bool before_group_by, bool recompute= FALSE);
 
@@ -525,8 +642,10 @@ bool setup_copy_fields(THD *thd, TMP_TABLE_PARAM *param,
 		       uint elements, List<Item> &fields);
 void copy_fields(TMP_TABLE_PARAM *param);
 void copy_funcs(Item **func_ptr);
-bool create_myisam_from_heap(THD *thd, TABLE *table, TMP_TABLE_PARAM *param,
-			     int error, bool ignore_last_dupp_error);
+bool create_myisam_from_heap(THD *thd, TABLE *table,
+                             MI_COLUMNDEF *start_recinfo,
+                             MI_COLUMNDEF **recinfo, 
+			     int error, bool ignore_last_dupp_key_error);
 uint find_shortest_key(TABLE *table, const key_map *usable_keys);
 Field* create_tmp_field_from_field(THD *thd, Field* org_field,
                                    const char *name, TABLE *table,

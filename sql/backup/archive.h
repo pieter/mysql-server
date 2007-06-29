@@ -14,6 +14,18 @@
 #include <backup/backup_engine.h>
 #include <backup/meta_backup.h>
 
+#if defined(USE_PRAGMA_INTERFACE) || defined(__APPLE_CC__)
+/*
+  #pragma interface is needed on powermac platform as otherwise compiler 
+  doesn't create/export vtable for Image_info::Tables class (if you know a 
+  better way for fixing this issue let me know! /Rafal).
+  
+  Apparently, configuration macro USE_PRAGMA_INTERFACE is not set by ./configure,
+  on powermac platform - this is why __APPLE_CC__ is also checked.
+ */ 
+#pragma interface
+#endif
+
 namespace backup {
 
 // Forward declaration for a class describing an image inside backup archive.

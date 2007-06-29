@@ -27,6 +27,19 @@
 #include "be_default.h"
 #include "be_snapshot.h"
 
+#if defined(USE_PRAGMA_IMPLEMENTATION) || defined(__APPLE_CC__)
+/*
+  #pragma implementation is needed on powermac platform as otherwise compiler 
+  doesn't create/export vtable for Image_info::Tables class (if you know a 
+  better way for fixing this issue let me know! /Rafal).
+  
+  Apparently, configuration macro USE_PRAGMA_IMPLEMENTATION is not set by 
+  ./configure on powermac platform - this is why __APPLE_CC__ is also checked.
+ */ 
+#pragma implementation
+#endif
+
+
 /***************************************
 
    Implementation of Archive_info class

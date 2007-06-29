@@ -30,7 +30,9 @@ libbackup_la_SOURCES = \
 	archive.cc \
 	meta_backup.cc \
 	data_backup.cc \
-	sql_backup.cc
+	sql_backup.cc \
+      be_default.cc \
+      buffer_iterator.cc
 
 noinst_HEADERS = \
 	api_types.h \
@@ -42,7 +44,9 @@ noinst_HEADERS = \
     logger.h \
     string_pool.h \
     archive.h \
-    meta_backup.h
+    meta_backup.h \
+      be_default.h \
+      buffer_iterator.h
 
 DEFS = \
 	-DMYSQL_SERVER \

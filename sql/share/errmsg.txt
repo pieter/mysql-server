@@ -6160,3 +6160,6 @@ ER_BACKUP_SEND_DATA
         eng "Error when sending image data (for table #%d) to %-.64s restore driver"
 ER_BACKUP_SEND_DATA_RETRY
         eng "After %d attempts %-.64s restore driver still can't accept next block of data"
+
+ER_BACKUP_OPEN_TABLES
+        eng "Open and lock tables failed in %-.64s"

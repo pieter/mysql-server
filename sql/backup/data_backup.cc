@@ -44,6 +44,7 @@
 #include "backup_kernel.h"
 #include "debug.h"
 #include "be_default.h"
+#include "be_snapshot.h"
 
 /***********************************************
 
@@ -343,6 +344,7 @@ int get_default_snapshot_tables(backup::Backup_driver *backup_drv,
     table_list_last= table_list;
     while (table_list_last->next_global != NULL)
       table_list_last= table_list_last->next_global;
+    *tables_last= table_list_last;
   }
   else
     if (backup_drv)
@@ -416,7 +418,8 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
       inactive.push_back(p);
     }
     if (!def_or_snap_used)
-      def_or_snap_used=  (i->type() == Image_info::DEFAULT_IMAGE);
+      def_or_snap_used=  ((i->type() == Image_info::DEFAULT_IMAGE) ||
+                          (i->type() == Image_info::SNAPSHOT_IMAGE));
     if (def_or_snap_used)
       get_default_snapshot_tables(&p->drv(), NULL, 
                                   &table_list, &table_list_last);
@@ -1293,7 +1296,8 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
       Collect tables from default and snapshot for open and lock tables.
       There should be at most only 1 of each driver.
     */
-    if (img->type() == Image_info::DEFAULT_IMAGE)
+    if ((img->type() == Image_info::DEFAULT_IMAGE) ||
+        (img->type() == Image_info::SNAPSHOT_IMAGE))
       get_default_snapshot_tables(NULL, (default_backup::Restore *)drv[no], 
                                   &table_list, &table_list_last);
   }

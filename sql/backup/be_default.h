@@ -103,6 +103,7 @@ class Backup: public Backup_driver
  protected:
     THD *m_thd;                    ///< Pointer to current thread struct.
     TABLE_LIST *all_tables;        ///< Reference to list of tables used.
+    TABLE_LIST *tables_in_backup;  ///< List of tables used in backup.
     my_bool lock_called;           ///< Checks to see if locks have been reached.
 
   private:
@@ -134,7 +135,6 @@ class Backup: public Backup_driver
     Buffer_iterator rec_buffer;    ///< Buffer iterator for windowing records
     Buffer_iterator blob_buffer;   ///< Buffer iterator for windowing BLOB fields
     byte *ptr;                     ///< Pointer to blob data from record.
-    TABLE_LIST *tables_in_backup;  ///< List of tables used in backup.
 };
 
 /**

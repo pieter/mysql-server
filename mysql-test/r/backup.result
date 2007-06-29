@@ -137,9 +137,9 @@ CREATE TABLE bup_default.wide (
 `q` TEXT,
 PRIMARY KEY (`a`)
 ) ENGINE=myisam DEFAULT CHARSET=latin1;
-CREATE TABLE bup_default.t1 (a int) engine=myisam;
+CREATE TABLE bup_default.t1 (a int) engine=innodb;
 CREATE TABLE bup_default.t2 (a int) engine=myisam;
-CREATE TABLE bup_default.t1_blob (a int, b text);
+CREATE TABLE bup_default.t1_blob (a int, b text) engine=innodb;
 INSERT INTO bup_default.wide VALUES (
 NULL,
 "This is column b pass 01",
@@ -319,19 +319,19 @@ Chuck@linux:~> mysql -uroot -p
 Enter password:
 BACKUP DATABASE bup_default TO "bup_default.bak";
 Backup Summary
- header     =       40 bytes
+ header     =       43 bytes
  meta-data  =      890 bytes
  data       =     7425 bytes
               --------------
- total            8355 bytes
+ total            8358 bytes
 DROP DATABASE bup_default;
 RESTORE FROM "bup_default.bak";
 Restore Summary
- header     =       40 bytes
+ header     =       43 bytes
  meta-data  =      890 bytes
  data       =     7425 bytes
               --------------
- total            8355 bytes
+ total            8358 bytes
 SELECT * FROM bup_default.t1;
 a
 1

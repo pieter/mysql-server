@@ -29,6 +29,7 @@
 #include "archive.h"
 #include "debug.h"
 #include "be_default.h"
+#include "be_snapshot.h"
 
 namespace backup {
 
@@ -352,7 +353,9 @@ class Backup_info::Table_ref:
    3. Otherwise check if one of the existing sub-images would accept table from
       this location.
 
-   4. When everything else fails, use default (blocking) backup driver.
+   4. If table has no native backup engine, try a consistent snapshot one.
+
+   5. When everything else fails, use default (blocking) backup driver.
 
    Note: 1 is not implemented yet and hence we start with 3.
  */
@@ -378,6 +381,9 @@ int Backup_info::find_image(const Backup_info::Table_ref &tbl)
    for (uint no=0; no < img_count && no < MAX_IMAGES ; ++no)
    {
      if (default_image_no >= 0 && no == (uint)default_image_no)
+       continue;
+
+     if (snapshot_image_no >= 0 && no == (uint)snapshot_image_no)
        continue;
 
      img= images[no];
@@ -419,9 +425,23 @@ int Backup_info::find_image(const Backup_info::Table_ref &tbl)
      DBUG_RETURN(no);
    }
 
-   // Points 4: try default driver...
+   // Points 4 & 5: try consistent snapshot and default drivers..
 
-   int ino= default_image_no; //now try default driver
+   // try snapshot driver first
+   int ino= snapshot_image_no;
+   if (hton->start_consistent_snapshot != NULL)
+   {
+     if (snapshot_image_no < 0) //image doesn't exist
+     {
+       ino= img_count;
+       snapshot_image_no= img_count;
+       images[snapshot_image_no]= new Snapshot_image(*this);
+       img_count++;
+       DBUG_PRINT("backup",("Snapshot image added to archive"));
+     }
+   }
+   else
+     ino= default_image_no; //now try default driver
 
    if (ino < 0) //image doesn't exist
    {
@@ -466,7 +486,8 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st);
   closed when the structure is closed with the @c close() method.
  */
 Backup_info::Backup_info(THD *thd):
-  m_state(INIT), default_image_no(-1), m_thd(thd), i_s_tables(NULL),
+  m_state(INIT), default_image_no(-1), snapshot_image_no(-2), 
+  m_thd(thd), i_s_tables(NULL),
   m_items(NULL), m_last_item(NULL), m_last_db(NULL)
 {
   i_s_tables= get_schema_table(m_thd, ::get_schema_table(SCH_TABLES));

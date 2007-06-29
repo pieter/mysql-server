@@ -32,6 +32,7 @@ libbackup_la_SOURCES = \
 	data_backup.cc \
 	sql_backup.cc \
       be_default.cc \
+      be_snapshot.cc \
       buffer_iterator.cc
 
 noinst_HEADERS = \
@@ -48,6 +49,7 @@ noinst_HEADERS = \
     archive.h \
     meta_backup.h \
       be_default.h \
+      be_snapshot.h \
       buffer_iterator.h
 
 DEFS = \

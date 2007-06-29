@@ -116,7 +116,7 @@ class Image_info
 {
  public:
  
-  enum image_type {NATIVE_IMAGE, DEFAULT_IMAGE};
+  enum image_type {NATIVE_IMAGE, DEFAULT_IMAGE, SNAPSHOT_IMAGE};
 
   virtual image_type type() const =0; ///< Return type of the image.
   version_t ver;  ///< Image format version.

@@ -1,3 +1,5 @@
+--source include/have_innodb.inc
+
 connect (backup,localhost,root,,);
 connect (restore,localhost,root,,);
 
@@ -124,10 +126,8 @@ SHOW CREATE TABLE tasking;
 DROP DATABASE IF EXISTS db1;
 DROP DATABASE IF EXISTS db2;
 
-
-# This test is for the default online backup driver
-# The test is designed to show that a consistent snapshot
-# backup can be taken while data is being inserted and deleted.
+#
+# This test is for the default and snapshot online backup drivers
 #
 
 connection backup;
@@ -161,9 +161,9 @@ CREATE TABLE bup_default.wide (
   PRIMARY KEY (`a`)
 ) ENGINE=myisam DEFAULT CHARSET=latin1;
 
-CREATE TABLE bup_default.t1 (a int) engine=myisam;
+CREATE TABLE bup_default.t1 (a int) engine=innodb;
 CREATE TABLE bup_default.t2 (a int) engine=myisam;
-CREATE TABLE bup_default.t1_blob (a int, b text);
+CREATE TABLE bup_default.t1_blob (a int, b text) engine=innodb;
 
 # Insert some data.
 

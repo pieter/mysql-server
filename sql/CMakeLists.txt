@@ -77,6 +77,7 @@ ADD_EXECUTABLE(mysqld ../sql-common/client.c derror.cc des_key_file.cc
                backup/stream.cc backup/logger.cc backup/string_pool.cc
                backup/archive.cc backup/meta_backup.cc backup/data_backup.cc
                backup/sql_backup.cc backup/be_default.cc backup/buffer_iterator.cc
+               backup/be_snapshot.cc
                ${PROJECT_SOURCE_DIR}/sql/sql_yacc.cc
   			   ${PROJECT_SOURCE_DIR}/sql/sql_yacc.h
 			   ${PROJECT_SOURCE_DIR}/include/mysqld_error.h

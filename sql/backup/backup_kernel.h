@@ -150,6 +150,7 @@ class Backup_info: public Archive_info, public Logger
   int find_image(const Table_ref&);
 
   int default_image_no; ///< Position of the default image in @c images list, -1 if not used.
+  int snapshot_image_no; ///< Position of the snapshot image in @c images list, -1 if not used.
 
   Db_item*    add_db(const backup::Db_ref&);
   Table_item* add_table(Db_item&, const Table_ref&);

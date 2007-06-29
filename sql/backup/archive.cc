@@ -25,6 +25,7 @@
 #include "backup_aux.h"
 #include "archive.h"
 #include "be_default.h"
+#include "be_snapshot.h"
 
 /***************************************
 
@@ -354,6 +355,9 @@ Image_info::create_from_stream(Archive_info &info, IStream &s, Image_info* &ptr)
 
   case DEFAULT_IMAGE:
     return Default_image::create_from_stream(ver,info,s,ptr);
+
+  case SNAPSHOT_IMAGE:
+    return Snapshot_image::create_from_stream(ver,info,s,ptr);
 
   default:
     DBUG_PRINT("restore",("Unknown image type %d",t));

@@ -37,7 +37,6 @@ struct StringDom
   { return 0; }
 };
 
-template class Map<StringDom>;
 typedef Map<StringDom>  StringPool;
 
 } // util namespace

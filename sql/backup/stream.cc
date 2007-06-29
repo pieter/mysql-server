@@ -11,6 +11,11 @@
   - better file buffering (in case of small data chunks)
  */
 
+
+// Instantiate templates used in backup stream classes
+template class util::IStream< backup::Window >;
+template class util::OStream< backup::Window >;
+
 namespace backup {
 
 /************** Window *************************/

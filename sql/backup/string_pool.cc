@@ -15,6 +15,9 @@ String *StringDom::create(const Element &s)
 
 String &StringDom::null= const_cast< String& >(::my_null_string);
 
+// Map template instance used as StringPool implementation.
+template class Map<StringDom>;
+
 } // util namespace
 
 

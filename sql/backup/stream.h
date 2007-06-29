@@ -99,80 +99,10 @@ class IStream
     m_win= win;
   }
 
-  Result readbyte(byte &x)
-  {
-    Result res;
-    
-    DBUG_ASSERT(m_win);
-  
-    if ((res= m_win->set_length(1)) != Result(stream_result::OK))
-      return res;
-  
-    x= *m_win->head();
-  
-    return m_win->move(1);
-  }
-  
-  Result read2int(uint &x)
-  {
-    Result res;
-  
-    DBUG_ASSERT(m_win);
-
-    if ((res= m_win->set_length(2)) != Result(stream_result::OK))
-     return res;
-  
-    x= uint2korr(m_win->head());
-  
-    return m_win->move(2);
-  }
-  
-  Result read4int(ulong &x)
-  {
-    Result res;
-  
-    DBUG_ASSERT(m_win);
-
-    if ((res= m_win->set_length(4)) != Result(stream_result::OK))
-     return res;
-  
-    x= uint4korr(m_win->head());
-  
-    return m_win->move(4);
-  }
-
-  Result readint(ulong &x)
-  {
-    Result res;
-  
-    DBUG_ASSERT(m_win);
-
-    if ((res= m_win->set_length(1)) != Result(stream_result::OK))
-      return res;
-  
-    x= *m_win->head();
-    m_win->move(1);
-  
-    switch( x ) {
-    case 251:
-      return Result(stream_result::NIL);
-  
-    case 252:
-    {
-      uint y= 0;
-      res= read2int(y);
-      x= y;
-      return res;
-    }
-    
-    case 253:
-      return read4int(x);
-  
-    default:
-      return Result(stream_result::OK);
-    }
-  }
-
+  Result readbyte(byte &x);
+  Result read2int(uint &x);
+  Result read4int(ulong &x);
+  Result readint(ulong &x);
   Result readint(uint &x)
   {
     ulong y= 0;
@@ -181,25 +111,7 @@ class IStream
     return res;
   }
 
-  Result readstr(String &s)
-  {
-    Result  res;
-    uint    len;
-  
-    DBUG_ASSERT(m_win);
-
-    if ((res= readint(len)) != Result(stream_result::OK))
-      return res;
-  
-    if ((res= m_win->set_length(len)) != Result(stream_result::OK))
-      return res;
-  
-    s.free();
-    s.copy((const char*)m_win->head(), len, &::my_charset_bin);
-  
-    return m_win->move(len);
-  }
-
+  Result readstr(String &s);
 };
 
 
@@ -220,92 +132,227 @@ class OStream
     m_win= win;
   }
 
-  Result writebyte(const byte x)
-  {
-    Result res;
+  Result writebyte(const byte x);
+  Result write2int(const int x);
+  Result write4int(const ulong x);
+  Result writeint(const ulong x);
+  Result writestr(const String &s);
   
-    DBUG_ASSERT(m_win);
-
-    if ((res= m_win->set_length(1)) != Result(stream_result::OK))
-      return res;
-  
-    (*m_win->head())= x;
-  
-    return m_win->move(1);
-  }
-
-  Result write2int(const int x)
-  {
-    Result res;
-  
-    DBUG_ASSERT(m_win);
-
-    if ((res= m_win->set_length(2)) != Result(stream_result::OK))
-      return res;
-  
-    int2store(m_win->head(),x);
-  
-    return m_win->move(2);
-  }
-
-  Result write4int(const ulong x)
-  {
-    Result res;
-  
-    DBUG_ASSERT(m_win);
-
-    if ((res= m_win->set_length(4)) != Result(stream_result::OK))
-      return res;
-  
-    int4store(m_win->head(),x);
-  
-    return m_win->move(4);
-  }
-
-  Result writeint(const ulong x)
-  {
-    Result res;
-  
-    DBUG_ASSERT(m_win);
-
-    if ((res= m_win->set_length(1)) != Result(stream_result::OK))
-      return res;
-  
-    if (x < 251)
-      return writebyte((byte)x);
-  
-    if (x < (1UL<<16))
-    {
-      res= writebyte(252);
-      return res == Result(stream_result::OK) ? write2int(x) : res;
-    }
-  
-    res= writebyte(253);
-    return res == Result(stream_result::OK) ? write4int(x) : res;
-  }
-
-  Result writestr(const String &s)
-  {
-    Result  res;
-    uint    len= s.length();
-  
-    if ((res= writeint(len)) != Result(stream_result::OK))
-      return res;
-  
-    if ((res= m_win->set_length(len)) != Result(stream_result::OK))
-      return res;
-  
-    memcpy(m_win->head(), s.ptr(), len);
-  
-    return m_win->move(len);
-  }
-
   Result writestr(const char *s)
   { return writestr(String(s,table_alias_charset)); }
 
   Result writenil()
   { return writebyte(251); }
 };
+
+template<class SW>
+inline
+typename IStream<SW>::Result
+IStream<SW>::readbyte(byte &x)
+{
+  Result res;
+  
+  DBUG_ASSERT(m_win);
+
+  if ((res= m_win->set_length(1)) != Result(stream_result::OK))
+    return res;
+
+  x= *m_win->head();
+
+  return m_win->move(1);
+}
+
+template<class SW>
+inline
+typename OStream<SW>::Result
+OStream<SW>::writebyte(const byte x)
+{
+  Result res;
+
+  DBUG_ASSERT(m_win);
+
+  if ((res= m_win->set_length(1)) != Result(stream_result::OK))
+    return res;
+
+  (*m_win->head())= x;
+
+  return m_win->move(1);
+}
+
+template<class SW>
+inline
+typename IStream<SW>::Result
+IStream<SW>::read2int(uint &x)
+{
+  Result res;
+
+  DBUG_ASSERT(m_win);
+
+  if ((res= m_win->set_length(2)) != Result(stream_result::OK))
+   return res;
+
+  x= uint2korr(m_win->head());
+
+  return m_win->move(2);
+}
+
+template<class SW>
+inline
+typename OStream<SW>::Result
+OStream<SW>::write2int(const int x)
+{
+  Result res;
+
+  DBUG_ASSERT(m_win);
+
+  if ((res= m_win->set_length(2)) != Result(stream_result::OK))
+    return res;
+
+  int2store(m_win->head(),x);
+
+  return m_win->move(2);
+}
+
+
+template<class SW>
+inline
+typename IStream<SW>::Result
+IStream<SW>::read4int(ulong &x)
+{
+  Result res;
+
+  DBUG_ASSERT(m_win);
+
+  if ((res= m_win->set_length(4)) != Result(stream_result::OK))
+   return res;
+
+  x= uint4korr(m_win->head());
+
+  return m_win->move(4);
+}
+
+template<class SW>
+inline
+typename OStream<SW>::Result
+OStream<SW>::write4int(const ulong x)
+{
+  Result res;
+
+  DBUG_ASSERT(m_win);
+
+  if ((res= m_win->set_length(4)) != Result(stream_result::OK))
+    return res;
+
+  int4store(m_win->head(),x);
+
+  return m_win->move(4);
+}
+
+// write/read number using variable-length encoding
+
+template<class SW>
+inline
+typename IStream<SW>::Result
+IStream<SW>::readint(ulong &x)
+{
+  Result res;
+
+  DBUG_ASSERT(m_win);
+
+  if ((res= m_win->set_length(1)) != Result(stream_result::OK))
+    return res;
+
+  x= *m_win->head();
+  m_win->move(1);
+
+  switch( x ) {
+  case 251:
+    return Result(stream_result::NIL);
+
+  case 252:
+  {
+    uint y= 0;
+    res= read2int(y);
+    x= y;
+    return res;
+  }
+  
+  case 253:
+    return read4int(x);
+
+  default:
+    return Result(stream_result::OK);
+  }
+}
+
+template<class SW>
+inline
+typename OStream<SW>::Result
+OStream<SW>::writeint(const ulong x)
+{
+  Result res;
+
+  DBUG_ASSERT(m_win);
+
+  if ((res= m_win->set_length(1)) != Result(stream_result::OK))
+    return res;
+
+  if (x < 251)
+    return writebyte((byte)x);
+
+  if (x < (1UL<<16))
+  {
+    res= writebyte(252);
+    return res == Result(stream_result::OK) ? write2int(x) : res;
+  }
+
+  res= writebyte(253);
+  return res == Result(stream_result::OK) ? write4int(x) : res;
+}
+
+
+// Write/read string using "length coded string" format
+
+template<class SW>
+inline
+typename IStream<SW>::Result
+IStream<SW>::readstr(String &s)
+{
+  Result  res;
+  uint    len;
+
+  DBUG_ASSERT(m_win);
+
+  if ((res= readint(len)) != Result(stream_result::OK))
+    return res;
+
+  if ((res= m_win->set_length(len)) != Result(stream_result::OK))
+    return res;
+
+  s.free();
+  s.copy((const char*)m_win->head(), len, &::my_charset_bin);
+
+  return m_win->move(len);
+}
+
+template<class SW>
+inline
+typename OStream<SW>::Result
+OStream<SW>::writestr(const String &s)
+{
+  Result  res;
+  uint    len= s.length();
+
+  if ((res= writeint(len)) != Result(stream_result::OK))
+    return res;
+
+  if ((res= m_win->set_length(len)) != Result(stream_result::OK))
+    return res;
+
+  memcpy(m_win->head(), s.ptr(), len);
+
+  return m_win->move(len);
+}
 
 } // util namespace
 
@@ -422,9 +469,6 @@ class Window
 
 } // backup namespace
 
-
-template class util::IStream< backup::Window >;
-template class util::OStream< backup::Window >;
 
 namespace backup {
 

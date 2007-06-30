@@ -46,6 +46,8 @@ select * from t1 where a in (select pk from t10 where t10.a in (select pk from t
 explain extended select * from t1 where a in (select t10.pk from t10, t12 where t12.pk=t10.a);
 
 --echo subqueries within outer joins go into ON expr.
+# TODO: psergey: check if case conversions like those are ok (it broke on  windows)
+--replace_result a A b B
 explain extended
 select * from t1 left join (t2 A, t2 B) on ( A.a= t1.a and B.a in (select pk from t10));
 

@@ -2852,6 +2852,7 @@ mysql_select(THD *thd, Item ***rref_pointer_array,
     /* We're not in a subquery predicate */
     if (join->flatten_subqueries())
     {
+      err= 1;
       thd->net.report_error= 1;
       goto err;
     }

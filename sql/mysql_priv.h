@@ -418,6 +418,12 @@ MY_LOCALE *my_locale_by_number(uint number);
 #define MODE_NO_ENGINE_SUBSTITUTION     (MODE_HIGH_NOT_PRECEDENCE*2)
 #define MODE_PAD_CHAR_TO_FULL_LENGTH    (ULL(1) << 31)
 
+
+/* @@optimizer_switch flags */
+#define OPTIMIZER_SWITCH_NO_MATERIALIZATION 1
+#define OPTIMIZER_SWITCH_NO_SEMIJOIN 2
+
+
 /*
   Replication uses 8 bytes to store SQL_MODE in the binary log. The day you
   use strictly more than 64 bits by adding one more define above, you should

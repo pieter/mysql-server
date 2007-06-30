@@ -7169,11 +7169,6 @@ static void step_down_to(SEL_ARG_RANGE_SEQ *arg, SEL_ARG *key_tree)
   cur->max_key_parts= prev->max_key_parts;
 
   uint16 stor_length= arg->param->key[arg->keyno][key_tree->part].store_length;
-  /* psergey-merge-done:
-  key_tree->store(arg->param->key[arg->keyno][key_tree->part].store_length,
-                  &cur->min_key, prev->min_key_flag,
-                  &cur->max_key, prev->max_key_flag);
-  */
   cur->min_key_parts += key_tree->store_min(stor_length, &cur->min_key,
                                             prev->min_key_flag);
   cur->max_key_parts += key_tree->store_max(stor_length, &cur->max_key,

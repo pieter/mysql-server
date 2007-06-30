@@ -3588,20 +3588,6 @@ int DsMrr_impl::dsmrr_fill_buffer(handler *h)
     DBUG_RETURN(res); 
   dsmrr_eof= test(res == HA_ERR_END_OF_FILE);
 
-//psergey-pmerge{: not needed: 
-#if 0
-  if (!res && (h->mrr_cur_range.range_flag != (UNIQUE_RANGE | EQ_RANGE)))
-  {
-    /* Save the index position: search tuple + rowid */
-    key_copy(last_idx_tuple, h->table->record[0], mrr_key,
-             mrr_key->key_length);
-    key_zero_nulls(last_idx_tuple, mrr_key);
-
-    memcpy(last_idx_tuple + mrr_key->key_length, h->ref, h->ref_length);
-    h->mrr_restore_scan= TRUE;
-  }
-#endif
-//}psergey-pmerge
   /* Sort the buffer contents by rowid */
   uint elem_size= h->ref_length + (int)is_mrr_assoc * sizeof(void*);
   uint n_rowids= (rowids_buf_cur - rowids_buf) / elem_size;

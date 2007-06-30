@@ -526,7 +526,8 @@ JOIN::prepare(Item ***rref_pointer_array,
     */
     if ((subselect= select_lex->master_unit()->item))
     {
-      bool do_delay= TRUE;
+      bool do_semijoin= !test(thd->variables.optimizer_switch &
+                              OPTIMIZER_SWITCH_NO_SEMIJOIN);
       /*
         Check if we're in subquery that is a candidate for flattening into a
         semi-join (which is done done in flatten_subqueries()). The
@@ -551,7 +552,7 @@ JOIN::prepare(Item ***rref_pointer_array,
           thd->thd_marker &&                                            // 5
           select_lex->outer_select()->join &&                           // (*)
           select_lex->master_unit()->first_select()->leaf_tables &&     // (**) 
-          do_delay)
+          do_semijoin)
       {
         fprintf(stderr, "subq is an sj candidate\n");
         Item_in_subselect *in_subs= (Item_in_subselect*)subselect;
@@ -584,7 +585,8 @@ JOIN::prepare(Item ***rref_pointer_array,
       {
         fprintf(stderr, "subq is not an sj candidate\n");
         Item_in_subselect *in_subs= NULL;
-
+        bool do_materialize= !test(thd->variables.optimizer_switch &
+                                   OPTIMIZER_SWITCH_NO_MATERIALIZATION);
         /*
           Check if the subquery predicate can be executed via materialization.
           The required conditions are:
@@ -613,7 +615,8 @@ JOIN::prepare(Item ***rref_pointer_array,
           perform the whole transformation or only that part of it which wraps
           Item_in_subselect in an Item_in_optimizer.
         */
-        if (subselect->substype() == Item_subselect::IN_SUBS &&           // 1
+        if (do_materialize && 
+            subselect->substype() == Item_subselect::IN_SUBS &&           // 1
             !select_lex->master_unit()->first_select()->next_select() &&  // 2
             select_lex->master_unit()->first_select()->leaf_tables &&     // 3
             thd->lex->sql_command == SQLCOM_SELECT)                       // *
@@ -633,20 +636,6 @@ JOIN::prepare(Item ***rref_pointer_array,
       }
     }
   }
-//psergey-merge: todo: VV
-#if 0
-
-      /*
-        For IN predicates, if Item_in_subselect::use_hash_sj == TRUE,
-        the only transformation that will take place is wrapping
-        Item_in_subselect in an Item_in_optimizer.
-      */
-      if ((trans_res= subselect->select_transformer(this)) !=
-      {
-        select_lex->fix_prepare_information(thd, &conds, &having);
-	DBUG_RETURN((trans_res == Item_subselect::RES_ERROR));
-      }
-#endif      
 
   select_lex->fix_prepare_information(thd, &conds, &having);
 
@@ -2846,18 +2835,14 @@ mysql_select(THD *thd, Item ***rref_pointer_array,
     }
   }
 
-  //if (!unit->item)
+  /* dump_TABLE_LIST_graph(select_lex, select_lex->leaf_tables); */
+  if (join->flatten_subqueries())
   {
-    //dump_TABLE_LIST_graph(select_lex, select_lex->leaf_tables);
-    /* We're not in a subquery predicate */
-    if (join->flatten_subqueries())
-    {
-      err= 1;
-      thd->net.report_error= 1;
-      goto err;
-    }
-    //dump_TABLE_LIST_struct(select_lex, select_lex->leaf_tables);
+    err= 1;
+    thd->net.report_error= 1;
+    goto err;
   }
+  /* dump_TABLE_LIST_struct(select_lex, select_lex->leaf_tables); */
 
   if ((err= join->optimize()))
   {
@@ -5312,7 +5297,6 @@ best_access_path(JOIN      *join,
       else
       {
         found_constraint= 1;
-        // psergey:
         /*
           Check if InsideOut scan is applicable:
           1. All IN-equalities are either "bound" or "handled"
@@ -5610,8 +5594,6 @@ best_access_path(JOIN      *join,
             tmp= best_time;                    // Do nothing
         }
 
-        //psergey-todo: check if we get here when no ref scan has been
-        //constructed.
         if (sj_inside_out_scan && !start_key)
         {
           tmp= tmp/2;
@@ -10508,9 +10490,6 @@ static void restore_prev_nj_state(JOIN_TAB *last)
 }
 
 
-/*
-  //psergey-todo: better naming
-*/
 
 static 
 void advance_sj_state(const table_map remaining_tables, const JOIN_TAB *tab)

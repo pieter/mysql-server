@@ -8,12 +8,6 @@
   its description (catalogue)
  */
 
-#include <backup/api_types.h>
-#include <backup/string_pool.h>
-#include <backup/stream.h>
-#include <backup/backup_engine.h>
-#include <backup/meta_backup.h>
-
 #if defined(USE_PRAGMA_INTERFACE) || defined(__APPLE_CC__)
 /*
   #pragma interface is needed on powermac platform as otherwise compiler 
@@ -25,6 +19,12 @@
  */ 
 #pragma interface
 #endif
+
+#include <backup/api_types.h>
+#include <backup/string_pool.h>
+#include <backup/stream.h>
+#include <backup/backup_engine.h>
+#include <backup/meta_backup.h>
 
 namespace backup {
 

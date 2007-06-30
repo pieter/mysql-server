@@ -21,12 +21,6 @@
   - Add to Archive_info methods for browsing contents of the archive.
  */
 
-#include "backup_engine.h"
-#include "backup_aux.h"
-#include "archive.h"
-#include "be_default.h"
-#include "be_snapshot.h"
-
 #if defined(USE_PRAGMA_IMPLEMENTATION) || defined(__APPLE_CC__)
 /*
   #pragma implementation is needed on powermac platform as otherwise compiler 
@@ -38,6 +32,12 @@
  */ 
 #pragma implementation
 #endif
+
+#include "backup_engine.h"
+#include "backup_aux.h"
+#include "archive.h"
+#include "be_default.h"
+#include "be_snapshot.h"
 
 
 /***************************************

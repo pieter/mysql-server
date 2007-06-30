@@ -269,6 +269,8 @@ struct system_variables
       2 - disable MRR.
   */
   ulong optimizer_use_mrr; 
+  /* A bitmap for switching optimizations on/off */
+  ulong optimizer_switch;
   ulong preload_buff_size;
   ulong query_cache_type;
   ulong read_buff_size;

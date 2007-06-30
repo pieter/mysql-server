@@ -263,6 +263,24 @@ static const unsigned int sql_mode_names_len[]=
 TYPELIB sql_mode_typelib= { array_elements(sql_mode_names)-1,"",
 			    sql_mode_names,
                             (unsigned int *)sql_mode_names_len };
+
+
+static const char *optimizer_switch_names[]=
+{
+  "no_materialization", "no_semijoin",
+  NullS
+};
+
+static const unsigned int optimizer_switch_names_len[]=
+{
+  /*no_materialization*/          19,
+  /*no_semijoin*/                 11
+};
+
+TYPELIB optimizer_switch_typelib= { array_elements(optimizer_switch_names)-1,"",
+                                    optimizer_switch_names,
+                                    (unsigned int *)optimizer_switch_names_len };
+
 static const char *tc_heuristic_recover_names[]=
 {
   "COMMIT", "ROLLBACK", NullS
@@ -2910,6 +2928,7 @@ static int init_common_variables(const char *conf_file_name, int argc,
   global_system_variables.collation_connection= default_charset_info;
 
   global_system_variables.optimizer_use_mrr= 1;
+  global_system_variables.optimizer_switch= 0;
 
   if (!(character_set_filesystem= 
         get_charset_by_csname(character_set_filesystem_name,

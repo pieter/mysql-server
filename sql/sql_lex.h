@@ -39,8 +39,8 @@ class Event_parse_data;
 #ifdef MYSQL_YACC
 #define LEX_YYSTYPE void *
 #else
-#include "lex_symbol.h"
 #if MYSQL_LEX
+#include "lex_symbol.h"
 #include "sql_yacc.h"
 #define LEX_YYSTYPE YYSTYPE *
 #else
@@ -84,10 +84,10 @@ enum enum_sql_command {
   SQLCOM_ROLLBACK, SQLCOM_ROLLBACK_TO_SAVEPOINT,
   SQLCOM_COMMIT, SQLCOM_SAVEPOINT, SQLCOM_RELEASE_SAVEPOINT,
   SQLCOM_SLAVE_START, SQLCOM_SLAVE_STOP,
-  SQLCOM_BEGIN, SQLCOM_LOAD_MASTER_TABLE, SQLCOM_CHANGE_MASTER,
-  SQLCOM_RENAME_TABLE, SQLCOM_BACKUP_TABLE, SQLCOM_RESTORE_TABLE,
+  SQLCOM_BEGIN, SQLCOM_CHANGE_MASTER,
+  SQLCOM_RENAME_TABLE,
   SQLCOM_RESET, SQLCOM_PURGE, SQLCOM_PURGE_BEFORE, SQLCOM_SHOW_BINLOGS,
-  SQLCOM_SHOW_OPEN_TABLES, SQLCOM_LOAD_MASTER_DATA,
+  SQLCOM_SHOW_OPEN_TABLES,
   SQLCOM_HA_OPEN, SQLCOM_HA_CLOSE, SQLCOM_HA_READ,
   SQLCOM_SHOW_SLAVE_HOSTS, SQLCOM_DELETE_MULTI, SQLCOM_UPDATE_MULTI,
   SQLCOM_SHOW_BINLOG_EVENTS, SQLCOM_SHOW_NEW_MASTER, SQLCOM_DO,
@@ -1531,6 +1531,7 @@ typedef struct st_lex : public Query_tables_list
   union {
     enum ha_rkey_function ha_rkey_mode;
     enum xa_option_words xa_opt;
+    bool lock_transactional;            /* For LOCK TABLE ... IN ... MODE */
   };
   enum enum_var_type option_type;
   enum enum_view_create_mode create_view_mode;

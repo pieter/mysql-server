@@ -53,8 +53,9 @@ typedef struct st_key_part_info {	/* Info about a key part */
   Field *field;
   uint	offset;				/* offset in record (from 0) */
   uint	null_offset;			/* Offset to null_bit in record */
-  uint16 length;                        /* Length of keypart value in bytes */
-  /* 
+  /* Length of key part in bytes, excluding NULL flag and length bytes */
+  uint16 length;
+  /*
     Number of bytes required to store the keypart value. This may be
     different from the "length" field as it also counts
      - possible NULL-flag byte (see HA_KEY_NULL_LENGTH)
@@ -98,6 +99,7 @@ typedef struct st_key {
     int  bdb_return_if_eq;
   } handler;
   struct st_table *table;
+  LEX_STRING comment;
 } KEY;
 
 

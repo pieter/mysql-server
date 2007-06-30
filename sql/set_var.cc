@@ -240,9 +240,6 @@ static sys_var_key_cache_long  sys_key_cache_age_threshold(&vars, "key_cache_age
 							      param_age_threshold));
 static sys_var_bool_ptr	sys_local_infile(&vars, "local_infile",
 					 &opt_local_infile);
-static sys_var_trust_routine_creators
-sys_trust_routine_creators(&vars, "log_bin_trust_routine_creators",
-                           &trust_function_creators);
 static sys_var_bool_ptr       
 sys_trust_function_creators(&vars, "log_bin_trust_function_creators",
                             &trust_function_creators);
@@ -315,8 +312,6 @@ static sys_var_thd_ulong	sys_max_tmp_tables(&vars, "max_tmp_tables",
 					   &SV::max_tmp_tables);
 static sys_var_long_ptr	sys_max_write_lock_count(&vars, "max_write_lock_count",
 						 &max_write_lock_count);
-static sys_var_thd_ulong       sys_multi_range_count(&vars, "multi_range_count",
-                                              &SV::multi_range_count);
 static sys_var_long_ptr	sys_myisam_data_pointer_size(&vars, "myisam_data_pointer_size",
                                                     &myisam_data_pointer_size);
 static sys_var_thd_ulonglong	sys_myisam_max_sort_file_size(&vars, "myisam_max_sort_file_size", &SV::myisam_max_sort_file_size, fix_myisam_max_sort_file_size, 1);
@@ -329,7 +324,6 @@ static sys_var_thd_enum         sys_myisam_stats_method(&vars, "myisam_stats_met
                                                 &SV::myisam_stats_method,
                                                 &myisam_stats_method_typelib,
                                                 NULL);
-
 static sys_var_thd_ulong	sys_net_buffer_length(&vars, "net_buffer_length",
 					      &SV::net_buffer_length);
 static sys_var_thd_ulong	sys_net_read_timeout(&vars, "net_read_timeout",
@@ -352,6 +346,18 @@ static sys_var_thd_ulong        sys_optimizer_prune_level(&vars, "optimizer_prun
                                                   &SV::optimizer_prune_level);
 static sys_var_thd_ulong        sys_optimizer_search_depth(&vars, "optimizer_search_depth",
                                                    &SV::optimizer_search_depth);
+
+const char *optimizer_use_mrr_names[] = {"auto", "force", "disable", NullS};
+TYPELIB optimizer_use_mrr_typelib= {
+  array_elements(optimizer_use_mrr_names) - 1, "",
+  optimizer_use_mrr_names, NULL
+};
+
+static sys_var_thd_enum        sys_optimizer_use_mrr(&vars, "optimizer_use_mrr",
+                                              &SV::optimizer_use_mrr,
+                                              &optimizer_use_mrr_typelib,
+                                              NULL);
+
 static sys_var_thd_ulong        sys_preload_buff_size(&vars, "preload_buffer_size",
                                               &SV::preload_buff_size);
 static sys_var_thd_ulong	sys_read_buff_size(&vars, "read_buffer_size",
@@ -432,8 +438,6 @@ sys_updatable_views_with_limit(&vars, "updatable_views_with_limit",
                                &SV::updatable_views_with_limit,
                                &updatable_views_with_limit_typelib);
 
-static sys_var_thd_table_type  sys_table_type(&vars, "table_type",
-				       &SV::table_plugin);
 static sys_var_thd_storage_engine sys_storage_engine(&vars, "storage_engine",
 				       &SV::table_plugin);
 static sys_var_bool_ptr	sys_sync_frm(&vars, "sync_frm", &opt_sync_frm);
@@ -685,6 +689,7 @@ static SHOW_VAR fixed_vars[]= {
   {"named_pipe",	      (char*) &opt_enable_named_pipe,       SHOW_MY_BOOL},
 #endif
   {"open_files_limit",	      (char*) &open_files_limit,	    SHOW_LONG},
+  {sys_optimizer_use_mrr.name, (char*) &sys_optimizer_use_mrr,       SHOW_SYS},
   {"pid_file",                (char*) pidfile_name,                 SHOW_CHAR},
   {"plugin_dir",              (char*) opt_plugin_dir,               SHOW_CHAR},
   {"port",                    (char*) &mysqld_port,                 SHOW_INT},
@@ -3278,24 +3283,6 @@ bool sys_var_thd_storage_engine::update(THD *thd, set_var *var)
   return 0;
 }
 
-void sys_var_thd_table_type::warn_deprecated(THD *thd)
-{
-  WARN_DEPRECATED(thd, "5.2", "table_type", "'storage_engine'");
-}
-
-void sys_var_thd_table_type::set_default(THD *thd, enum_var_type type)
-{
-  warn_deprecated(thd);
-  sys_var_thd_storage_engine::set_default(thd, type);
-}
-
-bool sys_var_thd_table_type::update(THD *thd, set_var *var)
-{
-  warn_deprecated(thd);
-  return sys_var_thd_storage_engine::update(thd, var);
-}
-
-
 /****************************************************************************
  Functions to handle sql_mode
 ****************************************************************************/
@@ -3537,24 +3524,6 @@ bool process_key_caches(int (* func) (const char *name, KEY_CACHE *))
   return 0;
 }
 
-
-void sys_var_trust_routine_creators::warn_deprecated(THD *thd)
-{
-  WARN_DEPRECATED(thd, "5.2", "log_bin_trust_routine_creators",
-                      "'log_bin_trust_function_creators'");
-}
-
-void sys_var_trust_routine_creators::set_default(THD *thd, enum_var_type type)
-{
-  warn_deprecated(thd);
-  sys_var_bool_ptr::set_default(thd, type);
-}
-
-bool sys_var_trust_routine_creators::update(THD *thd, set_var *var)
-{
-  warn_deprecated(thd);
-  return sys_var_bool_ptr::update(thd, var);
-}
 
 bool sys_var_opt_readonly::update(THD *thd, set_var *var)
 {

@@ -27,10 +27,10 @@ check table t1 extended;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 show index from t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	a	A	5	NULL	NULL		BTREE	
-t1	1	b	1	b	A	1	NULL	NULL		BTREE	
-t1	1	b	2	c	A	5	NULL	NULL		BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	a	A	5	NULL	NULL		BTREE		
+t1	1	b	1	b	A	1	NULL	NULL		BTREE		
+t1	1	b	2	c	A	5	NULL	NULL		BTREE		
 insert into t1 values (5,5,5);
 ERROR 23000: Duplicate entry '5' for key 'PRIMARY'
 optimize table t1;
@@ -64,20 +64,20 @@ analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 show index from t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	f1	A	1	NULL	NULL		BTREE	
-t1	0	PRIMARY	2	f2	A	3	NULL	NULL		BTREE	
-t1	0	PRIMARY	3	f3	A	9	NULL	NULL		BTREE	
-t1	0	PRIMARY	4	f4	A	18	NULL	NULL		BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	f1	A	1	NULL	NULL		BTREE		
+t1	0	PRIMARY	2	f2	A	3	NULL	NULL		BTREE		
+t1	0	PRIMARY	3	f3	A	9	NULL	NULL		BTREE		
+t1	0	PRIMARY	4	f4	A	18	NULL	NULL		BTREE		
 repair table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	repair	status	OK
 show index from t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	f1	A	1	NULL	NULL		BTREE	
-t1	0	PRIMARY	2	f2	A	3	NULL	NULL		BTREE	
-t1	0	PRIMARY	3	f3	A	9	NULL	NULL		BTREE	
-t1	0	PRIMARY	4	f4	A	18	NULL	NULL		BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	f1	A	1	NULL	NULL		BTREE		
+t1	0	PRIMARY	2	f2	A	3	NULL	NULL		BTREE		
+t1	0	PRIMARY	3	f3	A	9	NULL	NULL		BTREE		
+t1	0	PRIMARY	4	f4	A	18	NULL	NULL		BTREE		
 drop table t1;
 create temporary table t1 (a int not null);
 show create table t1;
@@ -534,8 +534,9 @@ def			STATISTICS	PACKED	Packed	253	10	0	Y	0	0	63
 def			STATISTICS	NULLABLE	Null	253	3	0	N	1	0	63
 def			STATISTICS	INDEX_TYPE	Index_type	253	16	5	N	1	0	63
 def			STATISTICS	COMMENT	Comment	253	16	0	Y	0	0	63
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	field1	A	0	1000	NULL		BTREE	
+def			STATISTICS	INDEX_COMMENT	Index_Comment	253	1024	0	N	1	0	63
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	field1	A	0	1000	NULL		BTREE		
 drop table t1;
 create table t1 (
 c1 int NOT NULL,
@@ -709,11 +710,6 @@ delete from mysql.db where user='mysqltest_4';
 delete from mysql.tables_priv where user='mysqltest_4';
 flush privileges;
 drop database mysqltest;
-show full plugin;
-show warnings;
-Level	Code	Message
-Warning	1287	The syntax 'SHOW PLUGIN' is deprecated and will be removed in MySQL 5.2. Please use 'SHOW PLUGINS' instead
-show plugin;
 show plugins;
 create database `mysqlttest\1`;
 create table `mysqlttest\1`.`a\b` (a int);
@@ -727,7 +723,7 @@ show columns from `a\b` from `mysqlttest\1`;
 Field	Type	Null	Key	Default	Extra
 a	int(11)	YES		NULL	
 show keys from `mysqlttest\1`.`a\b`;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
 drop table `mysqlttest\1`.`a\b`;
 drop database `mysqlttest\1`;
 show engine foobar status;

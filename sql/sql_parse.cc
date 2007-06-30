@@ -204,14 +204,12 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CREATE_DB]=      CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_DB]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_RENAME_TABLE]=   CF_CHANGES_DATA;
-  sql_command_flags[SQLCOM_BACKUP_TABLE]=   CF_CHANGES_DATA;
-  sql_command_flags[SQLCOM_RESTORE_TABLE]=  CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_INDEX]=     CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_CREATE_VIEW]=    CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_VIEW]=      CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_CREATE_EVENT]=   CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_ALTER_EVENT]=    CF_CHANGES_DATA;
-  sql_command_flags[SQLCOM_DROP_EVENT]=     CF_CHANGES_DATA;  
+  sql_command_flags[SQLCOM_DROP_EVENT]=     CF_CHANGES_DATA;
 
   sql_command_flags[SQLCOM_UPDATE]=	    CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
   sql_command_flags[SQLCOM_UPDATE_MULTI]=   CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
@@ -440,78 +438,10 @@ void free_items(Item *item)
 
 void cleanup_items(Item *item)
 {
-  DBUG_ENTER("cleanup_items");  
+  DBUG_ENTER("cleanup_items");
   for (; item ; item=item->next)
     item->cleanup();
   DBUG_VOID_RETURN;
-}
-
-/*
-  Handle COM_TABLE_DUMP command
-
-  SYNOPSIS
-    mysql_table_dump
-      thd           thread handle
-      db            database name or an empty string. If empty,
-                    the current database of the connection is used
-      tbl_name      name of the table to dump
-
-  NOTES
-    This function is written to handle one specific command only.
-
-  RETURN VALUE
-    0               success
-    1               error, the error message is set in THD
-*/
-
-static
-int mysql_table_dump(THD *thd, LEX_STRING *db, char *tbl_name)
-{
-  TABLE* table;
-  TABLE_LIST* table_list;
-  int error = 0;
-  DBUG_ENTER("mysql_table_dump");
-  if (db->length == 0)
-  {
-    db->str= thd->db;            /* purecov: inspected */
-    db->length= thd->db_length;  /* purecov: inspected */
-  }
-  if (!(table_list = (TABLE_LIST*) thd->calloc(sizeof(TABLE_LIST))))
-    DBUG_RETURN(1); // out of memory
-  table_list->db= db->str;
-  table_list->table_name= table_list->alias= tbl_name;
-  table_list->lock_type= TL_READ_NO_INSERT;
-  table_list->prev_global= &table_list;	// can be removed after merge with 4.1
-
-  if (check_db_name(db))
-  {
-    /* purecov: begin inspected */
-    my_error(ER_WRONG_DB_NAME ,MYF(0), db->str ? db->str : "NULL");
-    goto err;
-    /* purecov: end */
-  }
-  if (lower_case_table_names)
-    my_casedn_str(files_charset_info, tbl_name);
-
-  if (!(table=open_ltable(thd, table_list, TL_READ_NO_INSERT)))
-    DBUG_RETURN(1);
-
-  if (check_one_table_access(thd, SELECT_ACL, table_list))
-    goto err;
-  thd->free_list = 0;
-  thd->query_length=(uint) strlen(tbl_name);
-  thd->query = tbl_name;
-  if ((error = mysqld_dump_create_info(thd, table_list, -1)))
-  {
-    my_error(ER_GET_ERRNO, MYF(0), my_errno);
-    goto err;
-  }
-  net_flush(&thd->net);
-  if ((error= table->file->dump(thd,-1)))
-    my_error(ER_GET_ERRNO, MYF(0), error);
-
-err:
-  DBUG_RETURN(error);
 }
 
 /*
@@ -740,37 +670,6 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     break;
   }
 #endif
-  case COM_TABLE_DUMP:
-  {
-    char *tbl_name;
-    LEX_STRING db;
-    uint db_len= *(uchar*) packet;
-    if (db_len >= packet_length || db_len > NAME_LEN)
-    {
-      my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
-      break;
-    }
-    uint tbl_len= *(uchar*) (packet + db_len + 1);
-    if (db_len+tbl_len+2 > packet_length || tbl_len > NAME_LEN)
-    {
-      my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
-      break;
-    }
-
-    status_var_increment(thd->status_var.com_other);
-    thd->enable_slow_log= opt_log_slow_admin_statements;
-    db.str= (char*) thd->alloc(db_len + tbl_len + 2);
-    if (!db.str)
-    {
-      my_message(ER_OUT_OF_RESOURCES, ER(ER_OUT_OF_RESOURCES), MYF(0));
-      break;
-    }
-    db.length= db_len;
-    tbl_name= strmake(db.str, packet + 1, db_len)+1;
-    strmake(tbl_name, packet + db_len + 2, tbl_len);
-    mysql_table_dump(thd, &db, tbl_name);
-    break;
-  }
   case COM_CHANGE_USER:
   {
     status_var_increment(thd->status_var.com_other);
@@ -1947,30 +1846,6 @@ mysql_execute_command(THD *thd)
   }
 #endif
 
-  case SQLCOM_BACKUP_TABLE:
-  {
-    DBUG_ASSERT(first_table == all_tables && first_table != 0);
-    if (check_table_access(thd, SELECT_ACL, all_tables, 0) ||
-	check_global_access(thd, FILE_ACL))
-      goto error; /* purecov: inspected */
-    thd->enable_slow_log= opt_log_slow_admin_statements;
-    res = mysql_backup_table(thd, first_table);
-    select_lex->table_list.first= (uchar*) first_table;
-    lex->query_tables=all_tables;
-    break;
-  }
-  case SQLCOM_RESTORE_TABLE:
-  {
-    DBUG_ASSERT(first_table == all_tables && first_table != 0);
-    if (check_table_access(thd, INSERT_ACL, all_tables, 0) ||
-	check_global_access(thd, FILE_ACL))
-      goto error; /* purecov: inspected */
-    thd->enable_slow_log= opt_log_slow_admin_statements;
-    res = mysql_restore_table(thd, first_table);
-    select_lex->table_list.first= (uchar*) first_table;
-    lex->query_tables=all_tables;
-    break;
-  }
   case SQLCOM_ASSIGN_TO_KEYCACHE:
   {
     DBUG_ASSERT(first_table == all_tables && first_table != 0);
@@ -2020,13 +1895,6 @@ mysql_execute_command(THD *thd)
     break;
   }
 
-  case SQLCOM_LOAD_MASTER_DATA: // sync with master
-    if (check_global_access(thd, SUPER_ACL))
-      goto error;
-    if (end_active_trans(thd))
-      goto error;
-    res = load_master_data(thd);
-    break;
 #endif /* HAVE_REPLICATION */
   case SQLCOM_SHOW_ENGINE_STATUS:
     {
@@ -2042,35 +1910,6 @@ mysql_execute_command(THD *thd)
       res = ha_show_status(thd, lex->create_info.db_type, HA_ENGINE_MUTEX);
       break;
     }
-#ifdef HAVE_REPLICATION
-  case SQLCOM_LOAD_MASTER_TABLE:
-  {
-    DBUG_ASSERT(first_table == all_tables && first_table != 0);
-    DBUG_ASSERT(first_table->db); /* Must be set in the parser */
-
-    if (check_access(thd, CREATE_ACL, first_table->db,
-		     &first_table->grant.privilege, 0, 0,
-                     test(first_table->schema_table)))
-      goto error;				/* purecov: inspected */
-    /* Check that the first table has CREATE privilege */
-    if (check_grant(thd, CREATE_ACL, all_tables, 0, 1, 0))
-      goto error;
-
-    pthread_mutex_lock(&LOCK_active_mi);
-    /*
-      fetch_master_table will send the error to the client on failure.
-      Give error if the table already exists.
-    */
-    if (!fetch_master_table(thd, first_table->db, first_table->table_name,
-			    active_mi, 0, 0))
-    {
-      send_ok(thd);
-    }
-    pthread_mutex_unlock(&LOCK_active_mi);
-    break;
-  }
-#endif /* HAVE_REPLICATION */
-
   case SQLCOM_CREATE_TABLE:
   {
     /* If CREATE TABLE of non-temporary table, do implicit commit */
@@ -2491,6 +2330,7 @@ end_with_restore_list:
     DBUG_ASSERT(first_table == all_tables && first_table != 0);
     if (check_table_access(thd, SELECT_ACL | EXTRA_ACL, all_tables, 0))
       goto error; /* purecov: inspected */
+
     res = mysql_checksum_table(thd, first_table, &lex->check_opt);
     break;
   }
@@ -3011,10 +2851,49 @@ end_with_restore_list:
     send_ok(thd);
     break;
   case SQLCOM_LOCK_TABLES:
+    if (check_table_access(thd, LOCK_TABLES_ACL | SELECT_ACL, all_tables, 0))
+      goto error;
+    /*
+      We try to take transactional locks if
+      - only transactional locks are requested (lex->lock_transactional) and
+      - no non-transactional locks exist (!thd->locked_tables).
+    */
+    DBUG_PRINT("lock_info", ("lex->lock_transactional: %d  "
+                             "thd->locked_tables: 0x%lx",
+                             lex->lock_transactional,
+                             (long) thd->locked_tables));
+    if (lex->lock_transactional && !thd->locked_tables)
+    {
+      int rc;
+      /*
+        All requested locks are transactional and no non-transactional
+        locks exist.
+      */
+      if ((rc= try_transactional_lock(thd, all_tables)) == -1)
+        goto error;
+      if (rc == 0)
+      {
+        send_ok(thd);
+        break;
+      }
+      /*
+        Non-transactional locking has been requested or
+        non-transactional locks exist already or transactional locks are
+        not supported by all storage engines. Take non-transactional
+        locks.
+      */
+    }
+    /*
+      One or more requested locks are non-transactional and/or
+      non-transactional locks exist or a storage engine does not support
+      transactional locks. Check if at least one transactional lock is
+      requested. If yes, warn about the conversion to non-transactional
+      locks or abort in strict mode.
+    */
+    if (check_transactional_lock(thd, all_tables))
+      goto error;
     unlock_locked_tables(thd);
     if (end_active_trans(thd))
-      goto error;
-    if (check_table_access(thd, LOCK_TABLES_ACL | SELECT_ACL, all_tables, 0))
       goto error;
     thd->in_lock_tables=1;
     thd->options|= OPTION_TABLE_LOCK;
@@ -3027,6 +2906,9 @@ end_with_restore_list:
 #endif /*HAVE_QUERY_CACHE*/
       thd->locked_tables=thd->lock;
       thd->lock=0;
+      (void) set_handler_table_locks(thd, all_tables, FALSE);
+      DBUG_PRINT("lock_info", ("thd->locked_tables: 0x%lx",
+                               (long) thd->locked_tables));
       send_ok(thd);
     }
     else
@@ -4885,8 +4767,10 @@ check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
       goto deny;
   }
   thd->security_ctx= backup_ctx;
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
   return check_grant(thd,want_access & ~EXTRA_ACL,org_tables,
 		       test(want_access & EXTRA_ACL), UINT_MAX, no_errors);
+#endif
 deny:
   thd->security_ctx= backup_ctx;
   return TRUE;
@@ -5515,17 +5399,6 @@ bool add_field_to_list(THD *thd, LEX_STRING *field_name, enum_field_types type,
     DBUG_RETURN(1);
   }
 
-  if (type == MYSQL_TYPE_TIMESTAMP && length)
-  {
-    /* Display widths are no longer supported for TIMSTAMP as of MySQL 4.1.
-       In other words, for declarations such as TIMESTAMP(2), TIMESTAMP(4),
-       and so on, the display width is ignored.
-    */
-    char buf[32];
-    my_snprintf(buf, sizeof(buf), "TIMESTAMP(%s)", length);
-    WARN_DEPRECATED(thd, "5.2", buf, "'TIMESTAMP'");
-  }
-
   if (!(new_field= new Create_field()) ||
       new_field->init(thd, field_name->str, type, length, decimals, type_modifier,
                       default_value, on_update_value, comment, change,
@@ -5663,6 +5536,8 @@ TABLE_LIST *st_select_lex::add_table_to_list(THD *thd,
   ptr->table_name=table->table.str;
   ptr->table_name_length=table->table.length;
   ptr->lock_type=   lock_type;
+  ptr->lock_timeout= -1;      /* default timeout */
+  ptr->lock_transactional= 1; /* allow transactional locks */
   ptr->updating=    test(table_options & TL_OPTION_UPDATING);
   ptr->force_index= test(table_options & TL_OPTION_FORCE_INDEX);
   ptr->ignore_leaves= test(table_options & TL_OPTION_IGNORE_LEAVES);

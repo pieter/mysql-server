@@ -82,14 +82,14 @@ CREATE FUNCTION myfuncsql_double(d DOUBLE) RETURNS INTEGER DETERMINISTIC RETURN 
 affected rows: 0
 SELECT db, name, type,  param_list, body, comment FROM mysql.proc WHERE db = 'test' AND name LIKE 'myfuncsql%';
 db	name	type	param_list	body	comment
-test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	
 test	myfuncsql_int	FUNCTION	i INT	RETURN i	
+test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	
 affected rows: 2
 "Running on the slave"
 SELECT db, name, type,  param_list, body, comment FROM mysql.proc WHERE db = 'test' AND name LIKE 'myfuncsql%';
 db	name	type	param_list	body	comment
-test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	
 test	myfuncsql_int	FUNCTION	i INT	RETURN i	
+test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	
 affected rows: 2
 "Running on the master"
 CREATE TABLE t1(sum INT, price FLOAT(24)) ENGINE=MyISAM;
@@ -124,14 +124,14 @@ ALTER FUNCTION myfuncsql_double COMMENT "This was altered.";
 affected rows: 0
 SELECT db, name, type,  param_list, body, comment FROM mysql.proc WHERE db = 'test' AND name LIKE 'myfuncsql%';
 db	name	type	param_list	body	comment
-test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	This was altered.
 test	myfuncsql_int	FUNCTION	i INT	RETURN i	This was altered.
+test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	This was altered.
 affected rows: 2
 "Running on the slave"
 SELECT db, name, type,  param_list, body, comment FROM mysql.proc WHERE db = 'test' AND name LIKE 'myfuncsql%';
 db	name	type	param_list	body	comment
-test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	This was altered.
 test	myfuncsql_int	FUNCTION	i INT	RETURN i	This was altered.
+test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	This was altered.
 affected rows: 2
 SELECT myfuncsql_int(25);
 myfuncsql_int(25)
@@ -242,14 +242,14 @@ CREATE FUNCTION myfuncsql_double(d DOUBLE) RETURNS INTEGER DETERMINISTIC RETURN 
 affected rows: 0
 SELECT db, name, type,  param_list, body, comment FROM mysql.proc WHERE db = 'test' AND name LIKE 'myfuncsql%';
 db	name	type	param_list	body	comment
-test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	
 test	myfuncsql_int	FUNCTION	i INT	RETURN i	
+test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	
 affected rows: 2
 "Running on the slave"
 SELECT db, name, type,  param_list, body, comment FROM mysql.proc WHERE db = 'test' AND name LIKE 'myfuncsql%';
 db	name	type	param_list	body	comment
-test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	
 test	myfuncsql_int	FUNCTION	i INT	RETURN i	
+test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	
 affected rows: 2
 "Running on the master"
 CREATE TABLE t1(sum INT, price FLOAT(24)) ENGINE=MyISAM;
@@ -284,14 +284,14 @@ ALTER FUNCTION myfuncsql_double COMMENT "This was altered.";
 affected rows: 0
 SELECT db, name, type,  param_list, body, comment FROM mysql.proc WHERE db = 'test' AND name LIKE 'myfuncsql%';
 db	name	type	param_list	body	comment
-test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	This was altered.
 test	myfuncsql_int	FUNCTION	i INT	RETURN i	This was altered.
+test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	This was altered.
 affected rows: 2
 "Running on the slave"
 SELECT db, name, type,  param_list, body, comment FROM mysql.proc WHERE db = 'test' AND name LIKE 'myfuncsql%';
 db	name	type	param_list	body	comment
-test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	This was altered.
 test	myfuncsql_int	FUNCTION	i INT	RETURN i	This was altered.
+test	myfuncsql_double	FUNCTION	d DOUBLE	RETURN d * 2.00	This was altered.
 affected rows: 2
 SELECT myfuncsql_int(25);
 myfuncsql_int(25)

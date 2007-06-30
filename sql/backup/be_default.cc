@@ -492,6 +492,9 @@ Restore::Restore(const Table_list &tables, THD *t_thd): Restore_driver(tables)
   */
   tables_in_backup= build_table_list(tables, TL_WRITE);
   all_tables= tables_in_backup;
+  for (int i=0; i < MAX_FIELDS; i++)
+    blob_ptrs[i]= 0;
+  blob_ptr_index= 0;
 }
 
 /**
@@ -771,6 +774,16 @@ result_t Restore::send_data(Buffer &buf)
     if (write_row)
     {
       last_write_res = hdl->write_row(cur_table->record[0]);
+      /*
+        Free the blob pointers used.
+      */
+      for (int i=0; i < blob_ptr_index; i++)
+        if (blob_ptrs[i])
+        {
+          my_free(blob_ptrs[i], MYF(0));
+          blob_ptrs[i]= 0;
+        }
+      blob_ptr_index= 0;
       if (last_write_res == 0)
         mode= WRITE_RCD;
       else
@@ -795,9 +808,11 @@ result_t Restore::send_data(Buffer &buf)
     */
     case BLOB_ONCE:
     {
-      ptr= (byte *)my_malloc(size, MYF(MY_WME));
-      memcpy(ptr, (byte *)buf.data + META_SIZE, size);
-      ((Field_blob*) cur_table->field[*cur_blob])->set_ptr(size, (uchar *)ptr);
+      blob_ptrs[blob_ptr_index]= (byte *)my_malloc(size, MYF(MY_WME));
+      memcpy(blob_ptrs[blob_ptr_index], (byte *)buf.data + META_SIZE, size);
+      ((Field_blob*) cur_table->field[*cur_blob])->set_ptr(size, 
+        (uchar *)blob_ptrs[blob_ptr_index]);
+      blob_ptr_index++;
       mode= CHECK_BLOBS;
       DBUG_RETURN(PROCESSING);
     }

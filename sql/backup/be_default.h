@@ -180,7 +180,7 @@ class Restore: public Restore_driver
       WRITE_BLOB_BUFFER            ///< Buffer blobs mode
     } RESTORE_MODE;
 
-   result_t truncate_table(TABLE *tbl);
+    result_t truncate_table(TABLE *tbl);
     int next_table();
     RESTORE_MODE mode;             ///< Indicates which mode the code is in
     uint tbl_num;                  ///< The index of the current table.
@@ -192,6 +192,8 @@ class Restore: public Restore_driver
     Buffer_iterator rec_buffer;    ///< Buffer iterator for windowing records
     Buffer_iterator blob_buffer;   ///< Buffer iterator for windowing BLOB fields
     TABLE_LIST *tables_in_backup;  ///< List of tables used in backup.
+    byte *blob_ptrs[MAX_FIELDS];   ///< List of blob pointers used
+    int blob_ptr_index;            ///< Position in blob pointer list
 };
 } // default_backup namespace
 

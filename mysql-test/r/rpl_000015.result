@@ -8,9 +8,9 @@ change master to master_host='127.0.0.1';
 SHOW SLAVE STATUS;
 Slave_IO_State	#
 Master_Host	127.0.0.1
-Master_User	test
+Master_User	
 Master_Port	3306
-Connect_Retry	7
+Connect_Retry	60
 Master_Log_File	
 Read_Master_Log_Pos	4
 Relay_Log_File	#

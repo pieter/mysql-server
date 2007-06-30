@@ -1041,6 +1041,7 @@ int setup_semijoin_dups_elimination(JOIN *join, ulonglong options, uint no_jbuf_
   uint i;
 
   DBUG_ENTER("setup_semijoin_dups_elimination");
+  LINT_INIT(range_start_map); // protected by emb_sj_map
   /*
     First pass: locate the duplicate-generating ranges and pick the strategies.
   */
@@ -3158,7 +3159,8 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
   SELECT_LEX *save_lex= thd->lex->current_select;
   thd->lex->current_select=subq_lex;
   if (!subq_pred->left_expr->fixed &&
-       subq_pred->left_expr->fix_fields(thd, &subq_pred->left_expr));
+       subq_pred->left_expr->fix_fields(thd, &subq_pred->left_expr))
+    DBUG_RETURN(TRUE);
   thd->lex->current_select=save_lex;
 
   sj_nest->nested_join->sj_corr_tables= subq_pred->used_tables();
@@ -3369,7 +3371,7 @@ bool JOIN::flatten_subqueries()
 bool find_eq_ref_candidate(TABLE *table, table_map sj_inner_tables)
 {
   KEYUSE *keyuse= table->reginfo.join_tab->keyuse;
-  uint key, part;
+  uint key;
 
   if (keyuse)
   {
@@ -3380,19 +3382,15 @@ bool find_eq_ref_candidate(TABLE *table, table_map sj_inner_tables)
       key_part_map bound_parts= 0;
       if ((keyinfo->flags & (HA_NOSAME | HA_END_SPACE_KEY)) == HA_NOSAME)
       {
-        do  // For all key parts
-        { 
-          do 
-          {  // For all ways to read the keypart
-            /* check if this is "t.keypart = expr(outer_tables) */
-            if (!(keyuse->used_tables & sj_inner_tables) &&
-                !(keyuse->optimize & KEY_OPTIMIZE_REF_OR_NULL))
-            {
-              bound_parts |= 1 << keyuse->keypart;
-            }
-            keyuse++;
-          } while (keyuse->key == key && keyuse->keypart == part &&
-                   keyuse->table == table);
+        do  /* For all equalities on all key parts */
+        {
+          /* Check if this is "t.keypart = expr(outer_tables) */
+          if (!(keyuse->used_tables & sj_inner_tables) &&
+              !(keyuse->optimize & KEY_OPTIMIZE_REF_OR_NULL))
+          {
+            bound_parts |= 1 << keyuse->keypart;
+          }
+          keyuse++;
         } while (keyuse->key == key && keyuse->table == table);
 
         if (bound_parts == PREV_BITS(uint, keyinfo->key_parts))
@@ -5274,11 +5272,11 @@ best_access_path(JOIN      *join,
           if (try_sj_inside_out && keyuse->sj_pred_no != UINT_MAX)
           {
             if (!(remaining_tables & keyuse->used_tables))
-              bound_sj_equalities |= 1 << keyuse->sj_pred_no;
+              bound_sj_equalities |= 1ULL << keyuse->sj_pred_no;
             else
             {
-              handled_sj_equalities |= 1 << keyuse->sj_pred_no;
-              sj_insideout_map |= 1 << keyuse->keypart;
+              handled_sj_equalities |= 1ULL << keyuse->sj_pred_no;
+              sj_insideout_map |= ((key_part_map)1) << keyuse->keypart;
             }
           }
 

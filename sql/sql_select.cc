@@ -623,15 +623,18 @@ JOIN::prepare(Item ***rref_pointer_array,
                                  !in_subs->is_correlated);                // 5
         }
 
-        if ((res= subselect->select_transformer(this)) !=
+        Item_subselect::trans_res trans_res;
+        if ((trans_res= subselect->select_transformer(this)) !=
             Item_subselect::RES_OK)
         {
           select_lex->fix_prepare_information(thd, &conds, &having);
-          DBUG_RETURN((res == Item_subselect::RES_ERROR));
+          DBUG_RETURN((trans_res == Item_subselect::RES_ERROR));
         }
+      }
+    }
+  }
 //psergey-merge: todo: VV
 #if 0
-      Item_subselect::trans_res trans_res;
 
       /*
         For IN predicates, if Item_in_subselect::use_hash_sj == TRUE,
@@ -644,8 +647,6 @@ JOIN::prepare(Item ***rref_pointer_array,
 	DBUG_RETURN((trans_res == Item_subselect::RES_ERROR));
       }
 #endif      
-    }
-  }
 
   select_lex->fix_prepare_information(thd, &conds, &having);
 

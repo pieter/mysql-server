@@ -3069,6 +3069,7 @@ void ha_binlog_log_query(THD *thd, handlerton *hton,
 }
 #endif
 
+
 /*
   Calculate cost of 'index only' scan for given index and number of records
 
@@ -3091,7 +3092,6 @@ void ha_binlog_log_query(THD *thd, handlerton *hton,
   RETURN
     Estimated cost of 'index only' scan
 */
-
 
 double handler::index_only_read_time(uint keynr, double records)
 {

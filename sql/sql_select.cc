@@ -955,7 +955,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd, uint uniq_tuple_length_arg,
 static
 int setup_semijoin_dups_elimination(JOIN *join, ulonglong options, uint no_jbuf_after)
 {
-  table_map cur_map= join->const_table_map;
+  table_map cur_map= join->const_table_map | PSEUDO_TABLE_BITS;
   struct {
     /* 
       0 - invalid (EOF marker), 
@@ -1083,7 +1083,7 @@ int setup_semijoin_dups_elimination(JOIN *join, ulonglong options, uint no_jbuf_
           This is a complete range to be handled with either DuplicateWeedout 
           or FirstMatch
         */
-        dups_ranges[cur_range].strategy= dealing_with_jbuf? 2 : 3;
+        dups_ranges[cur_range].strategy= dealing_with_jbuf? 3 : 2;
         /* 
           This will hold tables from within the range that need to be put 
           into the join buffer before we can use the FirstMatch on its tail.
@@ -1121,16 +1121,18 @@ int setup_semijoin_dups_elimination(JOIN *join, ulonglong options, uint no_jbuf_
     else // DuplicateWeedout strategy
     {
       SJ_TMP_TABLE::TAB sjtabs[MAX_TABLES];
-      table_map cur_map= 0;
+      table_map cur_map= join->const_table_map | PSEUDO_TABLE_BITS;
       uint jt_rowid_offset= 0; // # tuple bytes are already occupied (w/o NULL bytes)
       uint jt_null_bits= 0;    // # null bits in tuple bytes
       SJ_TMP_TABLE::TAB *last_tab= sjtabs;
-      jump_to= tab;
-      uint rowid_keep_flags= JOIN_TAB::CALL_POSITION |
-                             (dups_ranges[j].strategy == 2) ?
-                             JOIN_TAB::KEEP_ROWID : 0;
-
-      while (!bitmap_covers(cur_map, dups_ranges[j].outer_tables))
+      uint rowid_keep_flags= JOIN_TAB::CALL_POSITION | JOIN_TAB::KEEP_ROWID;
+      JOIN_TAB *last_outer_tab= tab - 1;
+      /*
+        Walk through the range and remember
+         - tables that need their rowids to be put into temptable
+         - the last outer table
+      */
+      for (; tab < join->join_tab + dups_ranges[j].end_idx; tab++)
       {
         if (sj_table_is_included(join, tab))
         {
@@ -1146,7 +1148,10 @@ int setup_semijoin_dups_elimination(JOIN *join, ulonglong options, uint no_jbuf_
           tab->table->prepare_for_position();
           tab->rowid_keep_flags= rowid_keep_flags;
         }
-        tab++;
+        cur_map |= tab->table->map;
+        if (!tab->emb_sj_nest && bitmap_covers(cur_map, 
+                                               dups_ranges[j].outer_tables))
+          last_outer_tab= tab;
       }
 
       if (jt_rowid_offset) /* Temptable has at least one rowid */
@@ -1173,19 +1178,19 @@ int setup_semijoin_dups_elimination(JOIN *join, ulonglong options, uint no_jbuf_
                                              sjtbl);
 
         join->join_tab[dups_ranges[j].start_idx].flush_weedout_table= sjtbl;
-        tab->check_weed_out_table= sjtbl;
+        join->join_tab[dups_ranges[j].end_idx - 1].check_weed_out_table= sjtbl;
       }
-      jump_to= tab++;
+      tab= last_outer_tab + 1;
+      jump_to= last_outer_tab;
     }
 
     /* Create the FirstMatch tail */
     for (; tab < join->join_tab + dups_ranges[j].end_idx; tab++)
     {
-      if (!tab->emb_sj_nest && (jump_to != tab - 1))
-      {
+      if (tab->emb_sj_nest)
         tab->do_firstmatch= jump_to; 
+      else
         jump_to= tab;
-      }
     }
   }
   DBUG_RETURN(FALSE);
@@ -2757,7 +2762,7 @@ mysql_select(THD *thd, Item ***rref_pointer_array,
     }
   }
 
-  if (!unit->item)
+  //if (!unit->item)
   {
     //dump_TABLE_LIST_graph(select_lex, select_lex->leaf_tables);
     /* We're not in a subquery predicate */
@@ -7966,7 +7971,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
       {
 	tab->read_first_record= join_read_always_key;
 	tab->read_record.read_record= tab->insideout_match_tab? 
-           join_read_next_same : join_read_next_same_diff;
+           join_read_next_same_diff : join_read_next_same;
       }
       else
       {
@@ -8069,7 +8074,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
     }
   }
   join->join_tab[join->tables-1].next_select=0; /* Set by do_select */
-  return FALSE;
+  DBUG_RETURN(FALSE);
 }
 
 
@@ -8801,8 +8806,7 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
        return TRUE;
     }
     
-    //psergey-insideout:
-    bool copy_item_name= test(item->name >= subq_sj_cond_name && 
+    bool copy_item_name= test(item && item->name >= subq_sj_cond_name && 
                               item->name < subq_sj_cond_name + 64);
     /* Copy the found multiple equalities at the current level if needed */
     if (left_copyfl)

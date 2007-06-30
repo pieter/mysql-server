@@ -1819,6 +1819,11 @@ int subselect_single_select_engine::exec()
 
     optimized= 1;
     unit->set_limit(unit->global_parameters);
+    if (join->flatten_subqueries())
+    {
+      thd->is_fatal_error= TRUE;
+      DBUG_RETURN(1);
+    }
     if (join->optimize())
     {
       thd->where= save_where;

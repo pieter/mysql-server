@@ -435,6 +435,8 @@ result_t Backup::get_data(Buffer &buf)
     size_t bb_size= 0;
 
     bb_size= blob_buffer.get_next((byte **)&ptr, (buf.size - META_SIZE));
+    memcpy((byte *)buf.data + META_SIZE, ptr, bb_size);
+    buf.size = bb_size + META_SIZE;
     if (blob_buffer.num_windows(buf.size - META_SIZE) == 0)
     {
       *buf.data= BLOB_LAST;
@@ -442,9 +444,7 @@ result_t Backup::get_data(Buffer &buf)
       blob_buffer.reset();     // dump the memory 
     }
     else
-      *buf.data= 1;
-    memcpy((byte *)buf.data + META_SIZE, ptr, bb_size);
-    buf.size = bb_size + META_SIZE;
+      *buf.data= BLOB_DATA;
     break;
   }
 
@@ -693,9 +693,7 @@ result_t Restore::send_data(Buffer &buf)
       {
         if (size == cur_table->s->reclength)
         {
-          ptr= (byte *)my_malloc(size, MYF(MY_WME));
           memcpy(cur_table->record[0], (byte *)buf.data + META_SIZE, size);
-          my_free(ptr, MYF(0));
           mode= CHECK_BLOBS;
           DBUG_RETURN(PROCESSING);
         }

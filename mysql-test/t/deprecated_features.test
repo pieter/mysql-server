@@ -5,10 +5,6 @@ set table_type='MyISAM';
 --error ER_UNKNOWN_SYSTEM_VARIABLE
 select @@table_type='MyISAM';
 --error ER_PARSE_ERROR
-backup table t1 to 'data.txt';
---error ER_PARSE_ERROR
-restore table t1 from 'data.txt';
---error ER_PARSE_ERROR
 show plugin;
 --error ER_PARSE_ERROR
 load table t1 from master;

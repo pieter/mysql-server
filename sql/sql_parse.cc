@@ -28,6 +28,8 @@
 #include "events.h"
 #include "sql_trigger.h"
 
+int execute_backup_command(THD*,LEX*);
+
 /* Used in error handling only */
 #define SP_TYPE_STRING(LP) \
   ((LP)->sphead->m_type == TYPE_ENUM_FUNCTION ? "FUNCTION" : "PROCEDURE")
@@ -204,6 +206,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CREATE_DB]=      CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_DB]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_RENAME_TABLE]=   CF_CHANGES_DATA;
+  sql_command_flags[SQLCOM_RESTORE]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_INDEX]=     CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_CREATE_VIEW]=    CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_VIEW]=      CF_CHANGES_DATA;
@@ -1842,6 +1845,33 @@ mysql_execute_command(THD *thd)
     if (check_global_access(thd, REPL_SLAVE_ACL))
       goto error;
     res = mysql_show_binlog_events(thd);
+    break;
+  }
+#endif
+
+  case SQLCOM_SHOW_ARCHIVE:
+#ifdef EMBEDDED_LIBRARY
+    // Note: online backup code doesn't compile as embedded library yet.
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "SHOW ARCHIVE");
+    goto error;
+#endif
+  case SQLCOM_BACKUP:
+#ifdef EMBEDDED_LIBRARY
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "BACKUP");
+    goto error;
+#endif
+  case SQLCOM_RESTORE:
+#ifdef EMBEDDED_LIBRARY
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "RESTORE");
+    goto error;
+#else
+  {
+    /*
+      Note: execute_backup_command() sends a correct response to the client
+      (either ok, result set or error message).
+     */  
+    if (execute_backup_command(thd,lex))
+      goto error;
     break;
   }
 #endif

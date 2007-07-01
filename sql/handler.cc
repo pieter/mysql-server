@@ -420,6 +420,14 @@ int ha_initialize_handlerton(st_plugin_int *plugin)
 
   hton= (handlerton *)my_malloc(sizeof(handlerton),
                                 MYF(MY_WME | MY_ZEROFILL));
+  /* 
+    FIXME: the MY_ZEROFILL flag above doesn't zero all the bytes.
+    
+    This was detected after adding get_backup_engine member to handlerton
+    structure. Apparently get_backup_engine was not NULL even though it was
+    not initialized.
+   */
+  bzero(hton, sizeof(hton));
   /* Historical Requirement */
   plugin->data= hton; // shortcut for the future
   if (plugin->plugin->init)

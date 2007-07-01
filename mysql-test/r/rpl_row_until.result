@@ -104,7 +104,7 @@ Last_IO_Errno	#
 Last_IO_Error	#
 Last_SQL_Errno	0
 Last_SQL_Error	
-start slave until relay_log_file='slave-relay-bin.000004', relay_log_pos=728;
+start slave until relay_log_file='slave-relay-bin.000003', relay_log_pos=728;
 select * from t2;
 n
 1

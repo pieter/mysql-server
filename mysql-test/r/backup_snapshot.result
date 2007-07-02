@@ -55,4 +55,4 @@ word
 SELECT COUNT(*) FROM bup_snapshot.t1;
 COUNT(*)
 10
-DROP DATABASE IF EXISTS bup_snapshot;
+DROP DATABASE bup_snapshot;

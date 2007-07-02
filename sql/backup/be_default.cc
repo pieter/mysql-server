@@ -100,14 +100,15 @@ result_t Engine::get_backup(const uint32, const Table_list &tables,
                             Backup_driver* &drv)
 {
   DBUG_ENTER("Engine::get_backup");
-  Backup *ptr= new default_backup::Backup(tables, m_thd);
+  Backup *ptr= new default_backup::Backup(tables, m_thd, TL_READ_NO_INSERT);
   if (!ptr)
     DBUG_RETURN(ERROR);
   drv= ptr;
   DBUG_RETURN(OK);
 }
 
-Backup::Backup(const Table_list &tables, THD *t_thd): Backup_driver(tables)
+Backup::Backup(const Table_list &tables, THD *t_thd, thr_lock_type lock_type): 
+               Backup_driver(tables)
 {
   DBUG_PRINT("default_backup",("Creating backup driver"));
   m_thd= t_thd;         /* save current thread */
@@ -120,7 +121,7 @@ Backup::Backup(const Table_list &tables, THD *t_thd): Backup_driver(tables)
      Create a TABLE_LIST * list for iterating through the tables.
      Initialize the list for opening the tables in read mode.
   */
-  tables_in_backup= build_table_list(tables, TL_READ_NO_INSERT);
+  tables_in_backup= build_table_list(tables, lock_type);
   all_tables= tables_in_backup;
 }
 
@@ -344,6 +345,8 @@ result_t Backup::get_data(Buffer &buf)
     size_t rec_size= 0; 
 
     rec_size= rec_buffer.get_next((byte **)&ptr, (buf.size - META_SIZE));
+    memcpy((byte *)buf.data + META_SIZE, ptr, rec_size);
+    buf.size = rec_size + META_SIZE;
     if (rec_buffer.num_windows(buf.size - META_SIZE) == 0)
     {
       *buf.data= RCD_LAST;
@@ -352,8 +355,6 @@ result_t Backup::get_data(Buffer &buf)
     }
     else
       *buf.data= RCD_DATA;
-    memcpy((byte *)buf.data + META_SIZE, ptr, rec_size);
-    buf.size = rec_size + META_SIZE;
     break;
   }
 
@@ -730,6 +731,7 @@ result_t Restore::send_data(Buffer &buf)
         rec_buffer.put_next((byte *)buf.data + META_SIZE, size);
         ptr= (byte *)rec_buffer.get_base_ptr();
         memcpy(cur_table->record[0], ptr, cur_table->s->reclength);
+        rec_buffer.reset();
         mode= CHECK_BLOBS;
       }
       default:
@@ -821,7 +823,8 @@ result_t Restore::send_data(Buffer &buf)
     case BLOB_FIRST:
     {
       max_blob_size= uint4korr(buf.data + META_SIZE);
-      blob_buffer.initialize(max_blob_size);
+      blob_ptrs[blob_ptr_index]= (byte *)my_malloc(max_blob_size, MYF(MY_WME));
+      blob_buffer.initialize(blob_ptrs[blob_ptr_index], max_blob_size);
       size= buf.size - META_SIZE - 4;
       blob_buffer.put_next((byte *)buf.data + META_SIZE + 4, size);
       mode= WRITE_BLOB;
@@ -847,6 +850,7 @@ result_t Restore::send_data(Buffer &buf)
       ptr= (byte *)blob_buffer.get_base_ptr();
       ((Field_blob*) cur_table->field[*cur_blob])->set_ptr(max_blob_size, 
         (uchar *)ptr);
+      blob_ptr_index++;
       mode= CHECK_BLOBS;
       DBUG_RETURN(PROCESSING);
     }

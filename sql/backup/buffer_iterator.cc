@@ -78,6 +78,8 @@ int Buffer_iterator::reset()
   DBUG_ENTER("buffer_iterator::reset()");
   if (alloc_used && buffer)
     my_free(buffer, MYF(0));
+  alloc_used= FALSE;
+  buffer= NULL;
   DBUG_RETURN(0);
 }
 

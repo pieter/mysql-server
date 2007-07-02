@@ -58,8 +58,9 @@ class Engine: public Backup_engine
 class Backup: public default_backup::Backup
 {
   public:
-    Backup(const Table_list &tables, THD *t_thd);
-    virtual ~Backup(){};
+    Backup(const Table_list &tables, THD *t_thd): 
+      default_backup::Backup(tables, t_thd, TL_READ) {};
+    virtual ~Backup() {};
     result_t begin(const size_t) { return backup::OK; };
     result_t end();
     result_t prelock() { return backup::READY; }

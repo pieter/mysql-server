@@ -64,6 +64,25 @@ bool change_db(THD *thd, const Db_ref &db)
   return 0 == ::mysql_change_db(thd,&db_name,TRUE);
 }
 
+/*
+  Free the memory for the table list.
+*/
+inline int free_table_list(TABLE_LIST *all_tables)
+{
+  if (all_tables)
+  {
+    TABLE_LIST *tbl= all_tables; 
+    TABLE_LIST *prev= tbl;
+    while (tbl != NULL)
+    {
+      prev= tbl;
+      tbl= tbl->next_global;
+      my_free(prev, MYF(0));
+    }
+  }
+  return 0;
+}
+
 } // backup namespace
 
 #endif

@@ -1233,7 +1233,7 @@ TABLE_LIST *build_table_list(const Table_list &tables, thr_lock_type lock)
 
   for( uint tno=0; tno < tables.count() ; tno++ )
   {
-    TABLE_LIST *ptr= (TABLE_LIST*)sql_alloc(sizeof(TABLE_LIST));
+    TABLE_LIST *ptr= (TABLE_LIST*)my_malloc(sizeof(TABLE_LIST), MYF(MY_WME));
     DBUG_ASSERT(ptr);  // FIXME: report error instead
     bzero(ptr,sizeof(TABLE_LIST));
 

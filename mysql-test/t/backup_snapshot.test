@@ -74,9 +74,7 @@ RESTORE FROM "bup_snapshot.bak";
 SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
 SELECT COUNT(*) FROM bup_snapshot.t1;
 
---disable_warnings
-DROP DATABASE IF EXISTS bup_snapshot;
---enable_warnings
+DROP DATABASE bup_snapshot;
 
 --exec rm $MYSQLTEST_VARDIR/master-data/bup_snapshot.bak
 

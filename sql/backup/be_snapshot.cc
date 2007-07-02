@@ -77,23 +77,6 @@ result_t Engine::get_backup(const uint32, const Table_list &tables, Backup_drive
   DBUG_RETURN(OK);
 }
 
-Backup::Backup(const Table_list &tables, THD *t_thd): 
-  default_backup::Backup(tables, t_thd)
-{
-  DBUG_PRINT("default_backup",("Creating backup driver"));
-  lock_called= FALSE;   /* lock has not been called */
-
-  /*
-     Create a TABLE_LIST * list for iterating through the tables.
-     Initialize the list for opening the tables in read mode.
-  */
-  tables_in_backup= build_table_list(tables, TL_READ);
-  all_tables= tables_in_backup;
-  if (all_tables)
-    for (TABLE_LIST *tbl= all_tables; tbl != NULL; tbl= tbl->next_global)
-      tbl->lock_type= TL_READ;
-}
-
 /**
  * @brief End backup process.
  *

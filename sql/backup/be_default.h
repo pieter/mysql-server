@@ -5,6 +5,7 @@
 #include <backup/archive.h>   // to define default backup image class
 #include "archive.h"
 #include "buffer_iterator.h"
+#include "backup_aux.h"
 
 namespace default_backup {
 
@@ -83,8 +84,8 @@ class Backup: public Backup_driver
 {
   public:
     enum has_data_info { YES, WAIT, EOD };
-    Backup(const Table_list &tables, THD *t_thd);
-    virtual ~Backup() {};
+    Backup(const Table_list &tables, THD *t_thd, thr_lock_type lock_type);
+    virtual ~Backup() { backup::free_table_list(all_tables); }; 
     size_t size()  { return UNKNOWN_SIZE; };
     size_t init_size() { return 0; };
     result_t  begin(const size_t) { return backup::OK; };
@@ -101,10 +102,8 @@ class Backup: public Backup_driver
     void free() { delete this; };
 
  protected:
-    THD *m_thd;                    ///< Pointer to current thread struct.
-    TABLE_LIST *all_tables;        ///< Reference to list of tables used.
-    TABLE_LIST *tables_in_backup;  ///< List of tables used in backup.
     my_bool lock_called;           ///< Checks to see if locks have been reached.
+    THD *m_thd;                    ///< Pointer to current thread struct.
 
   private:
     /*
@@ -135,6 +134,8 @@ class Backup: public Backup_driver
     Buffer_iterator rec_buffer;    ///< Buffer iterator for windowing records
     Buffer_iterator blob_buffer;   ///< Buffer iterator for windowing BLOB fields
     byte *ptr;                     ///< Pointer to blob data from record.
+    TABLE_LIST *all_tables;        ///< Reference to list of tables used.
+    TABLE_LIST *tables_in_backup;  ///< List of tables used in backup.
 };
 
 /**
@@ -153,17 +154,13 @@ class Restore: public Restore_driver
   public:
     enum has_data_info { YES, WAIT, EOD };
     Restore(const Table_list &tables, THD *t_thd);
-    virtual ~Restore() {};
+    virtual ~Restore() { backup::free_table_list(all_tables); };
     result_t  begin(const size_t) { return backup::OK; };
     result_t  end();
     result_t  send_data(Buffer &buf);
     result_t  cancel() { return backup::OK; };
     TABLE_LIST *get_table_list() { return all_tables; }
     void free() { delete this; };
-
- protected:
-    THD *m_thd;                    ///< Pointer to current thread struct.
-    TABLE_LIST *all_tables;        ///< Reference to list of tables used.
 
  private:
      /*
@@ -194,6 +191,8 @@ class Restore: public Restore_driver
     TABLE_LIST *tables_in_backup;  ///< List of tables used in backup.
     byte *blob_ptrs[MAX_FIELDS];   ///< List of blob pointers used
     int blob_ptr_index;            ///< Position in blob pointer list
+    THD *m_thd;                    ///< Pointer to current thread struct.
+    TABLE_LIST *all_tables;        ///< Reference to list of tables used.
 };
 } // default_backup namespace
 
@@ -224,7 +223,8 @@ class Default_image: public Image_info
   { return TRUE; }; // accept all tables
 
   result_t get_backup_driver(Backup_driver* &ptr)
-  { return (ptr= new default_backup::Backup(tables,::current_thd)) ? OK : ERROR; }
+  { return (ptr= new default_backup::Backup(tables,::current_thd, 
+                                            TL_READ_NO_INSERT)) ? OK : ERROR; }
 
   result_t get_restore_driver(Restore_driver* &ptr)
   { return (ptr= new default_backup::Restore(tables,::current_thd)) ? OK : ERROR; }

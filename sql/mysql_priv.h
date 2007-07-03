@@ -240,11 +240,11 @@ MY_LOCALE *my_locale_by_number(uint number);
   The cost of average seek 
     DISK_SEEK_BASE_COST + DISK_SEEK_PROP_COST*BLOCKS_IN_AVG_SEEK =1.0.
 */
-#define DISK_SEEK_BASE_COST ((double)0.5)
+#define DISK_SEEK_BASE_COST ((double)0.9)
 
 #define BLOCKS_IN_AVG_SEEK  128
 
-#define DISK_SEEK_PROP_COST ((double)0.5/BLOCKS_IN_AVG_SEEK)
+#define DISK_SEEK_PROP_COST ((double)0.1/BLOCKS_IN_AVG_SEEK)
 
 
 /*
@@ -417,6 +417,12 @@ MY_LOCALE *my_locale_by_number(uint number);
 #define MODE_HIGH_NOT_PRECEDENCE	(MODE_NO_AUTO_CREATE_USER*2)
 #define MODE_NO_ENGINE_SUBSTITUTION     (MODE_HIGH_NOT_PRECEDENCE*2)
 #define MODE_PAD_CHAR_TO_FULL_LENGTH    (ULL(1) << 31)
+
+
+/* @@optimizer_switch flags */
+#define OPTIMIZER_SWITCH_NO_MATERIALIZATION 1
+#define OPTIMIZER_SWITCH_NO_SEMIJOIN 2
+
 
 /*
   Replication uses 8 bytes to store SQL_MODE in the binary log. The day you
@@ -1528,14 +1534,21 @@ void print_cached_tables(void);
 void TEST_filesort(SORT_FIELD *sortorder,uint s_length);
 void print_plan(JOIN* join,uint idx, double record_count, double read_time,
                 double current_read_time, const char *info);
+void print_keyuse_array(DYNAMIC_ARRAY *keyuse_array);
+#define EXTRA_DEBUG_DUMP_TABLE_LISTS
+#ifdef EXTRA_DEBUG_DUMP_TABLE_LISTS
+void dump_TABLE_LIST_graph(SELECT_LEX *select_lex, TABLE_LIST* tl);
+#endif
 #endif
 void mysql_print_status();
+
 /* key.cc */
 int find_ref_key(KEY *key, uint key_count, uchar *record, Field *field,
                  uint *key_length, uint *keypart);
 void key_copy(uchar *to_key, uchar *from_record, KEY *key_info, uint key_length);
 void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
                  uint key_length);
+void key_zero_nulls(uchar *tuple, KEY *key_info);
 bool key_cmp_if_same(TABLE *form,const uchar *key,uint index,uint key_length);
 void key_unpack(String *to,TABLE *form,uint index);
 bool is_key_used(TABLE *table, uint idx, const MY_BITMAP *fields);

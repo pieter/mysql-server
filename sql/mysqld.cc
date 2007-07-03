@@ -263,6 +263,25 @@ static const unsigned int sql_mode_names_len[]=
 TYPELIB sql_mode_typelib= { array_elements(sql_mode_names)-1,"",
 			    sql_mode_names,
                             (unsigned int *)sql_mode_names_len };
+
+
+static const char *optimizer_switch_names[]=
+{
+  "no_materialization", "no_semijoin",
+  NullS
+};
+
+/* Corresponding defines are named OPTIMIZER_SWITCH_XXX */
+static const unsigned int optimizer_switch_names_len[]=
+{
+  /*no_materialization*/          19,
+  /*no_semijoin*/                 11
+};
+
+TYPELIB optimizer_switch_typelib= { array_elements(optimizer_switch_names)-1,"",
+                                    optimizer_switch_names,
+                                    (unsigned int *)optimizer_switch_names_len };
+
 static const char *tc_heuristic_recover_names[]=
 {
   "COMMIT", "ROLLBACK", NullS
@@ -2908,6 +2927,9 @@ static int init_common_variables(const char *conf_file_name, int argc,
   global_system_variables.character_set_results= default_charset_info;
   global_system_variables.character_set_client= default_charset_info;
   global_system_variables.collation_connection= default_charset_info;
+
+  global_system_variables.optimizer_use_mrr= 1;
+  global_system_variables.optimizer_switch= 0;
 
   if (!(character_set_filesystem= 
         get_charset_by_csname(character_set_filesystem_name,
@@ -5994,11 +6016,6 @@ The minimum value for this variable is 4096.",
    "After this many write locks, allow some read locks to run in between.",
    (uchar**) &max_write_lock_count, (uchar**) &max_write_lock_count, 0, GET_ULONG,
    REQUIRED_ARG, ~0L, 1, ~0L, 0, 1, 0},
-  {"multi_range_count", OPT_MULTI_RANGE_COUNT,
-   "Number of key ranges to request at once.",
-   (uchar**) &global_system_variables.multi_range_count,
-   (uchar**) &max_system_variables.multi_range_count, 0,
-   GET_ULONG, REQUIRED_ARG, 256, 1, ~0L, 0, 1, 0},
   {"myisam_block_size", OPT_MYISAM_BLOCK_SIZE,
    "Block size to be used for MyISAM index pages.",
    (uchar**) &opt_myisam_block_size,
@@ -6153,8 +6170,8 @@ The minimum value for this variable is 4096.",
    "When reading rows in sorted order after a sort, the rows are read through this buffer to avoid a disk seeks. If not set, then it's set to the value of record_buffer.",
    (uchar**) &global_system_variables.read_rnd_buff_size,
    (uchar**) &max_system_variables.read_rnd_buff_size, 0,
-   GET_ULONG, REQUIRED_ARG, 256*1024L, IO_SIZE*2+MALLOC_OVERHEAD,
-   SSIZE_MAX, MALLOC_OVERHEAD, IO_SIZE, 0},
+   GET_ULONG, REQUIRED_ARG, 256*1024L, 64 /*IO_SIZE*2+MALLOC_OVERHEAD*/ ,
+   SSIZE_MAX, MALLOC_OVERHEAD, 1 /* Small lower limit to be able to test MRR */, 0},
   {"record_buffer", OPT_RECORD_BUFFER,
    "Alias for read_buffer_size",
    (uchar**) &global_system_variables.read_buff_size,
@@ -6642,6 +6659,7 @@ SHOW_VAR status_vars[]= {
   {"Com_alter_event",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ALTER_EVENT]), SHOW_LONG_STATUS},
   {"Com_alter_table",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ALTER_TABLE]), SHOW_LONG_STATUS},
   {"Com_analyze",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ANALYZE]), SHOW_LONG_STATUS},
+  {"Com_backup",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_BACKUP]), SHOW_LONG_STATUS},
   {"Com_begin",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_BEGIN]), SHOW_LONG_STATUS},
   {"Com_call_procedure",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CALL]), SHOW_LONG_STATUS},
   {"Com_change_db",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CHANGE_DB]), SHOW_LONG_STATUS},
@@ -6687,6 +6705,7 @@ SHOW_VAR status_vars[]= {
   {"Com_replace",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REPLACE]), SHOW_LONG_STATUS},
   {"Com_replace_select",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REPLACE_SELECT]), SHOW_LONG_STATUS},
   {"Com_reset",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_RESET]), SHOW_LONG_STATUS},
+  {"Com_restore",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_RESTORE]), SHOW_LONG_STATUS},
   {"Com_revoke",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REVOKE]), SHOW_LONG_STATUS},
   {"Com_revoke_all",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REVOKE_ALL]), SHOW_LONG_STATUS},
   {"Com_rollback",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ROLLBACK]), SHOW_LONG_STATUS},

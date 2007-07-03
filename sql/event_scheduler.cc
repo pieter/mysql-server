@@ -144,7 +144,7 @@ post_init_event_thread(THD *thd)
 void
 deinit_event_thread(THD *thd)
 {
-  thd->proc_info= "Clearing";
+  THD_SET_PROC_INFO(thd, "Clearing");
   DBUG_ASSERT(thd->net.buff != 0);
   net_end(&thd->net);
   DBUG_PRINT("exit", ("Event thread finishing"));
@@ -193,7 +193,7 @@ pre_init_event_thread(THD* thd)
     vio is NULL.
   */
 
-  thd->proc_info= "Initialized";
+  THD_SET_PROC_INFO(thd, "Initialized");
   thd->version= refresh_version;
   thd->set_time();
 
@@ -410,7 +410,7 @@ Event_scheduler::start()
     scheduler_thd= NULL;
     ret= TRUE;
 
-    new_thd->proc_info= "Clearing";
+    THD_SET_PROC_INFO(new_thd, "Clearing");
     DBUG_ASSERT(new_thd->net.buff != 0);
     net_end(&new_thd->net);
     pthread_mutex_lock(&LOCK_thread_count);
@@ -542,7 +542,7 @@ error:
   DBUG_PRINT("error", ("Event_scheduler::execute_top() res: %d", res));
   if (new_thd)
   {
-    new_thd->proc_info= "Clearing";
+    THD_SET_PROC_INFO(new_thd, "Clearing");
     DBUG_ASSERT(new_thd->net.buff != 0);
     net_end(&new_thd->net);
     pthread_mutex_lock(&LOCK_thread_count);

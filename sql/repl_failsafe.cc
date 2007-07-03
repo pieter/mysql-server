@@ -91,7 +91,7 @@ static int init_failsafe_rpl_thread(THD* thd)
   if (thd->variables.max_join_size == HA_POS_ERROR)
     thd->options|= OPTION_BIG_SELECTS;
 
-  thd->proc_info="Thread initialized";
+  THD_SET_PROC_INFO(thd, "Thread initialized");
   thd->version=refresh_version;
   thd->set_time();
   DBUG_RETURN(0);
@@ -599,7 +599,7 @@ pthread_handler_t handle_failsafe_rpl(void *arg)
   {
     bool break_req_chain = 0;
     pthread_cond_wait(&COND_rpl_status, &LOCK_rpl_status);
-    thd->proc_info="Processing request";
+    THD_SET_PROC_INFO(thd, "Processing request");
     while (!break_req_chain)
     {
       switch (rpl_status) {

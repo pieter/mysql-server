@@ -28,6 +28,8 @@
 #include "events.h"
 #include "sql_trigger.h"
 
+int execute_backup_command(THD*,LEX*);
+
 /* Used in error handling only */
 #define SP_TYPE_STRING(LP) \
   ((LP)->sphead->m_type == TYPE_ENUM_FUNCTION ? "FUNCTION" : "PROCEDURE")
@@ -204,6 +206,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_CREATE_DB]=      CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_DB]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_RENAME_TABLE]=   CF_CHANGES_DATA;
+  sql_command_flags[SQLCOM_RESTORE]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_INDEX]=     CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_CREATE_VIEW]=    CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_VIEW]=      CF_CHANGES_DATA;
@@ -263,7 +266,7 @@ void execute_init_command(THD *thd, sys_var_str *init_command_var,
   Vio* save_vio;
   ulong save_client_capabilities;
 
-  thd->proc_info= "Execution of init_command";
+  THD_SET_PROC_INFO(thd, "Execution of init_command");
   /*
     We need to lock init_command_var because
     during execution of init_command_var query
@@ -320,7 +323,7 @@ pthread_handler_t handle_bootstrap(void *arg)
   if (thd->variables.max_join_size == HA_POS_ERROR)
     thd->options |= OPTION_BIG_SELECTS;
 
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   thd->version=refresh_version;
   thd->security_ctx->priv_user=
     thd->security_ctx->user= (char*) my_strdup("boot", MYF(MY_WME));
@@ -1157,7 +1160,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   if (thd->lock || thd->open_tables || thd->derived_tables ||
       thd->prelocked_mode)
   {
-    thd->proc_info="closing tables";
+    THD_SET_PROC_INFO(thd, "closing tables");
     close_thread_tables(thd);			/* Free tables */
   }
   /*
@@ -1180,9 +1183,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
   log_slow_statement(thd);
 
-  thd->proc_info="cleaning up";
+  THD_SET_PROC_INFO(thd, "cleaning up");
   VOID(pthread_mutex_lock(&LOCK_thread_count)); // For process list
-  thd->proc_info=0;
+  THD_SET_PROC_INFO(thd, 0);
   thd->command=COM_SLEEP;
   thd->query=0;
   thd->query_length=0;
@@ -1216,7 +1219,7 @@ void log_slow_statement(THD *thd)
   */
   if (thd->enable_slow_log && !thd->user_time)
   {
-    thd->proc_info="logging slow query";
+    THD_SET_PROC_INFO(thd, "logging slow query");
 
     if ((ulong) (thd->start_time - thd->time_after_lock) >
 	thd->variables.long_query_time ||
@@ -1842,6 +1845,33 @@ mysql_execute_command(THD *thd)
     if (check_global_access(thd, REPL_SLAVE_ACL))
       goto error;
     res = mysql_show_binlog_events(thd);
+    break;
+  }
+#endif
+
+  case SQLCOM_SHOW_ARCHIVE:
+#ifdef EMBEDDED_LIBRARY
+    // Note: online backup code doesn't compile as embedded library yet.
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "SHOW ARCHIVE");
+    goto error;
+#endif
+  case SQLCOM_BACKUP:
+#ifdef EMBEDDED_LIBRARY
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "BACKUP");
+    goto error;
+#endif
+  case SQLCOM_RESTORE:
+#ifdef EMBEDDED_LIBRARY
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "RESTORE");
+    goto error;
+#else
+  {
+    /*
+      Note: execute_backup_command() sends a correct response to the client
+      (either ok, result set or error message).
+     */  
+    if (execute_backup_command(thd,lex))
+      goto error;
     break;
   }
 #endif
@@ -2695,7 +2725,7 @@ end_with_restore_list:
     if (add_item_to_list(thd, new Item_null()))
       goto error;
 
-    thd->proc_info="init";
+    THD_SET_PROC_INFO(thd, "init");
     if ((res= open_and_lock_tables(thd, all_tables)))
       break;
 
@@ -4278,7 +4308,7 @@ create_sp_error:
     break;
   }
 
-  thd->proc_info="query end";
+  THD_SET_PROC_INFO(thd, "query end");
 
   /*
     Binlog-related cleanup:
@@ -5288,7 +5318,7 @@ void mysql_parse(THD *thd, const char *inBuf, uint length,
       thd->lex->sphead= 0;
     }
     lex->unit.cleanup();
-    thd->proc_info="freeing items";
+    THD_SET_PROC_INFO(thd, "freeing items");
     thd->end_statement();
     thd->cleanup_after_query();
     DBUG_ASSERT(thd->change_list.is_empty());

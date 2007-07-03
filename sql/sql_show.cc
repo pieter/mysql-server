@@ -2179,9 +2179,10 @@ bool schema_table_store_record(THD *thd, TABLE *table)
   int error;
   if ((error= table->file->ha_write_row(table->record[0])))
   {
-    if (create_myisam_from_heap(thd, table, 
-                                table->pos_in_table_list->schema_table_param,
-                                error, 0))
+    TMP_TABLE_PARAM *param= table->pos_in_table_list->schema_table_param;
+
+    if (create_myisam_from_heap(thd, table, param->start_recinfo, 
+                                &param->recinfo, error, 0))
       return 1;
   }
   return 0;
@@ -2232,11 +2233,9 @@ bool uses_only_table_name_fields(Item *item, TABLE_LIST *table)
   if (item->type() == Item::FUNC_ITEM)
   {
     Item_func *item_func= (Item_func*)item;
-    Item **child;
-    Item **item_end= (item_func->arguments()) + item_func->argument_count();
-    for (child= item_func->arguments(); child != item_end; child++)
+    for (uint i=0; i<item_func->argument_count(); i++)
     {
-      if (!uses_only_table_name_fields(*child, table))
+      if (!uses_only_table_name_fields(item_func->arguments()[i], table))
         return 0;
     }
   }

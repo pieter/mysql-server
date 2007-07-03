@@ -344,6 +344,7 @@ sub mtr_report_stats ($) {
 		/Slave: The incident LOST_EVENTS occured on the master/ or
 		/Slave: Unknown error.* 1105/ or
 		/Slave: Can't drop database.* database doesn't exist/ or
+		/Backup:/ or /Restore:/ or
 		/Sort aborted/ or
 		/Time-out in NDB/ or
 		/Warning:\s+One can only use the --user.*root/ or

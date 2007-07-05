@@ -198,6 +198,7 @@ byte *Buffer_iterator::get_base_ptr()
   cur_bytes_read= 0;
   ptr= buffer;
   cur_ptr= 0;
-  buffer= 0;
+  if (!alloc_used && buffer)
+    buffer= 0;
   DBUG_RETURN(ptr);
 }

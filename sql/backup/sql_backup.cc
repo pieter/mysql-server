@@ -42,7 +42,7 @@ static OStream* open_for_write(const Location&);
   Report errors. The main error code and optional arguments for its description
   are given plus a logger object which can contain stored errors.
  */
-static int report_errors(THD*,int, Logger&,...);
+static int report_errors(THD*, Logger&, int, ...);
 
 /*
   Check if info object is valid. If not, report error to client.
@@ -130,7 +130,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
         if (mysql_restore(thd,info,*stream))
         {
-          report_errors(thd,ER_BACKUP_RESTORE,info);
+          report_errors(thd,info,ER_BACKUP_RESTORE);
           goto restore_error;
         }
         else
@@ -203,7 +203,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
       if (mysql_backup(thd,info,*stream))
       {
-        report_errors(thd,ER_BACKUP_BACKUP,info);
+        report_errors(thd,info,ER_BACKUP_BACKUP);
         goto backup_error;
       }
       else
@@ -1068,7 +1068,7 @@ namespace backup {
   Current implementation reports the last error saved in the logger if it exist.
   Otherwise it reports error given by @c error_code.
  */
-int report_errors(THD *thd,int error_code, Logger &log, ...)
+int report_errors(THD *thd, Logger &log, int error_code, ...)
 {
   MYSQL_ERROR *error= log.last_saved_error();
 
@@ -1081,7 +1081,7 @@ int report_errors(THD *thd,int error_code, Logger &log, ...)
   {
     char buf[ERRMSGSIZE + 20];
     va_list args;
-    va_start(args,log);
+    va_start(args,error_code);
 
     my_vsnprintf(buf,sizeof(buf),ER_SAFE(error_code),args);
     my_printf_error(error_code,buf,MYF(0));
@@ -1095,13 +1095,13 @@ int report_errors(THD *thd,int error_code, Logger &log, ...)
 inline
 int check_info(THD *thd, Backup_info &info)
 { 
-  return info.is_valid() ? OK : report_errors(thd,ER_BACKUP_BACKUP_PREPARE,info); 
+  return info.is_valid() ? OK : report_errors(thd,info,ER_BACKUP_BACKUP_PREPARE); 
 }
 
 inline
 int check_info(THD *thd, Restore_info &info)
 { 
-  return info.is_valid() ? OK : report_errors(thd,ER_BACKUP_RESTORE_PREPARE,info); 
+  return info.is_valid() ? OK : report_errors(thd,info,ER_BACKUP_RESTORE_PREPARE); 
 }
 
 /**

@@ -4835,7 +4835,7 @@ int Create_file_log_event::do_apply_event(RELAY_LOG_INFO const *rli)
   bzero((char*)&file, sizeof(file));
   fname_buf= strmov(proc_info, "Making temp file ");
   ext= slave_load_file_stem(fname_buf, file_id, server_id, ".info");
-  thd->proc_info= proc_info;
+  THD_SET_PROC_INFO(thd, proc_info);
   my_delete(fname_buf, MYF(0)); // old copy may exist already
   if ((fd= my_create(fname_buf, CREATE_MODE,
 		     O_WRONLY | O_BINARY | O_EXCL | O_NOFOLLOW,
@@ -4888,7 +4888,7 @@ err:
     end_io_cache(&file);
   if (fd >= 0)
     my_close(fd, MYF(0));
-  thd->proc_info= 0;
+  THD_SET_PROC_INFO(thd, 0);
   return error == 0;
 }
 #endif /* defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT) */
@@ -5009,7 +5009,7 @@ int Append_block_log_event::do_apply_event(RELAY_LOG_INFO const *rli)
 
   fname= strmov(proc_info, "Making temp file ");
   slave_load_file_stem(fname, file_id, server_id, ".data");
-  thd->proc_info= proc_info;
+  THD_SET_PROC_INFO(thd, proc_info);
   if (get_create_or_append())
   {
     my_delete(fname, MYF(0)); // old copy may exist already
@@ -5043,7 +5043,7 @@ int Append_block_log_event::do_apply_event(RELAY_LOG_INFO const *rli)
 err:
   if (fd >= 0)
     my_close(fd, MYF(0));
-  thd->proc_info= 0;
+  THD_SET_PROC_INFO(thd, 0);
   DBUG_RETURN(error);
 }
 #endif

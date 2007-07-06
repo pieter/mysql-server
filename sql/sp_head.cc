@@ -161,6 +161,7 @@ sp_get_flags_for_command(LEX *lex)
     }
     /* fallthrough */
   case SQLCOM_ANALYZE:
+  case SQLCOM_BACKUP:
   case SQLCOM_OPTIMIZE:
   case SQLCOM_PRELOAD_KEYS:
   case SQLCOM_ASSIGN_TO_KEYCACHE:
@@ -205,6 +206,7 @@ sp_get_flags_for_command(LEX *lex)
   case SQLCOM_SHOW_VARIABLES:
   case SQLCOM_SHOW_WARNS:
   case SQLCOM_REPAIR:
+  case SQLCOM_RESTORE:
     flags= sp_head::MULTI_RESULTS;
     break;
   /*
@@ -2504,9 +2506,9 @@ sp_lex_keeper::reset_lex_and_exec_core(THD *thd, uint *nextp,
 
   m_lex->unit.cleanup();
 
-  thd->proc_info="closing tables";
+  THD_SET_PROC_INFO(thd, "closing tables");
   close_thread_tables(thd);
-  thd->proc_info= 0;
+  THD_SET_PROC_INFO(thd, 0);
 
   if (m_lex->query_tables_own_last)
   {

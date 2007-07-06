@@ -263,6 +263,25 @@ static const unsigned int sql_mode_names_len[]=
 TYPELIB sql_mode_typelib= { array_elements(sql_mode_names)-1,"",
 			    sql_mode_names,
                             (unsigned int *)sql_mode_names_len };
+
+
+static const char *optimizer_switch_names[]=
+{
+  "no_materialization", "no_semijoin",
+  NullS
+};
+
+/* Corresponding defines are named OPTIMIZER_SWITCH_XXX */
+static const unsigned int optimizer_switch_names_len[]=
+{
+  /*no_materialization*/          19,
+  /*no_semijoin*/                 11
+};
+
+TYPELIB optimizer_switch_typelib= { array_elements(optimizer_switch_names)-1,"",
+                                    optimizer_switch_names,
+                                    (unsigned int *)optimizer_switch_names_len };
+
 static const char *tc_heuristic_recover_names[]=
 {
   "COMMIT", "ROLLBACK", NullS
@@ -2910,6 +2929,7 @@ static int init_common_variables(const char *conf_file_name, int argc,
   global_system_variables.collation_connection= default_charset_info;
 
   global_system_variables.optimizer_use_mrr= 1;
+  global_system_variables.optimizer_switch= 0;
 
   if (!(character_set_filesystem= 
         get_charset_by_csname(character_set_filesystem_name,
@@ -6648,6 +6668,7 @@ SHOW_VAR status_vars[]= {
   {"Com_alter_event",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ALTER_EVENT]), SHOW_LONG_STATUS},
   {"Com_alter_table",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ALTER_TABLE]), SHOW_LONG_STATUS},
   {"Com_analyze",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ANALYZE]), SHOW_LONG_STATUS},
+  {"Com_backup",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_BACKUP]), SHOW_LONG_STATUS},
   {"Com_begin",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_BEGIN]), SHOW_LONG_STATUS},
   {"Com_call_procedure",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CALL]), SHOW_LONG_STATUS},
   {"Com_change_db",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CHANGE_DB]), SHOW_LONG_STATUS},
@@ -6693,6 +6714,7 @@ SHOW_VAR status_vars[]= {
   {"Com_replace",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REPLACE]), SHOW_LONG_STATUS},
   {"Com_replace_select",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REPLACE_SELECT]), SHOW_LONG_STATUS},
   {"Com_reset",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_RESET]), SHOW_LONG_STATUS},
+  {"Com_restore",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_RESTORE]), SHOW_LONG_STATUS},
   {"Com_revoke",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REVOKE]), SHOW_LONG_STATUS},
   {"Com_revoke_all",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REVOKE_ALL]), SHOW_LONG_STATUS},
   {"Com_rollback",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ROLLBACK]), SHOW_LONG_STATUS},

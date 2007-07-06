@@ -230,7 +230,7 @@ public:
   Item_in_optimizer(Item *a, Item_in_subselect *b):
     Item_bool_func(a, my_reinterpret_cast(Item *)(b)), cache(0),
     save_cache(0), result_for_null_param(UNKNOWN)
-  {}
+  { with_subselect= TRUE; }
   bool fix_fields(THD *, Item **);
   bool fix_left(THD *thd, Item **ref);
   bool is_null();
@@ -239,6 +239,7 @@ public:
   const char *func_name() const { return "<in_optimizer>"; }
   Item_cache **get_cache() { return &cache; }
   void keep_top_level_cache();
+  Item *transform(Item_transformer transformer, uchar *arg);
 };
 
 class Comp_creator
@@ -1439,6 +1440,7 @@ public:
   bool add(Item *item) { return list.push_back(item); }
   void add_at_head(List<Item> *nlist) { list.prepand(nlist); }
   bool fix_fields(THD *, Item **ref);
+  void fix_after_pullout(st_select_lex *new_parent, Item **ref);
 
   enum Type type() const { return COND_ITEM; }
   List<Item>* argument_list() { return &list; }

@@ -418,6 +418,12 @@ MY_LOCALE *my_locale_by_number(uint number);
 #define MODE_NO_ENGINE_SUBSTITUTION     (MODE_HIGH_NOT_PRECEDENCE*2)
 #define MODE_PAD_CHAR_TO_FULL_LENGTH    (ULL(1) << 31)
 
+
+/* @@optimizer_switch flags */
+#define OPTIMIZER_SWITCH_NO_MATERIALIZATION 1
+#define OPTIMIZER_SWITCH_NO_SEMIJOIN 2
+
+
 /*
   Replication uses 8 bytes to store SQL_MODE in the binary log. The day you
   use strictly more than 64 bits by adding one more define above, you should
@@ -1531,8 +1537,14 @@ void print_cached_tables(void);
 void TEST_filesort(SORT_FIELD *sortorder,uint s_length);
 void print_plan(JOIN* join,uint idx, double record_count, double read_time,
                 double current_read_time, const char *info);
+void print_keyuse_array(DYNAMIC_ARRAY *keyuse_array);
+#define EXTRA_DEBUG_DUMP_TABLE_LISTS
+#ifdef EXTRA_DEBUG_DUMP_TABLE_LISTS
+void dump_TABLE_LIST_graph(SELECT_LEX *select_lex, TABLE_LIST* tl);
+#endif
 #endif
 void mysql_print_status();
+
 /* key.cc */
 int find_ref_key(KEY *key, uint key_count, uchar *record, Field *field,
                  uint *key_length, uint *keypart);

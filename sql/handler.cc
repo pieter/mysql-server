@@ -420,6 +420,14 @@ int ha_initialize_handlerton(st_plugin_int *plugin)
 
   hton= (handlerton *)my_malloc(sizeof(handlerton),
                                 MYF(MY_WME | MY_ZEROFILL));
+  /* 
+    FIXME: the MY_ZEROFILL flag above doesn't zero all the bytes.
+    
+    This was detected after adding get_backup_engine member to handlerton
+    structure. Apparently get_backup_engine was not NULL even though it was
+    not initialized.
+   */
+  bzero(hton, sizeof(hton));
   /* Historical Requirement */
   plugin->data= hton; // shortcut for the future
   if (plugin->plugin->init)
@@ -3069,6 +3077,7 @@ void ha_binlog_log_query(THD *thd, handlerton *hton,
 }
 #endif
 
+
 /*
   Calculate cost of 'index only' scan for given index and number of records
 
@@ -3091,7 +3100,6 @@ void ha_binlog_log_query(THD *thd, handlerton *hton,
   RETURN
     Estimated cost of 'index only' scan
 */
-
 
 double handler::index_only_read_time(uint keynr, double records)
 {
@@ -3588,20 +3596,6 @@ int DsMrr_impl::dsmrr_fill_buffer(handler *h)
     DBUG_RETURN(res); 
   dsmrr_eof= test(res == HA_ERR_END_OF_FILE);
 
-//psergey-pmerge{: not needed: 
-#if 0
-  if (!res && (h->mrr_cur_range.range_flag != (UNIQUE_RANGE | EQ_RANGE)))
-  {
-    /* Save the index position: search tuple + rowid */
-    key_copy(last_idx_tuple, h->table->record[0], mrr_key,
-             mrr_key->key_length);
-    key_zero_nulls(last_idx_tuple, mrr_key);
-
-    memcpy(last_idx_tuple + mrr_key->key_length, h->ref, h->ref_length);
-    h->mrr_restore_scan= TRUE;
-  }
-#endif
-//}psergey-pmerge
   /* Sort the buffer contents by rowid */
   uint elem_size= h->ref_length + (int)is_mrr_assoc * sizeof(void*);
   uint n_rowids= (rowids_buf_cur - rowids_buf) / elem_size;

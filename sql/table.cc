@@ -2392,7 +2392,8 @@ File create_frm(THD *thd, const char *name, const char *db,
       9 extra bytes (padding for safety? alignment?)
       comments
     */
-    key_length= keys * (8 + MAX_REF_PARTS * 9 + NAME_LEN + 1) + 16 + key_comments_total_bytes;
+    key_length= (keys * (8 + MAX_REF_PARTS * 9 + NAME_LEN + 1) + 16 +
+                 key_comment_total_bytes);
     length= next_io_size((ulong) (IO_SIZE+key_length+reclength+
                                   create_info->extra_size));
     int4store(fileinfo+10,length);

@@ -449,7 +449,7 @@ int open_table_def(THD *thd, TABLE_SHARE *share, uint db_flags)
   int error, table_type;
   bool error_given;
   File file;
-  uchar head[288], *disk_buff;
+  uchar head[64], *disk_buff;
   char	path[FN_REFLEN];
   MEM_ROOT **root_ptr, *old_root;
   DBUG_ENTER("open_table_def");
@@ -598,6 +598,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   uint extra_rec_buf_length;
   uint i,j;
   bool use_hash;
+  uchar forminfo[288];
   char *keynames, *names, *comment_pos;
   uchar *record;
   uchar *disk_buff, *strpos, *null_flags, *null_pos;
@@ -620,6 +621,9 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   error= 3;
   if (!(pos=get_form_pos(file,head,(TYPELIB*) 0)))
     goto err;                                   /* purecov: inspected */
+  VOID(my_seek(file,pos,MY_SEEK_SET,MYF(0)));
+  if (my_read(file,forminfo,288,MYF(MY_NABP)))
+    goto err;
 
   share->frm_version= head[2];
   /*
@@ -764,6 +768,20 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   }
   keynames=(char*) key_part;
   strpos+= (strmov(keynames, (char *) strpos) - keynames)+1;
+
+  //reading index comments
+  for (keyinfo= share->key_info, i=0; i < keys; i++, keyinfo++)
+  {
+    if (keyinfo->flags & HA_USES_COMMENT)
+    {
+      keyinfo->comment.length= uint2korr(strpos);
+      keyinfo->comment.str= strmake_root(&share->mem_root, (char*) strpos+2,
+                                         keyinfo->comment.length);
+      strpos+= 2 + keyinfo->comment.length;
+    } 
+    DBUG_ASSERT(test(keyinfo->flags & HA_USES_COMMENT) == 
+               (keyinfo->comment.length > 0));
+  }
 
   share->reclength = uint2korr((head+16));
   if (*(head+26) == 1)
@@ -918,6 +936,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         }
         parser_name.str= (char*) next_chunk;
         parser_name.length= strlen((char*) next_chunk);
+        next_chunk += parser_name.length + 1;
         keyinfo->parser= my_plugin_lock_by_name(NULL, &parser_name,
                                                 MYSQL_FTPARSER_PLUGIN);
         if (! keyinfo->parser)
@@ -927,6 +946,25 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           goto err;
         }
       }
+    }
+    if (forminfo[46] == (uchar)255)
+    {
+      //reading long table comment
+      if (next_chunk + 2 > buff_end)
+      {
+          DBUG_PRINT("error",
+                     ("long table comment is not defined in .frm"));
+          my_free(buff, MYF(0));
+          goto err;
+      }
+      share->comment.length = uint2korr(next_chunk);
+      if (! (share->comment.str= strmake_root(&share->mem_root,
+                               (char*)next_chunk + 2, share->comment.length)))
+      {
+          my_free(buff, MYF(0));
+          goto err;
+      }
+      next_chunk+= 2 + share->comment.length;
     }
     my_free(buff, MYF(0));
   }
@@ -944,29 +982,30 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
                record_offset, MYF(MY_NABP)))
     goto err;                                   /* purecov: inspected */
 
-  VOID(my_seek(file,pos,MY_SEEK_SET,MYF(0)));
-  if (my_read(file, head,288,MYF(MY_NABP)))
-    goto err;
+  VOID(my_seek(file,pos+288,MY_SEEK_SET,MYF(0)));
 #ifdef HAVE_CRYPTED_FRM
   if (crypted)
   {
-    crypted->decode((char*) head+256,288-256);
-    if (sint2korr(head+284) != 0)		// Should be 0
+    crypted->decode((char*) forminfo+256,288-256);
+    if (sint2korr(forminfo+284) != 0)		// Should be 0
       goto err;                                 // Wrong password
   }
 #endif
 
-  share->fields= uint2korr(head+258);
-  pos= uint2korr(head+260);			/* Length of all screens */
-  n_length= uint2korr(head+268);
-  interval_count= uint2korr(head+270);
-  interval_parts= uint2korr(head+272);
-  int_length= uint2korr(head+274);
-  share->null_fields= uint2korr(head+282);
-  com_length= uint2korr(head+284);
-  share->comment.length=  (int) (head[46]);
-  share->comment.str= strmake_root(&share->mem_root, (char*) head+47,
-                                   share->comment.length);
+  share->fields= uint2korr(forminfo+258);
+  pos= uint2korr(forminfo+260);			/* Length of all screens */
+  n_length= uint2korr(forminfo+268);
+  interval_count= uint2korr(forminfo+270);
+  interval_parts= uint2korr(forminfo+272);
+  int_length= uint2korr(forminfo+274);
+  share->null_fields= uint2korr(forminfo+282);
+  com_length= uint2korr(forminfo+284);
+  if (forminfo[46] != (uchar)255)
+  {
+    share->comment.length=  (int) (forminfo[46]);
+    share->comment.str= strmake_root(&share->mem_root, (char*) forminfo+47,
+                                     share->comment.length);
+  }
 
   DBUG_PRINT("info",("i_count: %d  i_parts: %d  index: %d  n_length: %d  int_length: %d  com_length: %d", interval_count,interval_parts, share->keys,n_length,int_length, com_length));
 
@@ -1379,21 +1418,11 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
                                 share->table_name.str,
                                 share->table_name.str);
             share->crashed= 1;                // Marker for CHECK TABLE
-            goto to_be_deleted;
+            continue;
           }
 #endif
           key_part->key_part_flag|= HA_PART_KEY_SEG;
         }
-
-	to_be_deleted:
-
-        /*
-          If the field can be NULL, don't optimize away the test
-          key_part_column = expression from the WHERE clause
-          as we need to test for NULL = NULL.
-        */
-        if (field->real_maybe_null())
-          key_part->key_part_flag|= HA_NULL_PART;
       }
       keyinfo->usable_key_parts= usable_parts; // Filesort
 
@@ -2311,12 +2340,14 @@ void append_unescaped(String *res, const char *pos, uint length)
 
 File create_frm(THD *thd, const char *name, const char *db,
                 const char *table, uint reclength, uchar *fileinfo,
-  		HA_CREATE_INFO *create_info, uint keys)
+  		HA_CREATE_INFO *create_info, uint keys, KEY *key_info)
 {
   register File file;
   ulong length;
   uchar fill[IO_SIZE];
   int create_flags= O_RDWR | O_TRUNC;
+  ulong key_comment_total_bytes= 0;
+  uint i;
 
   if (create_info->options & HA_LEX_CREATE_TMP_TABLE)
     create_flags|= O_EXCL | O_NOFOLLOW;
@@ -2341,6 +2372,13 @@ File create_frm(THD *thd, const char *name, const char *db,
           ha_checktype(thd,ha_legacy_type(create_info->db_type),0,0));
     fileinfo[4]=1;
     int2store(fileinfo+6,IO_SIZE);		/* Next block starts here */
+    for (i= 0; i < keys; i++)
+    {
+      DBUG_ASSERT(test(key_info[i].flags & HA_USES_COMMENT) == 
+                 (key_info[i].comment.length > 0));
+      if (key_info[i].flags & HA_USES_COMMENT)
+        key_comment_total_bytes += 2 + key_info[i].comment.length;
+    }
     /*
       Keep in sync with pack_keys() in unireg.cc
       For each key:
@@ -2352,8 +2390,9 @@ File create_frm(THD *thd, const char *name, const char *db,
       6 bytes for the header
       1 byte for the NAMES_SEP_CHAR (after the last name)
       9 extra bytes (padding for safety? alignment?)
+      comments
     */
-    key_length= keys * (8 + MAX_REF_PARTS * 9 + NAME_LEN + 1) + 16;
+    key_length= keys * (8 + MAX_REF_PARTS * 9 + NAME_LEN + 1) + 16 + key_comments_total_bytes;
     length= next_io_size((ulong) (IO_SIZE+key_length+reclength+
                                   create_info->extra_size));
     int4store(fileinfo+10,length);

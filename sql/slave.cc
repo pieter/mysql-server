@@ -74,9 +74,6 @@ static int connect_to_master(THD* thd, MYSQL* mysql, MASTER_INFO* mi,
                              bool reconnect, bool suppress_warnings);
 static int safe_sleep(THD* thd, int sec, CHECK_KILLED_FUNC thread_killed,
                       void* thread_killed_arg);
-static int request_table_dump(MYSQL* mysql, const char* db, const char* table);
-static int create_table_from_dump(THD* thd, MYSQL *mysql, const char* db,
-                                  const char* table_name, bool overwrite);
 static int get_master_version_and_clock(MYSQL* mysql, MASTER_INFO* mi);
 static Log_event* next_event(RELAY_LOG_INFO* rli);
 
@@ -175,18 +172,15 @@ int init_slave()
   }
 
   if (init_master_info(active_mi,master_info_file,relay_log_info_file,
-                       !master_host, (SLAVE_IO | SLAVE_SQL)))
+                       1, (SLAVE_IO | SLAVE_SQL)))
   {
     sql_print_error("Failed to initialize the master info structure");
     goto err;
   }
 
-  if (server_id && !master_host && active_mi->host[0])
-    master_host= active_mi->host;
-
   /* If server id is not set, start_slave_thread() will say it */
 
-  if (master_host && !opt_skip_slave_start)
+  if (active_mi->host[0] && !opt_skip_slave_start)
   {
     if (start_slave_threads(1 /* need mutex */,
                             0 /* no wait for start*/,
@@ -838,187 +832,6 @@ err:
   DBUG_RETURN(0);
 }
 
-/*
-  Used by fetch_master_table (used by LOAD TABLE tblname FROM MASTER and LOAD
-  DATA FROM MASTER). Drops the table (if 'overwrite' is true) and recreates it
-  from the dump. Honours replication inclusion/exclusion rules.
-  db must be non-zero (guarded by assertion).
-
-  RETURN VALUES
-    0           success
-    1           error
-*/
-
-static int create_table_from_dump(THD* thd, MYSQL *mysql, const char* db,
-                                  const char* table_name, bool overwrite)
-{
-  ulong packet_len;
-  char *query, *save_db;
-  uint32 save_db_length;
-  Vio* save_vio;
-  HA_CHECK_OPT check_opt;
-  TABLE_LIST tables;
-  int error= 1;
-  handler *file;
-  ulonglong save_options;
-  NET *net= &mysql->net;
-  const char *found_semicolon= NULL;
-  DBUG_ENTER("create_table_from_dump");
-
-  packet_len= my_net_read(net); // read create table statement
-  if (packet_len == packet_error)
-  {
-    my_message(ER_MASTER_NET_READ, ER(ER_MASTER_NET_READ), MYF(0));
-    DBUG_RETURN(1);
-  }
-  if (net->read_pos[0] == 255) // error from master
-  {
-    char *err_msg;
-    err_msg= (char*) net->read_pos + ((mysql->server_capabilities &
-                                       CLIENT_PROTOCOL_41) ?
-                                      3+SQLSTATE_LENGTH+1 : 3);
-    my_error(ER_MASTER, MYF(0), err_msg);
-    DBUG_RETURN(1);
-  }
-  thd->command = COM_TABLE_DUMP;
-  thd->query_length= packet_len;
-  /* Note that we should not set thd->query until the area is initalized */
-  if (!(query = thd->strmake((char*) net->read_pos, packet_len)))
-  {
-    sql_print_error("create_table_from_dump: out of memory");
-    my_message(ER_GET_ERRNO, "Out of memory", MYF(0));
-    DBUG_RETURN(1);
-  }
-  thd->query= query;
-  thd->query_error = 0;
-  thd->net.no_send_ok = 1;
-
-  bzero((char*) &tables,sizeof(tables));
-  tables.db = (char*)db;
-  tables.alias= tables.table_name= (char*)table_name;
-
-  /* Drop the table if 'overwrite' is true */
-  if (overwrite && mysql_rm_table(thd,&tables,1,0)) /* drop if exists */
-  {
-    sql_print_error("create_table_from_dump: failed to drop the table");
-    goto err;
-  }
-
-  /* Create the table. We do not want to log the "create table" statement */
-  save_options = thd->options;
-  thd->options &= ~(ulong) (OPTION_BIN_LOG);
-  thd->proc_info = "Creating table from master dump";
-  // save old db in case we are creating in a different database
-  save_db = thd->db;
-  save_db_length= thd->db_length;
-  thd->db = (char*)db;
-  DBUG_ASSERT(thd->db != 0);
-  thd->db_length= strlen(thd->db);
-  mysql_parse(thd, thd->query, packet_len, &found_semicolon); // run create table
-  thd->db = save_db;            // leave things the way the were before
-  thd->db_length= save_db_length;
-  thd->options = save_options;
-
-  if (thd->query_error)
-    goto err;                   // mysql_parse took care of the error send
-
-  thd->proc_info = "Opening master dump table";
-  tables.lock_type = TL_WRITE;
-  if (!open_ltable(thd, &tables, TL_WRITE))
-  {
-    sql_print_error("create_table_from_dump: could not open created table");
-    goto err;
-  }
-
-  file = tables.table->file;
-  thd->proc_info = "Reading master dump table data";
-  /* Copy the data file */
-  if (file->net_read_dump(net))
-  {
-    my_message(ER_MASTER_NET_READ, ER(ER_MASTER_NET_READ), MYF(0));
-    sql_print_error("create_table_from_dump: failed in\
- handler::net_read_dump()");
-    goto err;
-  }
-
-  check_opt.init();
-  check_opt.flags|= T_VERY_SILENT | T_CALC_CHECKSUM | T_QUICK;
-  thd->proc_info = "Rebuilding the index on master dump table";
-  /*
-    We do not want repair() to spam us with messages
-    just send them to the error log, and report the failure in case of
-    problems.
-  */
-  save_vio = thd->net.vio;
-  thd->net.vio = 0;
-  /* Rebuild the index file from the copied data file (with REPAIR) */
-  error=file->ha_repair(thd,&check_opt) != 0;
-  thd->net.vio = save_vio;
-  if (error)
-    my_error(ER_INDEX_REBUILD, MYF(0), tables.table->s->table_name.str);
-
-err:
-  close_thread_tables(thd);
-  thd->net.no_send_ok = 0;
-  DBUG_RETURN(error);
-}
-
-
-int fetch_master_table(THD *thd, const char *db_name, const char *table_name,
-                       MASTER_INFO *mi, MYSQL *mysql, bool overwrite)
-{
-  int error= 1;
-  const char *errmsg=0;
-  bool called_connected= (mysql != NULL);
-  DBUG_ENTER("fetch_master_table");
-  DBUG_PRINT("enter", ("db_name: '%s'  table_name: '%s'",
-                       db_name,table_name));
-
-  if (!called_connected)
-  {
-    if (!(mysql = mysql_init(NULL)))
-    {
-      DBUG_RETURN(1);
-    }
-    if (connect_to_master(thd, mysql, mi))
-    {
-      my_error(ER_CONNECT_TO_MASTER, MYF(0), mysql_error(mysql));
-      /*
-        We need to clear the active VIO since, theoretically, somebody
-        might issue an awake() on this thread.  If we are then in the
-        middle of closing and destroying the VIO inside the
-        mysql_close(), we will have a problem.
-       */
-#ifdef SIGNAL_WITH_VIO_CLOSE
-      thd->clear_active_vio();
-#endif
-      mysql_close(mysql);
-      DBUG_RETURN(1);
-    }
-    if (thd->killed)
-      goto err;
-  }
-
-  if (request_table_dump(mysql, db_name, table_name))
-  {
-    error= ER_UNKNOWN_ERROR;
-    errmsg= "Failed on table dump request";
-    goto err;
-  }
-  if (create_table_from_dump(thd, mysql, db_name,
-                             table_name, overwrite))
-    goto err;    // create_table_from_dump have sent the error already
-  error = 0;
-
- err:
-  thd->net.no_send_ok = 0; // Clear up garbage after create_table_from_dump
-  if (!called_connected)
-    mysql_close(mysql);
-  if (errmsg && thd->vio_ok())
-    my_message(error, errmsg, MYF(0));
-  DBUG_RETURN(test(error));                     // Return 1 on error
-}
-
 
 static bool wait_for_relay_log_space(RELAY_LOG_INFO* rli)
 {
@@ -1412,9 +1225,9 @@ static int init_slave_thread(THD* thd, SLAVE_THD_TYPE thd_type)
   }
 
   if (thd_type == SLAVE_THD_SQL)
-    thd->proc_info= "Waiting for the next event in relay log";
+    THD_SET_PROC_INFO(thd, "Waiting for the next event in relay log");
   else
-    thd->proc_info= "Waiting for master update";
+    THD_SET_PROC_INFO(thd, "Waiting for master update");
   thd->version=refresh_version;
   thd->set_time();
   DBUG_RETURN(0);
@@ -1479,43 +1292,12 @@ static int request_dump(MYSQL* mysql, MASTER_INFO* mi,
     else
       sql_print_error("Error on COM_BINLOG_DUMP: %d  %s, will retry in %d secs",
                       mysql_errno(mysql), mysql_error(mysql),
-                      master_connect_retry);
+                      mi->connect_retry);
     DBUG_RETURN(1);
   }
 
   DBUG_RETURN(0);
 }
-
-
-static int request_table_dump(MYSQL* mysql, const char* db, const char* table)
-{
-  uchar buf[1024], *p = buf;
-  DBUG_ENTER("request_table_dump");
-
-  uint table_len = (uint) strlen(table);
-  uint db_len = (uint) strlen(db);
-  if (table_len + db_len > sizeof(buf) - 2)
-  {
-    sql_print_error("request_table_dump: Buffer overrun");
-    DBUG_RETURN(1);
-  }
-
-  *p++ = db_len;
-  memcpy(p, db, db_len);
-  p += db_len;
-  *p++ = table_len;
-  memcpy(p, table, table_len);
-
-  if (simple_command(mysql, COM_TABLE_DUMP, buf, p - buf + table_len, 1))
-  {
-    sql_print_error("request_table_dump: Error sending the table dump \
-command");
-    DBUG_RETURN(1);
-  }
-
-  DBUG_RETURN(0);
-}
-
 
 /*
   Read one event from the master
@@ -1938,7 +1720,7 @@ pthread_handler_t handle_slave_io(void *arg)
     goto err;
   }
 
-  thd->proc_info = "Connecting to master";
+  THD_SET_PROC_INFO(thd, "Connecting to master");
   // we can get killed during safe_connect
   if (!safe_connect(thd, mysql, mi))
   {
@@ -1965,7 +1747,7 @@ connected:
   // TODO: the assignment below should be under mutex (5.0)
   mi->slave_running= MYSQL_SLAVE_RUN_CONNECT;
   thd->slave_net = &mysql->net;
-  thd->proc_info = "Checking master version";
+  THD_SET_PROC_INFO(thd, "Checking master version");
   if (get_master_version_and_clock(mysql, mi))
     goto err;
 
@@ -1974,7 +1756,7 @@ connected:
     /*
       Register ourselves with the master.
     */
-    thd->proc_info = "Registering slave on master";
+    THD_SET_PROC_INFO(thd, "Registering slave on master");
     if (register_slave_on_master(mysql, mi))
     {
       sql_print_error("Slave I/O thread couldn't register on master");
@@ -1986,7 +1768,7 @@ connected:
   while (!io_slave_killed(thd,mi))
   {
     bool suppress_warnings= 0;
-    thd->proc_info = "Requesting binlog dump";
+    THD_SET_PROC_INFO(thd, "Requesting binlog dump");
     if (request_dump(mysql, mi, &suppress_warnings))
     {
       sql_print_error("Failed on request_dump()");
@@ -1998,7 +1780,7 @@ dump");
       }
 
       mi->slave_running= MYSQL_SLAVE_RUN_NOT_CONNECT;
-      thd->proc_info= "Waiting to reconnect after a failed binlog dump request";
+      THD_SET_PROC_INFO(thd, "Waiting to reconnect after a failed binlog dump request");
 #ifdef SIGNAL_WITH_VIO_CLOSE
       thd->clear_active_vio();
 #endif
@@ -2022,7 +1804,7 @@ dump");
         goto err;
       }
 
-      thd->proc_info = "Reconnecting after a failed binlog dump request";
+      THD_SET_PROC_INFO(thd, "Reconnecting after a failed binlog dump request");
       if (!suppress_warnings) {
         char buf[256];
         my_snprintf(buf, sizeof(buf),
@@ -2054,7 +1836,7 @@ after reconnect");
          important thing is to not confuse users by saying "reading" whereas
          we're in fact receiving nothing.
       */
-      thd->proc_info= "Waiting for master to send event";
+      THD_SET_PROC_INFO(thd, "Waiting for master to send event");
       event_len= read_event(mysql, mi, &suppress_warnings);
       if (io_slave_killed(thd,mi))
       {
@@ -2082,7 +1864,7 @@ max_allowed_packet",
           goto err;
         }
         mi->slave_running= MYSQL_SLAVE_RUN_NOT_CONNECT;
-        thd->proc_info = "Waiting to reconnect after a failed master event read";
+        THD_SET_PROC_INFO(thd, "Waiting to reconnect after a failed master event read");
 #ifdef SIGNAL_WITH_VIO_CLOSE
         thd->clear_active_vio();
 #endif
@@ -2101,7 +1883,7 @@ max_allowed_packet",
 reconnect after a failed read");
           goto err;
         }
-        thd->proc_info = "Reconnecting after a failed master event read";
+        THD_SET_PROC_INFO(thd, "Reconnecting after a failed master event read");
         if (!suppress_warnings)
           sql_print_information("Slave I/O thread: Failed reading log event, \
 reconnecting to retry, log '%s' position %s", IO_RPL_LOG_NAME,
@@ -2118,7 +1900,7 @@ reconnect done to recover from failed read");
       } // if (event_len == packet_error)
 
       retry_count=0;                    // ok event, reset retry counter
-      thd->proc_info = "Queueing master event to the relay log";
+      THD_SET_PROC_INFO(thd, "Queueing master event to the relay log");
       if (queue_event(mi,(const char*)mysql->net.read_pos + 1,
                       event_len))
       {
@@ -2193,7 +1975,7 @@ err:
     mi->mysql=0;
   }
   write_ignored_events_info_to_relay_log(thd, mi);
-  thd->proc_info = "Waiting for slave mutex on exit";
+  THD_SET_PROC_INFO(thd, "Waiting for slave mutex on exit");
   pthread_mutex_lock(&mi->run_lock);
 
   /* Forget the relay log's format */
@@ -2363,7 +2145,7 @@ Slave SQL thread aborted. Can't execute init_slave query");
 
   while (!sql_slave_killed(thd,rli))
   {
-    thd->proc_info = "Reading event from the relay log";
+    THD_SET_PROC_INFO(thd, "Reading event from the relay log");
     DBUG_ASSERT(rli->sql_thd == thd);
     THD_CHECK_SENTRY(thd);
     if (exec_relay_log_event(thd,rli))
@@ -2417,7 +2199,7 @@ Slave SQL thread aborted. Can't execute init_slave query");
             "position %s", RPL_LOG_NAME, llstr(rli->group_master_log_pos, 
             llbuff));
         else
-          sql_print_error("\
+        sql_print_error("\
 Error running query, slave SQL thread aborted. Fix the problem, and restart \
 the slave SQL thread with \"SLAVE START\". We stopped at log \
 '%s' position %s", RPL_LOG_NAME, llstr(rli->group_master_log_pos, llbuff));
@@ -2449,7 +2231,7 @@ the slave SQL thread with \"SLAVE START\". We stopped at log \
   thd->query= thd->db= thd->catalog= 0;
   thd->query_length= thd->db_length= 0;
   VOID(pthread_mutex_unlock(&LOCK_thread_count));
-  thd->proc_info = "Waiting for slave mutex on exit";
+  THD_SET_PROC_INFO(thd, "Waiting for slave mutex on exit");
   pthread_mutex_lock(&rli->run_lock);
   /* We need data_lock, at least to wake up any waiting master_pos_wait() */
   pthread_mutex_lock(&rli->data_lock);

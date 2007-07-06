@@ -134,6 +134,8 @@ struct show_table_authors_st show_table_authors[]= {
   { "Zeev Suraski", "", "FROM_UNIXTIME(), ENCRYPT()" },
   { "TAMITO", "",
     "The _MB character set macros and UJIS and SJIS character sets" },
+  { "Yoshinori Matsunobu", "Tokyo, Japan",
+    "Index comment enhancement" },
   { "Jani Tolonen", "Helsinki, Finland",
     "mysqlimport, extensions to command-line clients, PROCEDURE ANALYSE()" },
   { "Lars Thalmann", "Stockholm, Sweden",

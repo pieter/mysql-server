@@ -2,7 +2,6 @@
 --disable_warnings
 drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t11,t12;
 --enable_warnings
-
 select (select 2);
 explain extended select (select 2);
 SELECT (SELECT 1) UNION SELECT (SELECT 2);
@@ -1023,18 +1022,6 @@ CREATE TABLE t1 (a int(1));
 INSERT INTO t1 VALUES (1),(1),(1),(1),(1),(2),(3),(4),(5);
 SELECT DISTINCT (SELECT a) FROM t1 LIMIT 100;
 DROP TABLE t1;
-
-#
-# Bug 2198
-#
-
-create table t1 (a int, b decimal(13, 3)); 
-insert into t1 values (1, 0.123);
-select a, (select max(b) from t1) into outfile "subselect.out.file.1" from t1;
-delete from t1;
-load data infile "subselect.out.file.1" into table t1;
-select * from t1;
-drop table t1;
 
 #
 # Bug 2479
@@ -3021,3 +3008,4 @@ CREATE TABLE t1 (s1 char(1));
 INSERT INTO t1 VALUES ('a');
 SELECT * FROM t1 WHERE _utf8'a' = ANY (SELECT s1 FROM t1);
 DROP TABLE t1;
+

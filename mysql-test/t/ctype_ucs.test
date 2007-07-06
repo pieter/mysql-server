@@ -613,3 +613,12 @@ drop table t1;
 set names latin1;
 
 --echo End of 5.0 tests
+
+
+set collation_connection=ucs2_general_ci;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+
+set collation_connection=ucs2_bin;
+-- source include/weight_string.inc
+--source include/weight_string_l1.inc

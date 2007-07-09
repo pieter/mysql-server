@@ -93,16 +93,35 @@ char* query_table_status(THD *thd,const char *db,const char *table_name);
 #define PREV_BITS(type,A)	((type) (((type) 1 << (A)) -1))
 #define all_bits_set(A,B) ((A) & (B) != (B))
 
-#define WARN_DEPRECATED(Thd,Ver,Old,New)                                             \
-  do {                                                                               \
-    DBUG_ASSERT(strncmp(Ver, MYSQL_SERVER_VERSION, sizeof(Ver)-1) > 0);              \
-    if (((uchar*)Thd) != NULL)                                                         \
-      push_warning_printf(((THD *)Thd), MYSQL_ERROR::WARN_LEVEL_WARN,                \
-                        ER_WARN_DEPRECATED_SYNTAX, ER(ER_WARN_DEPRECATED_SYNTAX_WITH_VER), \
-                        (Old), (Ver), (New));                                        \
-    else                                                                             \
-      sql_print_warning("The syntax '%s' is deprecated and will be removed "         \
-                        "in MySQL %s. Please use %s instead.", (Old), (Ver), (New)); \
+/*
+  Generates a warning that a feature is deprecated. After a specified version
+  asserts that the feature is removed.
+
+  Using it as
+
+    WARN_DEPRECATED(thd, 6,2, "BAD", "'GOOD'");
+
+ Will result in a warning
+
+    "The syntax 'BAD' is deprecated and will be removed in MySQL 6.2. Please
+    use 'GOOD' instead"
+
+ Note, that in macro arguments BAD is not quoted, while 'GOOD' is.
+ Note, that the version is TWO numbers, separated with a comma
+ (two macro arguments, that is)
+*/
+#define WARN_DEPRECATED(Thd,VerHi,VerLo,Old,New)                            \
+  do {                                                                      \
+    compile_time_assert(MYSQL_VERSION_ID < VerHi * 10000 + VerLo * 100);    \
+    if (Thd)                                                                \
+      push_warning_printf((Thd), MYSQL_ERROR::WARN_LEVEL_WARN,              \
+                        ER_WARN_DEPRECATED_SYNTAX,                          \
+                        ER(ER_WARN_DEPRECATED_SYNTAX_WITH_VER),             \
+                        (Old), #VerHi "." #VerLo, (New));                   \
+    else                                                                    \
+      sql_print_warning("The syntax '%s' is deprecated and will be removed " \
+                        "in MySQL %s. Please use %s instead.",              \
+                        (Old), #VerHi "." #VerLo, (New));                   \
   } while(0)
 
 extern CHARSET_INFO *system_charset_info, *files_charset_info ;
@@ -301,11 +320,11 @@ protected:
   The cost of average seek 
     DISK_SEEK_BASE_COST + DISK_SEEK_PROP_COST*BLOCKS_IN_AVG_SEEK =1.0.
 */
-#define DISK_SEEK_BASE_COST ((double)0.5)
+#define DISK_SEEK_BASE_COST ((double)0.9)
 
 #define BLOCKS_IN_AVG_SEEK  128
 
-#define DISK_SEEK_PROP_COST ((double)0.5/BLOCKS_IN_AVG_SEEK)
+#define DISK_SEEK_PROP_COST ((double)0.1/BLOCKS_IN_AVG_SEEK)
 
 
 /*
@@ -478,6 +497,12 @@ protected:
 #define MODE_HIGH_NOT_PRECEDENCE	(MODE_NO_AUTO_CREATE_USER*2)
 #define MODE_NO_ENGINE_SUBSTITUTION     (MODE_HIGH_NOT_PRECEDENCE*2)
 #define MODE_PAD_CHAR_TO_FULL_LENGTH    (ULL(1) << 31)
+
+
+/* @@optimizer_switch flags */
+#define OPTIMIZER_SWITCH_NO_MATERIALIZATION 1
+#define OPTIMIZER_SWITCH_NO_SEMIJOIN 2
+
 
 /*
   Replication uses 8 bytes to store SQL_MODE in the binary log. The day you
@@ -1594,14 +1619,21 @@ void print_cached_tables(void);
 void TEST_filesort(SORT_FIELD *sortorder,uint s_length);
 void print_plan(JOIN* join,uint idx, double record_count, double read_time,
                 double current_read_time, const char *info);
+void print_keyuse_array(DYNAMIC_ARRAY *keyuse_array);
+#define EXTRA_DEBUG_DUMP_TABLE_LISTS
+#ifdef EXTRA_DEBUG_DUMP_TABLE_LISTS
+void dump_TABLE_LIST_graph(SELECT_LEX *select_lex, TABLE_LIST* tl);
+#endif
 #endif
 void mysql_print_status();
+
 /* key.cc */
 int find_ref_key(KEY *key, uint key_count, uchar *record, Field *field,
                  uint *key_length, uint *keypart);
 void key_copy(uchar *to_key, uchar *from_record, KEY *key_info, uint key_length);
 void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
                  uint key_length);
+void key_zero_nulls(uchar *tuple, KEY *key_info);
 bool key_cmp_if_same(TABLE *form,const uchar *key,uint index,uint key_length);
 void key_unpack(String *to,TABLE *form,uint index);
 bool is_key_used(TABLE *table, uint idx, const MY_BITMAP *fields);
@@ -1873,6 +1905,10 @@ bool make_global_read_lock_block_commit(THD *thd);
 bool set_protect_against_global_read_lock(void);
 void unset_protect_against_global_read_lock(void);
 void broadcast_refresh(void);
+int try_transactional_lock(THD *thd, TABLE_LIST *table_list);
+int check_transactional_lock(THD *thd, TABLE_LIST *table_list);
+int set_handler_table_locks(THD *thd, TABLE_LIST *table_list,
+                            bool transactional);
 
 /* Lock based on name */
 int lock_and_wait_for_table_name(THD *thd, TABLE_LIST *table_list);
@@ -1990,7 +2026,7 @@ ulong next_io_size(ulong pos);
 void append_unescaped(String *res, const char *pos, uint length);
 int create_frm(THD *thd, const char *name, const char *db, const char *table,
                uint reclength, uchar *fileinfo,
-	       HA_CREATE_INFO *create_info, uint keys);
+	       HA_CREATE_INFO *create_info, uint keys, KEY *key_info);
 void update_create_info_from_table(HA_CREATE_INFO *info, TABLE *form);
 int rename_file_ext(const char * from,const char * to,const char * ext);
 bool check_db_name(LEX_STRING *db);

@@ -242,11 +242,14 @@ static int add_collation(CHARSET_INFO *cs)
       if (cs_copy_data(all_charsets[cs->number],cs))
         return MY_XML_ERROR;
 
+      newcs->levels_for_compare= 1;
+      newcs->levels_for_order= 1;
+      
       if (!strcmp(cs->csname,"ucs2") )
       {
 #if defined(HAVE_CHARSET_ucs2) && defined(HAVE_UCA_COLLATIONS)
         copy_uca_collation(newcs, &my_charset_ucs2_unicode_ci);
-        newcs->state|= MY_CS_AVAILABLE | MY_CS_LOADED;
+        newcs->state|= MY_CS_AVAILABLE | MY_CS_LOADED | MY_CS_NONASCII;
 #endif        
       }
       else if (!strcmp(cs->csname, "utf8"))
@@ -277,6 +280,8 @@ static int add_collation(CHARSET_INFO *cs)
         if (sort_order && sort_order['A'] < sort_order['a'] &&
                           sort_order['a'] < sort_order['B'])
           all_charsets[cs->number]->state|= MY_CS_CSSORT; 
+        if (!my_charset_is_ascii_compatible(cs))
+          all_charsets[cs->number]->state|= MY_CS_NONASCII;
       }
     }
     else

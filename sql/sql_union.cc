@@ -65,7 +65,8 @@ bool select_union::send_data(List<Item> &values)
   {
     /* create_myisam_from_heap will generate error if needed */
     if (table->file->is_fatal_error(error, HA_CHECK_DUP) &&
-        create_myisam_from_heap(thd, table, &tmp_table_param, error, 1))
+        create_myisam_from_heap(thd, table, tmp_table_param.start_recinfo, 
+                                &tmp_table_param.recinfo, error, 1))
       return 1;
   }
   return 0;
@@ -477,6 +478,14 @@ bool st_select_lex_unit::exec()
         sl->join->select_options= 
           (select_limit_cnt == HA_POS_ERROR || sl->braces) ?
           sl->options & ~OPTION_FOUND_ROWS : sl->options | found_rows_for_union;
+
+        /* dump_TABLE_LIST_struct(select_lex, select_lex->leaf_tables); */
+        if (sl->join->flatten_subqueries())
+        {
+          thd->net.report_error= 1;
+          DBUG_RETURN(TRUE);
+        }
+        /* dump_TABLE_LIST_struct(select_lex, select_lex->leaf_tables); */
 	saved_error= sl->join->optimize();
       }
       if (!saved_error)
@@ -678,8 +687,8 @@ void st_select_lex_unit::reinit_exec_mechanism()
     TRUE  - error
 */
 
-bool st_select_lex_unit::change_result(select_subselect *new_result,
-                                       select_subselect *old_result)
+bool st_select_lex_unit::change_result(select_result_interceptor *new_result,
+                                       select_result_interceptor *old_result)
 {
   bool res= FALSE;
   for (SELECT_LEX *sl= first_select(); sl; sl= sl->next_select())

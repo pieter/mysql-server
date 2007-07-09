@@ -43,6 +43,7 @@ enum enum_check_fields
 { CHECK_FIELD_IGNORE, CHECK_FIELD_WARN, CHECK_FIELD_ERROR_FOR_NULL };
 enum enum_mark_columns
 { MARK_COLUMNS_NONE, MARK_COLUMNS_READ, MARK_COLUMNS_WRITE};
+enum enum_filetype { FILETYPE_CSV, FILETYPE_XML };
 
 extern char internal_table_name[2];
 extern char empty_c_string[1];
@@ -251,7 +252,6 @@ struct system_variables
   ulong max_sort_length;
   ulong max_tmp_tables;
   ulong max_insert_delayed_threads;
-  ulong multi_range_count;
   ulong myisam_repair_threads;
   ulong myisam_sort_buff_size;
   ulong myisam_stats_method;
@@ -263,6 +263,15 @@ struct system_variables
   ulong net_write_timeout;
   ulong optimizer_prune_level;
   ulong optimizer_search_depth;
+  /*
+    Controls use of Engine-MRR:
+      0 - auto, based on cost
+      1 - force MRR when the storage engine is capable of doing it
+      2 - disable MRR.
+  */
+  ulong optimizer_use_mrr; 
+  /* A bitmap for switching optimizations on/off */
+  ulong optimizer_switch;
   ulong preload_buff_size;
   ulong query_cache_type;
   ulong read_buff_size;
@@ -1023,11 +1032,25 @@ public:
 
   /* remote (peer) port */
   uint16 peer_port;
+
   /*
     Points to info-string that we show in SHOW PROCESSLIST
-    You are supposed to update thd->proc_info only if you have coded
+    You are supposed to call THD_SET_PROC_INFO only if you have coded
     a time-consuming piece that MySQL can get stuck in for a long time.
   */
+#ifndef DBUG_OFF
+  #define THD_SET_PROC_INFO(thd, info) \
+    (thd)->set_proc_info(__FILE__, __LINE__, (info))
+
+  void set_proc_info(const char* file, int line, const char* info);
+#else
+  #define THD_SET_PROC_INFO(thd, info) \
+    (thd)->proc_info= (info)
+#endif
+
+  inline const char* get_proc_info() { return proc_info;}
+
+  /* left public for the the storage engines, please avoid direct use */
   const char *proc_info;
 
   ulong client_capabilities;		/* What the client supports */
@@ -1068,6 +1091,8 @@ public:
   /* container for handler's private per-connection data */
   void *ha_data[MAX_HA];
 
+  /* Place to store various things */
+  void *thd_marker;
 #ifndef MYSQL_CLIENT
   int binlog_setup_trx_data();
 
@@ -1839,13 +1864,15 @@ private:
 class sql_exchange :public Sql_alloc
 {
 public:
+  enum enum_filetype filetype; /* load XML, Added by Arnold & Erik */ 
   char *file_name;
   String *field_term,*enclosed,*line_term,*line_start,*escaped;
   bool opt_enclosed;
   bool dumpfile;
   ulong skip_lines;
   CHARSET_INFO *cs;
-  sql_exchange(char *name,bool dumpfile_flag);
+  sql_exchange(char *name, bool dumpfile_flag,
+               enum_filetype filetype_arg= FILETYPE_CSV);
 };
 
 #include "log_event.h"

@@ -53,8 +53,9 @@ typedef struct st_key_part_info {	/* Info about a key part */
   Field *field;
   uint	offset;				/* offset in record (from 0) */
   uint	null_offset;			/* Offset to null_bit in record */
-  uint16 length;                        /* Length of keypart value in bytes */
-  /* 
+  /* Length of key part in bytes, excluding NULL flag and length bytes */
+  uint16 length;
+  /*
     Number of bytes required to store the keypart value. This may be
     different from the "length" field as it also counts
      - possible NULL-flag byte (see HA_KEY_NULL_LENGTH)
@@ -98,6 +99,7 @@ typedef struct st_key {
     int  bdb_return_if_eq;
   } handler;
   struct st_table *table;
+  LEX_STRING comment;
 } KEY;
 
 
@@ -115,6 +117,7 @@ struct st_read_record;				/* For referense later */
 class SQL_SELECT;
 class THD;
 class handler;
+struct st_join_table;
 
 typedef struct st_read_record {			/* Parameter to read_record */
   struct st_table *table;			/* Head-form */
@@ -132,6 +135,7 @@ typedef struct st_read_record {			/* Parameter to read_record */
   uchar	*cache,*cache_pos,*cache_end,*read_positions;
   IO_CACHE *io_cache;
   bool print_error, ignore_not_found_rows;
+  struct st_join_table *do_insideout_scan;
 } READ_RECORD;
 
 

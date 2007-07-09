@@ -1780,7 +1780,7 @@ int my_wildcmp_unicode(CHARSET_INFO *cs,
     {						/* Found w_many */
     
       /* Remove any '%' and '_' from the wild search string */
-      for ( ; wildstr != wildend ; )
+      for (; wildstr != wildend ;)
       {
         if ((scan= mb_wc(cs, &w_wc, (const uchar*)wildstr,
                          (const uchar*)wildend)) <= 0)
@@ -2574,18 +2574,19 @@ size_t my_strnxfrmlen_utf8(CHARSET_INFO *cs __attribute__((unused)),
 
 
 static size_t my_strnxfrm_utf8(CHARSET_INFO *cs,
-                               uchar *dst, size_t dstlen,
-                               const uchar *src, size_t srclen)
+                               uchar *dst, size_t dstlen, uint nweights,
+                               const uchar *src, size_t srclen, uint flags)
 {
   my_wc_t wc;
   int res;
   int plane;
+  uchar *dst0= dst;
   uchar *de= dst + dstlen;
   uchar *de_beg= de - 1;
   const uchar *se = src + srclen;
   MY_UNICASE_INFO **uni_plane= cs->caseinfo;
 
-  while (dst < de_beg)
+  for (; dst < de_beg && nweights; nweights--)
   {
     if ((res=my_utf8_uni(cs,&wc, src, se)) <= 0)
       break;
@@ -2599,19 +2600,62 @@ static size_t my_strnxfrm_utf8(CHARSET_INFO *cs,
     
   }
   
-  while (dst < de_beg) /* Fill the tail with keys for space character */
+  if (dst < de && nweights && (flags & MY_STRXFRM_PAD_WITH_SPACE))
   {
-    *dst++= 0x00;
-    *dst++= 0x20;
+    /* Fill the tail with keys for space character */
+    for (; dst < de_beg && nweights; nweights--)
+    {
+      *dst++= 0x00;
+      *dst++= 0x20;
+    }
+    
+    if (dst < de)  /* Clear the last byte, if "dstlen" was an odd number */
+      *dst++= 0x00;
   }
-  
-  if (dst < de)  /* Clear the last byte, if "dstlen" was an odd number */
-    *dst= 0x00;
-  
-  return dstlen;
+  my_strxfrm_desc_and_reverse(dst0, dst, flags, 0);
+  return dst - dst0;
 }
 
-static uint my_ismbchar_utf8(CHARSET_INFO *cs,const char *b, const char *e)
+
+static size_t
+my_strnxfrm_utf8_bin(CHARSET_INFO *cs,
+                     uchar *dst, size_t dstlen, uint nweights,
+                     const uchar *src, size_t srclen, uint flags)
+{
+  my_wc_t wc;
+  int res;
+  uchar *dst0= dst;
+  uchar *de= dst + dstlen;
+  uchar *de_beg= de - 1;
+  const uchar *se= src + srclen;
+
+  for (; dst < de_beg && nweights; nweights--)
+  {
+    if ((res=my_utf8_uni(cs,&wc, src, se)) <= 0)
+      break;
+    src+=res;
+
+    *dst++= (uchar)(wc >> 8);
+    *dst++= (uchar)(wc & 0xFF);
+  }
+  
+  if (dst < de && nweights && (flags & MY_STRXFRM_PAD_WITH_SPACE))
+  {
+    /* Fill the tail with keys for space character */
+    for (; dst < de_beg && nweights; nweights--)
+    {
+      *dst++= 0x00;
+      *dst++= 0x20;
+    }
+    
+    if (dst < de)  /* Clear the last byte, if "dstlen" was an odd number */
+      *dst++= 0x00;
+  }
+  my_strxfrm_desc_and_reverse(dst0, dst, flags, 0);
+  return dst - dst0;
+}
+
+static uint my_ismbchar_utf8(CHARSET_INFO *cs, const char *b, const char *e)
 {
   my_wc_t wc;
   int  res= my_utf8_uni(cs,&wc, (const uchar*)b, (const uchar*)e);
@@ -2655,6 +2699,23 @@ static MY_COLLATION_HANDLER my_collation_ci_handler =
     my_hash_sort_utf8,
     my_propagate_complex
 };
+
+
+static MY_COLLATION_HANDLER my_collation_utf8_bin_handler =
+{
+    NULL,		/* init */
+    my_strnncoll_mb_bin,
+    my_strnncollsp_mb_bin,
+    my_strnxfrm_utf8_bin,
+    my_strnxfrmlen_utf8,
+    my_like_range_mb,
+    my_wildcmp_mb_bin,
+    my_strcasecmp_mb_bin,
+    my_instr_mb,
+    my_hash_sort_mb_bin,
+    my_propagate_simple
+};
+
 
 MY_CHARSET_HANDLER my_charset_utf8_handler=
 {
@@ -2717,6 +2778,8 @@ CHARSET_INFO my_charset_utf8_general_ci=
     0xFFFF,             /* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_ci_handler
 };
@@ -2750,8 +2813,10 @@ CHARSET_INFO my_charset_utf8_bin=
     0xFFFF,             /* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
-    &my_collation_mb_bin_handler
+    &my_collation_utf8_bin_handler
 };
 
 #ifdef HAVE_UTF8_GENERAL_CS
@@ -2926,6 +2991,8 @@ CHARSET_INFO my_charset_utf8_general_cs=
     255,		/* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_utf8_handler,
     &my_collation_cs_handler
 };
@@ -4197,7 +4264,7 @@ static MY_CHARSET_HANDLER my_charset_filename_handler=
 CHARSET_INFO my_charset_filename=
 {
     17,0,0,             /* number       */
-    MY_CS_COMPILED|MY_CS_PRIMARY|MY_CS_STRNXFRM|MY_CS_UNICODE|MY_CS_HIDDEN,
+    MY_CS_COMPILED|MY_CS_PRIMARY|MY_CS_STRNXFRM|MY_CS_UNICODE|MY_CS_HIDDEN|MY_CS_NONASCII,
     "filename",         /* cs name      */
     "filename",         /* name         */
     "",                 /* comment      */
@@ -4222,6 +4289,8 @@ CHARSET_INFO my_charset_filename=
     0xFFFF,             /* max_sort_char */
     ' ',                /* pad char      */
     0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
     &my_charset_filename_handler,
     &my_collation_filename_handler
 };

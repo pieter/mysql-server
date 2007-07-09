@@ -617,6 +617,28 @@ void THD::cleanup(void)
 }
 
 
+/*
+   Set the proc_info field.
+   Do not use this method directly, use THD_SET_PROC_INFO instead.
+ */
+#ifndef DBUG_OFF
+void THD::set_proc_info(const char* file, int line, const char* info)
+{
+  /*
+     Implementation note:
+     file and line correspond to the __FILE__ and __LINE__ where
+     THD_SET_PROC_INFO was called.
+     These two parameters are provided to help instrumenting the code.
+   */
+
+  DBUG_PRINT("info", ("THD::set_proc_info(%s, %d, %s)",
+                      file, line, (info ? info : NullS)));
+
+  proc_info= info;
+}
+#endif
+
+
 THD::~THD()
 {
   THD_CHECK_SENTRY(this);
@@ -1177,13 +1199,17 @@ bool select_result::check_simple_select() const
 static String default_line_term("\n",default_charset_info);
 static String default_escaped("\\",default_charset_info);
 static String default_field_term("\t",default_charset_info);
+static String default_xml_row_term("<row>", default_charset_info);
 
-sql_exchange::sql_exchange(char *name,bool flag)
+sql_exchange::sql_exchange(char *name, bool flag,
+                           enum enum_filetype filetype_arg)
   :file_name(name), opt_enclosed(0), dumpfile(flag), skip_lines(0)
 {
+  filetype= filetype_arg;
   field_term= &default_field_term;
   enclosed=   line_start= &my_empty_string;
-  line_term=  &default_line_term;
+  line_term=  filetype == FILETYPE_CSV ?
+              &default_line_term : &default_xml_row_term;
   escaped=    &default_escaped;
   cs= NULL;
 }

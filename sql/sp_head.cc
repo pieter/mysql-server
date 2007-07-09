@@ -161,7 +161,7 @@ sp_get_flags_for_command(LEX *lex)
     }
     /* fallthrough */
   case SQLCOM_ANALYZE:
-  case SQLCOM_BACKUP_TABLE:
+  case SQLCOM_BACKUP:
   case SQLCOM_OPTIMIZE:
   case SQLCOM_PRELOAD_KEYS:
   case SQLCOM_ASSIGN_TO_KEYCACHE:
@@ -207,7 +207,7 @@ sp_get_flags_for_command(LEX *lex)
   case SQLCOM_SHOW_VARIABLES:
   case SQLCOM_SHOW_WARNS:
   case SQLCOM_REPAIR:
-  case SQLCOM_RESTORE_TABLE:
+  case SQLCOM_RESTORE:
     flags= sp_head::MULTI_RESULTS;
     break;
   /*
@@ -259,7 +259,6 @@ sp_get_flags_for_command(LEX *lex)
   case SQLCOM_COMMIT:
   case SQLCOM_ROLLBACK:
   case SQLCOM_LOAD:
-  case SQLCOM_LOAD_MASTER_DATA:
   case SQLCOM_LOCK_TABLES:
   case SQLCOM_CREATE_PROCEDURE:
   case SQLCOM_CREATE_SPFUNCTION:
@@ -2548,9 +2547,9 @@ sp_lex_keeper::reset_lex_and_exec_core(THD *thd, uint *nextp,
 
   m_lex->unit.cleanup();
 
-  thd->proc_info="closing tables";
+  THD_SET_PROC_INFO(thd, "closing tables");
   close_thread_tables(thd);
-  thd->proc_info= 0;
+  THD_SET_PROC_INFO(thd, 0);
 
   if (m_lex->query_tables_own_last)
   {
@@ -3544,6 +3543,9 @@ typedef struct st_sp_table
   thr_lock_type lock_type; /* lock type used for prelocking */
   uint lock_count;
   uint query_lock_count;
+  /* For transactional locking. */
+  int           lock_timeout;           /* NOWAIT or WAIT [X]               */
+  bool          lock_transactional;     /* If transactional lock requested. */
 } SP_TABLE;
 
 uchar *
@@ -3626,7 +3628,11 @@ sp_head::merge_table_list(THD *thd, TABLE_LIST *table, LEX *lex_for_tmp_check)
            tab->temp))
       {
         if (tab->lock_type < table->lock_type)
-          tab->lock_type= table->lock_type; // Use the table with the highest lock type
+          tab->lock_type= table->lock_type; // Use the highest lock type
+        if (tab->lock_timeout > table->lock_timeout)
+          tab->lock_timeout= table->lock_timeout; // Use the lowest timeout
+        if (!table->lock_transactional)
+          tab->lock_transactional= FALSE; // Non-transactional locks win
         tab->query_lock_count++;
         if (tab->query_lock_count > tab->lock_count)
           tab->lock_count++;
@@ -3650,6 +3656,8 @@ sp_head::merge_table_list(THD *thd, TABLE_LIST *table, LEX *lex_for_tmp_check)
         tab->table_name_length= table->table_name_length;
         tab->db_length= table->db_length;
         tab->lock_type= table->lock_type;
+        tab->lock_timeout= table->lock_timeout;
+        tab->lock_transactional= table->lock_transactional;
         tab->lock_count= tab->query_lock_count= 1;
 	my_hash_insert(&m_sptabs, (uchar *)tab);
       }
@@ -3725,6 +3733,8 @@ sp_head::add_used_tables_to_table_list(THD *thd,
       table->table_name_length= stab->table_name_length;
       table->alias= table->table_name + table->table_name_length + 1;
       table->lock_type= stab->lock_type;
+      table->lock_timeout= stab->lock_timeout;
+      table->lock_transactional= stab->lock_transactional;
       table->cacheable_table= 1;
       table->prelocking_placeholder= 1;
       table->belong_to_view= belong_to_view;
@@ -3770,6 +3780,8 @@ sp_add_to_query_tables(THD *thd, LEX *lex,
   table->table_name= thd->strmake(name, table->table_name_length);
   table->alias= thd->strdup(name);
   table->lock_type= locktype;
+  table->lock_timeout= -1;      /* default timeout */
+  table->lock_transactional= 1; /* allow transactional locks */
   table->select_lex= lex->current_select;
   table->cacheable_table= 1;
   

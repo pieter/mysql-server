@@ -9414,8 +9414,6 @@ ha_ndbcluster::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   ha_rows rows, total_rows= 0;
   uint n_ranges=0;
   bool null_ranges= FALSE;
-  m_write_op= FALSE;
-
 
   seq_it= seq->init(seq_init_param, n_ranges, *flags);
   while (!seq->next(seq_it, &range))
@@ -9442,7 +9440,7 @@ ha_ndbcluster::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   if (total_rows != HA_POS_ERROR)
   {
     if (*flags & HA_MRR_USE_DEFAULT_IMPL ||
-        uses_blob_value() ||
+        uses_blob_value(table->read_set) ||
         ((get_index_type(keyno) ==  UNIQUE_INDEX &&
          has_null_in_unique_index(keyno)) && null_ranges))
     {
@@ -9486,7 +9484,8 @@ ha_ndbcluster::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
   uint save_bufsize= *bufsz;
   res= handler::multi_range_read_info(keyno, n_ranges, keys, bufsz, flags,
                                       cost);
-  if (uses_blob_value() || !(*flags & HA_MRR_NO_NULL_ENDPOINTS))
+  if (uses_blob_value(table->read_set) ||
+      !(*flags & HA_MRR_NO_NULL_ENDPOINTS))
   {
     *flags |= HA_MRR_USE_DEFAULT_IMPL;
     *bufsz= 0;
@@ -9527,8 +9526,10 @@ read_multi_needs_scan(NDB_INDEX_TYPE cur_index_type, const KEY *key_info,
 
 struct read_multi_callback_data {
   const KEY *key_info;
-  const KEY_MULTI_RANGE *first_range;
-  const KEY_MULTI_RANGE *range;
+  int first_range;
+  int range;
+  range_seq_t mrr_iter;
+  RANGE_SEQ_IF *mrr_funcs;
 };
 
 /* Callback to set up scan bounds for read multi range. */
@@ -9540,44 +9541,34 @@ read_multi_bounds_callback(void *arg, Uint32 i,
     (struct read_multi_callback_data *)arg;
 
   /* Skip any ranges not to be included in the scan. */
-  while (data->range->range_flag & (SKIP_RANGE|UNIQUE_RANGE))
+  KEY_MULTI_RANGE mrr_cur_range;
+  for(;;)
+  {
+    data->mrr_funcs->next(data->mrr_iter, &mrr_cur_range);
     data->range++;
-
+    if (!(mrr_persistent_flag_storage(data->mrr_iter, data->range)
+          & (SKIP_RANGE|UNIQUE_RANGE)))
+      break;
+  }
   compute_index_bounds(bound, data->key_info,
-                       &data->range->start_key, &data->range->end_key);
+                       &mrr_cur_range.start_key,
+                       &mrr_cur_range.end_key);
   bound.range_no= data->range - data->first_range;
-
-  data->range++;
 
   return 0;                                     // Success
 }
 
-int
-ha_ndbcluster::read_multi_range_first(KEY_MULTI_RANGE **found_range_p,
-                                      KEY_MULTI_RANGE *ranges, 
-                                      uint range_count,
-                                      bool sorted, 
-                                      HANDLER_BUFFER *buffer)
+int ha_ndbcluster::multi_range_read_init(RANGE_SEQ_IF *seq_funcs, 
+                                         void *seq_init_param,
+                                         uint n_ranges, uint mode,
+                                         HANDLER_BUFFER *buffer)
 {
-  KEY* key_info= table->key_info + active_index;
-  NDB_INDEX_TYPE cur_index_type= get_index_type(active_index);
-  ulong reclength= table_share->reclength;
-  NdbOperation* op;
+  int res;
   Thd_ndb *thd_ndb= get_thd_ndb(current_thd);
-  struct read_multi_callback_data data;
+  DBUG_ENTER("ha_ndbcluster::multi_range_read_init");
 
-  DBUG_ENTER("ha_ndbcluster::read_multi_range_first");
-  DBUG_PRINT("info", ("blob fields=%d read_set=0x%x", table_share->blob_fields, table->read_set->bitmap[0]));
-
-  /**
-   * blobs and unique hash index with NULL can't be batched currently
-   */
-  if (uses_blob_value(table->read_set) ||
-      (cur_index_type ==  UNIQUE_INDEX &&
-       has_null_in_unique_index(active_index) &&
-       null_value_index_search(ranges, ranges+range_count, buffer)))
+  if (mode & HA_MRR_USE_DEFAULT_IMPL)
   {
-    DBUG_PRINT("info", ("read_multi_range not possible, falling back to default handler implementation"));
     m_disable_multi_read= TRUE;
     DBUG_RETURN(handler::multi_range_read_init(seq_funcs, seq_init_param,
                                                n_ranges, mode, buffer));
@@ -9617,7 +9608,7 @@ ha_ndbcluster::read_multi_range_first(KEY_MULTI_RANGE **found_range_p,
 
 int ha_ndbcluster::multi_range_start_retrievals(int starting_range)
 {
-  int res, range_res;
+  int range_res;
   KEY* key_info= table->key_info + active_index;
   ulong reclength= table_share->reclength;
   NdbOperation* op;
@@ -9651,18 +9642,27 @@ int ha_ndbcluster::multi_range_start_retrievals(int starting_range)
   const NdbOperation* lastOp= m_active_trans->getLastDefinedOperation();
   NdbOperation::LockMode lm= 
     (NdbOperation::LockMode)get_ndb_lock_type(m_lock.type, table->read_set);
-  uchar *row_buf= (uchar *)buffer->buffer;
-  const uchar *end_of_buffer= buffer->buffer_end;
+  uchar *row_buf= (uchar *)multi_range_buffer->buffer;
+  const uchar *end_of_buffer= multi_range_buffer->buffer_end;
   uint num_scan_ranges= 0;
-  uint i;
-  for (i= 0; i < range_count; i++)
-  {
-    KEY_MULTI_RANGE *r= &ranges[i];
+  int range_no= -1;
+  int mrr_range_no= starting_range;
+  struct read_multi_callback_data data;
+  // ToDo: proper interface to save/retrieve point to iterate from
+  QUICK_RANGE_SEQ_CTX *ctx= (QUICK_RANGE_SEQ_CTX*)mrr_iter;
+  QUICK_RANGE **callback_ctx_cur= ctx->cur;
+  data.first_range= starting_range;
 
+  while (!(range_res= mrr_funcs.next(mrr_iter, &mrr_cur_range)) &&
+         row_buf+reclength <= end_of_buffer) // ToDo: is this really correct, will not mrr_cur_range be offset on reentering
+  {
+    range_no++;
+    mrr_range_no++;
     part_id_range part_spec;
     if (m_use_partition_function)
     {
-      get_partition_set(table, table->record[0], active_index, &r->start_key,
+      get_partition_set(table, table->record[0], active_index,
+                        &mrr_cur_range.start_key,
                         &part_spec);
       DBUG_PRINT("info", ("part_spec.start_part: %u  part_spec.end_part: %u",
                           part_spec.start_part, part_spec.end_part));
@@ -9676,23 +9676,24 @@ int ha_ndbcluster::multi_range_start_retrievals(int starting_range)
           We can skip this partition since the key won't fit into any
           partition
         */
-        r->range_flag|= SKIP_RANGE;
+        row_buf += reclength;
+        mrr_persistent_flag_storage(mrr_iter, mrr_range_no)|= SKIP_RANGE;
         continue;
       }
     }
-    r->range_flag&= ~(uint)SKIP_RANGE;
+    mrr_persistent_flag_storage(mrr_iter, mrr_range_no)&= ~(uint)SKIP_RANGE;
 
-    if (read_multi_needs_scan(cur_index_type, key_info, r))
+    if (read_multi_needs_scan(cur_index_type, key_info, &mrr_cur_range))
     {
       /*
         If we reach the limit of ranges allowed in a single scan: stop
         here, send what we have so far, and continue when done with that.
       */
-      if (i > NdbIndexScanOperation::MaxRangeNo)
-        break;
+      if (range_no > NdbIndexScanOperation::MaxRangeNo)
+        break; // ToDo: is this really correct, will not mrr_cur_range be offset on reentering
 
       /* Include this range in the ordered index scan. */
-      r->range_flag&= ~(uint)UNIQUE_RANGE;
+      mrr_persistent_flag_storage(mrr_iter, mrr_range_no)&= ~(uint)UNIQUE_RANGE;
       num_scan_ranges++;
     }
     else
@@ -9706,10 +9707,10 @@ int ha_ndbcluster::multi_range_start_retrievals(int starting_range)
       if (row_buf + reclength > end_of_buffer)
         break;
 
-      r->range_flag|= UNIQUE_RANGE;
+      mrr_persistent_flag_storage(mrr_iter, mrr_range_no)|= UNIQUE_RANGE;
 
       if (!(op= pk_unique_index_read_key(active_index,
-                                         r->start_key.key,
+                                         mrr_cur_range.start_key.key,
                                          row_buf, lm)))
         ERR_RETURN(m_active_trans->getNdbError());
 
@@ -9721,21 +9722,26 @@ int ha_ndbcluster::multi_range_start_retrievals(int starting_range)
       row_buf+= reclength;
     }
   }
-  DBUG_ASSERT(i > 0 || i == range_count);       // Require progress
-  m_multi_range_defined_end= ranges + i;
+
   if (num_scan_ranges > 0)
   {
+    /* save state of iterator */
+    QUICK_RANGE **save_ctx_cur= ctx->cur;
+    ctx->cur= callback_ctx_cur;
+
     /* Do a multi-range index scan for ranges not done by primary/unique key. */
     uchar *mask;
 
     data.key_info= key_info;
-    data.first_range= ranges;
     data.range= data.first_range;
+    data.mrr_iter= mrr_iter;
+    data.mrr_funcs= &mrr_funcs;
+    data.first_range++;
 
     Uint32 flags= NdbScanOperation::SF_ReadRangeNo;
     if (lm == NdbOperation::LM_Read)
       flags|= NdbScanOperation::SF_KeyInfo;
-    if (sorted)
+    if (mrr_is_output_sorted)
       flags|= NdbScanOperation::SF_OrderBy;
 
     if (m_use_partition_function || table_share->primary_key == MAX_KEY)
@@ -9766,13 +9772,13 @@ int ha_ndbcluster::multi_range_start_retrievals(int starting_range)
 
     /* We set m_next_row=0 to say that no row was fetched from the scan yet. */
     m_next_row= 0;
+
+    ctx->cur= save_ctx_cur;
   }
   else
   {
     m_active_cursor= 0;
   }
-
-  buffer->end_of_used_area= row_buf;
 
   /**
    * Set first operation in multi range
@@ -9782,13 +9788,13 @@ int ha_ndbcluster::multi_range_start_retrievals(int starting_range)
   if (execute_no_commit_ie(this, m_active_trans, true))
     ERR_RETURN(m_active_trans->getNdbError());
 
-  m_multi_range_result_ptr= buffer->buffer;
-
-  DBUG_RETURN(read_multi_range_next(found_range_p));
+  m_multi_range_result_ptr= (uchar*)multi_range_buffer->buffer;
+  first_running_range= first_range_in_batch= starting_range + 1;
+  first_unstarted_range= mrr_range_no + 1;
+  DBUG_RETURN(0);
 }
 
-int
-ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
+int ha_ndbcluster::multi_range_read_next(char **range_info)
 {
   DBUG_ENTER("ha_ndbcluster::multi_range_read_next");
 
@@ -9797,20 +9803,21 @@ ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
     DBUG_RETURN(handler::multi_range_read_next(range_info));
   }
 
-  while (multi_range_curr < m_multi_range_defined_end)
+  int res;
+
+  //for each range (we should have remembered the number)
+  for (;first_running_range < first_unstarted_range; first_running_range++)
   {
-    if (multi_range_curr->range_flag & SKIP_RANGE)
+    if (mrr_persistent_flag_storage(mrr_iter, first_running_range) & SKIP_RANGE)
     {
       /* Nothing in this range, move to next one. */
-      multi_range_curr++;
+      continue;
     }
-    else if (multi_range_curr->range_flag & UNIQUE_RANGE)
+    else if (mrr_persistent_flag_storage(mrr_iter, first_running_range) & UNIQUE_RANGE)
     {
       /*
         Move to next range; we can have at most one record from a unique range.
       */
-      KEY_MULTI_RANGE *old_multi_range_curr= multi_range_curr;
-      multi_range_curr= old_multi_range_curr + 1;
       const NdbOperation *op= m_current_multi_operation;
       m_current_multi_operation= m_active_trans->getNextCompletedOperation(op);
       const uchar *src_row= m_multi_range_result_ptr;
@@ -9819,7 +9826,7 @@ ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
       const NdbError &error= op->getNdbError();
       if (error.code == 0)
       {
-        *multi_range_found_p= old_multi_range_curr;
+        *range_info= mrr_get_ptr_by_idx(mrr_iter, first_running_range++);
         memcpy(table->record[0], src_row, table_share->reclength);
         if (table_share->primary_key == MAX_KEY)
         {
@@ -9831,10 +9838,12 @@ ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
       }
       else if (error.classification != NdbError::NoDataFound)
       {
+        first_running_range++;
         DBUG_RETURN(ndb_err(m_active_trans));
       }
 
       /* No row found, so fall through to try the next range. */
+      continue;
     }
     else
     {
@@ -9850,7 +9859,7 @@ ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
           The whole scan is done, and the cursor has been closed.
           So nothing more for this range. Move to next.
         */
-        multi_range_curr++;
+        continue;
       }
       else
       {
@@ -9859,18 +9868,18 @@ ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
         /*
           For a sorted index scan, we will receive rows in increasing range_no
           order, so we can return ranges in order, pausing when range_no
-          indicate that the currently processed range (multi_range_curr) is
+          indicate that the currently processed range (first_running_range) is
           done.
 
           But for unsorted scan, we may receive a high range_no from one
           fragment followed by a low range_no from another fragment. So we
           need to process all index scan ranges together.
         */
-        if (!multi_range_sorted ||
-            (expected_range_no= multi_range_curr - m_multi_ranges)
+        if (!mrr_is_output_sorted ||
+            (expected_range_no= first_running_range - first_range_in_batch)
                 == current_range_no)
         {
-          *multi_range_found_p= m_multi_ranges + current_range_no;
+          *range_info= mrr_get_ptr_by_idx(mrr_iter, first_running_range);
           /* Copy out data from the new row. */
           if (table_share->primary_key == MAX_KEY)
           {
@@ -9889,7 +9898,7 @@ ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
         else if (current_range_no > expected_range_no)
         {
           /* Nothing more in scan for this range. Move to next. */
-          multi_range_curr++;
+          continue;
         }
         else
         {
@@ -9898,7 +9907,7 @@ ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
             the order we requested them.
           */
           DBUG_ASSERT(0);
-          multi_range_curr++;                     // Attempt to carry on
+          continue;                     // Attempt to carry on
         }
       }
     }
@@ -9914,11 +9923,9 @@ ha_ndbcluster::read_multi_range_next(KEY_MULTI_RANGE ** multi_range_found_p)
   /*
     Read remaining ranges
   */
-  DBUG_RETURN(read_multi_range_first(multi_range_found_p, 
-                                     multi_range_curr,
-                                     multi_range_end - multi_range_curr, 
-                                     multi_range_sorted,
-                                     multi_range_buffer));
+  if ((res= multi_range_start_retrievals(first_running_range-1)))
+    DBUG_RETURN(res);
+  DBUG_RETURN(multi_range_read_next(range_info));
 }
 
 /*

@@ -23,6 +23,7 @@ concurrent_innodb        : BUG#21579 2006-08-11 mleich innodb_concurrent random 
 ndb_single_user          : Bug will not be fixed in this release (not yet atleast)
 ndb_autodiscover         : BUG#18952 2006-02-16 NDB Auto Discovery is failing designed tests in ndb_autodiscovery.test
 ndb_autodiscover2         : BUG#18952 2006-02-16 NDB Auto Discovery is failing designed tests in ndb_autodiscovery.test
+ndb_blob_partition       : BUG#29699 2007-07-09 tomas fails in partition by range
 ndb_load                 : BUG#17233 2006-05-04 tomas failed load data from infile causes mysqld dbug_assert, binlog not flushed
 
 partition_03ndb          : BUG#16385 2006-03-24 mikael Partitions: crash when updating a range partitioned NDB table

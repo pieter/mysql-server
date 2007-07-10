@@ -665,7 +665,7 @@ private:
 
   ha_ndbcluster_cond *m_cond;
   bool m_disable_multi_read;
-  uchar *m_multi_range_result_ptr;
+  const uchar *m_multi_range_result_ptr;
   const NdbOperation *m_current_multi_operation;
   Ndb *get_ndb();
 };

@@ -345,6 +345,7 @@ sub mtr_report_stats ($) {
 		/Slave: The incident LOST_EVENTS occured on the master/ or
 		/Slave: Unknown error.* 1105/ or
 		/Slave: Can't drop database.* database doesn't exist/ or
+		/Backup:/ or /Restore:/ or
 		/Sort aborted/ or
 		/Time-out in NDB/ or
 		/Warning:\s+One can only use the --user.*root/ or
@@ -360,6 +361,10 @@ sub mtr_report_stats ($) {
 		/skip-name-resolve mode/ or
 		/slave SQL thread aborted/ or
 		/Slave: .*Duplicate entry/ or
+		# Special case for Bug #26402 in show_check.test
+		# Question marks are not valid file name parts
+		# on Windows platforms. Ignore this error message. 
+		/\QCan't find file: '.\test\????????.frm'\E/ or
 		# Special case, made as specific as possible, for:
 		# Bug #28436: Incorrect position in SHOW BINLOG EVENTS causes
 		#             server coredump

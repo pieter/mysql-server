@@ -88,7 +88,7 @@ reset slave;
 SHOW SLAVE STATUS;
 Slave_IO_State	#
 Master_Host	127.0.0.1
-Master_User	root
+Master_User	test
 Master_Port	MASTER_PORT
 Connect_Retry	1
 Master_Log_File	
@@ -124,6 +124,7 @@ Last_IO_Errno	#
 Last_IO_Error	#
 Last_SQL_Errno	0
 Last_SQL_Error	
+change master to master_user='root';
 start slave;
 SHOW SLAVE STATUS;
 Slave_IO_State	#

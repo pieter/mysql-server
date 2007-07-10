@@ -2465,7 +2465,7 @@ Level	Code	Message
 Field	Type	Null	Key	Default	Extra
 id	char(16)	NO			
 data	int(11)	NO			
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
 Database	Table	In_use	Name_locked
 Privilege	Context	Comment
 Alter	Tables	To alter the table
@@ -2519,7 +2519,7 @@ Level	Code	Message
 Field	Type	Null	Key	Default	Extra
 id	char(16)	NO			
 data	int(11)	NO			
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
 Database	Table	In_use	Name_locked
 Privilege	Context	Comment
 Alter	Tables	To alter the table
@@ -4396,19 +4396,10 @@ drop procedure if exists bug13012|
 create procedure bug13012()
 BEGIN
 REPAIR TABLE t1;
-BACKUP TABLE t1 to '../tmp';
-DROP TABLE t1;
-RESTORE TABLE t1 FROM '../tmp';
 END|
 call bug13012()|
 Table	Op	Msg_type	Msg_text
 test.t1	repair	status	OK
-Table	Op	Msg_type	Msg_text
-test.t1	backup	Warning	The syntax 'BACKUP TABLE' is deprecated and will be removed in MySQL 5.2. Please use MySQL Administrator (mysqldump, mysql) instead
-test.t1	backup	status	OK
-Table	Op	Msg_type	Msg_text
-test.t1	restore	Warning	The syntax 'RESTORE TABLE' is deprecated and will be removed in MySQL 5.2. Please use MySQL Administrator (mysqldump, mysql) instead
-test.t1	restore	status	OK
 drop procedure bug13012|
 create view v1 as select * from t1|
 create procedure bug13012()
@@ -5447,17 +5438,6 @@ END|
 SELECT bug21493('111111')|
 bug21493('111111')
 NULL
-SELECT bug21493('222222')|
-bug21493('222222')
-CAD
-SELECT bug21493(Member_ID) FROM t3|
-bug21493(Member_ID)
-NULL
-CAD
-CAD
-CAD
-CAD
-CHF
 DROP FUNCTION bug21493|
 DROP TABLE t3,t4|
 drop function if exists func_20028_a|
@@ -5665,7 +5645,7 @@ drop function if exists pi;
 create function pi() returns varchar(50)
 return "pie, my favorite desert.";
 Warnings:
-Note	1581	This function 'pi' has the same name as a native function
+Note	1582	This function 'pi' has the same name as a native function
 SET @save_sql_mode=@@sql_mode;
 SET SQL_MODE='IGNORE_SPACE';
 select pi(), pi ();
@@ -5714,15 +5694,15 @@ use test;
 create function `database`() returns varchar(50)
 return "Stored function database";
 Warnings:
-Note	1581	This function 'database' has the same name as a native function
+Note	1582	This function 'database' has the same name as a native function
 create function `current_user`() returns varchar(50)
 return "Stored function current_user";
 Warnings:
-Note	1581	This function 'current_user' has the same name as a native function
+Note	1582	This function 'current_user' has the same name as a native function
 create function md5(x varchar(50)) returns varchar(50)
 return "Stored function md5";
 Warnings:
-Note	1581	This function 'md5' has the same name as a native function
+Note	1582	This function 'md5' has the same name as a native function
 SET SQL_MODE='IGNORE_SPACE';
 select database(), database ();
 database()	database ()

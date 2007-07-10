@@ -475,6 +475,7 @@ contrib/*.vcproj
 core
 core.*
 core.2430
+cscope.out
 db-*.*.*
 dbug/*.ds?
 dbug/*.vcproj
@@ -2068,6 +2069,7 @@ sql/.libs/udf_example.lai
 sql/.libs/udf_example.so.0
 sql/.libs/udf_example.so.0.0.0
 sql/client.c
+sql/cscope.out
 sql/f.c
 sql/gen_lex_hash
 sql/gmon.out

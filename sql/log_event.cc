@@ -4835,7 +4835,7 @@ int Create_file_log_event::do_apply_event(RELAY_LOG_INFO const *rli)
   bzero((char*)&file, sizeof(file));
   fname_buf= strmov(proc_info, "Making temp file ");
   ext= slave_load_file_stem(fname_buf, file_id, server_id, ".info");
-  thd->proc_info= proc_info;
+  THD_SET_PROC_INFO(thd, proc_info);
   my_delete(fname_buf, MYF(0)); // old copy may exist already
   if ((fd= my_create(fname_buf, CREATE_MODE,
 		     O_WRONLY | O_BINARY | O_EXCL | O_NOFOLLOW,
@@ -4888,7 +4888,7 @@ err:
     end_io_cache(&file);
   if (fd >= 0)
     my_close(fd, MYF(0));
-  thd->proc_info= 0;
+  THD_SET_PROC_INFO(thd, 0);
   return error == 0;
 }
 #endif /* defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT) */
@@ -5009,7 +5009,7 @@ int Append_block_log_event::do_apply_event(RELAY_LOG_INFO const *rli)
 
   fname= strmov(proc_info, "Making temp file ");
   slave_load_file_stem(fname, file_id, server_id, ".data");
-  thd->proc_info= proc_info;
+  THD_SET_PROC_INFO(thd, proc_info);
   if (get_create_or_append())
   {
     my_delete(fname, MYF(0)); // old copy may exist already
@@ -5043,7 +5043,7 @@ int Append_block_log_event::do_apply_event(RELAY_LOG_INFO const *rli)
 err:
   if (fd >= 0)
     my_close(fd, MYF(0));
-  thd->proc_info= 0;
+  THD_SET_PROC_INFO(thd, 0);
   DBUG_RETURN(error);
 }
 #endif
@@ -7114,7 +7114,13 @@ replace_record(THD *thd, TABLE *table,
      */
     if (table->file->ha_table_flags() & HA_DUPLICATE_POS)
     {
+      if (table->file->inited && (error= table->file->ha_index_end()))
+        DBUG_RETURN(error);
+      if ((error= table->file->ha_rnd_init(FALSE)))
+        DBUG_RETURN(error);
+      
       error= table->file->rnd_pos(table->record[1], table->file->dup_ref);
+      table->file->ha_rnd_end();
       if (error)
       {
         table->file->print_error(error, MYF(0));
@@ -7368,7 +7374,14 @@ static int find_and_fetch_row(TABLE *table, uchar *key)
     }
     
     table->file->position(table->record[0]);
-    int error= table->file->rnd_pos(table->record[0], table->file->ref);
+    int error;
+    if (table->file->inited && (error= table->file->ha_index_end()))
+      DBUG_RETURN(error);
+    if ((error= table->file->ha_rnd_init(FALSE)))
+      DBUG_RETURN(error);
+
+    error= table->file->rnd_pos(table->record[0], table->file->ref);
+    table->file->ha_rnd_end();
     /*
       rnd_pos() returns the record in table->record[0], so we have to
       move it to table->record[1].

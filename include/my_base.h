@@ -180,7 +180,12 @@ enum ha_extra_function {
     These flags are reset by the handler::extra(HA_EXTRA_RESET) call.
   */
   HA_EXTRA_DELETE_CANNOT_BATCH,
-  HA_EXTRA_UPDATE_CANNOT_BATCH
+  HA_EXTRA_UPDATE_CANNOT_BATCH,
+  /*
+    Inform handler that an "INSERT...ON DUPLICATE KEY UPDATE" will be
+    executed. This condition is unset by HA_EXTRA_NO_IGNORE_DUP_KEY.
+  */
+  HA_EXTRA_INSERT_WITH_UPDATE
 };
 
 	/* The following is parameter to ha_panic() */
@@ -242,6 +247,7 @@ enum ha_base_keytype {
 #define HA_SPACE_PACK_USED	 4	/* Test for if SPACE_PACK used */
 #define HA_VAR_LENGTH_KEY	 8
 #define HA_NULL_PART_KEY	 64
+#define HA_USES_COMMENT          4096
 #define HA_USES_PARSER           16384  /* Fulltext index uses [pre]parser */
 #define HA_USES_BLOCK_SIZE	 ((uint) 32768)
 #define HA_SORT_ALLOWS_SAME      512    /* Intern bit when sorting records */
@@ -471,14 +477,40 @@ enum data_file_type {
 
 /* For key ranges */
 
+/* from -inf */
 #define NO_MIN_RANGE	1
+
+/* to +inf */
 #define NO_MAX_RANGE	2
+
+/*  X < key, i.e. not including the left endpoint */
 #define NEAR_MIN	4
+
+/* X > key, i.e. not including the right endpoint */
 #define NEAR_MAX	8
+
+/* 
+  This flag means that index is a unique index, and the interval is 
+  equivalent to "AND(keypart_i = const_i)", where all of const_i are not NULLs.
+*/
 #define UNIQUE_RANGE	16
+
+/* 
+  This flag means that the interval is equivalent to 
+  "AND(keypart_i = const_i)", where not all key parts may be used but all of 
+  const_i are not NULLs.
+*/
 #define EQ_RANGE	32
+
+/*
+  This flag has the same meaning as UNIQUE_RANGE, except that for at least
+  one keypart the condition is "keypart IS NULL". 
+*/
 #define NULL_RANGE	64
+
 #define GEOM_FLAG      128
+
+/* Deprecated, currently used only by NDB at row retrieval */
 #define SKIP_RANGE     256
 
 typedef struct st_key_range

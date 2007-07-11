@@ -58,3 +58,4 @@ order_by             : WL#2475: spetrunia producing ordered streams is not handl
 rpl_udf              : Bug#28993 rpl_udf test causes server crash and valgrind warning in pushbuild
 rpl_ndb_circular     : Bug#29233 rpl_ndb_circular fails randomly
 ndb_dd_sql_features  : Bug#29102 ndb_dd_sql_features fails in pushbuild
+federated_innodb     : Bug#29522 failed assertion in binlog_close_connection()

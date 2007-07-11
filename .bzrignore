@@ -585,6 +585,7 @@ heap/hp_test2
 help
 help.c
 help.h
+include/abi_check
 include/check_abi
 include/link_sources
 include/my_config.h

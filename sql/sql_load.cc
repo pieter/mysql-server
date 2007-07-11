@@ -1051,6 +1051,7 @@ read_xml_field(THD *thd, COPY_INFO &info, TABLE_LIST *table_list,
 char
 READ_INFO::unescape(char chr)
 {
+  /* keep this switch synchornous with the ESCAPE_CHARS macro */
   switch(chr) {
   case 'n': return '\n';
   case 't': return '\t';

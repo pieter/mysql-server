@@ -528,6 +528,7 @@ JOIN::prepare(Item ***rref_pointer_array,
     {
       bool do_semijoin= !test(thd->variables.optimizer_switch &
                               OPTIMIZER_SWITCH_NO_SEMIJOIN);
+      DBUG_PRINT("info", ("Checking if subq can be converted to semi-join"));
       /*
         Check if we're in subquery that is a candidate for flattening into a
         semi-join (which is done done in flatten_subqueries()). The
@@ -554,7 +555,7 @@ JOIN::prepare(Item ***rref_pointer_array,
           select_lex->master_unit()->first_select()->leaf_tables &&     // (**) 
           do_semijoin)
       {
-        fprintf(stderr, "subq is an sj candidate\n");
+        DBUG_PRINT("info", ("Subquery is semi-join conversion candidate"));
         Item_in_subselect *in_subs= (Item_in_subselect*)subselect;
 
         if (thd->stmt_arena->state != Query_arena::PREPARED)
@@ -583,7 +584,7 @@ JOIN::prepare(Item ***rref_pointer_array,
       }
       else
       {
-        fprintf(stderr, "subq is not an sj candidate\n");
+        DBUG_PRINT("info", ("Subquery can't be converted to semi-join"));
         Item_in_subselect *in_subs= NULL;
         bool do_materialize= !test(thd->variables.optimizer_switch &
                                    OPTIMIZER_SWITCH_NO_MATERIALIZATION);
@@ -3459,14 +3460,11 @@ bool find_eq_ref_candidate(TABLE *table, table_map sj_inner_tables)
 
 int pull_out_semijoin_tables(JOIN *join)
 {
+  TABLE_LIST *sj_nest;
   DBUG_ENTER("pull_out_semijoin_tables");
-  TABLE_LIST *sj_nest;//, **sj_nest_end;
   List_iterator<TABLE_LIST> sj_list_it(join->select_lex->sj_nests);
    
   /* Try pulling out of the each of the semi-joins */
-//  for (sj_nest= join->select_lex->sj_nests.front(), 
-//       sj_nest_end= join->select_lex->sj_nests.back();
-//       sj_nest != sj_nest_end; sj_nest++)
   while ((sj_nest= sj_list_it++))
   {
     /* Action #1: Mark the constant tables to be pulled out */
@@ -3481,6 +3479,8 @@ int pull_out_semijoin_tables(JOIN *join)
         tbl->table->reginfo.join_tab->emb_sj_nest= sj_nest;
         if (tbl->table->map & join->const_table_map)
           pulled_tables |= tbl->table->map;
+        DBUG_PRINT("info", ("Table %s pulled out (reason: constant)",
+                            tbl->table->alias));
       }
     }
     
@@ -3502,6 +3502,8 @@ int pull_out_semijoin_tables(JOIN *join)
           {
             pulled_a_table= TRUE;
             pulled_tables |= tbl->table->map;
+            DBUG_PRINT("info", ("Table %s pulled out (reason: func dep)",
+                                tbl->table->alias));
           }
         }
       }
@@ -3511,7 +3513,7 @@ int pull_out_semijoin_tables(JOIN *join)
     if ((sj_nest)->nested_join->used_tables == pulled_tables)
     {
       (sj_nest)->sj_inner_tables= 0;
-      fprintf(stderr, "subq nest removed\n");
+      DBUG_PRINT("info", ("All semi-join nest tables were pulled out"));
       while ((tbl= child_li++))
       {
         if (tbl->table)

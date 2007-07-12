@@ -6778,6 +6778,7 @@ static bool create_ref_for_key(JOIN *join, JOIN_TAB *j, KEYUSE *org_keyuse,
   j->ref.key_buff2=j->ref.key_buff+ALIGN_SIZE(length);
   j->ref.key_err=1;
   j->ref.null_rejecting= 0;
+  j->ref.disable_cache= FALSE;
   keyuse=org_keyuse;
 
   store_key **ref_key= j->ref.key_copy;
@@ -7900,10 +7901,22 @@ static void push_index_cond(JOIN_TAB *tab, uint keyno, bool other_tbls_ok)
       tab->pre_idx_push_select_cond= tab->select_cond;
       Item *idx_remainder_cond= 
         tab->table->file->idx_cond_push(keyno, idx_cond);
+
+      /*
+        Disable eq_ref's "lookup cache" if we've pushed down an index
+        condition. 
+        TODO: This check happens to work on current ICP implementations, but
+        there may exist a compliant implementation that will not work 
+        correctly with it. Sort this out when we stabilize the condition
+        pushdown APIs.
+      */
+      if (idx_remainder_cond != idx_cond)
+        tab->ref.disable_cache= TRUE;
+
       Item *row_cond= make_cond_remainder(tab->select_cond, TRUE);
       DBUG_EXECUTE("where", print_where(row_cond, "remainder cond"););
       
-      if (row_cond) 
+      if (row_cond)
       {
         if (!idx_remainder_cond)
           tab->select_cond= row_cond;
@@ -13627,7 +13640,7 @@ join_read_system(JOIN_TAB *tab)
 
 
 /*
-  Read a table when there is at most one matching row
+  Read a [constant] table when there is at most one matching row
 
   SYNOPSIS
     join_read_const()
@@ -13677,6 +13690,23 @@ join_read_const(JOIN_TAB *tab)
 }
 
 
+/*
+  eq_ref access method implementation: "read_first" function
+
+  SYNOPSIS
+    join_read_key()
+      tab  JOIN_TAB of the accessed table
+
+  DESCRIPTION
+    This is "read_fist" function for the "ref" access method. The difference
+    from "ref" is that it has a one-element "cache" (see cmp_buffer_with_ref)
+
+  RETURN
+    0  - Ok
+   -1  - Row not found 
+    1  - Error
+*/
+
 static int
 join_read_key(JOIN_TAB *tab)
 {
@@ -13687,6 +13717,8 @@ join_read_key(JOIN_TAB *tab)
   {
     table->file->ha_index_init(tab->ref.key, tab->sorted);
   }
+
+  /* TODO: Why don't we do "Late NULLs Filtering" here? */
   if (cmp_buffer_with_ref(tab) ||
       (table->status & (STATUS_GARBAGE | STATUS_NO_PARENT | STATUS_NULL_ROW)))
   {
@@ -13707,17 +13739,35 @@ join_read_key(JOIN_TAB *tab)
 }
 
 
+/*
+  ref access method implementation: "read_first" function
+
+  SYNOPSIS
+    join_read_always_key()
+      tab  JOIN_TAB of the accessed table
+
+  DESCRIPTION
+    This is "read_fist" function for the "ref" access method.
+
+  RETURN
+    0  - Ok
+   -1  - Row not found 
+    1  - Error
+*/
+
 static int
 join_read_always_key(JOIN_TAB *tab)
 {
   int error;
   TABLE *table= tab->table;
-
+  
+  /* Perform "Late NULLs Filtering" (see internals manual for explanations) */
   for (uint i= 0 ; i < tab->ref.key_parts ; i++)
   {
     if ((tab->ref.null_rejecting & 1 << i) && tab->ref.items[i]->is_null())
         return -1;
-  } 
+  }
+
   if (!table->file->inited)
   {
     table->file->ha_index_init(tab->ref.key, tab->sorted);
@@ -16084,17 +16134,42 @@ read_cached_record(JOIN_TAB *tab)
 }
 
 
+/*
+  eq_ref: Create the lookup key and check if it is the same as saved key
+
+  SYNOPSIS
+    cmp_buffer_with_ref()
+      tab  Join tab of the accessed table
+ 
+  DESCRIPTION 
+    Used by eq_ref access method: create the index lookup key and check if 
+    we've used this key at previous lookup (If yes, we don't need to repeat
+    the lookup - the record has been already fetched)
+
+  RETURN 
+    TRUE   No cached record for the key, or failed to create the key (due to
+           out-of-domain error)
+    FALSE  The created key is the same as the previous one (and the record 
+           is already in table->record)
+*/
+
 static bool
 cmp_buffer_with_ref(JOIN_TAB *tab)
 {
-  bool diff;
-  if (!(diff=tab->ref.key_err))
+  bool no_prev_key;
+  if (!tab->ref.disable_cache)
   {
-    memcpy(tab->ref.key_buff2, tab->ref.key_buff, tab->ref.key_length);
+    if (!(no_prev_key= tab->ref.key_err))
+    {
+      /* Previous access found a row. Copy its key */
+      memcpy(tab->ref.key_buff2, tab->ref.key_buff, tab->ref.key_length);
+    }
   }
+  else 
+    no_prev_key= TRUE;
   if ((tab->ref.key_err= cp_buffer_from_ref(tab->join->thd, tab->table,
                                             &tab->ref)) ||
-      diff)
+      no_prev_key)
     return 1;
   return memcmp(tab->ref.key_buff2, tab->ref.key_buff, tab->ref.key_length)
     != 0;

@@ -90,6 +90,12 @@ typedef struct st_table_ref
   table_map	depend_map;		  // Table depends on these tables.
   /* null byte position in the key_buf. Used for REF_OR_NULL optimization */
   uchar          *null_ref_key;
+
+  /*
+    TRUE <=> disable the "cache" as doing lookup with the same key value may
+    produce different results (because of Index Condition Pushdown)
+  */
+  bool          disable_cache;
 } TABLE_REF;
 
 

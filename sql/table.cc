@@ -964,7 +964,6 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
       }
       next_chunk+= 2 + share->comment.length;
     }
-    my_free(buff, MYF(0));
     DBUG_ASSERT (next_chunk <= buff_end);
     if (share->mysql_version >= MYSQL_VERSION_TABLESPACE_IN_FRM)
     {

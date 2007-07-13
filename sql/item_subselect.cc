@@ -648,8 +648,8 @@ bool Item_in_subselect::test_limit(SELECT_LEX_UNIT *unit_arg)
 
 Item_in_subselect::Item_in_subselect(Item * left_exp,
 				     st_select_lex *select_lex):
-  Item_exists_subselect(), left_expr_cache(0), optimizer(0), transformed(0),
-  pushed_cond_guards(NULL), use_hash_sj(0), upper_item(0), converted_to_sj(FALSE)
+  Item_exists_subselect(), left_expr_cache(0), optimizer(0),
+  pushed_cond_guards(NULL), exec_method(NOT_TRANSFORMED), upper_item(0)
 {
   DBUG_ENTER("Item_in_subselect::Item_in_subselect");
   left_expr= left_exp;
@@ -1048,11 +1048,8 @@ Item_in_subselect::single_value_transformer(JOIN *join,
     If this IN predicate can be computed via materialization, do not
     perform the IN -> EXISTS transformation.
   */
-  if (use_hash_sj)
-  {
-    transformed= FALSE;
+  if (exec_method == MATERIALIZATION)
     DBUG_RETURN(RES_OK);
-  }
 
   select_lex->uncacheable|= UNCACHEABLE_DEPENDENT;
   if (join->having || select_lex->with_sum_func ||
@@ -1281,11 +1278,8 @@ Item_in_subselect::row_value_transformer(JOIN *join)
     If this IN predicate can be computed via materialization, do not
     perform the IN -> EXISTS transformation.
   */
-  if (use_hash_sj)
-  {
-    transformed= FALSE;
+  if (exec_method == MATERIALIZATION)
     DBUG_RETURN(RES_OK);
-  }
 
   /*
     Tranform a (possibly non-correlated) IN subquery into a correlated EXISTS.
@@ -1554,7 +1548,12 @@ Item_in_subselect::select_in_like_transformer(JOIN *join, Comp_creator *func)
   if (result)
     goto err;
 
-  transformed= 1;
+  /*
+    If we didn't choose an execution method up to this point, we choose
+    the IN=>EXISTS transformation.
+  */
+  if (exec_method == NOT_TRANSFORMED)
+    exec_method= IN_TO_EXISTS;
   arena= thd->activate_stmt_arena_if_needed(&backup);
   /*
     Both transformers call fix_fields() only for Items created inside them,
@@ -1587,7 +1586,7 @@ err:
 
 void Item_in_subselect::print(String *str)
 {
-  if (transformed)
+  if (exec_method == IN_TO_EXISTS)
     str->append(STRING_WITH_LEN("<exists>"));
   else
   {
@@ -1603,7 +1602,7 @@ bool Item_in_subselect::fix_fields(THD *thd_arg, Item **ref)
   bool result = 0;
   ref_ptr= ref;
 
-  if (converted_to_sj)
+  if (exec_method == SEMI_JOIN)
     return !( (*ref)= new Item_int(1));
 
   if (thd_arg->lex->view_prepare_mode && left_expr && !left_expr->fixed)
@@ -1727,14 +1726,14 @@ bool Item_in_subselect::test_if_left_expr_changed()
 
 bool Item_in_subselect::is_expensive_processor(uchar *arg)
 {
-  return use_hash_sj;
+  return exec_method == MATERIALIZATION;
 }
 
 
 Item_subselect::trans_res
 Item_allany_subselect::select_transformer(JOIN *join)
 {
-  transformed= 1;
+  exec_method= IN_TO_EXISTS;
   if (upper_item)
     upper_item->show= 1;
   return select_in_like_transformer(join, func);
@@ -1743,7 +1742,7 @@ Item_allany_subselect::select_transformer(JOIN *join)
 
 void Item_allany_subselect::print(String *str)
 {
-  if (transformed)
+  if (exec_method == IN_TO_EXISTS)
     str->append(STRING_WITH_LEN("<exists>"));
   else
   {
@@ -2969,6 +2968,13 @@ int subselect_hash_sj_engine::exec()
       DBUG_RETURN(TRUE);     
     materialize_join->exec();
     is_materialized= TRUE;
+    /*
+      TODO:
+      - unlock all subquery tables as we don't need them. Look at
+        the code for single-value subqueries.
+      - the temp table used for grouping in the subquery can be freed
+        immediately after materialization (yet i's done together with unlocking).
+     */
     /*
       If the subquery returned no rows, there is no need to perform
       lookups for empty subqueries.

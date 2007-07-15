@@ -39,8 +39,6 @@ enum enum_ha_read_modes { RFIRST, RNEXT, RPREV, RLAST, RKEY, RNEXT_SAME };
 enum enum_duplicates { DUP_ERROR, DUP_REPLACE, DUP_UPDATE };
 enum enum_delay_key_write { DELAY_KEY_WRITE_NONE, DELAY_KEY_WRITE_ON,
 			    DELAY_KEY_WRITE_ALL };
-enum enum_check_fields
-{ CHECK_FIELD_IGNORE, CHECK_FIELD_WARN, CHECK_FIELD_ERROR_FOR_NULL };
 enum enum_mark_columns
 { MARK_COLUMNS_NONE, MARK_COLUMNS_READ, MARK_COLUMNS_WRITE};
 enum enum_filetype { FILETYPE_CSV, FILETYPE_XML };
@@ -501,13 +499,6 @@ public:
   { return strdup_root(mem_root,str); }
   inline char *strmake(const char *str, size_t size)
   { return strmake_root(mem_root,str,size); }
-  inline bool LEX_STRING_make(LEX_STRING *lex_str, const char *str,
-                              size_t size)
-  {
-    return ((lex_str->str= 
-             strmake_root(mem_root, str, (lex_str->length= size)))) == 0;
-  }
-
   inline void *memdup(const void *str, size_t size)
   { return memdup_root(mem_root,str,size); }
   inline void *memdup_w_gap(const void *str, size_t size, uint gap)
@@ -1620,6 +1611,10 @@ public:
   {
     return alloc_root(&transaction.mem_root,size);
   }
+
+  LEX_STRING *make_lex_string(LEX_STRING *lex_str,
+                              const char* str, uint length,
+                              bool allocate_lex_string);
 
   bool convert_string(LEX_STRING *to, CHARSET_INFO *to_cs,
 		      const char *from, uint from_length,

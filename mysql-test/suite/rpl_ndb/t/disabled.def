@@ -28,3 +28,4 @@ rpl_ndb_ctype_ucs2_def   : BUG#27404 util thd mysql_parse sig11 when mysqld defa
 #rpl_ndb_dd_advance	 : Bug#25913 rpl_ndb_dd_advance fails randomly
 rpl_ndb_extraCol           : Bug#29809 2007-07-15 ingo Slave SQL errors in warnings file
 rpl_truncate_7ndb          : Bug#29809 2007-07-15 ingo Slave SQL errors in warnings file
+rpl_ndb_basic              : Bug#29827 2007-07-16 ingo reports to error log

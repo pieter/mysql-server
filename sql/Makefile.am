@@ -43,7 +43,7 @@ mysqld_LDADD =		libndb.la \
 			@pstack_libs@ \
 			@mysql_plugin_libs@ \
 			$(LDADD)  $(CXXLDFLAGS) $(WRAPLIBS) @LIBDL@ \
-			@MYSQLD_EXTRA_LIBS@ \
+			$(yassl_libs) $(openssl_libs) @MYSQLD_EXTRA_LIBS@ \
 			backup/libbackup.la
 
 noinst_HEADERS =	item.h item_func.h item_sum.h item_cmpfunc.h \

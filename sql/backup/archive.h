@@ -110,6 +110,8 @@ class Archive_info
  private:
 
   friend class Image_info;
+  friend class Db_item;
+  friend class Table_item;
 };
 
 /**
@@ -282,6 +284,7 @@ class Archive_info::Item
   friend class Archive_info;
   friend class Backup_info;
   friend class Restore_info;
+  friend class Iterator;
 };
 
 
@@ -345,7 +348,7 @@ class Archive_info::Item::Iterator
   as a var-length coded integer.
  */
 class Archive_info::Db_item:
-  public Item, public meta::Db, public Db_ref
+  public Archive_info::Item, public meta::Db, public Db_ref
 {
   StringPool::Key   key;
 
@@ -381,7 +384,7 @@ class Archive_info::Db_item:
   image's table list.
  */
 class Archive_info::Table_item:
-  public Item, public meta::Table, public Table_ref
+  public Archive_info::Item, public meta::Table, public Table_ref
 {
   uint  img;  ///< Image in which this table is saved.
   uint  pos;  ///< Position of the table in image's table list.

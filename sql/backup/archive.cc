@@ -639,15 +639,15 @@ Table_ref Image_info::Tables::operator[](uint pos) const
 
   struct Table_ref: public backup::Table_ref
   {
-    Table_ref(const Image_info::Tables &list, Image_info::Tables::node &n):
-      backup::Table_ref(list.m_db_names[n.db],n.name)
+    Table_ref(const StringPool &db_names, Image_info::Tables::node &n):
+      backup::Table_ref(db_names[n.db],n.name)
     {}
   };
 
   node *ptr= find_table(pos);
   DBUG_ASSERT(ptr);
 
-  return Table_ref(*this,*ptr);
+  return Table_ref(m_db_names,*ptr);
 }
 
 /******************

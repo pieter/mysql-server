@@ -37,7 +37,26 @@
 
 
 	<!-- Check field values in attributes -->
-	<row a=212 b="b212"</row>
+	<row a=212 b="b212"></row>
+
+	<!-- Bug#29752 Linefeeds break LOAD XML INFILE -->
+	<!-- Check varios combinations of TAB and NL   -->
+
+	<row
+	a=213 b="b213">
+	</row>
+
+	<row
+	a=214
+	b="b214">
+	</row>
+
+	<row a=215	b="b215"></row>
+
+	<row a=216 b="&bb
+b;"></row>
+
+	<!-- End of bug#29752 -->
 
 	</table_data>
 </database>

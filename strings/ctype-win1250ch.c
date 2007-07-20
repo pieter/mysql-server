@@ -411,36 +411,52 @@ static struct wordvalue doubles[]=
        or stop on the primary level
 */
 
-#define NEXT_CMP_VALUE(src, p, pass, value, len, ml)			\
-	while (1) {							\
-		if (IS_END(p, src, len)) {				\
-			if (pass == 0 && ml && len > 0) { p= src; pass++; } \
-			else { value = 0; break; }			\
-		}							\
-		value = ((pass == 0) ? _sort_order_win1250ch1[*p]	\
-			: _sort_order_win1250ch2[*p]);			\
-		if (value == 0xff) {					\
-			int i;						\
-			for (i = 0; i < (int) sizeof(doubles); i++) {	\
-				const uchar *patt = doubles[i].word;	\
-				const uchar *q = (const uchar *) p;	\
-				while (*patt				\
-					&& !(IS_END(q, src, len))	\
-					&& (*patt == *q)) {		\
-					patt++; q++;			\
-				}					\
-				if (!(*patt)) {				\
-					value = (int)((pass == 0)	\
-						? doubles[i].pass1	\
-						: doubles[i].pass2);	\
-					p = (const uchar *) q - 1;	\
-					break;				\
-				}					\
-			}						\
-		}							\
-		p++;							\
-		break;							\
-	}
+#define NEXT_CMP_VALUE(src, p, pass, value, len, ml)      \
+  while (1)                                               \
+  {                                                       \
+    if (IS_END(p, src, len))                              \
+    {                                                     \
+      if (pass == 0 && ml && len > 0)                     \
+      {                                                   \
+        p= src;                                           \
+        pass++;                                           \
+      }                                                   \
+      else                                                \
+      {                                                   \
+        value= 0;                                         \
+        break;                                            \
+      }                                                   \
+    }                                                     \
+    value= (pass == 0) ?                                  \
+             _sort_order_win1250ch1[*p] :                 \
+             _sort_order_win1250ch2[*p];                  \
+    if (value == 0xff)                                    \
+    {                                                     \
+      int i;                                              \
+      for (i= 0; i < (int) array_elements(doubles); i++)  \
+      {                                                   \
+        const uchar *patt= doubles[i].word;               \
+        const uchar *q= (const uchar *) p;                \
+        while (*patt &&                                   \
+               !IS_END(q, src, len) &&                    \
+               (*patt == *q))                             \
+        {                                                 \
+          patt++;                                         \
+          q++;                                            \
+        }                                                 \
+        if (!(*patt))                                     \
+        {                                                 \
+          value= (int) ((pass == 0) ?                     \
+                          doubles[i].pass1 :              \
+                          doubles[i].pass2);              \
+          p= (const uchar *) q - 1;                       \
+          break;                                          \
+        }                                                 \
+      }                                                   \
+    }                                                     \
+    p++;                                                  \
+    break;                                                \
+  }
 
 #define IS_END(p, src, len)	(((char *)p - (char *)src) >= (len))
 

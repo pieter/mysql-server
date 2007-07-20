@@ -342,3 +342,14 @@ hex(weight_string('a' LEVEL 8))
 select hex(weight_string('a' LEVEL 1,8));
 hex(weight_string('a' LEVEL 1,8))
 82016100
+create table t1 (
+a varchar(2) character set latin2 collate latin2_czech_cs,
+primary key(a)
+);
+insert into t1 set a=0x5ff;
+insert into t1 set a=0xff;
+select hex(a) from t1;
+hex(a)
+05FF
+FF
+drop table t1;

@@ -26,3 +26,5 @@ mysql_upgrade        : Bug#28560 test links to /usr/local/mysql/lib libraries, c
 order_by             : WL#2475: spetrunia producing ordered streams is not handled correctly
 federated_innodb     : Bug#29522 failed assertion in binlog_close_connection()
 lowercase_table3     : Bug#29839 2007-07-17 ingo Cannot find table test/T1 from the internal data dictionary
+locktrans_innodb     : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock tables used in triggers
+rpl_locktrans_innodb : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock tables used in triggers

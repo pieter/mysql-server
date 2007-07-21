@@ -4585,8 +4585,11 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table, TABLE_LIST* src_table,
   DBUG_EXECUTE_IF("sleep_create_like_before_ha_create", my_sleep(6000000););
 
   dst_path[dst_path_length - reg_ext_length]= '\0';  // Remove .frm
+  if (thd->variables.keep_files_on_create)
+    create_info->options|= HA_CREATE_KEEP_FILES;
   err= ha_create_table(thd, dst_path, db, table_name, create_info, 1);
   VOID(pthread_mutex_unlock(&LOCK_open));
+
   if (create_info->options & HA_LEX_CREATE_TMP_TABLE)
   {
     if (err || !open_temporary_table(thd, dst_path, db, table_name, 1))
@@ -6265,11 +6268,9 @@ view_err:
   {
     VOID(pthread_mutex_lock(&LOCK_open));
     wait_while_table_is_used(thd, table, HA_EXTRA_FORCE_REOPEN);
-    table->file->ha_external_lock(thd, F_WRLCK);
+    VOID(pthread_mutex_unlock(&LOCK_open));
     alter_table_manage_keys(table, table->file->indexes_are_disabled(),
                             alter_info->keys_onoff);
-    table->file->ha_external_lock(thd, F_UNLCK);
-    VOID(pthread_mutex_unlock(&LOCK_open));
     error= ha_commit_stmt(thd);
     if (ha_commit(thd))
       error= 1;

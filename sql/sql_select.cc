@@ -10482,7 +10482,13 @@ static void restore_prev_nj_state(JOIN_TAB *last)
     {
       if (!(--last_emb->nested_join->counter_))
         return;
-      join->cur_embedding_map &= last_emb->nested_join->nj_map;
+      if (!(--last_emb->nested_join->counter))
+        join->cur_embedding_map&= ~last_emb->nested_join->nj_map;
+      else if (last_emb->nested_join->join_list.elements-1 ==
+               last_emb->nested_join->counter) 
+        join->cur_embedding_map|= last_emb->nested_join->nj_map;
+      else
+        break;
     }
     last_emb= last_emb->embedding;
   }

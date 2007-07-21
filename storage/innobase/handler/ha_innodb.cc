@@ -8139,4 +8139,3 @@ int ha_innobase::read_range_next()
   return res;
 }
 
-#endif

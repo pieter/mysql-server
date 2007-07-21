@@ -10402,7 +10402,7 @@ static void reset_nj_counters(List<TABLE_LIST> *join_list)
       position:
        1. join->cur_embedding_map - bitmap of pairs of brackets (aka nested
           joins) we've opened but didn't close.
-       2. {each NESTED_JOIN structure not simplified away}->counter - number
+       2. {each NESTED_JOIN structure not simplified away}->counter_ - number
           of this nested join's children that have already been added to to
           the partial join order.
       
@@ -10481,11 +10481,9 @@ static void restore_prev_nj_state(JOIN_TAB *last)
     if (last_emb->on_expr)
     {
       if (!(--last_emb->nested_join->counter_))
-        return;
-      if (!(--last_emb->nested_join->counter))
         join->cur_embedding_map&= ~last_emb->nested_join->nj_map;
       else if (last_emb->nested_join->join_list.elements-1 ==
-               last_emb->nested_join->counter) 
+               last_emb->nested_join->counter_) 
         join->cur_embedding_map|= last_emb->nested_join->nj_map;
       else
         break;

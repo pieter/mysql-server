@@ -758,7 +758,7 @@ public:
        ;
 */
 
-class index_hint;
+class Index_hint;
 struct TABLE_LIST
 {
   TABLE_LIST() {}                          /* Remove gcc warning */
@@ -840,7 +840,7 @@ struct TABLE_LIST
   */
   TABLE_LIST *next_name_resolution_table;
   /* Index names in a "... JOIN ... USE/IGNORE INDEX ..." clause. */
-  List<index_hint> *index_hints;
+  List<Index_hint> *index_hints;
   TABLE        *table;                          /* opened table */
   uint          table_id; /* table id (from binlog) for opened table */
   /*

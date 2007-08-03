@@ -819,7 +819,6 @@ show columns in t1;
 show slave hosts;
 show keys in t1;
 show column types;
-show table types;
 show storage engines;
 show authors;
 show contributors;
@@ -1424,5 +1423,4 @@ DROP PROCEDURE p1;
 DROP FUNCTION f1;
 DROP TABLE t1;
 DROP EVENT ev1;
-SHOW TABLE TYPES;
 End of 5.1 tests

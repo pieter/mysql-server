@@ -1034,7 +1034,7 @@ read_xml_field(THD *thd, COPY_INFO &info, TABLE_LIST *table_list,
       We don't need to reset auto-increment field since we are restoring
       its default value at the beginning of each loop iteration.
     */
-    thd->no_trans_update.stmt= no_trans_update_stmt;
+    thd->transaction.stmt.modified_non_trans_table= no_trans_update_stmt;
     thd->row_count++;
     continue_loop:;
   }

@@ -2937,7 +2937,7 @@ subselect_hash_sj_engine::~subselect_hash_sj_engine()
 void subselect_hash_sj_engine::cleanup()
 {
   is_materialized= FALSE;
-  result->cleanup();
+  result->cleanup(); /* Resets the temp table as well. */
   materialize_engine->cleanup();
   subselect_uniquesubquery_engine::cleanup();
 }
@@ -2978,10 +2978,12 @@ int subselect_hash_sj_engine::exec()
         immediately after materialization (yet i's done together with unlocking).
      */
     /*
-      If the subquery returned no rows, there is no need to perform
-      lookups for empty subqueries.
+      If the subquery returned no rows, the temporary table is empty, so we know
+      directly that the result of IN is FALSE. We first update the table statistics,
+      then we test if the temporary table for the query result is empty.
     */
-    if (!materialize_join->send_records)
+    tab->table->file->info(HA_STATUS_VARIABLE);
+    if (!tab->table->file->stats.records)
     {
       empty_result_set= TRUE;
       item_in->value= FALSE;

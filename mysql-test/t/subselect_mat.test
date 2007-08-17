@@ -3,7 +3,9 @@
 # (WL#1110: Subquery optimization: materialization)
 #
 
+--disable_warnings
 drop table if exists t1, t2, t3;
+--enable_warnings
 
 create table t1 (a1 char(8), a2 char(8));
 create table t2 (b1 char(8), b2 char(8));
@@ -68,7 +70,10 @@ set @prefix_len = 6;
 set @blob_len = 16;
 set @suffix_len = @blob_len - @prefix_len;
 
+--disable_warnings
 drop table if exists t1_16, t2_16, t3_16;
+--enable_warnings
+
 create table t1_16 (a1 blob(16), a2 blob(16));
 create table t2_16 (b1 blob(16), b2 blob(16));
 create table t3_16 (c1 blob(16), c2 blob(16));
@@ -155,7 +160,10 @@ drop table t1_16, t2_16, t3_16;
 set @blob_len = 512;
 set @suffix_len = @blob_len - @prefix_len;
 
+--disable_warnings
 drop table if exists t1_512, t2_512, t3_512;
+--enable_warnings
+
 create table t1_512 (a1 blob(512), a2 blob(512));
 create table t2_512 (b1 blob(512), b2 blob(512));
 create table t3_512 (c1 blob(512), c2 blob(512));
@@ -242,7 +250,10 @@ drop table t1_512, t2_512, t3_512;
 set @blob_len = 1024;
 set @suffix_len = @blob_len - @prefix_len;
 
+--disable_warnings
 drop table if exists t1_1024, t2_1024, t3_1024;
+--enable_warnings
+
 create table t1_1024 (a1 blob(1024), a2 blob(1024));
 create table t2_1024 (b1 blob(1024), b2 blob(1024));
 create table t3_1024 (c1 blob(1024), c2 blob(1024));
@@ -329,7 +340,10 @@ drop table t1_1024, t2_1024, t3_1024;
 set @blob_len = 1025;
 set @suffix_len = @blob_len - @prefix_len;
 
+--disable_warnings
 drop table if exists t1_1025, t2_1025, t3_1025;
+--enable_warnings
+
 create table t1_1025 (a1 blob(1025), a2 blob(1025));
 create table t2_1025 (b1 blob(1025), b2 blob(1025));
 create table t3_1025 (c1 blob(1025), c2 blob(1025));

@@ -336,6 +336,9 @@ public:
   trans_res select_in_like_transformer(JOIN *join, Comp_creator *func);
   trans_res single_value_transformer(JOIN *join, Comp_creator *func);
   trans_res row_value_transformer(JOIN * join);
+  trans_res single_value_in_to_exists_transformer(JOIN * join,
+                                                  Comp_creator *func);
+  trans_res row_value_in_to_exists_transformer(JOIN * join);
   longlong val_int();
   double val_real();
   String *val_str(String*);
@@ -346,7 +349,7 @@ public:
   bool test_limit(st_select_lex_unit *unit);
   void print(String *str);
   bool fix_fields(THD *thd, Item **ref);
-  bool setup_hash_sj_engine();
+  bool setup_engine();
   bool init_left_expr_cache();
   bool test_if_left_expr_changed();
   bool is_expensive_processor(uchar *arg);
@@ -483,6 +486,7 @@ public:
   virtual enum_engine_type engine_type() { return SINGLE_SELECT_ENGINE; }
 
   friend class subselect_hash_sj_engine;
+  friend class Item_in_subselect;
 };
 
 

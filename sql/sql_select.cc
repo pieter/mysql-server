@@ -3325,9 +3325,11 @@ bool JOIN::flatten_subqueries()
   chose hash semi-join.
 
   @detail Iterate over all subqueries of the query, and if they are under an
-  IN predicate, and the optimizer chose to compute it via hash semi-join,
-  initialize all data structures needed for the execution of the IN
-  predicate.
+  IN predicate, and the optimizer chose to compute it via hash semi-join:
+  - try to initialize all data structures needed for the materialized execution
+    of the IN predicate,
+  - if this fails, then perform the IN=>EXISTS transformation which was
+    previously blocked during JOIN::prepare.
 
   This method is part of the "code generation" query processing phase.
 
@@ -3355,7 +3357,7 @@ bool JOIN::setup_subquery_materialization()
       {
         Item_in_subselect *in_subs= (Item_in_subselect*) subquery_predicate;
         if (in_subs->exec_method == Item_in_subselect::MATERIALIZATION &&
-            in_subs->setup_hash_sj_engine())
+            in_subs->setup_engine())
           return TRUE;
       }
     }

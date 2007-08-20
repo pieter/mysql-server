@@ -5079,26 +5079,26 @@ SHOW CREATE FUNCTION mysqltest2.bug16211_f4|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
 bug16211_f4		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f4`() RETURNS char(10) CHARSET koi8r
 RETURN ""	latin1	latin1_swedish_ci	utf8_general_ci
-SELECT dtd_identifier
+SELECT dtd_identifier, character_set_name
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest1" AND ROUTINE_NAME = "bug16211_f1"|
-dtd_identifier
-char(10) CHARSET utf8
-SELECT dtd_identifier
+dtd_identifier	character_set_name
+char(10)	utf8
+SELECT dtd_identifier, character_set_name
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest1" AND ROUTINE_NAME = "bug16211_f2"|
-dtd_identifier
-char(10) CHARSET koi8r
-SELECT dtd_identifier
+dtd_identifier	character_set_name
+char(10)	koi8r
+SELECT dtd_identifier, character_set_name
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest2" AND ROUTINE_NAME = "bug16211_f3"|
-dtd_identifier
-char(10) CHARSET utf8
-SELECT dtd_identifier
+dtd_identifier	character_set_name
+char(10)	utf8
+SELECT dtd_identifier, character_set_name
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest2" AND ROUTINE_NAME = "bug16211_f4"|
-dtd_identifier
-char(10) CHARSET koi8r
+dtd_identifier	character_set_name
+char(10)	koi8r
 SELECT CHARSET(bug16211_f1())|
 CHARSET(bug16211_f1())
 utf8
@@ -5129,26 +5129,26 @@ SHOW CREATE FUNCTION mysqltest2.bug16211_f4|
 Function	sql_mode	Create Function	character_set_client	collation_connection	Database Collation
 bug16211_f4		CREATE DEFINER=`root`@`localhost` FUNCTION `bug16211_f4`() RETURNS char(10) CHARSET koi8r
 RETURN ""	latin1	latin1_swedish_ci	utf8_general_ci
-SELECT dtd_identifier
+SELECT dtd_identifier, character_set_name
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest1" AND ROUTINE_NAME = "bug16211_f1"|
-dtd_identifier
-char(10) CHARSET utf8
-SELECT dtd_identifier
+dtd_identifier	character_set_name
+char(10)	utf8
+SELECT dtd_identifier, character_set_name
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest1" AND ROUTINE_NAME = "bug16211_f2"|
-dtd_identifier
-char(10) CHARSET koi8r
-SELECT dtd_identifier
+dtd_identifier	character_set_name
+char(10)	koi8r
+SELECT dtd_identifier, character_set_name
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest2" AND ROUTINE_NAME = "bug16211_f3"|
-dtd_identifier
-char(10) CHARSET utf8
-SELECT dtd_identifier
+dtd_identifier	character_set_name
+char(10)	utf8
+SELECT dtd_identifier, character_set_name
 FROM INFORMATION_SCHEMA.ROUTINES
 WHERE ROUTINE_SCHEMA = "mysqltest2" AND ROUTINE_NAME = "bug16211_f4"|
-dtd_identifier
-char(10) CHARSET koi8r
+dtd_identifier	character_set_name
+char(10)	koi8r
 SELECT CHARSET(bug16211_f1())|
 CHARSET(bug16211_f1())
 utf8

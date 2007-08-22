@@ -3514,7 +3514,7 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
   get_field(thd->mem_root, proc_table->field[MYSQL_PROC_FIELD_DB], &sp_db);
   get_field(thd->mem_root, proc_table->field[MYSQL_PROC_FIELD_NAME], &sp_name);
   get_field(thd->mem_root,proc_table->field[MYSQL_PROC_FIELD_DEFINER],&definer);
-  routine_type= proc_table->field[MYSQL_PROC_MYSQL_TYPE]->val_int();
+  routine_type= (uint) proc_table->field[MYSQL_PROC_MYSQL_TYPE]->val_int();
 
   if (!full_access)
     full_access= !strcmp(sp_user, definer.ptr());
@@ -3532,7 +3532,7 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
               &returns);
 
   sp= sp_load_for_information_schema(thd, proc_table, &sp_db, &sp_name,
-                                     proc_table->
+                                     (ulong) proc_table->
                                      field[MYSQL_PROC_FIELD_SQL_MODE]->val_int(),
                                      routine_type,
                                      returns.c_ptr_safe(),
@@ -3673,7 +3673,7 @@ bool store_schema_proc(THD *thd, TABLE *table, TABLE *proc_table,
                   &tmp_string);
 
         sp= sp_load_for_information_schema(thd, proc_table, &sp_db, &sp_name,
-                                           proc_table->
+                                           (ulong) proc_table->
                                            field[MYSQL_PROC_FIELD_SQL_MODE]->
                                            val_int(),
                                            TYPE_ENUM_FUNCTION,

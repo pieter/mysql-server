@@ -3535,8 +3535,8 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
                                      proc_table->
                                      field[MYSQL_PROC_FIELD_SQL_MODE]->val_int(),
                                      routine_type,
-                                     returns.c_ptr(),
-                                     params.c_ptr(),
+                                     returns.c_ptr_safe(),
+                                     params.c_ptr_safe(),
                                      &free_sp_head);
 
   if (sp)
@@ -3677,7 +3677,7 @@ bool store_schema_proc(THD *thd, TABLE *table, TABLE *proc_table,
                                            field[MYSQL_PROC_FIELD_SQL_MODE]->
                                            val_int(),
                                            TYPE_ENUM_FUNCTION,
-                                           tmp_string.c_ptr(),
+                                           tmp_string.c_ptr_safe(),
                                            "", &free_sp_head);
 
         if (sp)

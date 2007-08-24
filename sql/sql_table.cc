@@ -1656,7 +1656,7 @@ int mysql_rm_table_part2(THD *thd, TABLE_LIST *tables, bool if_exists,
     on the table name.
   */
   pthread_mutex_unlock(&LOCK_open);
-  thd->tmp_table_used= tmp_table_deleted;
+  thd->thread_specific_used|= tmp_table_deleted;
   error= 0;
   if (wrong_tables.length())
   {
@@ -2819,6 +2819,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 			  length);
 	      push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
 			   ER_TOO_LONG_KEY, warn_buff);
+              /* Align key length to multibyte char boundary */
+              length-= length % sql_field->charset->mbmaxlen;
 	    }
 	    else
 	    {
@@ -2849,8 +2851,6 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       if (length > file->max_key_part_length() && key->type != Key::FULLTEXT)
       {
         length= file->max_key_part_length();
-        /* Align key length to multibyte char boundary */
-        length-= length % sql_field->charset->mbmaxlen;
 	if (key->type == Key::MULTIPLE)
 	{
 	  /* not a critical problem */
@@ -2859,6 +2859,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 		      length);
 	  push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
 		       ER_TOO_LONG_KEY, warn_buff);
+          /* Align key length to multibyte char boundary */
+          length-= length % sql_field->charset->mbmaxlen;
 	}
 	else
 	{
@@ -3436,7 +3438,7 @@ bool mysql_create_table_no_lock(THD *thd,
       (void) rm_temporary_table(create_info->db_type, path);
       goto unlock_and_end;
     }
-    thd->tmp_table_used= 1;
+    thd->thread_specific_used= TRUE;
   }
 
   /*
@@ -4079,7 +4081,8 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
         goto err;
     }
 
-    if (operator_func == &handler::ha_repair)
+    if (operator_func == &handler::ha_repair &&
+        !(check_opt->sql_flags & TT_USEFRM))
     {
       if ((table->table->file->check_old_types() == HA_ADMIN_NEEDS_ALTER) ||
           (table->table->file->ha_check_for_upgrade(check_opt) ==
@@ -6670,7 +6673,6 @@ copy_data_between_tables(TABLE *from,TABLE *to,
   alter_table_manage_keys(to, from->file->indexes_are_disabled(), keys_onoff);
 
   /* We can abort alter table for any table type */
-  thd->no_trans_update.stmt= FALSE;
   thd->abort_on_warning= !ignore && test(thd->variables.sql_mode &
                                          (MODE_STRICT_TRANS_TABLES |
                                           MODE_STRICT_ALL_TABLES));

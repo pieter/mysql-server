@@ -859,6 +859,9 @@ int ha_rollback_trans(THD *thd, bool all)
     }
   }
 #endif /* USING_TRANSACTIONS */
+  if (all)
+    thd->transaction_rollback_request= FALSE;
+
   /*
     If a non-transactional table was updated, warn; don't warn if this is a
     slave thread (because when a slave thread executes a ROLLBACK, it has
@@ -868,7 +871,7 @@ int ha_rollback_trans(THD *thd, bool all)
     the error log; but we don't want users to wonder why they have this
     message in the error log, so we don't send it.
   */
-  if (is_real_trans && thd->no_trans_update.all &&
+  if (is_real_trans && thd->transaction.all.modified_non_trans_table &&
       !thd->slave_thread && thd->killed != THD::KILL_CONNECTION)
     push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
                  ER_WARNING_NOT_COMPLETE_ROLLBACK,
@@ -895,6 +898,8 @@ int ha_autocommit_or_rollback(THD *thd, int error)
       if (ha_commit_stmt(thd))
 	error=1;
     }
+    else if (thd->transaction_rollback_request && !thd->in_sub_stmt)
+      (void) ha_rollback(thd);
     else
       (void) ha_rollback_stmt(thd);
 

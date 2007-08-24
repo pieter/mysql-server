@@ -107,7 +107,7 @@ SHOW SLAVE STATUS;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
-Master_Port	MASTER_PORT
+Master_Port	#
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	#
@@ -145,12 +145,20 @@ Last_SQL_Error	Error in Write_rows event: error during transaction execution on 
 SET GLOBAL SQL_SLAVE_SKIP_COUNTER=2;
 START SLAVE;
 INSERT INTO t9 VALUES (2);
+**** On Master ****
 INSERT INTO t2 VALUES (2,4);
+SELECT * FROM t2;
+a	b
+2	4
+**** On Slave ****
+SELECT * FROM t2;
+a
+2
 SHOW SLAVE STATUS;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
-Master_Port	MASTER_PORT
+Master_Port	#
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	#
@@ -158,15 +166,15 @@ Relay_Log_File	#
 Relay_Log_Pos	#
 Relay_Master_Log_File	master-bin.000001
 Slave_IO_Running	Yes
-Slave_SQL_Running	No
+Slave_SQL_Running	Yes
 Replicate_Do_DB	
 Replicate_Ignore_DB	
 Replicate_Do_Table	
 Replicate_Ignore_Table	
 Replicate_Wild_Do_Table	
 Replicate_Wild_Ignore_Table	
-Last_Errno	1532
-Last_Error	Table definition on master and slave does not match: Table width mismatch - received 2 columns, test.t2 has 1 columns
+Last_Errno	0
+Last_Error	
 Skip_Counter	0
 Exec_Master_Log_Pos	#
 Relay_Log_Space	#
@@ -183,17 +191,15 @@ Seconds_Behind_Master	#
 Master_SSL_Verify_Server_Cert	No
 Last_IO_Errno	0
 Last_IO_Error	
-Last_SQL_Errno	1532
-Last_SQL_Error	Table definition on master and slave does not match: Table width mismatch - received 2 columns, test.t2 has 1 columns
-SET GLOBAL SQL_SLAVE_SKIP_COUNTER=2;
-START SLAVE;
+Last_SQL_Errno	0
+Last_SQL_Error	
 INSERT INTO t9 VALUES (4);
 INSERT INTO t4 VALUES (4);
 SHOW SLAVE STATUS;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
-Master_Port	MASTER_PORT
+Master_Port	#
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	#
@@ -236,7 +242,7 @@ SHOW SLAVE STATUS;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
-Master_Port	MASTER_PORT
+Master_Port	#
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	#
@@ -279,7 +285,7 @@ SHOW SLAVE STATUS;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
-Master_Port	MASTER_PORT
+Master_Port	#
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	#
@@ -321,7 +327,7 @@ SHOW SLAVE STATUS;
 Slave_IO_State	#
 Master_Host	127.0.0.1
 Master_User	root
-Master_Port	MASTER_PORT
+Master_Port	#
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	#

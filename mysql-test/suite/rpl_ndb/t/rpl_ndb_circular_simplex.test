@@ -1,5 +1,5 @@
 --source include/have_ndb.inc
---source include/have_binlog_format_row.inc
+--source include/have_binlog_format_mixed_or_row.inc
 --source include/ndb_master-slave.inc
 
 connection master;
@@ -36,7 +36,6 @@ connection master;
 --replace_result $SLAVE_MYPORT SLAVE_PORT
 eval CHANGE MASTER TO MASTER_HOST="127.0.0.1",MASTER_PORT=$SLAVE_MYPORT,MASTER_USER="root";
 
-RESET MASTER;
 START SLAVE;
 
 connection slave;

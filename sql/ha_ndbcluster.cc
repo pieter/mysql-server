@@ -4931,7 +4931,10 @@ int ha_ndbcluster::external_lock(THD *thd, int lock_type)
 
         trans= ndb->startTransaction();
         if (trans == NULL)
+        {
+          thd_ndb->lock_count= 0;
           ERR_RETURN(ndb->getNdbError());
+        }
         thd_ndb->init_open_tables();
         thd_ndb->stmt= trans;
 	thd_ndb->query_state&= NDB_QUERY_NORMAL;
@@ -4957,7 +4960,10 @@ int ha_ndbcluster::external_lock(THD *thd, int lock_type)
           
           trans= ndb->startTransaction();
           if (trans == NULL)
+          {
+            thd_ndb->lock_count= 0;
             ERR_RETURN(ndb->getNdbError());
+          }
           thd_ndb->init_open_tables();
           thd_ndb->all= trans; 
 	  thd_ndb->query_state&= NDB_QUERY_NORMAL;
@@ -7786,9 +7792,6 @@ int ndbcluster_find_files(handlerton *hton, THD *thd,
     }
   }
 
-  // Lock mutex before deleting and creating frm files
-  pthread_mutex_lock(&LOCK_open);
-
   if (!global_read_lock)
   {
     // Delete old files
@@ -7802,15 +7805,17 @@ int ndbcluster_find_files(handlerton *hton, THD *thd,
       table_list.db= (char*) db;
       table_list.alias= table_list.table_name= (char*)file_name;
       (void)mysql_rm_table_part2(thd, &table_list,
-                                                                 /* if_exists */ FALSE,
-                                                                 /* drop_temporary */ FALSE,
-                                                                 /* drop_view */ FALSE,
-                                                                 /* dont_log_query*/ TRUE);
+                                 FALSE,   /* if_exists */
+                                 FALSE,   /* drop_temporary */ 
+                                 FALSE,   /* drop_view */
+                                 TRUE     /* dont_log_query*/);
+
       /* Clear error message that is returned when table is deleted */
       thd->clear_error();
     }
   }
 
+  pthread_mutex_lock(&LOCK_open);
   // Create new files
   List_iterator_fast<char> it2(create_list);
   while ((file_name=it2++))
@@ -7821,7 +7826,7 @@ int ndbcluster_find_files(handlerton *hton, THD *thd,
   }
 
   pthread_mutex_unlock(&LOCK_open);
-  
+
   hash_free(&ok_tables);
   hash_free(&ndb_tables);
 

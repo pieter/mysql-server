@@ -138,6 +138,13 @@ class ha_myisam: public handler
   int assign_to_keycache(THD* thd, HA_CHECK_OPT* check_opt);
   int preload_keys(THD* thd, HA_CHECK_OPT* check_opt);
   bool check_if_incompatible_data(HA_CREATE_INFO *info, uint table_changes);
+#ifdef HAVE_QUERY_CACHE
+  my_bool register_query_cache_table(THD *thd, char *table_key,
+                                     uint key_length,
+                                     qc_engine_callback
+                                     *engine_callback,
+                                     ulonglong *engine_data);
+#endif
   int read_range_first(const key_range *start_key, const key_range *end_key,
                        bool eq_range_arg, bool sorted);
   int read_range_next();

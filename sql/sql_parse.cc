@@ -927,8 +927,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       HA_CREATE_INFO create_info;
 
       status_var_increment(thd->status_var.com_stat[SQLCOM_CREATE_DB]);
-      if (thd->LEX_STRING_make(&db, packet, packet_length -1) ||
-          thd->LEX_STRING_make(&alias, db.str, db.length) ||
+      if (thd->make_lex_string(&db, packet, packet_length - 1, FALSE) ||
+          thd->make_lex_string(&alias, db.str, db.length, FALSE) ||
           check_db_name(&db))
       {
 	my_error(ER_WRONG_DB_NAME, MYF(0), db.str ? db.str : "NULL");
@@ -948,7 +948,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       status_var_increment(thd->status_var.com_stat[SQLCOM_DROP_DB]);
       LEX_STRING db;
 
-      if (thd->LEX_STRING_make(&db, packet, packet_length - 1) ||
+      if (thd->make_lex_string(&db, packet, packet_length - 1, FALSE) ||
           check_db_name(&db))
       {
 	my_error(ER_WRONG_DB_NAME, MYF(0), db.str ? db.str : "NULL");
@@ -1225,7 +1225,7 @@ void log_slow_statement(THD *thd)
 	thd->variables.long_query_time ||
 	((thd->server_status &
 	  (SERVER_QUERY_NO_INDEX_USED | SERVER_QUERY_NO_GOOD_INDEX_USED)) &&
-	 (specialflag & SPECIAL_LOG_QUERIES_NOT_USING_INDEXES)))
+	 opt_log_queries_not_using_indexes))
     {
       thd->status_var.long_query_count++;
       slow_log_print(thd, thd->query, thd->query_length, start_of_query);
@@ -1293,7 +1293,7 @@ int prepare_schema_table(THD *thd, LEX *lex, Table_ident *table_ident,
       LEX_STRING db;
       size_t dummy;
       if (lex->select_lex.db == NULL &&
-          thd->copy_db_to(&lex->select_lex.db, &dummy))
+          lex->copy_db_to(&lex->select_lex.db, &dummy))
       {
         DBUG_RETURN(1);
       }
@@ -2318,7 +2318,7 @@ end_with_restore_list:
           check_grant(thd, INSERT_ACL | CREATE_ACL, &new_list, 0, 1, 0)))
         goto error;
     }
-    query_cache_invalidate3(thd, first_table, 0);
+
     if (end_active_trans(thd) || mysql_rename_tables(thd, first_table, 0))
       goto error;
     break;
@@ -4956,7 +4956,11 @@ bool check_merge_table_access(THD *thd, char *db,
 
 #ifndef EMBEDDED_LIBRARY
 
-#define used_stack(A,B) (long)(A > B ? A - B : B - A)
+#if STACK_DIRECTION < 0
+#define used_stack(A,B) (long) (A - B)
+#else
+#define used_stack(A,B) (long) (B - A)
+#endif
 
 #ifndef DBUG_OFF
 long max_stack_used;
@@ -5306,8 +5310,9 @@ void mysql_parse(THD *thd, const char *inBuf, uint length,
               (thd->query_length= (ulong)(*found_semicolon - thd->query)))
             thd->query_length--;
           /* Actually execute the query */
-	  mysql_execute_command(thd);
-	  query_cache_end_of_result(thd);
+          lex->set_trg_event_type_for_tables();
+          mysql_execute_command(thd);
+          query_cache_end_of_result(thd);
 	}
       }
     }
@@ -5541,7 +5546,7 @@ TABLE_LIST *st_select_lex::add_table_to_list(THD *thd,
 					     LEX_STRING *alias,
 					     ulong table_options,
 					     thr_lock_type lock_type,
-					     List<index_hint> *index_hints_arg,
+					     List<Index_hint> *index_hints_arg,
                                              LEX_STRING *option)
 {
   register TABLE_LIST *ptr;
@@ -5586,7 +5591,7 @@ TABLE_LIST *st_select_lex::add_table_to_list(THD *thd,
     ptr->db= table->db.str;
     ptr->db_length= table->db.length;
   }
-  else if (thd->copy_db_to(&ptr->db, &ptr->db_length))
+  else if (lex->copy_db_to(&ptr->db, &ptr->db_length))
     DBUG_RETURN(0);
 
   ptr->alias= alias_str;

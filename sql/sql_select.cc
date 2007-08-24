@@ -10402,7 +10402,7 @@ static void reset_nj_counters(List<TABLE_LIST> *join_list)
       position:
        1. join->cur_embedding_map - bitmap of pairs of brackets (aka nested
           joins) we've opened but didn't close.
-       2. {each NESTED_JOIN structure not simplified away}->counter - number
+       2. {each NESTED_JOIN structure not simplified away}->counter_ - number
           of this nested join's children that have already been added to to
           the partial join order.
       
@@ -10481,8 +10481,12 @@ static void restore_prev_nj_state(JOIN_TAB *last)
     if (last_emb->on_expr)
     {
       if (!(--last_emb->nested_join->counter_))
-        return;
-      join->cur_embedding_map &= last_emb->nested_join->nj_map;
+        join->cur_embedding_map&= ~last_emb->nested_join->nj_map;
+      else if (last_emb->nested_join->join_list.elements-1 ==
+               last_emb->nested_join->counter_) 
+        join->cur_embedding_map|= last_emb->nested_join->nj_map;
+      else
+        break;
     }
     last_emb= last_emb->embedding;
   }
@@ -14760,6 +14764,7 @@ static int test_if_order_by_key(ORDER *order, TABLE *table, uint idx,
   key_part_end=key_part+table->key_info[idx].key_parts;
   key_part_map const_key_parts=table->const_key_parts[idx];
   int reverse=0;
+  my_bool on_primary_key= FALSE;
   DBUG_ENTER("test_if_order_by_key");
 
   for (; order ; order=order->next, const_key_parts>>=1)
@@ -14774,7 +14779,31 @@ static int test_if_order_by_key(ORDER *order, TABLE *table, uint idx,
     for (; const_key_parts & 1 ; const_key_parts>>= 1)
       key_part++; 
 
-    if (key_part == key_part_end || key_part->field != field)
+    if (key_part == key_part_end)
+    {
+      /* 
+        We are at the end of the key. Check if the engine has the primary
+        key as a suffix to the secondary keys. If it has continue to check
+        the primary key as a suffix.
+      */
+      if (!on_primary_key &&
+          (table->file->ha_table_flags() & HA_PRIMARY_KEY_IN_READ_INDEX) &&
+          ha_legacy_type(table->s->db_type()) == DB_TYPE_INNODB &&
+          table->s->primary_key != MAX_KEY)
+      {
+        on_primary_key= TRUE;
+        key_part= table->key_info[table->s->primary_key].key_part;
+        key_part_end=key_part+table->key_info[table->s->primary_key].key_parts;
+        const_key_parts=table->const_key_parts[table->s->primary_key];
+
+        for (; const_key_parts & 1 ; const_key_parts>>= 1)
+          key_part++; 
+      }
+      else
+        DBUG_RETURN(0);
+    }
+
+    if (key_part->field != field)
       DBUG_RETURN(0);
 
     /* set flag to 1 if we can use read-next on key, else to -1 */
@@ -14785,7 +14814,8 @@ static int test_if_order_by_key(ORDER *order, TABLE *table, uint idx,
     reverse=flag;				// Remember if reverse
     key_part++;
   }
-  *used_key_parts= (uint) (key_part - table->key_info[idx].key_part);
+  *used_key_parts= on_primary_key ? table->key_info[idx].key_parts :
+    (uint) (key_part - table->key_info[idx].key_part);
   if (reverse == -1 && !(table->file->index_flags(idx, *used_key_parts-1, 1) &
                          HA_READ_PREV))
     reverse= 0;                                 // Index can't be used
@@ -15523,7 +15553,7 @@ remove_duplicates(JOIN *join, TABLE *entry,List<Item> &fields, Item *having)
       field_count++;
   }
 
-  if (!field_count && !(join->select_options & OPTION_FOUND_ROWS)) 
+  if (!field_count && !(join->select_options & OPTION_FOUND_ROWS) && !having) 
   {                    // only const items with no OPTION_FOUND_ROWS
     join->unit->select_limit_cnt= 1;		// Only send first row
     DBUG_RETURN(0);
@@ -18351,11 +18381,11 @@ static void print_join(THD *thd, String *str, List<TABLE_LIST> *tables)
   Print table as it should be in join list
 
   SYNOPSIS
-    st_table_list::print();
+    TABLE_LIST::print();
     str   string where table should bbe printed
 */
 
-void st_table_list::print(THD *thd, String *str)
+void TABLE_LIST::print(THD *thd, String *str)
 {
   if (nested_join)
   {

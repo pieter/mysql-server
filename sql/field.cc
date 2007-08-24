@@ -1360,6 +1360,18 @@ bool Field::send_binary(Protocol *protocol)
 }
 
 
+int Field::store(const char *to, uint length, CHARSET_INFO *cs,
+                 enum_check_fields check_level)
+{
+  int res;
+  enum_check_fields old_check_level= table->in_use->count_cuted_fields;
+  table->in_use->count_cuted_fields= check_level;
+  res= store(to, length, cs);
+  table->in_use->count_cuted_fields= old_check_level;
+  return res;
+}
+
+
 my_decimal *Field::val_decimal(my_decimal *decimal)
 {
   /* This never have to be called */
@@ -5394,7 +5406,8 @@ int Field_newdate::store(const char *from,uint len,CHARSET_INFO *cs)
   else
   {
     tmp= l_time.day + l_time.month*32 + l_time.year*16*32;
-    if (!error && (ret != MYSQL_TIMESTAMP_DATE))
+    if (!error && (ret != MYSQL_TIMESTAMP_DATE) &&
+        thd->count_cuted_fields != CHECK_FIELD_IGNORE)
       error= 3;                                 // Datetime was cut (note)
   }
 
@@ -7893,8 +7906,11 @@ int Field_enum::store(longlong nr, bool unsigned_val)
   if ((ulonglong) nr > typelib->count || nr == 0)
   {
     set_warning(MYSQL_ERROR::WARN_LEVEL_WARN, WARN_DATA_TRUNCATED, 1);
-    nr=0;
-    error=1;
+    if (nr != 0 || table->in_use->count_cuted_fields)
+    {
+      nr= 0;
+      error= 1;
+    }
   }
   store_type((ulonglong) (uint) nr);
   return error;

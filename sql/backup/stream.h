@@ -520,7 +520,7 @@ class Stream
  */
 
 class OStream:
-  Window,
+  private Window,
   public Stream,
   public util::OStream< Window >
 {
@@ -585,7 +585,7 @@ class OStream:
  */
 
 class IStream:
-  Window,
+  private Window,
   public Stream,
   public util::IStream< Window >
 {

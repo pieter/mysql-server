@@ -282,6 +282,7 @@ class Scheduler
   void cancel_backup();
 
   friend int write_table_data(THD*, Backup_info&, OStream&);
+  friend class Pump_iterator;
 };
 
 /**

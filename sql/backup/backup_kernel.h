@@ -164,6 +164,8 @@ class Backup_info: public Archive_info, public Logger
   Item   *m_items;
   Item   *m_last_item;
   Item   *m_last_db;
+  
+  friend class Item_iterator;
 };
 
 class Backup_info::Item_iterator: public Archive_info::Item::Iterator

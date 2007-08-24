@@ -9,8 +9,8 @@ AC_CANONICAL_SYSTEM
 # remember to also update version.c in ndb
 # When changing major version number please also check switch statement
 # in mysqlbinlog::check_master_version().
-AM_INIT_AUTOMAKE(mysql, 5.2.5-alpha)
-AM_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE(mysql, 5.2.6-alpha)
+AM_CONFIG_HEADER([include/config.h:config.h.in])
 
 NDB_VERSION_MAJOR=6
 NDB_VERSION_MINOR=2
@@ -1796,6 +1796,8 @@ MYSQL_TYPE_ACCEPT
 #---END:
 # Figure out what type of struct rlimit to use with setrlimit
 MYSQL_TYPE_STRUCT_RLIMIT
+# Find where the stack goes
+MYSQL_STACK_DIRECTION
 # We want to skip alloca on irix unconditionally. It may work on some version..
 MYSQL_FUNC_ALLOCA
 # Do struct timespec have members tv_sec or ts_sec

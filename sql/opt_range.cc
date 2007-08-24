@@ -1308,8 +1308,16 @@ int QUICK_RANGE_SELECT::init_ror_merged_scan(bool reuse_handler)
   thd= head->in_use;
   if (!(file= head->file->clone(thd->mem_root)))
   {
+    /* 
+      Manually set the error flag. Note: there seems to be quite a few
+      places where a failure could cause the server to "hang" the client by
+      sending no response to a query. ATM those are not real errors because 
+      the storage engine calls in question happen to never fail with the 
+      existing storage engines. 
+    */
+    thd->net.report_error= 1; /* purecov: inspected */
     /* Caller will free the memory */
-    goto failure;
+    goto failure;  /* purecov: inspected */
   }
 
   head->column_bitmaps_set(&column_bitmap, &column_bitmap);
@@ -7484,27 +7492,25 @@ ha_rows check_quick_select(PARAM *param, uint idx, bool index_only,
     ROR (Rowid Ordered Retrieval) key scan is a key scan that produces
     ordered sequence of rowids (ha_xxx::cmp_ref is the comparison function)
 
-    An index scan is a ROR scan if it is done using a condition in form
+    This function is needed to handle a practically-important special case:
+    an index scan is a ROR scan if it is done using a condition in form
 
-        "key1_1=c_1 AND ... AND key1_n=c_n"  (1)
+        "key1_1=c_1 AND ... AND key1_n=c_n"
 
     where the index is defined on (key1_1, ..., key1_N [,a_1, ..., a_n])
 
-    and the table has a clustered Primary Key
-
-    PRIMARY KEY(a_1, ..., a_n, b1, ..., b_k) with first key parts being
-    identical to uncovered parts ot the key being scanned (2)
-
-    Scans on HASH indexes are not ROR scans,
-    any range scan on clustered primary key is ROR scan  (3)
+    and the table has a clustered Primary Key defined as 
+      PRIMARY KEY(a_1, ..., a_n, b1, ..., b_k) 
+    
+    i.e. the first key parts of it are identical to uncovered parts ot the 
+    key being scanned. This function assumes that the index flags do not
+    include HA_KEY_SCAN_NOT_ROR flag (that is checked elsewhere).
 
     Check (1) is made in quick_range_seq_next()
-    Check (3) is made check_quick_select()
-    Check (2) is made by this function.
 
   RETURN
-    TRUE  If the scan is ROR-scan
-    FALSE otherwise
+    TRUE   The scan is ROR-scan
+    FALSE  Otherwise
 */
 
 static bool is_key_scan_ror(PARAM *param, uint keynr, uint8 nparts)

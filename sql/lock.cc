@@ -60,6 +60,11 @@
   - When calling UNLOCK TABLES we call mysql_unlock_tables() for all
     tables used in LOCK TABLES
 
+  If table_handler->external_lock(thd, locktype) fails, we call
+  table_handler->external_lock(thd, F_UNLCK) for each table that was locked,
+  excluding one that caused failure. That means handler must cleanup itself
+  in case external_lock() fails.
+
 TODO:
   Change to use my_malloc() ONLY when using LOCK TABLES command or when
   we are forced to use mysql_lock_merge.
@@ -269,8 +274,9 @@ static int lock_external(THD *thd, TABLE **tables, uint count)
     if ((error=(*tables)->file->ha_external_lock(thd,lock_type)))
     {
       print_lock_error(error, (*tables)->file->table_type());
-      for (; i-- ; tables--)
+      while (--i)
       {
+        tables--;
 	(*tables)->file->ha_external_lock(thd, F_UNLCK);
 	(*tables)->current_lock=F_UNLCK;
       }
@@ -1032,6 +1038,102 @@ end:
   return 1;
 }
 
+
+/**
+  @brief Lock all tables in list with an exclusive table name lock.
+
+  @param thd Thread handle.
+  @param table_list Names of tables to lock.
+
+  @note This function needs to be protected by LOCK_open. If we're 
+    under LOCK TABLES, this function does not work as advertised. Namely,
+    it does not exclude other threads from using this table and does not
+    put an exclusive name lock on this table into the table cache.
+
+  @see lock_table_names
+  @see unlock_table_names
+
+  @retval TRUE An error occured.
+  @retval FALSE Name lock successfully acquired.
+*/
+
+bool lock_table_names_exclusively(THD *thd, TABLE_LIST *table_list)
+{
+  if (lock_table_names(thd, table_list))
+    return TRUE;
+
+  /*
+    Upgrade the table name locks from semi-exclusive to exclusive locks.
+  */
+  for (TABLE_LIST *table= table_list; table; table= table->next_global)
+  {
+    if (table->table)
+      table->table->open_placeholder= 1;
+  }
+  return FALSE;
+}
+
+
+/**
+  @brief Test is 'table' is protected by an exclusive name lock.
+
+  @param[in] thd The current thread handler
+  @param[in] table Table container containing the single table to be tested
+
+  @note Needs to be protected by LOCK_open mutex.
+
+  @return Error status code
+    @retval TRUE Table is protected
+    @retval FALSE Table is not protected
+*/
+
+bool
+is_table_name_exclusively_locked_by_this_thread(THD *thd,
+                                                TABLE_LIST *table_list)
+{
+  char  key[MAX_DBKEY_LENGTH];
+  uint  key_length;
+
+  key_length= create_table_def_key(thd, key, table_list, 0);
+
+  return is_table_name_exclusively_locked_by_this_thread(thd, (uchar *)key,
+                                                         key_length);
+}
+
+
+/**
+  @brief Test is 'table key' is protected by an exclusive name lock.
+
+  @param[in] thd The current thread handler.
+  @param[in] table Table container containing the single table to be tested.
+
+  @note Needs to be protected by LOCK_open mutex
+
+  @retval TRUE Table is protected
+  @retval FALSE Table is not protected
+ */
+
+bool
+is_table_name_exclusively_locked_by_this_thread(THD *thd, uchar *key,
+                                                int key_length)
+{
+  HASH_SEARCH_STATE state;
+  TABLE *table;
+
+  for (table= (TABLE*) hash_first(&open_cache, key,
+                                  key_length, &state);
+       table ;
+       table= (TABLE*) hash_next(&open_cache, key,
+                                 key_length, &state))
+  {
+    if (table->in_use == thd &&
+        table->open_placeholder == 1 &&
+        table->s->version == 0)
+      return TRUE;
+  }
+
+  return FALSE;
+}
 
 /*
   Unlock all tables in list with a name lock

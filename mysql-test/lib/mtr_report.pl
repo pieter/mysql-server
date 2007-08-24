@@ -48,30 +48,15 @@ sub mtr_verbose (@);
 # We can't use diff -u or diff -a as these are not portable
 
 sub mtr_show_failed_diff ($) {
-  my $result_file_name=  shift;
+  my $tinfo=  shift;
 
   # The reject and log files have been dumped to
   # to filenames based on the result_file's name
-  my $tname= basename($result_file_name);
-  $tname=~ s/\..*$//;
-
-  my $reject_file=  "r/$tname.reject";
-  my $result_file=  "r/$tname.result";
-  my $log_file=     "$::opt_vardir/log/$tname.log";
-  my $eval_file=    "r/$tname.eval";
-
-  if ( $::opt_suite ne "main" )
-  {
-    $reject_file= "$::glob_mysql_test_dir/suite/$::opt_suite/$reject_file";
-    $result_file= "$::glob_mysql_test_dir/suite/$::opt_suite/$result_file";
-    $eval_file=   "$::glob_mysql_test_dir/suite/$::opt_suite/$eval_file";
-    $log_file=   "$::glob_mysql_test_dir/suite/$::opt_suite/$log_file";
-  }
-
-  if ( -f $eval_file )
-  {
-    $result_file=  $eval_file;
-  }
+  my $base_file= mtr_match_extension($tinfo->{'result_file'},
+				    "result"); # Trim extension
+  my $reject_file=  "$base_file.reject";
+  my $result_file=  "$base_file.result";
+  my $log_file=     "$base_file.log";
 
   my $diffopts= $::opt_udiff ? "-u" : "-c";
 
@@ -374,7 +359,15 @@ sub mtr_report_stats ($) {
                 # Test case for Bug#14233 produces the following warnings:
                 /Stored routine 'test'.'bug14233_1': invalid value in column mysql.proc/ or
                 /Stored routine 'test'.'bug14233_2': invalid value in column mysql.proc/ or
-                /Stored routine 'test'.'bug14233_3': invalid value in column mysql.proc/
+                /Stored routine 'test'.'bug14233_3': invalid value in column mysql.proc/ or
+
+                # BUG#29807 - innodb_mysql.test: Cannot find table test/t2
+                #             from the internal data dictionary
+                /Cannot find table test\/bug29807 from the internal data dictionary/ or
+
+                # BUG#29839 - lowercase_table3.test: Cannot find table test/T1
+                #             from the internal data dictiona
+                /Cannot find table test\/BUG29839 from the internal data dictionary/
 	       )
             {
               next;                       # Skip these lines

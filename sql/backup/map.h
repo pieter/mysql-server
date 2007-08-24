@@ -93,7 +93,7 @@ class Map
       bigger= K::null;
       smaller= K::null;
     };
-  } entries[size];
+  } entries[K::size];
 
   uint m_count;
 

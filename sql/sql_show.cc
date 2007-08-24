@@ -2214,9 +2214,6 @@ void calc_sum_of_all_status(STATUS_VAR *to)
 }
 
 
-/* INFORMATION_SCHEMA name */
-LEX_STRING INFORMATION_SCHEMA_NAME= { C_STRING_WITH_LEN("information_schema")};
-
 /* This is only used internally, but we need it here as a forward reference */
 extern ST_SCHEMA_TABLE schema_tables[];
 

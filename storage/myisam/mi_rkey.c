@@ -110,15 +110,29 @@ int mi_rkey(MI_INFO *info, uchar *buf, int inx, const uchar *key,
                     myisam_search_flag, info->s->state.key_root[inx]))
     {
       /*
-        If we searching for a partial key (or using >, >=, < or <=) and
-        the data is outside of the data file, we need to continue searching
-        for the first key inside the data file
+        Found a key, but it might not be usable. We cannot use rows that
+        are inserted by other threads after we got our table lock
+        ("concurrent inserts"). The record may not even be present yet.
+        Keys are inserted into the index(es) before the record is
+        inserted into the data file. When we got our table lock, we
+        saved the current data_file_length. Concurrent inserts always go
+        to the end of the file. So we can test if the found key
+        references a new record.
       */
-      while ((info->lastpos >= info->state->data_file_length &&
-              (search_flag != HA_READ_KEY_EXACT ||
-              last_used_keyseg != keyinfo->seg + keyinfo->keysegs)) ||
-             (info->index_cond_func && 
-             !(res= mi_check_index_cond(info, inx, buf))))
+      if (info->lastpos >= info->state->data_file_length)
+      {
+        /* The key references a concurrently inserted record. */
+        if (search_flag == HA_READ_KEY_EXACT &&
+            last_used_keyseg == keyinfo->seg + keyinfo->keysegs)
+        {
+          /* Simply ignore the key if it matches exactly. (Bug #29838) */
+          my_errno= HA_ERR_KEY_NOT_FOUND;
+          info->lastpos= HA_OFFSET_ERROR;
+        }
+      }
+      while (info->lastpos != HA_OFFSET_ERROR &&
+             (info->lastpos >= info->state->data_file_length ||
+              (info->index_cond_func && !(res= mi_check_index_cond(info, inx, buf)))))
       {
         uint not_used[2];
         /*
@@ -133,9 +147,9 @@ int mi_rkey(MI_INFO *info, uchar *buf, int inx, const uchar *key,
                              info->s->state.key_root[inx]))
           break;
         /*
-          Check that the found key does still match the search.
-          _mi_search_next() delivers the next key regardless of its
-          value.
+            If searching for a partial key (or using >, >=, < or <=) and
+            the data is outside of the data file, we need to continue
+            searching for the first key inside the data file.
         */
         if (search_flag == HA_READ_KEY_EXACT &&
             ha_key_cmp(keyinfo->seg, key_buff, info->lastkey, use_key_length,
@@ -153,7 +167,6 @@ int mi_rkey(MI_INFO *info, uchar *buf, int inx, const uchar *key,
           rw_unlock(&share->key_root_lock[inx]);
         DBUG_RETURN((my_errno= HA_ERR_KEY_NOT_FOUND));
       }
-        
     }
   }
   if (share->concurrent_insert)

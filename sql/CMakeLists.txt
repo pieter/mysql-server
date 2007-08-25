@@ -25,7 +25,6 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/sql 
                     ${CMAKE_SOURCE_DIR}/regex 
                     ${CMAKE_SOURCE_DIR}/zlib
-                    ${CMAKE_SOURCE_DIR}/sql/backup
 )
 
 SET_SOURCE_FILES_PROPERTIES(${CMAKE_SOURCE_DIR}/sql/message.rc 
@@ -75,11 +74,7 @@ ADD_EXECUTABLE(mysqld${MYSQLD_EXE_SUFFIX}
                sql_tablespace.cc events.cc ../sql-common/my_user.c 
                partition_info.cc rpl_utility.cc rpl_injector.cc sql_locale.cc
                rpl_rli.cc rpl_mi.cc sql_servers.cc
-               sql_connect.cc scheduler.cc
-               backup/stream.cc backup/logger.cc backup/string_pool.cc
-               backup/archive.cc backup/meta_backup.cc backup/data_backup.cc
-               backup/sql_backup.cc backup/be_default.cc backup/buffer_iterator.cc
-               backup/be_snapshot.cc
+	       sql_connect.cc scheduler.cc 
                ${PROJECT_SOURCE_DIR}/sql/sql_yacc.cc
   			   ${PROJECT_SOURCE_DIR}/sql/sql_yacc.h
 			   ${PROJECT_SOURCE_DIR}/include/mysqld_error.h
@@ -89,26 +84,26 @@ ADD_EXECUTABLE(mysqld${MYSQLD_EXE_SUFFIX}
 			   ${PROJECT_SOURCE_DIR}/sql/sql_builtin.cc
 			   ${PROJECT_SOURCE_DIR}/sql/lex_hash.h)
 TARGET_LINK_LIBRARIES(mysqld${MYSQLD_EXE_SUFFIX}
-		      heap myisam myisammrg mysys yassl zlib dbug yassl 
+		      heap myisam myisammrg mysys yassl zlib debug dbug yassl 
                       taocrypt strings vio regex wsock32 ws2_32)
 
 IF(EMBED_MANIFESTS)
   MYSQL_EMBED_MANIFEST("mysqld" "asInvoker")
 ENDIF(EMBED_MANIFESTS)
 IF(WITH_ARCHIVE_STORAGE_ENGINE)
-  TARGET_LINK_LIBRARIES(mysqld archive)
+  TARGET_LINK_LIBRARIES(mysqld${MYSQLD_EXE_SUFFIX} archive)
 ENDIF(WITH_ARCHIVE_STORAGE_ENGINE)
 IF(WITH_BLACKHOLE_STORAGE_ENGINE)
-  TARGET_LINK_LIBRARIES(mysqld blackhole)
+  TARGET_LINK_LIBRARIES(mysqld${MYSQLD_EXE_SUFFIX} blackhole)
 ENDIF(WITH_BLACKHOLE_STORAGE_ENGINE)
 IF(WITH_CSV_STORAGE_ENGINE)
-  TARGET_LINK_LIBRARIES(mysqld csv)
+  TARGET_LINK_LIBRARIES(mysqld${MYSQLD_EXE_SUFFIX} csv)
 ENDIF(WITH_CSV_STORAGE_ENGINE)
 IF(WITH_EXAMPLE_STORAGE_ENGINE)
   TARGET_LINK_LIBRARIES(mysqld${MYSQLD_EXE_SUFFIX} example)
 ENDIF(WITH_EXAMPLE_STORAGE_ENGINE)
 IF(WITH_FEDERATED_STORAGE_ENGINE)
-  TARGET_LINK_LIBRARIES(mysqld federated)
+  TARGET_LINK_LIBRARIES(mysqld${MYSQLD_EXE_SUFFIX} federated)
 ENDIF(WITH_FEDERATED_STORAGE_ENGINE)
 IF(WITH_INNOBASE_STORAGE_ENGINE)
   TARGET_LINK_LIBRARIES(mysqld${MYSQLD_EXE_SUFFIX} innobase)

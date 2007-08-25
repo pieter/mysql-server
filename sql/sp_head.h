@@ -464,6 +464,7 @@ public:
       lex->set_stmt_unsafe();
   }
 
+  sp_pcontext *get_parse_context() { return m_pcont; }
 
 private:
 

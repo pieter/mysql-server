@@ -47,6 +47,7 @@ FILES
 GLOBAL_STATUS
 GLOBAL_VARIABLES
 KEY_COLUMN_USAGE
+PARAMETERS
 PARTITIONS
 PLUGINS
 PROCESSLIST
@@ -506,6 +507,14 @@ select AUTO_INCREMENT from information_schema.tables where table_name = 't1';
 AUTO_INCREMENT
 4
 drop table t1;
+create table t1 (s1 int);
+insert into t1 values (0),(9),(0);
+select s1 from t1 where s1 in (select version from
+information_schema.tables) union select version from
+information_schema.tables;
+s1
+10
+drop table t1;
 SHOW CREATE TABLE INFORMATION_SCHEMA.character_sets;
 Table	Create Table
 CHARACTER_SETS	CREATE TEMPORARY TABLE `CHARACTER_SETS` (
@@ -757,11 +766,13 @@ information_schema	COLUMNS	COLUMN_DEFAULT
 information_schema	COLUMNS	COLUMN_TYPE
 information_schema	EVENTS	EVENT_DEFINITION
 information_schema	EVENTS	SQL_MODE
+information_schema	PARAMETERS	DTD_IDENTIFIER
 information_schema	PARTITIONS	PARTITION_EXPRESSION
 information_schema	PARTITIONS	SUBPARTITION_EXPRESSION
 information_schema	PARTITIONS	PARTITION_DESCRIPTION
 information_schema	PLUGINS	PLUGIN_DESCRIPTION
 information_schema	PROCESSLIST	INFO
+information_schema	ROUTINES	DTD_IDENTIFIER
 information_schema	ROUTINES	ROUTINE_DEFINITION
 information_schema	ROUTINES	SQL_MODE
 information_schema	TRIGGERS	ACTION_CONDITION
@@ -846,7 +857,7 @@ delete from mysql.db where user='mysqltest_4';
 flush privileges;
 SELECT table_schema, count(*) FROM information_schema.TABLES where table_name<>'ndb_binlog_index' AND table_name<>'ndb_apply_status' GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	27
+information_schema	28
 mysql	22
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1242,6 +1253,7 @@ FILES	TABLE_SCHEMA
 GLOBAL_STATUS	VARIABLE_NAME
 GLOBAL_VARIABLES	VARIABLE_NAME
 KEY_COLUMN_USAGE	CONSTRAINT_SCHEMA
+PARAMETERS	SPECIFIC_SCHEMA
 PARTITIONS	TABLE_SCHEMA
 PLUGINS	PLUGIN_NAME
 PROCESSLIST	ID
@@ -1284,6 +1296,7 @@ FILES	TABLE_SCHEMA
 GLOBAL_STATUS	VARIABLE_NAME
 GLOBAL_VARIABLES	VARIABLE_NAME
 KEY_COLUMN_USAGE	CONSTRAINT_SCHEMA
+PARAMETERS	SPECIFIC_SCHEMA
 PARTITIONS	TABLE_SCHEMA
 PLUGINS	PLUGIN_NAME
 PROCESSLIST	ID
@@ -1377,6 +1390,7 @@ FILES	information_schema.FILES	1
 GLOBAL_STATUS	information_schema.GLOBAL_STATUS	1
 GLOBAL_VARIABLES	information_schema.GLOBAL_VARIABLES	1
 KEY_COLUMN_USAGE	information_schema.KEY_COLUMN_USAGE	1
+PARAMETERS	information_schema.PARAMETERS	1
 PARTITIONS	information_schema.PARTITIONS	1
 PLUGINS	information_schema.PLUGINS	1
 PROCESSLIST	information_schema.PROCESSLIST	1
@@ -1438,3 +1452,31 @@ BINLOG_CACHE_DISK_USE
 DROP TABLE server_status;
 SET GLOBAL event_scheduler=0;
 End of 5.1 tests.
+create function f1 (p1 int, p2 datetime, p3 decimal(10,2))
+returns char(10) return null;
+create procedure p1 (p1 float(8,5), p2 char(32), p3 varchar(10)) begin end;
+create procedure p2 (p1 enum('c', 's'), p2 blob, p3 text) begin end;
+select * from information_schema.parameters;
+SPECIFIC_CATALOG	SPECIFIC_SCHEMA	SPECIFIC_NAME	ORDINAL_POSITION	PARAMETER_MODE	PARAMETER_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	CHARACTER_SET_NAME	COLLATION_NAME	DTD_IDENTIFIER
+NULL	test	f1	0	NULL	NULL	char	10	10	NULL	NULL	latin1	latin1_swedish_ci	char(10)
+NULL	test	f1	1	IN	p1	int	NULL	NULL	10	0	NULL	NULL	int(11)
+NULL	test	f1	2	IN	p2	datetime	NULL	NULL	NULL	NULL	NULL	NULL	datetime
+NULL	test	f1	3	IN	p3	decimal	NULL	NULL	10	2	NULL	NULL	decimal(10,2)
+NULL	test	p1	1	IN	p1	float	NULL	NULL	8	5	NULL	NULL	float(8,5)
+NULL	test	p1	2	IN	p2	char	32	32	NULL	NULL	latin1	latin1_swedish_ci	char(32)
+NULL	test	p1	3	IN	p3	varchar	10	10	NULL	NULL	latin1	latin1_swedish_ci	varchar(10)
+NULL	test	p2	1	IN	p1	enum	1	1	NULL	NULL	latin1	latin1_swedish_ci	enum('c','s')
+NULL	test	p2	2	IN	p2	blob	65535	65535	NULL	NULL	NULL	NULL	blob
+NULL	test	p2	3	IN	p3	text	65535	65535	NULL	NULL	latin1	latin1_swedish_ci	text
+select data_type, character_maximum_length,
+character_octet_length, numeric_precision,
+numeric_scale, character_set_name,
+collation_name, dtd_identifier
+from information_schema.routines;
+data_type	character_maximum_length	character_octet_length	numeric_precision	numeric_scale	character_set_name	collation_name	dtd_identifier
+char	10	10	NULL	NULL	latin1	latin1_swedish_ci	char(10)
+	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+drop procedure p1;
+drop procedure p2;
+drop function f1;

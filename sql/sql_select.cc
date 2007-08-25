@@ -517,6 +517,7 @@ JOIN::prepare(Item ***rref_pointer_array,
   if (!thd->lex->view_prepare_mode)
   {
     Item_subselect *subselect;
+    Item_in_subselect *in_subs= NULL;
     /*
       Are we in a subquery predicate?
       TODO: the block below will be executed for every PS execution without need.
@@ -525,6 +526,10 @@ JOIN::prepare(Item ***rref_pointer_array,
     {
       bool do_semijoin= !test(thd->variables.optimizer_switch &
                               OPTIMIZER_SWITCH_NO_SEMIJOIN);
+      if (subselect->substype() == Item_subselect::IN_SUBS)
+        in_subs= (Item_in_subselect*)subselect;
+
+      DBUG_PRINT("info", ("Checking if subq can be converted to semi-join"));
       /*
         Check if we're in subquery that is a candidate for flattening into a
         semi-join (which is done done in flatten_subqueries()). The
@@ -534,6 +539,7 @@ JOIN::prepare(Item ***rref_pointer_array,
           3. Subquery does not have GROUP BY or ORDER BY
           4. Subquery does not use aggregate functions or HAVING
           5. Subquery predicate is at the AND-top-level of ON/WHERE clause
+          6. No execution method was already chosen (by a prepared statement).
 
           (*). We are not in a subquery of a single table UPDATE/DELETE that 
                doesn't have a JOIN (TODO: We should handle this at some
@@ -542,17 +548,17 @@ JOIN::prepare(Item ***rref_pointer_array,
           (**). We're not in a confluent table-less subquery, like
                 "SELECT 1". 
       */
-      if (subselect->substype() == Item_subselect::IN_SUBS &&           // 1
+      if (in_subs &&                                                    // 1
           !select_lex->master_unit()->first_select()->next_select() &&  // 2
           !select_lex->group_list.elements && !order &&                 // 3
           !having && !select_lex->with_sum_func &&                      // 4
           thd->thd_marker &&                                            // 5
           select_lex->outer_select()->join &&                           // (*)
           select_lex->master_unit()->first_select()->leaf_tables &&     // (**) 
-          do_semijoin)
+          do_semijoin &&
+          in_subs->exec_method == Item_in_subselect::NOT_TRANSFORMED)   // 6
       {
-        fprintf(stderr, "subq is an sj candidate\n");
-        Item_in_subselect *in_subs= (Item_in_subselect*)subselect;
+        DBUG_PRINT("info", ("Subquery is semi-join conversion candidate"));
 
         if (thd->stmt_arena->state != Query_arena::PREPARED)
         {
@@ -580,32 +586,32 @@ JOIN::prepare(Item ***rref_pointer_array,
       }
       else
       {
-        fprintf(stderr, "subq is not an sj candidate\n");
-        Item_in_subselect *in_subs= NULL;
+        DBUG_PRINT("info", ("Subquery can't be converted to semi-join"));
         bool do_materialize= !test(thd->variables.optimizer_switch &
                                    OPTIMIZER_SWITCH_NO_MATERIALIZATION);
         /*
           Check if the subquery predicate can be executed via materialization.
           The required conditions are:
-            1. Subquery predicate is an IN/=ANY subq predicate
-            2. Subquery is a single SELECT (not a UNION)
-            3. Subquery is not a table-less query. In this case there is no
-               point in materializing.
-            4. Subquery predicate is a top-level predicate
-               (this implies it is not negated)
-               TODO: this is a limitation that should be lifeted once we
-               implement correct NULL semantics (WL#3830)
-            5. Subquery is non-correlated
-               TODO:
-               This is an overly restrictive condition. It can be extended to:
-               (Subquery is non-correlated ||
-                Subquery is correlated to any query outer to IN predicate ||
-                (Subquery is correlated to the immediate outer query &&
-                 Subquery !contains {GROUP BY, ORDER BY [LIMIT],
-                 aggregate functions) && subquery predicate is not under "NOT IN"))
+          1. Subquery predicate is an IN/=ANY subq predicate
+          2. Subquery is a single SELECT (not a UNION)
+          3. Subquery is not a table-less query. In this case there is no
+             point in materializing.
+          4. Subquery predicate is a top-level predicate
+             (this implies it is not negated)
+             TODO: this is a limitation that should be lifeted once we
+             implement correct NULL semantics (WL#3830)
+          5. Subquery is non-correlated
+             TODO:
+             This is an overly restrictive condition. It can be extended to:
+             (Subquery is non-correlated ||
+              Subquery is correlated to any query outer to IN predicate ||
+              (Subquery is correlated to the immediate outer query &&
+               Subquery !contains {GROUP BY, ORDER BY [LIMIT],
+               aggregate functions) && subquery predicate is not under "NOT IN"))
+          6. No execution method was already chosen (by a prepared statement).
 
-           (*) The subquery must be part of a SELECT statement. The current
-                condition also excludes multi-table update statements.
+          (*) The subquery must be part of a SELECT statement. The current
+               condition also excludes multi-table update statements.
 
           We have to determine whether we will perform subquery materialization
           before calling the IN=>EXISTS transformation, so that we know whether to
@@ -613,14 +619,15 @@ JOIN::prepare(Item ***rref_pointer_array,
           Item_in_subselect in an Item_in_optimizer.
         */
         if (do_materialize && 
-            subselect->substype() == Item_subselect::IN_SUBS &&           // 1
+            in_subs  &&                                                   // 1
             !select_lex->master_unit()->first_select()->next_select() &&  // 2
             select_lex->master_unit()->first_select()->leaf_tables &&     // 3
             thd->lex->sql_command == SQLCOM_SELECT)                       // *
         {
-          in_subs= (Item_in_subselect*) subselect;
-          in_subs->use_hash_sj= (in_subs->is_top_level_item() &&          // 4
-                                 !in_subs->is_correlated);                // 5
+          if (in_subs->is_top_level_item() &&                             // 4
+              !in_subs->is_correlated &&                                  // 5
+              in_subs->exec_method == Item_in_subselect::NOT_TRANSFORMED) // 6
+            in_subs->exec_method= Item_in_subselect::MATERIALIZATION;
         }
 
         Item_subselect::trans_res trans_res;
@@ -1740,29 +1747,9 @@ JOIN::optimize()
   if (!(select_options & SELECT_DESCRIBE))
     init_ftfuncs(thd, select_lex, test(order));
 
-  /*
-    Create all structures needed for materialized subquery execution,
-    assuming this is the outer-most query. This phase must be after
-    substitute_for_best_equal_field() because that function may replace
-    items with other items from a multiple equality, and we need to reference
-    the correct items in the index access method of the IN predicate.
-  */
-  if (is_top_level_join())
-     /* Alternatively check: (&lex.select_lex == join->select) */
-  {
-    for (SELECT_LEX *sl= thd->lex->all_selects_list; sl;
-         sl= sl->next_select_in_list())
-    {
-      Item_subselect *subquery_predicate= sl->master_unit()->item;
-      if (subquery_predicate &&
-          subquery_predicate->substype() == Item_subselect::IN_SUBS)
-      {
-        Item_in_subselect *in_subs= (Item_in_subselect*) subquery_predicate;
-        if (in_subs->use_hash_sj && in_subs->setup_hash_sj_engine())
-          DBUG_RETURN(1);
-      }
-    }
-  }
+  /* Create all structures needed for materialized subquery execution. */
+  if (setup_subquery_materialization())
+    DBUG_RETURN(1);
 
   /*
     is this simple IN subquery?
@@ -3120,7 +3107,7 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
 
   /* 3. Remove the original subquery predicate from the WHERE/ON */
   *(subq_pred->ref_ptr)= new Item_int(1);
-  subq_pred->converted_to_sj= TRUE; // for subsequent executions
+  subq_pred->exec_method= Item_in_subselect::SEMI_JOIN; // for subsequent executions
   /*TODO: also reset the 'with_subselect' there. */
 
   /* n. Adjust the parent_join->tables counter */
@@ -3332,6 +3319,52 @@ bool JOIN::flatten_subqueries()
 }
 
 
+/**
+  Setup for execution all subqueries of a query, for which the optimizer
+  chose hash semi-join.
+
+  @detail Iterate over all subqueries of the query, and if they are under an
+  IN predicate, and the optimizer chose to compute it via hash semi-join:
+  - try to initialize all data structures needed for the materialized execution
+    of the IN predicate,
+  - if this fails, then perform the IN=>EXISTS transformation which was
+    previously blocked during JOIN::prepare.
+
+  This method is part of the "code generation" query processing phase.
+
+  This phase must be called after substitute_for_best_equal_field() because
+  that function may replace items with other items from a multiple equality,
+  and we need to reference the correct items in the index access method of the
+  IN predicate.
+
+  @return Operation status
+  @retval FALSE     success.
+  @retval TRUE      error occurred.
+*/
+
+bool JOIN::setup_subquery_materialization()
+{
+  for (SELECT_LEX_UNIT *un= select_lex->first_inner_unit(); un;
+       un= un->next_unit())
+  {
+    for (SELECT_LEX *sl= un->first_select(); sl;
+         sl= sl->next_select())
+    {
+      Item_subselect *subquery_predicate= sl->master_unit()->item;
+      if (subquery_predicate &&
+          subquery_predicate->substype() == Item_subselect::IN_SUBS)
+      {
+        Item_in_subselect *in_subs= (Item_in_subselect*) subquery_predicate;
+        if (in_subs->exec_method == Item_in_subselect::MATERIALIZATION &&
+            in_subs->setup_engine())
+          return TRUE;
+      }
+    }
+  }
+  return FALSE;
+}
+
+
 /*
   Check if table's KEYUSE elements have an eq_ref(outer_tables) candidate
 
@@ -3435,14 +3468,11 @@ bool find_eq_ref_candidate(TABLE *table, table_map sj_inner_tables)
 
 int pull_out_semijoin_tables(JOIN *join)
 {
+  TABLE_LIST *sj_nest;
   DBUG_ENTER("pull_out_semijoin_tables");
-  TABLE_LIST *sj_nest;//, **sj_nest_end;
   List_iterator<TABLE_LIST> sj_list_it(join->select_lex->sj_nests);
    
   /* Try pulling out of the each of the semi-joins */
-//  for (sj_nest= join->select_lex->sj_nests.front(), 
-//       sj_nest_end= join->select_lex->sj_nests.back();
-//       sj_nest != sj_nest_end; sj_nest++)
   while ((sj_nest= sj_list_it++))
   {
     /* Action #1: Mark the constant tables to be pulled out */
@@ -3457,6 +3487,8 @@ int pull_out_semijoin_tables(JOIN *join)
         tbl->table->reginfo.join_tab->emb_sj_nest= sj_nest;
         if (tbl->table->map & join->const_table_map)
           pulled_tables |= tbl->table->map;
+        DBUG_PRINT("info", ("Table %s pulled out (reason: constant)",
+                            tbl->table->alias));
       }
     }
     
@@ -3478,6 +3510,8 @@ int pull_out_semijoin_tables(JOIN *join)
           {
             pulled_a_table= TRUE;
             pulled_tables |= tbl->table->map;
+            DBUG_PRINT("info", ("Table %s pulled out (reason: func dep)",
+                                tbl->table->alias));
           }
         }
       }
@@ -3487,7 +3521,7 @@ int pull_out_semijoin_tables(JOIN *join)
     if ((sj_nest)->nested_join->used_tables == pulled_tables)
     {
       (sj_nest)->sj_inner_tables= 0;
-      fprintf(stderr, "subq nest removed\n");
+      DBUG_PRINT("info", ("All semi-join nest tables were pulled out"));
       while ((tbl= child_li++))
       {
         if (tbl->table)
@@ -6752,6 +6786,7 @@ static bool create_ref_for_key(JOIN *join, JOIN_TAB *j, KEYUSE *org_keyuse,
   j->ref.key_buff2=j->ref.key_buff+ALIGN_SIZE(length);
   j->ref.key_err=1;
   j->ref.null_rejecting= 0;
+  j->ref.disable_cache= FALSE;
   keyuse=org_keyuse;
 
   store_key **ref_key= j->ref.key_copy;
@@ -7874,10 +7909,22 @@ static void push_index_cond(JOIN_TAB *tab, uint keyno, bool other_tbls_ok)
       tab->pre_idx_push_select_cond= tab->select_cond;
       Item *idx_remainder_cond= 
         tab->table->file->idx_cond_push(keyno, idx_cond);
+
+      /*
+        Disable eq_ref's "lookup cache" if we've pushed down an index
+        condition. 
+        TODO: This check happens to work on current ICP implementations, but
+        there may exist a compliant implementation that will not work 
+        correctly with it. Sort this out when we stabilize the condition
+        pushdown APIs.
+      */
+      if (idx_remainder_cond != idx_cond)
+        tab->ref.disable_cache= TRUE;
+
       Item *row_cond= make_cond_remainder(tab->select_cond, TRUE);
       DBUG_EXECUTE("where", print_where(row_cond, "remainder cond"););
       
-      if (row_cond) 
+      if (row_cond)
       {
         if (!idx_remainder_cond)
           tab->select_cond= row_cond;
@@ -13605,7 +13652,7 @@ join_read_system(JOIN_TAB *tab)
 
 
 /*
-  Read a table when there is at most one matching row
+  Read a [constant] table when there is at most one matching row
 
   SYNOPSIS
     join_read_const()
@@ -13655,6 +13702,23 @@ join_read_const(JOIN_TAB *tab)
 }
 
 
+/*
+  eq_ref access method implementation: "read_first" function
+
+  SYNOPSIS
+    join_read_key()
+      tab  JOIN_TAB of the accessed table
+
+  DESCRIPTION
+    This is "read_fist" function for the "ref" access method. The difference
+    from "ref" is that it has a one-element "cache" (see cmp_buffer_with_ref)
+
+  RETURN
+    0  - Ok
+   -1  - Row not found 
+    1  - Error
+*/
+
 static int
 join_read_key(JOIN_TAB *tab)
 {
@@ -13665,6 +13729,8 @@ join_read_key(JOIN_TAB *tab)
   {
     table->file->ha_index_init(tab->ref.key, tab->sorted);
   }
+
+  /* TODO: Why don't we do "Late NULLs Filtering" here? */
   if (cmp_buffer_with_ref(tab) ||
       (table->status & (STATUS_GARBAGE | STATUS_NO_PARENT | STATUS_NULL_ROW)))
   {
@@ -13685,17 +13751,35 @@ join_read_key(JOIN_TAB *tab)
 }
 
 
+/*
+  ref access method implementation: "read_first" function
+
+  SYNOPSIS
+    join_read_always_key()
+      tab  JOIN_TAB of the accessed table
+
+  DESCRIPTION
+    This is "read_fist" function for the "ref" access method.
+
+  RETURN
+    0  - Ok
+   -1  - Row not found 
+    1  - Error
+*/
+
 static int
 join_read_always_key(JOIN_TAB *tab)
 {
   int error;
   TABLE *table= tab->table;
-
+  
+  /* Perform "Late NULLs Filtering" (see internals manual for explanations) */
   for (uint i= 0 ; i < tab->ref.key_parts ; i++)
   {
     if ((tab->ref.null_rejecting & 1 << i) && tab->ref.items[i]->is_null())
         return -1;
-  } 
+  }
+
   if (!table->file->inited)
   {
     table->file->ha_index_init(tab->ref.key, tab->sorted);
@@ -16093,17 +16177,42 @@ read_cached_record(JOIN_TAB *tab)
 }
 
 
+/*
+  eq_ref: Create the lookup key and check if it is the same as saved key
+
+  SYNOPSIS
+    cmp_buffer_with_ref()
+      tab  Join tab of the accessed table
+ 
+  DESCRIPTION 
+    Used by eq_ref access method: create the index lookup key and check if 
+    we've used this key at previous lookup (If yes, we don't need to repeat
+    the lookup - the record has been already fetched)
+
+  RETURN 
+    TRUE   No cached record for the key, or failed to create the key (due to
+           out-of-domain error)
+    FALSE  The created key is the same as the previous one (and the record 
+           is already in table->record)
+*/
+
 static bool
 cmp_buffer_with_ref(JOIN_TAB *tab)
 {
-  bool diff;
-  if (!(diff=tab->ref.key_err))
+  bool no_prev_key;
+  if (!tab->ref.disable_cache)
   {
-    memcpy(tab->ref.key_buff2, tab->ref.key_buff, tab->ref.key_length);
+    if (!(no_prev_key= tab->ref.key_err))
+    {
+      /* Previous access found a row. Copy its key */
+      memcpy(tab->ref.key_buff2, tab->ref.key_buff, tab->ref.key_length);
+    }
   }
+  else 
+    no_prev_key= TRUE;
   if ((tab->ref.key_err= cp_buffer_from_ref(tab->join->thd, tab->table,
                                             &tab->ref)) ||
-      diff)
+      no_prev_key)
     return 1;
   return memcmp(tab->ref.key_buff2, tab->ref.key_buff, tab->ref.key_length)
     != 0;

@@ -585,7 +585,6 @@ show columns in t1;
 show slave hosts;
 show keys in t1;
 show column types;
-show table types;
 show storage engines;
 show authors;
 show contributors;

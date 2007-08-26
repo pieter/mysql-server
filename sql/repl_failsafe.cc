@@ -492,7 +492,7 @@ bool show_new_master(THD* thd)
     0           success
  */
 
-int update_slave_list(MYSQL* mysql, MASTER_INFO* mi)
+int update_slave_list(MYSQL* mysql, Master_info* mi)
 {
   MYSQL_RES* res=0;
   MYSQL_ROW row;

@@ -3011,12 +3011,13 @@ static int fill_schema_table_from_frm(THD *thd,TABLE *table,
       if (share.is_view ||
           open_table_from_share(thd, &share, table_name->str, 0,
                                 (READ_KEYINFO | COMPUTE_TYPES |
+                                 DONT_GIVE_ERROR |
                                  EXTRA_RECORD | OPEN_FRM_FILE_ONLY),
                                 thd->open_options, &tbl, FALSE))
       {
         share.tmp_table= INTERNAL_TMP_TABLE;
         free_table_share(&share);
-        return (share.is_view && 
+        return (!share.is_view || 
                 !(schema_table->i_s_requested_object & 
                   ~(OPEN_TABLE_FROM_SHARE|OPTIMIZE_I_S_TABLE)));
       }

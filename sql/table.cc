@@ -1859,6 +1859,11 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
     bool tmp;
     bool work_part_info_used;
 
+    if ((prgflag & OPEN_FRM_FILE_ONLY) && !outparam->file &&
+        !(outparam->file= get_new_handler(share, &outparam->mem_root,
+                                          share->db_type())))
+      goto err;
+
     tmp= mysql_unpack_partition(thd, share->partition_info,
                                 share->partition_info_len,
                                 share->part_state,
@@ -1880,6 +1885,11 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
       if (work_part_info_used)
         tmp= fix_partition_func(thd, outparam, is_create_table);
       outparam->part_info->item_free_list= part_func_arena.free_list;
+    }
+    if (prgflag & OPEN_FRM_FILE_ONLY)
+    {
+      delete outparam->file;
+      outparam->file= 0;
     }
     if (tmp)
     {
@@ -1974,7 +1984,7 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   DBUG_RETURN (0);
 
  err:
-  if (! error_reported)
+  if (!error_reported && !(prgflag & DONT_GIVE_ERROR))
     open_table_error(share, error, my_errno, 0);
   delete outparam->file;
 #ifdef WITH_PARTITION_STORAGE_ENGINE

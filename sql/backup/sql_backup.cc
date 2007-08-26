@@ -629,6 +629,8 @@ static const LEX_STRING mysql_string = "mysql";
 
 int Backup_info::add_all_dbs()
 {
+  my_bitmap_map *old_map;
+
   DBUG_PRINT("backup", ("Reading databases from I_S"));
 
   ::TABLE *db_table = get_schema_table(m_thd, ::get_schema_table(SCH_SCHEMATA));
@@ -646,6 +648,8 @@ int Backup_info::add_all_dbs()
   const Db_ref is_db(is_string);
   const Db_ref mysql_db(mysql_string);
   int res= 0;
+
+  old_map= dbug_tmp_use_all_columns(db_table, db_table->read_set);
 
   if (ha->ha_rnd_init(TRUE))
   {
@@ -688,7 +692,10 @@ int Backup_info::add_all_dbs()
  finish:
 
   if (db_table)
+  {
+    dbug_tmp_restore_column_map(db_table->read_set, old_map);
     ::free_tmp_table(m_thd, db_table);
+  }
 
   if (res)
     m_state= ERROR;
@@ -746,6 +753,8 @@ Backup_info::add_db(const backup::Db_ref &db)
  */
 int Backup_info::add_db_items(Db_item &db)
 {
+  my_bitmap_map *old_map;
+
   DBUG_ASSERT(m_state == INIT);  // should be called before structure is closed
   DBUG_ASSERT(is_valid());       // should be valid
   DBUG_ASSERT(i_s_tables->file); // i_s_tables should be opened
@@ -760,8 +769,11 @@ int Backup_info::add_db_items(Db_item &db)
    */
   TEST_ERROR_IF(db.name().ptr()[0]=='a');
 
+  old_map= dbug_tmp_use_all_columns(i_s_tables, i_s_tables->read_set);
+  
   if (ha->ha_rnd_init(TRUE) || TEST_ERROR)
   {
+    dbug_tmp_restore_column_map(i_s_tables->read_set, old_map);
     report_error(ER_BACKUP_LIST_DB_TABLES,db.name().ptr());
     return ERROR;
   }
@@ -824,6 +836,8 @@ int Backup_info::add_db_items(Db_item &db)
  
   ha->ha_rnd_end();
 
+  dbug_tmp_restore_column_map(i_s_tables->read_set, old_map);
+
   return res;
 }
 
@@ -833,6 +847,7 @@ Backup_info::Table_ref::Table_ref(TABLE *t):
   backup::Table_ref(m_db_name,m_name)
 {
   String engine_name;
+  plugin_ref plugin;
 
   t->field[1]->val_str(&m_db_name);
   t->field[2]->val_str(&m_name);
@@ -843,8 +858,8 @@ Backup_info::Table_ref::Table_ref(TABLE *t):
   name_lex.str= const_cast<char*>(engine_name.ptr());
   name_lex.length= engine_name.length();
 
-  m_hton= plugin_data(::ha_resolve_by_name(::current_thd,&name_lex),
-                      handlerton*);
+  plugin= ::ha_resolve_by_name(::current_thd,&name_lex);
+  m_hton= plugin ? plugin_data(plugin, handlerton*) : 0;
 }
 
 /**
@@ -1182,6 +1197,7 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
 {
   TABLE *t;
   TABLE_LIST arg;
+  my_bitmap_map *old_map;
 
   bzero( &arg, sizeof(TABLE_LIST) );
 
@@ -1207,12 +1223,16 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
   // context for fill_table
   arg.table= t;
 
+  old_map= tmp_use_all_columns(t, t->read_set);
+  
   /*
     Question: is it correct to fill I_S table each time we use it or should it
     be filled only once?
    */
   st->fill_table(thd,&arg,NULL);  // NULL = no select condition
 
+  tmp_restore_column_map(t->read_set, old_map);
+  
   // undo changes to thd->lex
   thd->lex->wild= wild;
   thd->lex->sql_command= command;

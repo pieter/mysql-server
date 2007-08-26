@@ -1385,6 +1385,11 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       packet->append(STRING_WITH_LEN(" ROW_FORMAT="));
       packet->append(ha_row_type[(uint) share->row_type]);
     }
+    if (share->transactional != HA_CHOICE_UNDEF)
+    {
+      packet->append(STRING_WITH_LEN(" TRANSACTIONAL="));
+      packet->append(share->transactional == HA_CHOICE_YES ? "1" : "0", 1);
+    }
     if (table->s->key_block_size)
     {
       char *end;
@@ -2991,50 +2996,71 @@ static int fill_schema_table_from_frm(THD *thd,TABLE *table,
                                       LEX_STRING *table_name,
                                       enum enum_schema_tables schema_table_idx)
 {
-  TABLE_SHARE share;
+  TABLE_SHARE *share;
   TABLE tbl;
   TABLE_LIST table_list;
-  char path[FN_REFLEN];
-  uint res;
+  uint res= 0;
+  int error;
+  char key[MAX_DBKEY_LENGTH];
+  uint key_length;
+
   bzero((char*) &table_list, sizeof(TABLE_LIST));
   bzero((char*) &tbl, sizeof(TABLE));
-  (void) build_table_filename(path, sizeof(path), db_name->str,
-                              table_name->str, "", 0);
-  init_tmp_table_share(&share, "", 0, "", path);
-  if (!(res= open_table_def(thd, &share, OPEN_VIEW)))
+
+  table_list.table_name= table_name->str;
+  table_list.db= db_name->str;
+  key_length= create_table_def_key(thd, key, &table_list, 0);
+  pthread_mutex_lock(&LOCK_open);
+  share= get_table_share(thd, &table_list, key,
+                         key_length, OPEN_VIEW, &error);
+  if (!share)
   {
-    share.tmp_table= NO_TMP_TABLE;
-    tbl.s= &share;
-    table_list.table= &tbl;
-    if (schema_table->i_s_requested_object & OPEN_TABLE_FROM_SHARE)
+    res= 0;
+    goto err;
+  }
+ 
+  if (share->is_view)
+  {
+    if (schema_table->i_s_requested_object & OPEN_TABLE_ONLY)
     {
-      if (share.is_view ||
-          open_table_from_share(thd, &share, table_name->str, 0,
-                                (READ_KEYINFO | COMPUTE_TYPES |
-                                 DONT_GIVE_ERROR |
-                                 EXTRA_RECORD | OPEN_FRM_FILE_ONLY),
-                                thd->open_options, &tbl, FALSE))
-      {
-        share.tmp_table= INTERNAL_TMP_TABLE;
-        free_table_share(&share);
-        return (!share.is_view || 
-                !(schema_table->i_s_requested_object & 
-                  ~(OPEN_TABLE_FROM_SHARE|OPTIMIZE_I_S_TABLE)));
-      }
+      /* skip view processing */
+      res= 0;
+      goto err1;
     }
-    table_list.view= (st_lex*) share.is_view;
-    res= schema_table->process_table(thd, &table_list, table,
-                                     res, db_name, table_name);
-    share.tmp_table= INTERNAL_TMP_TABLE;
-    if (schema_table->i_s_requested_object & OPEN_TABLE_FROM_SHARE)
-      closefrm(&tbl, true);
-    else
-      free_table_share(&share);
+    else if (schema_table->i_s_requested_object & OPEN_VIEW_FULL)
+    {
+      /*
+        tell get_all_tables() to fall back to 
+        open_normal_and_derived_tables()
+      */
+      res= 1;
+      goto err1;
+    }
   }
 
-  if (res)
-    thd->clear_error();
-  return 0;
+  if (share->is_view ||
+      !(res= open_table_from_share(thd, share, table_name->str, 0,
+                                   (READ_KEYINFO | COMPUTE_TYPES |
+                                    DONT_GIVE_ERROR |
+                                    EXTRA_RECORD | OPEN_FRM_FILE_ONLY),
+                                   thd->open_options, &tbl, FALSE)))
+  {
+    tbl.s= share;
+    table_list.table= &tbl;
+    table_list.view= (st_lex*) share->is_view;
+    res= schema_table->process_table(thd, &table_list, table,
+                                     res, db_name, table_name);
+    closefrm(&tbl, true);
+    goto err;
+  }
+
+err1:
+  release_table_share(share, RELEASE_NORMAL);
+
+err:
+  pthread_mutex_unlock(&LOCK_open);
+  thd->clear_error();
+  return res;
 }
 
 
@@ -3073,7 +3099,7 @@ int get_all_tables(THD *thd, TABLE_LIST *tables, COND *cond)
   enum enum_schema_tables schema_table_idx;
   List<LEX_STRING> db_names;
   List_iterator_fast<LEX_STRING> it(db_names);
-  COND *partial_cond;
+  COND *partial_cond= 0;
   uint derived_tables= lex->derived_tables; 
   int error= 1;
   Open_tables_state open_tables_state_backup;
@@ -3112,19 +3138,34 @@ int get_all_tables(THD *thd, TABLE_LIST *tables, COND *cond)
   DBUG_PRINT("INDEX VALUES",("db_name='%s', table_name='%s'",
                              lookup_field_vals.db_value.str,
                              lookup_field_vals.table_value.str));
-  if (lookup_field_vals.db_value.length &&
-      !lookup_field_vals.wild_db_value &&
-      lookup_field_vals.table_value.length &&
-      !lookup_field_vals.wild_table_value)
-    partial_cond= 0; 
-  else
-    partial_cond= make_cond_for_info_schema(cond, tables);
 
-  if (lookup_field_vals.db_value.length && !lookup_field_vals.wild_db_value)
+  if (!lookup_field_vals.wild_db_value && !lookup_field_vals.wild_table_value)
+  {
+    /* 
+      if lookup value is empty string then
+      it's impossible table name or db name
+    */
+    if (lookup_field_vals.db_value.str &&
+        !lookup_field_vals.db_value.str[0] ||
+        lookup_field_vals.table_value.str &&
+        !lookup_field_vals.table_value.str[0])
+    {
+      error= 0;
+      goto err;
+    }
+  }
+
+  if (lookup_field_vals.db_value.length &&
+      !lookup_field_vals.wild_db_value)
     tables->has_db_lookup_value= TRUE;
   if (lookup_field_vals.table_value.length &&
       !lookup_field_vals.wild_table_value) 
     tables->has_table_lookup_value= TRUE;
+
+  if (tables->has_db_lookup_value && tables->has_table_lookup_value)
+    partial_cond= 0;
+  else
+    partial_cond= make_cond_for_info_schema(cond, tables);
 
   tables->table_open_method= table_open_method=
     get_table_open_method(tables, schema_table, schema_table_idx);
@@ -3290,7 +3331,7 @@ bool store_schema_shemata(THD* thd, TABLE *table, LEX_STRING *db_name,
 }
 
 
-int fill_schema_shemata(THD *thd, TABLE_LIST *tables, COND *cond)
+int fill_schema_schemata(THD *thd, TABLE_LIST *tables, COND *cond)
 {
   /*
     TODO: fill_schema_shemata() is called when new client is connected.
@@ -3315,6 +3356,23 @@ int fill_schema_shemata(THD *thd, TABLE_LIST *tables, COND *cond)
   if (make_db_list(thd, &db_names, &lookup_field_vals,
                    &with_i_schema))
     DBUG_RETURN(1);
+
+  /*
+    If we have lookup db value we should check that the database exists
+  */
+  if(lookup_field_vals.db_value.str && !lookup_field_vals.wild_db_value)
+  {
+    char path[FN_REFLEN+16];
+    uint path_len;
+    MY_STAT stat_info;
+    if (!lookup_field_vals.db_value.str[0])
+      DBUG_RETURN(0);
+    path_len= build_table_filename(path, sizeof(path),
+                                   lookup_field_vals.db_value.str, "", "", 0);
+    path[path_len-1]= 0;
+    if (!my_stat(path,&stat_info,MYF(0)))
+      DBUG_RETURN(0);
+  }
 
   List_iterator_fast<LEX_STRING> it(db_names);
   while ((db_name=it++))
@@ -3433,6 +3491,12 @@ static int get_schema_tables_record(THD *thd, TABLE_LIST *tables,
       ptr=strxmov(ptr, " row_format=", 
                   ha_row_type[(uint) share->row_type],
                   NullS);
+    if (share->transactional != HA_CHOICE_UNDEF)
+    {
+      ptr= strxmov(ptr, " TRANSACTIONAL=",
+                   (share->transactional == HA_CHOICE_YES ? "1" : "0"),
+                   NullS);
+    }
 #ifdef WITH_PARTITION_STORAGE_ENGINE
     if (show_table->s->db_type() == partition_hton && 
         show_table->part_info != NULL && 
@@ -3474,7 +3538,7 @@ static int get_schema_tables_record(THD *thd, TABLE_LIST *tables,
       case ROW_TYPE_COMPACT:
         tmp_buff= "Compact";
         break;
-      case ROW_TYPE_PAGES:
+      case ROW_TYPE_PAGE:
         tmp_buff= "Paged";
         break;
       }
@@ -3596,8 +3660,7 @@ static int get_schema_column_record(THD *thd, TABLE_LIST *tables,
     col_access= get_column_grant(thd, &tables->grant, 
                                  db_name->str, table_name->str,
                                  field->field_name) & COL_ACLS;
-    if (lex->sql_command != SQLCOM_SHOW_FIELDS  &&
-        !tables->schema_table && !col_access)
+    if (!tables->schema_table && !col_access)
       continue;
     end= tmp;
     for (uint bitnr=0; col_access ; col_access>>=1,bitnr++)
@@ -4410,6 +4473,12 @@ static int get_schema_triggers_record(THD *thd, TABLE_LIST *tables,
   {
     Table_triggers_list *triggers= tables->table->triggers;
     int event, timing;
+
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+    if (check_table_access(thd, TRIGGER_ACL, tables, 1))
+      goto ret;
+#endif
+
     for (event= 0; event < (int)TRG_EVENT_MAX; event++)
     {
       for (timing= 0; timing < (int)TRG_ACTION_MAX; timing++)
@@ -4446,6 +4515,9 @@ static int get_schema_triggers_record(THD *thd, TABLE_LIST *tables,
       }
     }
   }
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+ret:
+#endif
   DBUG_RETURN(0);
 }
 
@@ -6460,7 +6532,7 @@ ST_SCHEMA_TABLE schema_tables[]=
    create_schema_table, fill_schema_coll_charset_app, 0, 0, -1, -1, 0, 0},
   {"COLUMNS", columns_fields_info, create_schema_table, 
    get_all_tables, make_columns_old_format, get_schema_column_record, 1, 2, 0,
-   OPEN_TABLE_FROM_SHARE|OPTIMIZE_I_S_TABLE},
+   OPTIMIZE_I_S_TABLE|OPEN_VIEW_FULL},
   {"COLUMN_PRIVILEGES", column_privileges_fields_info, create_schema_table,
    fill_schema_column_privileges, 0, 0, -1, -1, 0, 0},
   {"ENGINES", engines_fields_info, create_schema_table,
@@ -6490,7 +6562,7 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"ROUTINES", proc_fields_info, create_schema_table, 
    fill_schema_proc, make_proc_old_format, 0, -1, -1, 0, 0},
   {"SCHEMATA", schema_fields_info, create_schema_table,
-   fill_schema_shemata, make_schemata_old_format, 0, 1, -1, 0, 0},
+   fill_schema_schemata, make_schemata_old_format, 0, 1, -1, 0, 0},
   {"SCHEMA_PRIVILEGES", schema_privileges_fields_info, create_schema_table,
    fill_schema_schema_privileges, 0, 0, -1, -1, 0, 0},
   {"SESSION_STATUS", variables_fields_info, create_schema_table,
@@ -6499,7 +6571,7 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_variables, make_old_format, 0, -1, -1, 0, 0},
   {"STATISTICS", stat_fields_info, create_schema_table, 
    get_all_tables, make_old_format, get_schema_stat_record, 1, 2, 0,
-   OPEN_TABLE_ONLY|OPEN_TABLE_FROM_SHARE|OPTIMIZE_I_S_TABLE},
+   OPEN_TABLE_ONLY|OPTIMIZE_I_S_TABLE},
   {"STATUS", variables_fields_info, create_schema_table, fill_status, 
    make_old_format, 0, -1, -1, 1, 0},
   {"TABLES", tables_fields_info, create_schema_table, 

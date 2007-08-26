@@ -1436,8 +1436,9 @@ int ha_myisam::index_end()
 }
 
 
-int ha_myisam::index_read(uchar *buf, const uchar *key, key_part_map keypart_map,
-                          enum ha_rkey_function find_flag)
+int ha_myisam::index_read_map(uchar *buf, const uchar *key,
+                              key_part_map keypart_map,
+                              enum ha_rkey_function find_flag)
 {
   DBUG_ASSERT(inited==INDEX);
   ha_statistic_increment(&SSV::ha_read_key_count);
@@ -1446,9 +1447,9 @@ int ha_myisam::index_read(uchar *buf, const uchar *key, key_part_map keypart_map
   return error;
 }
 
-int ha_myisam::index_read_idx(uchar *buf, uint index, const uchar *key,
-                              key_part_map keypart_map,
-                              enum ha_rkey_function find_flag)
+int ha_myisam::index_read_idx_map(uchar *buf, uint index, const uchar *key,
+                                  key_part_map keypart_map,
+                                  enum ha_rkey_function find_flag)
 {
   ha_statistic_increment(&SSV::ha_read_key_count);
   int error=mi_rkey(file, buf, index, key, keypart_map, find_flag);
@@ -1456,8 +1457,8 @@ int ha_myisam::index_read_idx(uchar *buf, uint index, const uchar *key,
   return error;
 }
 
-int ha_myisam::index_read_last(uchar *buf, const uchar *key,
-                               key_part_map keypart_map)
+int ha_myisam::index_read_last_map(uchar *buf, const uchar *key,
+                                   key_part_map keypart_map)
 {
   DBUG_ENTER("ha_myisam::index_read_last");
   DBUG_ASSERT(inited==INDEX);

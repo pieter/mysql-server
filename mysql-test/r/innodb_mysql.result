@@ -980,7 +980,7 @@ key	PRIMARY
 key_len	4
 ref	NULL
 rows	16
-Extra	Using where; Using index
+Extra	
 SELECT * FROM t2 WHERE b=1 ORDER BY a;
 a	b	c
 1	1	1

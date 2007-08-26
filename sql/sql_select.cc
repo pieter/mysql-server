@@ -15377,7 +15377,7 @@ test_if_skip_sort_order(JOIN_TAB *tab,ORDER *order,ha_rows select_limit,
                                     join->select_options & OPTION_FOUND_ROWS ?
                                     HA_POS_ERROR :
                                     join->unit->select_limit_cnt,
-                                    0) > 0;
+                                    TRUE, FALSE) > 0;
       }
       if (!no_changes)
       {
@@ -15426,6 +15426,7 @@ check_reverse_order:
       if (!select->quick->reverse_sorted())
       {
         QUICK_SELECT_DESC *tmp;
+        bool error= FALSE;
         int quick_type= select->quick->get_type();
         if (quick_type == QUICK_SELECT_I::QS_TYPE_INDEX_MERGE ||
             quick_type == QUICK_SELECT_I::QS_TYPE_ROR_INTERSECT ||
@@ -15439,8 +15440,8 @@ check_reverse_order:
             
         /* ORDER BY range_key DESC */
 	tmp= new QUICK_SELECT_DESC((QUICK_RANGE_SELECT*)(select->quick),
-                                    used_key_parts);
-	if (!tmp || tmp->error)
+                                    used_key_parts, &error);
+	if (!tmp || error)
 	{
 	  delete tmp;
           select->quick= save_quick;

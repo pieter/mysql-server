@@ -225,11 +225,11 @@ DROP TABLE """a";
 
 #Bug #4374 SHOW TABLE STATUS FROM ignores collation_connection
 #set names latin1;
-#create database `‰`;
-#create table `‰`.`‰` (a int) engine=heap;
+#create database `√§`;
+#create table `√§`.`√§` (a int) engine=heap;
 #--replace_column 7 # 8 # 9 #
-#show table status from `‰` LIKE '‰';
-#drop database `‰`;
+#show table status from `√§` LIKE '√§';
+#drop database `√§`;
 
 # to test quotes around keywords.. :
 
@@ -359,11 +359,11 @@ flush privileges;
 # This test fails on MAC OSX, so it is temporary disabled.
 # This needs WL#1324 to be done.
 #set names latin1;
-#create database `‰`;
-#create table `‰`.`‰` (a int) engine=heap;
+#create database `√§`;
+#create table `√§`.`√§` (a int) engine=heap;
 #--replace_column 7 # 8 # 9 #
-#show table status from `‰` LIKE '‰';
-#drop database `‰`;
+#show table status from `√§` LIKE '√§';
+#drop database `√§`;
 
 # Test that USING <keytype> is always shown in SHOW CREATE TABLE when it was
 # specified during table creation, but not otherwise. (Bug #7235)
@@ -852,7 +852,7 @@ CREATE DATABASE mysqltest1;
 
 use mysqltest1;
 
-CREATE TABLE t1(ÀœÃœŒÀ¡1 INT);
+CREATE TABLE t1(√ã√è√å√è√é√ã√Å1 INT);
 
 # Check:
 #   - Dump mysqltest1;
@@ -1066,18 +1066,18 @@ DROP TABLE IF EXISTS t1;
 DROP EVENT IF EXISTS ev1;
 --enable_warnings
 
-CREATE VIEW v1 AS SELECT '‘≈”‘' AS test;
+CREATE VIEW v1 AS SELECT '√î√Ö√ì√î' AS test;
 
-CREATE PROCEDURE p1() SELECT '‘≈”‘' AS test;
+CREATE PROCEDURE p1() SELECT '√î√Ö√ì√î' AS test;
 
-CREATE FUNCTION f1() RETURNS CHAR(10) RETURN '‘≈”‘';
+CREATE FUNCTION f1() RETURNS CHAR(10) RETURN '√î√Ö√ì√î';
 
 CREATE TABLE t1(c1 CHAR(10));
 CREATE TRIGGER t1_bi BEFORE INSERT ON t1
   FOR EACH ROW
-    SET NEW.c1 = '‘≈”‘';
+    SET NEW.c1 = '√î√Ö√ì√î';
 
-CREATE EVENT ev1 ON SCHEDULE AT '2030-01-01 00:00:00' DO SELECT '‘≈”‘' AS test;
+CREATE EVENT ev1 ON SCHEDULE AT '2030-01-01 00:00:00' DO SELECT '√î√Ö√ì√î' AS test;
 
 # Test: switch the character set and show that SHOW CREATE output is
 # automatically converted to the new character_set_client.
@@ -1108,6 +1108,7 @@ DROP EVENT ev1;
 --disable_result_log
 SHOW STORAGE ENGINES;
 --enable_result_log
+
 
 
 --echo End of 5.1 tests

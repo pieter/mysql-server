@@ -2565,7 +2565,7 @@ void subselect_uniquesubquery_engine::print(String *str)
   str->append(STRING_WITH_LEN("<primary_index_lookup>("));
   tab->ref.items[0]->print(str);
   str->append(STRING_WITH_LEN(" in "));
-  if (table_name[0] == '#')
+  if (tab->table->s->table_category == TABLE_CATEGORY_TEMPORARY)
   {
     /*
       Temporary tables' names change across runs, so they can't be used for

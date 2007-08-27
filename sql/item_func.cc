@@ -667,16 +667,8 @@ bool Item_func_connection_id::fix_fields(THD *thd, Item **ref)
 {
   if (Item_int_func::fix_fields(thd, ref))
     return TRUE;
-
-  /*
-    To replicate CONNECTION_ID() properly we should use
-    pseudo_thread_id on slave, which contains the value of thread_id
-    on master.
-  */
-  value= ((thd->slave_thread) ?
-          thd->variables.pseudo_thread_id :
-          thd->thread_id);
-
+  thd->thread_specific_used= TRUE;
+  value= thd->variables.pseudo_thread_id;
   return FALSE;
 }
 
@@ -2942,7 +2934,8 @@ udf_handler::fix_fields(THD *thd, Item_result_field *func,
           String *res= arguments[i]->val_str(&buffers[i]);
           if (arguments[i]->null_value)
             continue;
-          f_args.args[i]= (char*) res->ptr();
+          f_args.args[i]= (char*) res->c_ptr();
+          f_args.lengths[i]= res->length();
           break;
         }
         case INT_RESULT:
@@ -3767,7 +3760,7 @@ static user_var_entry *get_variable(HASH *hash, LEX_STRING &name,
     entry->value=0;
     entry->length=0;
     entry->update_query_id=0;
-    entry->collation.set(NULL, DERIVATION_IMPLICIT);
+    entry->collation.set(NULL, DERIVATION_IMPLICIT, 0);
     entry->unsigned_flag= 0;
     /*
       If we are here, we were called from a SET or a query which sets a
@@ -4401,11 +4394,11 @@ int Item_func_set_user_var::save_in_field(Field *field, bool no_conversions,
   else if (result_type() == DECIMAL_RESULT)
   {
     my_decimal decimal_value;
-    my_decimal *value= entry->val_decimal(&null_value, &decimal_value);
+    my_decimal *val= entry->val_decimal(&null_value, &decimal_value);
     if (null_value)
       return set_field_to_null(field);
     field->set_notnull();
-    error=field->store_decimal(value);
+    error=field->store_decimal(val);
   }
   else
   {

@@ -84,10 +84,16 @@ extern MY_UNI_CTYPE my_uni_ctype[256];
 #define MY_CS_UNICODE	128    /* is a charset is full unicode   */
 #define MY_CS_READY	256    /* if a charset is initialized    */
 #define MY_CS_AVAILABLE	512    /* If either compiled-in or loaded*/
-#define MY_CS_CSSORT	1024   /* if case sensitive sort order   */
+#define MY_CS_CSSORT	1024   /* if case sensitive sort order   */	
 #define MY_CS_HIDDEN	2048   /* don't display in SHOW          */	
-#define MY_CS_NONASCII  4096   /* if not ASCII-compatible        */
+#define MY_CS_PUREASCII 4096   /* if a charset is pure ascii     */
+#define MY_CS_NONASCII  8192   /* if not ASCII-compatible        */
 #define MY_CHARSET_UNDEFINED 0
+
+/* Character repertoire flags */
+#define MY_REPERTOIRE_ASCII      1 /* Pure ASCII            U+0000..U+007F */
+#define MY_REPERTOIRE_EXTENDED   2 /* Extended characters:  U+0080..U+FFFF */
+#define MY_REPERTOIRE_UNICODE30  3 /* ASCII | EXTENDED:     U+0000..U+FFFF */
 
 /* Flags for strxfrm */
 #define MY_STRXFRM_LEVEL1          0x00000001 /* for primary weights   */
@@ -120,7 +126,6 @@ extern MY_UNI_CTYPE my_uni_ctype[256];
 #define MY_STRXFRM_REVERSE_LEVEL5  0x00100000 /* if reverse order for level5 */
 #define MY_STRXFRM_REVERSE_LEVEL6  0x00200000 /* if reverse order for level6 */
 #define MY_STRXFRM_REVERSE_SHIFT   16
-
 
 
 typedef struct my_uni_idx_st
@@ -199,6 +204,14 @@ extern MY_COLLATION_HANDLER my_collation_8bit_bin_handler;
 extern MY_COLLATION_HANDLER my_collation_8bit_simple_ci_handler;
 extern MY_COLLATION_HANDLER my_collation_ucs2_uca_handler;
 
+/* Some typedef to make it easy for C++ to make function pointers */
+typedef int (*my_charset_conv_mb_wc)(struct charset_info_st *, my_wc_t *,
+                                     const uchar *, const uchar *);
+typedef int (*my_charset_conv_wc_mb)(struct charset_info_st *, my_wc_t,
+                                     uchar *, uchar *);
+typedef size_t (*my_charset_conv_case)(struct charset_info_st *,
+                                       char *, size_t, char *, size_t);
+
 
 /* See strings/CHARSET_INFO.txt about information on this structure  */
 typedef struct my_charset_handler_st
@@ -217,11 +230,9 @@ typedef struct my_charset_handler_st
   size_t  (*numcells)(struct charset_info_st *, const char *b, const char *e);
   
   /* Unicode conversion */
-  int (*mb_wc)(struct charset_info_st *cs,my_wc_t *wc,
-	       const uchar *s,const uchar *e);
-  int (*wc_mb)(struct charset_info_st *cs,my_wc_t wc,
-	       uchar *s,uchar *e);
-  
+  my_charset_conv_mb_wc mb_wc;
+  my_charset_conv_wc_mb wc_mb;
+
   /* CTYPE scanner */
   int (*ctype)(struct charset_info_st *cs, int *ctype,
                const uchar *s, const uchar *e);
@@ -229,11 +240,10 @@ typedef struct my_charset_handler_st
   /* Functions for case and sort conversion */
   size_t  (*caseup_str)(struct charset_info_st *, char *);
   size_t  (*casedn_str)(struct charset_info_st *, char *);
-  size_t  (*caseup)(struct charset_info_st *, char *src, size_t srclen,
-                    char *dst, size_t dstlen);
-  size_t  (*casedn)(struct charset_info_st *, char *src, size_t srclen,
-                    char *dst, size_t dstlen);
-  
+
+  my_charset_conv_case caseup;
+  my_charset_conv_case casedn;
+
   /* Charset dependant snprintf() */
   size_t (*snprintf)(struct charset_info_st *, char *to, size_t n,
                      const char *fmt,
@@ -518,6 +528,11 @@ extern char *my_strchr(CHARSET_INFO *cs, const char *str, const char *end,
 
 my_bool my_propagate_simple(CHARSET_INFO *cs, const uchar *str, size_t len);
 my_bool my_propagate_complex(CHARSET_INFO *cs, const uchar *str, size_t len);
+
+
+uint my_string_repertoire(CHARSET_INFO *cs, const char *str, ulong len);
+my_bool my_charset_is_ascii_based(CHARSET_INFO *cs);
+my_bool my_charset_is_8bit_pure_ascii(CHARSET_INFO *cs);
 
 
 uint my_strxfrm_flag_normalize(uint flags, uint nlevels);

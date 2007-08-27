@@ -20,6 +20,10 @@
 #include "event_db_repository.h"
 #include "sp_head.h"
 
+/**
+  @addtogroup Event_Scheduler
+  @{
+*/
 
 #define EVEX_MAX_INTERVAL_VALUE 1000000000L
 
@@ -979,17 +983,18 @@ Event_queue_element::load_from_row(THD *thd, TABLE *table)
     DBUG_RETURN(TRUE);
 
   starts_null= table->field[ET_FIELD_STARTS]->is_null();
+  my_bool not_used= FALSE;
   if (!starts_null)
   {
     table->field[ET_FIELD_STARTS]->get_date(&time, TIME_NO_ZERO_DATE);
-    starts= sec_since_epoch_TIME(&time);
+    starts= my_tz_OFFSET0->TIME_to_gmt_sec(&time,&not_used);
   }
 
   ends_null= table->field[ET_FIELD_ENDS]->is_null();
   if (!ends_null)
   {
     table->field[ET_FIELD_ENDS]->get_date(&time, TIME_NO_ZERO_DATE);
-    ends= sec_since_epoch_TIME(&time);
+    ends= my_tz_OFFSET0->TIME_to_gmt_sec(&time,&not_used);
   }
 
   if (!table->field[ET_FIELD_INTERVAL_EXPR]->is_null())
@@ -1007,7 +1012,7 @@ Event_queue_element::load_from_row(THD *thd, TABLE *table)
     if (table->field[ET_FIELD_EXECUTE_AT]->get_date(&time,
                                                     TIME_NO_ZERO_DATE))
       DBUG_RETURN(TRUE);
-    execute_at= sec_since_epoch_TIME(&time);
+    execute_at= my_tz_OFFSET0->TIME_to_gmt_sec(&time,&not_used);
   }
 
   /*
@@ -1039,7 +1044,7 @@ Event_queue_element::load_from_row(THD *thd, TABLE *table)
   {
     table->field[ET_FIELD_LAST_EXECUTED]->get_date(&time,
                                                    TIME_NO_ZERO_DATE);
-    last_executed= sec_since_epoch_TIME(&time);
+    last_executed= my_tz_OFFSET0->TIME_to_gmt_sec(&time,&not_used);
   }
   last_executed_changed= FALSE;
 
@@ -1644,7 +1649,7 @@ err:
 void
 Event_queue_element::mark_last_executed(THD *thd)
 {
-  thd->end_time();
+  thd->set_current_time();
 
   last_executed= (my_time_t) thd->query_start();
   last_executed_changed= TRUE;
@@ -2081,3 +2086,7 @@ event_basic_identifier_equal(LEX_STRING db, LEX_STRING name, Event_basic *b)
   return !sortcmp_lex_string(name, b->name, system_charset_info) &&
          !sortcmp_lex_string(db, b->dbname, system_charset_info);
 }
+
+/**
+  @} (End of group Event_Scheduler)
+*/

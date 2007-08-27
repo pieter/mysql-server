@@ -367,6 +367,8 @@ THD::THD()
    stmt_depends_on_first_successful_insert_id_in_prev_stmt(FALSE),
    global_read_lock(0),
    is_fatal_error(0),
+   transaction_rollback_request(0),
+   is_fatal_sub_stmt_error(0),
    rand_used(0),
    time_zone_used(0),
    in_lock_tables(0),
@@ -394,12 +396,13 @@ THD::THD()
   count_cuted_fields= CHECK_FIELD_IGNORE;
   killed= NOT_KILLED;
   db_length= col_access=0;
-  query_error= tmp_table_used= 0;
+  query_error= thread_specific_used= FALSE;
   hash_clear(&handler_tables_hash);
   tmp_table=0;
   used_tables=0;
   cuted_fields= sent_row_count= row_count= 0L;
   limit_found_rows= 0;
+  row_count_func= -1;
   statement_id_counter= 0UL;
 #ifdef ERROR_INJECT_SUPPORT
   error_inject_value= 0UL;
@@ -407,7 +410,8 @@ THD::THD()
   // Must be reset to handle error with THD's created for init of mysqld
   lex->current_select= 0;
   start_time=(time_t) 0;
-  time_after_lock=(time_t) 0;
+  start_utime= 0L;
+  utime_after_lock= 0L;
   current_linfo =  0;
   slave_thread = 0;
   bzero(&variables, sizeof(variables));
@@ -582,7 +586,7 @@ void THD::init(void)
   if (variables.sql_mode & MODE_NO_BACKSLASH_ESCAPES)
     server_status|= SERVER_STATUS_NO_BACKSLASH_ESCAPES;
   options= thd_startup_options;
-  no_trans_update.stmt= no_trans_update.all= FALSE;
+  transaction.all.modified_non_trans_table= transaction.stmt.modified_non_trans_table= FALSE;
   open_options=ha_open_options;
   update_lock_default= (variables.low_priority_updates ?
 			TL_WRITE_LOW_PRIORITY :
@@ -1329,7 +1333,7 @@ void select_send::abort()
 {
   DBUG_ENTER("select_send::abort");
   if (status && thd->spcont &&
-      thd->spcont->find_handler(thd->net.last_errno,
+      thd->spcont->find_handler(thd, thd->net.last_errno,
                                 MYSQL_ERROR::WARN_LEVEL_ERROR))
   {
     /*
@@ -2445,6 +2449,10 @@ bool Security_context::set_user(char *user_arg)
   Initialize this security context from the passed in credentials
   and activate it in the current thread.
 
+  @param       thd
+  @param       definer_user
+  @param       definer_host
+  @param       db
   @param[out]  backup  Save a pointer to the current security context
                        in the thread. In case of success it points to the
                        saved old context, otherwise it points to NULL.
@@ -2599,12 +2607,17 @@ extern "C" int thd_slave_thread(const MYSQL_THD thd)
 
 extern "C" int thd_non_transactional_update(const MYSQL_THD thd)
 {
-  return(thd->no_trans_update.all);
+  return(thd->transaction.all.modified_non_trans_table);
 }
 
 extern "C" int thd_binlog_format(const MYSQL_THD thd)
 {
   return (int) thd->variables.binlog_format;
+}
+
+extern "C" void thd_mark_transaction_to_rollback(MYSQL_THD thd, bool all)
+{
+  mark_transaction_to_rollback(thd, all);
 }
 #endif // INNODB_COMPATIBILITY_HOOKS */
 
@@ -2707,6 +2720,13 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup)
   limit_found_rows= backup->limit_found_rows;
   sent_row_count=   backup->sent_row_count;
   client_capabilities= backup->client_capabilities;
+  /*
+    If we've left sub-statement mode, reset the fatal error flag.
+    Otherwise keep the current value, to propagate it up the sub-statement
+    stack.
+  */
+  if (!in_sub_stmt)
+    is_fatal_sub_stmt_error= FALSE;
 
   if ((options & OPTION_BIN_LOG) && is_update_query(lex->sql_command) &&
     !current_stmt_binlog_row_based)
@@ -2721,6 +2741,18 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup)
 }
 
 
+/**
+  Mark transaction to rollback and mark error as fatal to a sub-statement.
+
+  @param  thd   Thread handle
+  @param  all   TRUE <=> rollback main transaction.
+*/
+
+void mark_transaction_to_rollback(THD *thd, bool all)
+{
+  thd->is_fatal_sub_stmt_error= TRUE;
+  thd->transaction_rollback_request= all;
+}
 /***************************************************************************
   Handling of XA id cacheing
 ***************************************************************************/
@@ -2728,14 +2760,17 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup)
 pthread_mutex_t LOCK_xid_cache;
 HASH xid_cache;
 
-static uchar *xid_get_hash_key(const uchar *ptr, size_t *length,
+extern "C" uchar *xid_get_hash_key(const uchar *, size_t *, my_bool);
+extern "C" void xid_free_hash(void *);
+
+uchar *xid_get_hash_key(const uchar *ptr, size_t *length,
                                   my_bool not_used __attribute__((unused)))
 {
   *length=((XID_STATE*)ptr)->xid.key_length();
   return ((XID_STATE*)ptr)->xid.key();
 }
 
-static void xid_free_hash (void *ptr)
+void xid_free_hash(void *ptr)
 {
   if (!((XID_STATE*)ptr)->in_thd)
     my_free((uchar*)ptr, MYF(0));
@@ -3269,13 +3304,13 @@ int THD::binlog_flush_pending_rows_event(bool stmt_end)
   RETURN VALUE
     Error code, or 0 if no error.
 */
-int THD::binlog_query(THD::enum_binlog_query_type qtype, char const *query,
+int THD::binlog_query(THD::enum_binlog_query_type qtype, char const *query_arg,
                       ulong query_len, bool is_trans, bool suppress_use,
                       THD::killed_state killed_status_arg)
 {
   DBUG_ENTER("THD::binlog_query");
-  DBUG_PRINT("enter", ("qtype=%d, query='%s'", qtype, query));
-  DBUG_ASSERT(query && mysql_bin_log.is_open());
+  DBUG_PRINT("enter", ("qtype: %d  query: '%s'", qtype, query_arg));
+  DBUG_ASSERT(query_arg && mysql_bin_log.is_open());
 
   /*
     If we are not in prelocked mode, mysql_unlock_tables() will be
@@ -3331,7 +3366,7 @@ int THD::binlog_query(THD::enum_binlog_query_type qtype, char const *query,
       flush the pending rows event if necessary.
      */
     {
-      Query_log_event qinfo(this, query, query_len, is_trans, suppress_use,
+      Query_log_event qinfo(this, query_arg, query_len, is_trans, suppress_use,
                             killed_status_arg);
       qinfo.flags|= LOG_EVENT_UPDATE_TABLE_MAP_VERSION_F;
       /*

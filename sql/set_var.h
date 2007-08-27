@@ -114,9 +114,10 @@ class sys_var_long_ptr_global: public sys_var_global
 {
 public:
   ulong *value;
-  sys_var_long_ptr_global(sys_var_chain *chain, const char *name_arg, ulong *value_ptr_arg,
-                        pthread_mutex_t *guard_arg,
-                        sys_after_update_func after_update_arg= NULL)
+  sys_var_long_ptr_global(sys_var_chain *chain, const char *name_arg,
+                          ulong *value_ptr_arg,
+                          pthread_mutex_t *guard_arg,
+                          sys_after_update_func after_update_arg= NULL)
     :sys_var_global(name_arg, after_update_arg, guard_arg),
     value(value_ptr_arg)
   { chain_sys_var(chain); }
@@ -919,6 +920,27 @@ public:
   uchar *value_ptr(THD *thd, enum_var_type type, LEX_STRING *base);
 };
 
+
+class sys_var_microseconds :public sys_var_thd
+{
+  ulonglong SV::*offset;
+public:
+  sys_var_microseconds(sys_var_chain *chain, const char *name_arg,
+                       ulonglong SV::*offset_arg):
+    sys_var_thd(name_arg), offset(offset_arg)
+  { chain_sys_var(chain); }
+  bool check(THD *thd, set_var *var) {return 0;}
+  bool update(THD *thd, set_var *var);
+  void set_default(THD *thd, enum_var_type type);
+  SHOW_TYPE show_type() { return SHOW_DOUBLE; }
+  bool check_update_type(Item_result type)
+  {
+    return (type != INT_RESULT && type != REAL_RESULT && type != DECIMAL_RESULT);
+  }
+  uchar *value_ptr(THD *thd, enum_var_type type, LEX_STRING *base);
+};
+
+
 class sys_var_trust_routine_creators :public sys_var_bool_ptr
 {
   /* We need a derived class only to have a warn_deprecated() */
@@ -1113,6 +1135,11 @@ public:
 };
 
 
+extern "C"
+{
+  typedef int (*process_key_cache_t) (const char *, KEY_CACHE *);
+}
+
 /* Named lists (used for keycaches) */
 
 class NAMED_LIST :public ilink
@@ -1137,8 +1164,7 @@ public:
   {
     my_free((uchar*) name, MYF(0));
   }
-  friend bool process_key_caches(int (* func) (const char *name,
-					       KEY_CACHE *));
+  friend bool process_key_caches(process_key_cache_t func);
   friend void delete_elements(I_List<NAMED_LIST> *list,
 			      void (*free_element)(const char*, uchar*));
 };
@@ -1186,6 +1212,6 @@ extern sys_var_str sys_var_general_log_path, sys_var_slow_log_path;
 KEY_CACHE *get_key_cache(LEX_STRING *cache_name);
 KEY_CACHE *get_or_create_key_cache(const char *name, uint length);
 void free_key_cache(const char *name, KEY_CACHE *key_cache);
-bool process_key_caches(int (* func) (const char *name, KEY_CACHE *));
+bool process_key_caches(process_key_cache_t func);
 void delete_elements(I_List<NAMED_LIST> *list,
 		     void (*free_element)(const char*, uchar*));

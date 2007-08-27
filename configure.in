@@ -20,7 +20,7 @@ NDB_VERSION_STATUS="-beta"
 PROTOCOL_VERSION=10
 DOT_FRM_VERSION=6
 # See the libtool docs for information on how to do shared lib versions.
-SHARED_LIB_MAJOR_VERSION=15
+SHARED_LIB_MAJOR_VERSION=16
 SHARED_LIB_VERSION=$SHARED_LIB_MAJOR_VERSION:0:0
 NDB_SHARED_LIB_MAJOR_VERSION=3
 NDB_SHARED_LIB_VERSION=$NDB_SHARED_LIB_MAJOR_VERSION:0:0
@@ -747,7 +747,7 @@ AC_CHECK_HEADERS(fcntl.h float.h floatingpoint.h ieeefp.h limits.h \
  unistd.h utime.h sys/utime.h termio.h termios.h sched.h crypt.h alloca.h \
  sys/ioctl.h malloc.h sys/malloc.h sys/ipc.h sys/shm.h linux/config.h \
  sys/prctl.h \
- sys/resource.h sys/param.h port.h)
+ sys/resource.h sys/param.h port.h ieeefp.h)
 
 AC_CHECK_HEADERS([xfs/xfs.h])
 
@@ -761,6 +761,7 @@ AC_CHECK_LIB(m, floor, [], AC_CHECK_LIB(m, __infinity))
 AC_CHECK_LIB(nsl_r, gethostbyname_r, [],
   AC_CHECK_LIB(nsl, gethostbyname_r))
 AC_CHECK_FUNC(gethostbyname_r)
+AC_CHECK_LIB(mtmalloc, malloc)
 
 AC_CHECK_FUNC(setsockopt, , AC_CHECK_LIB(socket, setsockopt))
 AC_CHECK_FUNC(yp_get_default_domain, ,
@@ -1926,8 +1927,9 @@ AC_CHECK_FUNCS(alarm bcmp bfill bmove bsearch bzero \
   chsize cuserid fchmod fcntl \
   fconvert fdatasync finite fpresetsticky fpsetmask fsync ftruncate \
   getcwd gethostbyaddr_r gethostbyname_r getpass getpassphrase getpwnam \
-  getpwuid getrlimit getrusage getwd gmtime_r index initgroups isnan \
-  localtime_r locking longjmp lrand48 madvise mallinfo memcpy memmove \
+  getpwuid getrlimit getrusage getwd index initgroups isnan \
+  localtime_r gethrtime gmtime_r \
+  locking longjmp lrand48 madvise mallinfo memcpy memmove \
   mkstemp mlockall perror poll pread pthread_attr_create mmap mmap64 getpagesize \
   pthread_attr_getstacksize pthread_attr_setprio pthread_attr_setschedparam \
   pthread_attr_setstacksize pthread_condattr_create pthread_getsequence_np \

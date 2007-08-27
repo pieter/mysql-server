@@ -140,6 +140,100 @@ class Field_timestamp;
 class Field_blob;
 class Table_triggers_list;
 
+/**
+  Category of table found in the table share.
+*/
+enum enum_table_category
+{
+  /**
+    Unknown value.
+  */
+  TABLE_UNKNOWN_CATEGORY=0,
+
+  /**
+    Temporary table.
+    The table is visible only in the session.
+    Therefore,
+    - FLUSH TABLES WITH READ LOCK
+    - SET GLOBAL READ_ONLY = ON
+    do not apply to this table.
+    Note that LOCK TABLE t FOR READ/WRITE
+    can be used on temporary tables.
+    Temporary tables are not part of the table cache.
+  */
+  TABLE_CATEGORY_TEMPORARY=1,
+
+  /**
+    User table.
+    These tables do honor:
+    - LOCK TABLE t FOR READ/WRITE
+    - FLUSH TABLES WITH READ LOCK
+    - SET GLOBAL READ_ONLY = ON
+    User tables are cached in the table cache.
+  */
+  TABLE_CATEGORY_USER=2,
+
+  /**
+    System table, maintained by the server.
+    These tables do honor:
+    - LOCK TABLE t FOR READ/WRITE
+    - FLUSH TABLES WITH READ LOCK
+    - SET GLOBAL READ_ONLY = ON
+    Typically, writes to system tables are performed by
+    the server implementation, not explicitly be a user.
+    System tables are cached in the table cache.
+  */
+  TABLE_CATEGORY_SYSTEM=3,
+
+  /**
+    Information schema tables.
+    These tables are an interface provided by the system
+    to inspect the system metadata.
+    These tables do *not* honor:
+    - LOCK TABLE t FOR READ/WRITE
+    - FLUSH TABLES WITH READ LOCK
+    - SET GLOBAL READ_ONLY = ON
+    as there is no point in locking explicitely
+    an INFORMATION_SCHEMA table.
+    Nothing is directly written to information schema tables.
+    Note that this value is not used currently,
+    since information schema tables are not shared,
+    but implemented as session specific temporary tables.
+  */
+  /*
+    TODO: Fixing the performance issues of I_S will lead
+    to I_S tables in the table cache, which should use
+    this table type.
+  */
+  TABLE_CATEGORY_INFORMATION=4,
+
+  /**
+    Performance schema tables.
+    These tables are an interface provided by the system
+    to inspect the system performance data.
+    These tables do *not* honor:
+    - LOCK TABLE t FOR READ/WRITE
+    - FLUSH TABLES WITH READ LOCK
+    - SET GLOBAL READ_ONLY = ON
+    as there is no point in locking explicitely
+    a PERFORMANCE_SCHEMA table.
+    An example of PERFORMANCE_SCHEMA tables are:
+    - mysql.slow_log
+    - mysql.general_log,
+    which *are* updated even when there is either
+    a GLOBAL READ LOCK or a GLOBAL READ_ONLY in effect.
+    User queries do not write directly to these tables
+    (there are exceptions for log tables).
+    The server implementation perform writes.
+    Performance tables are cached in the table cache.
+  */
+  TABLE_CATEGORY_PERFORMANCE=5
+};
+typedef enum enum_table_category TABLE_CATEGORY;
+
+TABLE_CATEGORY get_table_category(const LEX_STRING *db,
+                                  const LEX_STRING *name);
+
 /*
   This structure is shared between different table objects. There is one
   instance of table share per one table in the database.
@@ -148,6 +242,10 @@ class Table_triggers_list;
 typedef struct st_table_share
 {
   st_table_share() {}                    /* Remove gcc warning */
+
+  /** Category of this table. */
+  TABLE_CATEGORY table_category;
+
   /* hash of field names (contains pointers to elements of field array) */
   HASH	name_hash;			/* hash of field names */
   MEM_ROOT mem_root;
@@ -214,6 +312,7 @@ typedef struct st_table_share
   enum ha_storage_media default_storage_media;
   char *tablespace;
   enum tmp_table_type tmp_table;
+  enum ha_choice transactional;
 
   uint ref_count;                       /* How many TABLE objects uses this */
   uint open_count;			/* Number of tables in open list */
@@ -261,18 +360,6 @@ typedef struct st_table_share
   */
   int cached_row_logging_check;
 
-  /*
-    TRUE if this is a system table like 'mysql.proc', which we want to be
-    able to open and lock even when we already have some tables open and
-    locked. To avoid deadlocks we have to put certain restrictions on
-    locking of this table for writing. FALSE - otherwise.
-  */
-  bool system_table;
-  /*
-    This flag is set for the log tables. Used during FLUSH instances to skip
-    log tables, while closing tables (since logs must be always available)
-  */
-  bool log_table;
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   bool auto_partitioned;
   const char *partition_info;
@@ -336,6 +423,16 @@ typedef struct st_table_share
     set_table_cache_key(key_buff, key_length);
   }
 
+  inline bool honor_global_locks()
+  {
+    return ((table_category == TABLE_CATEGORY_USER)
+            || (table_category == TABLE_CATEGORY_SYSTEM));
+  }
+
+  inline bool require_write_privileges()
+  {
+    return (table_category == TABLE_CATEGORY_PERFORMANCE);
+  }
 } TABLE_SHARE;
 
 
@@ -625,6 +722,10 @@ enum enum_schema_tables
 #define MY_I_S_UNSIGNED   2
 
 
+#define SKIP_OPEN_TABLE 0                // do not open table
+#define OPEN_FRM_ONLY   1                // open FRM file only
+#define OPEN_FULL_TABLE 2                // open FRM,MYD, MYI files
+
 typedef struct st_field_info
 {
   const char* field_name;
@@ -633,6 +734,7 @@ typedef struct st_field_info
   int value;
   uint field_flags;        // Field atributes(maybe_null, signed, unsigned etc.)
   const char* old_name;
+  uint open_method;
 } ST_FIELD_INFO;
 
 
@@ -649,11 +751,11 @@ typedef struct st_schema_table
   int (*fill_table) (THD *thd, TABLE_LIST *tables, COND *cond);
   /* Handle fileds for old SHOW */
   int (*old_format) (THD *thd, struct st_schema_table *schema_table);
-  int (*process_table) (THD *thd, TABLE_LIST *tables,
-                        TABLE *table, bool res, const char *base_name,
-                        const char *file_name);
+  int (*process_table) (THD *thd, TABLE_LIST *tables, TABLE *table,
+                        bool res, LEX_STRING *db_name, LEX_STRING *table_name);
   int idx_field1, idx_field2; 
   bool hidden;
+  uint i_s_requested_object;  /* the object we need to open(TABLE | VIEW) */
 } ST_SCHEMA_TABLE;
 
 
@@ -1011,6 +1113,10 @@ struct TABLE_LIST
   */
   uint8 trg_event_map;
 
+  uint i_s_requested_object;
+  bool has_db_lookup_value;
+  bool has_table_lookup_value;
+  uint table_open_method;
   enum enum_schema_table_state schema_table_state;
   void calc_md5(char *buffer);
   void set_underlying_merge();
@@ -1072,7 +1178,6 @@ struct TABLE_LIST
   */
   bool process_index_hints(TABLE *table);
 
-  void set_trg_event_type(const st_lex *lex);
 private:
   bool prep_check_option(THD *thd, uint8 check_opt_type);
   bool prep_where(THD *thd, Item **conds, bool no_where_clause);

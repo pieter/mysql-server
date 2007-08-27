@@ -49,29 +49,50 @@ class DTCollation {
 public:
   CHARSET_INFO     *collation;
   enum Derivation derivation;
+  uint repertoire;
   
+  void set_repertoire_from_charset(CHARSET_INFO *cs)
+  {
+    repertoire= cs->state & MY_CS_PUREASCII ?
+                MY_REPERTOIRE_ASCII : MY_REPERTOIRE_UNICODE30;
+  }
   DTCollation()
   {
     collation= &my_charset_bin;
     derivation= DERIVATION_NONE;
+    repertoire= MY_REPERTOIRE_UNICODE30;
   }
   DTCollation(CHARSET_INFO *collation_arg, Derivation derivation_arg)
   {
     collation= collation_arg;
     derivation= derivation_arg;
+    set_repertoire_from_charset(collation_arg);
   }
   void set(DTCollation &dt)
   { 
     collation= dt.collation;
     derivation= dt.derivation;
+    repertoire= dt.repertoire;
   }
   void set(CHARSET_INFO *collation_arg, Derivation derivation_arg)
   {
     collation= collation_arg;
     derivation= derivation_arg;
+    set_repertoire_from_charset(collation_arg);
+  }
+  void set(CHARSET_INFO *collation_arg,
+           Derivation derivation_arg,
+           uint repertoire_arg)
+  {
+    collation= collation_arg;
+    derivation= derivation_arg;
+    repertoire= repertoire_arg;
   }
   void set(CHARSET_INFO *collation_arg)
-  { collation= collation_arg; }
+  {
+    collation= collation_arg;
+    set_repertoire_from_charset(collation_arg);
+  }
   void set(Derivation derivation_arg)
   { derivation= derivation_arg; }
   bool aggregate(DTCollation &dt, uint flags= 0);
@@ -664,6 +685,7 @@ public:
 
   int save_time_in_field(Field *field);
   int save_date_in_field(Field *field);
+  int save_str_value_in_field(Field *field, String *result);
 
   virtual Field *get_tmp_table_field() { return 0; }
   /* This is also used to create fields in CREATE ... SELECT: */
@@ -1081,9 +1103,18 @@ public:
     SP variable in query text.
   */
   uint pos_in_query;
+  /*
+    Byte length of SP variable name in the statement (see pos_in_query).
+    The value of this field may differ from the name_length value because
+    name_length contains byte length of UTF8-encoded item name, but
+    the query string (see sp_instr_stmt::m_query) is currently stored with
+    a charset from the SET NAMES statement.
+  */
+  uint len_in_query;
 
   Item_splocal(const LEX_STRING &sp_var_name, uint sp_var_idx,
-               enum_field_types sp_var_type, uint pos_in_q= 0);
+               enum_field_types sp_var_type,
+               uint pos_in_q= 0, uint len_in_q= 0);
 
   bool is_splocal() { return 1; } /* Needed for error checking */
 
@@ -1741,8 +1772,11 @@ public:
     max_length=length;
     fixed= 1;
   }
-  Item_float(double value_par) :presentation(0), value(value_par) { fixed= 1; }
-
+  Item_float(double value_par, uint decimal_par) :presentation(0), value(value_par)
+  {
+    decimals= (uint8) decimal_par;
+    fixed= 1;
+  }
   int save_in_field(Field *field, bool no_conversions);
   enum Type type() const { return REAL_ITEM; }
   enum_field_types field_type() const { return MYSQL_TYPE_DOUBLE; }
@@ -1790,10 +1824,11 @@ class Item_string :public Item
 {
 public:
   Item_string(const char *str,uint length,
-  	      CHARSET_INFO *cs, Derivation dv= DERIVATION_COERCIBLE)
+              CHARSET_INFO *cs, Derivation dv= DERIVATION_COERCIBLE,
+              uint repertoire= MY_REPERTOIRE_UNICODE30)
   {
-    collation.set(cs, dv);
-    str_value.set_or_copy_aligned(str,length,cs);
+    str_value.set_or_copy_aligned(str, length, cs);
+    collation.set(cs, dv, repertoire);
     /*
       We have to have a different max_length than 'length' here to
       ensure that we get the right length if we do use the item
@@ -1817,10 +1852,11 @@ public:
     fixed= 1;
   }
   Item_string(const char *name_par, const char *str, uint length,
-	      CHARSET_INFO *cs, Derivation dv= DERIVATION_COERCIBLE)
+              CHARSET_INFO *cs, Derivation dv= DERIVATION_COERCIBLE,
+              uint repertoire= MY_REPERTOIRE_UNICODE30)
   {
-    collation.set(cs, dv);
-    str_value.set_or_copy_aligned(str,length,cs);
+    str_value.set_or_copy_aligned(str, length, cs);
+    collation.set(cs, dv, repertoire);
     max_length= str_value.numchars()*cs->mbmaxlen;
     set_name(name_par, 0, cs);
     decimals=NOT_FIXED_DEC;
@@ -1835,6 +1871,12 @@ public:
   {
     str_value.copy(str_arg, length_arg, collation.collation);
     max_length= str_value.numchars() * collation.collation->mbmaxlen;
+  }
+  void set_repertoire_from_value()
+  {
+    collation.repertoire= my_string_repertoire(str_value.charset(),
+                                               str_value.ptr(),
+                                               str_value.length());
   }
   enum Type type() const { return STRING_ITEM; }
   double val_real();
@@ -2324,7 +2366,10 @@ public:
   my_decimal *val_decimal(my_decimal *);
   void make_field(Send_field *field) { item->make_field(field); }
   void copy();
-  int save_in_field(Field *field, bool no_conversions);
+  int save_in_field(Field *field, bool no_conversions)
+  {
+    return save_str_value_in_field(field, &str_value);
+  }
   table_map used_tables() const { return (table_map) 1L; }
   bool const_item() const { return 0; }
   bool is_null() { return null_value; }

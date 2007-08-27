@@ -63,8 +63,11 @@ The options right now are:
     MYSQL_TCP_PORT=<port>                Server port, default 3306
     CYBOZU                               Default character set is UTF8
     EMBED_MANIFESTS                      Embed custom manifests into final exes, otherwise VS
-                                         default will be used.
-
+                                         default will be used. (Note - This option should only be
+                                         used by MySQL AB.)
+    WITH_EMBEDDED_SERVER                 Configure solution to produce libmysqld.dll
+                                         and the static mysqlserver.lib 
+                                
 So the command line could look like:
 
 win\configure WITH_INNOBASE_STORAGE_ENGINE WITH_PARTITION_STORAGE_ENGINE MYSQL_SERVER_SUFFIX=-pro

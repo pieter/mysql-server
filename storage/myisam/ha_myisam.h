@@ -67,21 +67,17 @@ class ha_myisam: public handler
   uint max_supported_key_part_length() const { return MI_MAX_KEY_LENGTH; }
   uint checksum() const;
 
-  virtual bool check_if_locking_is_allowed(uint sql_command,
-                                           ulong type, TABLE *table,
-                                           uint count, uint current,
-                                           uint *system_count,
-                                           bool called_by_logger_thread);
   int open(const char *name, int mode, uint test_if_locked);
   int close(void);
   int write_row(uchar * buf);
   int update_row(const uchar * old_data, uchar * new_data);
   int delete_row(const uchar * buf);
-  int index_read(uchar *buf, const uchar *key, key_part_map keypart_map,
-                 enum ha_rkey_function find_flag);
-  int index_read_idx(uchar *buf, uint index, const uchar *key,
-                     key_part_map keypart_map, enum ha_rkey_function find_flag);
-  int index_read_last(uchar *buf, const uchar *key, key_part_map keypart_map);
+  int index_read_map(uchar *buf, const uchar *key, key_part_map keypart_map,
+                     enum ha_rkey_function find_flag);
+  int index_read_idx_map(uchar *buf, uint index, const uchar *key,
+                         key_part_map keypart_map,
+                         enum ha_rkey_function find_flag);
+  int index_read_last_map(uchar *buf, const uchar *key, key_part_map keypart_map);
   int index_next(uchar * buf);
   int index_prev(uchar * buf);
   int index_first(uchar * buf);

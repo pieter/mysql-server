@@ -186,7 +186,8 @@ public:
   void restore_env(THD *thd, Object_creation_ctx *backup_ctx);
 
 protected:
-  virtual Object_creation_ctx *create_backup_ctx(THD *thd) = 0;
+  Object_creation_ctx() {}
+  virtual Object_creation_ctx *create_backup_ctx(THD *thd) const = 0;
 
   virtual void change_env(THD *thd) const = 0;
 
@@ -222,7 +223,7 @@ protected:
                               CHARSET_INFO *connection_cl);
 
 protected:
-  virtual Object_creation_ctx *create_backup_ctx(THD *thd);
+  virtual Object_creation_ctx *create_backup_ctx(THD *thd) const;
 
   virtual void change_env(THD *thd) const;
 
@@ -763,7 +764,7 @@ int error_log_print(enum loglevel level, const char *format,
                     va_list args);
 
 bool slow_log_print(THD *thd, const char *query, uint query_length,
-                    time_t query_start_arg);
+                    ulonglong current_utime);
 
 bool general_log_print(THD *thd, enum enum_server_command command,
                        const char *format,...);
@@ -973,6 +974,7 @@ void mysql_parse(THD *thd, const char *inBuf, uint length,
 
 bool mysql_test_parse_for_slave(THD *thd,char *inBuf,uint length);
 bool is_update_query(enum enum_sql_command command);
+bool is_log_table_write_query(enum enum_sql_command command);
 bool alloc_query(THD *thd, const char *packet, uint packet_length);
 void mysql_init_select(LEX *lex);
 void mysql_reset_thd_for_next_command(THD *thd);
@@ -1152,7 +1154,8 @@ TABLE_SHARE *get_table_share(THD *thd, TABLE_LIST *table_list, char *key,
                              uint key_length, uint db_flags, int *error);
 void release_table_share(TABLE_SHARE *share, enum release_type type);
 TABLE_SHARE *get_cached_table_share(const char *db, const char *table_name);
-TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type update);
+TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type update,
+                   uint lock_flags);
 TABLE *open_table(THD *thd, TABLE_LIST *table_list, MEM_ROOT* mem,
 		  bool *refresh, uint flags);
 bool reopen_name_locked_table(THD* thd, TABLE_LIST* table_list, bool link_in);
@@ -1260,6 +1263,11 @@ void reset_status_vars();
 
 /* information schema */
 extern LEX_STRING INFORMATION_SCHEMA_NAME;
+/* log tables */
+extern LEX_STRING MYSQL_SCHEMA_NAME;
+extern LEX_STRING GENERAL_LOG_NAME;
+extern LEX_STRING SLOW_LOG_NAME;
+
 extern const LEX_STRING partition_keywords[];
 ST_SCHEMA_TABLE *find_schema_table(THD *thd, const char* table_name);
 ST_SCHEMA_TABLE *get_schema_table(enum enum_schema_tables schema_table_idx);
@@ -1299,7 +1307,6 @@ bool mysql_ha_read(THD *, TABLE_LIST *,enum enum_ha_read_modes,char *,
                    List<Item> *,enum ha_rkey_function,Item *,ha_rows,ha_rows);
 int mysql_ha_flush(THD *thd, TABLE_LIST *tables, uint mode_flags,
                    bool is_locked);
-void mysql_ha_mark_tables_for_reopen(THD *thd, TABLE *table);
 /* mysql_ha_flush mode_flags bits */
 #define MYSQL_HA_CLOSE_FINAL        0x00
 #define MYSQL_HA_REOPEN_ON_USAGE    0x01
@@ -1588,6 +1595,10 @@ bool open_system_tables_for_read(THD *thd, TABLE_LIST *table_list,
 void close_system_tables(THD *thd, Open_tables_state *backup);
 TABLE *open_system_table_for_update(THD *thd, TABLE_LIST *one_table);
 
+TABLE *open_performance_schema_table(THD *thd, TABLE_LIST *one_table,
+                                     Open_tables_state *backup);
+void close_performance_schema_table(THD *thd, Open_tables_state *backup);
+
 bool close_cached_tables(THD *thd, bool wait_for_refresh, TABLE_LIST *tables, bool have_lock = FALSE);
 bool close_cached_connection_tables(THD *thd, bool wait_for_refresh,
                                     LEX_STRING *connect_string,
@@ -1669,7 +1680,7 @@ bool key_cmp_if_same(TABLE *form,const uchar *key,uint index,uint key_length);
 void key_unpack(String *to,TABLE *form,uint index);
 bool is_key_used(TABLE *table, uint idx, const MY_BITMAP *fields);
 int key_cmp(KEY_PART_INFO *key_part, const uchar *key, uint key_length);
-int key_rec_cmp(void *key_info, uchar *a, uchar *b);
+extern "C" int key_rec_cmp(void *key_info, uchar *a, uchar *b);
 
 bool init_errmessage(void);
 #endif /* MYSQL_SERVER */
@@ -1830,7 +1841,7 @@ extern my_bool opt_readonly, lower_case_file_system;
 extern my_bool opt_enable_named_pipe, opt_sync_frm, opt_allow_suspicious_udfs;
 extern my_bool opt_secure_auth;
 extern char* opt_secure_file_priv;
-extern my_bool opt_log_slow_admin_statements;
+extern my_bool opt_log_slow_admin_statements, opt_log_slow_slave_statements;
 extern my_bool sp_automatic_privileges, opt_noacl;
 extern my_bool opt_old_style_user_limits, trust_function_creators;
 extern uint opt_crash_binlog_innodb;
@@ -1930,11 +1941,13 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **table, uint count,
 #define MYSQL_LOCK_NOTIFY_IF_NEED_REOPEN        0x0004
 #define MYSQL_OPEN_TEMPORARY_ONLY               0x0008
 #define MYSQL_LOCK_IGNORE_GLOBAL_READ_ONLY      0x0010
+#define MYSQL_LOCK_PERF_SCHEMA                  0x0020
 
 void mysql_unlock_tables(THD *thd, MYSQL_LOCK *sql_lock);
 void mysql_unlock_read_tables(THD *thd, MYSQL_LOCK *sql_lock);
 void mysql_unlock_some_tables(THD *thd, TABLE **table,uint count);
-void mysql_lock_remove(THD *thd, MYSQL_LOCK *locked,TABLE *table);
+void mysql_lock_remove(THD *thd, MYSQL_LOCK *locked,TABLE *table,
+                       bool always_unlock);
 void mysql_lock_abort(THD *thd, TABLE *table, bool upgrade_lock);
 void mysql_lock_downgrade_write(THD *thd, TABLE *table,
                                 thr_lock_type new_lock_type);

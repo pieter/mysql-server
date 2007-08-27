@@ -18,11 +18,9 @@
   a shared library
 */
 
-#if !defined(stdin)
 #include "mysys_priv.h"
 #include "my_static.h"
 #include "my_alarm.h"
-#endif
 
 my_bool timed_mutexes= 0;
 
@@ -32,6 +30,7 @@ const char      *my_progname=0;
 char		NEAR curr_dir[FN_REFLEN]= {0},
 		NEAR home_dir_buff[FN_REFLEN]= {0};
 ulong		my_stream_opened=0,my_file_opened=0, my_tmp_file_created=0;
+ulong           my_file_total_opened= 0;
 int		NEAR my_umask=0664, NEAR my_umask_dir=0777;
 #ifndef THREAD
 int		NEAR my_errno=0;
@@ -92,6 +91,11 @@ int (*error_handler_hook)(uint error,const char *str,myf MyFlags)=
     my_message_no_curses;
 int (*fatal_error_handler_hook)(uint error,const char *str,myf MyFlags)=
   my_message_no_curses;
+
+#ifdef __WIN__
+/* from my_getsystime.c */
+ulonglong query_performance_frequency, query_performance_offset;
+#endif
 
 	/* How to disable options */
 my_bool NEAR my_disable_locking=0;

@@ -68,6 +68,10 @@ static int free_share(TINA_SHARE *share);
 static int read_meta_file(File meta_file, ha_rows *rows);
 static int write_meta_file(File meta_file, ha_rows rows, bool dirty);
 
+extern "C" void tina_get_status(void* param, int concurrent_insert);
+extern "C" void tina_update_status(void* param);
+extern "C" my_bool tina_check_status(void* param);
+
 /* Stuff for shares */
 pthread_mutex_t tina_mutex;
 static HASH tina_open_tables;
@@ -785,18 +789,6 @@ void ha_tina::update_status()
   share->saved_data_file_length= local_saved_data_file_length;
 }
 
-
-bool ha_tina::check_if_locking_is_allowed(uint sql_command,
-                                          ulong type, TABLE *table,
-                                          uint count, uint current,
-                                          uint *system_count,
-                                          bool called_by_privileged_thread)
-{
-  if (!called_by_privileged_thread)
-    return check_if_log_table_locking_is_allowed(sql_command, type, table);
-
-  return TRUE;
-}
 
 /*
   Open a database file. Keep in mind that tables are caches, so

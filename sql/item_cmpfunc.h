@@ -856,6 +856,7 @@ public:
   friend int cmp_longlong(void *cmp_arg, packed_longlong *a,packed_longlong *b);
 };
 
+
 class in_double :public in_vector
 {
   double tmp;
@@ -865,15 +866,15 @@ public:
   uchar *get_value(Item *item);
   Item *create_item()
   { 
-    return new Item_float(0.0);
+    return new Item_float(0.0, 0);
   }
   void value_to_item(uint pos, Item *item)
   {
     ((Item_float*)item)->value= ((double*) base)[pos];
   }
   Item_result result_type() { return REAL_RESULT; }
-
 };
+
 
 class in_decimal :public in_vector
 {
@@ -1160,7 +1161,6 @@ public:
 class Item_func_in :public Item_func_opt_neg
 {
 public:
-  Item_result cmp_type;
   /* 
     an array of values when the right hand arguments of IN
     are all SQL constant and there are no nulls 
@@ -1573,7 +1573,6 @@ public:
                                      the current and level           */
   COND_EQUAL()
   { 
-    max_members= 0;
     upper_levels= 0;
   }
 };

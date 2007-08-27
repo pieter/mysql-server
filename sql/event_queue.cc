@@ -17,6 +17,10 @@
 #include "event_queue.h"
 #include "event_data_objects.h"
 
+/**
+  @addtogroup Event_Scheduler
+  @{
+*/
 
 #define EVENT_QUEUE_INITIAL_SIZE 30
 #define EVENT_QUEUE_EXTENT       30
@@ -52,8 +56,9 @@
     execute_at.second_part is not considered during comparison
 */
 
-static int
-event_queue_element_compare_q(void *vptr, uchar* a, uchar *b)
+extern "C" int event_queue_element_compare_q(void *, uchar *, uchar *);
+
+int event_queue_element_compare_q(void *vptr, uchar* a, uchar *b)
 {
   my_time_t lhs = ((Event_queue_element *)a)->execute_at;
   my_time_t rhs = ((Event_queue_element *)b)->execute_at;
@@ -550,7 +555,7 @@ Event_queue::get_top_for_execution_if_time(THD *thd,
 
     top= ((Event_queue_element*) queue_element(&queue, 0));
 
-    thd->end_time(); /* Get current time */
+    thd->set_current_time(); /* Get current time */
 
     next_activation_at= top->execute_at;
     if (next_activation_at > thd->query_start())
@@ -740,7 +745,7 @@ Event_queue::dump_internal_status()
   printf("WOC             : %s\n", waiting_on_cond? "YES":"NO");
 
   MYSQL_TIME time;
-  my_tz_UTC->gmt_sec_to_TIME(&time, next_activation_at);
+  my_tz_OFFSET0->gmt_sec_to_TIME(&time, next_activation_at);
   if (time.year != 1970)
     printf("Next activation : %04d-%02d-%02d %02d:%02d:%02d\n",
            time.year, time.month, time.day, time.hour, time.minute, time.second);
@@ -749,3 +754,7 @@ Event_queue::dump_internal_status()
 
   DBUG_VOID_RETURN;
 }
+
+/**
+  @} (End of group Event_Scheduler)
+*/

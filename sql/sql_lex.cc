@@ -173,7 +173,7 @@ void Lex_input_stream::body_utf8_start(THD *thd, const char *begin_ptr)
 }
 
 /**
-  The operation appends unprocessed part of pre-processed buffer till
+  @brief The operation appends unprocessed part of pre-processed buffer till
   the given pointer (ptr) and sets m_cpp_utf8_processed_ptr to end_ptr.
 
   The idea is that some tokens in the pre-processed buffer (like character
@@ -498,10 +498,12 @@ static char *get_text(Lex_input_stream *lip, int pre_skip, int post_skip)
   uint found_escape=0;
   CHARSET_INFO *cs= lip->m_thd->charset();
 
+  lip->tok_bitmap= 0;
   sep= lip->yyGetLast();                        // String should end with this
   while (! lip->eof())
   {
     c= lip->yyGet();
+    lip->tok_bitmap|= c;
 #ifdef USE_MB
     {
       int l;
@@ -815,6 +817,7 @@ int MYSQLlex(void *arg, void *yythd)
 	break;
       }
       yylval->lex_str.length= lip->yytoklen;
+      lex->text_string_is_7bit= (lip->tok_bitmap & 0x80) ? 0 : 1;
       return(NCHAR_STRING);
 
     case MY_LEX_IDENT_OR_HEX:
@@ -1178,6 +1181,7 @@ int MYSQLlex(void *arg, void *yythd)
 
       lip->m_underscore_cs= NULL;
 
+      lex->text_string_is_7bit= (lip->tok_bitmap & 0x80) ? 0 : 1;
       return(TEXT_STRING);
 
     case MY_LEX_COMMENT:			//  Comment
@@ -1396,6 +1400,19 @@ int MYSQLlex(void *arg, void *yythd)
 }
 
 
+/**
+  Construct a copy of this object to be used for mysql_alter_table
+  and mysql_create_table.
+
+  Historically, these two functions modify their Alter_info
+  arguments. This behaviour breaks re-execution of prepared
+  statements and stored procedures and is compensated by always
+  supplying a copy of Alter_info to these functions.
+
+  @return You need to use check the error in THD for out
+  of memory condition after calling this function.
+*/
+
 Alter_info::Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root)
   :drop_list(rhs.drop_list, mem_root),
   alter_list(rhs.alter_list, mem_root),
@@ -1513,6 +1530,7 @@ void st_select_lex::init_query()
   */
   parent_lex->push_context(&context);
   cond_count= between_count= with_wild= 0;
+  max_equal_elems= 0;
   conds_processed_with_permanent_arena= 0;
   ref_pointer_array= 0;
   select_n_where_fields= 0;
@@ -1734,7 +1752,7 @@ void st_select_lex_unit::exclude_tree()
     'last' should be reachable from this st_select_lex_node
 */
 
-void st_select_lex::mark_as_dependent(SELECT_LEX *last)
+void st_select_lex::mark_as_dependent(st_select_lex *last)
 {
   /*
     Mark all selects from resolved to 1 before select where was
@@ -2352,7 +2370,7 @@ st_lex::copy_db_to(char **p_db, size_t *p_db_length) const
     values	- SELECT_LEX with initial values for counters
 */
 
-void st_select_lex_unit::set_limit(SELECT_LEX *sl)
+void st_select_lex_unit::set_limit(st_select_lex *sl)
 {
   ha_rows select_limit_val;
 
@@ -2368,12 +2386,129 @@ void st_select_lex_unit::set_limit(SELECT_LEX *sl)
 
 
 /**
-  Update the parsed tree with information about triggers that
-  may be fired when executing this statement.
+  @brief Set the initial purpose of this TABLE_LIST object in the list of used
+    tables.
+
+  We need to track this information on table-by-table basis, since when this
+  table becomes an element of the pre-locked list, it's impossible to identify
+  which SQL sub-statement it has been originally used in.
+
+  E.g.:
+
+  User request:                 SELECT * FROM t1 WHERE f1();
+  FUNCTION f1():                DELETE FROM t2; RETURN 1;
+  BEFORE DELETE trigger on t2:  INSERT INTO t3 VALUES (old.a);
+
+  For this user request, the pre-locked list will contain t1, t2, t3
+  table elements, each needed for different DML.
+
+  The trigger event map is updated to reflect INSERT, UPDATE, DELETE,
+  REPLACE, LOAD DATA, CREATE TABLE .. SELECT, CREATE TABLE ..
+  REPLACE SELECT statements, and additionally ON DUPLICATE KEY UPDATE
+  clause.
 */
 
 void st_lex::set_trg_event_type_for_tables()
 {
+  uint8 new_trg_event_map= 0;
+
+  /*
+    Some auxiliary operations
+    (e.g. GRANT processing) create TABLE_LIST instances outside
+    the parser. Additionally, some commands (e.g. OPTIMIZE) change
+    the lock type for a table only after parsing is done. Luckily,
+    these do not fire triggers and do not need to pre-load them.
+    For these TABLE_LISTs set_trg_event_type is never called, and
+    trg_event_map is always empty. That means that the pre-locking
+    algorithm will ignore triggers defined on these tables, if
+    any, and the execution will either fail with an assert in
+    sql_trigger.cc or with an error that a used table was not
+    pre-locked, in case of a production build.
+
+    TODO: this usage pattern creates unnecessary module dependencies
+    and should be rewritten to go through the parser.
+    Table list instances created outside the parser in most cases
+    refer to mysql.* system tables. It is not allowed to have
+    a trigger on a system table, but keeping track of
+    initialization provides extra safety in case this limitation
+    is circumvented.
+  */
+
+  switch (sql_command) {
+  case SQLCOM_LOCK_TABLES:
+  /*
+    On a LOCK TABLE, all triggers must be pre-loaded for this TABLE_LIST
+    when opening an associated TABLE.
+  */
+    new_trg_event_map= static_cast<uint8>
+                        (1 << static_cast<int>(TRG_EVENT_INSERT)) |
+                      static_cast<uint8>
+                        (1 << static_cast<int>(TRG_EVENT_UPDATE)) |
+                      static_cast<uint8>
+                        (1 << static_cast<int>(TRG_EVENT_DELETE));
+    break;
+  /*
+    Basic INSERT. If there is an additional ON DUPLIATE KEY UPDATE
+    clause, it will be handled later in this method.
+  */
+  case SQLCOM_INSERT:                           /* fall through */
+  case SQLCOM_INSERT_SELECT:
+  /*
+    LOAD DATA ... INFILE is expected to fire BEFORE/AFTER INSERT
+    triggers.
+    If the statement also has REPLACE clause, it will be
+    handled later in this method.
+  */
+  case SQLCOM_LOAD:                             /* fall through */
+  /*
+    REPLACE is semantically equivalent to INSERT. In case
+    of a primary or unique key conflict, it deletes the old
+    record and inserts a new one. So we also may need to
+    fire ON DELETE triggers. This functionality is handled
+    later in this method.
+  */
+  case SQLCOM_REPLACE:                          /* fall through */
+  case SQLCOM_REPLACE_SELECT:
+  /*
+    CREATE TABLE ... SELECT defaults to INSERT if the table or
+    view already exists. REPLACE option of CREATE TABLE ...
+    REPLACE SELECT is handled later in this method.
+  */
+  case SQLCOM_CREATE_TABLE:
+    new_trg_event_map|= static_cast<uint8>
+                          (1 << static_cast<int>(TRG_EVENT_INSERT));
+    break;
+  /* Basic update and multi-update */
+  case SQLCOM_UPDATE:                           /* fall through */
+  case SQLCOM_UPDATE_MULTI:
+    new_trg_event_map|= static_cast<uint8>
+                          (1 << static_cast<int>(TRG_EVENT_UPDATE));
+    break;
+  /* Basic delete and multi-delete */
+  case SQLCOM_DELETE:                           /* fall through */
+  case SQLCOM_DELETE_MULTI:
+    new_trg_event_map|= static_cast<uint8>
+                          (1 << static_cast<int>(TRG_EVENT_DELETE));
+    break;
+  default:
+    break;
+  }
+
+  switch (duplicates) {
+  case DUP_UPDATE:
+    new_trg_event_map|= static_cast<uint8>
+                          (1 << static_cast<int>(TRG_EVENT_UPDATE));
+    break;
+  case DUP_REPLACE:
+    new_trg_event_map|= static_cast<uint8>
+                          (1 << static_cast<int>(TRG_EVENT_DELETE));
+    break;
+  case DUP_ERROR:
+  default:
+    break;
+  }
+
+
   /*
     Do not iterate over sub-selects, only the tables in the outermost
     SELECT_LEX can be modified, if any.
@@ -2382,7 +2517,17 @@ void st_lex::set_trg_event_type_for_tables()
 
   while (tables)
   {
-    tables->set_trg_event_type(this);
+    /*
+      This is a fast check to filter out statements that do
+      not change data, or tables  on the right side, in case of
+      INSERT .. SELECT, CREATE TABLE .. SELECT and so on.
+      Here we also filter out OPTIMIZE statement and non-updateable
+      views, for which lock_type is TL_UNLOCK or TL_READ after
+      parsing.
+    */
+    if (static_cast<int>(tables->lock_type) >=
+        static_cast<int>(TL_WRITE_ALLOW_WRITE))
+      tables->trg_event_map= new_trg_event_map;
     tables= tables->next_local;
   }
 }
@@ -2696,8 +2841,8 @@ void st_select_lex::fix_prepare_information(THD *thd, Item **conds,
 
   SYNOPSIS
     set_index_hint_type()
-      type         the kind of hints to be added from now on.
-      clause       the clause to use for hints to be added from now on.
+      type_arg     The kind of hints to be added from now on.
+      clause       The clause to use for hints to be added from now on.
 
   DESCRIPTION
     Used in filling up the tagged hints list.
@@ -2706,10 +2851,10 @@ void st_select_lex::fix_prepare_information(THD *thd, Item **conds,
     Then the context variable index_hint_type can be reset to the
     next hint type.
 */
-void st_select_lex::set_index_hint_type(enum index_hint_type type, 
+void st_select_lex::set_index_hint_type(enum index_hint_type type_arg,
                                         index_clause_map clause)
 { 
-  current_index_hint_type= type;
+  current_index_hint_type= type_arg;
   current_index_hint_clause= clause;
 }
 
@@ -2755,7 +2900,7 @@ bool st_select_lex::add_index_hint (THD *thd, char *str, uint length)
   partitioning or if only partitions to add or to split.
 
   @note  This needs to be outside of WITH_PARTITION_STORAGE_ENGINE since it
-  is used from the sql parser that doesn't have any #ifdef's
+  is used from the sql parser that doesn't have any ifdef's
 
   @retval  TRUE    Yes, it is part of a management partition command
   @retval  FALSE          No, not a management partition command

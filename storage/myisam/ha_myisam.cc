@@ -527,41 +527,7 @@ const char *ha_myisam::index_type(uint key_number)
 	  "BTREE");
 }
 
-bool ha_myisam::check_if_locking_is_allowed(uint sql_command,
-                                            ulong type, TABLE *table,
-                                            uint count, uint current,
-                                            uint *system_count,
-                                            bool called_by_privileged_thread)
-{
-  /*
-    To be able to open and lock for reading system tables like 'mysql.proc',
-    when we already have some tables opened and locked, and avoid deadlocks
-    we have to disallow write-locking of these tables with any other tables.
-  */
-  if (table->s->system_table &&
-      table->reginfo.lock_type >= TL_WRITE_ALLOW_WRITE)
-    (*system_count)++;
-
-  /* 'current' is an index, that's why '<=' below. */
-  if (*system_count > 0 && *system_count <= current)
-  {
-    my_error(ER_WRONG_LOCK_OF_SYSTEM_TABLE, MYF(0));
-    return FALSE;
-  }
-
-  /*
-    Deny locking of the log tables, which is incompatible with
-    concurrent insert. Unless called from a logger THD (general_log_thd
-    or slow_log_thd) or by a privileged thread.
-  */
-  if (!called_by_privileged_thread)
-    return check_if_log_table_locking_is_allowed(sql_command, type, table);
-
-  return TRUE;
-}
-
-	/* Name is here without an extension */
-
+/* Name is here without an extension */
 int ha_myisam::open(const char *name, int mode, uint test_if_locked)
 {
   MI_KEYDEF *keyinfo;
@@ -1470,8 +1436,9 @@ int ha_myisam::index_end()
 }
 
 
-int ha_myisam::index_read(uchar *buf, const uchar *key, key_part_map keypart_map,
-                          enum ha_rkey_function find_flag)
+int ha_myisam::index_read_map(uchar *buf, const uchar *key,
+                              key_part_map keypart_map,
+                              enum ha_rkey_function find_flag)
 {
   DBUG_ASSERT(inited==INDEX);
   ha_statistic_increment(&SSV::ha_read_key_count);
@@ -1480,9 +1447,9 @@ int ha_myisam::index_read(uchar *buf, const uchar *key, key_part_map keypart_map
   return error;
 }
 
-int ha_myisam::index_read_idx(uchar *buf, uint index, const uchar *key,
-                              key_part_map keypart_map,
-                              enum ha_rkey_function find_flag)
+int ha_myisam::index_read_idx_map(uchar *buf, uint index, const uchar *key,
+                                  key_part_map keypart_map,
+                                  enum ha_rkey_function find_flag)
 {
   ha_statistic_increment(&SSV::ha_read_key_count);
   int error=mi_rkey(file, buf, index, key, keypart_map, find_flag);
@@ -1490,8 +1457,8 @@ int ha_myisam::index_read_idx(uchar *buf, uint index, const uchar *key,
   return error;
 }
 
-int ha_myisam::index_read_last(uchar *buf, const uchar *key,
-                               key_part_map keypart_map)
+int ha_myisam::index_read_last_map(uchar *buf, const uchar *key,
+                                   key_part_map keypart_map)
 {
   DBUG_ENTER("ha_myisam::index_read_last");
   DBUG_ASSERT(inited==INDEX);

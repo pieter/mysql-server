@@ -246,7 +246,7 @@ size_t my_b_gets(IO_CACHE *info, char *to, size_t max_length)
 
   for (;;)
   {
-    char *pos,*end;
+    uchar *pos, *end;
     if (length > max_length)
       length=max_length;
     for (pos=info->read_pos,end=pos+length ; pos < end ;)
@@ -304,6 +304,7 @@ size_t my_b_vprintf(IO_CACHE *info, const char* fmt, va_list args)
   uint minimum_width; /* as yet unimplemented */
   uint minimum_width_sign;
   uint precision; /* as yet unimplemented for anything but %b */
+  my_bool is_zero_padded;
 
   /*
     Store the location of the beginning of a format directive, for the
@@ -323,7 +324,7 @@ size_t my_b_vprintf(IO_CACHE *info, const char* fmt, va_list args)
 
     length= (size_t) (fmt - start);
     out_length+=length;
-    if (my_b_write(info, start, length))
+    if (my_b_write(info, (const uchar*) start, length))
       goto err;
 
     if (*fmt == '\0')				/* End of format */
@@ -337,11 +338,27 @@ size_t my_b_vprintf(IO_CACHE *info, const char* fmt, va_list args)
     backtrack= fmt;
     fmt++;
 
+    is_zero_padded= FALSE;
+    minimum_width_sign= 1;
     minimum_width= 0;
     precision= 0;
-    minimum_width_sign= 1;
     /* Skip if max size is used (to be compatible with printf) */
-    while (*fmt == '-') { fmt++; minimum_width_sign= -1; }
+
+process_flags:
+    switch (*fmt)
+    {
+      case '-': 
+        minimum_width_sign= -1; fmt++; goto process_flags;
+      case '0':
+        is_zero_padded= TRUE; fmt++; goto process_flags;
+      case '#':
+        /** @todo Implement "#" conversion flag. */  fmt++; goto process_flags;
+      case ' ':
+        /** @todo Implement " " conversion flag. */  fmt++; goto process_flags;
+      case '+':
+        /** @todo Implement "+" conversion flag. */  fmt++; goto process_flags;
+    }
+
     if (*fmt == '*')
     {
       precision= (int) va_arg(args, int);
@@ -376,16 +393,16 @@ size_t my_b_vprintf(IO_CACHE *info, const char* fmt, va_list args)
     {
       reg2 char *par = va_arg(args, char *);
       size_t length2 = strlen(par);
-      /* TODO: implement minimum width and precision */
+      /* TODO: implement precision */
       out_length+= length2;
-      if (my_b_write(info, par, length2))
+      if (my_b_write(info, (uchar*) par, length2))
 	goto err;
     }
     else if (*fmt == 'b')                       /* Sized buffer parameter, only precision makes sense */
     {
       char *par = va_arg(args, char *);
       out_length+= precision;
-      if (my_b_write(info, par, precision))
+      if (my_b_write(info, (uchar*) par, precision))
         goto err;
     }
     else if (*fmt == 'd' || *fmt == 'u')	/* Integer parameter */
@@ -398,9 +415,24 @@ size_t my_b_vprintf(IO_CACHE *info, const char* fmt, va_list args)
       if (*fmt == 'd')
 	length2= (size_t) (int10_to_str((long) iarg,buff, -10) - buff);
       else
-	length2= (size_t) (int10_to_str((long) (uint) iarg,buff,10)- buff);
+        length2= (uint) (int10_to_str((long) (uint) iarg,buff,10)- buff);
+
+      /* minimum width padding */
+      if (minimum_width > length2) 
+      {
+        char *buffz;
+                    
+        buffz= my_alloca(minimum_width - length2);
+        if (is_zero_padded)
+          memset(buffz, '0', minimum_width - length2);
+        else
+          memset(buffz, ' ', minimum_width - length2);
+        my_b_write(info, buffz, minimum_width - length2);
+        my_afree(buffz);
+      }
+
       out_length+= length2;
-      if (my_b_write(info, buff, length2))
+      if (my_b_write(info, (uchar*) buff, length2))
 	goto err;
     }
     else if ((*fmt == 'l' && fmt[1] == 'd') || fmt[1] == 'u')
@@ -416,13 +448,13 @@ size_t my_b_vprintf(IO_CACHE *info, const char* fmt, va_list args)
       else
 	length2= (size_t) (int10_to_str(iarg,buff,10)- buff);
       out_length+= length2;
-      if (my_b_write(info, buff, length2))
+      if (my_b_write(info, (uchar*) buff, length2))
 	goto err;
     }
     else
     {
       /* %% or unknown code */
-      if (my_b_write(info, backtrack, fmt-backtrack))
+      if (my_b_write(info, (uchar*) backtrack, (size_t) (fmt-backtrack)))
         goto err;
       out_length+= fmt-backtrack;
     }

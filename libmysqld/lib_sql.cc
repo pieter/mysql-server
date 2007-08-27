@@ -28,11 +28,7 @@ extern "C"
   extern unsigned long max_allowed_packet, net_buffer_length;
 }
 
-#if defined(__WIN__) && !defined(USING_CMAKE)
-#include "../sql/mysqld.cpp"
-#else
 #include "../sql/mysqld.cc"
-#endif
 
 C_MODE_START
 
@@ -571,7 +567,7 @@ void init_embedded_mysql(MYSQL *mysql, int client_flag)
 void *create_embedded_thd(int client_flag)
 {
   THD * thd= new THD;
-  thd->thread_id= thread_id++;
+  thd->thread_id= thd->variables.pseudo_thread_id= thread_id++;
 
   thd->thread_stack= (char*) &thd;
   if (thd->store_globals())

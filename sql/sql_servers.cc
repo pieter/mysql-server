@@ -366,7 +366,7 @@ insert_server(THD *thd, FOREIGN_SERVER *server)
   tables.alias= tables.table_name= (char*) "servers";
 
   /* need to open before acquiring THR_LOCK_plugin or it will deadlock */
-  if (! (table= open_ltable(thd, &tables, TL_WRITE)))
+  if (! (table= open_ltable(thd, &tables, TL_WRITE, 0)))
     goto end;
 
   /* insert the server into the table */
@@ -516,9 +516,10 @@ int insert_server_record(TABLE *table, FOREIGN_SERVER *server)
                          system_charset_info);
 
   /* read index until record is that specified in server_name */
-  if ((error= table->file->index_read_idx(table->record[0], 0,
-                                   (uchar *)table->field[0]->ptr, HA_WHOLE_KEY,
-                                   HA_READ_KEY_EXACT)))
+  if ((error= table->file->index_read_idx_map(table->record[0], 0,
+                                              (uchar *)table->field[0]->ptr,
+                                              HA_WHOLE_KEY,
+                                              HA_READ_KEY_EXACT)))
   {
     /* if not found, err */
     if (error != HA_ERR_KEY_NOT_FOUND && error != HA_ERR_END_OF_FILE)
@@ -588,7 +589,7 @@ int drop_server(THD *thd, LEX_SERVER_OPTIONS *server_options)
   if ((error= delete_server_record_in_cache(server_options)))
     goto end;
 
-  if (! (table= open_ltable(thd, &tables, TL_WRITE)))
+  if (! (table= open_ltable(thd, &tables, TL_WRITE, 0)))
   {
     error= my_errno;
     goto end;
@@ -705,7 +706,7 @@ int update_server(THD *thd, FOREIGN_SERVER *existing, FOREIGN_SERVER *altered)
   tables.db= (char*)"mysql";
   tables.alias= tables.table_name= (char*)"servers";
 
-  if (!(table= open_ltable(thd, &tables, TL_WRITE)))
+  if (!(table= open_ltable(thd, &tables, TL_WRITE, 0)))
   {
     error= my_errno;
     goto end;
@@ -858,9 +859,10 @@ update_server_record(TABLE *table, FOREIGN_SERVER *server)
                          server->server_name_length,
                          system_charset_info);
 
-  if ((error= table->file->index_read_idx(table->record[0], 0,
-                                   (uchar *)table->field[0]->ptr, ~(longlong)0,
-                                   HA_READ_KEY_EXACT)))
+  if ((error= table->file->index_read_idx_map(table->record[0], 0,
+                                              (uchar *)table->field[0]->ptr,
+                                              ~(longlong)0,
+                                              HA_READ_KEY_EXACT)))
   {
     if (error != HA_ERR_KEY_NOT_FOUND && error != HA_ERR_END_OF_FILE)
       table->file->print_error(error, MYF(0));
@@ -914,9 +916,10 @@ delete_server_record(TABLE *table,
   /* set the field that's the PK to the value we're looking for */
   table->field[0]->store(server_name, server_name_length, system_charset_info);
 
-  if ((error= table->file->index_read_idx(table->record[0], 0,
-                                   (uchar *)table->field[0]->ptr, HA_WHOLE_KEY,
-                                   HA_READ_KEY_EXACT)))
+  if ((error= table->file->index_read_idx_map(table->record[0], 0,
+                                          (uchar *)table->field[0]->ptr,
+                                          HA_WHOLE_KEY,
+                                          HA_READ_KEY_EXACT)))
   {
     if (error != HA_ERR_KEY_NOT_FOUND && error != HA_ERR_END_OF_FILE)
       table->file->print_error(error, MYF(0));

@@ -3043,7 +3043,7 @@ static int fill_schema_table_from_frm(THD *thd,TABLE *table,
                                    (READ_KEYINFO | COMPUTE_TYPES |
                                     DONT_GIVE_ERROR |
                                     EXTRA_RECORD | OPEN_FRM_FILE_ONLY),
-                                   thd->open_options, &tbl, FALSE)))
+                                   thd->open_options, &tbl, OTM_OPEN)))
   {
     tbl.s= share;
     table_list.table= &tbl;

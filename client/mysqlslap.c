@@ -1791,7 +1791,6 @@ run_scheduler(stats *sptr, statement *stmts, uint concur, ulonglong limit)
     pthread_cond_timedwait(&count_threshhold, &counter_mutex, &abstime);
   }
   pthread_mutex_unlock(&counter_mutex);
-  DBUG_ASSERT(opt_timer_length && );
 
   gettimeofday(&end_time, NULL);
 

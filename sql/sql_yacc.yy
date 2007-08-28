@@ -5487,7 +5487,7 @@ string_list:
 */
 
 alter:
-          ALTER opt_ignore TABLE_SYM table_ident
+          ALTER build_method opt_ignore TABLE_SYM table_ident
           {
             THD *thd= YYTHD;
             LEX *lex= thd->lex;
@@ -5495,7 +5495,7 @@ alter:
             lex->name.length= 0;
             lex->sql_command= SQLCOM_ALTER_TABLE;
             lex->duplicates= DUP_ERROR; 
-            if (!lex->select_lex.add_table_to_list(thd, $4, NULL,
+            if (!lex->select_lex.add_table_to_list(thd, $5, NULL,
                                                    TL_OPTION_UPDATING))
               MYSQL_YYABORT;
             lex->alter_info.reset();
@@ -8698,7 +8698,7 @@ drop:
             lex->drop_temporary= $2;
             lex->drop_if_exists= $4;
           }
-        | DROP INDEX_SYM ident ON table_ident {}
+        | DROP build_method INDEX_SYM ident ON table_ident {}
           {
             LEX *lex=Lex;
             lex->sql_command= SQLCOM_DROP_INDEX;
@@ -8706,8 +8706,8 @@ drop:
             lex->alter_info.flags= ALTER_DROP_INDEX;
             lex->alter_info.build_method= $2;
             lex->alter_info.drop_list.push_back(new Alter_drop(Alter_drop::KEY,
-                                                               $3.str));
-            if (!lex->current_select->add_table_to_list(lex->thd, $5, NULL,
+                                                               $4.str));
+            if (!lex->current_select->add_table_to_list(lex->thd, $6, NULL,
                                                         TL_OPTION_UPDATING))
               MYSQL_YYABORT;
           }

@@ -133,6 +133,7 @@ const char *create_schema_string= "mysqlslap";
 
 static my_bool opt_preserve= 0, debug_info_flag= 0, debug_check_flag= 0;
 static my_bool opt_only_print= FALSE;
+static my_bool opt_burnin= FALSE;
 static my_bool opt_compress= FALSE, tty_password= FALSE,
                opt_silent= FALSE,
                auto_generate_sql_autoincrement= FALSE,
@@ -356,6 +357,7 @@ int main(int argc, char **argv)
   VOID(pthread_cond_init(&sleep_threshhold, NULL));
 
   /* Main iterations loop */
+burnin:
   eptr= engine_options;
   do
   {
@@ -383,6 +385,9 @@ int main(int argc, char **argv)
       drop_schema(&mysql, create_schema_string);
 
   } while (eptr ? (eptr= eptr->next) : 0);
+  
+  if (opt_burnin)
+    goto burnin;
 
   VOID(pthread_mutex_destroy(&counter_mutex));
   VOID(pthread_cond_destroy(&count_threshhold));
@@ -546,6 +551,9 @@ static struct my_option my_long_options[] =
     "Number of rows to insert to used in read and write loads (default is 100).\n",
     (uchar**) &auto_generate_sql_number, (uchar**) &auto_generate_sql_number,
     0, GET_ULL, REQUIRED_ARG, 100, 0, 0, 0, 0, 0},
+  {"burnin", OPT_SLAP_BURNIN, "Run full test case in infinite loop.",
+    (uchar**) &opt_burnin, (uchar**) &opt_burnin, 0, GET_BOOL, NO_ARG, 0, 0, 0,
+    0, 0, 0},
   {"commit", OPT_SLAP_COMMIT, "Commit records after X number of statements.",
     (uchar**) &commit_rate, (uchar**) &commit_rate, 0, GET_UINT, REQUIRED_ARG,
     0, 0, 0, 0, 0, 0},

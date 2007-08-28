@@ -113,6 +113,11 @@ uint master_wakeup;
 pthread_mutex_t sleeper_mutex;
 pthread_cond_t sleep_threshhold;
 
+/* Global Thread timer */
+static my_bool timer_alarm= FALSE;
+pthread_mutex_t timer_alarm_mutex;
+pthread_cond_t timer_alarm_threshold;
+
 static char **defaults_argv;
 
 char **primary_keys;
@@ -146,6 +151,8 @@ static unsigned long connect_flags= CLIENT_MULTI_RESULTS;
 static int verbose, delimiter_length;
 static uint commit_rate;
 static uint detach_rate;
+static uint opt_timer_length;
+static uint opt_delayed_start;
 const char *num_int_cols_opt;
 const char *num_char_cols_opt;
 
@@ -255,6 +262,7 @@ static int create_schema(MYSQL *mysql, const char *db, statement *stmt,
 static int run_scheduler(stats *sptr, statement *stmts, uint concur, 
                          ulonglong limit);
 pthread_handler_t run_task(void *p);
+pthread_handler_t timer_thread(void *p);
 void statement_cleanup(statement *stmt);
 void option_cleanup(option_string *stmt);
 void concurrency_loop(MYSQL *mysql, uint current, option_string *eptr);
@@ -355,6 +363,9 @@ int main(int argc, char **argv)
   VOID(pthread_cond_init(&count_threshhold, NULL));
   VOID(pthread_mutex_init(&sleeper_mutex, NULL));
   VOID(pthread_cond_init(&sleep_threshhold, NULL));
+  VOID(pthread_mutex_init(&timer_alarm_mutex, NULL));
+  VOID(pthread_cond_init(&timer_alarm_threshold, NULL));
+
 
   /* Main iterations loop */
 burnin:
@@ -393,6 +404,8 @@ burnin:
   VOID(pthread_cond_destroy(&count_threshhold));
   VOID(pthread_mutex_destroy(&sleeper_mutex));
   VOID(pthread_cond_destroy(&sleep_threshhold));
+  VOID(pthread_mutex_destroy(&timer_alarm_mutex));
+  VOID(pthread_cond_destroy(&timer_alarm_threshold));
 
   if (!opt_only_print) 
     mysql_close(&mysql); /* Close & free connection */
@@ -581,6 +594,10 @@ static struct my_option my_long_options[] =
    GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"debug-info", 'T', "Print some debug info at exit.", (uchar**) &debug_info_flag,
    (uchar**) &debug_info_flag, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"delayed-start", OPT_SLAP_DELAYED_START, 
+    "Delay the startup of threads by a random number of microsends (the maximum of the delay)",
+    (uchar**) &opt_delayed_start, (uchar**) &opt_delayed_start, 0, GET_UINT, 
+    REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"delimiter", 'F',
     "Delimiter to use in SQL statements supplied in file or command line.",
     (uchar**) &delimiter, (uchar**) &delimiter, 0, GET_STR, REQUIRED_ARG,
@@ -664,6 +681,10 @@ static struct my_option my_long_options[] =
     0, 0, 0, 0, 0, 0},
   {"socket", 'S', "Socket file to use for connection.",
     (uchar**) &opt_mysql_unix_port, (uchar**) &opt_mysql_unix_port, 0, GET_STR,
+    REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"timer-length", OPT_SLAP_TIMER_LENGTH, 
+    "Require mysqlslap to run each specific test a certain amount of time in seconds.", 
+    (uchar**) &opt_timer_length, (uchar**) &opt_timer_length, 0, GET_UINT, 
     REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 #include <sslopt-longopts.h>
 #ifndef DONT_ALLOW_USER_CHANGE
@@ -1725,12 +1746,29 @@ run_scheduler(stats *sptr, statement *stmts, uint concur, ulonglong limit)
     if (pthread_create(&mainthread, &attr, run_task, 
                        (void *)&con) != 0)
     {
-      fprintf(stderr,"%s: Could not create thread\n",
-              my_progname);
-      exit(0);
+      fprintf(stderr,"%s: Could not create thread\n", my_progname);
+      exit(1);
     }
     thread_counter++;
   }
+  /* 
+    The timer_thread belongs to all threads so it too obeys the wakeup 
+    call that run tasks obey.
+  */
+  if (opt_timer_length)
+  {
+    pthread_mutex_lock(&timer_alarm_mutex);
+    timer_alarm= TRUE;
+    pthread_mutex_unlock(&timer_alarm_mutex);
+
+    if (pthread_create(&mainthread, &attr, timer_thread, 
+                       (void *)&opt_timer_length) != 0)
+    {
+      fprintf(stderr,"%s: Could not create timer thread\n", my_progname);
+      exit(1);
+    }
+  }
+
   pthread_mutex_unlock(&counter_mutex);
   pthread_attr_destroy(&attr);
 
@@ -1765,6 +1803,37 @@ run_scheduler(stats *sptr, statement *stmts, uint concur, ulonglong limit)
 }
 
 
+pthread_handler_t timer_thread(void *p)
+{
+  uint *timer_length= (uint *)p;
+  struct timespec abstime;
+
+  DBUG_ENTER("timer_thread");
+
+  /* 
+    We lock around the initial call in case were we in a loop. This 
+    also keeps the value properly syncronized across call threads.
+  */
+  pthread_mutex_lock(&sleeper_mutex);
+  while (master_wakeup)
+  {
+    pthread_cond_wait(&sleep_threshhold, &sleeper_mutex);
+  }
+  pthread_mutex_unlock(&sleeper_mutex);
+
+  set_timespec(abstime, *timer_length);
+
+  pthread_mutex_lock(&timer_alarm_mutex);
+  pthread_cond_timedwait(&timer_alarm_threshold, &timer_alarm_mutex, &abstime);
+  pthread_mutex_unlock(&timer_alarm_mutex);
+
+  pthread_mutex_lock(&timer_alarm_mutex);
+  timer_alarm= FALSE;
+  pthread_mutex_unlock(&timer_alarm_mutex);
+
+  DBUG_RETURN(0);
+}
+
 pthread_handler_t run_task(void *p)
 {
   ulonglong counter= 0, queries;
@@ -1789,14 +1858,14 @@ pthread_handler_t run_task(void *p)
   {
     fprintf(stderr,"%s: mysql_init() failed ERROR : %s\n",
             my_progname, mysql_error(mysql));
-    exit(0);
+    exit(1);
   }
 
   if (mysql_thread_init())
   {
     fprintf(stderr,"%s: mysql_thread_init() failed ERROR : %s\n",
             my_progname, mysql_error(mysql));
-    exit(0);
+    exit(1);
   }
 
   DBUG_PRINT("info", ("trying to connect to host %s as user %s", host, user));
@@ -1858,7 +1927,7 @@ limit_not_met:
           {
             fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                     my_progname, (uint)length, buffer, mysql_error(mysql));
-            exit(0);
+            exit(1);
           }
         }
       }
@@ -1868,7 +1937,7 @@ limit_not_met:
         {
           fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                   my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
-          exit(0);
+          exit(1);
         }
       }
 
@@ -1884,12 +1953,21 @@ limit_not_met:
       if (commit_rate && commit_rate <= trans_counter)
         run_query(mysql, "COMMIT", strlen("COMMIT"));
 
-      if (con->limit && queries == con->limit)
+      /* If the timer is set, and the alarm is not active then end */
+      if (opt_timer_length && timer_alarm == FALSE)
+        goto end;
+
+      /* If limit has been reached, and we are not in a timer_alarm just end */
+      if (con->limit && queries == con->limit && timer_alarm == FALSE)
         goto end;
     }
 
+    if (opt_timer_length && timer_alarm == TRUE)
+      goto limit_not_met;
+
     if (con->limit && queries < con->limit)
       goto limit_not_met;
+
 
 end:
   if (commit_rate)
@@ -2161,6 +2239,10 @@ slap_connect(MYSQL *mysql)
   /* Connect to server */
   static ulong connection_retry_sleep= 100000; /* Microseconds */
   int x, connect_error= 1;
+
+  if (opt_delayed_start)
+    my_sleep(random()%opt_delayed_start);
+
   for (x= 0; x < 10; x++)
   {
     if (mysql_real_connect(mysql, host, user, opt_password,
@@ -2179,7 +2261,7 @@ slap_connect(MYSQL *mysql)
   {
     fprintf(stderr,"%s: Error when connecting to server: %d %s\n",
             my_progname, mysql_errno(mysql), mysql_error(mysql));
-    return 1;
+    exit(1);
   }
 
   return 0;

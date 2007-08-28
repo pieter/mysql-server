@@ -152,6 +152,7 @@ static int verbose, delimiter_length;
 static uint commit_rate;
 static uint detach_rate;
 static uint opt_timer_length;
+static uint opt_delayed_start;
 const char *num_int_cols_opt;
 const char *num_char_cols_opt;
 
@@ -593,6 +594,10 @@ static struct my_option my_long_options[] =
    GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"debug-info", 'T', "Print some debug info at exit.", (uchar**) &debug_info_flag,
    (uchar**) &debug_info_flag, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"delayed-start", OPT_SLAP_DELAYED_START, 
+    "Delay the startup of threads by a random number of microsends (the maximum of the delay)",
+    (uchar**) &opt_delayed_start, (uchar**) &opt_delayed_start, 0, GET_UINT, 
+    REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"delimiter", 'F',
     "Delimiter to use in SQL statements supplied in file or command line.",
     (uchar**) &delimiter, (uchar**) &delimiter, 0, GET_STR, REQUIRED_ARG,
@@ -2235,6 +2240,10 @@ slap_connect(MYSQL *mysql)
   /* Connect to server */
   static ulong connection_retry_sleep= 100000; /* Microseconds */
   int x, connect_error= 1;
+
+  if (opt_delayed_start)
+    my_sleep(random()%opt_delayed_start);
+
   for (x= 0; x < 10; x++)
   {
     if (mysql_real_connect(mysql, host, user, opt_password,

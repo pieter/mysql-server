@@ -3551,12 +3551,6 @@ int open_tables(THD *thd, TABLE_LIST **start, uint *counter, uint flags)
   {
     safe_to_ignore_table= FALSE;
 
-    if (tables->lock_type == TL_WRITE_DEFAULT)
-    {
-      tables->lock_type= thd->update_lock_default;
-      DBUG_ASSERT(tables->lock_type >= TL_WRITE_ALLOW_WRITE);
-    }
-
     /*
       Ignore placeholders for derived tables. After derived tables
       processing, link to created temporary table will be put here.

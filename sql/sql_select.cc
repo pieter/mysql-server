@@ -11332,7 +11332,13 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
       group=0;					// Can't use group key
     else for (ORDER *tmp=group ; tmp ; tmp=tmp->next)
     {
-      (*tmp->item)->marker=4;			// Store null in key
+      /*
+        marker == 4 means two things:
+        - store NULLs in the key, and
+        - convert BIT fields to 64-bit long, needed because MEMORY tables
+          can't index BIT fields.
+      */
+      (*tmp->item)->marker= 4;
       if ((*tmp->item)->max_length >= CONVERT_IF_BIGGER_TO_BLOB)
 	using_unique_constraint=1;
     }
@@ -11518,9 +11524,6 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
 	write rows to the temporary table.
 	We here distinguish between UNION and multi-table-updates by the fact
 	that in the later case group is set to the row pointer.
-
-        The test for item->marker == 4 is ensure we don't create a group-by
-        key over a bit field as heap tables can't handle that.
       */
       Field *new_field= (param->schema_table) ?
         create_tmp_field_for_schema(thd, item, table) :
@@ -11529,7 +11532,15 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
                          group != 0,
                          !force_copy_fields &&
                            (not_all_columns || group !=0),
-                         item->marker == 4, force_copy_fields,
+                         /*
+                           If item->marker == 4 then we force create_tmp_field
+                           to create a 64-bit longs for BIT fields because HEAP
+                           tables can't index BIT fields directly. We do the same
+                           for distinct, as we want the distinct index to be
+                           usable in this case too.
+                         */
+                         item->marker == 4 || param->bit_fields_as_long,
+                         force_copy_fields,
                          param->convert_blob_length);
 
       if (!new_field)

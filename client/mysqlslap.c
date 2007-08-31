@@ -231,6 +231,8 @@ struct conclusions {
   long int min_timing;
   uint users;
   unsigned long long avg_rows;
+  long int sum_of_time;
+  long int std_dev;
   /* The following are not used yet */
   unsigned long long max_rows;
   unsigned long long min_rows;
@@ -269,6 +271,7 @@ void concurrency_loop(MYSQL *mysql, uint current, option_string *eptr);
 static int run_statements(MYSQL *mysql, statement *stmt);
 int slap_connect(MYSQL *mysql);
 static int run_query(MYSQL *mysql, const char *query, int len);
+void standard_deviation (conclusions *con, stats *sptr);
 
 static const char ALPHANUMERICS[]=
   "0123456789ABCDEFGHIJKLMNOPQRSTWXYZabcdefghijklmnopqrstuvwxyz";
@@ -2137,11 +2140,14 @@ print_conclusions(conclusions *con)
   if (con->engine)
     printf("\tRunning for engine %s\n", con->engine);
   printf("\tAverage number of seconds to run all queries: %ld.%03ld seconds\n",
-                    con->avg_timing / 1000, con->avg_timing % 1000);
+         con->avg_timing / 1000, con->avg_timing % 1000);
   printf("\tMinimum number of seconds to run all queries: %ld.%03ld seconds\n",
-                    con->min_timing / 1000, con->min_timing % 1000);
+         con->min_timing / 1000, con->min_timing % 1000);
   printf("\tMaximum number of seconds to run all queries: %ld.%03ld seconds\n",
-                    con->max_timing / 1000, con->max_timing % 1000);
+         con->max_timing / 1000, con->max_timing % 1000);
+  printf("\tTotal time for tests: %ld.%03ld seconds\n", 
+         con->sum_of_time / 1000, con->sum_of_time % 1000);
+  printf("\tStandard Deviation: %ld.%03ld\n", con->std_dev / 1000, con->std_dev % 1000);
   printf("\tNumber of clients running queries: %d\n", con->users);
   printf("\tAverage number of queries per client: %llu\n", con->avg_rows); 
   printf("\n");
@@ -2153,13 +2159,15 @@ print_conclusions_csv(conclusions *con)
   char buffer[HUGE_STRING_LENGTH];
   const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
   snprintf(buffer, HUGE_STRING_LENGTH, 
-           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%d,%llu\n",
+           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%d,%llu\n",
            con->engine ? con->engine : "", /* Storage engine we ran against */
            ptr, /* Load type */
            con->avg_timing / 1000, con->avg_timing % 1000, /* Time to load */
            con->min_timing / 1000, con->min_timing % 1000, /* Min time */
            con->max_timing / 1000, con->max_timing % 1000, /* Max time */
-           con->users, /* Children used */
+           con->sum_of_time / 1000, con->sum_of_time % 1000, /* Total time */
+           con->std_dev / 1000, con->std_dev % 1000, /* Standard Deviation */
+           con->users, /* Children used max_timing */
            con->avg_rows  /* Queries run */
           );
   my_write(csv_file, (uchar*) buffer, (uint)strlen(buffer), MYF(0));
@@ -2190,12 +2198,15 @@ generate_stats(conclusions *con, option_string *eng, stats *sptr)
     if (ptr->timing < con->min_timing)
       con->min_timing= ptr->timing;
   }
+  con->sum_of_time= con->avg_timing;
   con->avg_timing= con->avg_timing/iterations;
 
   if (eng && eng->string)
     con->engine= eng->string;
   else
     con->engine= NULL;
+
+  standard_deviation(con, sptr);
 }
 
 void
@@ -2265,4 +2276,30 @@ slap_connect(MYSQL *mysql)
   }
 
   return 0;
+}
+
+void 
+standard_deviation (conclusions *con, stats *sptr)
+{
+  unsigned int x;
+  long int sum_of_squares;
+  double catch;
+  stats *ptr;
+
+  if (iterations == 1 || iterations == 0)
+  {
+    con->std_dev= 0;
+    return;
+  }
+
+  for (ptr= sptr, x= 0, sum_of_squares= 0; x < iterations; ptr++, x++)
+  {
+    long int deviation;
+
+    deviation= ptr->timing - con->avg_timing;
+    sum_of_squares+= deviation*deviation;
+  }
+
+  catch= sqrt((double)(sum_of_squares/(iterations -1)));
+  con->std_dev= (long int)catch;
 }

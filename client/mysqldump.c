@@ -2230,7 +2230,10 @@ static uint get_table_structure(char *table, char *db, char *table_type,
   opt_quoted_table= quote_name(table, table_buff2, 0);
 
   if (opt_order_by_primary)
+  {
+    my_free(order_by, MYF(MY_ALLOW_ZERO_PTR));
     order_by= primary_key_fields(result_table);
+  }
 
   if (!opt_xml && !mysql_query_with_error_report(mysql, 0, query_buff))
   {

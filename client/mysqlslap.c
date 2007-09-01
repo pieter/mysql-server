@@ -73,6 +73,7 @@ TODO:
 
 #define HUGE_STRING_LENGTH 8196
 #define RAND_STRING_SIZE 126
+#define DEFAULT_BLOB_SIZE 1024
 
 /* Types */
 #define SELECT_TYPE 0
@@ -155,10 +156,14 @@ static uint opt_timer_length;
 static uint opt_delayed_start;
 const char *num_int_cols_opt;
 const char *num_char_cols_opt;
+const char *num_blob_cols_opt;
 
 /* Yes, we do set defaults here */
 static unsigned int num_int_cols= 1;
 static unsigned int num_char_cols= 1;
+static unsigned int num_blob_cols= 0;
+static unsigned int num_blob_cols_size;
+static unsigned int num_blob_cols_size_min;
 static unsigned int num_int_cols_index= 0; 
 static unsigned int num_char_cols_index= 0;
 static unsigned int iterations;
@@ -252,7 +257,7 @@ uint parse_comma(const char *string, uint **range);
 uint parse_delimiter(const char *script, statement **stmt, char delm);
 uint parse_option(const char *origin, option_string **stmt, char delm);
 static int drop_schema(MYSQL *mysql, const char *db);
-uint get_random_string(char *buf);
+uint get_random_string(char *buf, size_t size);
 static statement *build_table_string(void);
 static statement *build_insert_string(void);
 static statement *build_update_string(void);
@@ -615,6 +620,10 @@ static struct my_option my_long_options[] =
     REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"iterations", 'i', "Number of times to run the tests.", (uchar**) &iterations,
     (uchar**) &iterations, 0, GET_UINT, REQUIRED_ARG, 1, 0, 0, 0, 0, 0},
+  {"number-blob-cols", OPT_SLAP_BLOB_COL, 
+    "Number of BLOB columns to create table with if specifying --auto-generate-sql. Example --number-blob-cols=3:1024/2048 would give you 3 blobs with a random size between 1024 and 2048. ",
+    (uchar**) &num_blob_cols_opt, (uchar**) &num_blob_cols_opt, 0, GET_STR, REQUIRED_ARG,
+    0, 0, 0, 0, 0, 0},
   {"number-char-cols", 'x', 
     "Number of VARCHAR columns to create table with if specifying --auto-generate-sql ",
     (uchar**) &num_char_cols_opt, (uchar**) &num_char_cols_opt, 0, GET_STR, REQUIRED_ARG,
@@ -784,12 +793,12 @@ get_one_option(int optid, const struct my_option *opt __attribute__((unused)),
 
 
 uint
-get_random_string(char *buf)
+get_random_string(char *buf, size_t size)
 {
   char *buf_ptr= buf;
-  int x;
+  size_t x;
   DBUG_ENTER("get_random_string");
-  for (x= RAND_STRING_SIZE; x > 0; x--)
+  for (x= size; x > 0; x--)
     *buf_ptr++= ALPHANUMERICS[random() % ALPHANUMERICS_SIZE];
   DBUG_RETURN(buf_ptr - buf);
 }
@@ -813,7 +822,7 @@ build_table_string(void)
   DBUG_PRINT("info", ("num int cols %u num char cols %u",
                       num_int_cols, num_char_cols));
 
-  init_dynamic_string(&table_string, "", 1024, 1024);
+  init_dynamic_string(&table_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append(&table_string, "CREATE TABLE `t1` (");
 
@@ -906,7 +915,22 @@ build_table_string(void)
       }
       dynstr_append(&table_string, buf);
 
-      if (col_count < num_char_cols)
+      if (col_count < num_char_cols || num_blob_cols > 0)
+        dynstr_append(&table_string, ",");
+    }
+
+  if (num_blob_cols)
+    for (col_count= 1; col_count <= num_blob_cols; col_count++)
+    {
+      if (snprintf(buf, HUGE_STRING_LENGTH, "blobcol%d blob", 
+                   col_count) > HUGE_STRING_LENGTH)
+      {
+        fprintf(stderr, "Memory Allocation error in creating table\n");
+        exit(1);
+      }
+      dynstr_append(&table_string, buf);
+
+      if (col_count < num_blob_cols)
         dynstr_append(&table_string, ",");
     }
 
@@ -937,7 +961,7 @@ build_update_string(void)
   DYNAMIC_STRING update_string;
   DBUG_ENTER("build_update_string");
 
-  init_dynamic_string(&update_string, "", 1024, 1024);
+  init_dynamic_string(&update_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append(&update_string, "UPDATE t1 SET ");
 
@@ -960,7 +984,7 @@ build_update_string(void)
     for (col_count= 1; col_count <= num_char_cols; col_count++)
     {
       char rand_buffer[RAND_STRING_SIZE];
-      int buf_len= get_random_string(rand_buffer);
+      int buf_len= get_random_string(rand_buffer, RAND_STRING_SIZE);
 
       if (snprintf(buf, HUGE_STRING_LENGTH, "charcol%d = '%.*s'", col_count, 
                    buf_len, rand_buffer) 
@@ -1010,7 +1034,7 @@ build_insert_string(void)
   DYNAMIC_STRING insert_string;
   DBUG_ENTER("build_insert_string");
 
-  init_dynamic_string(&insert_string, "", 1024, 1024);
+  init_dynamic_string(&insert_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append(&insert_string, "INSERT INTO t1 VALUES (");
 
@@ -1063,25 +1087,74 @@ build_insert_string(void)
   if (num_char_cols)
     for (col_count= 1; col_count <= num_char_cols; col_count++)
     {
-      int buf_len= get_random_string(buf);
+      int buf_len= get_random_string(buf, RAND_STRING_SIZE);
       dynstr_append_mem(&insert_string, "'", 1);
       dynstr_append_mem(&insert_string, buf, buf_len);
       dynstr_append_mem(&insert_string, "'", 1);
 
-      if (col_count < num_char_cols)
+      if (col_count < num_char_cols || num_blob_cols > 0)
         dynstr_append_mem(&insert_string, ",", 1);
     }
 
+  if (num_blob_cols)
+  {
+    char *blob_ptr;
+
+    if (num_blob_cols_size > HUGE_STRING_LENGTH)
+    {
+      blob_ptr= (char *)my_malloc(sizeof(char)*num_blob_cols_size,
+                             MYF(MY_ZEROFILL|MY_FAE|MY_WME));
+      if (!blob_ptr)
+      {
+        fprintf(stderr, "Memory Allocation error in creating select\n");
+        exit(1);
+      }
+    }
+    else
+    {
+      blob_ptr= buf;
+    }
+
+    for (col_count= 1; col_count <= num_blob_cols; col_count++)
+    {
+      unsigned int buf_len;
+      unsigned int size;
+      unsigned int difference= num_blob_cols_size - num_blob_cols_size_min;
+
+      size= difference ? (num_blob_cols_size_min + (random() % difference)) : 
+                          num_blob_cols_size;
+
+      buf_len= get_random_string(blob_ptr, size);
+
+      dynstr_append_mem(&insert_string, "'", 1);
+      dynstr_append_mem(&insert_string, blob_ptr, buf_len);
+      dynstr_append_mem(&insert_string, "'", 1);
+
+      if (col_count < num_blob_cols)
+        dynstr_append_mem(&insert_string, ",", 1);
+    }
+
+    if (num_blob_cols_size > HUGE_STRING_LENGTH)
+      my_free(blob_ptr, MYF(0));
+  }
+
   dynstr_append_mem(&insert_string, ")", 1);
 
-  ptr= (statement *)my_malloc(sizeof(statement),
-                              MYF(MY_ZEROFILL|MY_FAE|MY_WME));
-  ptr->string= (char *)my_malloc(insert_string.length + 1,
-                              MYF(MY_ZEROFILL|MY_FAE|MY_WME));
+  if (!(ptr= (statement *)my_malloc(sizeof(statement), MYF(MY_ZEROFILL|MY_FAE|MY_WME))))
+  {
+    fprintf(stderr, "Memory Allocation error in creating select\n");
+    exit(1);
+  }
+  if (!(ptr->string= (char *)my_malloc(insert_string.length + 1, MYF(MY_ZEROFILL|MY_FAE|MY_WME))))
+  {
+    fprintf(stderr, "Memory Allocation error in creating select\n");
+    exit(1);
+  }
   ptr->length= insert_string.length+1;
   ptr->type= INSERT_TYPE;
   strmov(ptr->string, insert_string.str);
   dynstr_free(&insert_string);
+
   DBUG_RETURN(ptr);
 }
 
@@ -1101,7 +1174,7 @@ build_select_string(my_bool key)
   static DYNAMIC_STRING query_string;
   DBUG_ENTER("build_select_string");
 
-  init_dynamic_string(&query_string, "", 1024, 1024);
+  init_dynamic_string(&query_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append_mem(&query_string, "SELECT ", 7);
   for (col_count= 1; col_count <= num_int_cols; col_count++)
@@ -1128,9 +1201,22 @@ build_select_string(my_bool key)
     }
     dynstr_append(&query_string, buf);
 
-    if (col_count < num_char_cols)
+    if (col_count < num_char_cols || num_blob_cols > 0)
       dynstr_append_mem(&query_string, ",", 1);
 
+  }
+  for (col_count= 1; col_count <= num_blob_cols; col_count++)
+  {
+    if (snprintf(buf, HUGE_STRING_LENGTH, "blobcol%d", col_count)
+        > HUGE_STRING_LENGTH)
+    {
+      fprintf(stderr, "Memory Allocation error in creating select\n");
+      exit(1);
+    }
+    dynstr_append(&query_string, buf);
+
+    if (col_count < num_blob_cols)
+      dynstr_append_mem(&query_string, ",", 1);
   }
   dynstr_append(&query_string, " FROM t1");
 
@@ -1263,6 +1349,33 @@ get_options(int *argc,char ***argv)
       num_char_cols_index= atoi(str->option);
     else
       num_char_cols_index= 0;
+    option_cleanup(str);
+  }
+
+  if (num_blob_cols_opt)
+  {
+    option_string *str;
+    parse_option(num_blob_cols_opt, &str, ',');
+    num_blob_cols= atoi(str->string);
+    if (str->option)
+    {
+      char *sep_ptr;
+
+      if ((sep_ptr= strchr(str->option, '/')))
+      {
+        num_blob_cols_size_min= atoi(str->option);
+        num_blob_cols_size= atoi(sep_ptr+1);
+      }
+      else
+      {
+        num_blob_cols_size_min= num_blob_cols_size= atoi(str->option);
+      }
+    }
+    else
+    {
+      num_blob_cols_size= DEFAULT_BLOB_SIZE;
+      num_blob_cols_size_min= DEFAULT_BLOB_SIZE;
+    }
     option_cleanup(str);
   }
 
@@ -1989,6 +2102,10 @@ end:
   DBUG_RETURN(0);
 }
 
+/*
+  Parse records from comma seperated string. : is a reserved character and is used for options
+  on variables.
+*/
 uint
 parse_option(const char *origin, option_string **stmt, char delm)
 {

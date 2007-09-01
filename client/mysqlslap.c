@@ -69,7 +69,7 @@ TODO:
 
 */
 
-#define SLAP_VERSION "1.0"
+#define SLAP_VERSION "1.5"
 
 #define HUGE_STRING_LENGTH 8196
 #define RAND_STRING_SIZE 126
@@ -157,6 +157,8 @@ static uint opt_delayed_start;
 const char *num_int_cols_opt;
 const char *num_char_cols_opt;
 const char *num_blob_cols_opt;
+
+const char *auto_generate_selected_columns_opt;
 
 /* Yes, we do set defaults here */
 static unsigned int num_int_cols= 1;
@@ -528,6 +530,11 @@ static struct my_option my_long_options[] =
 {
   {"help", '?', "Display this help and exit.", 0, 0, 0, GET_NO_ARG, NO_ARG,
     0, 0, 0, 0, 0, 0},
+  {"auto-generate-sql-select-columns", OPT_SLAP_AUTO_GENERATE_SELECT_COLUMNS,
+    "Provide a string to use for the select fields used in auto tests.",
+    (uchar**) &auto_generate_selected_columns_opt, 
+    (uchar**) &auto_generate_selected_columns_opt,
+    0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"auto-generate-sql", 'a',
     "Generate SQL where not supplied by file or command line.",
     (uchar**) &auto_generate_sql, (uchar**) &auto_generate_sql,
@@ -1177,46 +1184,53 @@ build_select_string(my_bool key)
   init_dynamic_string(&query_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append_mem(&query_string, "SELECT ", 7);
-  for (col_count= 1; col_count <= num_int_cols; col_count++)
+  if (auto_generate_selected_columns_opt)
   {
-    if (snprintf(buf, HUGE_STRING_LENGTH, "intcol%d", col_count) 
-        > HUGE_STRING_LENGTH)
-    {
-      fprintf(stderr, "Memory Allocation error in creating select\n");
-      exit(1);
-    }
-    dynstr_append(&query_string, buf);
-
-    if (col_count < num_int_cols || num_char_cols > 0)
-      dynstr_append_mem(&query_string, ",", 1);
-
+    dynstr_append(&query_string, auto_generate_selected_columns_opt);
   }
-  for (col_count= 1; col_count <= num_char_cols; col_count++)
+  else
   {
-    if (snprintf(buf, HUGE_STRING_LENGTH, "charcol%d", col_count)
-        > HUGE_STRING_LENGTH)
+    for (col_count= 1; col_count <= num_int_cols; col_count++)
     {
-      fprintf(stderr, "Memory Allocation error in creating select\n");
-      exit(1);
+      if (snprintf(buf, HUGE_STRING_LENGTH, "intcol%d", col_count) 
+          > HUGE_STRING_LENGTH)
+      {
+        fprintf(stderr, "Memory Allocation error in creating select\n");
+        exit(1);
+      }
+      dynstr_append(&query_string, buf);
+
+      if (col_count < num_int_cols || num_char_cols > 0)
+        dynstr_append_mem(&query_string, ",", 1);
+
     }
-    dynstr_append(&query_string, buf);
-
-    if (col_count < num_char_cols || num_blob_cols > 0)
-      dynstr_append_mem(&query_string, ",", 1);
-
-  }
-  for (col_count= 1; col_count <= num_blob_cols; col_count++)
-  {
-    if (snprintf(buf, HUGE_STRING_LENGTH, "blobcol%d", col_count)
-        > HUGE_STRING_LENGTH)
+    for (col_count= 1; col_count <= num_char_cols; col_count++)
     {
-      fprintf(stderr, "Memory Allocation error in creating select\n");
-      exit(1);
-    }
-    dynstr_append(&query_string, buf);
+      if (snprintf(buf, HUGE_STRING_LENGTH, "charcol%d", col_count)
+          > HUGE_STRING_LENGTH)
+      {
+        fprintf(stderr, "Memory Allocation error in creating select\n");
+        exit(1);
+      }
+      dynstr_append(&query_string, buf);
 
-    if (col_count < num_blob_cols)
-      dynstr_append_mem(&query_string, ",", 1);
+      if (col_count < num_char_cols || num_blob_cols > 0)
+        dynstr_append_mem(&query_string, ",", 1);
+
+    }
+    for (col_count= 1; col_count <= num_blob_cols; col_count++)
+    {
+      if (snprintf(buf, HUGE_STRING_LENGTH, "blobcol%d", col_count)
+          > HUGE_STRING_LENGTH)
+      {
+        fprintf(stderr, "Memory Allocation error in creating select\n");
+        exit(1);
+      }
+      dynstr_append(&query_string, buf);
+
+      if (col_count < num_blob_cols)
+        dynstr_append_mem(&query_string, ",", 1);
+    }
   }
   dynstr_append(&query_string, " FROM t1");
 

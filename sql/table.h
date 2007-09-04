@@ -157,7 +157,7 @@ enum enum_table_category
     - FLUSH TABLES WITH READ LOCK
     - SET GLOBAL READ_ONLY = ON
     do not apply to this table.
-    Note that LOCK TABLE <t> FOR READ/WRITE
+    Note that LOCK TABLE t FOR READ/WRITE
     can be used on temporary tables.
     Temporary tables are not part of the table cache.
   */
@@ -166,7 +166,7 @@ enum enum_table_category
   /**
     User table.
     These tables do honor:
-    - LOCK TABLE <t> FOR READ/WRITE
+    - LOCK TABLE t FOR READ/WRITE
     - FLUSH TABLES WITH READ LOCK
     - SET GLOBAL READ_ONLY = ON
     User tables are cached in the table cache.
@@ -176,7 +176,7 @@ enum enum_table_category
   /**
     System table, maintained by the server.
     These tables do honor:
-    - LOCK TABLE <t> FOR READ/WRITE
+    - LOCK TABLE t FOR READ/WRITE
     - FLUSH TABLES WITH READ LOCK
     - SET GLOBAL READ_ONLY = ON
     Typically, writes to system tables are performed by
@@ -190,7 +190,7 @@ enum enum_table_category
     These tables are an interface provided by the system
     to inspect the system metadata.
     These tables do *not* honor:
-    - LOCK TABLE <t> FOR READ/WRITE
+    - LOCK TABLE t FOR READ/WRITE
     - FLUSH TABLES WITH READ LOCK
     - SET GLOBAL READ_ONLY = ON
     as there is no point in locking explicitely
@@ -212,7 +212,7 @@ enum enum_table_category
     These tables are an interface provided by the system
     to inspect the system performance data.
     These tables do *not* honor:
-    - LOCK TABLE <t> FOR READ/WRITE
+    - LOCK TABLE t FOR READ/WRITE
     - FLUSH TABLES WITH READ LOCK
     - SET GLOBAL READ_ONLY = ON
     as there is no point in locking explicitely
@@ -312,6 +312,7 @@ typedef struct st_table_share
   enum ha_storage_media default_storage_media;
   char *tablespace;
   enum tmp_table_type tmp_table;
+  enum ha_choice transactional;
 
   uint ref_count;                       /* How many TABLE objects uses this */
   uint open_count;			/* Number of tables in open list */
@@ -722,6 +723,10 @@ enum enum_schema_tables
 #define MY_I_S_UNSIGNED   2
 
 
+#define SKIP_OPEN_TABLE 0                // do not open table
+#define OPEN_FRM_ONLY   1                // open FRM file only
+#define OPEN_FULL_TABLE 2                // open FRM,MYD, MYI files
+
 typedef struct st_field_info
 {
   const char* field_name;
@@ -730,6 +735,7 @@ typedef struct st_field_info
   int value;
   uint field_flags;        // Field atributes(maybe_null, signed, unsigned etc.)
   const char* old_name;
+  uint open_method;
 } ST_FIELD_INFO;
 
 
@@ -746,11 +752,11 @@ typedef struct st_schema_table
   int (*fill_table) (THD *thd, TABLE_LIST *tables, COND *cond);
   /* Handle fileds for old SHOW */
   int (*old_format) (THD *thd, struct st_schema_table *schema_table);
-  int (*process_table) (THD *thd, TABLE_LIST *tables,
-                        TABLE *table, bool res, const char *base_name,
-                        const char *file_name);
+  int (*process_table) (THD *thd, TABLE_LIST *tables, TABLE *table,
+                        bool res, LEX_STRING *db_name, LEX_STRING *table_name);
   int idx_field1, idx_field2; 
   bool hidden;
+  uint i_s_requested_object;  /* the object we need to open(TABLE | VIEW) */
 } ST_SCHEMA_TABLE;
 
 
@@ -1108,6 +1114,10 @@ struct TABLE_LIST
   */
   uint8 trg_event_map;
 
+  uint i_s_requested_object;
+  bool has_db_lookup_value;
+  bool has_table_lookup_value;
+  uint table_open_method;
   enum enum_schema_table_state schema_table_state;
   void calc_md5(char *buffer);
   void set_underlying_merge();

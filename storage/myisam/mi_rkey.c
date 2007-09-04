@@ -48,6 +48,7 @@ int mi_rkey(MI_INFO *info, uchar *buf, int inx, const uchar *key,
     info->once_flags&= ~USE_PACKED_KEYS;	/* Reset flag */
     /*
       key is already packed!;  This happens when we are using a MERGE TABLE
+      In this key 'key_part_map' is the length of the key !
     */
     key_buff=info->lastkey+info->s->base.max_key_length;
     pack_key_length= keypart_map;
@@ -110,15 +111,27 @@ int mi_rkey(MI_INFO *info, uchar *buf, int inx, const uchar *key,
                     myisam_search_flag, info->s->state.key_root[inx]))
     {
       /*
-        If we searching for a partial key (or using >, >=, < or <=) and
+        Found a key, but it might not be usable. We cannot use rows that
+        are inserted by other threads after we got our table lock
+        ("concurrent inserts"). The record may not even be present yet.
+        Keys are inserted into the index(es) before the record is
+        inserted into the data file. When we got our table lock, we
+        saved the current data_file_length. Concurrent inserts always go
+        to the end of the file. So we can test if the found key
+        references a new record.
+
+        If we are searching for a partial key (or using >, >=, < or <=) and
         the data is outside of the data file, we need to continue searching
-        for the first key inside the data file
+        for the first key inside the data file.
+
+        We do also continue searching if an index condition check function
+        is available.
       */
       while ((info->lastpos >= info->state->data_file_length &&
               (search_flag != HA_READ_KEY_EXACT ||
               last_used_keyseg != keyinfo->seg + keyinfo->keysegs)) ||
              (info->index_cond_func && 
-             !(res= mi_check_index_cond(info, inx, buf))))
+              !(res= mi_check_index_cond(info, inx, buf))))
       {
         uint not_used[2];
         /*
@@ -153,7 +166,16 @@ int mi_rkey(MI_INFO *info, uchar *buf, int inx, const uchar *key,
           rw_unlock(&share->key_root_lock[inx]);
         DBUG_RETURN((my_errno= HA_ERR_KEY_NOT_FOUND));
       }
-        
+      /*
+        Error if no row found within the data file. (Bug #29838)
+        Do not overwrite my_errno if already at HA_OFFSET_ERROR.
+      */
+      if (info->lastpos != HA_OFFSET_ERROR &&
+          info->lastpos >= info->state->data_file_length)
+      {
+        info->lastpos= HA_OFFSET_ERROR;
+        my_errno= HA_ERR_KEY_NOT_FOUND;
+      }
     }
   }
   if (share->concurrent_insert)

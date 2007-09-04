@@ -148,7 +148,9 @@ host	user	password
 %	mysqltest_3	fffffffffffffffffffffffffffffffffffffffff
 select host,db,user from mysql.db where user like 'mysqltest_%' order by host,db,user;
 host	db	user
+%	test	
 %	test	mysqltest_2
+%	test\_%	
 select host,db,user,table_name from mysql.tables_priv where user like 'mysqltest_%' order by host,db,user,table_name;
 host	db	user	table_name
 %	test	mysqltest_2	t1
@@ -172,7 +174,9 @@ host	user	password
 %	mysqltest_3	fffffffffffffffffffffffffffffffffffffffff
 select host,db,user from mysql.db where user like 'mysqltest_%' order by host,db,user;
 host	db	user
+%	test	
 %	test	mysqltest_2
+%	test\_%	
 select host,db,user,table_name from mysql.tables_priv where user like 'mysqltest_%' order by host,db,user,table_name;
 host	db	user	table_name
 %	test	mysqltest_2	t1
@@ -189,7 +193,9 @@ host	user	password
 %	mysqltest_3	fffffffffffffffffffffffffffffffffffffffff
 select host,db,user from mysql.db where user like 'mysqltest_%' order by host,db,user;
 host	db	user
+%	test	
 %	test	mysqltest_1
+%	test\_%	
 select host,db,user,table_name from mysql.tables_priv where user like 'mysqltest_%' order by host,db,user,table_name;
 host	db	user	table_name
 %	test	mysqltest_1	t1

@@ -23,8 +23,7 @@
 #include "log.h"
 #include "rpl_tblmap.h"
 
-struct st_relay_log_info;
-typedef st_relay_log_info RELAY_LOG_INFO;
+class Relay_log_info;
 
 class Query_log_event;
 class Load_log_event;
@@ -250,18 +249,19 @@ struct system_variables
   ulonglong myisam_max_sort_file_size;
   ulonglong max_heap_table_size;
   ulonglong tmp_table_size;
+  ulonglong long_query_time;
   ha_rows select_limit;
   ha_rows max_join_size;
   ulong auto_increment_increment, auto_increment_offset;
   ulong bulk_insert_buff_size;
   ulong join_buff_size;
-  ulong long_query_time;
   ulong max_allowed_packet;
   ulong max_error_count;
   ulong max_length_for_sort_data;
   ulong max_sort_length;
   ulong max_tmp_tables;
   ulong max_insert_delayed_threads;
+  ulong min_examined_row_limit;
   ulong myisam_repair_threads;
   ulong myisam_sort_buff_size;
   ulong myisam_stats_method;
@@ -431,6 +431,8 @@ typedef struct system_status_var
 */
 
 #define last_system_status_var com_stmt_close
+
+void mark_transaction_to_rollback(THD *thd, bool all);
 
 #ifdef MYSQL_SERVER
 
@@ -976,7 +978,7 @@ class THD :public Statement,
 {
 public:
   /* Used to execute base64 coded binlog events in MySQL server */
-  RELAY_LOG_INFO* rli_fake;
+  Relay_log_info* rli_fake;
 
   /*
     Constant for THD::where initialization in the beginning of every query.
@@ -1046,9 +1048,6 @@ public:
   Security_context main_security_ctx;
   Security_context *security_ctx;
 
-  /* remote (peer) port */
-  uint16 peer_port;
-
   /*
     Points to info-string that we show in SHOW PROCESSLIST
     You are supposed to call THD_SET_PROC_INFO only if you have coded
@@ -1069,6 +1068,14 @@ public:
   /* left public for the the storage engines, please avoid direct use */
   const char *proc_info;
 
+  /*
+    Used in error messages to tell user in what part of MySQL we found an
+    error. E. g. when where= "having clause", if fix_fields() fails, user
+    will know that the error was in having clause.
+  */
+  const char *where;
+
+  double tmp_double_value;                    /* Used in set_var.cc */
   ulong client_capabilities;		/* What the client supports */
   ulong max_client_packet_length;
 
@@ -1090,14 +1097,12 @@ public:
   enum enum_server_command command;
   uint32     server_id;
   uint32     file_id;			// for LOAD DATA INFILE
-  /*
-    Used in error messages to tell user in what part of MySQL we found an
-    error. E. g. when where= "having clause", if fix_fields() fails, user
-    will know that the error was in having clause.
-  */
-  const char *where;
-  time_t     start_time,time_after_lock,user_time;
-  time_t     connect_time,thr_create_time; // track down slow pthread_create
+  /* remote (peer) port */
+  uint16 peer_port;
+  time_t     start_time, user_time;
+  ulonglong  connect_utime, thr_create_utime; // track down slow pthread_create
+  ulonglong  start_utime, utime_after_lock;
+  
   thr_lock_type update_lock_default;
   Delayed_insert *di;
 
@@ -1336,10 +1341,10 @@ public:
     mode, row-based binlogging is used for such cases where two
     auto_increment columns are inserted.
   */
-  inline void record_first_successful_insert_id_in_cur_stmt(ulonglong id)
+  inline void record_first_successful_insert_id_in_cur_stmt(ulonglong id_arg)
   {
     if (first_successful_insert_id_in_cur_stmt == 0)
-      first_successful_insert_id_in_cur_stmt= id;
+      first_successful_insert_id_in_cur_stmt= id_arg;
   }
   inline ulonglong read_first_successful_insert_id_in_prev_stmt(void)
   {
@@ -1631,27 +1636,25 @@ public:
     proc_info = old_msg;
     pthread_mutex_unlock(&mysys_var->mutex);
   }
-
-  static inline void safe_time(time_t *t)
-  {
-    /**
-       Wrapper around time() which retries on error (-1)
-
-       @details
-       This is needed because, despite the documentation, time() may fail
-       in some circumstances.  Here we retry time() until it succeeds, and
-       log the failure so that performance problems related to this can be
-       identified.
-    */
-    while(unlikely(time(t) == ((time_t) -1)))
-      sql_print_information("time() failed with %d", errno);
-  }
-
   inline time_t query_start() { query_start_used=1; return start_time; }
-  inline void	set_time()    { if (user_time) start_time=time_after_lock=user_time; else { safe_time(&start_time); time_after_lock= start_time; }}
-  inline void	end_time()    { safe_time(&start_time); }
-  inline void	set_time(time_t t) { time_after_lock=start_time=user_time=t; }
-  inline void	lock_time()   { safe_time(&time_after_lock); }
+  inline void set_time()
+  {
+    if (user_time)
+    {
+      start_time= user_time;
+      start_utime= utime_after_lock= my_micro_time();
+    }
+    else
+      start_utime= utime_after_lock= my_micro_time_and_time(&start_time);
+  }
+  inline void	set_current_time()    { start_time= my_time(MY_WME); }
+  inline void	set_time(time_t t)
+  {
+    start_time= user_time= t;
+    start_utime= utime_after_lock= my_micro_time();
+  }
+  void set_time_after_lock()  { utime_after_lock= my_micro_time(); }
+  ulonglong current_utime()  { return my_micro_time(); }
   inline ulonglong found_rows(void)
   {
     return limit_found_rows;
@@ -2512,6 +2515,7 @@ public:
 /* Functions in sql_class.cc */
 
 void add_to_status(STATUS_VAR *to_var, STATUS_VAR *from_var);
+
 void add_diff_to_status(STATUS_VAR *to_var, STATUS_VAR *from_var,
                         STATUS_VAR *dec_var);
 void mark_transaction_to_rollback(THD *thd, bool all);

@@ -114,6 +114,9 @@ NDB_SHARE *ndb_apply_status_share= 0;
 NDB_SHARE *ndb_schema_share= 0;
 pthread_mutex_t ndb_schema_share_mutex;
 
+extern my_bool opt_log_slave_updates;
+static my_bool g_ndb_log_slave_updates;
+
 /* Schema object distribution handling */
 HASH ndb_schema_objects;
 typedef struct st_ndb_schema_object {
@@ -2500,8 +2503,8 @@ ndbcluster_check_if_local_tables_in_db(THD *thd, const char *dbname)
 {
   DBUG_ENTER("ndbcluster_check_if_local_tables_in_db");
   DBUG_PRINT("info", ("Looking for files in directory %s", dbname));
-  char *tabname;
-  List<char> files;
+  LEX_STRING *tabname;
+  List<LEX_STRING> files;
   char path[FN_REFLEN];
 
   build_table_filename(path, sizeof(path), dbname, "", "", 0);
@@ -2513,8 +2516,8 @@ ndbcluster_check_if_local_tables_in_db(THD *thd, const char *dbname)
   DBUG_PRINT("info",("found: %d files", files.elements));
   while ((tabname= files.pop()))
   {
-    DBUG_PRINT("info", ("Found table %s", tabname));
-    if (ndbcluster_check_if_local_table(dbname, tabname))
+    DBUG_PRINT("info", ("Found table %s", tabname->str));
+    if (ndbcluster_check_if_local_table(dbname, tabname->str))
       DBUG_RETURN(true);
   }
   
@@ -3462,6 +3465,14 @@ ndb_binlog_thread_handle_data_event(Ndb *ndb, NdbEventOperation *pOp,
                         originating_server_id);
     return 0;
   }
+  else if (!g_ndb_log_slave_updates)
+  {
+    /*
+      This event comes from a slave applier since it has an originating
+      server id set. Since option to log slave updates is not set, skip it.
+    */
+    return 0;
+  }
 
   TABLE *table= share->table;
   DBUG_ASSERT(trans.good());
@@ -4106,6 +4117,8 @@ restart:
                     ! IS_NDB_BLOB_PREFIX(pOp->getEvent()->getTable()->getName()));
         DBUG_ASSERT(gci <= ndb_latest_received_binlog_epoch);
 
+        /* initialize some variables for this epoch */
+        g_ndb_log_slave_updates= opt_log_slave_updates;
         i_ndb->
           setReportThreshEventGCISlip(ndb_report_thresh_binlog_epoch_slip);
         i_ndb->setReportThreshEventFreeMem(ndb_report_thresh_binlog_mem_usage);

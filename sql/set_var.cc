@@ -247,8 +247,8 @@ static sys_var_bool_ptr
   sys_log_queries_not_using_indexes(&vars, "log_queries_not_using_indexes",
                                     &opt_log_queries_not_using_indexes);
 static sys_var_thd_ulong	sys_log_warnings(&vars, "log_warnings", &SV::log_warnings);
-static sys_var_thd_ulong	sys_long_query_time(&vars, "long_query_time",
-					     &SV::long_query_time);
+static sys_var_microseconds	sys_var_long_query_time(&vars, "long_query_time",
+                                                        &SV::long_query_time);
 static sys_var_thd_bool	sys_low_priority_updates(&vars, "low_priority_updates",
 						 &SV::low_priority_updates,
 						 fix_low_priority_updates);
@@ -312,6 +312,8 @@ static sys_var_thd_ulong	sys_max_tmp_tables(&vars, "max_tmp_tables",
 					   &SV::max_tmp_tables);
 static sys_var_long_ptr	sys_max_write_lock_count(&vars, "max_write_lock_count",
 						 &max_write_lock_count);
+static sys_var_thd_ulong       sys_min_examined_row_limit(&vars, "min_examined_row_limit",
+                                                          &SV::min_examined_row_limit);
 static sys_var_long_ptr	sys_myisam_data_pointer_size(&vars, "myisam_data_pointer_size",
                                                     &myisam_data_pointer_size);
 static sys_var_thd_ulonglong	sys_myisam_max_sort_file_size(&vars, "myisam_max_sort_file_size", &SV::myisam_max_sort_file_size, fix_myisam_max_sort_file_size, 1);
@@ -1483,6 +1485,15 @@ Item *sys_var::item(THD *thd, enum_var_type var_type, LEX_STRING *base)
     pthread_mutex_unlock(&LOCK_global_system_variables);
     return new Item_int(value);
   }
+  case SHOW_DOUBLE:
+  {
+    double value;
+    pthread_mutex_lock(&LOCK_global_system_variables);
+    value= *(double*) value_ptr(thd, var_type, base);
+    pthread_mutex_unlock(&LOCK_global_system_variables);
+    /* 6, as this is for now only used with microseconds */
+    return new Item_float(value, 6);
+  }
   case SHOW_HA_ROWS:
   {
     ha_rows value;
@@ -2537,6 +2548,60 @@ void sys_var_thd_lc_time_names::set_default(THD *thd, enum_var_type type)
 }
 
 /*
+  Handling of microseoncds given as seconds.part_seconds
+
+  NOTES
+    The argument to long query time is in seconds in decimal
+    which is converted to ulonglong integer holding microseconds for storage.
+    This is used for handling long_query_time
+*/
+
+bool sys_var_microseconds::update(THD *thd, set_var *var)
+{
+  double num= var->value->val_real();
+  longlong microseconds;
+  if (num > (double) option_limits->max_value)
+    num= (double) option_limits->max_value;
+  if (num < (double) option_limits->min_value)
+    num= (double) option_limits->min_value;
+  microseconds= (longlong) (num * 1000000.0 + 0.5);
+  if (var->type == OPT_GLOBAL)
+  {
+    pthread_mutex_lock(&LOCK_global_system_variables);
+    (global_system_variables.*offset)= microseconds;
+    pthread_mutex_unlock(&LOCK_global_system_variables);
+  }
+  else
+    thd->variables.*offset= microseconds;
+  return 0;
+}
+
+
+void sys_var_microseconds::set_default(THD *thd, enum_var_type type)
+{
+  longlong microseconds= (longlong) (option_limits->def_value * 1000000.0);
+  if (type == OPT_GLOBAL)
+  {
+    pthread_mutex_lock(&LOCK_global_system_variables);
+    global_system_variables.*offset= microseconds;
+    pthread_mutex_unlock(&LOCK_global_system_variables);
+  }
+  else
+    thd->variables.*offset= microseconds;
+}
+
+
+uchar *sys_var_microseconds::value_ptr(THD *thd, enum_var_type type,
+                                          LEX_STRING *base)
+{
+  thd->tmp_double_value= (double) ((type == OPT_GLOBAL) ?
+                                   global_system_variables.*offset :
+                                   thd->variables.*offset) / 1000000.0;
+  return (uchar*) &thd->tmp_double_value;
+}
+
+
+/*
   Functions to update thd->options bits
 */
 
@@ -3211,11 +3276,12 @@ bool sys_var_thd_storage_engine::check(THD *thd, set_var *var)
   var->save_result.plugin= NULL;
   if (var->value->result_type() == STRING_RESULT)
   {
-    LEX_STRING name;
+    LEX_STRING engine_name;
     handlerton *hton;
     if (!(res=var->value->val_str(&str)) ||
-        !(name.str= (char *)res->ptr()) || !(name.length= res->length()) ||
-	!(var->save_result.plugin= ha_resolve_by_name(thd, &name)) ||
+        !(engine_name.str= (char *)res->ptr()) ||
+        !(engine_name.length= res->length()) ||
+	!(var->save_result.plugin= ha_resolve_by_name(thd, &engine_name)) ||
         !(hton= plugin_data(var->save_result.plugin, handlerton *)) ||
         ha_checktype(thd, ha_legacy_type(hton), 1, 0) != hton)
     {
@@ -3237,13 +3303,13 @@ uchar *sys_var_thd_storage_engine::value_ptr(THD *thd, enum_var_type type,
 {
   uchar* result;
   handlerton *hton;
-  LEX_STRING *name;
+  LEX_STRING *engine_name;
   plugin_ref plugin= thd->variables.*offset;
   if (type == OPT_GLOBAL)
     plugin= my_plugin_lock(thd, &(global_system_variables.*offset));
   hton= plugin_data(plugin, handlerton*);
-  name= &hton2plugin[hton->slot]->name;
-  result= (uchar *) thd->strmake(name->str, name->length);
+  engine_name= &hton2plugin[hton->slot]->name;
+  result= (uchar *) thd->strmake(engine_name->str, engine_name->length);
   if (type == OPT_GLOBAL)
     plugin_unlock(thd, plugin);
   return result;
@@ -3564,7 +3630,7 @@ void free_key_cache(const char *name, KEY_CACHE *key_cache)
 }
 
 
-bool process_key_caches(int (* func) (const char *name, KEY_CACHE *))
+bool process_key_caches(process_key_cache_t func)
 {
   I_List_iterator<NAMED_LIST> it(key_caches);
   NAMED_LIST *element;

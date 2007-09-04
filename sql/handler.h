@@ -288,7 +288,7 @@ enum legacy_db_type
 
 enum row_type { ROW_TYPE_NOT_USED=-1, ROW_TYPE_DEFAULT, ROW_TYPE_FIXED,
 		ROW_TYPE_DYNAMIC, ROW_TYPE_COMPRESSED,
-		ROW_TYPE_REDUNDANT, ROW_TYPE_COMPACT, ROW_TYPE_PAGES };
+		ROW_TYPE_REDUNDANT, ROW_TYPE_COMPACT, ROW_TYPE_PAGE };
 
 enum column_format_type { COLUMN_FORMAT_TYPE_NOT_USED= -1,
                           COLUMN_FORMAT_TYPE_DEFAULT=   0,
@@ -336,6 +336,7 @@ enum enum_binlog_command {
 #define HA_CREATE_USED_PASSWORD         (1L << 17)
 #define HA_CREATE_USED_CONNECTION       (1L << 18)
 #define HA_CREATE_USED_KEY_BLOCK_SIZE   (1L << 19)
+#define HA_CREATE_USED_TRANSACTIONAL    (1L << 20)
 
 typedef ulonglong my_xid; // this line is the same as in log_event.h
 #define MYSQL_XID_PREFIX "MySQLXid"
@@ -715,7 +716,7 @@ struct handlerton
    int (*find_files)(handlerton *hton, THD *thd,
                      const char *db,
                      const char *path,
-                     const char *wild, bool dir, List<char> *files);
+                     const char *wild, bool dir, List<LEX_STRING> *files);
    int (*table_exists_in_engine)(handlerton *hton, THD* thd, const char *db,
                                  const char *name);
    uint32 license; /* Flag for Engine License */
@@ -804,6 +805,7 @@ class partition_info;
 struct st_partition_iter;
 #define NOT_A_PARTITION_ID ((uint32)-1)
 
+enum ha_choice { HA_CHOICE_UNDEF, HA_CHOICE_NO, HA_CHOICE_YES };
 
 typedef struct st_ha_create_information
 {
@@ -826,6 +828,8 @@ typedef struct st_ha_create_information
   uint options;				/* OR of HA_CREATE_ options */
   uint merge_insert_method;
   uint extra_size;                      /* length of extra data segment */
+  /* 0 not used, 1 if not transactional, 2 if transactional */
+  enum ha_choice transactional;
   bool table_existed;			/* 1 in create if table existed */
   bool frm_only;                        /* 1 if no ha_create_table() */
   bool varchar;                         /* 1 if table has a VARCHAR */
@@ -1465,27 +1469,28 @@ public:
                          enum ha_rkey_function find_flag)
    { return  HA_ERR_WRONG_COMMAND; }
   public:
-/**
-  @brief
-  Positions an index cursor to the index specified in the handle. Fetches the
-  row if available. If the key value is null, begin at the first key of the
-  index.
-*/
-  virtual int index_read(uchar * buf, const uchar * key, key_part_map keypart_map,
-                         enum ha_rkey_function find_flag)
-   {
-     uint key_len= calculate_key_len(table, active_index, key, keypart_map);
-     return  index_read(buf, key, key_len, find_flag);
-   }
-/**
-  @brief
-  Positions an index cursor to the index specified in the handle. Fetches the
-  row if available. If the key value is null, begin at the first key of the
-  index.
-*/
-  virtual int index_read_idx(uchar * buf, uint index, const uchar * key,
+  /**
+     @brief
+     Positions an index cursor to the index specified in the handle. Fetches the
+     row if available. If the key value is null, begin at the first key of the
+     index.
+  */
+  virtual int index_read_map(uchar * buf, const uchar * key,
                              key_part_map keypart_map,
-                             enum ha_rkey_function find_flag);
+                             enum ha_rkey_function find_flag)
+  {
+    uint key_len= calculate_key_len(table, active_index, key, keypart_map);
+    return  index_read(buf, key, key_len, find_flag);
+  }
+  /**
+     @brief
+     Positions an index cursor to the index specified in the handle. Fetches the
+     row if available. If the key value is null, begin at the first key of the
+     index.
+  */
+  virtual int index_read_idx_map(uchar * buf, uint index, const uchar * key,
+                                 key_part_map keypart_map,
+                                 enum ha_rkey_function find_flag);
   virtual int index_next(uchar * buf)
    { return  HA_ERR_WRONG_COMMAND; }
   virtual int index_prev(uchar * buf)
@@ -1499,17 +1504,17 @@ public:
   virtual int index_read_last(uchar * buf, const uchar * key, uint key_len)
    { return (my_errno=HA_ERR_WRONG_COMMAND); }
   public:
-/**
-  @brief
-  The following functions works like index_read, but it find the last
-  row with the current key value or prefix.
-*/
-  virtual int index_read_last(uchar * buf, const uchar * key,
-                              key_part_map keypart_map)
-   {
-     uint key_len= calculate_key_len(table, active_index, key, keypart_map);
-     return  index_read_last(buf, key, key_len);
-   }
+  /**
+     @brief
+     The following functions works like index_read, but it find the last
+     row with the current key value or prefix.
+  */
+  virtual int index_read_last_map(uchar * buf, const uchar * key,
+                                  key_part_map keypart_map)
+  {
+    uint key_len= calculate_key_len(table, active_index, key, keypart_map);
+    return index_read_last(buf, key, key_len);
+  }
   virtual int read_range_first(const key_range *start_key,
                                const key_range *end_key,
                                bool eq_range, bool sorted);
@@ -2134,11 +2139,11 @@ int ha_create_table_from_engine(THD* thd, const char *db, const char *name);
 int ha_discover(THD* thd, const char* dbname, const char* name,
                 uchar** frmblob, size_t* frmlen);
 int ha_find_files(THD *thd,const char *db,const char *path,
-                  const char *wild, bool dir,List<char>* files);
+                  const char *wild, bool dir, List<LEX_STRING>* files);
 int ha_table_exists_in_engine(THD* thd, const char* db, const char* name);
 
 /* key cache */
-int ha_init_key_cache(const char *name, KEY_CACHE *key_cache);
+extern "C" int ha_init_key_cache(const char *name, KEY_CACHE *key_cache);
 int ha_resize_key_cache(KEY_CACHE *key_cache);
 int ha_change_key_cache_param(KEY_CACHE *key_cache);
 int ha_change_key_cache(KEY_CACHE *old_key_cache, KEY_CACHE *new_key_cache);

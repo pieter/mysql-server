@@ -51,11 +51,13 @@ inline bool is_system_table_name(const char *name, uint length);
 
 Object_creation_ctx *Object_creation_ctx::set_n_backup(THD *thd)
 {
-  Object_creation_ctx *backup_ctx= create_backup_ctx(thd);
+  Object_creation_ctx *backup_ctx;
+  DBUG_ENTER("Object_creation_ctx::set_n_backup");
 
+  backup_ctx= create_backup_ctx(thd);
   change_env(thd);
 
-  return backup_ctx;
+  DBUG_RETURN(backup_ctx);
 }
 
 void Object_creation_ctx::restore_env(THD *thd, Object_creation_ctx *backup_ctx)
@@ -84,7 +86,7 @@ Default_object_creation_ctx::Default_object_creation_ctx(
 { }
 
 Object_creation_ctx *
-Default_object_creation_ctx::create_backup_ctx(THD *thd)
+Default_object_creation_ctx::create_backup_ctx(THD *thd) const
 {
   return new Default_object_creation_ctx(thd);
 }
@@ -574,7 +576,15 @@ int open_table_def(THD *thd, TABLE_SHARE *share, uint db_flags)
   {
     if (head[2] == FRM_VER || head[2] == FRM_VER+1 ||
         (head[2] >= FRM_VER+3 && head[2] <= FRM_VER+4))
+    {
+      /* Open view only */
+      if (db_flags & OPEN_VIEW_ONLY)
+      {
+        error_given= 1;
+        goto err;
+      }
       table_type= 1;
+    }
     else
     {
       error= 6;                                 // Unkown .frm version
@@ -703,7 +713,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   if (!head[32])				// New frm file in 3.23
   {
     share->avg_row_length= uint4korr(head+34);
-    share-> row_type= (row_type) head[40];
+    share->transactional= (ha_choice) head[39];
+    share->row_type= (row_type) head[40];
     share->table_charset= get_charset((uint) head[38],MYF(0));
     share->null_field_first= 1;
   }
@@ -1700,9 +1711,17 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   outparam->keys_in_use_for_query.init();
 
   /* Allocate handler */
-  if (!(outparam->file= get_new_handler(share, &outparam->mem_root,
-                                        share->db_type())))
-    goto err;
+  outparam->file= 0;
+  if (!(prgflag & OPEN_FRM_FILE_ONLY))
+  {
+    if (!(outparam->file= get_new_handler(share, &outparam->mem_root,
+                                          share->db_type())))
+      goto err;
+  }
+  else
+  {
+    DBUG_ASSERT(!db_stat);
+  }
 
   error= 4;
   outparam->reginfo.lock_type= TL_UNLOCK;
@@ -1822,7 +1841,7 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   }
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
-  if (share->partition_info_len)
+  if (share->partition_info_len && outparam->file)
   {
   /*
     In this execution we must avoid calling thd->change_item_tree since
@@ -1842,6 +1861,11 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
     thd->stmt_arena= &part_func_arena;
     bool tmp;
     bool work_part_info_used;
+
+    if ((prgflag & OPEN_FRM_FILE_ONLY) && !outparam->file &&
+        !(outparam->file= get_new_handler(share, &outparam->mem_root,
+                                          share->db_type())))
+      goto err;
 
     tmp= mysql_unpack_partition(thd, share->partition_info,
                                 share->partition_info_len,
@@ -1864,6 +1888,11 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
       if (work_part_info_used)
         tmp= fix_partition_func(thd, outparam, is_create_table);
       outparam->part_info->item_free_list= part_func_arena.free_list;
+    }
+    if (prgflag & OPEN_FRM_FILE_ONLY)
+    {
+      delete outparam->file;
+      outparam->file= 0;
     }
     if (tmp)
     {
@@ -1950,12 +1979,15 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   bzero((char*) bitmaps, bitmap_size*3);
 #endif
 
+  outparam->no_replicate= outparam->file &&
+                          test(outparam->file->ha_table_flags() &
+                               HA_HAS_OWN_BINLOGGING);
   thd->status_var.opened_tables++;
 
   DBUG_RETURN (0);
 
  err:
-  if (! error_reported)
+  if (!error_reported && !(prgflag & DONT_GIVE_ERROR))
     open_table_error(share, error, my_errno, 0);
   delete outparam->file;
 #ifdef WITH_PARTITION_STORAGE_ENGINE
@@ -2513,6 +2545,7 @@ File create_frm(THD *thd, const char *name, const char *db,
     int4store(fileinfo+34,create_info->avg_row_length);
     fileinfo[38]= (create_info->default_table_charset ?
 		   create_info->default_table_charset->number : 0);
+    fileinfo[39]= (uchar) create_info->transactional;
     fileinfo[40]= (uchar) create_info->row_type;
     /* Next few bytes were for RAID support */
     fileinfo[41]= 0;
@@ -2566,6 +2599,7 @@ void update_create_info_from_table(HA_CREATE_INFO *create_info, TABLE *table)
   create_info->tablespace= share->tablespace;
   create_info->default_table_charset= share->table_charset;
   create_info->table_charset= 0;
+  create_info->comment= share->comment;
 
   DBUG_VOID_RETURN;
 }
@@ -4646,11 +4680,11 @@ Item_subselect *TABLE_LIST::containing_subselect()
     FALSE                no errors found
     TRUE                 found and reported an error.
 */
-bool TABLE_LIST::process_index_hints(TABLE *table)
+bool TABLE_LIST::process_index_hints(TABLE *tbl)
 {
   /* initialize the result variables */
-  table->keys_in_use_for_query= table->keys_in_use_for_group_by= 
-    table->keys_in_use_for_order_by= table->s->keys_in_use;
+  tbl->keys_in_use_for_query= tbl->keys_in_use_for_group_by= 
+    tbl->keys_in_use_for_order_by= tbl->s->keys_in_use;
 
   /* index hint list processing */
   if (index_hints)
@@ -4702,8 +4736,8 @@ bool TABLE_LIST::process_index_hints(TABLE *table)
         Check if an index with the given name exists and get his offset in 
         the keys bitmask for the table 
       */
-      if (table->s->keynames.type_names == 0 ||
-          (pos= find_type(&table->s->keynames, hint->key_name.str,
+      if (tbl->s->keynames.type_names == 0 ||
+          (pos= find_type(&tbl->s->keynames, hint->key_name.str,
                           hint->key_name.length, 1)) <= 0)
       {
         my_error(ER_KEY_DOES_NOT_EXITS, MYF(0), hint->key_name.str, alias);
@@ -4739,7 +4773,7 @@ bool TABLE_LIST::process_index_hints(TABLE *table)
         !index_order[INDEX_HINT_FORCE].is_clear_all() ||
         !index_group[INDEX_HINT_FORCE].is_clear_all())
     {
-      table->force_index= TRUE;
+      tbl->force_index= TRUE;
       index_join[INDEX_HINT_USE].merge(index_join[INDEX_HINT_FORCE]);
       index_order[INDEX_HINT_USE].merge(index_order[INDEX_HINT_FORCE]);
       index_group[INDEX_HINT_USE].merge(index_group[INDEX_HINT_FORCE]);
@@ -4747,20 +4781,20 @@ bool TABLE_LIST::process_index_hints(TABLE *table)
 
     /* apply USE INDEX */
     if (!index_join[INDEX_HINT_USE].is_clear_all() || have_empty_use_join)
-      table->keys_in_use_for_query.intersect(index_join[INDEX_HINT_USE]);
+      tbl->keys_in_use_for_query.intersect(index_join[INDEX_HINT_USE]);
     if (!index_order[INDEX_HINT_USE].is_clear_all() || have_empty_use_order)
-      table->keys_in_use_for_order_by.intersect (index_order[INDEX_HINT_USE]);
+      tbl->keys_in_use_for_order_by.intersect (index_order[INDEX_HINT_USE]);
     if (!index_group[INDEX_HINT_USE].is_clear_all() || have_empty_use_group)
-      table->keys_in_use_for_group_by.intersect (index_group[INDEX_HINT_USE]);
+      tbl->keys_in_use_for_group_by.intersect (index_group[INDEX_HINT_USE]);
 
     /* apply IGNORE INDEX */
-    table->keys_in_use_for_query.subtract (index_join[INDEX_HINT_IGNORE]);
-    table->keys_in_use_for_order_by.subtract (index_order[INDEX_HINT_IGNORE]);
-    table->keys_in_use_for_group_by.subtract (index_group[INDEX_HINT_IGNORE]);
+    tbl->keys_in_use_for_query.subtract (index_join[INDEX_HINT_IGNORE]);
+    tbl->keys_in_use_for_order_by.subtract (index_order[INDEX_HINT_IGNORE]);
+    tbl->keys_in_use_for_group_by.subtract (index_group[INDEX_HINT_IGNORE]);
   }
 
   /* make sure covering_keys don't include indexes disabled with a hint */
-  table->covering_keys.intersect(table->keys_in_use_for_query);
+  tbl->covering_keys.intersect(tbl->keys_in_use_for_query);
   return 0;
 }
 

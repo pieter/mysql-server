@@ -693,6 +693,37 @@ sub command_line_setup () {
 
   $glob_timers= mtr_init_timers();
 
+  # --------------------------------------------------------------------------
+  # Embedded server flag
+  # --------------------------------------------------------------------------
+  if ( $opt_embedded_server )
+  {
+    $glob_use_embedded_server= 1;
+    # Add the location for libmysqld.dll to the path.
+    if ( $glob_win32 )
+    {
+      my $lib_mysqld=
+        mtr_path_exists(vs_config_dirs('libmysqld',''));
+	  $lib_mysqld= $glob_cygwin_perl ? ":".`cygpath "$lib_mysqld"` 
+                                     : ";".$lib_mysqld;
+      chomp($lib_mysqld);
+      $ENV{'PATH'}="$ENV{'PATH'}".$lib_mysqld;
+    }
+
+    push(@glob_test_mode, "embedded");
+    $opt_skip_rpl= 1;              # We never run replication with embedded
+    $opt_skip_ndbcluster= 1;       # Turn off use of NDB cluster
+    $opt_skip_ssl= 1;              # Turn off use of SSL
+
+    # Turn off use of bin log
+    push(@opt_extra_mysqld_opt, "--skip-log-bin");
+
+    if ( $opt_extern )
+    {
+      mtr_error("Can't use --extern with --embedded-server");
+    }
+  }
+
   #
   # Find the mysqld executable to be able to find the mysqld version
   # number as early as possible
@@ -717,6 +748,7 @@ sub command_line_setup () {
   if (!$opt_extern)
   {
     $exe_mysqld=       mtr_exe_exists (vs_config_dirs('sql', 'mysqld'),
+                                       vs_config_dirs('sql', 'mysqld-debug'),
 				       "$glob_basedir/sql/mysqld",
 				       "$path_client_bindir/mysqld-max-nt",
 				       "$path_client_bindir/mysqld-max",
@@ -898,26 +930,6 @@ sub command_line_setup () {
   if ( $opt_record and ! @opt_cases )
   {
     mtr_error("Will not run in record mode without a specific test case");
-  }
-
-  # --------------------------------------------------------------------------
-  # Embedded server flag
-  # --------------------------------------------------------------------------
-  if ( $opt_embedded_server )
-  {
-    $glob_use_embedded_server= 1;
-    push(@glob_test_mode, "embedded");
-    $opt_skip_rpl= 1;              # We never run replication with embedded
-    $opt_skip_ndbcluster= 1;       # Turn off use of NDB cluster
-    $opt_skip_ssl= 1;              # Turn off use of SSL
-
-    # Turn off use of bin log
-    push(@opt_extra_mysqld_opt, "--skip-log-bin");
-
-    if ( $opt_extern )
-    {
-      mtr_error("Can't use --extern with --embedded-server");
-    }
   }
 
 
@@ -1661,7 +1673,7 @@ sub generate_cmdline_mysqldump ($) {
   my($mysqld) = @_;
   return
     mtr_native_path($exe_mysqldump) .
-      " --no-defaults -uroot --debug-info " .
+      " --no-defaults -uroot --debug-check " .
       "--port=$mysqld->{'port'} " .
       "--socket=$mysqld->{'path_sock'} --password=";
 }
@@ -1913,7 +1925,7 @@ sub environment_setup () {
   # ----------------------------------------------------
   my $cmdline_mysqlcheck=
     mtr_native_path($exe_mysqlcheck) .
-    " --no-defaults --debug-info -uroot " .
+    " --no-defaults --debug-check -uroot " .
     "--port=$master->[0]->{'port'} " .
     "--socket=$master->[0]->{'path_sock'} --password=";
 
@@ -1965,7 +1977,7 @@ sub environment_setup () {
   # ----------------------------------------------------
   my $cmdline_mysqlimport=
     mtr_native_path($exe_mysqlimport) .
-    " -uroot --debug-info " .
+    " -uroot --debug-check " .
     "--port=$master->[0]->{'port'} " .
     "--socket=$master->[0]->{'path_sock'} --password=";
 
@@ -1982,7 +1994,7 @@ sub environment_setup () {
   # ----------------------------------------------------
   my $cmdline_mysqlshow=
     mtr_native_path($exe_mysqlshow) .
-    " -uroot --debug-info " .
+    " -uroot --debug-check " .
     "--port=$master->[0]->{'port'} " .
     "--socket=$master->[0]->{'path_sock'} --password=";
 
@@ -1998,7 +2010,7 @@ sub environment_setup () {
   # ----------------------------------------------------
   my $cmdline_mysqlbinlog=
     mtr_native_path($exe_mysqlbinlog) .
-      " --no-defaults --disable-force-if-open --debug-info";
+      " --no-defaults --disable-force-if-open --debug-check";
   if ( !$opt_extern && $mysql_version_id >= 50000 )
   {
     $cmdline_mysqlbinlog .=" --character-sets-dir=$path_charsetsdir";
@@ -2016,7 +2028,7 @@ sub environment_setup () {
   # ----------------------------------------------------
   my $cmdline_mysql=
     mtr_native_path($exe_mysql) .
-    " --no-defaults --debug-info --host=localhost  --user=root --password= " .
+    " --no-defaults --debug-check --host=localhost  --user=root --password= " .
     "--port=$master->[0]->{'port'} " .
     "--socket=$master->[0]->{'path_sock'} ".
     "--character-sets-dir=$path_charsetsdir";
@@ -2447,6 +2459,7 @@ sub vs_config_dirs ($$) {
   }
 
   return ("$glob_basedir/$path_part/release/$exe",
+          "$glob_basedir/$path_part/relwithdebinfo/$exe",
           "$glob_basedir/$path_part/debug/$exe");
 }
 
@@ -4122,7 +4135,7 @@ sub stop_all_servers () {
   my $pid;
 
   # Start shutdown of all started masters
-  foreach my $mysqld (@{$master}, @{$slave})
+  foreach my $mysqld (@{$slave}, @{$master})
   {
     if ( $mysqld->{'pid'} )
     {

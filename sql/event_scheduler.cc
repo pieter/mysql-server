@@ -20,6 +20,11 @@
 #include "event_queue.h"
 #include "event_db_repository.h"
 
+/**
+  @addtogroup Event_Scheduler
+  @{
+*/
+
 #ifdef __GNUC__
 #if __GNUC__ >= 2
 #define SCHED_FUNC __FUNCTION__
@@ -283,8 +288,7 @@ Event_worker_thread::run(THD *thd, Event_queue_element_for_exec *event)
   res= post_init_event_thread(thd);
 
   DBUG_ENTER("Event_worker_thread::run");
-  DBUG_PRINT("info", ("Time is %ld, THD: 0x%lx",
-                      (long) time(NULL), (long) thd));
+  DBUG_PRINT("info", ("Time is %ld, THD: 0x%lx", (long) my_time(0), (long) thd));
 
   if (res)
     goto end;
@@ -791,3 +795,7 @@ Event_scheduler::dump_internal_status()
 
   DBUG_VOID_RETURN;
 }
+
+/**
+  @} (End of group Event_Scheduler)
+*/

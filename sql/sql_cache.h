@@ -142,6 +142,7 @@ struct Query_cache_query
   uint8 tbls_type;
   unsigned int last_pkt_nr;
 
+  Query_cache_query() {}                      /* Remove gcc warning */
   inline void init_n_lock();
   void unlock_n_destroy();
   inline ulonglong found_rows()		   { return limit_found_rows; }
@@ -408,10 +409,12 @@ protected:
     If query is cacheable return number tables in query
     (query without tables not cached)
   */
-  static
   TABLE_COUNTER_TYPE is_cacheable(THD *thd, uint32 query_len, char *query,
-				  LEX *lex, TABLE_LIST *tables_used,
-				  uint8 *tables_type);
+                                  LEX *lex, TABLE_LIST *tables_used,
+                                  uint8 *tables_type);
+  TABLE_COUNTER_TYPE process_and_count_tables(THD *thd,
+                                              TABLE_LIST *tables_used,
+                                              uint8 *tables_type);
 
   static my_bool ask_handler_allowance(THD *thd, TABLE_LIST *tables_used);
  public:

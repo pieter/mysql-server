@@ -28,6 +28,10 @@
 #include "events.h"
 #include "sql_trigger.h"
 
+/**
+  @defgroup Runtime_Environment Runtime Environment
+  @{
+*/
 int execute_backup_command(THD*,LEX*);
 
 /* Used in error handling only */
@@ -1243,7 +1247,6 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
 void log_slow_statement(THD *thd)
 {
-  time_t start_of_query;
   DBUG_ENTER("log_slow_statement");
 
   /*
@@ -1254,9 +1257,6 @@ void log_slow_statement(THD *thd)
   if (unlikely(thd->in_sub_stmt))
     DBUG_VOID_RETURN;                           // Don't set time for sub stmt
 
-  start_of_query= thd->start_time;
-  thd->end_time();				// Set start time
-
   /*
     Do not log administrative statements unless the appropriate option is
     set; do not log into slow log if reading from backup.
@@ -1264,16 +1264,18 @@ void log_slow_statement(THD *thd)
   if (thd->enable_slow_log && !thd->user_time)
   {
     THD_SET_PROC_INFO(thd, "logging slow query");
+    ulonglong end_utime_of_query= thd->current_utime();
 
-    if ((ulong) (thd->start_time - thd->time_after_lock) >
-	thd->variables.long_query_time ||
-	((thd->server_status &
-	  (SERVER_QUERY_NO_INDEX_USED | SERVER_QUERY_NO_GOOD_INDEX_USED)) &&
-         opt_log_queries_not_using_indexes &&
-          !(sql_command_flags[thd->lex->sql_command] & CF_STATUS_COMMAND)))
+    if (((end_utime_of_query - thd->utime_after_lock) >
+         thd->variables.long_query_time ||
+         ((thd->server_status &
+           (SERVER_QUERY_NO_INDEX_USED | SERVER_QUERY_NO_GOOD_INDEX_USED)) &&
+          opt_log_queries_not_using_indexes &&
+           !(sql_command_flags[thd->lex->sql_command] & CF_STATUS_COMMAND))) &&
+        thd->examined_row_count >= thd->variables.min_examined_row_limit)
     {
       thd->status_var.long_query_count++;
-      slow_log_print(thd, thd->query, thd->query_length, start_of_query);
+      slow_log_print(thd, thd->query, thd->query_length, end_utime_of_query);
     }
   }
   DBUG_VOID_RETURN;
@@ -5167,6 +5169,11 @@ mysql_new_select(LEX *lex, bool move_down)
   select_lex->init_query();
   select_lex->init_select();
   lex->nest_level++;
+  if (lex->nest_level > (int) MAX_SELECT_NESTING)
+  {
+    my_error(ER_TOO_HIGH_LEVEL_OF_NESTING_FOR_SELECT,MYF(0),MAX_SELECT_NESTING);
+    DBUG_RETURN(1);
+  }
   select_lex->nest_level= lex->nest_level;
   /*
     Don't evaluate this subquery during statement prepare even if
@@ -5286,11 +5293,12 @@ void mysql_init_multi_delete(LEX *lex)
 
 /**
   Parse a query.
-  @param thd Current thread
-  @param inBuf Begining of the query text
-  @param length Length of the query text
-  @param [out] semicolon For multi queries, position of the character of
-  the next query in the query text.
+
+  @param       thd     Current thread
+  @param       inBuf   Begining of the query text
+  @param       length  Length of the query text
+  @param[out]  found_semicolon For multi queries, position of the character of
+                               the next query in the query text.
 */
 
 void mysql_parse(THD *thd, const char *inBuf, uint length,
@@ -7151,3 +7159,7 @@ bool parse_sql(THD *thd,
 
   return err_status;
 }
+
+/**
+  @} (end of group Runtime_Environment)
+*/

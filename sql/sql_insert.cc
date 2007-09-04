@@ -426,7 +426,6 @@ void upgrade_lock_type(THD *thd, thr_lock_type *lock_type,
         client connection and the delayed thread.
     */
     if (specialflag & (SPECIAL_NO_NEW_FUNC | SPECIAL_SAFE_MODE) ||
-        thd->slave_thread ||
         thd->variables.max_insert_delayed_threads == 0 ||
         thd->prelocked_mode ||
         thd->lex->uses_stored_routines())
@@ -434,6 +433,14 @@ void upgrade_lock_type(THD *thd, thr_lock_type *lock_type,
       *lock_type= TL_WRITE;
       return;
     }
+    if (thd->slave_thread)
+    {
+      /* Try concurrent insert */
+      *lock_type= (duplic == DUP_UPDATE || duplic == DUP_REPLACE) ?
+                  TL_WRITE : TL_WRITE_CONCURRENT_INSERT;
+      return;
+    }
+
     bool log_on= (thd->options & OPTION_BIN_LOG ||
                   ! (thd->security_ctx->master_access & SUPER_ACL));
     if (global_system_variables.binlog_format == BINLOG_FORMAT_STMT &&
@@ -1391,9 +1398,9 @@ int write_record(THD *thd, TABLE *table,COPY_INFO *info)
 	  }
 	}
 	key_copy((uchar*) key,table->record[0],table->key_info+key_nr,0);
-	if ((error=(table->file->index_read_idx(table->record[1],key_nr,
-                                                (uchar*) key, HA_WHOLE_KEY,
-						HA_READ_KEY_EXACT))))
+	if ((error=(table->file->index_read_idx_map(table->record[1],key_nr,
+                                                    (uchar*) key, HA_WHOLE_KEY,
+                                                    HA_READ_KEY_EXACT))))
 	  goto err;
       }
       if (info->handle_duplicates == DUP_UPDATE)
@@ -2226,7 +2233,7 @@ pthread_handler_t handle_delayed_insert(void *arg)
   /* Add thread to THD list so that's it's visible in 'show processlist' */
   pthread_mutex_lock(&LOCK_thread_count);
   thd->thread_id= thd->variables.pseudo_thread_id= thread_id++;
-  thd->end_time();
+  thd->set_current_time();
   threads.append(thd);
   thd->killed=abort_loop ? THD::KILL_CONNECTION : THD::NOT_KILLED;
   pthread_mutex_unlock(&LOCK_thread_count);
@@ -3549,13 +3556,13 @@ select_create::binlog_show_create_table(TABLE **tables, uint count)
   char buf[2048];
   String query(buf, sizeof(buf), system_charset_info);
   int result;
-  TABLE_LIST table_list;
+  TABLE_LIST tmp_table_list;
 
-  memset(&table_list, 0, sizeof(table_list));
-  table_list.table = *tables;
+  memset(&tmp_table_list, 0, sizeof(tmp_table_list));
+  tmp_table_list.table = *tables;
   query.length(0);      // Have to zero it since constructor doesn't
 
-  result= store_create_info(thd, &table_list, &query, create_info);
+  result= store_create_info(thd, &tmp_table_list, &query, create_info);
   DBUG_ASSERT(result == 0); /* store_create_info() always return 0 */
 
   thd->binlog_query(THD::STMT_QUERY_TYPE,

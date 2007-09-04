@@ -40,9 +40,10 @@ ulonglong last_values[MAX_MYSQL_VAR];
 static int interval=0;
 static my_bool option_force=0,interrupted=0,new_line=0,
                opt_compress=0, opt_relative=0, opt_verbose=0, opt_vertical=0,
-               tty_password= 0, info_flag= 0, opt_nobeep;
-static uint tcp_port = 0, option_wait = 0, option_silent=0, nr_iterations,
-            opt_count_iterations= 0;
+               tty_password= 0, opt_nobeep;
+static my_bool debug_info_flag= 0, debug_check_flag= 0;
+static uint tcp_port = 0, option_wait = 0, option_silent=0, nr_iterations;
+static uint opt_count_iterations= 0, my_end_arg;
 static ulong opt_connect_timeout, opt_shutdown_timeout;
 static char * unix_port=0;
 #ifdef LATER_HAVE_NDBCLUSTER_DB
@@ -70,10 +71,12 @@ static uint ex_var_count, max_var_length, max_val_length;
 
 static void print_version(void);
 static void usage(void);
+extern "C" my_bool get_one_option(int optid, const struct my_option *opt,
+                                  char *argument);
 static my_bool sql_connect(MYSQL *mysql, uint wait);
 static int execute_commands(MYSQL *mysql,int argc, char **argv);
 static int drop_db(MYSQL *mysql,const char *db);
-static sig_handler endprog(int signal_number);
+extern "C" sig_handler endprog(int signal_number);
 static void nice_time(ulong sec,char *buff);
 static void print_header(MYSQL_RES *result);
 static void print_top(MYSQL_RES *result);
@@ -134,10 +137,16 @@ static struct my_option my_long_options[] =
    "Number of iterations to make. This works with -i (--sleep) only.",
    (uchar**) &nr_iterations, (uchar**) &nr_iterations, 0, GET_UINT,
    REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+#ifndef DBUG_OFF
   {"debug", '#', "Output debug log. Often this is 'd:t:o,filename'.",
    0, 0, 0, GET_STR, OPT_ARG, 0, 0, 0, 0, 0, 0},
-  {"debug-info", OPT_DEBUG_INFO, "Print some debug info at exit.", (uchar**) &info_flag,
-   (uchar**) &info_flag, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+#endif
+  {"debug-check", OPT_DEBUG_CHECK, "Check memory and open file usage at exit .",
+   (uchar**) &debug_check_flag, (uchar**) &debug_check_flag, 0,
+   GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"debug-info", OPT_DEBUG_INFO, "Print some debug info at exit.",
+   (uchar**) &debug_info_flag, (uchar**) &debug_info_flag,
+   0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"force", 'f',
    "Don't ask for confirmation on drop database; with multiple commands, continue even if an error occurs.",
    (uchar**) &option_force, (uchar**) &option_force, 0, GET_BOOL, NO_ARG, 0, 0,
@@ -223,7 +232,7 @@ static struct my_option my_long_options[] =
 
 static const char *load_default_groups[]= { "mysqladmin","client",0 };
 
-static my_bool
+my_bool
 get_one_option(int optid, const struct my_option *opt __attribute__((unused)),
 	       char *argument)
 {
@@ -315,6 +324,10 @@ int main(int argc,char *argv[])
     free_defaults(save_argv);
     exit(ho_error);
   }
+  if (debug_info_flag)
+    my_end_arg= MY_CHECK_ERROR | MY_GIVE_INFO;
+  if (debug_check_flag)
+    my_end_arg= MY_CHECK_ERROR;
 
   if (argc == 0)
   {
@@ -413,13 +426,13 @@ int main(int argc,char *argv[])
   my_free(shared_memory_base_name,MYF(MY_ALLOW_ZERO_PTR));
 #endif
   free_defaults(save_argv);
-  my_end(info_flag ? MY_CHECK_ERROR : 0);
+  my_end(my_end_arg);
   exit(error ? 1 : 0);
   return 0;
 }
 
 
-static sig_handler endprog(int signal_number __attribute__((unused)))
+sig_handler endprog(int signal_number __attribute__((unused)))
 {
   interrupted=1;
 }

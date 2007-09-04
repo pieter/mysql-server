@@ -553,6 +553,22 @@ max-time: 1000
 cmd: testNodeRestart
 args: -n Bug25554 T1
 
+max-time: 1000
+cmd: testNodeRestart
+args: -n Bug26457 T1
+
+max-time: 1000
+cmd: testNodeRestart
+args: -n Bug26481 T1
+
+max-time: 1000
+cmd: testNodeRestart
+args: -n Bug29364 T1
+
+max-time: 1000
+cmd: testNodeRestart
+args: -n Bug28023 T7 D2
+
 max-time: 3000
 cmd: testNodeRestart
 args: -n Bug25984
@@ -637,11 +653,11 @@ args: -l 25 -n DictRestart T1
 
 max-time: 1500
 cmd: testDict
-args: -n TableAddAttrs T7
+args: -n TableAddAttrs
 
 max-time: 1500
 cmd: testDict
-args: -n TableAddAttrsDuring T7
+args: -n TableAddAttrsDuring T1 T2 T7
 
 max-time: 500
 cmd: testDict
@@ -954,3 +970,10 @@ max-time: 120
 cmd: testMgm
 args: -n ApiMgmStructEventTimeout T1
 
+max-time: 180
+cmd: testIndex
+args: -n Bug28804 T1 T3
+
+max-time: 180
+cmd: testIndex
+args: -n Bug28804_ATTRINFO T1 T3

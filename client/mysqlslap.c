@@ -157,6 +157,7 @@ static uint opt_delayed_start;
 const char *num_int_cols_opt;
 const char *num_char_cols_opt;
 const char *num_blob_cols_opt;
+const char *opt_label;
 
 const char *auto_generate_selected_columns_opt;
 
@@ -627,6 +628,9 @@ static struct my_option my_long_options[] =
     REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"iterations", 'i', "Number of times to run the tests.", (uchar**) &iterations,
     (uchar**) &iterations, 0, GET_UINT, REQUIRED_ARG, 1, 0, 0, 0, 0, 0},
+  {"label", OPT_SLAP_LABEL, "Label to use for print and csv output.",
+    (uchar**) &opt_label, (uchar**) &opt_label, 0,
+    GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"number-blob-cols", OPT_SLAP_BLOB_COL, 
     "Number of BLOB columns to create table with if specifying --auto-generate-sql. Example --number-blob-cols=3:1024/2048 would give you 3 blobs with a random size between 1024 and 2048. ",
     (uchar**) &num_blob_cols_opt, (uchar**) &num_blob_cols_opt, 0, GET_STR, REQUIRED_ARG,
@@ -2269,7 +2273,12 @@ print_conclusions(conclusions *con)
 {
   printf("Benchmark\n");
   if (con->engine)
-    printf("\tRunning for engine %s\n", con->engine);
+      printf("\tRunning for engine %s\n", con->engine);
+  if (opt_label || auto_generate_sql_type)
+  {
+    const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
+    printf("\tLoad: %s\n", opt_label ? opt_label : ptr);
+  }
   printf("\tAverage number of seconds to run all queries: %ld.%03ld seconds\n",
          con->avg_timing / 1000, con->avg_timing % 1000);
   printf("\tMinimum number of seconds to run all queries: %ld.%03ld seconds\n",
@@ -2292,7 +2301,7 @@ print_conclusions_csv(conclusions *con)
   snprintf(buffer, HUGE_STRING_LENGTH, 
            "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%d,%llu\n",
            con->engine ? con->engine : "", /* Storage engine we ran against */
-           ptr, /* Load type */
+           opt_label ? opt_label : ptr, /* Load type */
            con->avg_timing / 1000, con->avg_timing % 1000, /* Time to load */
            con->min_timing / 1000, con->min_timing % 1000, /* Min time */
            con->max_timing / 1000, con->max_timing % 1000, /* Max time */

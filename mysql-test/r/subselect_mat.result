@@ -16,8 +16,8 @@ set @@optimizer_switch=no_semijoin;
 /******************************************************************************
 * Simple tests.                                                               *
 ******************************************************************************/
--- test re-optimization/re-execution with different execution methods
--- see thest from sp.test BUG#21493
+# test re-optimization/re-execution with different execution methods
+# see thest from sp.test BUG#21493
 set @@optimizer_switch=no_materialization;
 set @@optimizer_switch=no_semijoin;
 /******************************************************************************
@@ -29,15 +29,15 @@ set @@optimizer_switch=no_semijoin;
 /******************************************************************************
 * UNIONs with subqueries.                                                     *
 ******************************************************************************/
--- simple queries
--- multiple levels of nesting of subqueries and unions
+# simple queries
+# multiple levels of nesting of subqueries and unions
 /******************************************************************************
 * Test column types/sizes that affect materialization.                        *
 ******************************************************************************/
 /*
 Test that BLOBs are not materialized (except when arguments of some functions).
 */
--- force materialization to be always considered
+# force materialization to be always considered
 set @@optimizer_switch=no_semijoin;
 set @prefix_len = 6;
 set @blob_len = 16;
@@ -486,15 +486,15 @@ drop table t1bb, t2bb;
 * Subqueries in various clauses.                                              *
 ******************************************************************************/
 /* SELECT clause */
--- These queries used to crash
--- select ((a,b) IN (select * from sq2 where d > 0)) IS NULL from sq1;
+# These queries used to crash
+# select ((a,b) IN (select * from sq2 where d > 0)) IS NULL from sq1;
 /* FROM clause */
 /* GROUP BY clause */
--- explain extended
--- select * from t1 group by (select col_pos from columns limit 1);
+# explain extended
+# select * from t1 group by (select col_pos from columns limit 1);
 /* ORDER BY clause */
--- TODO: this must be a: it should be imppossible to have subqueries
--- with > 1 rows in GROUP BY.
--- explain extended
--- select * from t1 order by (select col_pos from columns);
+# TODO: this must be a: it should be imppossible to have subqueries
+# with > 1 rows in GROUP BY.
+# explain extended
+# select * from t1 order by (select col_pos from columns);
 drop table t1, t2, t3;

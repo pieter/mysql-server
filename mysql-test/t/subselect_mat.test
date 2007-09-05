@@ -24,24 +24,24 @@ insert into t3 values ('1 - 02', '2 - 02');
 insert into t3 values ('1 - 03', '2 - 03');
 insert into t3 values ('1 - 04', '2 - 04');
 
--- force the use of materialization --
+# force the use of materialization
 set @@optimizer_switch=no_semijoin;
 
 /******************************************************************************
 * Simple tests.                                                               *
 ******************************************************************************/
 
--- test re-optimization/re-execution with different execution methods
--- see thest from sp.test BUG#21493
+# test re-optimization/re-execution with different execution methods
+# see thest from sp.test BUG#21493
 set @@optimizer_switch=no_materialization;
--- run query
+# run query
 set @@optimizer_switch=no_semijoin;
--- run query
+# run query
 
--- materialize the result of temp tables
--- GROUP BY a1,a2 ORDER BY a2
+# materialize the result of temp tables
+# GROUP BY a1,a2 ORDER BY a2
 
--- materialize the result of subquery over temp-table view
+# materialize the result of subquery over temp-table view
  
 
 /******************************************************************************
@@ -56,9 +56,9 @@ set @@optimizer_switch=no_semijoin;
 * UNIONs with subqueries.                                                     *
 ******************************************************************************/
 
--- simple queries
+# simple queries
 
--- multiple levels of nesting of subqueries and unions
+# multiple levels of nesting of subqueries and unions
 
 
 /******************************************************************************
@@ -68,11 +68,11 @@ set @@optimizer_switch=no_semijoin;
 /*
   Test that BLOBs are not materialized (except when arguments of some functions).
 */
--- force materialization to be always considered
+# force materialization to be always considered
 set @@optimizer_switch=no_semijoin;
 set @prefix_len = 6;
 
--- BLOB == 16 (small blobs that could be stored in HEAP tables)
+# BLOB == 16 (small blobs that could be stored in HEAP tables)
 set @blob_len = 16;
 set @suffix_len = @blob_len - @prefix_len;
 
@@ -107,7 +107,7 @@ insert into t3_16 values
 insert into t3_16 values
  (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
 
--- single value transformer
+# single value transformer
 explain extended select left(a1,7), left(a2,7)
 from t1_16
 where a1 in (select b1 from t2_16 where b1 > '0');
@@ -116,7 +116,7 @@ select left(a1,7), left(a2,7)
 from t1_16
 where a1 in (select b1 from t2_16 where b1 > '0');
 
--- row value transformer
+# row value transformer
 explain extended select left(a1,7), left(a2,7)
 from t1_16
 where (a1,a2) in (select b1, b2 from t2_16 where b1 > '0');
@@ -125,7 +125,7 @@ select left(a1,7), left(a2,7)
 from t1_16
 where (a1,a2) in (select b1, b2 from t2_16 where b1 > '0');
 
--- string function with a blob argument, the return type may be != blob
+# string function with a blob argument, the return type may be != blob
 explain extended select left(a1,7), left(a2,7)
 from t1_16
 where a1 in (select substring(b1,1,16) from t2_16 where b1 > '0');
@@ -134,9 +134,9 @@ select left(a1,7), left(a2,7)
 from t1_16
 where a1 in (select substring(b1,1,16) from t2_16 where b1 > '0');
 
--- group_concat with a blob argument - depends on
--- the variable group_concat_max_len, and
--- convert_blob_length == max_len*collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB
+# group_concat with a blob argument - depends on
+# the variable group_concat_max_len, and
+# convert_blob_length == max_len*collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB
 explain extended select left(a1,7), left(a2,7)
 from t1_16
 where a1 in (select group_concat(b1) from t2_16 group by b2);
@@ -145,7 +145,7 @@ select left(a1,7), left(a2,7)
 from t1_16
 where a1 in (select group_concat(b1) from t2_16 group by b2);
 
-set @@group_concat_max_len = 256; -- anything < (CONVERT_IF_BIGGER_TO_BLOB = 512)
+set @@group_concat_max_len = 256; # anything < (CONVERT_IF_BIGGER_TO_BLOB = 512)
 
 explain extended select left(a1,7), left(a2,7)
 from t1_16
@@ -157,7 +157,7 @@ where a1 in (select group_concat(b1) from t2_16 group by b2);
 
 drop table t1_16, t2_16, t3_16;
 
--- BLOB == 512 (CONVERT_IF_BIGGER_TO_BLOB == 512)
+# BLOB == 512 (CONVERT_IF_BIGGER_TO_BLOB == 512)
 set @blob_len = 512;
 set @suffix_len = @blob_len - @prefix_len;
 
@@ -192,7 +192,7 @@ insert into t3_512 values
 insert into t3_512 values
  (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
 
--- single value transformer
+# single value transformer
 explain extended select left(a1,7), left(a2,7)
 from t1_512
 where a1 in (select b1 from t2_512 where b1 > '0');
@@ -201,7 +201,7 @@ select left(a1,7), left(a2,7)
 from t1_512
 where a1 in (select b1 from t2_512 where b1 > '0');
 
--- row value transformer
+# row value transformer
 explain extended select left(a1,7), left(a2,7)
 from t1_512
 where (a1,a2) in (select b1, b2 from t2_512 where b1 > '0');
@@ -210,7 +210,7 @@ select left(a1,7), left(a2,7)
 from t1_512
 where (a1,a2) in (select b1, b2 from t2_512 where b1 > '0');
 
--- string function with a blob argument, the return type may be != blob
+# string function with a blob argument, the return type may be != blob
 explain extended select left(a1,7), left(a2,7)
 from t1_512
 where a1 in (select substring(b1,1,512) from t2_512 where b1 > '0');
@@ -219,9 +219,9 @@ select left(a1,7), left(a2,7)
 from t1_512
 where a1 in (select substring(b1,1,512) from t2_512 where b1 > '0');
 
--- group_concat with a blob argument - depends on
--- the variable group_concat_max_len, and
--- convert_blob_length == max_len*collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB
+# group_concat with a blob argument - depends on
+# the variable group_concat_max_len, and
+# convert_blob_length == max_len*collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB
 explain extended select left(a1,7), left(a2,7)
 from t1_512
 where a1 in (select group_concat(b1) from t2_512 group by b2);
@@ -230,7 +230,7 @@ select left(a1,7), left(a2,7)
 from t1_512
 where a1 in (select group_concat(b1) from t2_512 group by b2);
 
-set @@group_concat_max_len = 256; -- anything < (CONVERT_IF_BIGGER_TO_BLOB = 512)
+set @@group_concat_max_len = 256; # anything < (CONVERT_IF_BIGGER_TO_BLOB = 512)
 
 explain extended select left(a1,7), left(a2,7)
 from t1_512
@@ -242,7 +242,7 @@ where a1 in (select group_concat(b1) from t2_512 group by b2);
 
 drop table t1_512, t2_512, t3_512;
 
--- BLOB == 1024 (group_concat_max_len == 1024)
+# BLOB == 1024 (group_concat_max_len == 1024)
 set @blob_len = 1024;
 set @suffix_len = @blob_len - @prefix_len;
 
@@ -277,7 +277,7 @@ insert into t3_1024 values
 insert into t3_1024 values
  (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
 
--- single value transformer
+# single value transformer
 explain extended select left(a1,7), left(a2,7)
 from t1_1024
 where a1 in (select b1 from t2_1024 where b1 > '0');
@@ -286,7 +286,7 @@ select left(a1,7), left(a2,7)
 from t1_1024
 where a1 in (select b1 from t2_1024 where b1 > '0');
 
--- row value transformer
+# row value transformer
 explain extended select left(a1,7), left(a2,7)
 from t1_1024
 where (a1,a2) in (select b1, b2 from t2_1024 where b1 > '0');
@@ -295,7 +295,7 @@ select left(a1,7), left(a2,7)
 from t1_1024
 where (a1,a2) in (select b1, b2 from t2_1024 where b1 > '0');
 
--- string function with a blob argument, the return type may be != blob
+# string function with a blob argument, the return type may be != blob
 explain extended select left(a1,7), left(a2,7)
 from t1_1024
 where a1 in (select substring(b1,1,1024) from t2_1024 where b1 > '0');
@@ -304,9 +304,9 @@ select left(a1,7), left(a2,7)
 from t1_1024
 where a1 in (select substring(b1,1,1024) from t2_1024 where b1 > '0');
 
--- group_concat with a blob argument - depends on
--- the variable group_concat_max_len, and
--- convert_blob_length == max_len*collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB
+# group_concat with a blob argument - depends on
+# the variable group_concat_max_len, and
+# convert_blob_length == max_len*collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB
 explain extended select left(a1,7), left(a2,7)
 from t1_1024
 where a1 in (select group_concat(b1) from t2_1024 group by b2);
@@ -315,7 +315,7 @@ select left(a1,7), left(a2,7)
 from t1_1024
 where a1 in (select group_concat(b1) from t2_1024 group by b2);
 
-set @@group_concat_max_len = 256; -- anything < (CONVERT_IF_BIGGER_TO_BLOB = 1024)
+set @@group_concat_max_len = 256; # anything < (CONVERT_IF_BIGGER_TO_BLOB = 1024)
 
 explain extended select left(a1,7), left(a2,7)
 from t1_1024
@@ -327,7 +327,7 @@ where a1 in (select group_concat(b1) from t2_1024 group by b2);
 
 drop table t1_1024, t2_1024, t3_1024;
 
--- BLOB == 1025
+# BLOB == 1025
 set @blob_len = 1025;
 set @suffix_len = @blob_len - @prefix_len;
 
@@ -362,7 +362,7 @@ insert into t3_1025 values
 insert into t3_1025 values
  (concat('1 - 04', repeat('x', @suffix_len)), concat('2 - 04', repeat('x', @suffix_len)));
 
--- single value transformer
+# single value transformer
 explain extended select left(a1,7), left(a2,7)
 from t1_1025
 where a1 in (select b1 from t2_1025 where b1 > '0');
@@ -371,7 +371,7 @@ select left(a1,7), left(a2,7)
 from t1_1025
 where a1 in (select b1 from t2_1025 where b1 > '0');
 
--- row value transformer
+# row value transformer
 explain extended select left(a1,7), left(a2,7)
 from t1_1025
 where (a1,a2) in (select b1, b2 from t2_1025 where b1 > '0');
@@ -380,7 +380,7 @@ select left(a1,7), left(a2,7)
 from t1_1025
 where (a1,a2) in (select b1, b2 from t2_1025 where b1 > '0');
 
--- string function with a blob argument, the return type may be != blob
+# string function with a blob argument, the return type may be != blob
 explain extended select left(a1,7), left(a2,7)
 from t1_1025
 where a1 in (select substring(b1,1,1025) from t2_1025 where b1 > '0');
@@ -389,9 +389,9 @@ select left(a1,7), left(a2,7)
 from t1_1025
 where a1 in (select substring(b1,1,1025) from t2_1025 where b1 > '0');
 
--- group_concat with a blob argument - depends on
--- the variable group_concat_max_len, and
--- convert_blob_length == max_len*collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB
+# group_concat with a blob argument - depends on
+# the variable group_concat_max_len, and
+# convert_blob_length == max_len*collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB
 explain extended select left(a1,7), left(a2,7)
 from t1_1025
 where a1 in (select group_concat(b1) from t2_1025 group by b2);
@@ -400,7 +400,7 @@ select left(a1,7), left(a2,7)
 from t1_1025
 where a1 in (select group_concat(b1) from t2_1025 group by b2);
 
-set @@group_concat_max_len = 256; -- anything < (CONVERT_IF_BIGGER_TO_BLOB = 1025)
+set @@group_concat_max_len = 256; # anything < (CONVERT_IF_BIGGER_TO_BLOB = 1025)
 
 explain extended select left(a1,7), left(a2,7)
 from t1_1025
@@ -412,7 +412,7 @@ where a1 in (select group_concat(b1) from t2_1025 group by b2);
 
 drop table t1_1025, t2_1025, t3_1025;
 
--- test for BIT fields
+# test for BIT fields
 create table t1bit (a1 bit(3), a2 bit(3));
 create table t2bit (b1 bit(3), b2 bit(3));
 
@@ -436,7 +436,7 @@ where (a1, a2) in (select b1, b2 from t2bit);
 
 drop table t1bit, t2bit;
 
--- test mixture of BIT and BLOB
+# test mixture of BIT and BLOB
 create table t1bb (a1 bit(3), a2 blob(3));
 create table t2bb (b1 bit(3), b2 blob(3));
 
@@ -468,28 +468,28 @@ drop table t1bb, t2bb;
 ******************************************************************************/
 
 /* SELECT clause */
--- These queries used to crash
--- select ((a,b) IN (select * from sq2 where d > 0)) IS NULL from sq1;
--- select * from sq1 where ((a,b) IN (select * from sq2 where d > 0)) IS NULL;
+# These queries used to crash
+# select ((a,b) IN (select * from sq2 where d > 0)) IS NULL from sq1;
+# select * from sq1 where ((a,b) IN (select * from sq2 where d > 0)) IS NULL;
 
 /* FROM clause */
 
 /* GROUP BY clause */
--- explain extended
--- select * from t1 group by (select col_pos from columns limit 1);
+# explain extended
+# select * from t1 group by (select col_pos from columns limit 1);
 
--- TODO: possibly bug - the result contains only the last row of t1.
--- explain extended
--- select * from t1
--- group by (select col_name from columns limit 1);
+# TODO: possibly bug - the result contains only the last row of t1.
+# explain extended
+# select * from t1
+# group by (select col_name from columns limit 1);
 
--- explain extended
--- select * from t1 group by a1 in (select col_name from columns);
+# explain extended
+# select * from t1 group by a1 in (select col_name from columns);
 
 /* ORDER BY clause */
--- TODO: this must be a: it should be imppossible to have subqueries
--- with > 1 rows in GROUP BY.
--- explain extended
--- select * from t1 order by (select col_pos from columns);
+# TODO: this must be a: it should be imppossible to have subqueries
+# with > 1 rows in GROUP BY.
+# explain extended
+# select * from t1 order by (select col_pos from columns);
 
 drop table t1, t2, t3;

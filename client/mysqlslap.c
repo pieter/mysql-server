@@ -221,6 +221,8 @@ struct stats {
   long int timing;
   uint users;
   unsigned long long rows;
+  long int create_timing;
+  unsigned long long create_count;
 };
 
 typedef struct thread_context thread_context;
@@ -241,6 +243,11 @@ struct conclusions {
   unsigned long long avg_rows;
   long int sum_of_time;
   long int std_dev;
+  /* These are just for create time stats */
+  long int create_avg_timing;
+  long int create_max_timing;
+  long int create_min_timing;
+  unsigned long long create_count;
   /* The following are not used yet */
   unsigned long long max_rows;
   unsigned long long min_rows;
@@ -268,7 +275,7 @@ static statement * build_select_string(my_bool key);
 static int generate_primary_key_list(MYSQL *mysql, option_string *engine_stmt);
 static int drop_primary_key_list(void);
 static int create_schema(MYSQL *mysql, const char *db, statement *stmt, 
-              option_string *engine_stmt);
+                         option_string *engine_stmt, stats *sptr);
 static int run_scheduler(stats *sptr, statement *stmts, uint concur, 
                          ulonglong limit);
 pthread_handler_t run_task(void *p);
@@ -475,7 +482,7 @@ void concurrency_loop(MYSQL *mysql, uint current, option_string *eptr)
 
     /* First we create */
     if (create_statements)
-      create_schema(mysql, create_schema_string, create_statements, eptr);
+      create_schema(mysql, create_schema_string, create_statements, eptr, sptr);
 
     /*
       If we generated GUID we need to build a list of them from creation that
@@ -1719,14 +1726,17 @@ drop_primary_key_list(void)
 
 static int
 create_schema(MYSQL *mysql, const char *db, statement *stmt, 
-              option_string *engine_stmt)
+              option_string *engine_stmt, stats *sptr)
 {
   char query[HUGE_STRING_LENGTH];
   statement *ptr;
   statement *after_create;
   int len;
   ulonglong count;
+  struct timeval start_time, end_time;
   DBUG_ENTER("create_schema");
+
+  gettimeofday(&start_time, NULL);
 
   len= snprintf(query, HUGE_STRING_LENGTH, "CREATE SCHEMA `%s`", db);
 
@@ -1738,6 +1748,10 @@ create_schema(MYSQL *mysql, const char *db, statement *stmt,
     fprintf(stderr,"%s: Cannot create schema %s : %s\n", my_progname, db,
             mysql_error(mysql));
     exit(1);
+  }
+  else
+  {
+    sptr->create_count++;
   }
 
   if (opt_only_print)
@@ -1755,6 +1769,7 @@ create_schema(MYSQL *mysql, const char *db, statement *stmt,
               mysql_error(mysql));
       exit(1);
     }
+    sptr->create_count++;
   }
 
   if (engine_stmt)
@@ -1767,6 +1782,7 @@ create_schema(MYSQL *mysql, const char *db, statement *stmt,
               mysql_error(mysql));
       exit(1);
     }
+    sptr->create_count++;
   }
 
   count= 0;
@@ -1790,6 +1806,7 @@ limit_not_met:
                 my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
         exit(1);
       }
+      sptr->create_count++;
     }
     else
     {
@@ -1799,6 +1816,7 @@ limit_not_met:
                 my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
         exit(1);
       }
+      sptr->create_count++;
     }
   }
 
@@ -1808,6 +1826,10 @@ limit_not_met:
     after_create= stmt->next;
     goto limit_not_met;
   }
+
+  gettimeofday(&end_time, NULL);
+
+  sptr->create_timing= timedif(end_time, start_time);
 
   DBUG_RETURN(0);
 }
@@ -2279,6 +2301,8 @@ print_conclusions(conclusions *con)
     const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
     printf("\tLoad: %s\n", opt_label ? opt_label : ptr);
   }
+  printf("\tAverage Time took to generate schema and initial data: %ld.%03ld seconds\n",
+         con->create_avg_timing / 1000, con->create_avg_timing % 1000);
   printf("\tAverage number of seconds to run all queries: %ld.%03ld seconds\n",
          con->avg_timing / 1000, con->avg_timing % 1000);
   printf("\tMinimum number of seconds to run all queries: %ld.%03ld seconds\n",
@@ -2288,6 +2312,7 @@ print_conclusions(conclusions *con)
   printf("\tTotal time for tests: %ld.%03ld seconds\n", 
          con->sum_of_time / 1000, con->sum_of_time % 1000);
   printf("\tStandard Deviation: %ld.%03ld\n", con->std_dev / 1000, con->std_dev % 1000);
+  printf("\tNumber of queries in create queries: %llu\n", con->create_count);
   printf("\tNumber of clients running queries: %d\n", con->users);
   printf("\tAverage number of queries per client: %llu\n", con->avg_rows); 
   printf("\n");
@@ -2347,6 +2372,25 @@ generate_stats(conclusions *con, option_string *eng, stats *sptr)
     con->engine= NULL;
 
   standard_deviation(con, sptr);
+
+  /* Now we do the create time operations */
+  con->create_min_timing= sptr->create_timing; 
+  con->create_max_timing= sptr->create_timing;
+  
+  /* At the moment we assume uniform */
+  con->create_count= sptr->create_count;
+  
+  /* With no next, we know it is the last element that was malloced */
+  for (ptr= sptr, x= 0; x < iterations; ptr++, x++)
+  {
+    con->create_avg_timing+= ptr->create_timing;
+
+    if (ptr->create_timing > con->create_max_timing)
+      con->create_max_timing= ptr->create_timing;
+    if (ptr->create_timing < con->create_min_timing)
+      con->create_min_timing= ptr->create_timing;
+  }
+  con->create_avg_timing= con->create_avg_timing/iterations;
 }
 
 void

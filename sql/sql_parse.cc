@@ -911,7 +911,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
     status_var_increment(thd->status_var.com_stat[SQLCOM_SHOW_FIELDS]);
     bzero((char*) &table_list,sizeof(table_list));
-    if (thd->copy_db_to(&table_list.db, &dummy))
+    if (thd->copy_db_to(&table_list.db, &table_list.db_length))
       break;
     /*
       We have name + wildcard in packet, separated by endzero
@@ -1633,8 +1633,7 @@ mysql_execute_command(THD *thd)
     variables, but for now this is probably good enough.
     Don't reset warnings when executing a stored routine.
   */
-  if ((all_tables || &lex->select_lex != lex->all_selects_list ||
-       lex->sroutines.records) && !thd->spcont)
+  if ((all_tables || !lex->is_single_level_stmt()) && !thd->spcont)
     mysql_reset_errors(thd, 0);
 
 #ifdef HAVE_REPLICATION
@@ -3171,6 +3170,8 @@ end_with_restore_list:
   }
   case SQLCOM_SHOW_CREATE_DB:
   {
+    DBUG_EXECUTE_IF("4x_server_emul",
+                    my_error(ER_UNKNOWN_ERROR, MYF(0)); goto error;);
     if (check_db_name(&lex->name))
     {
       my_error(ER_WRONG_DB_NAME, MYF(0), lex->name.str);

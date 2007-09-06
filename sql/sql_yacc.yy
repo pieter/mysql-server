@@ -9042,7 +9042,7 @@ single_multi:
             if (multi_delete_set_locks_and_link_aux_tables(Lex))
               MYSQL_YYABORT;
           }
-	| FROM table_alias_ref_list
+        | FROM table_alias_ref_list
           { mysql_init_multi_delete(Lex); }
           USING join_table_list where_clause
           { 

@@ -298,6 +298,9 @@ sub mtr_report_stats ($) {
 		/Slave: .*master may suffer from/ or
 		/Slave: According to the master's version/ or
 		/Slave: Column [0-9]* type mismatch/ or
+                /Slave: Can't DROP '*'; check that column*key exists/ or
+                /Slave: Unknown column '*' in '*'/ or
+                /Slave: Key column '*' doesn't exixt in table/ or
 		/Slave: Error .* doesn't exist/ or
 		/Slave: Error .*Deadlock found/ or
 		/Slave: Error .*Unknown table/ or
@@ -347,7 +350,9 @@ sub mtr_report_stats ($) {
 
                 # BUG#29839 - lowercase_table3.test: Cannot find table test/T1
                 #             from the internal data dictiona
-                /Cannot find table test\/BUG29839 from the internal data dictionary/
+                /Cannot find table test\/BUG29839 from the internal data dictionary/ or
+                # rpl_ndb_basic expects this error
+                /Slave: Got error 146 during COMMIT Error_code: 1180/
 	       )
             {
               next;                       # Skip these lines

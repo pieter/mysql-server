@@ -35,7 +35,7 @@ eval CREATE FUNCTION myfunc_int RETURNS INTEGER SONAME "$UDF_EXAMPLE_LIB";
 --error ER_CANT_FIND_DL_ENTRY
 eval CREATE FUNCTION myfunc_nonexist RETURNS INTEGER SONAME "$UDF_EXAMPLE_LIB";
 --replace_column 3 UDF_LIB
-SELECT * FROM mysql.func;
+SELECT * FROM mysql.func ORDER BY name;
 --disable_info
 
 save_master_pos;
@@ -46,7 +46,7 @@ sync_with_master;
 --echo "Running on the slave"
 --enable_info
 --replace_column 3 UDF_LIB
-SELECT * FROM mysql.func;
+SELECT * FROM mysql.func ORDER BY name;
 --disable_info
 
 connection master;
@@ -81,7 +81,7 @@ connection master;
 --enable_info
 DROP FUNCTION myfunc_double;
 DROP FUNCTION myfunc_int;
-SELECT * FROM mysql.func;
+SELECT * FROM mysql.func ORDER BY name;
 --disable_info
 
 sync_slave_with_master;
@@ -89,7 +89,7 @@ sync_slave_with_master;
 # Check to see if the UDFs were dropped on the slave
 --echo "Running on the slave"
 --enable_info
-SELECT * FROM mysql.func;
+SELECT * FROM mysql.func ORDER BY name;
 --disable_info
 
 connection master;

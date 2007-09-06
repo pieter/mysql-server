@@ -69,10 +69,11 @@ TODO:
 
 */
 
-#define SLAP_VERSION "1.0"
+#define SLAP_VERSION "1.5"
 
 #define HUGE_STRING_LENGTH 8196
 #define RAND_STRING_SIZE 126
+#define DEFAULT_BLOB_SIZE 1024
 
 /* Types */
 #define SELECT_TYPE 0
@@ -113,6 +114,11 @@ uint master_wakeup;
 pthread_mutex_t sleeper_mutex;
 pthread_cond_t sleep_threshhold;
 
+/* Global Thread timer */
+static my_bool timer_alarm= FALSE;
+pthread_mutex_t timer_alarm_mutex;
+pthread_cond_t timer_alarm_threshold;
+
 static char **defaults_argv;
 
 char **primary_keys;
@@ -133,6 +139,7 @@ const char *create_schema_string= "mysqlslap";
 
 static my_bool opt_preserve= 0, debug_info_flag= 0, debug_check_flag= 0;
 static my_bool opt_only_print= FALSE;
+static my_bool opt_burnin= FALSE;
 static my_bool opt_compress= FALSE, tty_password= FALSE,
                opt_silent= FALSE,
                auto_generate_sql_autoincrement= FALSE,
@@ -145,12 +152,21 @@ static unsigned long connect_flags= CLIENT_MULTI_RESULTS;
 static int verbose, delimiter_length;
 static uint commit_rate;
 static uint detach_rate;
+static uint opt_timer_length;
+static uint opt_delayed_start;
 const char *num_int_cols_opt;
 const char *num_char_cols_opt;
+const char *num_blob_cols_opt;
+const char *opt_label;
+
+const char *auto_generate_selected_columns_opt;
 
 /* Yes, we do set defaults here */
 static unsigned int num_int_cols= 1;
 static unsigned int num_char_cols= 1;
+static unsigned int num_blob_cols= 0;
+static unsigned int num_blob_cols_size;
+static unsigned int num_blob_cols_size_min;
 static unsigned int num_int_cols_index= 0; 
 static unsigned int num_char_cols_index= 0;
 static unsigned int iterations;
@@ -205,6 +221,8 @@ struct stats {
   long int timing;
   uint users;
   unsigned long long rows;
+  long int create_timing;
+  unsigned long long create_count;
 };
 
 typedef struct thread_context thread_context;
@@ -223,6 +241,13 @@ struct conclusions {
   long int min_timing;
   uint users;
   unsigned long long avg_rows;
+  long int sum_of_time;
+  long int std_dev;
+  /* These are just for create time stats */
+  long int create_avg_timing;
+  long int create_max_timing;
+  long int create_min_timing;
+  unsigned long long create_count;
   /* The following are not used yet */
   unsigned long long max_rows;
   unsigned long long min_rows;
@@ -242,7 +267,7 @@ uint parse_comma(const char *string, uint **range);
 uint parse_delimiter(const char *script, statement **stmt, char delm);
 uint parse_option(const char *origin, option_string **stmt, char delm);
 static int drop_schema(MYSQL *mysql, const char *db);
-uint get_random_string(char *buf);
+uint get_random_string(char *buf, size_t size);
 static statement *build_table_string(void);
 static statement *build_insert_string(void);
 static statement *build_update_string(void);
@@ -250,16 +275,18 @@ static statement * build_select_string(my_bool key);
 static int generate_primary_key_list(MYSQL *mysql, option_string *engine_stmt);
 static int drop_primary_key_list(void);
 static int create_schema(MYSQL *mysql, const char *db, statement *stmt, 
-              option_string *engine_stmt);
+                         option_string *engine_stmt, stats *sptr);
 static int run_scheduler(stats *sptr, statement *stmts, uint concur, 
                          ulonglong limit);
 pthread_handler_t run_task(void *p);
+pthread_handler_t timer_thread(void *p);
 void statement_cleanup(statement *stmt);
 void option_cleanup(option_string *stmt);
 void concurrency_loop(MYSQL *mysql, uint current, option_string *eptr);
 static int run_statements(MYSQL *mysql, statement *stmt);
 int slap_connect(MYSQL *mysql);
 static int run_query(MYSQL *mysql, const char *query, int len);
+void standard_deviation (conclusions *con, stats *sptr);
 
 static const char ALPHANUMERICS[]=
   "0123456789ABCDEFGHIJKLMNOPQRSTWXYZabcdefghijklmnopqrstuvwxyz";
@@ -354,8 +381,12 @@ int main(int argc, char **argv)
   VOID(pthread_cond_init(&count_threshhold, NULL));
   VOID(pthread_mutex_init(&sleeper_mutex, NULL));
   VOID(pthread_cond_init(&sleep_threshhold, NULL));
+  VOID(pthread_mutex_init(&timer_alarm_mutex, NULL));
+  VOID(pthread_cond_init(&timer_alarm_threshold, NULL));
+
 
   /* Main iterations loop */
+burnin:
   eptr= engine_options;
   do
   {
@@ -383,11 +414,16 @@ int main(int argc, char **argv)
       drop_schema(&mysql, create_schema_string);
 
   } while (eptr ? (eptr= eptr->next) : 0);
+  
+  if (opt_burnin)
+    goto burnin;
 
   VOID(pthread_mutex_destroy(&counter_mutex));
   VOID(pthread_cond_destroy(&count_threshhold));
   VOID(pthread_mutex_destroy(&sleeper_mutex));
   VOID(pthread_cond_destroy(&sleep_threshhold));
+  VOID(pthread_mutex_destroy(&timer_alarm_mutex));
+  VOID(pthread_cond_destroy(&timer_alarm_threshold));
 
   if (!opt_only_print) 
     mysql_close(&mysql); /* Close & free connection */
@@ -446,7 +482,7 @@ void concurrency_loop(MYSQL *mysql, uint current, option_string *eptr)
 
     /* First we create */
     if (create_statements)
-      create_schema(mysql, create_schema_string, create_statements, eptr);
+      create_schema(mysql, create_schema_string, create_statements, eptr, sptr);
 
     /*
       If we generated GUID we need to build a list of them from creation that
@@ -502,6 +538,11 @@ static struct my_option my_long_options[] =
 {
   {"help", '?', "Display this help and exit.", 0, 0, 0, GET_NO_ARG, NO_ARG,
     0, 0, 0, 0, 0, 0},
+  {"auto-generate-sql-select-columns", OPT_SLAP_AUTO_GENERATE_SELECT_COLUMNS,
+    "Provide a string to use for the select fields used in auto tests.",
+    (uchar**) &auto_generate_selected_columns_opt, 
+    (uchar**) &auto_generate_selected_columns_opt,
+    0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"auto-generate-sql", 'a',
     "Generate SQL where not supplied by file or command line.",
     (uchar**) &auto_generate_sql, (uchar**) &auto_generate_sql,
@@ -546,6 +587,9 @@ static struct my_option my_long_options[] =
     "Number of rows to insert to used in read and write loads (default is 100).\n",
     (uchar**) &auto_generate_sql_number, (uchar**) &auto_generate_sql_number,
     0, GET_ULL, REQUIRED_ARG, 100, 0, 0, 0, 0, 0},
+  {"burnin", OPT_SLAP_BURNIN, "Run full test case in infinite loop.",
+    (uchar**) &opt_burnin, (uchar**) &opt_burnin, 0, GET_BOOL, NO_ARG, 0, 0, 0,
+    0, 0, 0},
   {"commit", OPT_SLAP_COMMIT, "Commit records after X number of statements.",
     (uchar**) &commit_rate, (uchar**) &commit_rate, 0, GET_UINT, REQUIRED_ARG,
     0, 0, 0, 0, 0, 0},
@@ -573,6 +617,10 @@ static struct my_option my_long_options[] =
    GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"debug-info", 'T', "Print some debug info at exit.", (uchar**) &debug_info_flag,
    (uchar**) &debug_info_flag, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"delayed-start", OPT_SLAP_DELAYED_START, 
+    "Delay the startup of threads by a random number of microsends (the maximum of the delay)",
+    (uchar**) &opt_delayed_start, (uchar**) &opt_delayed_start, 0, GET_UINT, 
+    REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"delimiter", 'F',
     "Delimiter to use in SQL statements supplied in file or command line.",
     (uchar**) &delimiter, (uchar**) &delimiter, 0, GET_STR, REQUIRED_ARG,
@@ -587,6 +635,13 @@ static struct my_option my_long_options[] =
     REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"iterations", 'i', "Number of times to run the tests.", (uchar**) &iterations,
     (uchar**) &iterations, 0, GET_UINT, REQUIRED_ARG, 1, 0, 0, 0, 0, 0},
+  {"label", OPT_SLAP_LABEL, "Label to use for print and csv output.",
+    (uchar**) &opt_label, (uchar**) &opt_label, 0,
+    GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"number-blob-cols", OPT_SLAP_BLOB_COL, 
+    "Number of BLOB columns to create table with if specifying --auto-generate-sql. Example --number-blob-cols=3:1024/2048 would give you 3 blobs with a random size between 1024 and 2048. ",
+    (uchar**) &num_blob_cols_opt, (uchar**) &num_blob_cols_opt, 0, GET_STR, REQUIRED_ARG,
+    0, 0, 0, 0, 0, 0},
   {"number-char-cols", 'x', 
     "Number of VARCHAR columns to create table with if specifying --auto-generate-sql ",
     (uchar**) &num_char_cols_opt, (uchar**) &num_char_cols_opt, 0, GET_STR, REQUIRED_ARG,
@@ -656,6 +711,10 @@ static struct my_option my_long_options[] =
     0, 0, 0, 0, 0, 0},
   {"socket", 'S', "Socket file to use for connection.",
     (uchar**) &opt_mysql_unix_port, (uchar**) &opt_mysql_unix_port, 0, GET_STR,
+    REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"timer-length", OPT_SLAP_TIMER_LENGTH, 
+    "Require mysqlslap to run each specific test a certain amount of time in seconds.", 
+    (uchar**) &opt_timer_length, (uchar**) &opt_timer_length, 0, GET_UINT, 
     REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 #include <sslopt-longopts.h>
 #ifndef DONT_ALLOW_USER_CHANGE
@@ -752,12 +811,12 @@ get_one_option(int optid, const struct my_option *opt __attribute__((unused)),
 
 
 uint
-get_random_string(char *buf)
+get_random_string(char *buf, size_t size)
 {
   char *buf_ptr= buf;
-  int x;
+  size_t x;
   DBUG_ENTER("get_random_string");
-  for (x= RAND_STRING_SIZE; x > 0; x--)
+  for (x= size; x > 0; x--)
     *buf_ptr++= ALPHANUMERICS[random() % ALPHANUMERICS_SIZE];
   DBUG_RETURN(buf_ptr - buf);
 }
@@ -781,7 +840,7 @@ build_table_string(void)
   DBUG_PRINT("info", ("num int cols %u num char cols %u",
                       num_int_cols, num_char_cols));
 
-  init_dynamic_string(&table_string, "", 1024, 1024);
+  init_dynamic_string(&table_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append(&table_string, "CREATE TABLE `t1` (");
 
@@ -874,7 +933,22 @@ build_table_string(void)
       }
       dynstr_append(&table_string, buf);
 
-      if (col_count < num_char_cols)
+      if (col_count < num_char_cols || num_blob_cols > 0)
+        dynstr_append(&table_string, ",");
+    }
+
+  if (num_blob_cols)
+    for (col_count= 1; col_count <= num_blob_cols; col_count++)
+    {
+      if (snprintf(buf, HUGE_STRING_LENGTH, "blobcol%d blob", 
+                   col_count) > HUGE_STRING_LENGTH)
+      {
+        fprintf(stderr, "Memory Allocation error in creating table\n");
+        exit(1);
+      }
+      dynstr_append(&table_string, buf);
+
+      if (col_count < num_blob_cols)
         dynstr_append(&table_string, ",");
     }
 
@@ -905,7 +979,7 @@ build_update_string(void)
   DYNAMIC_STRING update_string;
   DBUG_ENTER("build_update_string");
 
-  init_dynamic_string(&update_string, "", 1024, 1024);
+  init_dynamic_string(&update_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append(&update_string, "UPDATE t1 SET ");
 
@@ -928,7 +1002,7 @@ build_update_string(void)
     for (col_count= 1; col_count <= num_char_cols; col_count++)
     {
       char rand_buffer[RAND_STRING_SIZE];
-      int buf_len= get_random_string(rand_buffer);
+      int buf_len= get_random_string(rand_buffer, RAND_STRING_SIZE);
 
       if (snprintf(buf, HUGE_STRING_LENGTH, "charcol%d = '%.*s'", col_count, 
                    buf_len, rand_buffer) 
@@ -978,7 +1052,7 @@ build_insert_string(void)
   DYNAMIC_STRING insert_string;
   DBUG_ENTER("build_insert_string");
 
-  init_dynamic_string(&insert_string, "", 1024, 1024);
+  init_dynamic_string(&insert_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append(&insert_string, "INSERT INTO t1 VALUES (");
 
@@ -1031,25 +1105,74 @@ build_insert_string(void)
   if (num_char_cols)
     for (col_count= 1; col_count <= num_char_cols; col_count++)
     {
-      int buf_len= get_random_string(buf);
+      int buf_len= get_random_string(buf, RAND_STRING_SIZE);
       dynstr_append_mem(&insert_string, "'", 1);
       dynstr_append_mem(&insert_string, buf, buf_len);
       dynstr_append_mem(&insert_string, "'", 1);
 
-      if (col_count < num_char_cols)
+      if (col_count < num_char_cols || num_blob_cols > 0)
         dynstr_append_mem(&insert_string, ",", 1);
     }
 
+  if (num_blob_cols)
+  {
+    char *blob_ptr;
+
+    if (num_blob_cols_size > HUGE_STRING_LENGTH)
+    {
+      blob_ptr= (char *)my_malloc(sizeof(char)*num_blob_cols_size,
+                             MYF(MY_ZEROFILL|MY_FAE|MY_WME));
+      if (!blob_ptr)
+      {
+        fprintf(stderr, "Memory Allocation error in creating select\n");
+        exit(1);
+      }
+    }
+    else
+    {
+      blob_ptr= buf;
+    }
+
+    for (col_count= 1; col_count <= num_blob_cols; col_count++)
+    {
+      unsigned int buf_len;
+      unsigned int size;
+      unsigned int difference= num_blob_cols_size - num_blob_cols_size_min;
+
+      size= difference ? (num_blob_cols_size_min + (random() % difference)) : 
+                          num_blob_cols_size;
+
+      buf_len= get_random_string(blob_ptr, size);
+
+      dynstr_append_mem(&insert_string, "'", 1);
+      dynstr_append_mem(&insert_string, blob_ptr, buf_len);
+      dynstr_append_mem(&insert_string, "'", 1);
+
+      if (col_count < num_blob_cols)
+        dynstr_append_mem(&insert_string, ",", 1);
+    }
+
+    if (num_blob_cols_size > HUGE_STRING_LENGTH)
+      my_free(blob_ptr, MYF(0));
+  }
+
   dynstr_append_mem(&insert_string, ")", 1);
 
-  ptr= (statement *)my_malloc(sizeof(statement),
-                              MYF(MY_ZEROFILL|MY_FAE|MY_WME));
-  ptr->string= (char *)my_malloc(insert_string.length + 1,
-                              MYF(MY_ZEROFILL|MY_FAE|MY_WME));
+  if (!(ptr= (statement *)my_malloc(sizeof(statement), MYF(MY_ZEROFILL|MY_FAE|MY_WME))))
+  {
+    fprintf(stderr, "Memory Allocation error in creating select\n");
+    exit(1);
+  }
+  if (!(ptr->string= (char *)my_malloc(insert_string.length + 1, MYF(MY_ZEROFILL|MY_FAE|MY_WME))))
+  {
+    fprintf(stderr, "Memory Allocation error in creating select\n");
+    exit(1);
+  }
   ptr->length= insert_string.length+1;
   ptr->type= INSERT_TYPE;
   strmov(ptr->string, insert_string.str);
   dynstr_free(&insert_string);
+
   DBUG_RETURN(ptr);
 }
 
@@ -1069,36 +1192,56 @@ build_select_string(my_bool key)
   static DYNAMIC_STRING query_string;
   DBUG_ENTER("build_select_string");
 
-  init_dynamic_string(&query_string, "", 1024, 1024);
+  init_dynamic_string(&query_string, "", HUGE_STRING_LENGTH, HUGE_STRING_LENGTH);
 
   dynstr_append_mem(&query_string, "SELECT ", 7);
-  for (col_count= 1; col_count <= num_int_cols; col_count++)
+  if (auto_generate_selected_columns_opt)
   {
-    if (snprintf(buf, HUGE_STRING_LENGTH, "intcol%d", col_count) 
-        > HUGE_STRING_LENGTH)
-    {
-      fprintf(stderr, "Memory Allocation error in creating select\n");
-      exit(1);
-    }
-    dynstr_append(&query_string, buf);
-
-    if (col_count < num_int_cols || num_char_cols > 0)
-      dynstr_append_mem(&query_string, ",", 1);
-
+    dynstr_append(&query_string, auto_generate_selected_columns_opt);
   }
-  for (col_count= 1; col_count <= num_char_cols; col_count++)
+  else
   {
-    if (snprintf(buf, HUGE_STRING_LENGTH, "charcol%d", col_count)
-        > HUGE_STRING_LENGTH)
+    for (col_count= 1; col_count <= num_int_cols; col_count++)
     {
-      fprintf(stderr, "Memory Allocation error in creating select\n");
-      exit(1);
+      if (snprintf(buf, HUGE_STRING_LENGTH, "intcol%d", col_count) 
+          > HUGE_STRING_LENGTH)
+      {
+        fprintf(stderr, "Memory Allocation error in creating select\n");
+        exit(1);
+      }
+      dynstr_append(&query_string, buf);
+
+      if (col_count < num_int_cols || num_char_cols > 0)
+        dynstr_append_mem(&query_string, ",", 1);
+
     }
-    dynstr_append(&query_string, buf);
+    for (col_count= 1; col_count <= num_char_cols; col_count++)
+    {
+      if (snprintf(buf, HUGE_STRING_LENGTH, "charcol%d", col_count)
+          > HUGE_STRING_LENGTH)
+      {
+        fprintf(stderr, "Memory Allocation error in creating select\n");
+        exit(1);
+      }
+      dynstr_append(&query_string, buf);
 
-    if (col_count < num_char_cols)
-      dynstr_append_mem(&query_string, ",", 1);
+      if (col_count < num_char_cols || num_blob_cols > 0)
+        dynstr_append_mem(&query_string, ",", 1);
 
+    }
+    for (col_count= 1; col_count <= num_blob_cols; col_count++)
+    {
+      if (snprintf(buf, HUGE_STRING_LENGTH, "blobcol%d", col_count)
+          > HUGE_STRING_LENGTH)
+      {
+        fprintf(stderr, "Memory Allocation error in creating select\n");
+        exit(1);
+      }
+      dynstr_append(&query_string, buf);
+
+      if (col_count < num_blob_cols)
+        dynstr_append_mem(&query_string, ",", 1);
+    }
   }
   dynstr_append(&query_string, " FROM t1");
 
@@ -1231,6 +1374,33 @@ get_options(int *argc,char ***argv)
       num_char_cols_index= atoi(str->option);
     else
       num_char_cols_index= 0;
+    option_cleanup(str);
+  }
+
+  if (num_blob_cols_opt)
+  {
+    option_string *str;
+    parse_option(num_blob_cols_opt, &str, ',');
+    num_blob_cols= atoi(str->string);
+    if (str->option)
+    {
+      char *sep_ptr;
+
+      if ((sep_ptr= strchr(str->option, '/')))
+      {
+        num_blob_cols_size_min= atoi(str->option);
+        num_blob_cols_size= atoi(sep_ptr+1);
+      }
+      else
+      {
+        num_blob_cols_size_min= num_blob_cols_size= atoi(str->option);
+      }
+    }
+    else
+    {
+      num_blob_cols_size= DEFAULT_BLOB_SIZE;
+      num_blob_cols_size_min= DEFAULT_BLOB_SIZE;
+    }
     option_cleanup(str);
   }
 
@@ -1416,15 +1586,15 @@ get_options(int *argc,char ***argv)
     tmp_string[sbuf.st_size]= '\0';
     my_close(data_file,MYF(0));
     if (user_supplied_pre_statements)
-      actual_queries= parse_delimiter(tmp_string, &pre_statements,
-                                      delimiter[0]);
+      (void)parse_delimiter(tmp_string, &pre_statements,
+                            delimiter[0]);
     my_free(tmp_string, MYF(0));
   } 
   else if (user_supplied_pre_statements)
   {
-    actual_queries= parse_delimiter(user_supplied_pre_statements,
-                                    &pre_statements,
-                                    delimiter[0]);
+    (void)parse_delimiter(user_supplied_pre_statements,
+                          &pre_statements,
+                          delimiter[0]);
   }
 
   if (user_supplied_post_statements && my_stat(user_supplied_post_statements, &sbuf, MYF(0)))
@@ -1447,14 +1617,14 @@ get_options(int *argc,char ***argv)
     tmp_string[sbuf.st_size]= '\0';
     my_close(data_file,MYF(0));
     if (user_supplied_post_statements)
-      parse_delimiter(tmp_string, &post_statements,
-                      delimiter[0]);
+      (void)parse_delimiter(tmp_string, &post_statements,
+                            delimiter[0]);
     my_free(tmp_string, MYF(0));
   } 
   else if (user_supplied_post_statements)
   {
-    parse_delimiter(user_supplied_post_statements, &post_statements,
-                    delimiter[0]);
+    (void)parse_delimiter(user_supplied_post_statements, &post_statements,
+                          delimiter[0]);
   }
 
   if (verbose >= 2)
@@ -1556,14 +1726,17 @@ drop_primary_key_list(void)
 
 static int
 create_schema(MYSQL *mysql, const char *db, statement *stmt, 
-              option_string *engine_stmt)
+              option_string *engine_stmt, stats *sptr)
 {
   char query[HUGE_STRING_LENGTH];
   statement *ptr;
   statement *after_create;
   int len;
   ulonglong count;
+  struct timeval start_time, end_time;
   DBUG_ENTER("create_schema");
+
+  gettimeofday(&start_time, NULL);
 
   len= snprintf(query, HUGE_STRING_LENGTH, "CREATE SCHEMA `%s`", db);
 
@@ -1575,6 +1748,10 @@ create_schema(MYSQL *mysql, const char *db, statement *stmt,
     fprintf(stderr,"%s: Cannot create schema %s : %s\n", my_progname, db,
             mysql_error(mysql));
     exit(1);
+  }
+  else
+  {
+    sptr->create_count++;
   }
 
   if (opt_only_print)
@@ -1592,6 +1769,7 @@ create_schema(MYSQL *mysql, const char *db, statement *stmt,
               mysql_error(mysql));
       exit(1);
     }
+    sptr->create_count++;
   }
 
   if (engine_stmt)
@@ -1604,6 +1782,7 @@ create_schema(MYSQL *mysql, const char *db, statement *stmt,
               mysql_error(mysql));
       exit(1);
     }
+    sptr->create_count++;
   }
 
   count= 0;
@@ -1627,6 +1806,7 @@ limit_not_met:
                 my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
         exit(1);
       }
+      sptr->create_count++;
     }
     else
     {
@@ -1636,6 +1816,7 @@ limit_not_met:
                 my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
         exit(1);
       }
+      sptr->create_count++;
     }
   }
 
@@ -1645,6 +1826,10 @@ limit_not_met:
     after_create= stmt->next;
     goto limit_not_met;
   }
+
+  gettimeofday(&end_time, NULL);
+
+  sptr->create_timing= timedif(end_time, start_time);
 
   DBUG_RETURN(0);
 }
@@ -1673,6 +1858,7 @@ static int
 run_statements(MYSQL *mysql, statement *stmt) 
 {
   statement *ptr;
+  MYSQL_RES *result;
   DBUG_ENTER("run_statements");
 
   for (ptr= stmt; ptr && ptr->length; ptr= ptr->next)
@@ -1682,6 +1868,11 @@ run_statements(MYSQL *mysql, statement *stmt)
       fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
               my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
       exit(1);
+    }
+    if (mysql_field_count(mysql))
+    {
+      result= mysql_store_result(mysql);
+      mysql_free_result(result);
     }
   }
 
@@ -1717,12 +1908,29 @@ run_scheduler(stats *sptr, statement *stmts, uint concur, ulonglong limit)
     if (pthread_create(&mainthread, &attr, run_task, 
                        (void *)&con) != 0)
     {
-      fprintf(stderr,"%s: Could not create thread\n",
-              my_progname);
-      exit(0);
+      fprintf(stderr,"%s: Could not create thread\n", my_progname);
+      exit(1);
     }
     thread_counter++;
   }
+  /* 
+    The timer_thread belongs to all threads so it too obeys the wakeup 
+    call that run tasks obey.
+  */
+  if (opt_timer_length)
+  {
+    pthread_mutex_lock(&timer_alarm_mutex);
+    timer_alarm= TRUE;
+    pthread_mutex_unlock(&timer_alarm_mutex);
+
+    if (pthread_create(&mainthread, &attr, timer_thread, 
+                       (void *)&opt_timer_length) != 0)
+    {
+      fprintf(stderr,"%s: Could not create timer thread\n", my_progname);
+      exit(1);
+    }
+  }
+
   pthread_mutex_unlock(&counter_mutex);
   pthread_attr_destroy(&attr);
 
@@ -1757,6 +1965,37 @@ run_scheduler(stats *sptr, statement *stmts, uint concur, ulonglong limit)
 }
 
 
+pthread_handler_t timer_thread(void *p)
+{
+  uint *timer_length= (uint *)p;
+  struct timespec abstime;
+
+  DBUG_ENTER("timer_thread");
+
+  /* 
+    We lock around the initial call in case were we in a loop. This 
+    also keeps the value properly syncronized across call threads.
+  */
+  pthread_mutex_lock(&sleeper_mutex);
+  while (master_wakeup)
+  {
+    pthread_cond_wait(&sleep_threshhold, &sleeper_mutex);
+  }
+  pthread_mutex_unlock(&sleeper_mutex);
+
+  set_timespec(abstime, *timer_length);
+
+  pthread_mutex_lock(&timer_alarm_mutex);
+  pthread_cond_timedwait(&timer_alarm_threshold, &timer_alarm_mutex, &abstime);
+  pthread_mutex_unlock(&timer_alarm_mutex);
+
+  pthread_mutex_lock(&timer_alarm_mutex);
+  timer_alarm= FALSE;
+  pthread_mutex_unlock(&timer_alarm_mutex);
+
+  DBUG_RETURN(0);
+}
+
 pthread_handler_t run_task(void *p)
 {
   ulonglong counter= 0, queries;
@@ -1781,14 +2020,14 @@ pthread_handler_t run_task(void *p)
   {
     fprintf(stderr,"%s: mysql_init() failed ERROR : %s\n",
             my_progname, mysql_error(mysql));
-    exit(0);
+    exit(1);
   }
 
   if (mysql_thread_init())
   {
     fprintf(stderr,"%s: mysql_thread_init() failed ERROR : %s\n",
             my_progname, mysql_error(mysql));
-    exit(0);
+    exit(1);
   }
 
   DBUG_PRINT("info", ("trying to connect to host %s as user %s", host, user));
@@ -1812,6 +2051,13 @@ limit_not_met:
       if (!opt_only_print && detach_rate && !(trans_counter % detach_rate))
       {
         mysql_close(mysql);
+
+        if (!(mysql= mysql_init(NULL)))
+        {
+          fprintf(stderr,"%s: mysql_init() failed ERROR : %s\n",
+                  my_progname, mysql_error(mysql));
+          exit(0);
+        }
 
         if (slap_connect(mysql))
           goto end;
@@ -1850,7 +2096,7 @@ limit_not_met:
           {
             fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                     my_progname, (uint)length, buffer, mysql_error(mysql));
-            exit(0);
+            exit(1);
           }
         }
       }
@@ -1860,7 +2106,7 @@ limit_not_met:
         {
           fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                   my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
-          exit(0);
+          exit(1);
         }
       }
 
@@ -1876,12 +2122,21 @@ limit_not_met:
       if (commit_rate && commit_rate <= trans_counter)
         run_query(mysql, "COMMIT", strlen("COMMIT"));
 
-      if (con->limit && queries == con->limit)
+      /* If the timer is set, and the alarm is not active then end */
+      if (opt_timer_length && timer_alarm == FALSE)
+        goto end;
+
+      /* If limit has been reached, and we are not in a timer_alarm just end */
+      if (con->limit && queries == con->limit && timer_alarm == FALSE)
         goto end;
     }
 
+    if (opt_timer_length && timer_alarm == TRUE)
+      goto limit_not_met;
+
     if (con->limit && queries < con->limit)
       goto limit_not_met;
+
 
 end:
   if (commit_rate)
@@ -1900,6 +2155,10 @@ end:
   DBUG_RETURN(0);
 }
 
+/*
+  Parse records from comma seperated string. : is a reserved character and is used for options
+  on variables.
+*/
 uint
 parse_option(const char *origin, option_string **stmt, char delm)
 {
@@ -2002,7 +2261,6 @@ parse_delimiter(const char *script, statement **stmt, char delm)
     ptr+= retstr - ptr + 1;
     if (isspace(*ptr))
       ptr++;
-    count++;
   }
 
   if (ptr != script+length)
@@ -2049,13 +2307,24 @@ print_conclusions(conclusions *con)
 {
   printf("Benchmark\n");
   if (con->engine)
-    printf("\tRunning for engine %s\n", con->engine);
+      printf("\tRunning for engine %s\n", con->engine);
+  if (opt_label || auto_generate_sql_type)
+  {
+    const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
+    printf("\tLoad: %s\n", opt_label ? opt_label : ptr);
+  }
+  printf("\tAverage Time took to generate schema and initial data: %ld.%03ld seconds\n",
+         con->create_avg_timing / 1000, con->create_avg_timing % 1000);
   printf("\tAverage number of seconds to run all queries: %ld.%03ld seconds\n",
-                    con->avg_timing / 1000, con->avg_timing % 1000);
+         con->avg_timing / 1000, con->avg_timing % 1000);
   printf("\tMinimum number of seconds to run all queries: %ld.%03ld seconds\n",
-                    con->min_timing / 1000, con->min_timing % 1000);
+         con->min_timing / 1000, con->min_timing % 1000);
   printf("\tMaximum number of seconds to run all queries: %ld.%03ld seconds\n",
-                    con->max_timing / 1000, con->max_timing % 1000);
+         con->max_timing / 1000, con->max_timing % 1000);
+  printf("\tTotal time for tests: %ld.%03ld seconds\n", 
+         con->sum_of_time / 1000, con->sum_of_time % 1000);
+  printf("\tStandard Deviation: %ld.%03ld\n", con->std_dev / 1000, con->std_dev % 1000);
+  printf("\tNumber of queries in create queries: %llu\n", con->create_count);
   printf("\tNumber of clients running queries: %d\n", con->users);
   printf("\tAverage number of queries per client: %llu\n", con->avg_rows); 
   printf("\n");
@@ -2067,13 +2336,15 @@ print_conclusions_csv(conclusions *con)
   char buffer[HUGE_STRING_LENGTH];
   const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
   snprintf(buffer, HUGE_STRING_LENGTH, 
-           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%d,%llu\n",
+           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%d,%llu\n",
            con->engine ? con->engine : "", /* Storage engine we ran against */
-           ptr, /* Load type */
+           opt_label ? opt_label : ptr, /* Load type */
            con->avg_timing / 1000, con->avg_timing % 1000, /* Time to load */
            con->min_timing / 1000, con->min_timing % 1000, /* Min time */
            con->max_timing / 1000, con->max_timing % 1000, /* Max time */
-           con->users, /* Children used */
+           con->sum_of_time / 1000, con->sum_of_time % 1000, /* Total time */
+           con->std_dev / 1000, con->std_dev % 1000, /* Standard Deviation */
+           con->users, /* Children used max_timing */
            con->avg_rows  /* Queries run */
           );
   my_write(csv_file, (uchar*) buffer, (uint)strlen(buffer), MYF(0));
@@ -2104,12 +2375,34 @@ generate_stats(conclusions *con, option_string *eng, stats *sptr)
     if (ptr->timing < con->min_timing)
       con->min_timing= ptr->timing;
   }
+  con->sum_of_time= con->avg_timing;
   con->avg_timing= con->avg_timing/iterations;
 
   if (eng && eng->string)
     con->engine= eng->string;
   else
     con->engine= NULL;
+
+  standard_deviation(con, sptr);
+
+  /* Now we do the create time operations */
+  con->create_min_timing= sptr->create_timing; 
+  con->create_max_timing= sptr->create_timing;
+  
+  /* At the moment we assume uniform */
+  con->create_count= sptr->create_count;
+  
+  /* With no next, we know it is the last element that was malloced */
+  for (ptr= sptr, x= 0; x < iterations; ptr++, x++)
+  {
+    con->create_avg_timing+= ptr->create_timing;
+
+    if (ptr->create_timing > con->create_max_timing)
+      con->create_max_timing= ptr->create_timing;
+    if (ptr->create_timing < con->create_min_timing)
+      con->create_min_timing= ptr->create_timing;
+  }
+  con->create_avg_timing= con->create_avg_timing/iterations;
 }
 
 void
@@ -2153,6 +2446,10 @@ slap_connect(MYSQL *mysql)
   /* Connect to server */
   static ulong connection_retry_sleep= 100000; /* Microseconds */
   int x, connect_error= 1;
+
+  if (opt_delayed_start)
+    my_sleep(random()%opt_delayed_start);
+
   for (x= 0; x < 10; x++)
   {
     if (mysql_real_connect(mysql, host, user, opt_password,
@@ -2171,8 +2468,34 @@ slap_connect(MYSQL *mysql)
   {
     fprintf(stderr,"%s: Error when connecting to server: %d %s\n",
             my_progname, mysql_errno(mysql), mysql_error(mysql));
-    return 1;
+    exit(1);
   }
 
   return 0;
+}
+
+void 
+standard_deviation (conclusions *con, stats *sptr)
+{
+  unsigned int x;
+  long int sum_of_squares;
+  double catch;
+  stats *ptr;
+
+  if (iterations == 1 || iterations == 0)
+  {
+    con->std_dev= 0;
+    return;
+  }
+
+  for (ptr= sptr, x= 0, sum_of_squares= 0; x < iterations; ptr++, x++)
+  {
+    long int deviation;
+
+    deviation= ptr->timing - con->avg_timing;
+    sum_of_squares+= deviation*deviation;
+  }
+
+  catch= sqrt((double)(sum_of_squares/(iterations -1)));
+  con->std_dev= (long int)catch;
 }

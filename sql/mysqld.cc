@@ -414,6 +414,7 @@ ulong ndb_extra_logging;
 #ifdef HAVE_NDB_BINLOG
 ulong ndb_report_thresh_binlog_epoch_slip;
 ulong ndb_report_thresh_binlog_mem_usage;
+my_bool opt_ndb_log_orig;
 #endif
 
 extern const char *ndb_distribution_names[];
@@ -4993,6 +4994,7 @@ enum options_mysqld
   OPT_NDB_REPORT_THRESH_BINLOG_EPOCH_SLIP,
   OPT_NDB_REPORT_THRESH_BINLOG_MEM_USAGE,
   OPT_NDB_USE_COPYING_ALTER_TABLE,
+  OPT_NDB_LOG_ORIG,
   OPT_SKIP_SAFEMALLOC,
   OPT_TEMP_POOL, OPT_TX_ISOLATION, OPT_COMPLETION_TYPE,
   OPT_SKIP_STACK_TRACE, OPT_SKIP_SYMLINKS,
@@ -5510,6 +5512,12 @@ thread is in the master's binlogs.",
    (uchar**) &ndb_report_thresh_binlog_mem_usage,
    (uchar**) &ndb_report_thresh_binlog_mem_usage,
    0, GET_ULONG, REQUIRED_ARG, 10, 0, 100, 0, 0, 0},
+  {"ndb-log-orig", OPT_NDB_LOG_ORIG,
+   "Log originating server id and epoch in ndb_binlog_index.  Each epoch may in this case have "
+   "multiple rows in ndb_binlog_index, one for each originating epoch.",
+   (uchar**) &opt_ndb_log_orig,
+   (uchar**) &opt_ndb_log_orig,
+   0, GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, 0},
 #endif
   {"ndb-use-exact-count", OPT_NDB_USE_EXACT_COUNT,
    "Use exact records count during query planning and for fast "

@@ -503,9 +503,9 @@ int check_user(THD *thd, enum enum_server_command command,
                     thd->main_security_ctx.host_or_ip,
                     passwd_len ? ER(ER_YES) : ER(ER_NO));
   /* 
-    log access denied messages to the error log when log-warnings = 2
+    Log access denied messages to the error log when log-warnings = 2
     so that the overhead of the general query log is not required to track 
-    failed connections 
+    failed connections.
   */
   if (global_system_variables.log_warnings > 1)
   {

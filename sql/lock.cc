@@ -276,6 +276,8 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count,
                                                      thd->lock_id)];
     if (rc > 1)                                 /* a timeout or a deadlock */
     {
+      if (sql_lock->table_count)
+        VOID(unlock_external(thd, sql_lock->table, sql_lock->table_count));
       my_error(rc, MYF(0));
       my_free((uchar*) sql_lock,MYF(0));
       sql_lock= 0;
@@ -1783,6 +1785,7 @@ int set_handler_table_locks(THD *thd, TABLE_LIST *table_list,
 
     DBUG_ASSERT((tlist->lock_type == TL_READ) ||
                 (tlist->lock_type == TL_READ_NO_INSERT) ||
+                (tlist->lock_type == TL_WRITE_DEFAULT) ||
                 (tlist->lock_type == TL_WRITE) ||
                 (tlist->lock_type == TL_WRITE_LOW_PRIORITY));
 

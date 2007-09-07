@@ -11,10 +11,11 @@
 
 /* @(#) $Id$ */
 
-#include "azlib.h"
+#include "azio.h"
 
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 static int const gz_magic[2] = {0x1f, 0x8b}; /* gzip magic header */
 static int const az_magic[3] = {0xfe, 0x03, 0x01}; /* az magic header */
@@ -27,15 +28,16 @@ static int const az_magic[3] = {0xfe, 0x03, 0x01}; /* az magic header */
 #define COMMENT      0x10 /* bit 4 set: file comment present */
 #define RESERVED     0xE0 /* bits 5..7: reserved */
 
-int az_open(azio_stream *s, const char *path, int Flags, File  fd);
-int do_flush(azio_stream *file, int flush);
-int    get_byte(azio_stream *s);
-void   check_header(azio_stream *s);
-void write_header(azio_stream *s);
-int    destroy(azio_stream *s);
-void putLong(File file, uLong x);
-uLong  getLong(azio_stream *s);
-void read_header(azio_stream *s, unsigned char *buffer);
+static int az_open(azio_stream *s, const char *path, int Flags, File  fd);
+static int do_flush(azio_stream *file, int flush);
+static int    get_byte(azio_stream *s);
+static void   check_header(azio_stream *s);
+static void write_header(azio_stream *s);
+static int    destroy(azio_stream *s);
+static void putLong(File file, uLong x);
+static uLong  getLong(azio_stream *s);
+static void read_header(azio_stream *s, unsigned char *buffer);
+static void get_block(azio_stream *s);
 
 /* ===========================================================================
   Opens a gzip (.gz) file for reading or writing. The mode parameter
@@ -49,14 +51,26 @@ void read_header(azio_stream *s, unsigned char *buffer);
 int az_open (azio_stream *s, const char *path, int Flags, File fd)
 {
   int err;
-  int level = Z_DEFAULT_COMPRESSION; /* compression level */
+  int level = Z_DEFAULT_COMPRESSION ; /* compression level */
   int strategy = Z_DEFAULT_STRATEGY; /* compression strategy */
+
+  bzero(s, sizeof(azio_stream));
 
   s->stream.zalloc = (alloc_func)0;
   s->stream.zfree = (free_func)0;
   s->stream.opaque = (voidpf)0;
-  memset(s->inbuf, 0, AZ_BUFSIZE_READ);
-  memset(s->outbuf, 0, AZ_BUFSIZE_WRITE);
+
+
+#ifdef HAVE_LIBRT
+  s->container.aio_offset = 0;
+  s->container.aio_buf = (void *)s->buffer1;
+  s->container.aio_nbytes = AZ_BUFSIZE_READ;
+  s->container.aio_sigevent.sigev_notify = SIGEV_NONE;
+#endif
+  s->not_init= 0;
+  s->coin= 0;
+
+  s->inbuf= s->buffer1;
   s->stream.next_in = s->inbuf;
   s->stream.next_out = s->outbuf;
   s->stream.avail_in = s->stream.avail_out = 0;
@@ -70,6 +84,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
   s->mode = 'r';
   s->version = (unsigned char)az_magic[1]; /* this needs to be a define to version */
   s->version = (unsigned char)az_magic[2]; /* minor version */
+  s->pos= 0;
 
   /*
     We do our own version of append by nature. 
@@ -113,6 +128,9 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
 
   errno = 0;
   s->file = fd < 0 ? my_open(path, Flags, MYF(0)) : fd;
+#ifdef HAVE_LIBRT
+  s->container.aio_fildes= s->file;
+#endif
 
   if (s->file < 0 ) 
   {
@@ -225,7 +243,7 @@ int get_byte(s)
   if (s->stream.avail_in == 0) 
   {
     errno = 0;
-    s->stream.avail_in = my_read(s->file, (uchar *)s->inbuf, AZ_BUFSIZE_READ, MYF(0));
+    get_block(s);
     if (s->stream.avail_in == 0) 
     {
       s->z_eof = 1;
@@ -261,7 +279,8 @@ void check_header(azio_stream *s)
   if (len < 2) {
     if (len) s->inbuf[0] = s->stream.next_in[0];
     errno = 0;
-    len = (uInt)my_read(s->file, (uchar *)s->inbuf + len, AZ_BUFSIZE_READ >> len, MYF(0));
+    len = (uInt)my_pread(s->file, (uchar *)s->inbuf + len, AZ_BUFSIZE_READ >> len, s->pos, MYF(0));
+    s->pos+= len;
     if (len == 0) s->z_err = Z_ERRNO;
     s->stream.avail_in += len;
     s->stream.next_in = s->inbuf;
@@ -305,7 +324,7 @@ void check_header(azio_stream *s)
       for (len = 0; len < 2; len++) (void)get_byte(s);
     }
     s->z_err = s->z_eof ? Z_DATA_ERROR : Z_OK;
-    s->start = my_tell(s->file, MYF(0)) - s->stream.avail_in;
+    s->start = s->pos - s->stream.avail_in;
   }
   else if ( s->stream.next_in[0] == az_magic[0]  && s->stream.next_in[1] == az_magic[1])
   {
@@ -442,8 +461,11 @@ unsigned int ZEXPORT azread ( azio_stream *s, voidp buf, unsigned int len, int *
       }
       if (s->stream.avail_out > 0) 
       {
-        s->stream.avail_out -=
-          (uInt)my_read(s->file, (uchar *)next_out, s->stream.avail_out, MYF(0));
+        /* We really should be checking for error here */
+        unsigned int read;
+        read= (unsigned int)my_pread(s->file, (uchar *)next_out, s->stream.avail_out, s->pos, MYF(0));
+        s->stream.avail_out -=read;
+        s->pos+= read;
       }
       len -= s->stream.avail_out;
       s->in  += len;
@@ -456,7 +478,7 @@ unsigned int ZEXPORT azread ( azio_stream *s, voidp buf, unsigned int len, int *
     if (s->stream.avail_in == 0 && !s->z_eof) {
 
       errno = 0;
-      s->stream.avail_in = (uInt)my_read(s->file, (uchar *)s->inbuf, AZ_BUFSIZE_READ, MYF(0));
+      get_block(s);
       if (s->stream.avail_in == 0) 
       {
         s->z_eof = 1;
@@ -650,7 +672,12 @@ int azrewind (s)
   if (!s->transparent) (void)inflateReset(&s->stream);
   s->in = 0;
   s->out = 0;
-  return my_seek(s->file, (int)s->start, MY_SEEK_SET, MYF(0)) == MY_FILEPOS_ERROR;
+  s->not_init= 0; /* Reset the AIO reader */
+#ifdef HAVE_LIBRT
+  aio_cancel(s->file, &s->container);
+#endif
+  s->pos= s->start;
+  return 0;
 }
 
 /* ===========================================================================
@@ -868,4 +895,53 @@ int azread_comment(azio_stream *s, char *blob)
            MYF(0));
 
   return 0;
+}
+static void get_block(azio_stream *s)
+{
+#ifdef HAVE_LIBRT
+  if (s->aio)
+  {
+    int rc;
+
+    if (!s->not_init)
+    {
+      s->container.aio_offset= s->pos;
+      s->container.aio_buf= (void *)s->buffer1;
+      s->container.aio_fildes= s->file;
+      s->coin= 0;
+      if ((rc= aio_read(&s->container)))
+      {
+        fprintf(stderr, "Errno for aio_read %d (%s)\n", errno, strerror(errno));
+      }
+      s->not_init= 1;
+    }
+
+    while ((rc= aio_error(&s->container) == EINPROGRESS));
+    s->stream.avail_in= (unsigned int)aio_return(&s->container);
+    s->pos+= s->stream.avail_in;
+    if ((ssize_t)aio_return(&s->container) == -1)
+    {
+      fprintf(stderr, "Errno %d (%s)\n", errno, strerror(errno));
+    }
+    if (s->coin)
+    {
+      s->inbuf= s->buffer2;
+      s->container.aio_buf= (void *)s->buffer1;
+      s->coin= 0;
+    }
+    else
+    {
+      s->inbuf= s->buffer1;
+      s->container.aio_buf= (void *)s->buffer2;
+      s->coin= 1;
+    }
+    s->container.aio_offset= s->pos;
+    aio_read(&s->container);
+  }
+  else
+#endif
+  {
+    s->stream.avail_in = (uInt)my_pread(s->file, (uchar *)s->inbuf, AZ_BUFSIZE_READ, s->pos, MYF(0));
+    s->pos+= s->stream.avail_in;
+  }
 }

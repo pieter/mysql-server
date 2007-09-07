@@ -13,7 +13,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA */
 
-#include "azlib.h"
+#include "azio.h"
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
@@ -41,7 +41,7 @@ char test_string[BUFFER_LEN];
 #define EIGHTGIG LL(8589934592)
 
 /* prototypes */
-int size_test(unsigned long long length, unsigned long long rows_to_test_for);
+int size_test(unsigned long long length, unsigned long long rows_to_test_for, int aio);
 
 
 int main(int argc, char *argv[])
@@ -221,22 +221,26 @@ int main(int argc, char *argv[])
 
   /* Start size tests */
   printf("About to run 2/4/8 gig tests now, you may want to hit CTRL-C\n");
-  size_test(TWOGIG, 2088992L);
-  size_test(FOURGIG, 4177984L);
-  size_test(EIGHTGIG, 8355968L);
+  size_test(TWOGIG, 2088992L, 0);
+  size_test(FOURGIG, 4177984L, 0);
+  size_test(EIGHTGIG, 8355968L, 0);
+  size_test(TWOGIG, 2088992L, 1);
+  size_test(FOURGIG, 4177984L, 1);
+  size_test(EIGHTGIG, 8355968L, 1);
 
   return 0;
 }
 
-int size_test(unsigned long long length, unsigned long long rows_to_test_for)
+int size_test(unsigned long long length, unsigned long long rows_to_test_for, int aio)
 {
   azio_stream writer_handle, reader_handle;
   unsigned long long write_length;
-  unsigned long long read_length= 0;
+  unsigned long long read_length;
   unsigned long long count;
   unsigned int ret;
   char buffer[BUFFER_LEN];
   int error;
+  int x;
 
   if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY)))
   {
@@ -270,19 +274,26 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for)
     return 0;
   }
 
-  while ((ret= azread(&reader_handle, buffer, BUFFER_LEN, &error)))
-  {
-    read_length+= ret;
-    assert(!memcmp(buffer, test_string, ret));
-    if (ret != BUFFER_LEN)
-    {
-      printf("Size %u\n", ret);
-      assert(ret != BUFFER_LEN);
-    }
-  }
+  reader_handle.aio= aio;
 
-  assert(read_length == write_length);
-  assert(writer_handle.rows == rows_to_test_for);
+  for (x= 0, read_length= 0; x < 2; x++, read_length= 0)
+  {
+    printf("Pass %d of azread()\n", x);
+    while ((ret= azread(&reader_handle, buffer, BUFFER_LEN, &error)))
+    {
+      read_length+= ret;
+      assert(!memcmp(buffer, test_string, ret));
+      if (ret != BUFFER_LEN)
+      {
+        printf("Size %u\n", ret);
+        assert(ret != BUFFER_LEN);
+      }
+    }
+    azrewind(&reader_handle);
+
+    assert(read_length == write_length);
+    assert(writer_handle.rows == rows_to_test_for);
+  }
   azclose(&writer_handle);
   azclose(&reader_handle);
   unlink(TEST_FILENAME);

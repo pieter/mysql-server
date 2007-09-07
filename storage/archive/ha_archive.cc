@@ -116,6 +116,11 @@ int archive_discover(handlerton *hton, THD* thd, const char *db,
                      const char *name,
                      uchar **frmblob, 
                      size_t *frmlen);
+#ifdef HAVE_LIBRT
+static my_bool archive_use_aio= TRUE;
+#else
+static my_bool archive_use_aio= FALSE;
+#endif
 
 /*
   Number of rows that will force a bulk insert.
@@ -455,6 +460,9 @@ int ha_archive::init_archive_reader()
       share->crashed= TRUE;
       DBUG_RETURN(1);
     }
+#ifdef HAVE_LIBRT
+    archive.aio= archive_use_aio;
+#endif
     archive_reader_open= TRUE;
   }
 
@@ -1630,6 +1638,16 @@ void ha_archive::destroy_record_buffer(archive_record_buffer *r)
   DBUG_VOID_RETURN;
 }
 
+static MYSQL_SYSVAR_BOOL(aio, archive_use_aio,
+  PLUGIN_VAR_NOCMDOPT,
+  "Whether or not to use POSIX aio.",
+  NULL, NULL, TRUE);
+
+static struct st_mysql_sys_var* archive_system_variables[]= {
+  MYSQL_SYSVAR(aio),
+  NULL
+};
+
 struct st_mysql_storage_engine archive_storage_engine=
 { MYSQL_HANDLERTON_INTERFACE_VERSION };
 
@@ -1643,9 +1661,9 @@ mysql_declare_plugin(archive)
   PLUGIN_LICENSE_GPL,
   archive_db_init, /* Plugin Init */
   archive_db_done, /* Plugin Deinit */
-  0x0300 /* 3.0 */,
+  0x0350 /* 3.0 */,
   NULL,                       /* status variables                */
-  NULL,                       /* system variables                */
+  archive_system_variables,   /* system variables                */
   NULL                        /* config options                  */
 }
 mysql_declare_plugin_end;

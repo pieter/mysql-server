@@ -18,7 +18,7 @@
 #endif
 
 #include <zlib.h>
-#include "azlib.h"
+#include "azio.h"
 
 /*
   Please read ha_archive.cc first. If you are looking for more general

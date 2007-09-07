@@ -15531,7 +15531,7 @@ crash:
   char buf[255];
   BaseString::snprintf(buf, sizeof(buf), 
 		       "Error while reading REDO log. from %d\n"
-		       "D=%d, F=%d Mb=%d FP=%d W1=%d W2=%d : %s",
+		       "D=%d, F=%d Mb=%d FP=%d W1=%d W2=%d : %s gci: %u",
 		       signal->theData[8],
 		       signal->theData[2], 
 		       signal->theData[3], 
@@ -15539,7 +15539,8 @@ crash:
 		       signal->theData[5], 
 		       signal->theData[6], 
 		       signal->theData[7],
-		       crash_msg ? crash_msg : "");
+		       crash_msg ? crash_msg : "",
+		       logPartPtr.p->logLastGci);
   
   progError(__LINE__, NDBD_EXIT_SR_REDOLOG, buf);  
 }//Dblqh::execSr()
@@ -18471,13 +18472,14 @@ void Dblqh::sendLqhTransconf(Signal* signal, LqhTransConf::OperationStatus stat)
   lqhTransConf->transId2        = tcConnectptr.p->transid[1];
   lqhTransConf->oldTcOpRec      = tcConnectptr.p->tcOprec;
   lqhTransConf->requestInfo     = reqInfo;
-  lqhTransConf->gci             = tcConnectptr.p->gci_hi;
+  lqhTransConf->gci_hi          = tcConnectptr.p->gci_hi;
   lqhTransConf->nextNodeId1     = tcConnectptr.p->nextReplica;
   lqhTransConf->nextNodeId2     = tcConnectptr.p->nodeAfterNext[0];
   lqhTransConf->nextNodeId3     = tcConnectptr.p->nodeAfterNext[1];
   lqhTransConf->apiRef          = tcConnectptr.p->applRef;
   lqhTransConf->apiOpRec        = tcConnectptr.p->applOprec;
   lqhTransConf->tableId         = tcConnectptr.p->tableref;
+  lqhTransConf->gci_lo          = tcConnectptr.p->gci_lo;
   sendSignal(tcNodeFailptr.p->newTcBlockref, GSN_LQH_TRANSCONF, 
 	     signal, LqhTransConf::SignalLength, JBB);
   tcNodeFailptr.p->tcRecNow = tcConnectptr.i + 1;

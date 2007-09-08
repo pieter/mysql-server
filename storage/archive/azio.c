@@ -54,7 +54,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
   int level = Z_DEFAULT_COMPRESSION ; /* compression level */
   int strategy = Z_DEFAULT_STRATEGY; /* compression strategy */
 
-  bzero(s, sizeof(azio_stream));
+  memset(s, 0, sizeof(azio_stream));
 
   s->stream.zalloc = (alloc_func)0;
   s->stream.zfree = (free_func)0;
@@ -67,24 +67,16 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
   s->container.aio_nbytes = AZ_BUFSIZE_READ;
   s->container.aio_sigevent.sigev_notify = SIGEV_NONE;
 #endif
-  s->not_init= 0;
-  s->coin= 0;
 
   s->inbuf= s->buffer1;
   s->stream.next_in = s->inbuf;
   s->stream.next_out = s->outbuf;
-  s->stream.avail_in = s->stream.avail_out = 0;
   s->z_err = Z_OK;
-  s->z_eof = 0;
-  s->in = 0;
-  s->out = 0;
   s->back = EOF;
   s->crc = crc32(0L, Z_NULL, 0);
-  s->transparent = 0;
   s->mode = 'r';
   s->version = (unsigned char)az_magic[1]; /* this needs to be a define to version */
   s->version = (unsigned char)az_magic[2]; /* minor version */
-  s->pos= 0;
 
   /*
     We do our own version of append by nature. 

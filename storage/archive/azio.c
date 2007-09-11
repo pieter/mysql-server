@@ -807,6 +807,15 @@ int azclose (azio_stream *s)
 {
 
   if (s == NULL) return Z_STREAM_ERROR;
+
+  if (s->aio)
+  {
+    const struct aiocb *list[1];
+
+    aio_cancel(s->file, &s->container);
+    list[0]= &s->container;
+    aio_suspend(list, 1, 0);
+  }
   
   if (s->file < 1) return Z_OK;
 

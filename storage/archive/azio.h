@@ -42,8 +42,9 @@
 #endif
 
 #include <zlib.h>
+#include "my_global.h"
+#include "my_sys.h"
 
-#include "../../mysys/mysys_priv.h"
 #include <my_dir.h>
 
 #ifdef  __cplusplus

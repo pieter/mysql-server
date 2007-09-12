@@ -808,6 +808,7 @@ int azclose (azio_stream *s)
 
   if (s == NULL) return Z_STREAM_ERROR;
 
+#ifdef HAVE_LIBRT
   if (s->aio)
   {
     const struct aiocb *list[1];
@@ -816,6 +817,7 @@ int azclose (azio_stream *s)
     list[0]= &s->container;
     aio_suspend(list, 1, 0);
   }
+#endif
   
   if (s->file < 1) return Z_OK;
 

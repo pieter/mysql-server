@@ -43,8 +43,8 @@
 
 #ifdef HAVE_DTRACE
 #define _DTRACE_VERSION 1
-#include "probes.h"
 #endif
+#include "probes.h"
 
 /* TODO convert all these three maps to Bitmap classes */
 typedef ulonglong table_map;          /* Used for table bits in join */

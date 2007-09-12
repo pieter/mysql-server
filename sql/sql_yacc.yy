@@ -10584,7 +10584,6 @@ keyword_sp:
         | COLLATION_SYM            {}
         | COLUMN_FORMAT_SYM        {}
         | COLUMNS                  {}
-	| COLUMN_FORMAT_SYM        {}
         | COMMITTED_SYM            {}
         | COMPACT_SYM              {}
         | COMPLETION_SYM           {}

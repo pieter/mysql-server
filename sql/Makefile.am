@@ -27,6 +27,14 @@ SUBDIRS =		share backup
 libexec_PROGRAMS =	mysqld
 EXTRA_PROGRAMS =	gen_lex_hash
 bin_PROGRAMS =		mysql_tzinfo_to_sql
+DTRACE =                @DTRACE@
+DTRACEFLAGS =           @DTRACEFLAGS@
+DTRACEFILES =           handler.o \
+			filesort.o \
+			sql_insert.o \
+			sql_delete.o \
+			sql_select.o \
+			sql_update.o
 
 noinst_LTLIBRARIES=	libndb.la \
 			udf_example.la
@@ -120,6 +128,12 @@ mysqld_SOURCES =	sql_lex.cc sql_handler.cc sql_partition.cc \
 			sql_builtin.cc sql_tablespace.cc partition_info.cc \
 			sql_servers.cc
 
+
+if HAVE_DTRACE
+  mysqld_SOURCES += probes.d
+endif
+
+
 libndb_la_CPPFLAGS=	@ndbcluster_includes@
 libndb_la_SOURCES=	ha_ndbcluster.cc \
 			ha_ndbcluster_binlog.cc \
@@ -172,6 +186,11 @@ lex_hash.h:	gen_lex_hash.cc lex.h
 udf_example_la_SOURCES= udf_example.c
 udf_example_la_LDFLAGS= -module -rpath $(pkglibdir)
 
+SUFFIXES : .d
+
+.d.o : $(DTRACEFILES)
+	$(DTRACE) $(DTRACEFLAGS) -h -s $<
+	$(DTRACE) $(DTRACEFLAGS) -G -s $< $(DTRACEFILES)
 
 # Don't update the files from bitkeeper
 %::SCCS/s.%

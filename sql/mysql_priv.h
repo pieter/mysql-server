@@ -41,6 +41,11 @@
 #include "sql_plugin.h"
 #include "scheduler.h"
 
+#ifdef HAVE_DTRACE
+#define _DTRACE_VERSION 1
+#include "probes.h"
+#endif
+
 /* TODO convert all these three maps to Bitmap classes */
 typedef ulonglong table_map;          /* Used for table bits in join */
 #if MAX_INDEXES <= 64

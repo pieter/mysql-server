@@ -1533,11 +1533,7 @@ public:
     position() call doesn't work for some
     handlers for random position
   */
-  virtual int rnd_pos_by_record(uchar *record)
-    {
-      position(record);
-      return rnd_pos(record, ref);
-    }
+  virtual int rnd_pos_by_record(uchar *record);
   virtual int read_first_row(uchar *buf, uint primary_key);
   /*
     The following function is only needed for tables that may be temporary

@@ -119,15 +119,4 @@ sp_load_for_information_schema(THD *thd, TABLE *proc_table, String *db,
                                String *name, ulong sql_mode, int type,
                                const char *returns, const char *params,
                                bool *free_sp_head);
-
-/*
-  Do a "use new_db". The current db is stored at old_db.  If new_db is the
-  same as the current one, nothing is changed.  dbchangedp is set to true if
-  the db was actually changed.
-*/
-
-int
-sp_use_new_db(THD *thd, LEX_STRING new_db, LEX_STRING *old_db,
-	      bool no_access_check, bool *dbchangedp);
-
 #endif /* _SP_H_ */

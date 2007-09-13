@@ -550,7 +550,7 @@ db_load_routine(THD *thd, int type, sp_name *name, sp_head **sphp,
   char definer_host_name_holder[HOSTNAME_LENGTH + 1];
   LEX_STRING definer_host_name= { definer_host_name_holder, HOSTNAME_LENGTH };
 
-  int ret;
+  int ret= 0;
 
   thd->lex= &newlex;
   newlex.current_select= NULL;

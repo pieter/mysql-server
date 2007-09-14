@@ -140,6 +140,7 @@ const char *create_schema_string= "mysqlslap";
 static my_bool opt_preserve= 0, debug_info_flag= 0, debug_check_flag= 0;
 static my_bool opt_only_print= FALSE;
 static my_bool opt_burnin= FALSE;
+static my_bool opt_ignore_sql_errors= FALSE;
 static my_bool opt_compress= FALSE, tty_password= FALSE,
                opt_silent= FALSE,
                auto_generate_sql_autoincrement= FALSE,
@@ -584,11 +585,17 @@ static struct my_option my_long_options[] =
     (uchar**) &auto_generate_sql_unique_write_number,
     0, GET_ULL, REQUIRED_ARG, 10, 0, 0, 0, 0, 0},
   {"auto-generate-sql-write-number", OPT_SLAP_AUTO_GENERATE_WRITE_NUM,
-    "Number of rows to insert to used in read and write loads (default is 100).\n",
+    "Number of rows to insert to used in read and write loads (default is 100).",
     (uchar**) &auto_generate_sql_number, (uchar**) &auto_generate_sql_number,
     0, GET_ULL, REQUIRED_ARG, 100, 0, 0, 0, 0, 0},
   {"burnin", OPT_SLAP_BURNIN, "Run full test case in infinite loop.",
     (uchar**) &opt_burnin, (uchar**) &opt_burnin, 0, GET_BOOL, NO_ARG, 0, 0, 0,
+    0, 0, 0},
+  {"ignore-sql-errors", OPT_SLAP_IGNORE_SQL_ERRORS, 
+    "Ignore SQL erros in query run.",
+    (uchar**) &opt_ignore_sql_errors, 
+    (uchar**) &opt_ignore_sql_errors, 
+    0, GET_BOOL, NO_ARG, 0, 0, 0,
     0, 0, 0},
   {"commit", OPT_SLAP_COMMIT, "Commit records after X number of statements.",
     (uchar**) &commit_rate, (uchar**) &commit_rate, 0, GET_UINT, REQUIRED_ARG,
@@ -1804,7 +1811,8 @@ limit_not_met:
       {
         fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                 my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
-        exit(1);
+        if (!opt_ignore_sql_errors)
+          exit(1);
       }
       sptr->create_count++;
     }
@@ -1814,7 +1822,8 @@ limit_not_met:
       {
         fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                 my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
-        exit(1);
+        if (!opt_ignore_sql_errors)
+          exit(1);
       }
       sptr->create_count++;
     }

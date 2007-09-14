@@ -117,6 +117,8 @@ ha_rows filesort(THD *thd, TABLE *table, SORT_FIELD *sortorder, uint s_length,
   FILESORT_INFO table_sort;
   TABLE_LIST *tab= table->pos_in_table_list;
   Item_subselect *subselect= tab ? tab->containing_subselect() : 0;
+
+  MYSQL_FILESORT_START(my_thread_var->id);
   /* 
     Don't use table->sort in filesort as it is also used by 
     QUICK_INDEX_MERGE_SELECT. Work with a copy and put it back at the end 
@@ -317,6 +319,7 @@ ha_rows filesort(THD *thd, TABLE *table, SORT_FIELD *sortorder, uint s_length,
 #endif
   memcpy(&table->sort, &table_sort, sizeof(FILESORT_INFO));
   DBUG_PRINT("exit",("records: %ld", (long) records));
+  MYSQL_FILESORT_END(my_thread_var->id);
   DBUG_RETURN(error ? HA_POS_ERROR : records);
 } /* filesort */
 

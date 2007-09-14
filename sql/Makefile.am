@@ -188,10 +188,15 @@ lex_hash.h:	gen_lex_hash.cc lex.h
 udf_example_la_SOURCES= udf_example.c
 udf_example_la_LDFLAGS= -module -rpath $(pkglibdir)
 
+probes.h: probes.d
+	$(DTRACE) $(DTRACEFLAGS) -h -s probes.d
+	mv probes.h probes.h.bak
+	sed "s/#include <unistd.h>//g" probes.h.bak > probes.h
+	rm probes.h.bak
+
 SUFFIXES : .d
 
 .d.o : $(DTRACEFILES)
-	$(DTRACE) $(DTRACEFLAGS) -h -s $<
 	$(DTRACE) $(DTRACEFLAGS) -G -s $< $(DTRACEFILES)
 
 # Don't update the files from bitkeeper

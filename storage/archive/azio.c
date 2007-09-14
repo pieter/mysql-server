@@ -888,6 +888,11 @@ int azread_comment(azio_stream *s, char *blob)
 
   return 0;
 }
+
+/* 
+  Normally all IO goes through aio_read(), but in case of error or non-support
+  we make use of pread().
+*/
 static void get_block(azio_stream *s)
 {
 #ifdef HAVE_LIBRT
@@ -898,41 +903,41 @@ static void get_block(azio_stream *s)
     if (!s->not_init)
     {
       s->container.aio_offset= s->pos;
-      s->container.aio_buf= (void *)s->buffer1;
+      s->container.aio_buf= (unsigned char *)s->buffer1;
       s->container.aio_fildes= s->file;
       s->coin= 0;
-      if ((rc= aio_read(&s->container)))
+      if (aio_read(&s->container))
       {
-        fprintf(stderr, "Errno for aio_read %d (%s)\n", errno, strerror(errno));
+        fprintf(stderr, "Errno for init aio_read %d (%s), jumping to pread()\n", errno, strerror(errno));
+        goto use_pread;
       }
       s->not_init= 1;
     }
 
     while ((rc= aio_error(&s->container) == EINPROGRESS));
+    assert(rc != -1);
     s->stream.avail_in= (unsigned int)aio_return(&s->container);
-    s->pos+= s->stream.avail_in;
-    if ((ssize_t)aio_return(&s->container) == -1)
+    if ((int)(s->stream.avail_in) == -1)
     {
       fprintf(stderr, "Errno %d (%s)\n", errno, strerror(errno));
+      goto use_pread;
     }
-    if (s->coin)
-    {
-      s->inbuf= s->buffer2;
-      s->container.aio_buf= (void *)s->buffer1;
-      s->coin= 0;
-    }
-    else
-    {
-      s->inbuf= s->buffer1;
-      s->container.aio_buf= (void *)s->buffer2;
-      s->coin= 1;
-    }
+    s->pos+= s->stream.avail_in;
+    s->inbuf= s->container.aio_buf;
+    s->container.aio_buf= s->coin ? s->buffer1 : s->buffer2;
+    s->coin= s->coin ? 0 : 1;
     s->container.aio_offset= s->pos;
-    aio_read(&s->container);
+    if (aio_read(&s->container))
+    {
+      /* If we can't use AIO, set it up so the next query tries before reading */
+      fprintf(stderr, "Errno for aio_read %d (%s), requeueing\n", errno, strerror(errno));
+      s->not_init= 0;
+    }
   }
   else
 #endif
   {
+use_pread:
     s->stream.avail_in = (uInt)my_pread(s->file, (uchar *)s->inbuf, AZ_BUFSIZE_READ, s->pos, MYF(0));
     s->pos+= s->stream.avail_in;
   }

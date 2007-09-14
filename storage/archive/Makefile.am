@@ -26,7 +26,7 @@ INCLUDES =              -I$(top_srcdir)/include -I$(top_builddir)/include \
 WRAPLIBS=
 
 LDADD =
-CFLAGS = -DHAVE_MYSQL_CONFIG_H
+AM_CFLAGS = -DHAVE_MYSQL_CONFIG_H
 
 DEFS =                  @DEFS@
 
@@ -36,21 +36,19 @@ noinst_PROGRAMS	=	archive_test archive_reader archive_performance
 EXTRA_LTLIBRARIES =	ha_archive.la
 pkglib_LTLIBRARIES =	@plugin_archive_shared_target@
 ha_archive_la_LDFLAGS =	-module -rpath $(MYSQLLIBdir) $(LDADD)
-ha_archive_la_CXXFLAGS=	$(AM_CFLAGS) $(CFLAGS) -DMYSQL_DYNAMIC_PLUGIN
-ha_archive_la_CFLAGS =	$(AM_CFLAGS) $(CFLAGS) -DMYSQL_DYNAMIC_PLUGIN
+ha_archive_la_CXXFLAGS=	$(AM_CFLAGS) -DMYSQL_DYNAMIC_PLUGIN
+ha_archive_la_CFLAGS =	$(AM_CFLAGS) -DMYSQL_DYNAMIC_PLUGIN
 ha_archive_la_SOURCES =	ha_archive.cc azio.c
 
 
 EXTRA_LIBRARIES =	libarchive.a
 noinst_LIBRARIES =	@plugin_archive_static_target@
-libarchive_a_LDFLAGS  =	$(LDADD)
-libarchive_a_CXXFLAGS =	$(AM_CFLAGS) $(CFLAGS) 
-libarchive_a_CFLAGS =	$(AM_CFLAGS) $(CFLAGS) 
+libarchive_a_CXXFLAGS =	$(AM_CFLAGS) 
+libarchive_a_CFLAGS =	$(AM_CFLAGS) 
 libarchive_a_SOURCES =	ha_archive.cc azio.c
 
-
 archive_performance_SOURCES =	archive_performance.c azio.c
-archive_performance_CFLAGS =	$(AM_CFLAGS) $(CFLAGS) 
+archive_performance_CFLAGS =	$(AM_CFLAGS) 
 archive_performance_LDADD =	$(top_builddir)/mysys/libmysys.a \
 			$(top_builddir)/dbug/libdbug.a \
 			$(top_builddir)/strings/libmystrings.a \
@@ -59,7 +57,7 @@ archive_performance_LDADD =	$(top_builddir)/mysys/libmysys.a \
 archive_performance_LDFLAGS = @NOINST_LDFLAGS@
 
 archive_test_SOURCES =	archive_test.c azio.c
-archive_test_CFLAGS =	$(AM_CFLAGS) $(CFLAGS) 
+archive_test_CFLAGS =	$(AM_CFLAGS) 
 archive_test_LDADD =	$(top_builddir)/mysys/libmysys.a \
 			$(top_builddir)/dbug/libdbug.a \
 			$(top_builddir)/strings/libmystrings.a \
@@ -68,7 +66,7 @@ archive_test_LDADD =	$(top_builddir)/mysys/libmysys.a \
 archive_test_LDFLAGS = @NOINST_LDFLAGS@
 
 archive_reader_SOURCES = archive_reader.c azio.c
-archive_reader_CFLAGS =	$(AM_CFLAGS) $(CFLAGS) 
+archive_reader_CFLAGS =	$(AM_CFLAGS) 
 archive_reader_LDADD =	$(top_builddir)/mysys/libmysys.a \
 			$(top_builddir)/dbug/libdbug.a \
 			$(top_builddir)/strings/libmystrings.a \

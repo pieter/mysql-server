@@ -7531,13 +7531,7 @@ int Rows_log_event::find_row(const Relay_log_info *rli)
     }
 
     DBUG_PRINT("info",("locating record using primary key (position)"));
-    table->file->position(table->record[0]);
-    if (table->file->inited && (error= table->file->ha_index_end()))
-      DBUG_RETURN(error);
-    if ((error= table->file->ha_rnd_init(FALSE)))
-      DBUG_RETURN(error);
-
-    error= table->file->rnd_pos(table->record[0], table->file->ref);
+    int error= table->file->rnd_pos_by_record(table->record[0]);
     table->file->ha_rnd_end();
     if (error)
     {

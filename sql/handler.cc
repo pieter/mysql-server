@@ -1591,6 +1591,26 @@ int handler::ha_open(TABLE *table_arg, const char *name, int mode,
   DBUG_RETURN(error);
 }
 
+/**
+  one has to use this method when to find
+  random position by record as the plain
+  position() call doesn't work for some
+  handlers for random position
+*/
+
+int handler::rnd_pos_by_record(uchar *record)
+{
+  register int error;
+  DBUG_ENTER("handler::rnd_pos_by_record");
+
+  position(record);
+  if (inited && (error= ha_index_end()))
+    DBUG_RETURN(error);
+  if ((error= ha_rnd_init(FALSE)))
+    DBUG_RETURN(error);
+
+  DBUG_RETURN(rnd_pos(record, ref));
+}
 
 /** @brief
   Read first row (only) from a table

@@ -292,14 +292,13 @@ create table t1 (a int not null auto_increment,b int, primary key (a));
 insert into t1 values (1,1),(NULL,3),(NULL,4);
 select AUTO_INCREMENT from information_schema.tables where table_name = 't1';
 drop table t1;
-# WL#1110 - disabled test - wrong result
-# the problem is not IS specific.
-#create table t1 (s1 int);
-#insert into t1 values (0),(9),(0);
-#select s1 from t1 where s1 in (select version from
-#information_schema.tables) union select version from
-#information_schema.tables;
-#drop table t1;
+
+create table t1 (s1 int);
+insert into t1 values (0),(9),(0);
+select s1 from t1 where s1 in (select version from
+information_schema.tables) union select version from
+information_schema.tables;
+drop table t1;
 
 SHOW CREATE TABLE INFORMATION_SCHEMA.character_sets;
 set names latin2;
@@ -1163,3 +1162,21 @@ select count(*) from INFORMATION_SCHEMA.TABLES where TABLE_SCHEMA='mysql' AND TA
 select count(*) from INFORMATION_SCHEMA.TABLES where TABLE_SCHEMA='' AND TABLE_NAME='';
 select count(*) from INFORMATION_SCHEMA.TABLES where TABLE_SCHEMA='' AND TABLE_NAME='nonexisting';
 --echo End of 5.1 tests.
+
+#
+# WL#2003 INFORMATION_SCHEMA: PARAMETERS view
+# WL#2822 INFORMATION_SCHEMA.ROUTINES: Add missing columns 
+#
+create function f1 (p1 int, p2 datetime, p3 decimal(10,2))
+returns char(10) return null;
+create procedure p1 (p1 float(8,5), p2 char(32), p3 varchar(10)) begin end;
+create procedure p2 (p1 enum('c', 's'), p2 blob, p3 text) begin end;
+select * from information_schema.parameters;
+select data_type, character_maximum_length,
+       character_octet_length, numeric_precision,
+       numeric_scale, character_set_name,
+       collation_name, dtd_identifier
+from information_schema.routines;
+drop procedure p1;
+drop procedure p2;
+drop function f1;

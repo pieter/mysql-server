@@ -90,6 +90,12 @@ typedef struct st_table_ref
   table_map	depend_map;		  // Table depends on these tables.
   /* null byte position in the key_buf. Used for REF_OR_NULL optimization */
   uchar          *null_ref_key;
+
+  /*
+    TRUE <=> disable the "cache" as doing lookup with the same key value may
+    produce different results (because of Index Condition Pushdown)
+  */
+  bool          disable_cache;
 } TABLE_REF;
 
 
@@ -611,6 +617,7 @@ public:
   void restore_tmp();
   bool alloc_func_list();
   bool flatten_subqueries();
+  bool setup_subquery_materialization();
   bool make_sum_func_list(List<Item> &all_fields, List<Item> &send_fields,
 			  bool before_group_by, bool recompute= FALSE);
 

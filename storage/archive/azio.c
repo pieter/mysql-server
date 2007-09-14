@@ -916,7 +916,6 @@ static void get_block(azio_stream *s)
       s->container.aio_offset= s->pos;
       s->container.aio_buf= (unsigned char *)s->buffer1;
       s->container.aio_fildes= s->file;
-      s->coin= 0;
       if (aio_read(&s->container))
       {
         fprintf(stderr, "Errno for init aio_read %d (%s), jumping to pread()\n", errno, strerror(errno));
@@ -934,9 +933,8 @@ static void get_block(azio_stream *s)
       goto use_pread;
     }
     s->pos+= s->stream.avail_in;
-    s->inbuf= s->container.aio_buf;
-    s->container.aio_buf= s->coin ? s->buffer1 : s->buffer2;
-    s->coin= s->coin ? 0 : 1;
+    s->inbuf= (Byte *)s->container.aio_buf;
+    s->container.aio_buf= (s->container.aio_buf == s->buffer2) ? s->buffer1 : s->buffer2;
     s->container.aio_offset= s->pos;
     if (aio_read(&s->container))
     {
@@ -948,7 +946,9 @@ static void get_block(azio_stream *s)
   else
 #endif
   {
+#ifdef HAVE_LIBRT
 use_pread:
+#endif
     s->stream.avail_in = (uInt)my_pread(s->file, (uchar *)s->inbuf, AZ_BUFSIZE_READ, s->pos, MYF(0));
     s->pos+= s->stream.avail_in;
   }

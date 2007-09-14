@@ -675,7 +675,7 @@ int ha_archive::create(const char *name, TABLE *table_arg,
 
     if (create_info->comment.str)
       azwrite_comment(&create_stream, create_info->comment.str, 
-                      create_info->comment.length);
+                      (unsigned int)create_info->comment.length);
 
     /* 
       Yes you need to do this, because the starting value 
@@ -1162,7 +1162,7 @@ int ha_archive::get_row_version2(azio_stream *file_to_read, uchar *buf)
   }
 
   /* Adjust our row buffer if we need be */
-  buffer.alloc(total_blob_length);
+  buffer.alloc((uint32)total_blob_length);
   last= (char *)buffer.ptr();
 
   /* Loop through our blobs and read them */
@@ -1176,14 +1176,14 @@ int ha_archive::get_row_version2(azio_stream *file_to_read, uchar *buf)
       if (bitmap_is_set(read_set,
                         ((Field_blob*) table->field[*ptr])->field_index))
       {
-        read= azread(file_to_read, last, size, &error);
+        read= azread(file_to_read, last, (unsigned int)size, &error);
 
         if (error)
           DBUG_RETURN(HA_ERR_CRASHED_ON_USAGE);
 
         if ((size_t) read != size)
           DBUG_RETURN(HA_ERR_END_OF_FILE);
-        ((Field_blob*) table->field[*ptr])->set_ptr(size, (uchar*) last);
+        ((Field_blob*) table->field[*ptr])->set_ptr((uint32)size, (uchar*) last);
         last += size;
       }
       else

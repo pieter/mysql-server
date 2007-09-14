@@ -218,7 +218,6 @@ typedef struct azio_stream {
   Byte     buffer2[AZ_BUFSIZE_READ];  /* input buffer */
   Byte     outbuf[AZ_BUFSIZE_WRITE]; /* output buffer */
   int      not_init; /* Are we good to go */
-  int      coin; /* Are we good to go */
   uLong    crc;     /* crc32 of uncompressed data */
   char     *msg;    /* error message */
   int      transparent; /* 1 if input file is not a .gz file */

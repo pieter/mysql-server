@@ -929,6 +929,7 @@ static void get_block(azio_stream *s)
     s->stream.avail_in= (unsigned int)aio_return(&s->container);
     if ((int)(s->stream.avail_in) == -1)
     {
+      aio_cancel(s->file, &s->container);
       fprintf(stderr, "Errno %d (%s)\n", errno, strerror(errno));
       goto use_pread;
     }

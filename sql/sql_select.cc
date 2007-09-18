@@ -3532,9 +3532,11 @@ int pull_out_semijoin_tables(JOIN *join)
       {
         tbl->table->reginfo.join_tab->emb_sj_nest= sj_nest;
         if (tbl->table->map & join->const_table_map)
+        {
           pulled_tables |= tbl->table->map;
-        DBUG_PRINT("info", ("Table %s pulled out (reason: constant)",
-                            tbl->table->alias));
+          DBUG_PRINT("info", ("Table %s pulled out (reason: constant)",
+                              tbl->table->alias));
+        }
       }
     }
     

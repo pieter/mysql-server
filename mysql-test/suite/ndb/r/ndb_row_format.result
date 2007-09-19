@@ -9,6 +9,8 @@ Warnings:
 Warning	1476	Row format FIXED incompatible with dynamic attribute b
 SHOW WARNINGS;
 Level	Code	Message
+Error	1477	Table storage engine 'ndbcluster' does not support the create option 'Row format FIXED incompatible with variable sized attribute'
+Error	1005	Can't create table 'test.t1' (errno: 138)
 Warning	1476	Row format FIXED incompatible with dynamic attribute b
 ForceVarPart: 0
 INSERT INTO t1 values(0,''),(2,"**"),(4,"****"),(6,"******"),(8,"********"),(10,"**********"),(12,"************");

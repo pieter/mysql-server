@@ -2985,10 +2985,8 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
   SELECT_LEX *parent_lex= parent_join->select_lex;
   TABLE_LIST *emb_tbl_nest= NULL;
   List<TABLE_LIST> *emb_join_list= &parent_lex->top_join_list;
-  Query_arena *arena, backup;
   THD *thd= parent_join->thd;
   DBUG_ENTER("convert_subq_to_sj");
-  arena= thd->activate_stmt_arena_if_needed(&backup);
 
   /*
     1. Find out where to put the predicate into.
@@ -3145,7 +3143,8 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
   /* A theory: no need to re-connect the next_global chain */
 
   /* 3. Remove the original subquery predicate from the WHERE/ON */
-  *(subq_pred->ref_ptr)= new Item_int(1);
+
+  // The subqueries were replaced for Item_int(1) earlier
   subq_pred->exec_method= Item_in_subselect::SEMI_JOIN; // for subsequent executions
   /*TODO: also reset the 'with_subselect' there. */
 
@@ -3270,8 +3269,6 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
       parent_lex->ftfunc_list->push_front(ifm);
   }
 
-  if (arena)
-    thd->restore_active_arena(arena, &backup);
   DBUG_RETURN(FALSE);
 }
 
@@ -3292,9 +3289,10 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
 
 bool JOIN::flatten_subqueries()
 {
-  DBUG_ENTER("JOIN::flatten_subqueries");
+  Query_arena *arena, backup;
   Item_in_subselect **in_subq;
   Item_in_subselect **in_subq_end;
+  DBUG_ENTER("JOIN::flatten_subqueries");
 
   if (sj_subselects.elements() == 0)
     DBUG_RETURN(FALSE);
@@ -3320,17 +3318,26 @@ bool JOIN::flatten_subqueries()
   */
   sj_subselects.sort(subq_sj_candidate_cmp);
   // #tables-in-parent-query + #tables-in-subquery < MAX_TABLES
-  bool do_converts= TRUE;
+  /* Replace all subqueries to be flattened for Item_int(1) */
+  arena= thd->activate_stmt_arena_if_needed(&backup);
   for (in_subq= sj_subselects.front(); 
        in_subq != in_subq_end && 
        tables + ((*in_subq)->sj_convert_priority % MAX_TABLES) < MAX_TABLES;
        in_subq++)
   {
-    if (!do_converts)
-      break;
+    *((*in_subq)->ref_ptr)= new Item_int(1);
+  }
+ 
+  for (in_subq= sj_subselects.front(); 
+       in_subq != in_subq_end && 
+       tables + ((*in_subq)->sj_convert_priority % MAX_TABLES) < MAX_TABLES;
+       in_subq++)
+  {
     if (convert_subq_to_sj(this, *in_subq))
       DBUG_RETURN(TRUE);
   }
+  if (arena)
+    thd->restore_active_arena(arena, &backup);
 
   /* 3. Finalize those we didn't convert */
   for (; in_subq!= in_subq_end; in_subq++)
@@ -3525,9 +3532,11 @@ int pull_out_semijoin_tables(JOIN *join)
       {
         tbl->table->reginfo.join_tab->emb_sj_nest= sj_nest;
         if (tbl->table->map & join->const_table_map)
+        {
           pulled_tables |= tbl->table->map;
-        DBUG_PRINT("info", ("Table %s pulled out (reason: constant)",
-                            tbl->table->alias));
+          DBUG_PRINT("info", ("Table %s pulled out (reason: constant)",
+                              tbl->table->alias));
+        }
       }
     }
     
@@ -7989,20 +7998,29 @@ static void push_index_cond(JOIN_TAB *tab, uint keyno, bool other_tbls_ok)
   DBUG_VOID_RETURN;
 }
 
+
+
+    /*
+      Determine if the set is already ordered for ORDER BY, so it can 
+      disable join cache because it will change the ordering of the results.
+      Code handles sort table that is at any location (not only first after 
+      the const tables) despite the fact that it's currently prohibited.
+      We must disable join cache if the first non-const table alone is
+      ordered. If there is a temp table the ordering is done as a last
+      operation and doesn't prevent join cache usage.
+    */
 uint make_join_orderinfo(JOIN *join)
 {
   uint i;
+  if (join->need_tmp)
+    return join->tables;
+
   for (i=join->const_tables ; i < join->tables ; i++)
   {
     JOIN_TAB *tab=join->join_tab+i;
     TABLE *table=tab->table;
-    if ((table == join->sort_by_table &&
-         (!join->order || join->skip_sort_order ||
-          test_if_skip_sort_order(tab, join->order, join->select_limit,
-                                  FALSE, &table->keys_in_use_for_order_by)) 
-         //psergey-merge-todo: ^ check what should be instead of the above
-         // FALSE! check the last argument!
-        ) ||
+    if ((table == join->sort_by_table && 
+         (!join->order || join->skip_sort_order)) ||
         (join->sort_by_table == (TABLE *) 1 && i != join->const_tables))
     {
       break;
@@ -8013,12 +8031,25 @@ uint make_join_orderinfo(JOIN *join)
 
 
 /*
-  ...
+  Plan refinement stage: do various set ups for the executioner
+
   SYNOPSIS
     make_join_readinfo()
-      join
-      options
-      no_jbuf_after  X.
+      join           Join being processed
+      options        Join's options (checking for SELECT_DESCRIBE, 
+                     SELECT_NO_JOIN_CACHE)
+      no_jbuf_after  Don't use join buffering after table with this number.
+
+  DESCRIPTION
+    Plan refinement stage: do various set ups for the executioner
+      - set up use of join buffering
+      - push index conditions
+      - increment counters
+      - etc
+
+  RETURN 
+    FALSE - OK
+    TRUE  - Out of memory
 */
 
 static bool
@@ -8026,7 +8057,6 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
 {
   uint i;
   bool statistics= test(!(join->select_options & SELECT_DESCRIBE));
-  bool ordered_set= 0; //psergey-merge-todo: sort this out!
   bool sorted= 1;
   DBUG_ENTER("make_join_readinfo");
 
@@ -8038,23 +8068,10 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
     tab->read_record.table= table;
     tab->read_record.file=table->file;
     tab->next_select=sub_select;		/* normal select */
-
-    /*
-      Determine if the set is already ordered for ORDER BY, so it can 
-      disable join cache because it will change the ordering of the results.
-      Code handles sort table that is at any location (not only first after 
-      the const tables) despite the fact that it's currently prohibited.
-      We must disable join cache if the first non-const table alone is
-      ordered. If there is a temp table the ordering is done as a last
-      operation and doesn't prevent join cache usage.
+    /* 
+      TODO: don't always instruct first table's ref/range access method to 
+      produce sorted output.
     */
-    if (!ordered_set && !join->need_tmp &&
-        ((table == join->sort_by_table &&
-         (!join->order || join->skip_sort_order)) ||
-        (join->sort_by_table == (TABLE *) 1 && i != join->const_tables)))
-      ordered_set= 1;
-
-
     tab->sorted= sorted;
     sorted= 0;                                  // only first must be sorted
     if (tab->insideout_match_tab)
@@ -14923,6 +14940,12 @@ static int test_if_order_by_key(ORDER *order, TABLE *table, uint idx,
 
         for (; const_key_parts & 1 ; const_key_parts>>= 1)
           key_part++; 
+        /*
+         The primary and secondary key parts were all const (i.e. there's
+         one row).  The sorting doesn't matter.
+        */
+        if (key_part == key_part_end && reverse == 0)
+          DBUG_RETURN(1);
       }
       else
         DBUG_RETURN(0);
@@ -15578,7 +15601,7 @@ check_reverse_order:
 	select->quick=tmp;
       }
     }
-    else if (tab->ref.key >= 0 && tab->ref.key_parts < used_key_parts)
+    else if (tab->ref.key >= 0 && tab->ref.key_parts <= used_key_parts)
     {
       /*
 	SELECT * FROM t1 WHERE a=1 ORDER BY a DESC,b DESC

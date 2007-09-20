@@ -3803,12 +3803,6 @@ static int get_schema_column_record(THD *thd, TABLE_LIST *tables,
     table->field[3]->store(field->field_name, strlen(field->field_name),
                            cs);
     table->field[4]->store((longlong) count, TRUE);
-    field->sql_type(type);
-    table->field[14]->store(type.ptr(), type.length(), cs);		
-    tmp_buff= strchr(type.ptr(), '(');
-    table->field[7]->store(type.ptr(),
-                           (tmp_buff ? tmp_buff - type.ptr() :
-                            type.length()), cs);
 
     if (get_field_default_value(thd, show_table, field, &type, 0))
     {

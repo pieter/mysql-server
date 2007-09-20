@@ -1,0 +1,27 @@
+#---- Bug 22174 ----
+SET STORAGE_ENGINE='Falcon';
+DROP TABLE IF EXISTS t1;
+create table t1 (id int NOT NULL,id2 int NOT NULL,id3 int NOT NULL,dummy1 char(30),primary key (id,id2),index index_id3 (id3));
+insert into t1 values (0,0,0,'ABCDEFGHIJ'),(2,2,2,'BCDEFGHIJK'),(1,1,1,'CDEFGHIJKL');
+LOCK TABLES t1 WRITE;
+insert into t1 values (99,1,2,'D'),(1,1,2,'D');
+ERROR 23000: Duplicate entry '1-1' for key 'PRIMARY'
+select id from t1 ORDER BY id, id2;
+id
+0
+1
+2
+UNLOCK TABLES;
+DROP TABLE t1;
+create table t1 (id int NOT NULL,id2 int NOT NULL,id3 int NOT NULL,dummy1 char(30),primary key (id,id2),index index_id3 (id3));
+insert into t1 values (0,0,0,'ABCDEFGHIJ'),(2,2,2,'BCDEFGHIJK'),(1,1,1,'CDEFGHIJKL');
+LOCK TABLES t1 WRITE;
+insert into t1 values (99,1,2,'D'),(1,1,2,'D');
+ERROR 23000: Duplicate entry '1-1' for key 'PRIMARY'
+select id from t1 ORDER BY id, id2;
+id
+0
+1
+2
+UNLOCK TABLES;
+DROP TABLE t1;

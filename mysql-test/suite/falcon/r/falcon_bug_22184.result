@@ -1,0 +1,12 @@
+SET STORAGE_ENGINE = Falcon;
+*** Bug #22184 ***
+DROP TABLE IF EXISTS t6;
+SET @@max_allowed_packet = 20000000;
+CREATE TABLE t6 (s1 longblob);
+INSERT INTO t6 VALUES (repeat('a',2100000));
+INSERT INTO t6 VALUES (repeat('a',2200000));
+SELECT length(s1) FROM t6;
+length(s1)
+2100000
+2200000
+DROP TABLE t6;

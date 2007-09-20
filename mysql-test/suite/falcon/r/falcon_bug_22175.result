@@ -1,0 +1,32 @@
+#---- Bug 22175 ----
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+# Establish connection conn1 (user = root)
+# Switch to connection default
+CREATE TABLE t1 (s1 int) Engine Falcon;
+CREATE TABLE t2 (s1 int) Engine InnoDB;
+SET @@autocommit = 0;
+CREATE TRIGGER t1_bi BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO t2 VALUES (new.s1);
+INSERT INTO t1 VALUES (5);
+COMMIT;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+START TRANSACTION;
+INSERT INTO t1 VALUES (6);
+# Switch to connection conn1
+SET @@autocommit = 0;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+START TRANSACTION;
+DELETE FROM t1;
+# Switch to connection default
+COMMIT;
+# Switch to connection conn1
+DELETE FROM t2;
+COMMIT;
+# Switch to connection default
+SELECT * FROM t1;
+s1
+SELECT * FROM t2;
+s1
+DROP TRIGGER t1_bi;
+DROP TABLE t1;
+DROP TABLE t2;

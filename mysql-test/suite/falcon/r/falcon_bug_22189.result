@@ -1,0 +1,53 @@
+SET @@storage_engine = Falcon;
+*** Bug #22189 ***
+DROP DATABASE IF EXISTS db62;
+# Establish connection conn1 (user = root)
+SET @@storage_engine = Falcon;
+# Switch to connection default
+SET @@autocommit = 0;
+CREATE DATABASE db62;
+USE db62;
+DROP TABLE IF EXISTS x1;
+Warnings:
+Note	1051	Unknown table 'x1'
+CREATE TABLE x1 (x1 int primary key, x2 int);
+COMMIT;
+INSERT INTO x1 VALUES (0,0),(1,1);
+COMMIT;
+DROP TABLE IF EXISTS x1;
+CREATE TABLE x1 (x1 int primary key, x2 int);
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+START TRANSACTION;
+SELECT * FROM x1;
+x1	x2
+INSERT INTO x1 VALUES (0,0);
+# Switch to connection conn1
+SET @@autocommit = 1;
+USE db62;
+INSERT INTO x1 VALUES (1,1);
+# Switch to connection default
+INSERT INTO x1 VALUES (1,2);
+# Switch to connection conn1
+INSERT INTO x1 VALUES (0,3);
+# Switch to connection default
+ROLLBACK;
+UPDATE x1 SET x1 = 1, x2 = 4;
+SELECT * FROM x1;
+x1	x2
+1	4
+# Switch to connection conn1
+UPDATE x1 SET x1 = 0, x2 = 5;
+INSERT INTO x1 VALUES (0,6);
+# Switch to connection default
+ROLLBACK;
+# Switch to connection conn1
+INSERT INTO x1 VALUES (0,6);
+INSERT INTO x1 VALUES (0,6);
+ERROR 23000: Duplicate entry '0' for key 'PRIMARY'
+# Switch to connection default
+SELECT * FROM x1;
+x1	x2
+0	3
+1	1
+DROP DATABASE db62;
+USE test;

@@ -1,0 +1,30 @@
+*** Bug #27722 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (5);
+INSERT INTO t1 VALUES (10);
+INSERT INTO t1 VALUES (15);
+SET @@autocommit = 0;
+# Establish connection conn1
+SET storage_engine = 'Falcon';
+SET @@autocommit = 0;
+# Switch to connection default
+BEGIN;
+UPDATE t1 SET a = 6 WHERE a = 5;
+# Switch to connection conn1
+BEGIN;
+UPDATE t1 SET a = 16 WHERE a = 15;
+# Switch to connection default
+COMMIT;
+# Switch to connection conn1
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+4
+SELECT count(*) FROM t1 WHERE a = 16;
+count(*)
+1
+# Switch to connection default
+DROP TABLE t1;

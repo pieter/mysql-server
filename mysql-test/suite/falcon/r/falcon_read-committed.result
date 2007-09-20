@@ -1,0 +1,92 @@
+SET storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int);
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL
+) ENGINE=Falcon DEFAULT CHARSET=latin1
+DROP TABLE t1;
+SET storage_engine = Falcon;
+SET @@tx_isolation = 'REPEATABLE-READ';
+SET @@autocommit=0;
+SET @@tx_isolation = 'REPEATABLE-READ';
+SET @@autocommit=0;
+BEGIN;
+CREATE TABLE t1 (a int);
+COMMIT;
+BEGIN;
+INSERT INTO t1 VALUES (1);
+BEGIN;
+SELECT count(*) FROM t1;
+count(*)
+0
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+0
+BEGIN;
+INSERT INTO t1 VALUES (2);
+SELECT count(*) FROM t1;
+count(*)
+0
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+0
+COMMIT;
+BEGIN;
+SELECT count(*) FROM t1;
+count(*)
+2
+BEGIN;
+INSERT INTO t1 VALUES (2);
+SELECT count(*) FROM t1;
+count(*)
+2
+COMMIT;
+COMMIT;
+BEGIN;
+SELECT count(*) FROM t1;
+count(*)
+3
+COMMIT;
+BEGIN;
+DELETE FROM t1;
+BEGIN;
+SET tx_isolation = 'READ-COMMITTED';
+COMMIT;
+BEGIN;
+SELECT count(*) FROM t1;
+count(*)
+3
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+0
+BEGIN;
+INSERT INTO t1 VALUES (1);
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+1
+COMMIT;
+SET @@tx_isolation = 'REPEATABLE-READ';
+COMMIT;
+BEGIN;
+SELECT count(*) FROM t1;
+count(*)
+1
+BEGIN;
+INSERT INTO t1 values (2);
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+1
+COMMIT;
+BEGIN;
+SELECT count(*) FROM t1;
+count(*)
+2
+COMMIT;
+DROP TABLE t1;

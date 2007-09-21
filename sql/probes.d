@@ -14,18 +14,17 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA */
 
 provider mysql {
-
-probe external_lock(unsigned long, int);
-probe insert_row_start(unsigned long);
-probe insert_row_end(unsigned long);
-probe filesort_start(unsigned long);
-probe filesort_end(unsigned long);
-probe delete_start(unsigned long);
-probe delete_end(unsigned long);
-probe insert_start(unsigned long);
-probe insert_end(unsigned long);
-probe select_start(unsigned long);
-probe select_end(unsigned long);
-probe update_start(unsigned long);
-probe update_end(unsigned long);
+probe external_lock(int);
+probe insert_row_start();
+probe insert_row_end();
+probe filesort_start();
+probe filesort_end();
+probe delete_start();
+probe delete_end();
+probe insert_start();
+probe insert_end();
+probe select_start();
+probe select_end();
+probe update_start();
+probe update_end();
 };

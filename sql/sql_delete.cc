@@ -49,7 +49,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
     DBUG_RETURN(TRUE);
   }
 
-  MYSQL_DELETE_START(my_thread_var->id);
+  MYSQL_DELETE_START();
   THD_SET_PROC_INFO(thd, "init");
   table->map=1;
 
@@ -144,7 +144,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
   {
     free_underlaid_joins(thd, select_lex);
     thd->row_count_func= 0;
-    MYSQL_DELETE_END(my_thread_var->id);
+    MYSQL_DELETE_END();
     send_ok(thd);				// No matching records
     DBUG_RETURN(0);
   }
@@ -162,7 +162,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
     delete select;
     free_underlaid_joins(thd, select_lex);
     thd->row_count_func= 0;
-    MYSQL_DELETE_END(my_thread_var->id);
+    MYSQL_DELETE_END();
     send_ok(thd,0L);
     /*
       We don't need to call reset_auto_increment in this case, because
@@ -387,7 +387,7 @@ cleanup:
     mysql_unlock_tables(thd, thd->lock);
     thd->lock=0;
   }
-  MYSQL_DELETE_END(my_thread_var->id);
+  MYSQL_DELETE_END();
   if (error < 0 || (thd->lex->ignore && !thd->is_fatal_error))
   {
     thd->row_count_func= deleted;
@@ -397,7 +397,7 @@ cleanup:
   DBUG_RETURN(error >= 0 || thd->net.report_error);
 
 err:
-  MYSQL_DELETE_END(my_thread_var->id);
+  MYSQL_DELETE_END();
   DBUG_RETURN(TRUE);
 }
 

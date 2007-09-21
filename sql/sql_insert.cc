@@ -612,7 +612,7 @@ bool mysql_insert(THD *thd,TABLE_LIST *table_list,
       DBUG_RETURN(TRUE);
   }
 
-  MYSQL_INSERT_START(my_thread_var->id);
+  MYSQL_INSERT_START();
   THD_SET_PROC_INFO(thd, "init");
   thd->used_tables=0;
   values= its++;
@@ -967,7 +967,7 @@ bool mysql_insert(THD *thd,TABLE_LIST *table_list,
     ::send_ok(thd, (ulong) thd->row_count_func, id, buff);
   }
   thd->abort_on_warning= 0;
-  MYSQL_INSERT_END(my_thread_var->id);
+  MYSQL_INSERT_END();
   DBUG_RETURN(FALSE);
 
 abort:
@@ -980,7 +980,7 @@ abort:
   if (!joins_freed)
     free_underlaid_joins(thd, &thd->lex->select_lex);
   thd->abort_on_warning= 0;
-  MYSQL_INSERT_END(my_thread_var->id);
+  MYSQL_INSERT_END();
   DBUG_RETURN(TRUE);
 }
 

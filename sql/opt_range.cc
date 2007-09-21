@@ -7964,7 +7964,7 @@ QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,
 
   quick->mrr_buf_size= thd->variables.read_rnd_buff_size;
   COST_VECT cost;
-  if (table->file->multi_range_read_info(quick->index, 1, records,
+  if (table->file->multi_range_read_info(quick->index, 1, (uint)records,
                                          &quick->mrr_buf_size,
                                          &quick->mrr_flags, &cost))
     goto err;

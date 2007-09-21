@@ -5409,7 +5409,7 @@ best_access_path(JOIN      *join,
                 
                 Calculate the cost of complete loose index scan. 
               */
-              records= s->table->file->stats.records;
+              records= (double)s->table->file->stats.records;
 
               /* The cost is entire index scan cost (divided by 2) */
               best_time= s->table->file->index_only_read_time(key, records);

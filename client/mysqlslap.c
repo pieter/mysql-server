@@ -159,6 +159,7 @@ const char *num_int_cols_opt;
 const char *num_char_cols_opt;
 const char *num_blob_cols_opt;
 const char *opt_label;
+static unsigned int opt_set_random_seed;
 
 const char *auto_generate_selected_columns_opt;
 
@@ -336,7 +337,11 @@ int main(int argc, char **argv)
 
   /* Seed the random number generator if we will be using it. */
   if (auto_generate_sql)
-    srandom((uint)time(NULL));
+  {
+    if (opt_set_random_seed == 0)
+      opt_set_random_seed= (unsigned int)time(NULL);
+    srandom(opt_set_random_seed);
+  }
 
   /* globals? Yes, so we only have to run strlen once */
   delimiter_length= strlen(delimiter);
@@ -707,6 +712,11 @@ static struct my_option my_long_options[] =
   {"query", 'q', "Query to run or file containing query to run.",
     (uchar**) &user_supplied_query, (uchar**) &user_supplied_query,
     0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"set-random-seed", OPT_SLAP_SET_RANDOM_SEED, 
+    "Seed for random number generator (srandom(3))",
+    (uchar**)&opt_set_random_seed,
+    (uchar**)&opt_set_random_seed,0,
+    GET_UINT, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 #ifdef HAVE_SMEM
   {"shared-memory-base-name", OPT_SHARED_MEMORY_BASE_NAME,
     "Base name of shared memory.", (uchar**) &shared_memory_base_name,
@@ -2335,6 +2345,7 @@ print_conclusions(conclusions *con)
   printf("\tStandard Deviation: %ld.%03ld\n", con->std_dev / 1000, con->std_dev % 1000);
   printf("\tNumber of queries in create queries: %llu\n", con->create_count);
   printf("\tNumber of clients running queries: %d\n", con->users);
+  printf("\tNumber of times test was run: %u\n", iterations);
   printf("\tAverage number of queries per client: %llu\n", con->avg_rows); 
   printf("\n");
 }
@@ -2345,7 +2356,7 @@ print_conclusions_csv(conclusions *con)
   char buffer[HUGE_STRING_LENGTH];
   const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
   snprintf(buffer, HUGE_STRING_LENGTH, 
-           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%d,%llu\n",
+           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%u,%d,%llu\n",
            con->engine ? con->engine : "", /* Storage engine we ran against */
            opt_label ? opt_label : ptr, /* Load type */
            con->avg_timing / 1000, con->avg_timing % 1000, /* Time to load */
@@ -2353,6 +2364,7 @@ print_conclusions_csv(conclusions *con)
            con->max_timing / 1000, con->max_timing % 1000, /* Max time */
            con->sum_of_time / 1000, con->sum_of_time % 1000, /* Total time */
            con->std_dev / 1000, con->std_dev % 1000, /* Standard Deviation */
+           iterations, /* Iterations */
            con->users, /* Children used max_timing */
            con->avg_rows  /* Queries run */
           );

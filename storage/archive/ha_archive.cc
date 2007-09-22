@@ -96,6 +96,7 @@
 /* Variables for archive share methods */
 pthread_mutex_t archive_mutex;
 static HASH archive_open_tables;
+static unsigned int global_version;
 
 /* The file extension */
 #define ARZ ".ARZ"               // The data file
@@ -173,6 +174,9 @@ int archive_db_init(void *p)
   archive_hton->create= archive_create_handler;
   archive_hton->flags= HTON_NO_FLAGS;
   archive_hton->discover= archive_discover;
+
+  /* When the engine starts up set the first version */
+  global_version= 1;
 
   if (pthread_mutex_init(&archive_mutex, MY_MUTEX_INIT_FAST))
     goto error;
@@ -365,6 +369,11 @@ ARCHIVE_SHARE *ha_archive::get_share(const char *table_name, int *rc)
     stats.auto_increment_value= archive_tmp.auto_increment;
     share->rows_recorded= (ha_rows)archive_tmp.rows;
     share->crashed= archive_tmp.dirty;
+    if (share->version < global_version)
+    {
+      share->version_rows= share->rows_recorded;
+      share->version= global_version;
+    }
     azclose(&archive_tmp);
 
     VOID(my_hash_insert(&archive_open_tables, (uchar*) share));
@@ -1461,12 +1470,15 @@ int ha_archive::info(uint flag)
   pthread_mutex_lock(&share->mutex);
   if (share->dirty == TRUE)
   {
-    if (share->dirty == TRUE)
+    DBUG_PRINT("ha_archive", ("archive flushing out rows for scan"));
+    azflush(&(share->archive_write), Z_SYNC_FLUSH);
+    share->dirty= FALSE;
+    if (share->version < global_version)
     {
-      DBUG_PRINT("ha_archive", ("archive flushing out rows for scan"));
-      azflush(&(share->archive_write), Z_SYNC_FLUSH);
-      share->dirty= FALSE;
+      share->version_rows= share->rows_recorded;
+      share->version= global_version;
     }
+
   }
 
   /* 

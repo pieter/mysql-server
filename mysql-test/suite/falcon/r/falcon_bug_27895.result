@@ -13,8 +13,9 @@ SET storage_engine = 'Falcon';
 SET @@autocommit = 0;
 # Switch to connection default
 START TRANSACTION;
-SELECT a, b FROM t1 WHERE a = 'w';
+SELECT a, b FROM t1 WHERE b = 'w';
 a	b
+1	w
 INSERT INTO t1 VALUES (12, 'w');
 # Switch to connection conn1
 USE db1;

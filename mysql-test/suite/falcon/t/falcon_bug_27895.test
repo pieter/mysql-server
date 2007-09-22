@@ -32,7 +32,7 @@ SET @@autocommit = 0;
 --echo # Switch to connection default
 connection default;
 START TRANSACTION;
-SELECT a, b FROM t1 WHERE a = 'w';
+SELECT a, b FROM t1 WHERE b = 'w';
 INSERT INTO t1 VALUES (12, 'w');
 
 --echo # Switch to connection conn1

@@ -340,6 +340,11 @@ case "$target_os" in
         [1], [Defined by configure. Use explicit template instantiation.])
     fi
   ;;
+  *solaris*)
+    TARGET_SOLARIS="true"
+    AC_DEFINE([TARGET_OS_SOLARIS], [1], [Whether we are building for Solaris])
+    AC_SUBST(TARGET_SOLARIS)
+  ;;
 esac
 AC_SUBST(CC)
 AC_SUBST(CFLAGS)

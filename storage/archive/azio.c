@@ -61,7 +61,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
   s->stream.opaque = (voidpf)0;
 
 
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
   s->container.aio_offset = 0;
   s->container.aio_buf = (void *)s->buffer1;
   s->container.aio_nbytes = AZ_BUFSIZE_READ;
@@ -120,7 +120,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
 
   errno = 0;
   s->file = fd < 0 ? my_open(path, Flags, MYF(0)) : fd;
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
   s->container.aio_fildes= s->file;
 #endif
 
@@ -665,7 +665,7 @@ int azrewind (s)
   s->in = 0;
   s->out = 0;
   s->not_init= 0; /* Reset the AIO reader */
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
   aio_cancel(s->file, &s->container);
 #endif
   s->pos= s->start;
@@ -808,7 +808,7 @@ int azclose (azio_stream *s)
 
   if (s == NULL) return Z_STREAM_ERROR;
 
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
   if (s->aio)
   {
     const struct aiocb *list[1];
@@ -906,7 +906,7 @@ int azread_comment(azio_stream *s, char *blob)
 */
 static void get_block(azio_stream *s)
 {
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
   if (s->aio)
   {
     int rc;
@@ -947,7 +947,7 @@ static void get_block(azio_stream *s)
   else
 #endif
   {
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
 use_pread:
 #endif
     s->stream.avail_in = (uInt)my_pread(s->file, (uchar *)s->inbuf, AZ_BUFSIZE_READ, s->pos, MYF(0));

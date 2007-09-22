@@ -38,8 +38,11 @@
 #endif
 
 #ifdef HAVE_LIBRT
+#ifndef TARGET_OS_SOLARIS
+#define AZIO_AIO
 #include <aio.h>
-#endif
+#endif  /* TARGET_OS_SOLARIS */
+#endif /* HAVE_LIBRT */
 
 #include <zlib.h>
 #include "my_global.h"
@@ -242,7 +245,7 @@ typedef struct azio_stream {
   unsigned int frm_length;   /* Position for start of FRM */
   unsigned int comment_start_pos;   /* Position for start of comment */
   unsigned int comment_length;   /* Position for start of comment */
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
   struct aiocb container;
 #endif
   int aio;

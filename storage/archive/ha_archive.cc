@@ -116,7 +116,7 @@ int archive_discover(handlerton *hton, THD* thd, const char *db,
                      const char *name,
                      uchar **frmblob, 
                      size_t *frmlen);
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
 static my_bool archive_use_aio= TRUE;
 #else
 static my_bool archive_use_aio= FALSE;
@@ -460,7 +460,7 @@ int ha_archive::init_archive_reader()
       share->crashed= TRUE;
       DBUG_RETURN(1);
     }
-#ifdef HAVE_LIBRT
+#ifdef AZIO_AIO
     archive.aio= archive_use_aio;
 #endif
     archive_reader_open= TRUE;

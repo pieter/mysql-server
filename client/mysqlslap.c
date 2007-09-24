@@ -75,15 +75,6 @@ TODO:
 #define RAND_STRING_SIZE 126
 #define DEFAULT_BLOB_SIZE 1024
 
-/* Types */
-#define SELECT_TYPE 0
-#define UPDATE_TYPE 1
-#define INSERT_TYPE 2
-#define UPDATE_TYPE_REQUIRES_PREFIX 3
-#define CREATE_TABLE_TYPE 4
-#define SELECT_TYPE_REQUIRES_PREFIX 5
-#define DELETE_TYPE_REQUIRES_PREFIX 6
-
 #include "client_priv.h"
 #include <mysqld_error.h>
 #include <my_dir.h>
@@ -194,12 +185,23 @@ static uint opt_mysql_port= 0;
 
 static const char *load_default_groups[]= { "mysqlslap","client",0 };
 
+/* Types */
+typedef enum {
+  SELECT_TYPE= 0,
+  UPDATE_TYPE= 1,
+  INSERT_TYPE= 2,
+  UPDATE_TYPE_REQUIRES_PREFIX= 3,
+  CREATE_TABLE_TYPE= 4,
+  SELECT_TYPE_REQUIRES_PREFIX= 5,
+  DELETE_TYPE_REQUIRES_PREFIX= 6,
+} slap_query_type;
+
 typedef struct statement statement;
 
 struct statement {
   char *string;
   size_t length;
-  unsigned char type;
+  slap_query_type type;
   char *option;
   size_t option_length;
   statement *next;
@@ -2203,6 +2205,10 @@ parse_option(const char *origin, option_string **stmt, char delm)
 }
 
 
+/*
+  Raw parsing interface. If you want the slap specific parser look at
+  parse_option.
+*/
 uint
 parse_delimiter(const char *script, statement **stmt, char delm)
 {
@@ -2241,6 +2247,11 @@ parse_delimiter(const char *script, statement **stmt, char delm)
 }
 
 
+/*
+  Parse comma is different from parse_delimeter in that it parses
+  number ranges from a comma seperated string.
+  In restrospect, this is a lousy name from this function.
+*/
 uint
 parse_comma(const char *string, uint **range)
 {

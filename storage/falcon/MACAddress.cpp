@@ -25,7 +25,7 @@
 
 #else
 #include <unistd.h>
-#ifndef __APPLE__
+#if !defined(__APPLE__) || !defined(__FreeBSD__)
 #include <net/if.h>
 #include <netinet/in.h>
 #endif
@@ -40,9 +40,9 @@
 #define MAX_ADDRESSES	10
 
 #ifndef _WIN32
-static const char *devices [] = { 
-	"eth0", 
-	"eth1", 
+static const char *devices [] = {
+	"eth0",
+	"eth1",
 	"eth2",
 	"xyzzy",
 	NULL
@@ -85,14 +85,14 @@ int MACAddress::getAddresses()
 			if (length > 0 && length <= 8)
 				macAddresses [count++] = getAddress (length, ifTable->table[n].bPhysAddr);
 			}
-#elif defined (__APPLE__)
+#elif defined(__APPLE__) || defined(__FreeBSD__)
 	/* do nothing */
 #else
 	int fd = socket (PF_INET, SOCK_DGRAM, IPPROTO_IP);
 
 	if (fd < 0)
 		return 0;
-	
+
 	ifreq request;
 
 	for (const char **device = devices; *device; ++device)
@@ -101,7 +101,7 @@ int MACAddress::getAddresses()
 		if (ioctl (fd, SIOCGIFHWADDR, &request) == 0)
 			macAddresses [count++] = getAddress (6, (UCHAR*) request.ifr_hwaddr.sa_data);
 		}
-	
+
 	close (fd);
 #endif
 

@@ -19,10 +19,10 @@
 
 #include <memory.h>
 #include <string.h>
-#ifndef __APPLE__
-#include <malloc.h>
-#else
+#if defined(__APPLE__) || defined(__FreeBSD__)
 #include <stdlib.h>
+#else
+#include <malloc.h>
 #endif
 #include <stdio.h>
 #include <stdarg.h>

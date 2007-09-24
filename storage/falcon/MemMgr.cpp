@@ -19,10 +19,10 @@
 #endif
 
 #include <stdio.h>
-#ifndef __APPLE__
-#include <malloc.h>
-#else
+#if defined(__APPLE__) || defined(__FreeBSD__)
 #include <stdlib.h>
+#else
+#include <malloc.h>
 #endif
 #include <memory.h>
 #include "Engine.h"
@@ -219,16 +219,16 @@ void MemMgrAnalyze(MemMgrWhat what, InfoTable *infoTable)
 		case MemMgrSystemSummary:
 			memoryManager.analyze(0, NULL, infoTable, NULL);
 			break;
-			
+
 		case MemMgrSystemDetail:
 			memoryManager.analyze(0, NULL, NULL, infoTable);
 			break;
-			
+
 		case MemMgrRecordSummary:
 			recordManager.analyze(0, NULL, infoTable, NULL);
 			//recordObjectManager.analyze(0, NULL, infoTable, NULL);
 			break;
-			
+
 		case MemMgrRecordDetail:
 			recordManager.analyze(0, NULL, NULL, infoTable);
 			//recordObjectManager.analyze(0, NULL, NULL, infoTable);
@@ -252,21 +252,21 @@ MemMgr*	MemMgrGetFixedPool (int id)
 		{
 		case MemMgrPoolGeneral:
 			return &memoryManager;
-			
+
 		case MemMgrPoolRecordData:
 			return &recordManager;
-		
+
 		/***
 		case MemMgrPoolRecordObject:
 			return &recordObjectManager;
 		***/
-		
+
 		default:
 			return NULL;
 		}
 	}
-		
-	
+
+
 void MemMgrLogDump()
 	{
 #ifdef ENGINE
@@ -290,7 +290,7 @@ MemMgr::MemMgr(int rounding, int cutoff, int minAlloc)
 	bigHunks			= NULL;
 	smallHunks			= NULL;
 	memControl			= NULL;
-	
+
 	int vecSize = (cutoff + rounding) / rounding;
 	int l = vecSize * sizeof (void*);
 

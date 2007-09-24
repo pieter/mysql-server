@@ -18,10 +18,10 @@
 //////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
-#ifndef __APPLE__
-#include <malloc.h>
-#else
+#if defined(__APPLE__) || defined(__FreeBSD__)
 #include <stdlib.h>
+#else
+#include <malloc.h>
 #endif
 #include <string.h>
 #include "Engine.h"
@@ -42,7 +42,7 @@ static const char THIS_FILE[]=__FILE__;
 
 #ifdef _WIN32
 #define SHR(x, y) ((y) < 32 ? (x) >> (y) : ((x) >> 31 >> 1))
-#else		
+#else
 #define SHR(x, y) ((x) >> (y))
 #endif
 

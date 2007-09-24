@@ -255,22 +255,23 @@ int64 Configuration::getMemorySize(const char *string)
 int64 Configuration::getAvailablePhysicalMemory()
 {
 	int64 availableMemory = 0;
-	
+
 #ifdef _WIN32
 	MEMORYSTATUSEX stat;
 	DWORD error = 0;
-	
+
 	memset(&stat, 0, sizeof(stat));
 	stat.dwLength = sizeof(stat);
-	
+
 	if (GlobalMemoryStatusEx(&stat) != 0)
 		availableMemory = stat.ullAvailPhys;
 	else
 		error = GetLastError();
-	
-#elif defined(__APPLE__)
-	
+
+#elif defined(__APPLE__) || defined(__FreeBSD__)
+
 	// TBD: Hardcode availableMemory until fixed for MAC OS.
+    // Todo: Also find a fix for FreeBSD.
 
 	availableMemory = MIN_RECORD_MEMORY * 10;
 
@@ -284,14 +285,14 @@ int64 Configuration::getAvailablePhysicalMemory()
 		{
 		etc.
 		)
-		
+
 	availableMemory *= ONE_MB;
 	*/
 #else
 	int32 pageSize		= sysconf(_SC_PAGESIZE);
 	//int32 physPages	= sysconf(_SC_PHYS_PAGES);
 	int32 avPhysPages	= sysconf(_SC_AVPHYS_PAGES);
-	
+
 	if ((pageSize > 0) && (avPhysPages > 0))
 		availableMemory = (pageSize * avPhysPages);
 #endif

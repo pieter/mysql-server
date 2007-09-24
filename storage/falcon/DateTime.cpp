@@ -924,7 +924,7 @@ int64 DateTime::getSeconds(tm *time, const TimeZone *timeZone)
 
 bool DateTime::isDayLightSavings(tm *time)
 {
-	if (!daylight)
+	if (!time->tm_isdst)
 		return false;
 
 	// Jan to March and November and December are definitely no
@@ -945,7 +945,7 @@ bool DateTime::isDayLightSavings(tm *time)
 	if (time->tm_mon == 9)
 		{
 		before = true;
-		
+
 		while (sunday + 7 <= 31)
 			sunday += 7;
 		}

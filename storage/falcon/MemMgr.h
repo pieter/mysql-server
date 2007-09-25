@@ -71,16 +71,20 @@ public:
 	MemHeader		memHeader;
 };
 
-
+/***
 class MemFreeBlock : public MemBigObject 
 {
 public:
-	MemFreeBlock	*nextLarger;
-	MemFreeBlock	*priorSmaller;
+	//MemFreeBlock	*nextLarger;
+	//MemFreeBlock	*priorSmaller;
+	MemFreeBlock	*smaller;
+	MemFreeBlock	*larger;
 	MemFreeBlock	*nextTwin;
 	MemFreeBlock	*priorTwin;
+	int				balance;
 };
-
+***/
+#include "MemFreeBlock.h"
 
 class MemSmallHunk 
 {
@@ -117,10 +121,12 @@ public:
 	MemBigHunk		*bigHunks;
 	MemSmallHunk	*smallHunks;
 	MemControl		*memControl;
-	MemFreeBlock	freeBlocks;
+	//MemFreeBlock	freeBlocks;
+	MemFreeBlock	freeBlockTree;
 	MemFreeBlock	junk;
 	Mutex			mutex;		// Win32 critical regions are faster than SyncObject
 	int64			currentMemory;
+	uint64			activeMemory;
 	int				blocksAllocated;
 	int				blocksActive;
 

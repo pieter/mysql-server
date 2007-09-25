@@ -184,7 +184,7 @@ SerialLogBlock* SerialLogWindow::nextBlock(SerialLogBlock *block)
 		 nextBlk->creationTime == (uint32) log->creationTime &&
 		 nextBlk->blockNumber == block->blockNumber + 1)
 		{
-		ASSERT(validate(nextBlk));
+		//ASSERT(validate(nextBlk));
 		return nextBlk;
 		}
 

@@ -47,6 +47,8 @@ public:
 	void 			validateDependencies(void);
 	void			removeCommittedTransaction(Transaction* transaction);
 	void			removeTransaction(Transaction* transaction);
+	void			printBlockage(void);
+	void			printBlocking(Transaction* transaction, int level);
 	
 	TransId			transactionSequence;
 	Database		*database;

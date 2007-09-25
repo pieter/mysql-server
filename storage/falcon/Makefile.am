@@ -78,8 +78,9 @@ falcon_headers= Agent.h Alias.h Application.h \
 		Log.h \
 		LogLock.h \
 		LogStream.h \
-		MemControl.h \
 		MemMgr.h \
+		MemControl.h \
+		MemFreeBlock.h \
 		MemoryManager.h \
 		MemoryResultSetColumn.h \
 		MemoryResultSet.h MemoryResultSetMetaData.h \
@@ -98,7 +99,9 @@ falcon_headers= Agent.h Alias.h Application.h \
 		Protocol.h PStatement.h Queue.h QueryString.h RecordGroup.h \
 		Record.h RecordLeaf.h \
 		RecordLocatorPage.h \
-		RecordSection.h RecordVersion.h \
+		RecordSection.h \
+		RecordScavenge.h \
+		RecordVersion.h \
 		RecoveryObjects.h \
 		RecoveryPage.h \
 		Registry.h Repository.h RepositoryManager.h RepositoryVolume.h \
@@ -228,6 +231,7 @@ falcon_sources= Agent.cpp Alias.cpp \
 		LogLock.cpp \
 		LogStream.cpp \
 		MemControl.cpp \
+		MemFreeBlock.cpp \
 		MemMgr.cpp \
 		MemoryResultSetColumn.cpp \
 		MemoryResultSet.cpp MemoryResultSetMetaData.cpp \
@@ -248,6 +252,7 @@ falcon_sources= Agent.cpp Alias.cpp \
 		RecordGroup.cpp RecordLeaf.cpp \
 		RecordLocatorPage.cpp \
 		RecordSection.cpp \
+		RecordScavenge.cpp \
 		RecordVersion.cpp \
 		RecoveryObjects.cpp \
 		RecoveryPage.cpp \

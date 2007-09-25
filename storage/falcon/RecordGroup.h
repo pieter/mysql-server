@@ -29,15 +29,17 @@
 class RecordGroup : public RecordSection  
 {
 public:
-	virtual int countActiveRecords();
-	virtual int retireRecords(Table *table, int base, RecordScavenge *recordScavenge);
-	virtual bool retireSections(Table * table, int id);
-	virtual bool inactive();
 	RecordGroup(int32 base, int32 id, RecordSection *section);
 	RecordGroup(int32 base);
-	virtual bool store (Record *record, Record *prior, int32 id, RecordSection **parentPtr);
-	virtual Record* fetch (int32 id);
 	virtual ~RecordGroup();
+
+	virtual int		countActiveRecords();
+	virtual bool	store (Record *record, Record *prior, int32 id, RecordSection **parentPtr);
+	virtual void	inventoryRecords(RecordScavenge* recordScavenge);
+	virtual Record* fetch (int32 id);
+	virtual int		retireRecords(Table *table, int base, RecordScavenge *recordScavenge);
+	virtual bool	retireSections(Table * table, int id);
+	virtual bool	inactive();
 	
 	RecordSection	*records [RECORD_SLOTS];
 	int32			base;

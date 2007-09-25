@@ -118,6 +118,7 @@ ADD_LIBRARY(ha_falcon
 		LogStream.cpp 
 		MemMgr.cpp 
 		MemControl.cpp 
+		MemFreeBlock.cpp 
 		MemoryResultSetColumn.cpp
 		MemoryResultSet.cpp 
 		MemoryResultSetMetaData.cpp
@@ -167,6 +168,7 @@ ADD_LIBRARY(ha_falcon
 		RecordLeaf.cpp 
 		RecordLocatorPage.cpp
 		RecordSection.cpp
+		RecordScavenge.cpp
 		RecordVersion.cpp 
 		RecoveryObjects.cpp
 		RecoveryPage.cpp
@@ -378,6 +380,7 @@ ADD_LIBRARY(ha_falcon
 		LogStream.h 
 		MemMgr.h 
 		MemControl.h 
+		MemFreeBlock.h 
 		MemoryManager.h
 		MemoryResultSetColumn.h
 		MemoryResultSet.h 
@@ -430,6 +433,7 @@ ADD_LIBRARY(ha_falcon
 		RecordGroup.h 
 		RecordLeaf.h 
 		RecordLocatorPage.h
+		RecordScavenge.h
 		RecordSection.h
 		RecordVersion.h 
 		RecoveryObjects.h

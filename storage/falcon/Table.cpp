@@ -52,6 +52,7 @@
 #include "Interlock.h"
 #include "Collation.h"
 #include "TableSpace.h"
+#include "RecordScavenge.h"
 
 #ifndef STORAGE_ENGINE
 #include "Trigger.h"
@@ -331,7 +332,13 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		// Verify that record is valid
 
 		checkNullable(record);
-		checkUniqueIndexes(transaction, record);
+		Sync sync(&syncUpdate, "Table::insert");
+		
+		if (indexes)
+			{
+			sync.lock(Exclusive);
+			checkUniqueIndexes(transaction, record);
+			}
 
 		recordNumber = record->recordNumber = dbb->insertStub(dataSection, transaction);
 		transaction->addRecord(record);
@@ -392,7 +399,7 @@ Format* Table::getFormat(int version)
 	statement->setInt(1, tableId);
 	statement->setInt(2, version);
 	RSet set = statement->executeQuery();
-	format = NEW Format(set);
+	format = NEW Format(this, set);
 	sync2.unlock();
 	addFormat(format);
 
@@ -583,7 +590,7 @@ Record* Table::fetchNext(int32 start)
 Record* Table::databaseFetch(int32 recordNumber)
 {
 	Stream stream;
-	ageGroup = database->currentAgeGroup;
+	ageGroup = database->currentGeneration;
 
 	if (!dataSection)
 		dataSection = dbb->findSection(dataSectionId);
@@ -761,7 +768,7 @@ void Table::loadIndexes()
 
 void Table::init(int id, const char *schema, const char *tableName, TableSpace *tblSpace)
 {
-	ageGroup = database->currentAgeGroup;
+	ageGroup = database->currentGeneration;
 
 	if ( (tableSpace = tblSpace) )
 		dbb = tableSpace->dbb;
@@ -1065,7 +1072,13 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 
 		// Make sure no uniqueness rules are violated
 
-		checkUniqueIndexes(transaction, record);
+		Sync sync(&syncUpdate, "Table::update");
+		
+		if (indexes)
+			{
+			sync.lock(Exclusive);
+			checkUniqueIndexes(transaction, record);
+			}
 
 		// Checkin with any table attachments
 
@@ -1258,7 +1271,7 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		}
 
 	record->state = recDeleted;
-	record->setAgeGroup();
+	//record->setAgeGroup();
 	fireTriggers(transaction, PreDelete, oldRecord, NULL);
 
 	// Do any necessary cascading
@@ -1589,9 +1602,19 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 	return count;
 }
 
+void Table::inventoryRecords(RecordScavenge* recordScavenge)
+{
+	if (!records)
+		return;
+		
+	Sync sync(&syncObject, "Table::inventoryRecords");
+	sync.lock(Shared);
+	records->inventoryRecords(recordScavenge);
+}
+
 bool Table::insert(Record * record, Record *prior, int recordNumber)
 {
-	ageGroup = database->currentAgeGroup;
+	ageGroup = database->currentGeneration;
 	Sync sync(&syncObject, "Table::insert");
 
 	if (record)
@@ -2613,9 +2636,13 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 			
 		record = allocRecordVersion(fmt, transaction, NULL);
 		record->setEncodedRecord(stream, false);
+		Sync sync(&syncUpdate, "Table::insert");
 		
 		if (indexes)
+			{
+			sync.lock(Exclusive);
 			checkUniqueIndexes(transaction, record);
+			}
 			
 		recordNumber = record->recordNumber = dbb->insertStub(dataSection, transaction);
 		transaction->addRecord(record);
@@ -2727,7 +2754,13 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 
 		// Make sure no uniqueness rules are violated
 
-		checkUniqueIndexes(transaction, record);
+		Sync sync(&syncUpdate, "Table::update");
+		
+		if (indexes)
+			{
+			sync.lock(Exclusive);
+			checkUniqueIndexes(transaction, record);
+			}
 
 		// Checkin with any table attachments
 
@@ -3243,4 +3276,9 @@ Record* Table::allocRecord(int recordNumber, Stream* stream)
 			}
 	
 	return NULL;
+}
+
+Format* Table::getCurrentFormat(void)
+{
+	return getFormat(formatVersion);;
 }

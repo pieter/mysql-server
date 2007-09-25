@@ -28,6 +28,9 @@
 #include "SerialLogControl.h"
 #include "Stream.h"
 #include "Dbb.h"
+#include "RecordScavenge.h"
+#include "Format.h"
+
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -45,6 +48,7 @@ RecordVersion::RecordVersion(Table *tbl, Format *format, Transaction *trans, Rec
 		{
 		priorVersion->addRef();
 		recordNumber = oldVersion->recordNumber;
+		
 		if (trans == priorVersion->getTransaction())
 			oldVersion->setSuperceded (true);
 		}
@@ -116,7 +120,7 @@ Record* RecordVersion::rollback()
 	if (superceded)
 		return NULL;
 
-	return table->rollbackRecord (this);
+	return format->table->rollbackRecord (this);
 }
 
 bool RecordVersion::isVersion()
@@ -145,7 +149,7 @@ bool RecordVersion::scavenge(RecordScavenge *recordScavenge)
 
 	if (transaction || (transactionId >= recordScavenge->transactionId))
 		{
-		table->activeVersions = true;
+		format->table->activeVersions = true;
 
 		if (priorVersion)
 			priorVersion->scavenge(recordScavenge);
@@ -154,7 +158,7 @@ bool RecordVersion::scavenge(RecordScavenge *recordScavenge)
 		}
 
 	if (priorVersion)
-		table->expungeRecordVersions(this, recordScavenge);
+		format->table->expungeRecordVersions(this, recordScavenge);
 
 	return true;
 }
@@ -194,7 +198,7 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 	prior->addRef();
 	setPriorVersion(rec);
 	ptr->setPriorVersion(NULL);
-	table->garbageCollect(prior, this, transaction, false);
+	format->table->garbageCollect(prior, this, transaction, false);
 	prior->release();
 }
 
@@ -287,6 +291,7 @@ int RecordVersion::thaw()
 	if (bytesRestored == 0)
 		{
 		Stream stream;
+		Table *table = format->table;
 		
 		if (table->dbb->fetchRecord(table->dataSection, recordNumber, &stream))
 			{
@@ -319,6 +324,7 @@ int RecordVersion::thaw()
 	return bytesRestored;
 }
 
+/***
 char* RecordVersion::getRecordData()
 {
 	if (state == recChilled)
@@ -326,12 +332,13 @@ char* RecordVersion::getRecordData()
 		
 	return data.record;
 }
+***/
 
 void RecordVersion::print(void)
 {
 	Log::debug("  %p\tId %d, enc %d, state %d, tid %d, use %d, grp %d, prior %p\n",
 			this, recordNumber, encoding, state, transactionId, useCount,
-			ageGroup, priorVersion);
+			generation, priorVersion);
 	
 	if (priorVersion)
 		priorVersion->print();

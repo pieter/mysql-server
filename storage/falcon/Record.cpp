@@ -59,15 +59,17 @@ static int offsetVectorSize;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-Record::Record(Table *tbl, int32 recordNum, Stream *stream)
+Record::Record(Table *table, int32 recordNum, Stream *stream)
 {
-	ASSERT (tbl);
+	//ASSERT (tbl);
 	useCount = 1;
-	table = tbl;
+	//table = tbl;
+	format = table->getCurrentFormat();
 	state = recData;
 	recordNumber = recordNum;
 	const short *p = (short*) stream->segments->address;
 	size = sizeof (*this);
+	generation = table->database->currentGeneration;
 #ifdef CHECK_RECORD_ACTIVITY
 	active = false;
 #endif
@@ -78,8 +80,8 @@ Record::Record(Table *tbl, int32 recordNum, Stream *stream)
 		data.record = stream->decompress(table->tableId, recordNumber);
 		format = table->getFormat (*(short*) data.record);
 		size += format->length;
-		setAgeGroup();
-
+		//setAgeGroup();
+		
 		if (stream->decompressedLength != format->length)
 			throw SQLEXCEPTION (RUNTIME_ERROR,
 					"wrong length record (got %d, expected %d), table %s.%s, section %d, record %d",
@@ -104,12 +106,15 @@ Record::Record(Table * tbl, Format *fmt)
 {
 	ASSERT (tbl);
 	useCount = 1;
-	format = fmt;
-	table = tbl;
+	
+	if ( !(format = fmt) )
+		format = tbl->getCurrentFormat();
+		
+	//table = tbl;
 	size = sizeof (RecordVersion);
 	encoding = noEncoding;
 	state = recData;
-	ageGroup = table->database->currentAgeGroup;	// to avoid a Valgrind warning
+	generation = format->table->database->currentGeneration;
 	
 #ifdef CHECK_RECORD_ACTIVITY
 	active = false;
@@ -130,10 +135,11 @@ Record::~Record()
 #ifdef CHECK_RECORD_ACTIVITY
 	ASSERT(!active);
 #endif
-	
+	/***
 	if (table)
 		unsetAgeGroup();
-
+	***/
+	
 	deleteData();
 }
 
@@ -205,7 +211,7 @@ void Record::setValue(Transaction * transaction, int id, Value * value, bool clo
 
 		case Asciiblob:
 		case Binaryblob:
-			*(int32*) ptr = table->getBlobId (value, *(int32*) ptr, cloneFlag, transaction);
+			*(int32*) ptr = format->table->getBlobId (value, *(int32*) ptr, cloneFlag, transaction);
 			break;
 
 		case Date:
@@ -282,7 +288,7 @@ Record* Record::fetchVersion(Transaction * transaction)
 
 void Record::getValue(int fieldId, Value * value)
 {
-	ASSERT (table);
+	//ASSERT (table);
 	ASSERT (format);
 	value->clear();
 
@@ -312,7 +318,7 @@ void Record::getValue(int fieldId, Value * value)
 				{
 				case Asciiblob:
 					{
-					AsciiBlob *blob = table->getAsciiBlob(value->getBlobId());
+					AsciiBlob *blob = format->table->getAsciiBlob(value->getBlobId());
 					value->setValue (blob);
 					blob->release();
 					}
@@ -320,7 +326,7 @@ void Record::getValue(int fieldId, Value * value)
 
 				case Binaryblob:
 					{
-					BinaryBlob *blob = table->getBinaryBlob(value->getBlobId());
+					BinaryBlob *blob = format->table->getBinaryBlob(value->getBlobId());
 					value->setValue (blob);
 					blob->release();
 					}
@@ -433,7 +439,7 @@ void Record::getValue(int fieldId, Value * value)
 
 		case Asciiblob:
 			{
-			AsciiBlob *blob = table->getAsciiBlob (*(int32*) ptr);
+			AsciiBlob *blob = format->table->getAsciiBlob (*(int32*) ptr);
 			value->setValue (blob);
 			blob->release();
 			}
@@ -441,7 +447,7 @@ void Record::getValue(int fieldId, Value * value)
 
 		case Binaryblob:
 			{
-			BinaryBlob *blob = table->getBinaryBlob (*(int32*) ptr);
+			BinaryBlob *blob = format->table->getBinaryBlob (*(int32*) ptr);
 			value->setValue (blob);
 			blob->release();
 			}
@@ -641,7 +647,7 @@ void Record::finalize(Transaction *transaction)
 {
 	ASSERT(encoding == valueVector);
 	Stream stream;
-	EncodedRecord encodedStream(table, transaction, &stream);
+	EncodedRecord encodedStream(format->table, transaction, &stream);
 	short version = (short) - format->version;
 	stream.putSegment(sizeof(version), (char*) &version, true);
 	Value *values = (Value*) data.record;
@@ -677,7 +683,6 @@ int Record::setEncodedRecord(Stream *stream, bool interlocked)
 	encoding = shortVector;
 	int vectorLength = format->count * sizeof(short);
 	int totalLength = vectorLength + stream->totalLength;
-	//char *dataBuffer = ALLOCATE_RECORD(totalLength);
 	char *dataBuffer = allocRecordData(totalLength);
 	memset(dataBuffer, 0, vectorLength);
 	stream->getSegment(0, stream->totalLength, dataBuffer + vectorLength);
@@ -685,7 +690,8 @@ int Record::setEncodedRecord(Stream *stream, bool interlocked)
 	
 	highWater = 0;
 	size +=  vectorLength + stream->totalLength;
-	setAgeGroup();
+	//setAgeGroup();
+	generation = format->table->database->currentGeneration;
 
 	if (interlocked)
 		{
@@ -798,21 +804,21 @@ bool Record::isNull(int fieldId)
 
 // Set age group and add size to database
 
+/***
 void Record::setAgeGroup()
 {
 	Database *database = table->database;
-	ageGroup = database->currentAgeGroup;
+	generation = database->currentGeneration;
 	//database->ageGroupSizes [0] += size;
 	INTERLOCKED_ADD(database->ageGroupSizes + 0, size);
 }
-
 
 void Record::unsetAgeGroup(void)
 {
 	if (table)
 		{
 		Database *database = table->database;
-		int n = database->currentAgeGroup - ageGroup;
+		int n = database->currentGeneration - generation;
 		
 		if (n >= AGE_GROUPS)
 			INTERLOCKED_ADD(&database->overflowSize, -size);
@@ -821,18 +827,25 @@ void Record::unsetAgeGroup(void)
 		}
 
 }
+***/
 
 void Record::poke()
 {
+	int gen = format->table->database->currentGeneration;
+	
+	if (generation != gen)
+		generation = gen;
+	
+	/***
 	Database *database = table->database;
-	int32 currentAgeGroup = database->currentAgeGroup;
-	int32 n = currentAgeGroup - ageGroup;
+	int32 currentGeneration = database->currentGeneration;
+	int32 n = currentGeneration - generation;
 
 	if (n == 0)
 		return;
 
 	ASSERT (n > 0);
-	ageGroup = currentAgeGroup;
+	generation = currentGeneration;
 
 	if (n >= AGE_GROUPS)
 		INTERLOCKED_ADD(&database->overflowSize, -size);
@@ -840,6 +853,7 @@ void Record::poke()
 		INTERLOCKED_ADD(database->ageGroupSizes + n, -size);
 
 	INTERLOCKED_ADD(database->ageGroupSizes + 0, size);
+	***/
 }
 
 Record* Record::releaseNonRecursive(void)
@@ -885,10 +899,6 @@ int Record::setRecordData(const UCHAR * dataIn, int dataLength)
 	return (totalLength);
 }
 
-char* Record::getRecordData()
-{
-	return data.record;
-}
 
 void Record::deleteData(void)
 {
@@ -911,7 +921,7 @@ void Record::deleteData(void)
 void Record::print(void)
 {
 	printf("  %p\tId %d, enc %d, state %d, use %d, grp %d\n",
-			this, recordNumber, encoding, state, useCount, ageGroup);
+			this, recordNumber, encoding, state, useCount, generation);
 }
 
 void Record::printRecord(const char* header)
@@ -930,14 +940,14 @@ char* Record::allocRecordData(int length)
 	for (int n = 0;; ++n)
 		try
 			{
-			return POOL_NEW(table->database->recordDataPool) char[length];
+			return POOL_NEW(format->table->database->recordDataPool) char[length];
 			}
 		catch (SQLException& exception)
 			{
 			if (n > 2 || exception.getSqlcode() != OUT_OF_RECORD_MEMORY_ERROR)
 				throw;
 			
-			table->database->forceRecordScavenge();
+			format->table->database->forceRecordScavenge();
 			}
 	
 	return NULL;

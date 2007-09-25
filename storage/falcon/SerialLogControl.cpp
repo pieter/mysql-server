@@ -170,10 +170,10 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 
 void SerialLogControl::setWindow(SerialLogWindow *window, SerialLogBlock *block, int offset)
 {
-	ASSERT(window->validate(block));
+	//ASSERT(window->validate(block));
 	SerialLogWindow *priorWindow = inputWindow;
 	SerialLogBlock *priorBlock = inputBlock;
-	ASSERT(!priorWindow || priorWindow->validate(priorBlock));
+	//ASSERT(!priorWindow || priorWindow->validate(priorBlock));
 
 	if (inputWindow != window)
 		{
@@ -186,8 +186,8 @@ void SerialLogControl::setWindow(SerialLogWindow *window, SerialLogBlock *block,
 
 	Sync sync(&log->syncWrite, "SerialLogControl::setWindow");
 	sync.lock(Shared);
-	inputWindow->validate(block);
-	ASSERT(inputWindow->validate(block));
+	//inputWindow->validate(block);
+	//ASSERT(inputWindow->validate(block));
 	inputBlock = block;
 	input = inputBlock->data;
 	inputEnd = (const UCHAR*) inputBlock + block->length;
@@ -196,7 +196,7 @@ void SerialLogControl::setWindow(SerialLogWindow *window, SerialLogBlock *block,
 	if (inputBlock == log->writeBlock && log->recordIncomplete)
 		inputEnd = log->recordStart;
 	
-	ASSERT(inputWindow->validate(inputEnd));	
+	//ASSERT(inputWindow->validate(inputEnd));	
 	version = srlVersion0;
 
 	if (input < inputEnd)

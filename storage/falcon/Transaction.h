@@ -41,6 +41,7 @@ class Index;
 class Bitmap;
 class Record;
 class InfoTable;
+class Thread;
 
 // Transaction States
 
@@ -120,6 +121,12 @@ public:
 	void		thaw(DeferredIndex* deferredIndex);
 	void		print(void);
 	void		getInfo(InfoTable* infoTable);
+	void		fullyCommitted(void);
+	void		releaseCommittedTransaction(void);
+	void		commitNoUpdates(void);
+	void		validateDependencies(bool noDependencies);
+	void		releaseSavePoints(void);
+	void		printBlocking(int level);
 
 	inline bool isActive()
 		{
@@ -139,6 +146,8 @@ public:
 	SavePoint		*freeSavePoints;
 	SavePoint		localSavePoints[LOCAL_SAVE_POINTS];
 	DeferredIndex	*deferredIndexes;
+	Thread			*thread;
+	Record			*blockingRecord;
 	int				deferredIndexCount;
 	int				statesAllocated;
 	int				isolationLevel;
@@ -171,7 +180,6 @@ public:
 	volatile INTERLOCK_TYPE	dependencies;
 	volatile INTERLOCK_TYPE	useCount;
 	volatile INTERLOCK_TYPE	inList;
-	//volatile INTERLOCK_TYPE	cleanupNeeded;
 
 protected:
 	RecordVersion	*firstRecord;
@@ -179,12 +187,6 @@ protected:
 	RecordVersion	**recordPtr;
 
 	virtual ~Transaction();
-public:
-	void fullyCommitted(void);
-	void releaseCommittedTransaction(void);
-	void commitNoUpdates(void);
-	void validateDependencies(bool noDependencies);
-	void releaseSavePoints(void);
 };
 
 #endif // !defined(AFX_TRANSACTION_H__02AD6A4D_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

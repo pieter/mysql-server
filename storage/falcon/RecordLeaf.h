@@ -42,6 +42,7 @@ public:
 
 	Record		*records [RECORD_SLOTS];
 	SyncObject	syncObject;
+	void inventoryRecords(RecordScavenge* recordScavenge);
 };
 
 #endif // !defined(AFX_RECORDLEAF_H__02AD6A56_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

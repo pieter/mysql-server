@@ -184,3 +184,10 @@ bool RecordGroup::retireSections(Table * table, int id)
 		
 	return inactive();
 }
+
+void RecordGroup::inventoryRecords(RecordScavenge* recordScavenge)
+{
+	for (RecordSection **section = records, **end = records + RECORD_SLOTS; section < end; ++section)
+		if (*section)
+			(*section)->inventoryRecords(recordScavenge);
+}

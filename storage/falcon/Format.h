@@ -40,7 +40,7 @@ class Format
 {
 public:
 	void save (Table *table);
-	Format (ResultSet *resultSet);
+	Format (Table *tbl, ResultSet *resultSet);
 	bool validate (Table *table);
 	Format(Table *table, int newVersion);
 	virtual ~Format();
@@ -50,6 +50,7 @@ public:
 	int32		length;
 	int			count;
 	FieldFormat	*format;
+	Table		*table;
 	Format		*hash;
 	bool		saved;
 };

@@ -39,6 +39,7 @@
 #include "SerialLogControl.h"
 #include "InfoTable.h"
 #include "Thread.h"
+#include "Format.h"
 
 static const char *stateNames [] = {
 	"Active",
@@ -53,6 +54,8 @@ static const char *stateNames [] = {
 	"Avail",
 	"Initial"
 	};
+
+static const int INDENT = 5;
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -113,6 +116,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	numberStates = 0;
 	blockedBy = 0;
 	inList = true;
+	thread = NULL;
 	//scavenged = false;
 	
 	if (seq == 0)
@@ -131,6 +135,8 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 		freeSavePoints = localSavePoints + n;
 		}
 	
+	blockingRecord = NULL;
+	thread = Thread::getThread("Transaction::init");
 	syncActive.lock(NULL, Exclusive);
 	Transaction *oldest = transactionManager->findOldest();
 	oldestActive = (oldest) ? oldest->transactionId : transactionId;
@@ -264,12 +270,12 @@ void Transaction::commit()
 
 	for (RecordVersion *record = firstRecord; record; record = record->nextInTrans)
 		if (!record->isSuperceded() && record->state != recLock)
-			record->table->updateRecord (record);
+			record->format->table->updateRecord (record);
 
 	if (commitTriggers)
 		for (RecordVersion *record = firstRecord; record; record = record->nextInTrans)
 			if (!record->isSuperceded() && record->state != recLock)
-				record->table->postCommit (this, record);
+				record->format->table->postCommit (this, record);
 
 	releaseDependencies();
 	database->flushInversion(this);
@@ -278,9 +284,9 @@ void Transaction::commit()
 	
 	for (RecordVersion *record = firstRecord; record; record = record->nextInTrans)
 		if (!record->priorVersion)
-			++record->table->cardinality;
-		else if (record->state == recDeleted && record->table->cardinality > 0)
-			--record->table->cardinality;
+			++record->format->table->cardinality;
+		else if (record->state == recDeleted && record->format->table->cardinality > 0)
+			--record->format->table->cardinality;
 			
 	syncActiveTransactions.unlock();
 	Sync syncCommitted(&transactionManager->committedTransactions.syncObject, "Transaction::commit");
@@ -413,7 +419,7 @@ void Transaction::rollback()
 		record->nextInTrans = NULL;
 
 		if (record->state == recLock)
-			record->table->unlockRecord(record, false);
+			record->format->table->unlockRecord(record, false);
 		else
 			record->rollback();
 		
@@ -747,7 +753,11 @@ void Transaction::commitRecords()
 
 State Transaction::getRelativeState(Record* record, uint32 flags)
 {
-	return getRelativeState(record->getTransaction(), record->getTransactionId(), flags);
+    blockingRecord = record;
+	State state = getRelativeState(record->getTransaction(), record->getTransactionId(), flags);
+	blockingRecord = NULL;
+
+	return state;
 }
 
 /***
@@ -833,7 +843,7 @@ void Transaction::dropTable(Table* table)
 	// Keep exclusive lock to avoid race condition with writeComplete
 	
 	for (RecordVersion **ptr = &firstRecord, *rec; (rec = *ptr);)
-		if (rec->table == table)
+		if (rec->format->table == table)
 			removeRecord(rec);
 		else
 			ptr = &rec->nextInTrans;
@@ -842,7 +852,7 @@ void Transaction::dropTable(Table* table)
 bool Transaction::hasUncommittedRecords(Table* table)
 {
 	for (RecordVersion *rec = firstRecord; rec; rec = rec->nextInTrans)
-		if (rec->table == table)
+		if (rec->format->table == table)
 			return true;
 	
 	return false;
@@ -1091,7 +1101,7 @@ void Transaction::releaseRecordLocks(void)
 	for (ptr = &firstRecord; (record = *ptr);)
 		if (record->state == recLock)
 			{
-			record->table->unlockRecord(record, false);
+			record->format->table->unlockRecord(record, false);
 			removeRecord(record);
 			}
 		else
@@ -1103,6 +1113,64 @@ void Transaction::print(void)
 	Log::debug("  %p Id %d, state %d, updates %d, wrtPend %d, states %d, dependencies %d, records %d\n",
 			this, transactionId, state, hasUpdates, writePending, 
 			numberStates, dependencies, firstRecord != NULL);
+}
+
+void Transaction::printBlocking(int level)
+{
+	int locks = 0;
+	int updates = 0;
+	int inserts = 0;
+	int deletes = 0;
+	RecordVersion *record;
+
+	for (record = firstRecord; record; record = record->nextInTrans)
+		if (record->state == recLock)
+			++locks;
+		else if (!record->hasRecord())
+			++deletes;
+		else if (record->priorVersion)
+			++updates;
+		else
+			++inserts;
+
+	Log::debug ("%*s Trans %d, thread %d, locks %d, inserts %d, deleted %d, updates %d\n", 
+				level * INDENT, "", transactionId,
+				thread->threadId, locks, inserts, deletes, updates);
+
+	++level;
+
+	Table *table = blockingRecord->format->table;
+	
+	if (blockingRecord)
+		Log::debug("%*s Blocking on %s.%s record %d\n",
+				   level * INDENT, "",
+				   table->name, table->schemaName,
+				   blockingRecord->recordNumber);
+
+	for (record = firstRecord; record; record = record->nextInTrans)
+		{
+		const char *what;
+
+		if (record->state == recLock)
+			what = "locked";
+		else if (!record->hasRecord())
+			what = "deleted";
+		else if (record->priorVersion)
+			what = "updated";
+		else
+			what = "inserted";
+
+		Table *table = record->format->table;
+		
+		Log::debug("%*s Record %s.%s number %d %s\n",
+				   level * INDENT, "",
+				   table->name, 
+				   table->schemaName,
+				   record->recordNumber,
+				   what);
+		}
+
+	database->transactionManager->printBlocking(this, level);
 }
 
 void Transaction::getInfo(InfoTable* infoTable)

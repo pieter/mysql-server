@@ -25,6 +25,7 @@
 #include "Connection.h"
 #include "InfoTable.h"
 #include "Log.h"
+#include "LogLock.h"
 
 static const int EXTRA_TRANSACTIONS = 10;
 
@@ -426,4 +427,22 @@ void TransactionManager::removeTransaction(Transaction* transaction)
 				break;
 				}
 		}
+}
+
+void TransactionManager::printBlockage(void)
+{
+	LogLock logLock;
+	Sync sync (&activeTransactions.syncObject, "TransactionManager::printBlockage");
+	sync.lock (Shared);
+
+	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
+		if (trans->state == Active && !trans->waitingFor)
+			trans->printBlocking(1);
+}
+
+void TransactionManager::printBlocking(Transaction* transaction, int level)
+{
+	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
+		if (trans->state == Active && trans->waitingFor == transaction)
+			trans->printBlocking(level);
 }

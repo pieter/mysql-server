@@ -69,7 +69,9 @@
 #include "TableSpace.h"
 #include "InfoTable.h"
 #include "MemoryManager.h"
-#include "Record.h"
+#include "MemMgr.h"
+#include "RecordScavenge.h"
+#include "LogStream.h"
 
 #ifndef STORAGE_ENGINE
 #include "Applications.h"
@@ -398,9 +400,9 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	memset(tablesModId, 0, sizeof (tablesModId));
 	memset(unTables, 0, sizeof (unTables));
 	memset(schemas, 0, sizeof (schemas));
-	currentAgeGroup = 1;
-	overflowSize = 0;
-	memset((void*) ageGroupSizes, 0, sizeof (ageGroupSizes));
+	currentGeneration = 1;
+	//overflowSize = 0;
+	//memset((void*) ageGroupSizes, 0, sizeof (ageGroupSizes));
 	tableList = NULL;
 	recordMemoryMax = configuration->recordMemoryMax;
 	recordScavengeFloor = configuration->recordScavengeFloor;
@@ -448,7 +450,6 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	zombieTables = NULL;
 	updateCardinality = NULL;
 	lastScavenge = 0;
-	lastRetireRecords = 0;
 	scavengeCycle = 0;
 	longSync = false;
 	recordDataPool = MemMgrGetFixedPool(MemMgrPoolRecordData);
@@ -1184,60 +1185,6 @@ Transaction* Database::startTransaction(Connection *connection)
 	return transactionManager->startTransaction(connection);
 }
 
-/**
-int32 Database::insertStub(int32 recordSection, Transaction *transaction)
-{
-	int32 recordNumber = dbb->insertStub (recordSection, TRANSACTION_ID(transaction));
-	//Log::debug ("Created %d/%d\n", recordSection, recordNumber);
-
-	return recordNumber;
-}
-***/
-
-/***
-void Database::logRecord(int32 section, int32 recordNumber, Stream * stream, Transaction *transaction)
-{
-	dbb->logRecord (section, recordNumber, stream, transaction);
-}
-***/
-
-/***
-void Database::updateRecord(int32 section, int32 recordNumber, Stream *stream, Transaction *transaction)
-{
-	dbb->updateRecord (section, recordNumber, stream, TRANSACTION_ID(transaction), false);
-}
-***/
-
-/***
-void Database::updateBlob(int32 section, int32 recordNumber, Stream *stream, Transaction *transaction)
-{
-	dbb->updateBlob (section, recordNumber, stream, TRANSACTION_ID(transaction));
-	transaction->pendingPageWrites = true;
-}
-***/
-
-/***
-void Database::expungeRecord(int32 section, int32 recordNumber)
-{
-	dbb->expungeRecord (section, recordNumber);
-}
-***/
-
-/***
-int32 Database::findNextRecord(int32 sectionId, int32 recordNumber, Stream *stream)
-{
-	int32 number = dbb->findNextRecord (sectionId, recordNumber, stream);
-
-	return number;
-}
-***/
-
-/***
-bool Database::fetchRecord(int32 sectionId, int32 recordNumber, Stream * stream)
-{
-	return dbb->fetchRecord (sectionId, recordNumber, stream);
-}
-***/
 
 void Database::flush()
 {
@@ -1250,27 +1197,6 @@ void Database::commitSystemTransaction()
 	sync.lock (Exclusive);
 	systemConnection->commit();
 }
-
-/***
-int32 Database::createIndex(Transaction *transaction)
-{
-	return dbb->createIndex(TRANSACTION_ID(transaction));
-}
-***/
-
-/***
-bool Database::addIndexEntry(int32 indexId, int indexVersion, IndexKey *key, int32 recordNumber, Transaction *transaction)
-{
-	return dbb->addIndexEntry (indexId, indexVersion, key, recordNumber, TRANSACTION_ID(transaction));
-}
-***/
-
-/***
-void Database::deleteIndex(int32 indexId, int indexVersion, Transaction *transaction)
-{
-	dbb->deleteIndex (indexId, indexVersion, TRANSACTION_ID(transaction));
-}
-***/
 
 void Database::setDebug()
 {
@@ -1684,6 +1610,7 @@ void Database::scavenge()
 
 void Database::retireRecords(bool forced)
 {
+	//transactionManager->printBlockage();
 	int cycle = scavengeCycle;
 	Sync lock(&syncScavenge, "Database::retireRecords");
 	lock.lock(Exclusive);
@@ -1696,50 +1623,36 @@ void Database::retireRecords(bool forced)
 	if (forced)
 		Log::log("Forced record scavenge cycle\n");
 	
-	if (systemConnection->transaction)
+	if (!forced && systemConnection->transaction)
 		commitSystemTransaction();
 		
-	int threshold = 0;
-	int64 total = 0;
 	transactionManager->purgeTransactions();
 	TransId oldestActiveTransaction = transactionManager->findOldestActive();
-	int n;
-
-	// Compute record memory in use.  Note point we pass lower limit
-
-	for (n = 0; n < AGE_GROUPS; ++n)
-		{
-		int64 size = ageGroupSizes[n];
-		
-		if (size > 0)
-			total += size;
-			
-		if (!threshold && total > (int64)recordScavengeFloor)
-			threshold = currentAgeGroup - n;
-		}
-
-	total += overflowSize;
-	RecordScavenge recordScavenge;
-	memset(&recordScavenge, 0, sizeof(recordScavenge));
-	recordScavenge.age = threshold;
-	recordScavenge.transactionId = oldestActiveTransaction;
-
-	if (forced)
-		recordScavenge.age = MAX(threshold, currentAgeGroup - AGE_GROUPS / 2);
-		
+	int threshold = 0;
+	uint64 total = recordDataPool->activeMemory;
+	RecordScavenge recordScavenge(this, oldestActiveTransaction);
+	
 	// If we passed the upper limit, scavenge.  If we didn't pick up
 	// a significant amount of memory since the last cycle, don't bother
 	// bumping the age group.
 
-	if (forced || total > (int64)recordScavengeThreshold)
+	if (forced || total >  recordScavengeThreshold)
 		{
-		printRecordMemory (threshold, total);
-		Sync sync (&syncTables, "Database::retireRecords");
-		sync.lock (Shared);
+		LogStream stream;
+		recordDataPool->analyze(0, &stream, NULL, NULL);
+		Sync syncTbl (&syncTables, "Database::retireRecords");
+		syncTbl.lock (Shared);
+		Table *table;
+		
+		for (table = tableList; table; table = table->next)
+			table->inventoryRecords(&recordScavenge);
+		
+		threshold = recordScavenge.computeThreshold(recordScavengeFloor);
+		recordScavenge.printRecordMemory();	
 		int count = 0;
 		int skipped = 0;
 		
-		for (Table *table = tableList; table; table = table->next)
+		for (table = tableList; table; table = table->next)
 			{
 			try
 				{
@@ -1752,68 +1665,33 @@ void Database::retireRecords(bool forced)
 				}
 			catch (SQLException &exception)
 				{
-				sync.unlock();
+				//syncTbl.unlock();
 				Log::debug ("Exception during scavenger of table %s.%s: %s\n",
 						table->schemaName, table->name, exception.getText());
 				}
 			}
 
-		sync.unlock();
-		int64 newTotal = overflowSize;
-		
-		for (int n = 0; n < AGE_GROUPS; ++n)
-			newTotal += ageGroupSizes [n];
-		
+		syncTbl.unlock();
 		Log::log(LogScavenge, " %d records, " I64FORMAT " bytes reclaimed\n", 
 					recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed);
 			
-		total = newTotal;
+		total = recordScavenge.spaceRemaining;
 		}
-	else if ((total - lastRecordMemory) < (int64) recordScavengeThreshold / 4)
+	else if ((total - lastRecordMemory) < recordScavengeThreshold / AGE_GROUPS)
 		{
-		recordScavenge.age = -1;
+		recordScavenge.scavengeGeneration = -1;
 		cleanupRecords (&recordScavenge);
 		
 		return;
 		}
 	else
 		{
-		recordScavenge.age = -1;
+		recordScavenge.scavengeGeneration = -1;
 		cleanupRecords (&recordScavenge);
-		printRecordMemory (threshold, total);
 		}
 
-	lastRecordMemory = total;
-	INTERLOCKED_INCREMENT (currentAgeGroup);
-	INTERLOCKED_ADD(&overflowSize, ageGroupSizes [AGE_GROUPS - 1]);
-	//overflowSize += ageGroupSizes [AGE_GROUPS - 1];
-
-	for (n = AGE_GROUPS - 1; n > 0; --n)
-		{
-		long size = ageGroupSizes [n - 1];
-		INTERLOCKED_EXCHANGE(ageGroupSizes + n, (size >= 0) ? size : 0);
-		}
-		
-	//ageGroupSizes [0] = 0;
-	INTERLOCKED_EXCHANGE(ageGroupSizes + 0, 0);
-	lastRetireRecords = timestamp;
-}
-
-void Database::printRecordMemory(int64 threshold, int64 total)
-{
-	Log::debug ("Record Memory usage for %s:\n", (const char*) name);
-	int max;
-
-	for (max = AGE_GROUPS - 1; max > 0; --max)
-		if (ageGroupSizes [max])
-			break;
-
-	for (int n = 0; n <= max; ++n)
-		if (ageGroupSizes [n])
-			Log::debug ("  %d. %d\n", currentAgeGroup - n, ageGroupSizes [n]);
-
-	Log::log(LogScavenge, " total: " I64FORMAT ", threshold " I64FORMAT "%s\n", total, threshold,
-				(total > (int64)recordScavengeThreshold) ? " -- scavenge" : "");
+	lastRecordMemory = recordDataPool->activeMemory;
+	INTERLOCKED_INCREMENT (currentGeneration);
 }
 
 void Database::ticker(void * database)

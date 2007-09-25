@@ -29,17 +29,6 @@
 
 #define CHECK_RECORD_ACTIVITY
 
-struct RecordScavenge
-	{
-	TransId	transactionId;
-	int		age;
-	uint	recordsReclaimed;
-	uint	recordsRemaining;
-	uint	versionsRemaining;
-	uint64	spaceReclaimed;
-	uint64	spaceRemaining;
-	};
-	
 enum RecordEncoding {
 	noEncoding = 0,
 	traditional,
@@ -64,6 +53,7 @@ class Transaction;
 class Value;
 class Stream;
 class Database;
+class RecordScavenge;
 CLASS(Field);
 
 extern char	*RecordAllocate (int size, const char *file, int line);
@@ -89,7 +79,7 @@ public:
 	virtual int		thaw();
 	virtual const char*	getEncodedRecord();
 	virtual int		setRecordData(const UCHAR *dataIn, int dataLength);
-	virtual char*	getRecordData();
+	//virtual char*	getRecordData();
 	
 	const UCHAR*	getEncoding (int index);
 	int				setEncodedRecord(Stream *stream, bool interlocked);
@@ -104,11 +94,13 @@ public:
 	void			getEncodedValue (int fieldId, Value *value);
 	void			getRecord (Stream *stream);
 	int				getEncodedSize();
-	void			setAgeGroup();
 	void			deleteData(void);
 	void			printRecord(const char* header);
 	void			validateData(void);
 	char*			allocRecordData(int length);
+	
+	//void			setAgeGroup();
+	//void			unsetAgeGroup(void);
 
 	Record (Table *table, Format *recordFormat);
 	Record(Table *table, int32 recordNumber, Stream *stream);
@@ -117,6 +109,14 @@ public:
 		{
 		return data.record != NULL;
 		};
+
+	inline char* getRecordData()
+	{
+		if (state == recChilled)
+			thaw();
+		
+		return data.record;
+	}
 		
 protected:
 	virtual ~Record();
@@ -128,11 +128,11 @@ protected:
 
 public:
 	volatile INTERLOCK_TYPE useCount;
-	Table		*table;
+	//Table		*table;
 	Format		*format;
 	int			recordNumber;
 	int			size;
-	int			ageGroup;
+	int			generation;
 	short		highWater;
 	UCHAR		encoding;
 	UCHAR		state;
@@ -140,7 +140,6 @@ public:
 #ifdef CHECK_RECORD_ACTIVITY
 	UCHAR		active;					// this is for debugging only
 #endif
-	void unsetAgeGroup(void);
 };
 
 #endif // !defined(AFX_RECORD_H__02AD6A50_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

@@ -67,8 +67,7 @@ class AsciiBlob;
 class BinaryBlob;
 class Section;
 class TableSpace;
-
-struct RecordScavenge;
+class RecordScavenge;
 
 class Table : public PrivilegeObject
 {
@@ -203,6 +202,7 @@ public:
 	SyncObject		syncObject;
 	SyncObject		syncTriggers;
 	SyncObject		syncScavenge;
+	SyncObject		syncUpdate;
 	SyncObject		syncAlter;				// prevent concurrent Alter statements.
 	Table			*collision;				// Hash collision in database
 	Table			*idCollision;			// mod(id) collision in database
@@ -247,6 +247,8 @@ protected:
 public:
 	RecordVersion* allocRecordVersion(Format* format, Transaction* transaction, Record* priorVersion);
 	Record* allocRecord(int recordNumber, Stream* stream);
+	void inventoryRecords(RecordScavenge* recordScavenge);
+	Format* getCurrentFormat(void);
 };
 
 #endif // !defined(AFX_TABLE_H__02AD6A42_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

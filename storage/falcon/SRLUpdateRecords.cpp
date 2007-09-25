@@ -26,6 +26,7 @@
 #include "Log.h"
 #include "Sync.h"
 #include "SerialLogWindow.h"
+#include "Format.h"
 
 SRLUpdateRecords::SRLUpdateRecords(void)
 {
@@ -153,7 +154,7 @@ void SRLUpdateRecords::append(Transaction *transaction, RecordVersion *records, 
 			if (record->state == recNoChill)
 				continue;
 
-			Table *table = record->table;
+			Table *table = record->format->table;
 			tableSpaceId = table->dbb->tableSpaceId;
 			Stream stream;
 			

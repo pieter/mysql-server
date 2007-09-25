@@ -207,8 +207,6 @@ void MemMgrAnalyze(int mask, Stream *stream)
 	memoryManager.analyze (mask, stream, NULL, NULL);
 	stream->putSegment ("Records\n");
 	recordManager.analyze (mask, stream, NULL, NULL);
-	stream->putSegment ("Record Objects\n");
-	recordManager.analyze (mask, stream, NULL, NULL);
 	//LEAVE_CRITICAL_SECTION;
 	}
 
@@ -285,6 +283,7 @@ MemMgr::MemMgr(int rounding, int cutoff, int minAlloc)
 	currentMemory		= 0;
 	blocksAllocated		= 0;
 	blocksActive		= 0;
+	activeMemory		= 0;
 	numberBigHunks		= 0;
 	numberSmallHunks	= 0;
 	bigHunks			= NULL;
@@ -296,8 +295,9 @@ MemMgr::MemMgr(int rounding, int cutoff, int minAlloc)
 
 	freeObjects = (MemBlock**) allocRaw (l);
 	memset (freeObjects, 0, l);
-	freeBlocks.nextLarger = freeBlocks.priorSmaller = &freeBlocks;
-	junk.nextLarger = junk.priorSmaller = &junk;
+	//freeBlocks.nextLarger = freeBlocks.priorSmaller = &freeBlocks;
+	//freeBlockTree = NULL;
+	junk.larger = junk.smaller = &junk;
 }
 
 
@@ -402,50 +402,54 @@ MemBlock* MemMgr::alloc(int length)
 	 */
 	
 	
-	//Sync sync (&mutex, "MemMgr::alloc");
-	//sync.lock(Exclusive);
-	MemFreeBlock *freeBlock;
 
 	if (length < (int) (OFFSET(MemBlock*, body) + sizeof (MemFreeBlock) - sizeof (MemBigObject)))
 		length = (int) (OFFSET(MemBlock*, body) + sizeof (MemFreeBlock) - sizeof (MemBigObject));	
 	
-	for (freeBlock = freeBlocks.nextLarger; freeBlock != &freeBlocks; freeBlock = freeBlock->nextLarger)
-		if (freeBlock->memHeader.length >= length)
+	MemFreeBlock *freeBlock = freeBlockTree.findNextLargest(length);
+	
+	if (!freeBlock && freeBlockTree.larger)
+		freeBlock = freeBlockTree.findNextLargest(length);	
+			
+	if (freeBlock)
+		{
+		//freeBlockTree.validate();
+		MemBlock *block = (MemBlock*) &freeBlock->memHeader;
+		
+		// Compute length (MemHeader + body) for new free block
+		
+		int tail = block->length - length;
+		
+		// If there isn't room to split off a new free block, allocate the whole thing
+		
+		if (tail < (int) sizeof (MemFreeBlock))
 			{
-			remove (freeBlock);
-			MemBlock *block = (MemBlock*) &freeBlock->memHeader;
-			
-			// Compute length (MemHeader + body) for new free block
-			
-			int tail = block->length - length;
-			
-			// If there isn't room to split off a new free block, allocate the whole thing
-			
-			if (tail < (int) sizeof (MemFreeBlock))
-				{
-				block->pool = this;
-				return block;
-				}
-			
-			// Otherwise, chop up the block
-			
-			MemBigObject *newBlock = freeBlock;
-			freeBlock = (MemFreeBlock*) ((UCHAR*) block + length);
-			freeBlock->memHeader.length = tail - sizeof (MemBigHeader); 
-			block->length = length;
 			block->pool = this;
-			
-			if ( (freeBlock->next = newBlock->next) )
-				freeBlock->next->prior = freeBlock;
-			
-			newBlock->next = freeBlock;
-			freeBlock->prior = newBlock;
-			freeBlock->memHeader.pool = NULL;		// indicate block is free
-			insert (freeBlock);
-			//validateFreeList();
+			activeMemory += block->length;
 			
 			return block;
 			}
+		
+		// Otherwise, chop up the block
+		
+		MemBigObject *newBlock = freeBlock;
+		freeBlock = (MemFreeBlock*) ((UCHAR*) block + length);
+		freeBlock->memHeader.length = tail - sizeof (MemBigHeader); 
+		block->length = length;
+		block->pool = this;
+		activeMemory += length;
+		
+		if ( (freeBlock->next = newBlock->next) )
+			freeBlock->next->prior = freeBlock;
+		
+		newBlock->next = freeBlock;
+		freeBlock->prior = newBlock;
+		freeBlock->memHeader.pool = NULL;		// indicate block is free
+		insert (freeBlock);
+		//validateFreeList();
+		
+		return block;
+		}
 
 			 
 	// Didn't find existing space -- allocate new hunk
@@ -478,6 +482,7 @@ MemBlock* MemMgr::alloc(int length)
 	MemBlock *block = (MemBlock*) &newBlock->memHeader;
 	block->pool = this;
 	block->length = length;
+	activeMemory += length;
 	
 	// If there is space left over, create a free block
 	
@@ -631,6 +636,8 @@ void MemMgr::releaseBlock(MemBlock *block)
 	sync.lock(Exclusive);
 	//validateFreeList();
 	block->pool = NULL;
+	ASSERT(length <= activeMemory);
+	activeMemory -= length;
 	
 	if (freeBlock->next && !freeBlock->next->memHeader.pool)
 		{
@@ -697,6 +704,20 @@ void* MemMgr::memoryIsExhausted(void)
 
 void MemMgr::remove(MemFreeBlock* block)
 {
+	//freeBlockTree.validate();
+	//int count = freeBlockTree.count();
+	
+	block->remove();
+	
+	/***
+	freeBlockTree.validate();
+	int count2 = freeBlockTree.count();
+	
+	if (count - 1 != count2)
+		corrupt("bad count");
+	***/
+	
+	/***
 	// If this is junk, chop it out and be done with it
 	
 	if (block->memHeader.length < threshold)
@@ -709,6 +730,7 @@ void MemMgr::remove(MemFreeBlock* block)
 		block->nextTwin->priorTwin = block->priorTwin;
 		block->priorTwin->nextTwin = block->nextTwin;
 		//validateFreeList();
+		
 		return;
 		}
 	
@@ -725,6 +747,7 @@ void MemMgr::remove(MemFreeBlock* block)
 		twin->priorSmaller->nextLarger = twin;
 		twin->nextLarger->priorSmaller = twin;
 		//validateFreeList();
+		
 		return;
 		}
 	
@@ -733,10 +756,25 @@ void MemMgr::remove(MemFreeBlock* block)
 	block->priorSmaller->nextLarger = block->nextLarger;
 	block->nextLarger->priorSmaller = block->priorSmaller;
 	//validateFreeList();
+	***/
 }
 
 void MemMgr::insert(MemFreeBlock* freeBlock)
 {
+	//freeBlockTree.validate();
+	//int count = freeBlockTree.count();
+	
+	freeBlockTree.insert(freeBlock);
+	
+	/***
+	freeBlockTree.validate();
+	int count2 = freeBlockTree.count();
+	
+	if (count + 1 != count2)
+		corrupt("bad count");
+	***/
+	
+	/***
 	// If this is junk (too small for pool), stick it in junk
 	
 	if (freeBlock->memHeader.length < threshold)
@@ -770,6 +808,7 @@ void MemMgr::insert(MemFreeBlock* freeBlock)
 	
 	freeBlock->nextTwin = freeBlock->priorTwin = freeBlock;
 	//validateFreeList();
+	***/
 }
 
 void* MemMgr::allocRaw(int length)
@@ -796,37 +835,40 @@ void MemMgr::validateFreeList(void)
 	int len = 0;
 	int count = 0;
 	MemFreeBlock *block;
-	MemFreeBlock *prior = &freeBlocks;
 	
-	for (block = freeBlocks.nextLarger; block != &freeBlocks; prior = block, block = block->nextLarger)
+	for (block = freeBlockTree.getFirst(); block; block = block->getNext())
 		{
 		if (block->memHeader.length <= len)
 			corrupt ("bad free list\n");
-		if (block->priorSmaller != prior)
-			corrupt ("bad prior pointer");
+			
 		len = block->memHeader.length;
 		++count;
 		int twins = 0;
 		MemFreeBlock *twin;
 		MemFreeBlock *priorTwin = block;
+		
 		for (twin = block->nextTwin; twin != block; priorTwin = twin, twin = twin->nextTwin)
 			{
 			if (twin->priorTwin != priorTwin)
 				corrupt("bad priorTwin pointer");
+				
 			++twins;
 			}
+			
 		for (twin = block->priorTwin; twin != block; twin = twin->priorTwin)
 			--twins;
+			
 		if (twins)
 			corrupt("bad twin list");
 		}
 	
 	len += 1;
 	
-	for (block = freeBlocks.priorSmaller; block != &freeBlocks; block = block->priorSmaller)
+	for (block = freeBlockTree.getFirst(); block; block = block->getNext())
 		{
 		if (block->memHeader.length >= len)
 			corrupt ("bad free list\n");
+			
 		len = block->memHeader.length;
 		}
 
@@ -1048,8 +1090,9 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 		int batch = 0;
 		int64 orderedSpace = 0;
 		int sizes = 0;
-
-		for (MemFreeBlock *blk = freeBlocks.nextLarger; blk != &freeBlocks; blk = blk->nextLarger)
+		
+		//for (MemFreeBlock *blk = freeBlocks.nextLarger; blk != &freeBlocks; blk = blk->nextLarger)
+		for (MemFreeBlock *blk = freeBlockTree.getFirst(); blk; blk = blk->getNext())
 			{
 			++sizes;
 			int count = 1;
@@ -1087,7 +1130,9 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 		{
 		int sizes = 0;
 
-		for (MemFreeBlock *blk = freeBlocks.nextLarger; blk != &freeBlocks; blk = blk->nextLarger)
+		
+		for (MemFreeBlock *blk = freeBlockTree.getFirst(); blk; blk = blk->getNext())
+		//for (MemFreeBlock *blk = freeBlocks.nextLarger; blk != &freeBlocks; blk = blk->nextLarger)
 			{
 			++sizes;
 			int count = 1;

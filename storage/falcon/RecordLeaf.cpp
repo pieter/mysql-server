@@ -27,6 +27,7 @@
 #include "Sync.h"
 #include "Interlock.h"
 #include "Bitmap.h"
+#include "RecordScavenge.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -119,7 +120,6 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 #ifdef NON_BLOCKING_SCAVENGING
 	Sync sync(&syncObject, "RecordLeaf::retireRecords");
 	sync.lock(Shared);
-	bool redo = false;
 	
 	// Get a shared lock to find at least one record to scavenge
 	
@@ -132,27 +132,19 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 			if (record->isVersion())
 				{
 				if ((record->scavenge(recordScavenge)) &&
-				    ((!record->hasRecord()) || ((record->useCount == 1) && (record->ageGroup <= recordScavenge->age))))
-				    {
-				    redo = true;
-				    
+				    ((!record->hasRecord()) || ((record->useCount == 1) && (record->generation <= recordScavenge->scavengeGeneration))))
 				    break;
-				    }
 				else
 					++count;
 				}
-			else if (record->ageGroup <= recordScavenge->age && record->useCount == 1)
-				{
-				redo = true;
-				
+			else if (record->generation <= recordScavenge->scavengeGeneration && record->useCount == 1)
 				break;
-				}
 			else
 				++count;
 			}
 		}
 
-	if (!redo)
+	if (ptr >= end)
 		return count;
 	
 	// Get an exclusive lock and do the actual scavenging
@@ -162,7 +154,7 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 	count = 0;
 #endif
 	
-	for (ptr = records, end = records + RECORD_SLOTS; ptr < end; ++ptr)
+	for (ptr = records; ptr < end; ++ptr)
 		{
 		Record *record = *ptr;
 		
@@ -171,7 +163,7 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 			if (record->isVersion())
 				{
 				if ((record->scavenge(recordScavenge)) &&
-				    ((!record->hasRecord()) || ((record->useCount == 1) && (record->ageGroup <= recordScavenge->age))))
+				    ((!record->hasRecord()) || ((record->useCount == 1) && (record->generation <= recordScavenge->scavengeGeneration))))
 					{
 					*ptr = NULL;
 					recordScavenge->spaceReclaimed += record->size;
@@ -188,7 +180,7 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 					++count;
 					}
 				}
-			else if (record->ageGroup <= recordScavenge->age && record->useCount == 1)
+			else if (record->generation <= recordScavenge->scavengeGeneration && record->useCount == 1)
 				{
 				*ptr = NULL;
 				recordScavenge->spaceReclaimed += record->size;
@@ -243,4 +235,14 @@ int RecordLeaf::countActiveRecords()
 			++count;
 
 	return count;
+}
+
+void RecordLeaf::inventoryRecords(RecordScavenge* recordScavenge)
+{
+	Sync sync(&syncObject, "RecordLeaf::inventoryRecords");
+	sync.lock(Shared);
+
+	for (Record **ptr = records, **end = records + RECORD_SLOTS; ptr < end; ++ptr)
+		if (*ptr)
+			recordScavenge->inventoryRecord(*ptr);
 }

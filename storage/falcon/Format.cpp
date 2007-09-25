@@ -38,8 +38,9 @@ static const char THIS_FILE[]=__FILE__;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-Format::Format(Table *table, int newVersion)
+Format::Format(Table *tbl, int newVersion)
 {
+	table = tbl;
 	version = newVersion;
 	maxId = 0;
 	saved = false;
@@ -83,8 +84,9 @@ Format::Format(Table *table, int newVersion)
 	length = offset;
 }
 
-Format::Format(ResultSet * resultSet)
+Format::Format(Table *tbl, ResultSet * resultSet)
 {
+	table = tbl;
 	format = NULL;
 	saved = false;
 

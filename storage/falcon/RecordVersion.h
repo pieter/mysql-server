@@ -49,7 +49,7 @@ public:
 	virtual void		setVirtualOffset(uint64 offset);
 	virtual uint64		getVirtualOffset();
 	virtual int			thaw();
-	virtual char*		getRecordData();
+	//virtual char*		getRecordData();
 	virtual void		print(void);
 
 	void				commit();

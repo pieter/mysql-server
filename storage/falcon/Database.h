@@ -35,7 +35,7 @@
 #define ODS_MINOR_VERSION2	2		// Has SequencePages external to the section tree
 #define ODS_MINOR_VERSION3	3		// Switch to variable length record numbers in index
 #define ODS_MINOR_VERSION	ODS_MINOR_VERSION3
-#define AGE_GROUPS			32
+//#define AGE_GROUPS			32
 
 #define COMBINED_VERSION(major,minor)	(major * 100 + minor)
 #define VERSION_CURRENT					COMBINED_VERSION(ODS_VERSION, ODS_MINOR_VERSION)					
@@ -93,9 +93,9 @@ class IndexKey;
 class InfoTable;
 class TableSpace;
 class MemMgr;
+class RecordScavenge;
 
 struct JavaCallback;
-struct RecordScavenge;
 
 class Database
 {
@@ -106,7 +106,6 @@ public:
 	void			shutdownNow();
 	void			dropDatabase();
 	void			rollback (Transaction *transaction);
-	//void			updateBlob(int32 section, int32 recordNumber, Stream *stream, Transaction *transaction);
 	void			commit (Transaction *transaction);
 	void			start();
 	void			deleteRepositoryBlob(const char *schema, const char *repositoryName, int volume, int64 blobId, Transaction *transaction);
@@ -119,7 +118,6 @@ public:
 	void			licenseCheck();
 	void			cleanupRecords (RecordScavenge *recordScavenge);
 	void			serverOperation (int op, Parameters *parameters);
-	void			printRecordMemory(int64 threshold, int64 tota);
 	void			retireRecords(bool forced);
 	int				getMemorySize (const char *string);
 	JString			analyze(int mask);
@@ -186,7 +184,6 @@ public:
 	void			addRef();
 	PreparedStatement* prepareStatement (const char *sqlStr);
 	void			addSystemTables();
-	//int32			createSection(Transaction *transaction);
 	Table*			addTable (User *owner, const char *name, const char *schema, TableSpace *tableSpace);
 	Table*			findTable (const char *schema, const char *name);
 	Statement*		createStatement();
@@ -267,7 +264,6 @@ public:
 	PageWriter			*pageWriter;
 	PreparedStatement	*updateCardinality;
 	MemMgr				*recordDataPool;
-	//MemMgr			*recordObjectPool;
 	
 	volatile time_t	timestamp;
 	volatile int	numberQueries;
@@ -277,16 +273,15 @@ public:
 	int				odsVersion;
 	int				noSchedule;
 
-	volatile INTERLOCK_TYPE	currentAgeGroup;
-	volatile long	overflowSize;
-	volatile long 	ageGroupSizes [AGE_GROUPS];
+	volatile INTERLOCK_TYPE	currentGeneration;
+	//volatile long	overflowSize;
+	//volatile long 	ageGroupSizes [AGE_GROUPS];
 	uint64			recordMemoryMax;
 	uint64			recordScavengeThreshold;
 	uint64			recordScavengeFloor;
 	int64			lastRecordMemory;
 	time_t			creationTime;
 	volatile time_t	lastScavenge;
-	volatile time_t	lastRetireRecords;
 };
 
 #endif // !defined(AFX_DATABASE_H__5EC961D1_A406_11D2_AB5B_0000C01D2301__INCLUDED_)

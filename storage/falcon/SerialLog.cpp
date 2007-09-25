@@ -442,7 +442,7 @@ void SerialLog::overflowFlush(void)
 	writeBlock->length = (int) (writePtr - (UCHAR*) writeBlock);
 	writeWindow->setLastBlock(writeBlock);
 	lastReadBlock = writeBlock->readBlockNumber = getReadBlock();
-	ASSERT(writeWindow->validate(writeBlock));
+	//ASSERT(writeWindow->validate(writeBlock));
 	
 	// Keep track of what needs to be written
 
@@ -463,7 +463,7 @@ void SerialLog::overflowFlush(void)
 		throw;
 		}	
 		
-	ASSERT(flushWindow->validate(flushBlock));
+	//ASSERT(flushWindow->validate(flushBlock));
 	++physicalFlushes;
 	mutex.unlock();		
 	
@@ -570,7 +570,7 @@ uint64 SerialLog::flush(bool forceNewWindow, uint64 commitBlockNumber, Sync *cli
 		throw;
 		}
 			
-	ASSERT(flushWindow->validate(flushBlock));
+	//ASSERT(flushWindow->validate(flushBlock));
 	++physicalFlushes;
 	mutex.unlock();
 	
@@ -581,7 +581,7 @@ uint64 SerialLog::flush(bool forceNewWindow, uint64 commitBlockNumber, Sync *cli
 	wakeupFlushQueue(thread);
 	ASSERT(writer != thread);
 	ASSERT(writer || !srlQueue);
-	ASSERT(writeWindow->validate(writeBlock));
+	//ASSERT(writeWindow->validate(writeBlock));
 	syncPtr->unlock();
 
 	return nextBlockNumber;
@@ -619,7 +619,7 @@ void SerialLog::createNewWindow(void)
 	writeWindow->firstBlockNumber = nextBlockNumber;
 	initializeWriteBlock(writeWindow->firstBlock());
 	ASSERT(writeWindow->firstBlockNumber == writeBlock->blockNumber);
-	ASSERT(writeWindow->validate(writeBlock));
+	//ASSERT(writeWindow->validate(writeBlock));
 }
 
 void SerialLog::shutdown()
@@ -686,7 +686,7 @@ void SerialLog::putData(uint32 length, const UCHAR *data)
 	writeBlock->length = (int) (writePtr - (UCHAR*) writeBlock);
 	writeWindow->currentLength = (int) (writePtr - writeWindow->buffer);
 	recordStart = writeBlock->data;
-	ASSERT(writeWindow->validate(writeBlock));
+	//ASSERT(writeWindow->validate(writeBlock));
 }
 
 void SerialLog::startRecord()
@@ -988,7 +988,7 @@ void SerialLog::initializeWriteBlock(SerialLogBlock *block)
 	writeBlock->length = (int) (writePtr - (UCHAR*) writeBlock);
 	writeWindow->setLastBlock(writeBlock);
 	writeWarningTrack = writeWindow->warningTrack;
-	ASSERT(writeWindow->validate(writeBlock));
+	//ASSERT(writeWindow->validate(writeBlock));
 }
 
 

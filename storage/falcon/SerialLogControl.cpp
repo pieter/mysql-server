@@ -171,8 +171,6 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 void SerialLogControl::setWindow(SerialLogWindow *window, SerialLogBlock *block, int offset)
 {
 	//ASSERT(window->validate(block));
-	SerialLogWindow *priorWindow = inputWindow;
-	SerialLogBlock *priorBlock = inputBlock;
 	//ASSERT(!priorWindow || priorWindow->validate(priorBlock));
 
 	if (inputWindow != window)

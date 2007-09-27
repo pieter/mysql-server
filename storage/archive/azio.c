@@ -249,10 +249,7 @@ int get_byte(s)
 }
 
 /* ===========================================================================
-  Check the gzip header of a azio_stream opened for reading. Set the stream
-  mode to transparent if the gzip magic header is not present; set s->err
-  to Z_DATA_ERROR if the magic header is present but the rest of the header
-  is incorrect.
+  Check the gzip header of a azio_stream opened for reading.
   IN assertion: the stream s has already been created sucessfully;
   s->stream.avail_in is zero for the first time, but may be non-zero
   for concatenated .gz files.
@@ -276,10 +273,6 @@ void check_header(azio_stream *s)
     if (len == 0) s->z_err = Z_ERRNO;
     s->stream.avail_in += len;
     s->stream.next_in = s->inbuf;
-    if (s->stream.avail_in < 2) {
-      s->transparent = s->stream.avail_in;
-      return;
-    }
   }
 
   /* Peek ahead to check the gzip magic header */
@@ -439,34 +432,6 @@ unsigned int ZEXPORT azread ( azio_stream *s, voidp buf, unsigned int len, int *
 
   while (s->stream.avail_out != 0) {
 
-    if (s->transparent) {
-      /* Copy first the lookahead bytes: */
-      uInt n = s->stream.avail_in;
-      if (n > s->stream.avail_out) n = s->stream.avail_out;
-      if (n > 0) {
-        memcpy(s->stream.next_out, s->stream.next_in, n);
-        next_out += n;
-        s->stream.next_out = (Bytef *)next_out;
-        s->stream.next_in   += n;
-        s->stream.avail_out -= n;
-        s->stream.avail_in  -= n;
-      }
-      if (s->stream.avail_out > 0) 
-      {
-        /* We really should be checking for error here */
-        unsigned int read;
-        read= (unsigned int)my_pread(s->file, (uchar *)next_out, s->stream.avail_out, s->pos, MYF(0));
-        s->stream.avail_out -=read;
-        s->pos+= read;
-      }
-      len -= s->stream.avail_out;
-      s->in  += len;
-      s->out += len;
-      if (len == 0) s->z_eof = 1;
-      { 
-        return len;
-      }
-    }
     if (s->stream.avail_in == 0 && !s->z_eof) {
 
       errno = 0;
@@ -661,7 +626,7 @@ int azrewind (s)
   s->stream.avail_in = 0;
   s->stream.next_in = (Bytef *)s->inbuf;
   s->crc = crc32(0L, Z_NULL, 0);
-  if (!s->transparent) (void)inflateReset(&s->stream);
+  (void)inflateReset(&s->stream);
   s->in = 0;
   s->out = 0;
   s->not_init= 0; /* Reset the AIO reader */
@@ -715,17 +680,6 @@ my_off_t azseek (s, offset, whence)
   /* compute absolute position */
   if (whence == SEEK_CUR) {
     offset += s->out;
-  }
-
-  if (s->transparent) {
-    /* map to my_seek */
-    s->back = EOF;
-    s->stream.avail_in = 0;
-    s->stream.next_in = (Bytef *)s->inbuf;
-    if (my_seek(s->file, offset, MY_SEEK_SET, MYF(0)) == MY_FILEPOS_ERROR) return -1L;
-
-    s->in = s->out = offset;
-    return offset;
   }
 
   /* For a negative seek, rewind and use positive seek */

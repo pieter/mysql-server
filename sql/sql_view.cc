@@ -953,6 +953,12 @@ bool mysql_make_view(THD *thd, File_parser *parser, TABLE_LIST *table,
     DBUG_RETURN(0);
   }
 
+  if (table->index_hints && table->index_hints->elements)
+  {
+      my_error(ER_WRONG_USAGE, MYF(0), "index hints", "VIEW");
+      DBUG_RETURN(TRUE);
+  }
+
   /* check loop via view definition */
   for (TABLE_LIST *precedent= table->referencing_view;
        precedent;

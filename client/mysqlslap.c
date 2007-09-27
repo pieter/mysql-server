@@ -140,6 +140,7 @@ const char *create_schema_string= "mysqlslap";
 static my_bool opt_preserve= 0, debug_info_flag= 0, debug_check_flag= 0;
 static my_bool opt_only_print= FALSE;
 static my_bool opt_burnin= FALSE;
+static my_bool opt_ignore_sql_errors= FALSE;
 static my_bool opt_compress= FALSE, tty_password= FALSE,
                opt_silent= FALSE,
                auto_generate_sql_autoincrement= FALSE,
@@ -158,6 +159,7 @@ const char *num_int_cols_opt;
 const char *num_char_cols_opt;
 const char *num_blob_cols_opt;
 const char *opt_label;
+static unsigned int opt_set_random_seed;
 
 const char *auto_generate_selected_columns_opt;
 
@@ -335,7 +337,11 @@ int main(int argc, char **argv)
 
   /* Seed the random number generator if we will be using it. */
   if (auto_generate_sql)
-    srandom((uint)time(NULL));
+  {
+    if (opt_set_random_seed == 0)
+      opt_set_random_seed= (unsigned int)time(NULL);
+    srandom(opt_set_random_seed);
+  }
 
   /* globals? Yes, so we only have to run strlen once */
   delimiter_length= strlen(delimiter);
@@ -584,11 +590,17 @@ static struct my_option my_long_options[] =
     (uchar**) &auto_generate_sql_unique_write_number,
     0, GET_ULL, REQUIRED_ARG, 10, 0, 0, 0, 0, 0},
   {"auto-generate-sql-write-number", OPT_SLAP_AUTO_GENERATE_WRITE_NUM,
-    "Number of rows to insert to used in read and write loads (default is 100).\n",
+    "Number of rows to insert to used in read and write loads (default is 100).",
     (uchar**) &auto_generate_sql_number, (uchar**) &auto_generate_sql_number,
     0, GET_ULL, REQUIRED_ARG, 100, 0, 0, 0, 0, 0},
   {"burnin", OPT_SLAP_BURNIN, "Run full test case in infinite loop.",
     (uchar**) &opt_burnin, (uchar**) &opt_burnin, 0, GET_BOOL, NO_ARG, 0, 0, 0,
+    0, 0, 0},
+  {"ignore-sql-errors", OPT_SLAP_IGNORE_SQL_ERRORS, 
+    "Ignore SQL erros in query run.",
+    (uchar**) &opt_ignore_sql_errors, 
+    (uchar**) &opt_ignore_sql_errors, 
+    0, GET_BOOL, NO_ARG, 0, 0, 0,
     0, 0, 0},
   {"commit", OPT_SLAP_COMMIT, "Commit records after X number of statements.",
     (uchar**) &commit_rate, (uchar**) &commit_rate, 0, GET_UINT, REQUIRED_ARG,
@@ -700,6 +712,11 @@ static struct my_option my_long_options[] =
   {"query", 'q', "Query to run or file containing query to run.",
     (uchar**) &user_supplied_query, (uchar**) &user_supplied_query,
     0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"set-random-seed", OPT_SLAP_SET_RANDOM_SEED, 
+    "Seed for random number generator (srandom(3))",
+    (uchar**)&opt_set_random_seed,
+    (uchar**)&opt_set_random_seed,0,
+    GET_UINT, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 #ifdef HAVE_SMEM
   {"shared-memory-base-name", OPT_SHARED_MEMORY_BASE_NAME,
     "Base name of shared memory.", (uchar**) &shared_memory_base_name,
@@ -1804,7 +1821,8 @@ limit_not_met:
       {
         fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                 my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
-        exit(1);
+        if (!opt_ignore_sql_errors)
+          exit(1);
       }
       sptr->create_count++;
     }
@@ -1814,7 +1832,8 @@ limit_not_met:
       {
         fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
                 my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
-        exit(1);
+        if (!opt_ignore_sql_errors)
+          exit(1);
       }
       sptr->create_count++;
     }
@@ -2326,6 +2345,7 @@ print_conclusions(conclusions *con)
   printf("\tStandard Deviation: %ld.%03ld\n", con->std_dev / 1000, con->std_dev % 1000);
   printf("\tNumber of queries in create queries: %llu\n", con->create_count);
   printf("\tNumber of clients running queries: %d\n", con->users);
+  printf("\tNumber of times test was run: %u\n", iterations);
   printf("\tAverage number of queries per client: %llu\n", con->avg_rows); 
   printf("\n");
 }
@@ -2336,7 +2356,7 @@ print_conclusions_csv(conclusions *con)
   char buffer[HUGE_STRING_LENGTH];
   const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
   snprintf(buffer, HUGE_STRING_LENGTH, 
-           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%d,%llu\n",
+           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%u,%d,%llu\n",
            con->engine ? con->engine : "", /* Storage engine we ran against */
            opt_label ? opt_label : ptr, /* Load type */
            con->avg_timing / 1000, con->avg_timing % 1000, /* Time to load */
@@ -2344,6 +2364,7 @@ print_conclusions_csv(conclusions *con)
            con->max_timing / 1000, con->max_timing % 1000, /* Max time */
            con->sum_of_time / 1000, con->sum_of_time % 1000, /* Total time */
            con->std_dev / 1000, con->std_dev % 1000, /* Standard Deviation */
+           iterations, /* Iterations */
            con->users, /* Children used max_timing */
            con->avg_rows  /* Queries run */
           );

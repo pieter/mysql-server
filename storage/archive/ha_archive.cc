@@ -96,6 +96,7 @@
 /* Variables for archive share methods */
 pthread_mutex_t archive_mutex;
 static HASH archive_open_tables;
+static unsigned int global_version;
 
 /* The file extension */
 #define ARZ ".ARZ"               // The data file
@@ -116,6 +117,11 @@ int archive_discover(handlerton *hton, THD* thd, const char *db,
                      const char *name,
                      uchar **frmblob, 
                      size_t *frmlen);
+#ifdef AZIO_AIO
+static my_bool archive_use_aio= TRUE;
+#else
+static my_bool archive_use_aio= FALSE;
+#endif
 
 /*
   Number of rows that will force a bulk insert.
@@ -168,6 +174,9 @@ int archive_db_init(void *p)
   archive_hton->create= archive_create_handler;
   archive_hton->flags= HTON_NO_FLAGS;
   archive_hton->discover= archive_discover;
+
+  /* When the engine starts up set the first version */
+  global_version= 1;
 
   if (pthread_mutex_init(&archive_mutex, MY_MUTEX_INIT_FAST))
     goto error;
@@ -360,6 +369,11 @@ ARCHIVE_SHARE *ha_archive::get_share(const char *table_name, int *rc)
     stats.auto_increment_value= archive_tmp.auto_increment;
     share->rows_recorded= (ha_rows)archive_tmp.rows;
     share->crashed= archive_tmp.dirty;
+    if (share->version < global_version)
+    {
+      share->version_rows= share->rows_recorded;
+      share->version= global_version;
+    }
     azclose(&archive_tmp);
 
     VOID(my_hash_insert(&archive_open_tables, (uchar*) share));
@@ -455,6 +469,9 @@ int ha_archive::init_archive_reader()
       share->crashed= TRUE;
       DBUG_RETURN(1);
     }
+#ifdef AZIO_AIO
+    archive.aio= archive_use_aio;
+#endif
     archive_reader_open= TRUE;
   }
 
@@ -667,7 +684,7 @@ int ha_archive::create(const char *name, TABLE *table_arg,
 
     if (create_info->comment.str)
       azwrite_comment(&create_stream, create_info->comment.str, 
-                      create_info->comment.length);
+                      (unsigned int)create_info->comment.length);
 
     /* 
       Yes you need to do this, because the starting value 
@@ -1154,7 +1171,7 @@ int ha_archive::get_row_version2(azio_stream *file_to_read, uchar *buf)
   }
 
   /* Adjust our row buffer if we need be */
-  buffer.alloc(total_blob_length);
+  buffer.alloc((uint32)total_blob_length);
   last= (char *)buffer.ptr();
 
   /* Loop through our blobs and read them */
@@ -1168,14 +1185,14 @@ int ha_archive::get_row_version2(azio_stream *file_to_read, uchar *buf)
       if (bitmap_is_set(read_set,
                         ((Field_blob*) table->field[*ptr])->field_index))
       {
-        read= azread(file_to_read, last, size, &error);
+        read= azread(file_to_read, last, (unsigned int)size, &error);
 
         if (error)
           DBUG_RETURN(HA_ERR_CRASHED_ON_USAGE);
 
         if ((size_t) read != size)
           DBUG_RETURN(HA_ERR_END_OF_FILE);
-        ((Field_blob*) table->field[*ptr])->set_ptr(size, (uchar*) last);
+        ((Field_blob*) table->field[*ptr])->set_ptr((uint32)size, (uchar*) last);
         last += size;
       }
       else
@@ -1453,12 +1470,15 @@ int ha_archive::info(uint flag)
   pthread_mutex_lock(&share->mutex);
   if (share->dirty == TRUE)
   {
-    if (share->dirty == TRUE)
+    DBUG_PRINT("ha_archive", ("archive flushing out rows for scan"));
+    azflush(&(share->archive_write), Z_SYNC_FLUSH);
+    share->dirty= FALSE;
+    if (share->version < global_version)
     {
-      DBUG_PRINT("ha_archive", ("archive flushing out rows for scan"));
-      azflush(&(share->archive_write), Z_SYNC_FLUSH);
-      share->dirty= FALSE;
+      share->version_rows= share->rows_recorded;
+      share->version= global_version;
     }
+
   }
 
   /* 
@@ -1630,6 +1650,16 @@ void ha_archive::destroy_record_buffer(archive_record_buffer *r)
   DBUG_VOID_RETURN;
 }
 
+static MYSQL_SYSVAR_BOOL(aio, archive_use_aio,
+  PLUGIN_VAR_NOCMDOPT,
+  "Whether or not to use POSIX aio.",
+  NULL, NULL, TRUE);
+
+static struct st_mysql_sys_var* archive_system_variables[]= {
+  MYSQL_SYSVAR(aio),
+  NULL
+};
+
 struct st_mysql_storage_engine archive_storage_engine=
 { MYSQL_HANDLERTON_INTERFACE_VERSION };
 
@@ -1643,9 +1673,9 @@ mysql_declare_plugin(archive)
   PLUGIN_LICENSE_GPL,
   archive_db_init, /* Plugin Init */
   archive_db_done, /* Plugin Deinit */
-  0x0300 /* 3.0 */,
+  0x0350 /* 3.0 */,
   NULL,                       /* status variables                */
-  NULL,                       /* system variables                */
+  archive_system_variables,   /* system variables                */
   NULL                        /* config options                  */
 }
 mysql_declare_plugin_end;

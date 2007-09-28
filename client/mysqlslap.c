@@ -2317,7 +2317,7 @@ print_conclusions(conclusions *con)
   printf("Benchmark\n");
   if (con->engine)
       printf("\tRunning for engine %s\n", con->engine);
-  printf("\tRand Seed:%lu\n", random_seed);
+  printf("\tRand Seed: %u\n", random_seed);
   if (opt_label || auto_generate_sql_type)
   {
     const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";

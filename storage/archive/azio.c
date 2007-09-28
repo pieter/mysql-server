@@ -38,7 +38,9 @@ static void putLong(azio_stream *s, uLong x);
 static uLong  getLong(azio_stream *s);
 static void read_header(azio_stream *s, unsigned char *buffer);
 static void get_block(azio_stream *s);
+#ifdef AZIO_AIO
 static int do_aio_wait(struct aiocb **cbp, size_t nent, int allowed_err);
+#endif
 
 /* ===========================================================================
   Opens a gzip (.gz) file for reading or writing. The mode parameter
@@ -857,6 +859,7 @@ int azread_comment(azio_stream *s, char *blob)
   return 0;
 }
 
+#ifdef AZIO_AIO
 static int do_aio_wait (struct aiocb **cbp, size_t nent, int allowed_err)
 {
   int go_on;
@@ -890,6 +893,7 @@ static int do_aio_wait (struct aiocb **cbp, size_t nent, int allowed_err)
 
   return result;
 }
+#endif
 
 /* 
   Normally all IO goes through aio_read(), but in case of error or non-support

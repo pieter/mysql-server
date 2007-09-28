@@ -223,7 +223,6 @@ typedef struct azio_stream {
   int      not_init; /* Are we good to go */
   uLong    crc;     /* crc32 of uncompressed data */
   char     *msg;    /* error message */
-  int      transparent; /* 1 if input file is not a .gz file */
   char     mode;    /* 'w' or 'r' */
   my_off_t  start;   /* start of compressed data in file (header skipped) */
   my_off_t  in;      /* bytes into deflate or inflate */

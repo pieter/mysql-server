@@ -34,7 +34,7 @@ static int    get_byte(azio_stream *s);
 static void   check_header(azio_stream *s);
 static void write_header(azio_stream *s);
 static int    destroy(azio_stream *s);
-static void putLong(File file, uLong x);
+static void putLong(azio_stream *s, uLong x);
 static uLong  getLong(azio_stream *s);
 static void read_header(azio_stream *s, unsigned char *buffer);
 static void get_block(azio_stream *s);
@@ -145,7 +145,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
     s->dirty= 1; /* We create the file dirty */
     s->start = AZHEADER_SIZE + AZMETA_BUFFER_SIZE;
     write_header(s);
-    my_seek(s->file, 0, MY_SEEK_END, MYF(0));
+    s->pos= my_seek(s->file, 0, MY_SEEK_END, MYF(0));
   }
   else if (s->mode == 'w') 
   {
@@ -153,7 +153,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
     my_pread(s->file, buffer, AZHEADER_SIZE + AZMETA_BUFFER_SIZE, 0,
              MYF(0));
     read_header(s, buffer); /* skip the .az header */
-    my_seek(s->file, 0, MY_SEEK_END, MYF(0));
+    s->pos= my_seek(s->file, 0, MY_SEEK_END, MYF(0));
   }
   else
   {
@@ -249,10 +249,7 @@ int get_byte(s)
 }
 
 /* ===========================================================================
-  Check the gzip header of a azio_stream opened for reading. Set the stream
-  mode to transparent if the gzip magic header is not present; set s->err
-  to Z_DATA_ERROR if the magic header is present but the rest of the header
-  is incorrect.
+  Check the gzip header of a azio_stream opened for reading.
   IN assertion: the stream s has already been created sucessfully;
   s->stream.avail_in is zero for the first time, but may be non-zero
   for concatenated .gz files.
@@ -276,10 +273,6 @@ void check_header(azio_stream *s)
     if (len == 0) s->z_err = Z_ERRNO;
     s->stream.avail_in += len;
     s->stream.next_in = s->inbuf;
-    if (s->stream.avail_in < 2) {
-      s->transparent = s->stream.avail_in;
-      return;
-    }
   }
 
   /* Peek ahead to check the gzip magic header */
@@ -439,34 +432,6 @@ unsigned int ZEXPORT azread ( azio_stream *s, voidp buf, unsigned int len, int *
 
   while (s->stream.avail_out != 0) {
 
-    if (s->transparent) {
-      /* Copy first the lookahead bytes: */
-      uInt n = s->stream.avail_in;
-      if (n > s->stream.avail_out) n = s->stream.avail_out;
-      if (n > 0) {
-        memcpy(s->stream.next_out, s->stream.next_in, n);
-        next_out += n;
-        s->stream.next_out = (Bytef *)next_out;
-        s->stream.next_in   += n;
-        s->stream.avail_out -= n;
-        s->stream.avail_in  -= n;
-      }
-      if (s->stream.avail_out > 0) 
-      {
-        /* We really should be checking for error here */
-        unsigned int read;
-        read= (unsigned int)my_pread(s->file, (uchar *)next_out, s->stream.avail_out, s->pos, MYF(0));
-        s->stream.avail_out -=read;
-        s->pos+= read;
-      }
-      len -= s->stream.avail_out;
-      s->in  += len;
-      s->out += len;
-      if (len == 0) s->z_eof = 1;
-      { 
-        return len;
-      }
-    }
     if (s->stream.avail_in == 0 && !s->z_eof) {
 
       errno = 0;
@@ -537,12 +502,13 @@ unsigned int azwrite (azio_stream *s, voidpc buf, unsigned int len)
     {
 
       s->stream.next_out = s->outbuf;
-      if (my_write(s->file, (uchar *)s->outbuf, AZ_BUFSIZE_WRITE, 
+      if (my_pwrite(s->file, (uchar *)s->outbuf, AZ_BUFSIZE_WRITE, s->pos, 
                    MYF(0)) != AZ_BUFSIZE_WRITE) 
       {
         s->z_err = Z_ERRNO;
         break;
       }
+      s->pos+= AZ_BUFSIZE_WRITE;
       s->stream.avail_out = AZ_BUFSIZE_WRITE;
     }
     s->in += s->stream.avail_in;
@@ -584,12 +550,13 @@ int do_flush (azio_stream *s, int flush)
 
     if (len != 0) 
     {
-      s->check_point= my_tell(s->file, MYF(0));
-      if ((uInt)my_write(s->file, (uchar *)s->outbuf, len, MYF(0)) != len) 
+      if ((uInt)my_pwrite(s->file, (uchar *)s->outbuf, len, s->pos, MYF(0)) != len) 
       {
         s->z_err = Z_ERRNO;
         return Z_ERRNO;
       }
+      s->pos+= len;
+      s->check_point= s->pos;
       s->stream.next_out = s->outbuf;
       s->stream.avail_out = AZ_BUFSIZE_WRITE;
     }
@@ -616,7 +583,6 @@ int do_flush (azio_stream *s, int flush)
 
   afterwrite_pos= my_tell(s->file, MYF(0));
   write_header(s);
-  my_seek(s->file, afterwrite_pos, SEEK_SET, MYF(0));
 
   return  s->z_err == Z_STREAM_END ? Z_OK : s->z_err;
 }
@@ -661,7 +627,7 @@ int azrewind (s)
   s->stream.avail_in = 0;
   s->stream.next_in = (Bytef *)s->inbuf;
   s->crc = crc32(0L, Z_NULL, 0);
-  if (!s->transparent) (void)inflateReset(&s->stream);
+  (void)inflateReset(&s->stream);
   s->in = 0;
   s->out = 0;
   s->not_init= 0; /* Reset the AIO reader */
@@ -717,17 +683,6 @@ my_off_t azseek (s, offset, whence)
     offset += s->out;
   }
 
-  if (s->transparent) {
-    /* map to my_seek */
-    s->back = EOF;
-    s->stream.avail_in = 0;
-    s->stream.next_in = (Bytef *)s->inbuf;
-    if (my_seek(s->file, offset, MY_SEEK_SET, MYF(0)) == MY_FILEPOS_ERROR) return -1L;
-
-    s->in = s->out = offset;
-    return offset;
-  }
-
   /* For a negative seek, rewind and use positive seek */
   if (offset >= s->out) {
     offset -= s->out;
@@ -769,7 +724,7 @@ my_off_t ZEXPORT aztell (file)
 /* ===========================================================================
   Outputs a long in LSB order to the given file
 */
-void putLong (File file, uLong x)
+void putLong (azio_stream *s, uLong x)
 {
   int n;
   uchar buffer[1];
@@ -777,7 +732,8 @@ void putLong (File file, uLong x)
   for (n = 0; n < 4; n++) 
   {
     buffer[0]= (int)(x & 0xff);
-    my_write(file, buffer, 1, MYF(0));
+    my_pwrite(s->file, buffer, 1, s->pos, MYF(0));
+    s->pos++;
     x >>= 8;
   }
 }
@@ -826,8 +782,8 @@ int azclose (azio_stream *s)
     if (do_flush(s, Z_FINISH) != Z_OK)
       return destroy(s);
 
-    putLong(s->file, s->crc);
-    putLong(s->file, (uLong)(s->in & 0xffffffff));
+    putLong(s, s->crc);
+    putLong(s, (uLong)(s->in & 0xffffffff));
     s->dirty= AZ_STATE_CLEAN;
     s->check_point= my_tell(s->file, MYF(0));
     write_header(s);
@@ -855,7 +811,7 @@ int azwrite_frm(azio_stream *s, char *blob, unsigned int length)
   my_pwrite(s->file, (uchar*) blob, s->frm_length, s->frm_start_pos, MYF(0));
 
   write_header(s);
-  my_seek(s->file, 0, MY_SEEK_END, MYF(0));
+  s->pos= my_seek(s->file, 0, MY_SEEK_END, MYF(0));
 
   return 0;
 }
@@ -887,7 +843,7 @@ int azwrite_comment(azio_stream *s, char *blob, unsigned int length)
             MYF(0));
 
   write_header(s);
-  my_seek(s->file, 0, MY_SEEK_END, MYF(0));
+  s->pos= my_seek(s->file, 0, MY_SEEK_END, MYF(0));
 
   return 0;
 }

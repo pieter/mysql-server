@@ -147,6 +147,7 @@ static my_bool opt_compress= FALSE, tty_password= FALSE,
                auto_generate_sql= FALSE;
 const char *auto_generate_sql_type= "mixed";
 
+static unsigned int random_seed= 0;
 static unsigned long connect_flags= CLIENT_MULTI_RESULTS;
 
 static int verbose, delimiter_length;
@@ -335,7 +336,11 @@ int main(int argc, char **argv)
 
   /* Seed the random number generator if we will be using it. */
   if (auto_generate_sql)
-    srandom((uint)time(NULL));
+  {
+    if (random_seed == 0)
+       random_seed= (uint) time(NULL);
+    srandom(random_seed);
+  }
 
   /* globals? Yes, so we only have to run strlen once */
   delimiter_length= strlen(delimiter);
@@ -700,6 +705,10 @@ static struct my_option my_long_options[] =
   {"query", 'q', "Query to run or file containing query to run.",
     (uchar**) &user_supplied_query, (uchar**) &user_supplied_query,
     0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"set-random-seed", 'r',
+    "Seed random number generator.  Zero (default) uses time.",
+    (uchar**)&random_seed, (uchar**)&random_seed,
+    0, GET_UINT, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 #ifdef HAVE_SMEM
   {"shared-memory-base-name", OPT_SHARED_MEMORY_BASE_NAME,
     "Base name of shared memory.", (uchar**) &shared_memory_base_name,
@@ -2308,6 +2317,7 @@ print_conclusions(conclusions *con)
   printf("Benchmark\n");
   if (con->engine)
       printf("\tRunning for engine %s\n", con->engine);
+  printf("\tRand Seed: %u\n", random_seed);
   if (opt_label || auto_generate_sql_type)
   {
     const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";

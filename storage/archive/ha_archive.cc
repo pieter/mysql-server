@@ -364,6 +364,10 @@ ARCHIVE_SHARE *ha_archive::get_share(const char *table_name, int *rc)
     */
     if (!(azopen(&archive_tmp, share->data_file_name, O_RDONLY|O_BINARY)))
     {
+      VOID(pthread_mutex_destroy(&share->mutex));
+      free(share);
+      pthread_mutex_unlock(&archive_mutex);
+      *rc= HA_ERR_CRASHED_ON_REPAIR;
       DBUG_RETURN(NULL);
     }
     stats.auto_increment_value= archive_tmp.auto_increment;
@@ -461,7 +465,7 @@ int ha_archive::init_archive_reader()
     a gzip file that can be both read and written we keep a writer open
     that is shared amoung all open tables.
   */
-  if (!archive_reader_open)
+  if (archive_reader_open == FALSE)
   {
     if (!(azopen(&archive, share->data_file_name, O_RDONLY|O_BINARY)))
     {
@@ -569,7 +573,7 @@ int ha_archive::close(void)
   destroy_record_buffer(record_buffer);
 
   /* First close stream */
-  if (archive_reader_open)
+  if (archive_reader_open == TRUE)
   {
     if (azclose(&archive))
       rc= 1;

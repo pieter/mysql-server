@@ -578,10 +578,10 @@ void MemMgr::release(void* object)
 		if (block->pool == NULL)
 			{
 			free(block);	// releaseRaw(block);
-			
+
 			return;
 			}
-			
+
 		block->pool->releaseBlock(block);
 		}
 }
@@ -593,7 +593,7 @@ void MemMgr::releaseBlock(MemBlock *block)
 
 	if (block->pool->signature != defaultSignature)
 		corrupt("bad block released");
-		
+
 #ifdef MEM_DEBUG
 	for (const UCHAR *end = (UCHAR*) block + ABS(block->length), *p = end - guardBytes; p < end;)
 		if (*p++ != GUARD_BYTE)
@@ -602,9 +602,9 @@ void MemMgr::releaseBlock(MemBlock *block)
 
 	--blocksActive;
 	int length = block->length;
-	
+
 	// If length is negative, this is a small block
-	
+
 	if (length < 0)
 		{
 		VALGRIND_MAKE_MEM_DEFINED(block, -length);
@@ -622,7 +622,7 @@ void MemMgr::releaseBlock(MemBlock *block)
 				return;
 			}
 		}
-	
+
 	// OK, this is a large block.  Try recombining with neighbors
 
 	VALGRIND_MAKE_MEM_DEFINED(block, length);
@@ -636,31 +636,31 @@ void MemMgr::releaseBlock(MemBlock *block)
 	sync.lock(Exclusive);
 	//validateFreeList();
 	block->pool = NULL;
-	ASSERT(length <= activeMemory);
+	ASSERT(length <= (int) activeMemory);
 	activeMemory -= length;
-	
+
 	if (freeBlock->next && !freeBlock->next->memHeader.pool)
 		{
 		MemFreeBlock *next = (MemFreeBlock*) (freeBlock->next);
 		remove (next);
 		freeBlock->memHeader.length += next->memHeader.length + sizeof (MemBigHeader);
-		
+
 		if ( (freeBlock->next = next->next) )
 			freeBlock->next->prior = freeBlock;
 
 		//validateFreeList();
 		}
-	
+
 
 	if (freeBlock->prior && !freeBlock->prior->memHeader.pool)
 		{
 		MemFreeBlock *prior = (MemFreeBlock*) (freeBlock->prior);
 		remove (prior);
 		prior->memHeader.length += freeBlock->memHeader.length + sizeof (MemBigHeader);
-		
+
 		if ( (prior->next = freeBlock->next) )
 			prior->next->prior = prior;
-		
+
 		freeBlock = prior;
 		//validateFreeList();
 		}
@@ -677,7 +677,7 @@ void MemMgr::releaseBlock(MemBlock *block)
 
 		corrupt("can't find big hunk");
 		}
-			
+
 	insert (freeBlock);
 	//validateFreeList();
 }

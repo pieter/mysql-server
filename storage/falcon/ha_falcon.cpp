@@ -2161,11 +2161,6 @@ void StorageInterface::decodeRecord(uchar *buf)
 		if (ptrDiff)
 			field->move_field_offset(ptrDiff);
 
-		// @todo (HK) Affects Bug#28158: Falcon unique key violation gives wrong error message
-		// @todo (KL) Affects Bug#26827: Falcon: column is null after update of a different column
-		// both of these bugs need to be fixed in the server, not here.
-		// This call to set_null is correct.  When they are fixed, we can delete these comments.
-
 		if (dataStream->type == edsTypeNull || !bitmap_is_set(table->read_set, field->field_index))
 			field->set_null();
 		else

@@ -38,6 +38,7 @@ static void putLong(azio_stream *s, uLong x);
 static uLong  getLong(azio_stream *s);
 static void read_header(azio_stream *s, unsigned char *buffer);
 static void get_block(azio_stream *s);
+static int do_aio_wait(struct aiocb **cbp, size_t nent, int allowed_err);
 
 /* ===========================================================================
   Opens a gzip (.gz) file for reading or writing. The mode parameter
@@ -767,11 +768,11 @@ int azclose (azio_stream *s)
 #ifdef AZIO_AIO
   if (s->aio)
   {
-    const struct aiocb *list[1];
+    struct aiocb *list[1];
 
-    aio_cancel(s->file, &s->container);
     list[0]= &s->container;
-    aio_suspend(list, 1, 0);
+
+    do_aio_wait(list, 1, ECANCELED);
   }
 #endif
   
@@ -854,6 +855,40 @@ int azread_comment(azio_stream *s, char *blob)
            MYF(0));
 
   return 0;
+}
+
+static int do_aio_wait (struct aiocb **cbp, size_t nent, int allowed_err)
+{
+  int go_on;
+  size_t cnt;
+  int result= 0;
+
+  do
+  {
+    aio_suspend ((const struct aiocb *const *) cbp, nent, NULL);
+    go_on = 0;
+    for (cnt = 0; cnt < nent; ++cnt)
+      if (cbp[cnt] != NULL)
+      {
+        if (aio_error (cbp[cnt]) == EINPROGRESS)
+          go_on= 1;
+        else
+        {
+          if (aio_return (cbp[cnt]) == -1
+              && (allowed_err == 0
+                  || aio_error (cbp[cnt]) != allowed_err))
+          {
+            int error= aio_error(cbp[cnt]);
+            fprintf(stderr, "Errno for do_aio_wait %d (%s), requeueing\n", error, strerror(error));
+            result= 1;
+          }
+          cbp[cnt]= NULL;
+        }
+      }
+  }
+  while (go_on);
+
+  return result;
 }
 
 /* 

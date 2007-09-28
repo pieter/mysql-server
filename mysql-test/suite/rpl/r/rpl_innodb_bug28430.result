@@ -122,7 +122,7 @@ Master_Port	MASTER_PORT
 Connect_Retry	1
 Master_Log_File	master-bin.000001
 Read_Master_Log_Pos	945470
-Relay_Log_File	slave-relay-bin.000003
+Relay_Log_File	slave-relay-bin.000002
 Relay_Log_Pos	945616
 Relay_Master_Log_File	master-bin.000001
 Slave_IO_Running	Yes

@@ -137,7 +137,7 @@ static my_bool opt_compress= FALSE, tty_password= FALSE,
                auto_generate_sql_autoincrement= FALSE,
                auto_generate_sql_guid_primary= FALSE,
                auto_generate_sql= FALSE;
-const char *auto_generate_sql_type= "mixed";
+const char *opt_auto_generate_sql_type= "mixed";
 
 static unsigned long connect_flags= CLIENT_MULTI_RESULTS;
 
@@ -224,6 +224,7 @@ typedef struct stats stats;
 struct stats {
   long int timing;
   uint users;
+  uint real_users;
   unsigned long long rows;
   long int create_timing;
   unsigned long long create_count;
@@ -244,6 +245,7 @@ struct conclusions {
   long int max_timing;
   long int min_timing;
   uint users;
+  uint real_users;
   unsigned long long avg_rows;
   long int sum_of_time;
   long int std_dev;
@@ -258,10 +260,14 @@ struct conclusions {
 };
 
 static option_string *engine_options= NULL;
+static option_string *query_options= NULL; 
 static statement *pre_statements= NULL; 
 static statement *post_statements= NULL; 
-static statement *create_statements= NULL, 
-                 *query_statements= NULL;
+static statement *create_statements= NULL;
+
+static statement **query_statements= NULL;
+static unsigned int query_statements_count;
+
 
 /* Prototypes */
 void print_conclusions(conclusions *con);
@@ -280,7 +286,7 @@ static int generate_primary_key_list(MYSQL *mysql, option_string *engine_stmt);
 static int drop_primary_key_list(void);
 static int create_schema(MYSQL *mysql, const char *db, statement *stmt, 
                          option_string *engine_stmt, stats *sptr);
-static int run_scheduler(stats *sptr, statement *stmts, uint concur, 
+static int run_scheduler(stats *sptr, statement **stmts, uint concur, 
                          ulonglong limit);
 pthread_handler_t run_task(void *p);
 pthread_handler_t timer_thread(void *p);
@@ -325,6 +331,7 @@ int main(int argc, char **argv)
 {
   MYSQL mysql;
   option_string *eptr;
+  unsigned int x;
 
   MY_INIT(argv[0]);
 
@@ -443,10 +450,13 @@ burnin:
   my_free(concurrency, MYF(0));
 
   statement_cleanup(create_statements);
-  statement_cleanup(query_statements);
+  for (x= 0; x < query_statements_count; x++)
+    statement_cleanup(query_statements[x]);
+  my_free(query_statements, MYF(0));
   statement_cleanup(pre_statements);
   statement_cleanup(post_statements);
   option_cleanup(engine_options);
+  option_cleanup(query_options);
 
 #ifdef HAVE_SMEM
   if (shared_memory_base_name)
@@ -571,7 +581,7 @@ static struct my_option my_long_options[] =
     0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"auto-generate-sql-load-type", OPT_SLAP_AUTO_GENERATE_SQL_LOAD_TYPE,
     "Load types are mixed, update, write, key, or read. Default is mixed\n",
-    (uchar**) &auto_generate_sql_type, (uchar**) &auto_generate_sql_type,
+    (uchar**) &opt_auto_generate_sql_type, (uchar**) &opt_auto_generate_sql_type,
     0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"auto-generate-sql-secondary-indexes", 
     OPT_SLAP_AUTO_GENERATE_SECONDARY_INDEXES, 
@@ -1289,6 +1299,8 @@ get_options(int *argc,char ***argv)
   int ho_error;
   char *tmp_string;
   MY_STAT sbuf;  /* Stat information for the data file */
+  option_string *sql_type;
+  unsigned int sql_type_count= 0;
 
   DBUG_ENTER("get_options");
   if ((ho_error= handle_options(argc, argv, my_long_options, get_one_option)))
@@ -1324,22 +1336,6 @@ get_options(int *argc,char ***argv)
               my_progname);
       exit(1);
   }
-
-  /* 
-    We are testing to make sure that if someone specified a key search
-    that we actually added a key!
-  */
-  if (auto_generate_sql && auto_generate_sql_type[0] == 'k')
-    if ( auto_generate_sql_autoincrement == FALSE &&
-         auto_generate_sql_guid_primary == FALSE)
-    {
-      fprintf(stderr,
-              "%s: Can't perform key test without a primary key!\n",
-              my_progname);
-      exit(1);
-    }
-
-
 
   if (auto_generate_sql && num_of_query && auto_actual_queries)
   {
@@ -1446,84 +1442,116 @@ get_options(int *argc,char ***argv)
     if (verbose >= 2)
       printf("Building Query Statements for Auto\n");
 
-    if (auto_generate_sql_type[0] == 'r')
-    {
-      if (verbose >= 2)
-        printf("Generating SELECT Statements for Auto\n");
+    if (!opt_auto_generate_sql_type)
+      opt_auto_generate_sql_type= "mixed";
 
-      query_statements= build_select_string(FALSE);
-      for (ptr_statement= query_statements, x= 0; 
-           x < auto_generate_sql_unique_query_number; 
-           x++, ptr_statement= ptr_statement->next)
-      {
-        ptr_statement->next= build_select_string(FALSE);
-      }
-    }
-    else if (auto_generate_sql_type[0] == 'k')
-    {
-      if (verbose >= 2)
-        printf("Generating SELECT for keys Statements for Auto\n");
+    query_statements_count= 
+      parse_option(opt_auto_generate_sql_type, &query_options, ',');
 
-      query_statements= build_select_string(TRUE);
-      for (ptr_statement= query_statements, x= 0; 
-           x < auto_generate_sql_unique_query_number; 
-           x++, ptr_statement= ptr_statement->next)
-      {
-        ptr_statement->next= build_select_string(TRUE);
-      }
-    }
-    else if (auto_generate_sql_type[0] == 'w')
-    {
-      /*
-        We generate a number of strings in case the engine is 
-        Archive (since strings which were identical one after another
-        would be too easily optimized).
-      */
-      if (verbose >= 2)
-        printf("Generating INSERT Statements for Auto\n");
-      query_statements= build_insert_string();
-      for (ptr_statement= query_statements, x= 0; 
-           x < auto_generate_sql_unique_query_number; 
-           x++, ptr_statement= ptr_statement->next)
-      {
-        ptr_statement->next= build_insert_string();
-      }
-    }
-    else if (auto_generate_sql_type[0] == 'u')
-    {
-      query_statements= build_update_string();
-      for (ptr_statement= query_statements, x= 0; 
-           x < auto_generate_sql_unique_query_number; 
-           x++, ptr_statement= ptr_statement->next)
-      {
-          ptr_statement->next= build_update_string();
-      }
-    }
-    else /* Mixed mode is default */
-    {
-      int coin= 0;
+    query_statements= (statement **)my_malloc(sizeof(statement *) * query_statements_count,
+                                              MYF(MY_ZEROFILL|MY_FAE|MY_WME));
 
-      query_statements= build_insert_string();
-      /* 
-        This logic should be extended to do a more mixed load,
-        at the moment it results in "every other".
-      */
-      for (ptr_statement= query_statements, x= 0; 
-           x < auto_generate_sql_unique_query_number; 
-           x++, ptr_statement= ptr_statement->next)
+    sql_type= query_options;
+    do
+    {
+      if (sql_type->string[0] == 'r')
       {
-        if (coin)
+        if (verbose >= 2)
+          printf("Generating SELECT Statements for Auto\n");
+
+        query_statements[sql_type_count]= build_select_string(FALSE);
+        for (ptr_statement= query_statements[sql_type_count], x= 0; 
+             x < auto_generate_sql_unique_query_number; 
+             x++, ptr_statement= ptr_statement->next)
         {
-          ptr_statement->next= build_insert_string();
-          coin= 0;
+          ptr_statement->next= build_select_string(FALSE);
         }
-        else
+      }
+      else if (sql_type->string[0] == 'k')
+      {
+        if (verbose >= 2)
+          printf("Generating SELECT for keys Statements for Auto\n");
+
+        if ( auto_generate_sql_autoincrement == FALSE &&
+             auto_generate_sql_guid_primary == FALSE)
+        {
+          fprintf(stderr,
+                  "%s: Can't perform key test without a primary key!\n",
+                  my_progname);
+          exit(1);
+        }
+
+        query_statements[sql_type_count]= build_select_string(TRUE);
+        for (ptr_statement= query_statements[sql_type_count], x= 0; 
+             x < auto_generate_sql_unique_query_number; 
+             x++, ptr_statement= ptr_statement->next)
         {
           ptr_statement->next= build_select_string(TRUE);
-          coin= 1;
         }
       }
-    }
+      else if (sql_type->string[0] == 'w')
+      {
+        /*
+          We generate a number of strings in case the engine is 
+          Archive (since strings which were identical one after another
+          would be too easily optimized).
+        */
+        if (verbose >= 2)
+          printf("Generating INSERT Statements for Auto\n");
+        query_statements[sql_type_count]= build_insert_string();
+        for (ptr_statement= query_statements[sql_type_count], x= 0; 
+             x < auto_generate_sql_unique_query_number; 
+             x++, ptr_statement= ptr_statement->next)
+        {
+          ptr_statement->next= build_insert_string();
+        }
+      }
+      else if (sql_type->string[0] == 'u')
+      {
+        if ( auto_generate_sql_autoincrement == FALSE &&
+             auto_generate_sql_guid_primary == FALSE)
+        {
+          fprintf(stderr,
+                  "%s: Can't perform update test without a primary key!\n",
+                  my_progname);
+          exit(1);
+        }
+
+        query_statements[sql_type_count]= build_update_string();
+        for (ptr_statement= query_statements[sql_type_count], x= 0; 
+             x < auto_generate_sql_unique_query_number; 
+             x++, ptr_statement= ptr_statement->next)
+        {
+          ptr_statement->next= build_update_string();
+        }
+      }
+      else /* Mixed mode is default */
+      {
+        int coin= 0;
+
+        query_statements[sql_type_count]= build_insert_string();
+        /* 
+          This logic should be extended to do a more mixed load,
+          at the moment it results in "every other".
+        */
+        for (ptr_statement= query_statements[sql_type_count], x= 0; 
+             x < auto_generate_sql_unique_query_number; 
+             x++, ptr_statement= ptr_statement->next)
+        {
+          if (coin)
+          {
+            ptr_statement->next= build_insert_string();
+            coin= 0;
+          }
+          else
+          {
+            ptr_statement->next= build_select_string(TRUE);
+            coin= 1;
+          }
+        }
+      }
+      sql_type_count++;
+    } while (sql_type ? (sql_type= sql_type->next) : 0);
   }
   else
   {
@@ -1554,6 +1582,16 @@ get_options(int *argc,char ***argv)
         parse_delimiter(create_string, &create_statements, delimiter[0]);
     }
 
+    /* Set this up till we fully support options on user generated queries */
+    if (user_supplied_query)
+    {
+      query_statements_count= 
+        parse_option("default", &query_options, ',');
+
+      query_statements= (statement **)my_malloc(sizeof(statement *),
+                                                MYF(MY_ZEROFILL|MY_FAE|MY_WME));
+    }
+
     if (user_supplied_query && my_stat(user_supplied_query, &sbuf, MYF(0)))
     {
       File data_file;
@@ -1574,14 +1612,14 @@ get_options(int *argc,char ***argv)
       tmp_string[sbuf.st_size]= '\0';
       my_close(data_file,MYF(0));
       if (user_supplied_query)
-        actual_queries= parse_delimiter(tmp_string, &query_statements,
+        actual_queries= parse_delimiter(tmp_string, &query_statements[0],
                                         delimiter[0]);
       my_free(tmp_string, MYF(0));
     } 
     else if (user_supplied_query)
     {
-        actual_queries= parse_delimiter(user_supplied_query, &query_statements,
-                                        delimiter[0]);
+      actual_queries= parse_delimiter(user_supplied_query, &query_statements[0],
+                                      delimiter[0]);
     }
   }
 
@@ -1901,17 +1939,17 @@ run_statements(MYSQL *mysql, statement *stmt)
 }
 
 static int
-run_scheduler(stats *sptr, statement *stmts, uint concur, ulonglong limit)
+run_scheduler(stats *sptr, statement **stmts, uint concur, ulonglong limit)
 {
   uint x;
+  uint y;
+  unsigned int real_concurrency;
   struct timeval start_time, end_time;
-  thread_context con;
+  option_string *sql_type;
+  thread_context *con;
   pthread_t mainthread;            /* Thread descriptor */
   pthread_attr_t attr;          /* Thread attributes */
   DBUG_ENTER("run_scheduler");
-
-  con.stmt= stmts;
-  con.limit= limit;
 
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr,
@@ -1923,16 +1961,39 @@ run_scheduler(stats *sptr, statement *stmts, uint concur, ulonglong limit)
   pthread_mutex_lock(&sleeper_mutex);
   master_wakeup= 1;
   pthread_mutex_unlock(&sleeper_mutex);
-  for (x= 0; x < concur; x++)
+
+  real_concurrency= 0;
+
+  for (y= 0, sql_type= query_options; 
+       y < query_statements_count; 
+       y++, sql_type= sql_type->next)
   {
-    /* now you create the thread */
-    if (pthread_create(&mainthread, &attr, run_task, 
-                       (void *)&con) != 0)
+    unsigned int options_loop= 1;
+
+    if (sql_type->option)
     {
-      fprintf(stderr,"%s: Could not create thread\n", my_progname);
-      exit(1);
+      options_loop= strtol(sql_type->option, 
+                           (char **)NULL, 10);
+      options_loop= options_loop ? options_loop : 1;
     }
-    thread_counter++;
+
+    while (options_loop--)
+      for (x= 0; x < concur; x++)
+      {
+        con= (thread_context *)my_malloc(sizeof(thread_context), MYF(0));
+        con->stmt= stmts[y];
+        con->limit= limit;
+
+        real_concurrency++;
+        /* now you create the thread */
+        if (pthread_create(&mainthread, &attr, run_task, 
+                           (void *)con) != 0)
+        {
+          fprintf(stderr,"%s: Could not create thread\n", my_progname);
+          exit(1);
+        }
+        thread_counter++;
+      }
   }
   /* 
     The timer_thread belongs to all threads so it too obeys the wakeup 
@@ -1980,6 +2041,7 @@ run_scheduler(stats *sptr, statement *stmts, uint concur, ulonglong limit)
 
   sptr->timing= timedif(end_time, start_time);
   sptr->users= concur;
+  sptr->real_users= real_concurrency;
   sptr->rows= limit;
 
   DBUG_RETURN(0);
@@ -2077,7 +2139,7 @@ limit_not_met:
         {
           fprintf(stderr,"%s: mysql_init() failed ERROR : %s\n",
                   my_progname, mysql_error(mysql));
-          exit(0);
+          exit(1);
         }
 
         if (slap_connect(mysql))
@@ -2173,6 +2235,8 @@ end:
   pthread_cond_signal(&count_threshhold);
   pthread_mutex_unlock(&counter_mutex);
 
+  my_free(con, MYF(0));
+
   DBUG_RETURN(0);
 }
 
@@ -2183,76 +2247,65 @@ end:
 uint
 parse_option(const char *origin, option_string **stmt, char delm)
 {
-  char *retstr;
-  char *ptr= (char *)origin;
+  char *string;
+  char *begin_ptr;
+  char *end_ptr;
   option_string **sptr= stmt;
   option_string *tmp;
   uint length= strlen(origin);
   uint count= 0; /* We know that there is always one */
 
-  for (tmp= *sptr= (option_string *)my_malloc(sizeof(option_string),
-                                          MYF(MY_ZEROFILL|MY_FAE|MY_WME));
-       (retstr= strchr(ptr, delm)); 
-       tmp->next=  (option_string *)my_malloc(sizeof(option_string),
-                                          MYF(MY_ZEROFILL|MY_FAE|MY_WME)),
+  end_ptr= (char *)origin + length;
+
+  tmp= *sptr= (option_string *)my_malloc(sizeof(option_string),
+                                         MYF(MY_ZEROFILL|MY_FAE|MY_WME));
+
+  for (begin_ptr= (char *)origin;
+       begin_ptr != end_ptr;
        tmp= tmp->next)
   {
     char buffer[HUGE_STRING_LENGTH];
     char *buffer_ptr;
 
-    count++;
-    strncpy(buffer, ptr, (size_t)(retstr - ptr));
+    bzero(buffer, HUGE_STRING_LENGTH);
+
+    string= strchr(begin_ptr, delm); 
+
+    if (string)
+    {
+      memcpy(buffer, begin_ptr, string - begin_ptr);
+      begin_ptr= string+1;
+    }
+    else
+    {
+      size_t length= strlen(begin_ptr);
+      memcpy(buffer, begin_ptr, length);
+      begin_ptr= end_ptr;
+    }
+
     if ((buffer_ptr= strchr(buffer, ':')))
     {
-      char *option_ptr;
-
-      tmp->length= (size_t)(buffer_ptr - buffer);
-      tmp->string= my_strndup(ptr, (uint)tmp->length, MYF(MY_FAE));
-
-      option_ptr= ptr + 1 + tmp->length;
+      /* Set a null so that we can get strlen() correct later on */
+      buffer_ptr[0]= 0;
+      buffer_ptr++;
 
       /* Move past the : and the first string */
-      tmp->option_length= (size_t)(retstr - option_ptr);
-      tmp->option= my_strndup(option_ptr, (uint)tmp->option_length,
+      tmp->option_length= strlen(buffer_ptr);
+      tmp->option= my_strndup(buffer_ptr, (uint)tmp->option_length,
                               MYF(MY_FAE));
     }
-    else
-    {
-      tmp->string= my_strndup(ptr, (size_t)(retstr - ptr), MYF(MY_FAE));
-      tmp->length= (size_t)(retstr - ptr);
-    }
 
-    ptr+= retstr - ptr + 1;
-    if (isspace(*ptr))
-      ptr++;
-    count++;
-  }
+    tmp->string= my_strndup(buffer, strlen(buffer), MYF(MY_FAE));
+    tmp->length= strlen(buffer);
 
-  if (ptr != origin+length)
-  {
-    char *origin_ptr;
-
-    if ((origin_ptr= strchr(ptr, ':')))
-    {
-      char *option_ptr;
-
-      tmp->length= (size_t)(origin_ptr - ptr);
-      tmp->string= my_strndup(origin, tmp->length, MYF(MY_FAE));
-
-      option_ptr= (char *)ptr + 1 + tmp->length;
-
-      /* Move past the : and the first string */
-      tmp->option_length= (size_t)((ptr + length) - option_ptr);
-      tmp->option= my_strndup(option_ptr, tmp->option_length,
-                              MYF(MY_FAE));
-    }
-    else
-    {
-      tmp->length= (size_t)((ptr + length) - ptr);
-      tmp->string= my_strndup(ptr, tmp->length, MYF(MY_FAE));
-    }
+    if (isspace(*begin_ptr))
+      begin_ptr++;
 
     count++;
+
+    if (begin_ptr != end_ptr)
+      tmp->next= (option_string *)my_malloc(sizeof(option_string),
+                                            MYF(MY_ZEROFILL|MY_FAE|MY_WME));
   }
 
   return count;
@@ -2338,9 +2391,9 @@ print_conclusions(conclusions *con)
   printf("Benchmark\n");
   if (con->engine)
       printf("\tRunning for engine %s\n", con->engine);
-  if (opt_label || auto_generate_sql_type)
+  if (opt_label || opt_auto_generate_sql_type)
   {
-    const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
+    const char *ptr= opt_auto_generate_sql_type ? opt_auto_generate_sql_type : "query";
     printf("\tLoad: %s\n", opt_label ? opt_label : ptr);
   }
   printf("\tAverage Time took to generate schema and initial data: %ld.%03ld seconds\n",
@@ -2355,7 +2408,8 @@ print_conclusions(conclusions *con)
          con->sum_of_time / 1000, con->sum_of_time % 1000);
   printf("\tStandard Deviation: %ld.%03ld\n", con->std_dev / 1000, con->std_dev % 1000);
   printf("\tNumber of queries in create queries: %llu\n", con->create_count);
-  printf("\tNumber of clients running queries: %d\n", con->users);
+  printf("\tNumber of clients running queries: %u/%u\n", 
+         con->users, con->real_users);
   printf("\tNumber of times test was run: %u\n", iterations);
   printf("\tAverage number of queries per client: %llu\n", con->avg_rows); 
   printf("\n");
@@ -2364,12 +2418,44 @@ print_conclusions(conclusions *con)
 void
 print_conclusions_csv(conclusions *con)
 {
+  unsigned int x;
   char buffer[HUGE_STRING_LENGTH];
-  const char *ptr= auto_generate_sql_type ? auto_generate_sql_type : "query";
+  char label_buffer[HUGE_STRING_LENGTH];
+  size_t string_len;
+
+  bzero(label_buffer, HUGE_STRING_LENGTH);
+
+  if (opt_label)
+  {
+    string_len= strlen(opt_label);
+
+    for (x= 0; x < string_len; x++)
+    {
+      if (opt_label[x] == ',')
+        label_buffer[x]= '-';
+      else
+        label_buffer[x]= opt_label[x] ;
+    }
+  } 
+  else if (opt_auto_generate_sql_type)
+  {
+    string_len= strlen(opt_auto_generate_sql_type);
+
+    for (x= 0; x < string_len; x++)
+    {
+      if (opt_auto_generate_sql_type[x] == ',')
+        label_buffer[x]= '-';
+      else
+        label_buffer[x]= opt_auto_generate_sql_type[x] ;
+    }
+  }
+  else
+    snprintf(label_buffer, HUGE_STRING_LENGTH, "query");
+
   snprintf(buffer, HUGE_STRING_LENGTH, 
-           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%u,%d,%llu\n",
+           "%s,%s,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%ld.%03ld,%u,%u,%u,%llu\n",
            con->engine ? con->engine : "", /* Storage engine we ran against */
-           opt_label ? opt_label : ptr, /* Load type */
+           label_buffer, /* Load type */
            con->avg_timing / 1000, con->avg_timing % 1000, /* Time to load */
            con->min_timing / 1000, con->min_timing % 1000, /* Min time */
            con->max_timing / 1000, con->max_timing % 1000, /* Max time */
@@ -2377,6 +2463,7 @@ print_conclusions_csv(conclusions *con)
            con->std_dev / 1000, con->std_dev % 1000, /* Standard Deviation */
            iterations, /* Iterations */
            con->users, /* Children used max_timing */
+           con->real_users, /* Children used max_timing */
            con->avg_rows  /* Queries run */
           );
   my_write(csv_file, (uchar*) buffer, (uint)strlen(buffer), MYF(0));
@@ -2395,6 +2482,7 @@ generate_stats(conclusions *con, option_string *eng, stats *sptr)
   
   /* At the moment we assume uniform */
   con->users= sptr->users;
+  con->real_users= sptr->real_users;
   con->avg_rows= sptr->rows;
   
   /* With no next, we know it is the last element that was malloced */

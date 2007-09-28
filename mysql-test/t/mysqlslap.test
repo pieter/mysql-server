@@ -51,10 +51,12 @@
 
 --exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=1:8197
 
---exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=1:1024 --auto-generate-sql-select-columns="charcal1, blobcol1"
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=1:1024 --auto-generate-sql-select-columns="charcol1, blobcol1"
 
 # All this is really doing is making sure nothing crashes, there is no way
 # to test the actual output (all non-deterministic)
 --exec $MYSQL_SLAP --silent --auto-generate-sql --label="This is a test"
 
---exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=1:1024 --auto-generate-sql-select-columns="charcal1, blobcol1" --set-random-seed=2
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=1:1024 --auto-generate-sql-select-columns="charcol1, blobcol1" --set-random-seed=2
+
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write,read  --number-blob-cols=1:1024 --auto-generate-sql-select-columns="charcol1, blobcol1"

@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #26803: unique constraints on VARCHAR columns behave different in MyISAM and Falcon
 #

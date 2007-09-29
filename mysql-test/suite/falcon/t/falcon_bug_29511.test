@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #29511: Create new tablespace with existing datafile name destroys existing tablespace
 #

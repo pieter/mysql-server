@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE = Falcon;
 #
 # Mantis bug #22144: EXPLAIN returns wrong information

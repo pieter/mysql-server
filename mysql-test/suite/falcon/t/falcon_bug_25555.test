@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET @@storage_engine = Falcon;
 #
 # Bug #25555 Falcon: crash if create index on nullable utf8 column

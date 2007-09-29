@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 # Testcase derived from NIST
 #   user = SUN, table STAFF16
 #          schema8

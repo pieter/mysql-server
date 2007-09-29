@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE='Falcon';
 #
 # Bug #28045: Falcon ROLLBACK does not work correctly

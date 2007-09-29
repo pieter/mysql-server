@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #28026: Falcon: crash if partitions and select for update
 #

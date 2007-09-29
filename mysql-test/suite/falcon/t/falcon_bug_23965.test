@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 --source include/have_innodb.inc
 SET STORAGE_ENGINE = Falcon;
 #

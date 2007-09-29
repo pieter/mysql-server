@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #27350: Falcon: test-insert, Unexpected error; "Record has changed since last read in table"
 #   Testcase derived from sql-bench/test-insert

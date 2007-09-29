@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #29201: decimal(20, 20) has rounding error
 #

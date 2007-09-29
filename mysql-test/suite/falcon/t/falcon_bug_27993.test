@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #27993: Falcon: crash if rollback while other job is waiting
 #

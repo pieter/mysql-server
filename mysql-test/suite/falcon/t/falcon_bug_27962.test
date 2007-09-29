@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #27962: Falcon: lost post-decimal digits
 # @tags decimal, wrong result

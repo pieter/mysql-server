@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE = Falcon;
 #
 # Mantis bug #126 first phase: Drop table causes crash

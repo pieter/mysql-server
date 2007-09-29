@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE = Falcon;
 #
 # Bug #23189 Falcon: crash if create index for long varchar

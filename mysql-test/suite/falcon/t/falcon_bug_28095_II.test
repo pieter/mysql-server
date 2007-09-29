@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Mantis bug #126 second phase: Drop table causes crash
 # Mantis bug #123: Table cannot be read after restarting mysqld

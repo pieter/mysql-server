@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET @@storage_engine = Falcon;
 #
 # Test derived from the NIST testsuite

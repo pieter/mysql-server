@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE = Falcon;
 #
 # Bug #22125: Falcon: Double precision searches fail if index exists

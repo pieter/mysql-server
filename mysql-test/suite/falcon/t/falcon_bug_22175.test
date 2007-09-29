@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 --source include/have_innodb.inc
 #
 # Bug #22175: Mixing with InnoDB table leads to an anomaly

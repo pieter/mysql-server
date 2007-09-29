@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE = Falcon;
 #
 # Bug #23691: Falcon: searches fail if partial index

@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #26871: Falcon: SELECT ... FOR UPDATE results in wrong error message
 #

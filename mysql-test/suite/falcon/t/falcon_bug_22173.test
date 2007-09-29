@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 --echo #---- Bug 22173 ----
 SET STORAGE_ENGINE='Falcon';
 

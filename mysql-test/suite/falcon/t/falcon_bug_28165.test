@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #28165: Falcon: hang after select for update
 #

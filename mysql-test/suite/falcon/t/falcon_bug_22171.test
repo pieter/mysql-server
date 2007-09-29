@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE='Falcon';
 #
 # Bug #22171: Can't use decimal data type with more than 19 digits

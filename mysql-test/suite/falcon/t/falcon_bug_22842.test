@@ -1,5 +1,6 @@
+--source include/have_falcon.inc
 #
-# Bug 22842 - Falcon: unique-index creation quietly removes a row
+# Bug #22842 - Falcon: unique-index creation quietly removes a row
 #
 --echo #***  Bug 22842 ***
 

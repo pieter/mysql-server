@@ -1,6 +1,7 @@
+--source include/have_falcon.inc
 SET storage_engine = Falcon;
 #
-# Bug #22845:
+# Bug #22845: Falcon: hang on partition drop
 #
 --echo *** Bug #22845 ***
 --disable_warnings

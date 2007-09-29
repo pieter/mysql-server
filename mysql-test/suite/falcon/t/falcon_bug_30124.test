@@ -1,5 +1,6 @@
+--source include/have_falcon.inc
 #
-# Bug #22150: UPDATE has unacceptable performance
+# Bug #30124: UPDATE has unacceptable performance
 #
 # This update should take just a few seconds.
 # It must unlock 900,000 records after updating only 100,000.

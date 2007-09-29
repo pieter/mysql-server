@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #28500: Falcon: searches fail if unique prefixed Turkish index
 # Note: This bug is not related to a Turkish index. The underlying problem is

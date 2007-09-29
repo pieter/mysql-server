@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #28725: Falcon: crash with decimal
 # @tags decimal, crash

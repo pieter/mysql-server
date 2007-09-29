@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE='Falcon';
 #
 # Bug #28051: Falcon LIKE searches fail if partial indexes exist

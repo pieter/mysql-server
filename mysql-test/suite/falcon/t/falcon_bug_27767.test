@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #27767: Falcon: crash after select for update
 #

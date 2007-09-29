@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #29240: Falcon: duplicate-key error when there's no duplicate key
 #

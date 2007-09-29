@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET storage_engine = Falcon;
 #
 # Bug #28035: Falcon Partial indexing failure

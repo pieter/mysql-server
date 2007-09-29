@@ -1,5 +1,6 @@
+--source include/have_falcon.inc
 #
-# Mantis bug #22182: Renaming database doesn't work
+# Bug #22182: Renaming database doesn't work
 #
 --echo #---- Bug 22182 ----
 SET STORAGE_ENGINE='Falcon';

@@ -1,7 +1,7 @@
+--source include/have_falcon.inc
 SET @@storage_engine = Falcon;
 #
-# Bug#30031
-#   Missing Duplicate Conflict Error
+# Bug #30031: Falcon: running JVer leads to duplicate key error
 #
 
 --echo *** Bug#30031 ***

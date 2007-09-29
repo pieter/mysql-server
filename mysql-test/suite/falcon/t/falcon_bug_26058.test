@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #26058: Falcon: warnings with yen sign and overline in ujis
 #

@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #28052: FalconCrash with insert while unique key for date and tinyint
 #

@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #28046: Falcon crash on update of non PK column, if PK is auto_increment
 #

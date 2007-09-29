@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #29246: Falcon: searches fail if prefix index on latin1_german2_ci column
 #

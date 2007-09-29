@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #27895: Falcon: crash if new database and interleaving transactions
 #

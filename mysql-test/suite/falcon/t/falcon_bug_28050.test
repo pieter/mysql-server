@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE='Falcon';
 #
 # Bug #28050: Falcon Can't use data type = bit

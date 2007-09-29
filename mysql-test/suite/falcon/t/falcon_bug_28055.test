@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 SET STORAGE_ENGINE='Falcon';
 #
 # Bug #28055: Falcon wrong comparison of columns of data type date in join 

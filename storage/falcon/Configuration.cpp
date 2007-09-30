@@ -94,14 +94,14 @@ Configuration::Configuration(const char *configFile)
 	recordScavengeFloorPct		= 33;
 	recordScavengeThreshold		= (recordMemoryMax * 100) / recordScavengeThresholdPct;
 	recordScavengeFloor			= (recordMemoryMax * 100) / recordScavengeFloorPct;
-	serialLogWindows		= 10;
-	initialAllocation			= getMemorySize(INITIAL_ALLOCATION);
+	serialLogWindows			= 10;
+	initialAllocation			= 0;
 	allocationExtent			= 10;
 	disableFsync				= false;
-	pageCacheSize			= getMemorySize(PAGE_CACHE_MEMORY);
-	indexChillThreshold		= 4 * ONE_MB;
-	recordChillThreshold	= 5 * ONE_MB;
-	maxTransactionBacklog	= MAX_TRANSACTION_BACKLOG;
+	pageCacheSize				= getMemorySize(PAGE_CACHE_MEMORY);
+	indexChillThreshold			= 4 * ONE_MB;
+	recordChillThreshold		= 5 * ONE_MB;
+	maxTransactionBacklog		= MAX_TRANSACTION_BACKLOG;
 	disableFsync				= false;
 #endif
 

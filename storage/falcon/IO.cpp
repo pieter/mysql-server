@@ -37,7 +37,11 @@
 #include <aio.h>
 #include <unistd.h>
 #include <signal.h>
+
+#ifdef STORAGE_ENGINE
 #include "config.h"
+#endif
+
 #ifdef TARGET_OS_LINUX
 #include <linux/unistd.h>
 #else

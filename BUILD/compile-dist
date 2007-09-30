@@ -7,9 +7,7 @@
 # package" that is used as the basis for all other binary builds.
 #
 test -f Makefile && make maintainer-clean
-(cd storage/innobase && aclocal && autoheader && \
-    libtoolize --automake --force --copy && \
-    automake --force --add-missing --copy && autoconf)
+
 aclocal
 autoheader
 libtoolize --automake --force --copy
@@ -50,6 +48,7 @@ fi
   --with-blackhole-storage-engine \
   --with-csv-storage-engine \
   --with-example-storage-engine \
+  --with-falcon \
   --with-federated-storage-engine \
   --with-innodb \
   --with-ssl \

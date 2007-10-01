@@ -1,4 +1,4 @@
-# Copyright (C) 2006 MySQL AB
+# Copyright (C) 2006, 2007 MySQL AB
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ transform_sources=	 Base64Transform.cpp BERDecode.cpp BERException.cpp \
 			 FileTransform.cpp HexTransform.cpp NullTransform.cpp \
 			 SHATransform.cpp StreamTransform.cpp \
 			 StringTransform.cpp TransformException.cpp \
-			 TransformUtil.cpp 
+			 TransformUtil.cpp
 
 transform_headers=	 Base64Transform.h BERDecode.h BEREncode.h \
 			 BERItem.h BERObject.h \
@@ -31,7 +31,7 @@ transform_headers=	 Base64Transform.h BERDecode.h BEREncode.h \
 			 EncryptTransform.h FileTransform.h HexTransform.h \
 			 NullTransform.h SHATransform.h \
 			 StreamTransform.h StringTransform.h \
-			 TransformException.h Transform.h TransformUtil.h 
+			 TransformException.h Transform.h TransformUtil.h
 
 noinst_LTLIBRARIES=	 libtransform.la
 noinst_LIBRARIES=	 libtransform.a

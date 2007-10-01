@@ -1,14 +1,14 @@
-# Copyright (C) 2006 MySQL AB
-# 
+# Copyright (C) 2006, 2007 MySQL AB
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; version 2 of the License.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -19,7 +19,7 @@ SUBDIRS= TransformLib
 CXXFLAGS= @CXXFLAGS@ -fimplicit-templates @FALCON_CXXFLAGS@
 
 DEFS= @DEFS@ \
-      -D_REENTRANT -D_PTHREADS -DENGINE -DSTORAGE_ENGINE -DNAMESPACE=Nfs 
+      -D_REENTRANT -D_PTHREADS -DENGINE -DSTORAGE_ENGINE -DNAMESPACE=Nfs
 
 INCLUDES= -I$(top_srcdir)/include -I$(top_builddir)/include \
 	  -I$(top_srcdir)/regex -I$(top_srcdir)/sql \
@@ -344,7 +344,7 @@ ha_falcon_la_SOURCES=	$(falcon_sources)
 EXTRA_LIBRARIES=	libfalcon.a libhafalcon.a
 noinst_LIBRARIES=	@plugin_falcon_static_target@
 libfalcon_a_LIBADD=	libhafalcon.a TransformLib/libtransform.a
-libfalcon_a_SOURCES=	libhafalcon.a
+libfalcon_a_SOURCES=
 libhafalcon_a_CXXFLAGS=	$(AM_CXXFLAGS)
 libhafalcon_a_CFLAGS=	$(AM_CFLAGS)
 libhafalcon_a_SOURCES=	$(falcon_sources)

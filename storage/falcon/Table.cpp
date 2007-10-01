@@ -332,11 +332,9 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		// Verify that record is valid
 
 		checkNullable(record);
-		Sync sync(&syncUpdate, "Table::insert");
 		
 		if (indexes)
 			{
-			sync.lock(Exclusive);
 			checkUniqueIndexes(transaction, record);
 			}
 
@@ -1072,11 +1070,8 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 
 		// Make sure no uniqueness rules are violated
 
-		Sync sync(&syncUpdate, "Table::update");
-		
 		if (indexes)
 			{
-			sync.lock(Exclusive);
 			checkUniqueIndexes(transaction, record);
 			}
 
@@ -2169,7 +2164,7 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 
 	FOR_INDEXES(index, this);
 		if ((index->type == UniqueIndex || index->type == PrimaryKey) &&
-			(!oldRecord || index->changed(record, oldRecord)))
+			 (!oldRecord || index->changed(record, oldRecord)))
 			{
 			IndexKey indexKey(index);
 			index->makeKey(record, &indexKey);
@@ -2240,6 +2235,7 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 								// wait for that transaction to finish, then check again
 
 								state = transaction->getRelativeState(dup, WAIT_IF_ACTIVE);
+								
 								if (state != Deadlock)
 									{
 									state = WasActive;  // Stay in the do loop.  state will be rechecked.
@@ -2251,7 +2247,7 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 							if (activeTransaction)
 								{
 								state = transaction->getRelativeState(activeTransaction,
-									activeTransaction->transactionId, WAIT_IF_ACTIVE);
+													activeTransaction->transactionId, WAIT_IF_ACTIVE);
 								state = WasActive;  // Stay in the do loop.  state will be rechecked.
 								rec->release();
 								activeTransaction->release();
@@ -2263,7 +2259,7 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 							if (strcmp(schemaName, "SYSTEM") == 0)
 								printf("Duplicate %s.%s\n", name, schemaName);
 
-							// isDuplicate(index, record, dup);
+							// isDuplicate(index, record, dup);		// uncomment to debug
 							rec->release();
 							const char *text = "duplicate values for key %s in table %s.%s";
 							int code = UNIQUE_DUPLICATE;
@@ -2323,6 +2319,7 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 
 				if (rec)
 					rec->release();
+					
 				if (activeTransaction)
 					{
 					activeTransaction->release();
@@ -2636,11 +2633,9 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 			
 		record = allocRecordVersion(fmt, transaction, NULL);
 		record->setEncodedRecord(stream, false);
-		Sync sync(&syncUpdate, "Table::insert");
 		
 		if (indexes)
 			{
-			sync.lock(Exclusive);
 			checkUniqueIndexes(transaction, record);
 			}
 			
@@ -2754,11 +2749,8 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 
 		// Make sure no uniqueness rules are violated
 
-		Sync sync(&syncUpdate, "Table::update");
-		
 		if (indexes)
 			{
-			sync.lock(Exclusive);
 			checkUniqueIndexes(transaction, record);
 			}
 
@@ -2793,8 +2785,10 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 		// carefully remove the prior version.
 		
 		record->scavenge(transaction->transactionId, transaction->curSavePointId);
+		
 		if (record)
 			record->release();
+			
 		oldRecord->release();	// This reference originated in this function.
 		}
 	catch (...)
@@ -2826,7 +2820,6 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 
 void Table::rename(const char *newSchema, const char *newName)
 {
-
 	for (const char **tbl = relatedTables; *tbl; ++tbl)
 		{
 		char sql [512];

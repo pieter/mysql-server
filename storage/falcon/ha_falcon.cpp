@@ -20,6 +20,11 @@
 #endif
 
 #include "mysql_priv.h"
+
+#ifdef _WIN32
+#pragma pack()
+#endif
+
 #include "ha_falcon.h"
 #include "StorageConnection.h"
 #include "StorageTable.h"
@@ -27,7 +32,7 @@
 #include "StorageHandler.h"
 #include "CmdGen.h"
 #include "InfoTable.h"
-//#include "TimeTest.h"
+
 #ifdef _WIN32
 #define I64FORMAT			"%I64d"
 #else
@@ -645,8 +650,9 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 		DBUG_RETURN(HA_ERR_NO_CONNECTION);
 
 	storageTable = storageConnection->getStorageTable(storageShare);
-	storageTable->localTable = this;
-
+	//storageTable->localTable = this;
+	storageTable->setLocalTable(this);
+	
 	int ret;
 	int64 incrementValue = 0;
 	uint n;

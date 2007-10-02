@@ -107,7 +107,6 @@ StorageHandler::StorageHandler(int lockSize)
 	dictionaryConnection = NULL;
 	databaseList = NULL;
 	defaultDatabase = NULL;
-	globalTableSpace = false;
 }
 
 StorageHandler::~StorageHandler(void)

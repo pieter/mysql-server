@@ -568,3 +568,8 @@ int StorageTable::optimize(void)
 	
 	return 0;
 }
+
+void StorageTable::setLocalTable(StorageInterface* handler)
+{
+	localTable = handler;
+}

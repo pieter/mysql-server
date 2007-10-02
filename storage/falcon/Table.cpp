@@ -332,12 +332,6 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		// Verify that record is valid
 
 		checkNullable(record);
-		
-		if (indexes)
-			{
-			checkUniqueIndexes(transaction, record);
-			}
-
 		recordNumber = record->recordNumber = dbb->insertStub(dataSection, transaction);
 		transaction->addRecord(record);
 		insert(record, NULL, recordNumber);
@@ -346,6 +340,9 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		FOR_INDEXES(index, this);
 			index->insert(record, transaction);
 		END_FOR;
+
+		if (indexes)
+			checkUniqueIndexes(transaction, record);
 
 		updateInversion(record, transaction);
 		fireTriggers(transaction, PostInsert, NULL, record);
@@ -1068,13 +1065,6 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 
 		checkNullable(record);
 
-		// Make sure no uniqueness rules are violated
-
-		if (indexes)
-			{
-			checkUniqueIndexes(transaction, record);
-			}
-
 		// Checkin with any table attachments
 
 		FOR_OBJECTS(TableAttachment*, attachment, &attachments)
@@ -1097,6 +1087,12 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 		validateAndInsert(transaction, record);
 		transaction->addRecord(record);
 		updated = true;
+
+		// Make sure no uniqueness rules are violated
+
+		if (indexes)
+			checkUniqueIndexes(transaction, record);
+
 		fireTriggers(transaction, PostUpdate, oldRecord, record);
 
 		// If this is a re-update in the same transaction and the same savepoint,
@@ -2187,6 +2183,9 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 
 					for (Record *dup = rec; dup; dup = dup->getPriorVersion())
 						{
+						if (dup == record)
+							continue;
+							
 						// Get the record's transaction state, waiting while pending.
 						
 						state = transaction->getRelativeState(dup, DO_NOT_WAIT);
@@ -2634,11 +2633,6 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 		record = allocRecordVersion(fmt, transaction, NULL);
 		record->setEncodedRecord(stream, false);
 		
-		if (indexes)
-			{
-			checkUniqueIndexes(transaction, record);
-			}
-			
 		recordNumber = record->recordNumber = dbb->insertStub(dataSection, transaction);
 		transaction->addRecord(record);
 		bool ret = insert(record, NULL, recordNumber);
@@ -2650,6 +2644,9 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 				index->insert (record, transaction);
 			END_FOR;
 
+		if (indexes)
+			checkUniqueIndexes(transaction, record);
+			
 		record->release();
 		}
 	catch (...)
@@ -2747,12 +2744,6 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 
 		//checkNullable(record);
 
-		// Make sure no uniqueness rules are violated
-
-		if (indexes)
-			{
-			checkUniqueIndexes(transaction, record);
-			}
 
 		// Checkin with any table attachments
 
@@ -2779,6 +2770,12 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 			}
 			
 		updated = true;
+
+		// Make sure no uniqueness rules are violated
+
+		if (indexes)
+			checkUniqueIndexes(transaction, record);
+
 		//fireTriggers(transaction, PostUpdate, oldRecord, record);
 
 		// If this is a re-update in the same transaction and the same savepoint,

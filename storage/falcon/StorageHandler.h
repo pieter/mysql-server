@@ -127,7 +127,6 @@ public:
 	StorageTableShare	*tables[tableHashSize];
 	Connection		*dictionaryConnection;
 	int					mySqlLockSize;
-	bool				globalTableSpace;
 };
 
 #endif

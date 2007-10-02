@@ -1,3 +1,4 @@
+#include <brian.h>
 /* Copyright (C) 2005 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
@@ -334,6 +335,8 @@ int main(int argc, char **argv)
   unsigned int x;
 
   MY_INIT(argv[0]);
+
+  my_init();
 
   load_defaults("my",load_default_groups,&argc,&argv);
   defaults_argv=argv;
@@ -1995,6 +1998,7 @@ run_scheduler(stats *sptr, statement **stmts, uint concur, ulonglong limit)
         thread_counter++;
       }
   }
+
   /* 
     The timer_thread belongs to all threads so it too obeys the wakeup 
     call that run tasks obey.
@@ -2102,13 +2106,6 @@ pthread_handler_t run_task(void *p)
   if (!(mysql= mysql_init(NULL)))
   {
     fprintf(stderr,"%s: mysql_init() failed ERROR : %s\n",
-            my_progname, mysql_error(mysql));
-    exit(1);
-  }
-
-  if (mysql_thread_init())
-  {
-    fprintf(stderr,"%s: mysql_thread_init() failed ERROR : %s\n",
             my_progname, mysql_error(mysql));
     exit(1);
   }
@@ -2236,6 +2233,8 @@ end:
   pthread_mutex_unlock(&counter_mutex);
 
   my_free(con, MYF(0));
+
+  mysql_thread_end();
 
   DBUG_RETURN(0);
 }

@@ -911,6 +911,14 @@ Backup_info::Table_ref::Table_ref(const Db_item &db, const String &name):
   const char *name= m_name.ptr();
   ::build_table_filename(path, sizeof(path), db, name, "", 0);
   m_table= ::open_temporary_table(thd, path, db, name, FALSE /* don't link to thd->temporary_tables */);
+  
+  /*
+   Note: If table couldn't be opened (m_table==NULL), open_temporary_table() 
+   doesn't inform us what was the reason. This makes it difficult to give 
+   precise information in the error log. Currently we just say that table 
+   couldn't be opened. When error reporting is improved, we should try to do 
+   better than that.
+   */ 
   return m_table;
 }
 

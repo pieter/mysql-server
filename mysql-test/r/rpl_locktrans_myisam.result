@@ -63,6 +63,7 @@ ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_
 #
 # The new keywords EXCLUSIVE and NOWAIT are not reserved words.
 CREATE TABLE t4 (exclusive INT, nowait INT) ENGINE=MyISAM;
+LOCK TABLE t4 WRITE;
 DROP TABLE t4;
 #
 # Syntax errors for misspelled modes or left out symbols.

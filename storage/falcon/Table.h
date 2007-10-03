@@ -99,7 +99,7 @@ public:
 	bool		foreignKeyMember (ForeignKey *key);
 	void		makeNotSearchable (Field *field, Transaction *transaction);
 	bool		dropForeignKey (int fieldCount, Field **fields, Table *references);
-	void		checkUniqueIndexes (Transaction *transaction, RecordVersion *record);
+	bool		checkUniqueIndexes (Transaction *transaction, RecordVersion *record, Sync *sync);
 	bool		isDuplicate (Index *index, Record *record1, Record *record2);
 	void		checkDrop();
 	Field*		findField (const WCString *fieldName);
@@ -202,6 +202,7 @@ public:
 	SyncObject		syncObject;
 	SyncObject		syncTriggers;
 	SyncObject		syncScavenge;
+	SyncObject		syncUpdate;
 	SyncObject		syncAlter;				// prevent concurrent Alter statements.
 	Table			*collision;				// Hash collision in database
 	Table			*idCollision;			// mod(id) collision in database

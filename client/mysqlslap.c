@@ -497,7 +497,7 @@ void concurrency_loop(MYSQL *mysql, uint current, option_string *eptr)
       a stored_procedure that doesn't use data, or we know we already have
       data in the table.
     */
-    if (!opt_preserve)
+    if (opt_preserve == FALSE)
       drop_schema(mysql, create_schema_string);
 
     /* First we create */

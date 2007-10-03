@@ -1,1 +1,1 @@
---default-storage-engine=Falcon
+--sql_mode=''

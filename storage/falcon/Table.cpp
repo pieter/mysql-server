@@ -329,6 +329,17 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 
 		record->finalize(transaction);
 
+		// Make insert/update atomic, then check for unique index duplicats
+		
+		Sync sync(&syncUpdate, "Table::insert");
+		
+		if (indexes)
+			{
+			do
+				sync.lock(Exclusive);
+			while (!checkUniqueIndexes(transaction, record, &sync));
+			}
+
 		// Verify that record is valid
 
 		checkNullable(record);
@@ -340,9 +351,6 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		FOR_INDEXES(index, this);
 			index->insert(record, transaction);
 		END_FOR;
-
-		if (indexes)
-			checkUniqueIndexes(transaction, record);
 
 		updateInversion(record, transaction);
 		fireTriggers(transaction, PostInsert, NULL, record);
@@ -1076,6 +1084,17 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 
 		record->finalize(transaction);
 
+		// Make insert/update atomic, then check for unique index duplicats
+
+		Sync sync(&syncUpdate, "Table::insert");
+		
+		if (indexes)
+			{
+			do
+				sync.lock(Exclusive);
+			while (!checkUniqueIndexes(transaction, record, &sync));
+			}
+
 		// Update any indexes
 
 		FOR_INDEXES(index, this);
@@ -1087,11 +1106,6 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 		validateAndInsert(transaction, record);
 		transaction->addRecord(record);
 		updated = true;
-
-		// Make sure no uniqueness rules are violated
-
-		if (indexes)
-			checkUniqueIndexes(transaction, record);
 
 		fireTriggers(transaction, PostUpdate, oldRecord, record);
 
@@ -2153,7 +2167,7 @@ bool Table::isDuplicate(Index *index, Record *record1, Record *record2)
 			TRANSACTION_READ_COMMITTED.
 **/
 
-void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
+bool Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record, Sync *sync)
 {
 	Record *oldRecord = record->priorVersion;
 	Bitmap bitmap;
@@ -2233,30 +2247,43 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 								{
 								// wait for that transaction to finish, then check again
 
+								if (sync)
+									sync->unlock();
+									
 								state = transaction->getRelativeState(dup, WAIT_IF_ACTIVE);
+								rec->release();
 								
+								return false;
+								
+								/***
 								if (state != Deadlock)
 									{
 									state = WasActive;  // Stay in the do loop.  state will be rechecked.
 									rec->release();
 									break;  // break out of 'for each record version'
 									}
+								***/
 								}
 
 							if (activeTransaction)
 								{
+								if (sync)
+									sync->unlock();
+									
 								state = transaction->getRelativeState(activeTransaction,
 													activeTransaction->transactionId, WAIT_IF_ACTIVE);
+								rec->release();
+								activeTransaction->release();
+								
+								return false;
+								/***
 								state = WasActive;  // Stay in the do loop.  state will be rechecked.
 								rec->release();
 								activeTransaction->release();
 								activeTransaction = NULL;
 								break;  // break out of 'for each record version'
+								***/
 								}
-
-
-							if (strcmp(schemaName, "SYSTEM") == 0)
-								printf("Duplicate %s.%s\n", name, schemaName);
 
 							// isDuplicate(index, record, dup);		// uncomment to debug
 							rec->release();
@@ -2274,6 +2301,7 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 													(const char*) schemaName,
 													(const char*) name);
 							exception.setObject(schemaName, index->name);
+							
 							throw exception;
 							}
 
@@ -2327,6 +2355,8 @@ void Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record)
 				}
 			}
 	END_FOR;
+	
+	return true;
 }
 
 bool Table::dropForeignKey(int fieldCount, Field **fields, Table *references)
@@ -2632,8 +2662,21 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 			
 		record = allocRecordVersion(fmt, transaction, NULL);
 		record->setEncodedRecord(stream, false);
-		
 		recordNumber = record->recordNumber = dbb->insertStub(dataSection, transaction);
+		
+		// Make insert/update atomic, then check for unique index duplicats
+
+		Sync sync(&syncUpdate, "Table::insert");
+		
+		if (indexes)
+			{
+			do
+				sync.lock(Exclusive);
+			while (!checkUniqueIndexes(transaction, record, &sync));
+			}
+
+		// Do actual insert
+		
 		transaction->addRecord(record);
 		bool ret = insert(record, NULL, recordNumber);
 		ASSERT(ret);
@@ -2644,9 +2687,6 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 				index->insert (record, transaction);
 			END_FOR;
 
-		if (indexes)
-			checkUniqueIndexes(transaction, record);
-			
 		record->release();
 		}
 	catch (...)
@@ -2752,6 +2792,17 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 				attachment->preUpdate(this, record);
 		END_FOR;
 
+		// Make insert/update atomic, then check for unique index duplicats
+
+		Sync sync(&syncUpdate, "Table::insert");
+		
+		if (indexes)
+			{
+			do
+				sync.lock(Exclusive);
+			while (!checkUniqueIndexes(transaction, record, &sync));
+			}
+
 		// Update any indexes
 
 		FOR_INDEXES(index, this);
@@ -2770,11 +2821,6 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 			}
 			
 		updated = true;
-
-		// Make sure no uniqueness rules are violated
-
-		if (indexes)
-			checkUniqueIndexes(transaction, record);
 
 		//fireTriggers(transaction, PostUpdate, oldRecord, record);
 

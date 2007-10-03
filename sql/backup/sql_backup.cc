@@ -934,7 +934,7 @@ void Backup_info::Table_ref::close()
   {
     // TODO: check if ::free_tmp_table() is not better
     ::intern_close_table(m_table);
-    ::my_free(m_table, MYF(0));
+    my_free(m_table, MYF(0));
   }
   m_table= NULL;
   return;

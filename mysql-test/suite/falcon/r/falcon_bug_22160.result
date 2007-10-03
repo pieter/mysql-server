@@ -18,3 +18,4 @@ s1
 1
 COMMIT;
 DROP DATABASE db64;
+USE test;

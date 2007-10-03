@@ -41,6 +41,8 @@
 #define VERSION_CURRENT					COMBINED_VERSION(ODS_VERSION, ODS_MINOR_VERSION)					
 #define VERSION_SERIAL_LOG				COMBINED_VERSION(ODS_VERSION2, ODS_MINOR_VERSION1)
 
+static const int FALC0N_TRACE_TRANSACTIONS	= 1;
+
 #define TABLE_HASH_SIZE		101
 
 class Table;
@@ -205,6 +207,7 @@ public:
 	void			setRecordScavengeThreshold(int value);
 	void			setRecordScavengeFloor(int value);
 	void			forceRecordScavenge(void);
+	void			debugTrace(void);
 
 	Dbb				*dbb;
 	Cache			*cache;

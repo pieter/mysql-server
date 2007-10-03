@@ -1139,13 +1139,14 @@ void Transaction::printBlocking(int level)
 
 	++level;
 
-	Table *table = blockingRecord->format->table;
-	
 	if (blockingRecord)
+		{
+		Table *table = blockingRecord->format->table;
 		Log::debug("%*s Blocking on %s.%s record %d\n",
 				   level * INDENT, "",
 				   table->name, table->schemaName,
 				   blockingRecord->recordNumber);
+		}
 
 	for (record = firstRecord; record; record = record->nextInTrans)
 		{

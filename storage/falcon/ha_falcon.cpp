@@ -43,6 +43,7 @@
 #include "BigInt.h"
 
 //#define NO_OPTIMIZE
+#define FALCON_DEBUG_TRACE
 
 #ifndef MIN
 #define MIN(a,b)			((a <= b) ? (a) : (b))
@@ -74,6 +75,7 @@ char*					falcon_serial_log_dir;
 char*					falcon_checkpoint_schedule;
 char*					falcon_scavenge_schedule;
 int						falcon_debug_mask;
+int						falcon_debug_trace;
 my_bool					falcon_debug_server;
 FILE					*falcon_log_file;
 uint					falcon_index_chill_threshold;
@@ -2841,6 +2843,13 @@ static MYSQL_SYSVAR_INT(debug_mask, falcon_debug_mask,
   "Falcon message type mask for logged messages.",
   NULL, NULL, 0, 0, INT_MAX, 0);
 
+#ifdef FALCON_DEBUG_TRACE
+static MYSQL_SYSVAR_INT(debug_trace, falcon_debug_trace,
+  PLUGIN_VAR_RQCMDARG,
+  "Falcon debug trace trigger.",
+  NULL, NULL, 0, 0, INT_MAX, 0);
+#endif
+
 static MYSQL_SYSVAR_ULONGLONG(record_memory_max, falcon_record_memory_max,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
   "The maximum size of the record memory cache.",
@@ -2923,7 +2932,9 @@ static struct st_mysql_sys_var* falconVariables[]= {
 	MYSQL_SYSVAR(index_chill_threshold),
 	MYSQL_SYSVAR(record_chill_threshold),
 	MYSQL_SYSVAR(max_transaction_backlog),
-	//MYSQL_SYSVAR(tablespace_mode),
+#ifdef FALCON_DEBUG_TRACE
+	MYSQL_SYSVAR(debug_trace),
+#endif
 	NULL
 };
 

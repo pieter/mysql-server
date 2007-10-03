@@ -92,6 +92,7 @@ extern unsigned int falcon_page_size;
 #ifdef LICENSE
 #include "LicenseManager.h"
 #include "LicenseProduct.h"
+#include ".\database.h"
 #endif
 
 #ifdef _DEBUG
@@ -104,6 +105,10 @@ static const char THIS_FILE[]=__FILE__;
 
 #define STATEMENT_RETIREMENT_AGE	60
 #define RECORD_RETIREMENT_AGE		60
+
+#ifdef STORAGE_ENGINE
+extern int falcon_debug_trace;
+#endif
 
 static const char *createTables = 
 	"create table Tables (\
@@ -1610,7 +1615,6 @@ void Database::scavenge()
 
 void Database::retireRecords(bool forced)
 {
-	//transactionManager->printBlockage();
 	int cycle = scavengeCycle;
 	Sync lock(&syncScavenge, "Database::retireRecords");
 	lock.lock(Exclusive);
@@ -1707,6 +1711,11 @@ void Database::ticker()
 		{
 		timestamp = time (NULL);
 		thread->sleep (1000);
+
+#ifdef STORAGE_ENGINE
+		if (falcon_debug_trace)
+			debugTrace();
+#endif
 		}
 }
 
@@ -2262,4 +2271,12 @@ void Database::setRecordScavengeFloor(int value)
 void Database::forceRecordScavenge(void)
 {
 	retireRecords(true);
+}
+
+void Database::debugTrace(void)
+{
+	if (falcon_debug_trace & FALC0N_TRACE_TRANSACTIONS)
+		transactionManager->printBlockage();
+	
+	falcon_debug_trace = 0;
 }

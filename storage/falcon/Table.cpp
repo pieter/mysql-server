@@ -1804,12 +1804,6 @@ void Table::expungeBlob(Value * blob)
 		recordNumber = (recordNumber == ZERO_REPOSITORY_PLACE) ? 0 : -recordNumber;
 
 	ASSERT(section);
-
-	// This probably isn't necessary, ever
-	
-	Sync sync(&syncObject, "Table::expungeBlob");
-	sync.lock(Exclusive);
-
 	dbb->updateRecord(section, recordNumber, NULL, NULL, true);
 	dbb->expungeRecord(section, recordNumber);
 }

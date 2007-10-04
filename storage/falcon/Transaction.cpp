@@ -258,7 +258,7 @@ void Transaction::commit()
 	database->dbb->logUpdatedRecords(this, firstRecord);
 	
 	if (pendingPageWrites)
-		database->pageWriter->waitForWrites(transactionId);
+		database->pageWriter->waitForWrites(this);
 //#endif
 	
 	if (hasLocks)
@@ -480,7 +480,7 @@ void Transaction::prepare(int xidLen, const UCHAR *xidPtr)
 		memcpy(xid, xidPtr, xidLength);
 		}
 		
-	database->pageWriter->waitForWrites(transactionId);
+	database->pageWriter->waitForWrites(this);
 	state = Limbo;
 	database->dbb->prepareTransaction(transactionId, xidLength, xid);
 

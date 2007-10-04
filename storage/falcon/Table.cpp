@@ -335,6 +335,10 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		
 		if (indexes)
 			{
+			FOR_INDEXES(index, this);
+				index->insert(record, transaction);
+			END_FOR;
+			
 			do
 				sync.lock(Exclusive);
 			while (!checkUniqueIndexes(transaction, record, &sync));
@@ -347,11 +351,10 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		transaction->addRecord(record);
 		insert(record, NULL, recordNumber);
 		inserted = true;
-
-		FOR_INDEXES(index, this);
-			index->insert(record, transaction);
-		END_FOR;
-
+		
+		if (indexes)
+			sync.unlock();
+			
 		updateInversion(record, transaction);
 		fireTriggers(transaction, PostInsert, NULL, record);
 		record->release();
@@ -1088,30 +1091,31 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 		// OK, finalize the record
 
 		record->finalize(transaction);
-
+		
 		// Make insert/update atomic, then check for unique index duplicats
 
-		Sync sync(&syncUpdate, "Table::insert");
+		Sync sync(&syncUpdate, "Table::update");
 		
 		if (indexes)
 			{
+			FOR_INDEXES(index, this);
+				index->update(oldRecord, record, transaction);
+			END_FOR;
+			
 			do
 				sync.lock(Exclusive);
 			while (!checkUniqueIndexes(transaction, record, &sync));
 			}
 
-		// Update any indexes
-
-		FOR_INDEXES(index, this);
-			index->update(oldRecord, record, transaction);
-		END_FOR;
-
-		updateInversion(record, transaction);
 		scavenge.lock(Shared);
 		validateAndInsert(transaction, record);
 		transaction->addRecord(record);
 		updated = true;
 
+		if (indexes)
+			sync.unlock();
+			
+		updateInversion(record, transaction);
 		fireTriggers(transaction, PostUpdate, oldRecord, record);
 
 		// If this is a re-update in the same transaction and the same savepoint,
@@ -1560,9 +1564,7 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 
 	Sync scavenge(&syncScavenge, "Table::retireRecords");
 	scavenge.lock(Exclusive);
-
 	Sync sync(&syncObject, "Table::retireRecords");
-
 	sync.lock(Shared);
 
 	activeVersions = false;
@@ -2662,6 +2664,10 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 		
 		if (indexes)
 			{
+			FOR_INDEXES(index, this);
+				index->insert (record, transaction);
+			END_FOR;
+			
 			do
 				sync.lock(Exclusive);
 			while (!checkUniqueIndexes(transaction, record, &sync));
@@ -2675,10 +2681,8 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 		inserted = true;
 		
 		if (indexes)
-			FOR_INDEXES(index, this);
-				index->insert (record, transaction);
-			END_FOR;
-
+			sync.unlock();
+			
 		record->release();
 		}
 	catch (...)
@@ -2786,20 +2790,18 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 
 		// Make insert/update atomic, then check for unique index duplicats
 
-		Sync sync(&syncUpdate, "Table::insert");
+		Sync sync(&syncUpdate, "Table::update");
 		
 		if (indexes)
 			{
+			FOR_INDEXES(index, this);
+				index->update(oldRecord, record, transaction);
+			END_FOR;
+			
 			do
 				sync.lock(Exclusive);
 			while (!checkUniqueIndexes(transaction, record, &sync));
 			}
-
-		// Update any indexes
-
-		FOR_INDEXES(index, this);
-			index->update(oldRecord, record, transaction);
-		END_FOR;
 
 		//updateInversion(record, transaction);
 		scavenge.lock(Shared);

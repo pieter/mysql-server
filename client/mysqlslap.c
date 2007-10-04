@@ -333,9 +333,12 @@ int main(int argc, char **argv)
   option_string *eptr;
   unsigned int x;
 
+  my_init();
+
   MY_INIT(argv[0]);
 
-  my_init();
+  if (!(mysql_thread_safe()))
+      fprintf(stderr, "This application was compiled incorrectly. Please recompile with thread support.\n");
 
   load_defaults("my",load_default_groups,&argc,&argv);
   defaults_argv=argv;
@@ -2056,6 +2059,13 @@ pthread_handler_t timer_thread(void *p)
   uint *timer_length= (uint *)p;
   struct timespec abstime;
 
+  if (mysql_thread_init())
+  {
+    fprintf(stderr,"%s: mysql_thread_init() failed.\n",
+            my_progname);
+    exit(1);
+  }
+
   DBUG_ENTER("timer_thread");
 
   /* 
@@ -2079,6 +2089,7 @@ pthread_handler_t timer_thread(void *p)
   timer_alarm= FALSE;
   pthread_mutex_unlock(&timer_alarm_mutex);
 
+  mysql_thread_end();
   DBUG_RETURN(0);
 }
 
@@ -2091,6 +2102,13 @@ pthread_handler_t run_task(void *p)
   MYSQL_ROW row;
   statement *ptr;
   thread_context *con= (thread_context *)p;
+
+  if (mysql_thread_init())
+  {
+    fprintf(stderr,"%s: mysql_thread_init() failed.\n",
+            my_progname);
+    exit(1);
+  }
 
   DBUG_ENTER("run_task");
   DBUG_PRINT("info", ("task script \"%s\"", con->stmt ? con->stmt->string : ""));
@@ -2224,7 +2242,6 @@ end:
   if (!opt_only_print) 
     mysql_close(mysql);
 
-  my_thread_end();
 
   pthread_mutex_lock(&counter_mutex);
   thread_counter--;
@@ -2234,7 +2251,6 @@ end:
   my_free(con, MYF(0));
 
   mysql_thread_end();
-
   DBUG_RETURN(0);
 }
 

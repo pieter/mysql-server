@@ -7837,6 +7837,7 @@ FT_SELECT *get_ft_select(THD *thd, TABLE *table, uint key)
     return fts;
 }
 
+#ifdef WITH_NDBCLUSTER_STORAGE_ENGINE
 static bool
 key_has_nulls(const KEY* key_info, const uchar *key, uint key_len)
 {
@@ -7854,6 +7855,7 @@ key_has_nulls(const KEY* key_info, const uchar *key, uint key_len)
   }
   return FALSE;
 }
+#endif
 
 /*
   Create quick select from ref/ref_or_null scan.

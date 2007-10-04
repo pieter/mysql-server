@@ -1642,8 +1642,8 @@ void Database::retireRecords(bool forced)
 
 	if (forced || total >  recordScavengeThreshold)
 		{
-		LogStream stream;
-		recordDataPool->analyze(0, &stream, NULL, NULL);
+		//LogStream stream;
+		//recordDataPool->analyze(0, &stream, NULL, NULL);
 		Sync syncTbl (&syncTables, "Database::retireRecords");
 		syncTbl.lock (Shared);
 		Table *table;

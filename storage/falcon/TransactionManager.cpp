@@ -439,7 +439,7 @@ void TransactionManager::printBlockage(void)
 
 	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
 		if (trans->state == Active && !trans->waitingFor)
-			trans->printBlocking(1);
+			trans->printBlocking(0);
 }
 
 void TransactionManager::printBlocking(Transaction* transaction, int level)

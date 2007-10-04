@@ -187,6 +187,8 @@ protected:
 	RecordVersion	**recordPtr;
 
 	virtual ~Transaction();
+public:
+	void printBlockage(void);
 };
 
 #endif // !defined(AFX_TRANSACTION_H__02AD6A4D_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

@@ -31,6 +31,7 @@ class Cache;
 class Database;
 class Dbb;
 class Thread;
+class Transaction;
 struct DirtyTrans;
 
 struct DirtyPage {
@@ -78,7 +79,7 @@ public:
 	void release (DirtyTrans *transaction);
 	DirtyTrans* getDirtyTransaction(TransId transactionId);
 	DirtyTrans* findDirtyTransaction(TransId transactionId);
-	void waitForWrites(TransId transactionId);
+	void waitForWrites(Transaction *transaction);
 	void removeElement (DirtyPage *element);
 	void pageWritten(Dbb *dbb, int32 pageNumber);
 	void start();

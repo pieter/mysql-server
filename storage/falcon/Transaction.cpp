@@ -40,6 +40,7 @@
 #include "InfoTable.h"
 #include "Thread.h"
 #include "Format.h"
+#include "LogLock.h"
 
 static const char *stateNames [] = {
 	"Active",
@@ -1262,4 +1263,13 @@ void Transaction::releaseSavePoints(void)
 		if (savePoint < localSavePoints || savePoint >= localSavePoints + LOCAL_SAVE_POINTS)
 			delete savePoint;
 		}
+}
+
+void Transaction::printBlockage(void)
+{
+	TransactionManager *transactionManager = database->transactionManager;
+	LogLock logLock;
+	Sync sync (&transactionManager->activeTransactions.syncObject, "Transaction::printBlockage");
+	sync.lock (Shared);
+	printBlocking(0);
 }

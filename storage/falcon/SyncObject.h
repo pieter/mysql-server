@@ -79,6 +79,7 @@ public:
 
 	static void		analyze(Stream* stream);
 	static void		getSyncInfo(InfoTable* infoTable);
+	static void		dump(void);
 
 	inline Thread* getExclusiveThread()
 		{ return exclusiveThread; };

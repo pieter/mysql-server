@@ -49,7 +49,7 @@
 //#define STALL_THRESHOLD	1000
 
 #define BACKOFF	\
-		if (thread)\
+		if (false)\
 			thread->sleep(1);\
 		else\
 			thread = Thread::getThread("SyncObject::lock")
@@ -59,7 +59,7 @@
 #define BUMP(counter)							++counter
 #define BUMP_INTERLOCKED(counter)				INTERLOCKED_INCREMENT(counter)
 
-static const int				MAX_SYNC_OBJECTS = 2000;
+static const int				MAX_SYNC_OBJECTS = 300000;
 static volatile INTERLOCK_TYPE	nextSyncObjectId;
 static SyncObject				*syncObjects[MAX_SYNC_OBJECTS];
 
@@ -617,6 +617,30 @@ void SyncObject::analyze(Stream* stream)
 					syncObject->exclusiveCount,
 					syncObject->waitCount,
 					(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+#endif
+}
+
+void SyncObject::dump(void)
+{
+#ifdef TRACE_SYNC_OBJECTS
+	FILE *out = fopen("SyncObject.dat", "w");
+	
+	if (!out)
+		return;
+		
+	fprintf(out, "Where\tShares\tExclusives\tWaits\tAverage Queue\n");
+	SyncObject *syncObject;
+	
+	for (int n = 1; n < MAX_SYNC_OBJECTS; ++n)
+		if ( (syncObject = syncObjects[n]) && syncObject->where)
+			fprintf(out, "%s\t%d\t%d\t%d\t%d\t\n",
+					syncObject->where,
+					syncObject->sharedCount,
+					syncObject->exclusiveCount,
+					syncObject->waitCount,
+					(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+	
+	fclose(out);
 #endif
 }
 

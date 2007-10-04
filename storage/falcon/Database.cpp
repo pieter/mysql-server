@@ -72,6 +72,7 @@
 #include "MemMgr.h"
 #include "RecordScavenge.h"
 #include "LogStream.h"
+#include "SyncTest.h"
 
 #ifndef STORAGE_ENGINE
 #include "Applications.h"
@@ -92,7 +93,6 @@ extern unsigned int falcon_page_size;
 #ifdef LICENSE
 #include "LicenseManager.h"
 #include "LicenseProduct.h"
-#include ".\database.h"
 #endif
 
 #ifdef _DEBUG
@@ -2277,6 +2277,15 @@ void Database::debugTrace(void)
 {
 	if (falcon_debug_trace & FALC0N_TRACE_TRANSACTIONS)
 		transactionManager->printBlockage();
+
+	if (falcon_debug_trace & FALC0N_SYNC_TEST)
+		{
+		SyncTest syncTest;
+		syncTest.test();
+		}
 	
+	if (falcon_debug_trace & FALC0N_SYNC_OBJECTS)
+		SyncObject::dump();
+				
 	falcon_debug_trace = 0;
 }

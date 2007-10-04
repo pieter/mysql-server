@@ -294,7 +294,8 @@ void statement_cleanup(statement *stmt);
 void option_cleanup(option_string *stmt);
 void concurrency_loop(MYSQL *mysql, uint current, option_string *eptr);
 static int run_statements(MYSQL *mysql, statement *stmt);
-int slap_connect(MYSQL *mysql);
+void slap_connect(MYSQL *mysql, my_bool connect_to_schema);
+void slap_close(MYSQL *mysql);
 static int run_query(MYSQL *mysql, const char *query, int len);
 void standard_deviation (conclusions *con, stats *sptr);
 
@@ -367,35 +368,8 @@ int main(int argc, char **argv)
     my_end(0);
     exit(1);
   }
-  mysql_init(&mysql);
-  if (opt_compress)
-    mysql_options(&mysql,MYSQL_OPT_COMPRESS,NullS);
-#ifdef HAVE_OPENSSL
-  if (opt_use_ssl)
-    mysql_ssl_set(&mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
-                  opt_ssl_capath, opt_ssl_cipher);
-#endif
-  if (opt_protocol)
-    mysql_options(&mysql,MYSQL_OPT_PROTOCOL,(char*)&opt_protocol);
-#ifdef HAVE_SMEM
-  if (shared_memory_base_name)
-    mysql_options(&mysql,MYSQL_SHARED_MEMORY_BASE_NAME,shared_memory_base_name);
-#endif
-  mysql_options(&mysql, MYSQL_SET_CHARSET_NAME, default_charset);
 
-  if (!opt_only_print) 
-  {
-    if (!(mysql_real_connect(&mysql, host, user, opt_password,
-                             NULL, opt_mysql_port,
-                             opt_mysql_unix_port, connect_flags)))
-    {
-      fprintf(stderr,"%s: Error when connecting to server: %s\n",
-              my_progname,mysql_error(&mysql));
-      free_defaults(defaults_argv);
-      my_end(0);
-      exit(1);
-    }
-  }
+  slap_connect(&mysql, FALSE);
 
   VOID(pthread_mutex_init(&counter_mutex, NULL));
   VOID(pthread_cond_init(&count_threshhold, NULL));
@@ -445,8 +419,7 @@ burnin:
   VOID(pthread_mutex_destroy(&timer_alarm_mutex));
   VOID(pthread_cond_destroy(&timer_alarm_threshold));
 
-  if (!opt_only_print) 
-    mysql_close(&mysql); /* Close & free connection */
+  slap_close(&mysql);
 
   /* now free all the strings we created */
   if (opt_password)
@@ -1933,10 +1906,13 @@ run_statements(MYSQL *mysql, statement *stmt)
               my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
       exit(1);
     }
-    if (mysql_field_count(mysql))
+    if (!opt_only_print)
     {
-      result= mysql_store_result(mysql);
-      mysql_free_result(result);
+      if (mysql_field_count(mysql))
+      {
+        result= mysql_store_result(mysql);
+        mysql_free_result(result);
+      }
     }
   }
 
@@ -2097,7 +2073,7 @@ pthread_handler_t run_task(void *p)
 {
   ulonglong counter= 0, queries;
   ulonglong trans_counter;
-  MYSQL *mysql;
+  MYSQL mysql;
   MYSQL_RES *result;
   MYSQL_ROW row;
   statement *ptr;
@@ -2120,20 +2096,9 @@ pthread_handler_t run_task(void *p)
   }
   pthread_mutex_unlock(&sleeper_mutex);
 
-  if (!(mysql= mysql_init(NULL)))
-  {
-    fprintf(stderr,"%s: mysql_init() failed ERROR : %s\n",
-            my_progname, mysql_error(mysql));
-    exit(1);
-  }
-
   DBUG_PRINT("info", ("trying to connect to host %s as user %s", host, user));
 
-  if (!opt_only_print)
-  {
-    if (slap_connect(mysql))
-      goto end;
-  }
+  slap_connect(&mysql, TRUE);
 
   DBUG_PRINT("info", ("connected."));
   if (verbose >= 3)
@@ -2147,17 +2112,8 @@ limit_not_met:
     {
       if (!opt_only_print && detach_rate && !(trans_counter % detach_rate))
       {
-        mysql_close(mysql);
-
-        if (!(mysql= mysql_init(NULL)))
-        {
-          fprintf(stderr,"%s: mysql_init() failed ERROR : %s\n",
-                  my_progname, mysql_error(mysql));
-          exit(1);
-        }
-
-        if (slap_connect(mysql))
-          goto end;
+        slap_close(&mysql);
+        slap_connect(&mysql, TRUE);
       }
 
       /* 
@@ -2189,35 +2145,38 @@ limit_not_met:
           length= snprintf(buffer, HUGE_STRING_LENGTH, "%.*s '%s'", 
                            (int)ptr->length, ptr->string, key);
 
-          if (run_query(mysql, buffer, length))
+          if (run_query(&mysql, buffer, length))
           {
             fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
-                    my_progname, (uint)length, buffer, mysql_error(mysql));
+                    my_progname, (uint)length, buffer, mysql_error(&mysql));
             exit(1);
           }
         }
       }
       else
       {
-        if (run_query(mysql, ptr->string, ptr->length))
+        if (run_query(&mysql, ptr->string, ptr->length))
         {
           fprintf(stderr,"%s: Cannot run query %.*s ERROR : %s\n",
-                  my_progname, (uint)ptr->length, ptr->string, mysql_error(mysql));
+                  my_progname, (uint)ptr->length, ptr->string, mysql_error(&mysql));
           exit(1);
         }
       }
 
-      if (mysql_field_count(mysql))
+      if (!opt_only_print)
       {
-        result= mysql_store_result(mysql);
-        while ((row = mysql_fetch_row(result)))
-          counter++;
-        mysql_free_result(result);
+        if (mysql_field_count(&mysql))
+        {
+          result= mysql_store_result(&mysql);
+          while ((row = mysql_fetch_row(result)))
+            counter++;
+          mysql_free_result(result);
+        }
       }
       queries++;
 
       if (commit_rate && commit_rate <= trans_counter)
-        run_query(mysql, "COMMIT", strlen("COMMIT"));
+        run_query(&mysql, "COMMIT", strlen("COMMIT"));
 
       /* If the timer is set, and the alarm is not active then end */
       if (opt_timer_length && timer_alarm == FALSE)
@@ -2237,11 +2196,9 @@ limit_not_met:
 
 end:
   if (commit_rate)
-    run_query(mysql, "COMMIT", strlen("COMMIT"));
+    run_query(&mysql, "COMMIT", strlen("COMMIT"));
 
-  if (!opt_only_print) 
-    mysql_close(mysql);
-
+  slap_close(&mysql);
 
   pthread_mutex_lock(&counter_mutex);
   thread_counter--;
@@ -2573,21 +2530,51 @@ statement_cleanup(statement *stmt)
   }
 }
 
+void 
+slap_close(MYSQL *mysql)
+{
+  if (opt_only_print) 
+    return;
 
-int 
-slap_connect(MYSQL *mysql)
+  mysql_close(mysql);
+}
+
+void 
+slap_connect(MYSQL *mysql, my_bool connect_to_schema)
 {
   /* Connect to server */
   static ulong connection_retry_sleep= 100000; /* Microseconds */
   int x, connect_error= 1;
 
+  if (opt_only_print) 
+    return;
+
   if (opt_delayed_start)
     my_sleep(random()%opt_delayed_start);
 
+  mysql_init(mysql);
+
+  if (opt_compress)
+    mysql_options(mysql,MYSQL_OPT_COMPRESS,NullS);
+#ifdef HAVE_OPENSSL
+  if (opt_use_ssl)
+    mysql_ssl_set(mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
+                  opt_ssl_capath, opt_ssl_cipher);
+#endif
+  if (opt_protocol)
+    mysql_options(mysql,MYSQL_OPT_PROTOCOL,(char*)&opt_protocol);
+#ifdef HAVE_SMEM
+  if (shared_memory_base_name)
+    mysql_options(mysql,MYSQL_SHARED_MEMORY_BASE_NAME,shared_memory_base_name);
+#endif
+  mysql_options(mysql, MYSQL_SET_CHARSET_NAME, default_charset);
+
   for (x= 0; x < 10; x++)
   {
+
+
     if (mysql_real_connect(mysql, host, user, opt_password,
-                           create_schema_string,
+                           connect_to_schema ? create_schema_string : NULL,
                            opt_mysql_port,
                            opt_mysql_unix_port,
                            connect_flags))
@@ -2605,7 +2592,7 @@ slap_connect(MYSQL *mysql)
     exit(1);
   }
 
-  return 0;
+  return;
 }
 
 void 

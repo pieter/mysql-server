@@ -332,6 +332,7 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		// Make insert/update atomic, then check for unique index duplicats
 		
 		Sync sync(&syncUpdate, "Table::insert");
+		recordNumber = record->recordNumber = dbb->insertStub(dataSection, transaction);
 		
 		if (indexes)
 			{
@@ -347,7 +348,6 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		// Verify that record is valid
 
 		checkNullable(record);
-		recordNumber = record->recordNumber = dbb->insertStub(dataSection, transaction);
 		transaction->addRecord(record);
 		insert(record, NULL, recordNumber);
 		inserted = true;

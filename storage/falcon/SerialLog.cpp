@@ -1539,3 +1539,8 @@ void SerialLog::preUpdate(void)
 	Sync sync(&syncUpdateStall, "SerialLog::preUpdate");
 	sync.lock(Shared);
 }
+
+uint64 SerialLog::getWriteBlockNumber(void)
+{
+	return writeBlock->blockNumber;
+}

@@ -812,6 +812,11 @@ void Table::init(int id, const char *schema, const char *tableName, TableSpace *
 	cardinality = 0;
 	priorCardinality = 0;
 	alterIsActive = false;
+	syncObject.setName("Table::syncObject");
+	syncTriggers.setName("Table::syncTriggers");
+	syncScavenge.setName("Table::syncScavenge");
+	syncUpdate.setName("Table::syncUpdate");
+	syncAlter.setName("Table::syncAlter");
 }
 
 Record* Table::fetch(int32 recordNumber)
@@ -1558,11 +1563,7 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 
 	Sync sync(&syncObject, "Table::retireRecords");
 
-#ifdef NON_BLOCKING_SCAVENGING
 	sync.lock(Shared);
-#else
-	sync.lock(Exclusive);
-#endif
 
 	activeVersions = false;
 	int count = records->retireRecords(this, 0, recordScavenge);
@@ -1582,7 +1583,6 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 			records = NULL;
 			}
 		}
-#ifdef NON_BLOCKING_SCAVENGING
 	else
 		{
 		// Get an exclusive lock only if there are empty leaf nodes. Find and
@@ -1602,7 +1602,6 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 			emptySections->clear();
 			}
 		}
-#endif			
 	
 	return count;
 }
@@ -1806,11 +1805,10 @@ void Table::expungeBlob(Value * blob)
 
 	ASSERT(section);
 
-#ifndef NON_BLOCKING_SCAVENGING
 	// This probably isn't necessary, ever
+	
 	Sync sync(&syncObject, "Table::expungeBlob");
 	sync.lock(Exclusive);
-#endif
 
 	dbb->updateRecord(section, recordNumber, NULL, NULL, true);
 	dbb->expungeRecord(section, recordNumber);

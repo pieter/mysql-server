@@ -50,6 +50,8 @@ TransactionManager::TransactionManager(Database *db)
 	rolledBackTransaction = new Transaction(database->systemConnection, 0);
 	rolledBackTransaction->state = RolledBack;
 	rolledBackTransaction->inList = false;
+	syncObject.setName("TransactionManager::syncObject");
+	syncInitialize.setName("TransactionManager::syncInitialize");
 }
 
 TransactionManager::~TransactionManager(void)

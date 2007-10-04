@@ -39,7 +39,6 @@ static const int PostDelete = 32;
 static const int PreCommit	= 64;
 static const int PostCommit	= 128;
 
-#define NON_BLOCKING_SCAVENGING
 #define FORMAT_HASH_SIZE		20
 #define FOR_FIELDS(field,table)	{for (Field *field=table->fields; field; field = field->next){
 #define FOR_INDEXES(index,table)	{for (Index *index=table->indexes; index; index = index->next){

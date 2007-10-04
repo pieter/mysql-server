@@ -363,12 +363,11 @@ void IO::deleteFile()
 int IO::pread(int64 offset, int length, UCHAR* buffer)
 {
 	int ret;
-	Sync sync (&syncObject, "IO::pread");
 
 #if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
-	sync.lock (Shared);
 	ret = ::pread (fileId, buffer, length, offset);
 #else
+	Sync sync (&syncObject, "IO::pread");
 	sync.lock (Exclusive);
 
 	longSeek(offset);
@@ -394,12 +393,11 @@ void IO::read(int64 offset, int length, UCHAR* buffer)
 int IO::pwrite(int64 offset, int length, const UCHAR* buffer)
 {
 	int ret;
-	Sync sync (&syncObject, "IO::pwrite");
 	
 #if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
-	sync.lock (Shared);
 	ret = ::pwrite (fileId, buffer, length, offset);
 #else
+	Sync sync (&syncObject, "IO::pwrite");
 	sync.lock (Exclusive);
 
 	longSeek(offset);

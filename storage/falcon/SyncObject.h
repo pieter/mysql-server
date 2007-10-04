@@ -71,7 +71,7 @@ public:
 	void		unlock(void);
 	bool		ourExclusiveLock(void);
 	void		frequentStaller(Thread *thread, Sync *sync);
-	void		setWhere(const char* string);
+	void		setName(const char* name);
 
 	virtual void	unlock (Sync *sync, LockType type);
 	virtual void	lock (Sync *sync, LockType type);
@@ -102,6 +102,7 @@ protected:
 	int					waitCount;
 	int					queueLength;
 	const char*			where;
+	const char*			name;
 #endif
 };
 

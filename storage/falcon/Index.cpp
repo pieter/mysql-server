@@ -95,6 +95,7 @@ void Index::init(Table *tbl, const char *indexName, int indexType, int count)
 	rootPage = 0;
 	recordsPerSegment = new uint64[numberFields];
 	memset(recordsPerSegment, 0, sizeof(uint64) * numberFields);
+	deferredIndexes.syncObject.setName("Index::deferredIndexes");
 }
 
 Index::~Index()

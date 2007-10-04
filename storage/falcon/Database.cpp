@@ -459,6 +459,14 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	longSync = false;
 	recordDataPool = MemMgrGetFixedPool(MemMgrPoolRecordData);
 	//recordObjectPool = MemMgrGetFixedPool(MemMgrPoolRecordObject);
+	syncObject.setName("Database::syncObject");
+	syncTables.setName("Database::syncTables");
+	syncStatements.setName("Database::syncStatements");
+	syncAddStatement.setName("Database::syncAddStatement");
+	syncSysConnection.setName("Database::syncSysConnection");
+	syncResultSets.setName("Database::syncResultSets");
+	syncConnectionStatements.setName("Database::syncConnectionStatements");
+	syncScavenge.setName("Database::syncScavenge");
 }
 
 

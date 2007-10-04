@@ -68,7 +68,9 @@ Cache::Cache(Dbb *db, int pageSz, int hashSz, int numBuffers)
 	numberHunks = (int) n;
 	bufferHunks = new char* [numberHunks];
 	memset(bufferHunks, 0, numberHunks * sizeof(char*));
-
+	syncObject.setName("Cache::syncObject");
+	syncDirty.setName("Cache::syncDirty");
+	
 	try
 		{	
 		bdbs = new Bdb [numberBuffers];

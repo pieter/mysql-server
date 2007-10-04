@@ -112,6 +112,7 @@ SyncObject::SyncObject()
 	waitCount = 0;
 	queueLength = 0;
 	where = NULL;
+	name = NULL;
 	objectId = INTERLOCKED_INCREMENT(nextSyncObjectId);
 	
 	if (objectId < MAX_SYNC_OBJECTS)
@@ -595,14 +596,6 @@ void SyncObject::frequentStaller(Thread *thread, Sync *sync)
 	thread->lockGranted = lockGranted;
 	thread->lockPending = lockPending;
 }
-
-void SyncObject::setWhere(const char* string)
-{
-#ifdef TRACE_SYNC_OBJECTS
-	where = string;
-#endif
-}
-
 void SyncObject::analyze(Stream* stream)
 {
 #ifdef TRACE_SYNC_OBJECTS
@@ -632,13 +625,18 @@ void SyncObject::dump(void)
 	SyncObject *syncObject;
 	
 	for (int n = 1; n < MAX_SYNC_OBJECTS; ++n)
-		if ( (syncObject = syncObjects[n]) && syncObject->where)
-			fprintf(out, "%s\t%d\t%d\t%d\t%d\t\n",
-					syncObject->where,
-					syncObject->sharedCount,
-					syncObject->exclusiveCount,
-					syncObject->waitCount,
-					(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+		if ( (syncObject = syncObjects[n]) )
+			{
+			const char *name = (syncObject->name) ? syncObject->name : syncObject->where;
+			
+			if (name)
+				fprintf(out, "%s\t%d\t%d\t%d\t%d\t\n",
+						name,
+						syncObject->sharedCount,
+						syncObject->exclusiveCount,
+						syncObject->waitCount,
+						(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+			}
 	
 	fclose(out);
 #endif
@@ -660,4 +658,11 @@ void SyncObject::getSyncInfo(InfoTable* infoTable)
 			infoTable->putInt(n++, queueLength);
 			infoTable->putRecord();
 			}
+}
+
+void SyncObject::setName(const char* string)
+{
+#ifdef TRACE_SYNC_OBJECTS
+	name = string;
+#endif
 }

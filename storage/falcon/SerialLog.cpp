@@ -114,6 +114,11 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	windowBuffers = MAX(database->configuration->serialLogWindows, 10);
 	tableSpaceInfo = NULL;
 	memset(tableSpaces, 0, sizeof(tableSpaces));
+	syncWrite.setName("SerialLog::syncWrite");
+	syncSections.setName("SerialLog::syncSections");
+	syncIndexes.setName("SerialLog::syncIndexes");
+	syncGopher.setName("SerialLog::syncGopher");
+	syncUpdateStall.setName("SerialLog::syncUpdateStall");
 }
 
 SerialLog::~SerialLog()

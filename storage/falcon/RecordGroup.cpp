@@ -123,13 +123,11 @@ int RecordGroup::retireRecords(Table *table, int base, RecordScavenge *recordSca
 			
 			if (n)
 				count += n;
-#ifndef NON_BLOCKING_SCAVENGING
 			else
 				{
 				delete section;
 				*ptr = NULL;
 				}
-#endif				
 			}
 		}
 

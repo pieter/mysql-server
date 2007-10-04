@@ -3715,7 +3715,7 @@ TABLE_READ_PLAN *get_best_disjunct_quick(PARAM *param, SEL_IMERGE *imerge,
 
   /* Add Unique operations cost */
   unique_calc_buff_size=
-    Unique::get_cost_calc_buff_size(non_cpk_scan_records,
+    Unique::get_cost_calc_buff_size((ulong)non_cpk_scan_records,
                                     param->table->file->ref_length,
                                     param->thd->variables.sortbuff_size);
   if (param->imerge_cost_buff_size < unique_calc_buff_size)
@@ -3727,7 +3727,7 @@ TABLE_READ_PLAN *get_best_disjunct_quick(PARAM *param, SEL_IMERGE *imerge,
   }
 
   imerge_cost +=
-    Unique::get_use_cost(param->imerge_cost_buff, non_cpk_scan_records,
+    Unique::get_use_cost(param->imerge_cost_buff, (uint)non_cpk_scan_records,
                          param->table->file->ref_length,
                          param->thd->variables.sortbuff_size);
   DBUG_PRINT("info",("index_merge total cost: %g (wanted: less then %g)",
@@ -4037,7 +4037,7 @@ ROR_INTERSECT_INFO* ror_intersect_init(const PARAM *param)
   info->is_covering= FALSE;
   info->index_scan_costs= 0.0;
   info->index_records= 0;
-  info->out_rows= param->table->file->stats.records;
+  info->out_rows= (double) param->table->file->stats.records;
   bitmap_clear_all(&info->covered_fields);
   return info;
 }
@@ -9987,7 +9987,7 @@ void cost_group_min_max(TABLE* table, KEY *index_info, uint used_key_parts,
                         bool have_min, bool have_max,
                         double *read_cost, ha_rows *records)
 {
-  uint table_records;
+  ha_rows table_records;
   uint num_groups;
   uint num_blocks;
   uint keys_per_block;
@@ -10004,14 +10004,14 @@ void cost_group_min_max(TABLE* table, KEY *index_info, uint used_key_parts,
   keys_per_block= (table->file->stats.block_size / 2 /
                    (index_info->key_length + table->file->ref_length)
                         + 1);
-  num_blocks= (table_records / keys_per_block) + 1;
+  num_blocks= (uint)(table_records / keys_per_block) + 1;
 
   /* Compute the number of keys in a group. */
   keys_per_group= index_info->rec_per_key[group_key_parts - 1];
   if (keys_per_group == 0) /* If there is no statistics try to guess */
     /* each group contains 10% of all records */
-    keys_per_group= (table_records / 10) + 1;
-  num_groups= (table_records / keys_per_group) + 1;
+    keys_per_group= (uint)(table_records / 10) + 1;
+  num_groups= (uint)(table_records / keys_per_group) + 1;
 
   /* Apply the selectivity of the quick select for group prefixes. */
   if (range_tree && (quick_prefix_records != HA_POS_ERROR))
@@ -10055,9 +10055,9 @@ void cost_group_min_max(TABLE* table, KEY *index_info, uint used_key_parts,
   *records= num_groups;
 
   DBUG_PRINT("info",
-             ("table rows: %u  keys/block: %u  keys/group: %u  result rows: %lu  blocks: %u",
-              table_records, keys_per_block, keys_per_group, (ulong) *records,
-              num_blocks));
+             ("table rows: %lu  keys/block: %u  keys/group: %u  result rows: %lu  blocks: %u",
+              (ulong)table_records, keys_per_block, keys_per_group, 
+              (ulong) *records, num_blocks));
   DBUG_VOID_RETURN;
 }
 

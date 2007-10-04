@@ -1,5 +1,9 @@
 # Tests of grants and users
 
+# Make sure that failing tests do not upset output
+DELETE FROM mysql.user WHERE user != 'root';
+FLUSH PRIVILEGES;
+
 source include/master-slave.inc;
 source include/not_embedded.inc;
 

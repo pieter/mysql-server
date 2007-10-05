@@ -26,6 +26,7 @@
 #include "InfoTable.h"
 #include "Log.h"
 #include "LogLock.h"
+#include "Synchronize.h"
 
 static const int EXTRA_TRANSACTIONS = 10;
 
@@ -440,6 +441,8 @@ void TransactionManager::printBlockage(void)
 	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
 		if (trans->state == Active && !trans->waitingFor)
 			trans->printBlocking(0);
+
+	Synchronize::freezeSystem();
 }
 
 void TransactionManager::printBlocking(Transaction* transaction, int level)

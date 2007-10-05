@@ -278,7 +278,7 @@ void PageWriter::waitForWrites(Transaction *transaction)
 			thread = Thread::getThread("PageWriter::waitForWrites");
 
 		dirtyTrans->thread = thread;
-		transaction->printBlockage();
+		//transaction->printBlockage();
 		sync.unlock();
 		thread->sleep();
 		}

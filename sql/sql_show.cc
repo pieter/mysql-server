@@ -3766,6 +3766,7 @@ static int get_schema_column_record(THD *thd, TABLE_LIST *tables,
   {
     uchar *pos;
     char tmp[MAX_FIELD_WIDTH];
+    String type(tmp,sizeof(tmp), system_charset_info);
     char *end;
 
     if (wild && wild[0] &&

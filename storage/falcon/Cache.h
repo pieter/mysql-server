@@ -34,6 +34,7 @@ class PagePrecedence;
 class PageWriter;
 class Stream;
 class Sync;
+class Thread;
 
 class Cache  
 {
@@ -55,6 +56,10 @@ public:
 	void	moveToHead (Bdb *bdb);
 	void	flush();
 	void	validateCache(void);
+	void	purifier(void);
+	void	purify(void);
+
+	static void purifier(void* arg);
 		
 	Bdb*	fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
 	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
@@ -79,12 +84,14 @@ protected:
 	Bdb			*firstDirty;
 	Bdb			*lastDirty;
 	char		**bufferHunks;
+	Thread		*purifierThread;
 	SyncObject	syncDirty;
 	PagePrecedence	*freePrecedence;
 	int			hashSize;
 	int			pageSize;
 	int			upperFraction;
 	int			numberHunks;
+	int			numberDirtyPages;
 	volatile int bufferAge;
 };
 

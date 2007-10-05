@@ -459,7 +459,6 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 	// Do some fancy accounting to avoid premature use of record number.
 	// If the record number has been reserved, don't bother to delete it.
 
-
 	if (!stream)
 		{
 		Sync sync (&syncInsert, "Section::updateRecord");

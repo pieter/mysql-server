@@ -1145,7 +1145,7 @@ void Transaction::printBlocking(int level)
 		Table *table = blockingRecord->format->table;
 		Log::debug("%*s Blocking on %s.%s record %d\n",
 				   level * INDENT, "",
-				   table->name, table->schemaName,
+				   table->schemaName, table->name, 
 				   blockingRecord->recordNumber);
 		}
 
@@ -1166,8 +1166,8 @@ void Transaction::printBlocking(int level)
 		
 		Log::debug("%*s Record %s.%s number %d %s\n",
 				   level * INDENT, "",
-				   table->name, 
 				   table->schemaName,
+				   table->name, 
 				   record->recordNumber,
 				   what);
 		}

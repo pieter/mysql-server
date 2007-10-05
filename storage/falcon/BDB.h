@@ -105,6 +105,7 @@ public:
 	LockType		lockType;
 	short			flags;
 	bool			flushIt;
+	bool			purifyIt;
 	volatile INTERLOCK_TYPE	useCount;
 
 #ifdef COLLECT_BDB_HISTORY

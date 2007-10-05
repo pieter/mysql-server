@@ -34,7 +34,9 @@
 #include "PageWriter.h"
 #include "SQLError.h"
 #include "Thread.h"
+#include "Threads.h"
 #include "DatabaseCopy.h"
+#include "Database.h"
 
 //#define STOP_PAGE		64
 
@@ -60,6 +62,7 @@ Cache::Cache(Dbb *db, int pageSz, int hashSz, int numBuffers)
 	bufferAge = 0;
 	firstDirty = NULL;
 	lastDirty = NULL;
+	numberDirtyPages = 0;
 	pageWriter = NULL;
 	freePrecedence = NULL;
 	hashTable = new Bdb* [hashSz];
@@ -109,6 +112,7 @@ Cache::Cache(Dbb *db, int pageSz, int hashSz, int numBuffers)
 		}
 	
 	validateCache();
+	purifierThread = dbb->database->threads->start("Cache::Cache", &Cache::purifier, this);
 }
 
 Cache::~Cache()
@@ -350,7 +354,7 @@ void Cache::moveToHead(Bdb * bdb)
 	bdb->age = bufferAge++;
 	bufferQueue.remove(bdb);
 	bufferQueue.prepend(bdb);
-	validateUnique (bdb);
+	//validateUnique (bdb);
 }
 
 Bdb* Cache::findBuffer(Dbb *dbb, int pageNumber, LockType lockType)
@@ -492,7 +496,8 @@ void Cache::markDirty(Bdb *bdb)
 		firstDirty = bdb;
 
 	lastDirty = bdb;
-	validateUnique (bdb);
+	++numberDirtyPages;
+	//validateUnique (bdb);
 }
 
 void Cache::markClean(Bdb *bdb)
@@ -500,7 +505,8 @@ void Cache::markClean(Bdb *bdb)
 	Sync sync (&syncDirty, "Cache::markClean");
 	sync.lock (Exclusive);
 	bdb->flushIt = false;
-
+	--numberDirtyPages;
+	
 	if (bdb == lastDirty)
 		lastDirty = bdb->priorDirty;
 
@@ -530,6 +536,7 @@ void Cache::writePage(Bdb *bdb)
 		{
 		//Log::debug("Cache::writePage: page %d not dirty\n", bdb->pageNumber);
 		markClean (bdb);
+		
 		return;
 		}
 
@@ -605,8 +612,6 @@ void Cache::analyze(Stream *stream)
 
 void Cache::validateUnique(Bdb *target)
 {
-	return;
-
 	int	slot = target->pageNumber % hashSize;
 
 	for (Bdb *bdb = hashTable [slot]; bdb; bdb = bdb->hash)
@@ -817,4 +822,69 @@ Bdb* Cache::trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType)
 			}
 
 	return bdb;
+}
+
+void Cache::purifier(void* arg)
+{
+	((Cache*) arg)->purifier();
+}
+
+void Cache::purifier(void)
+{
+	Thread *thread = Thread::getThread("Database::ticker");
+
+	while (!thread->shutdownInProgress)
+		{
+		purify();
+		thread->sleep (1000);
+		}
+}
+
+void Cache::purify(void)
+{
+	Sync sync(&syncDirty, "Cache::purify");
+	sync.lock(Exclusive);
+	Bdb *bdb;
+	bool hit = false;
+	
+#if TRACE_PAGE	
+	Log::debug("Starting page cache purify\n");
+#endif
+
+	for (bdb = firstDirty; bdb; bdb = bdb->nextDirty)
+		bdb->purifyIt = true;
+
+	for (int n = 0, target = numberDirtyPages / 2; n < target && (bdb = firstDirty); ++n)		
+		{
+		while (bdb && !bdb->purifyIt)
+			bdb = bdb->nextDirty;
+
+		if (!bdb)
+			break;
+		
+		while (bdb->higher)
+			bdb = bdb->higher->higher;
+
+		if (!(bdb->flags & BDB_dirty))
+			{
+			markClean(bdb);
+			continue;
+			}
+		
+		bdb->incrementUseCount(ADD_HISTORY);
+		sync.unlock();
+		bdb->addRef (Shared  COMMA_ADD_HISTORY);
+		bdb->decrementUseCount(REL_HISTORY);
+		hit = true;
+		writePage (bdb);
+		sync.lock (Exclusive);
+		bdb->release(REL_HISTORY);
+		}
+
+	if (hit)
+		dbb->database->sync();
+			
+#if TRACE_PAGE	
+	Log::debug("Ending page cache purify\n");
+#endif
 }

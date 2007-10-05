@@ -47,7 +47,7 @@ connection default;
 --echo # Switch to connection conn1
 connection conn1;
 --real_sleep 1
---error 1213
+--error ER_LOCK_DEADLOCK
 SELECT * FROM t1 WHERE a = 8 FOR UPDATE;
 ROLLBACK;
 

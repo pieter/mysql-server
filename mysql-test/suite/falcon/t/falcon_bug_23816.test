@@ -35,7 +35,7 @@ COMMIT;
 
 --echo # Switch to connection conn1
 connection conn1;
---error 1015
+--error ER_CANT_LOCK
 --reap
 COMMIT;
 

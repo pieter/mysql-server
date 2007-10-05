@@ -26,7 +26,7 @@ CREATE TABLE T (a int);
 # ----------------------------------------------------- #
 # --- Test                                          --- #
 # ----------------------------------------------------- #
---error 1050, 1005
+--error ER_TABLE_EXISTS_ERROR, ER_CANT_CREATE_TABLE
 CREATE TABLE t (a int);
 INSERT INTO T VALUES (1);
 

@@ -10,7 +10,7 @@ SET STORAGE_ENGINE='Falcon';
 DROP TABLE IF EXISTS t18;
 --enable_warnings
 
---error 1563
+--error ER_PARTITION_FUNCTION_IS_NOT_ALLOWED
 CREATE TABLE t18 (
   s1 char(5), 
   PRIMARY KEY (s1)

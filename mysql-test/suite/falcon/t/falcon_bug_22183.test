@@ -21,7 +21,7 @@ USE falcon6;
 # ALTER TABLE on table with pending transactions
 # does not work with Falcon. However, the error message
 # is misleading.
---error 1015
+--error ER_CANT_LOCK
 ALTER TABLE t DROP PRIMARY KEY;
 SET @@autocommit = 0;
 START TRANSACTION;
@@ -31,7 +31,7 @@ START TRANSACTION;
 connection default;
 # We get a "multiple primary key defined", as the previous
 # DROP PRIMARY KEY did not worked.
---error 1068
+--error ER_MULTIPLE_PRI_KEY
 ALTER TABLE t ADD PRIMARY KEY (s1);
 COMMIT;
 

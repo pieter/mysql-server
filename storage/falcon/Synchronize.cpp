@@ -199,5 +199,6 @@ void Synchronize::freeze(void)
 
 void Synchronize::freezeSystem(void)
 {
-	COMPARE_EXCHANGE(&synchronizeFreeze, 0, true);
+	COMPARE_EXCHANGE(&synchronizeFreeze, synchronizeFreeze, true);
+	freeze();
 }

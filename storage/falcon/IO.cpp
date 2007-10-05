@@ -82,6 +82,7 @@
 #include "Sync.h"
 #include "Log.h"
 #include "Debug.h"
+#include "Synchronize.h"
 
 #define TRACE_FILE	"falcon.trace"
 
@@ -222,7 +223,6 @@ void IO::writePage(Bdb * bdb)
 		FATAL ("can't continue after fatal error");
 
 	ASSERT(bdb->pageNumber != HEADER_PAGE || ((Page*)(bdb->buffer))->pageType == PAGE_header);
-
 	tracePage(bdb);
 	SEEK_OFFSET offset = (int64) bdb->pageNumber * pageSize;
 	int length = pwrite (offset, pageSize, (UCHAR *)bdb->buffer);
@@ -374,6 +374,8 @@ int IO::pread(int64 offset, int length, UCHAR* buffer)
 	ret = (int) read(length, buffer);
 #endif
 
+	DEBUG_FREEZE;
+
 	return ret;
 }
 
@@ -403,6 +405,8 @@ int IO::pwrite(int64 offset, int length, const UCHAR* buffer)
 	longSeek(offset);
 	ret = (int) ::write (fileId, buffer, length);
 #endif
+
+	DEBUG_FREEZE;
 
 	return ret;
 }

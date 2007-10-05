@@ -154,8 +154,11 @@ void SyncObject::lock(Sync *sync, LockType type)
 			INTERLOCK_TYPE newState = oldState + 1;
 
 			if (COMPARE_EXCHANGE(&lockState, oldState, newState))
+				{
+				DEBUG_FREEZE;
 				return;
-			
+				}
+				
 			BACKOFF;
 			}
 
@@ -175,6 +178,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				{
 				bumpWaiters(-1);
 				mutex.release();
+				DEBUG_FREEZE;
 				
 				return;
 				}
@@ -189,6 +193,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 			++monitorCount;
 			bumpWaiters(-1);
 			mutex.release();
+			DEBUG_FREEZE;
 			
 			return;
 			}
@@ -202,6 +207,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 			{
 			++monitorCount;
 			BUMP(exclusiveCount);
+			DEBUG_FREEZE;
 			
 			return;
 			}
@@ -217,6 +223,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				{
 				exclusiveThread = thread;
 				BUMP(exclusiveCount);
+				DEBUG_FREEZE;
 				
 				return; 
 				}
@@ -240,6 +247,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				exclusiveThread = thread;
 				bumpWaiters(-1);
 				mutex.release();
+				DEBUG_FREEZE;
 				
 				return;
 				}
@@ -249,6 +257,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 		}
 
 	wait (type, thread, sync);
+	DEBUG_FREEZE;
 }
 
 void SyncObject::unlock(Sync *sync, LockType type)
@@ -259,6 +268,7 @@ void SyncObject::unlock(Sync *sync, LockType type)
 		{
 		ASSERT (monitorCount > 0);
 		--monitorCount;
+		DEBUG_FREEZE;
 
 		return;
 		}
@@ -274,6 +284,7 @@ void SyncObject::unlock(Sync *sync, LockType type)
 		
 		if (COMPARE_EXCHANGE(&lockState, oldState, newState))
 			{
+			DEBUG_FREEZE;
 			if (waiters)
 				grantLocks();
 				
@@ -303,6 +314,8 @@ void SyncObject::unlock(Sync *sync, LockType type)
 	if (waiters)
 		grantLocks();
 	***/
+	
+	DEBUG_FREEZE;
 }
 
 void SyncObject::downGrade(LockType type)
@@ -315,10 +328,11 @@ void SyncObject::downGrade(LockType type)
 		if (COMPARE_EXCHANGE(&lockState, -1, 1))
 			{
 			exclusiveThread = NULL;
+			DEBUG_FREEZE;
 			
 			if (waiters)
 				grantLocks();
-				
+
 			return;
 			}
 }

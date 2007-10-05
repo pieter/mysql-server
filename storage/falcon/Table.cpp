@@ -958,7 +958,7 @@ int32 Table::getBlobId(Value * value, int32 oldId, bool cloneFlag, Transaction *
 	Blob *blob = value->getBlob();
 	int32 recordNumber = dbb->insertStub(blobSectionId, transaction);
 	blob->length();
-	dbb->updateBlob(blobSectionId, recordNumber, (BinaryBlob*) blob, transaction);
+	dbb->updateBlob(blobSection, recordNumber, (BinaryBlob*) blob, transaction);
 	blob->release();
 
 	return recordNumber;
@@ -967,6 +967,9 @@ int32 Table::getBlobId(Value * value, int32 oldId, bool cloneFlag, Transaction *
 
 int32 Table::getIndirectId(BlobReference *reference, Transaction *transaction)
 {
+	if (!blobSection)
+		blobSection = dbb->findSection(blobSectionId);
+
 	const char *repoName = database->getSymbol(reference->repositoryName);
 	Repository *repository = database->getRepository(schemaName, repoName);
 
@@ -976,7 +979,7 @@ int32 Table::getIndirectId(BlobReference *reference, Transaction *transaction)
 	Stream refData;
 	reference->getReference(&refData);
 	int32 recordNumber = dbb->insertStub(blobSectionId, transaction);
-	dbb->updateBlob(blobSectionId, recordNumber, &refData, transaction);
+	dbb->updateBlob(blobSection, recordNumber, &refData, transaction);
 
 	return (recordNumber) ? -recordNumber : ZERO_REPOSITORY_PLACE;
 }
@@ -2471,7 +2474,7 @@ void Table::validateBlobs(int optionMask)
 			Log::debug ("Orphan blob %d, table %s.%s, blob section %d\n", next, schemaName, name, blobSectionId);
 			
 			if (optionMask & validateRepair)
-				dbb->updateRecord(blobSectionId, next, NULL, NO_TRANSACTION, false);
+				dbb->updateRecord(blobSection, next, NULL, NO_TRANSACTION, false);
 			}
 		}
 
@@ -2888,7 +2891,7 @@ int Table::storeBlob(Transaction *transaction, uint32 length, const UCHAR *data)
 	int32 recordNumber = dbb->insertStub(blobSection, transaction);
 	Stream stream;
 	stream.putSegment((int) length, (const char*) data, false);
-	dbb->updateBlob(blobSectionId, recordNumber, &stream, transaction);
+	dbb->updateBlob(blobSection, recordNumber, &stream, transaction);
 
 	return recordNumber;
 }

@@ -308,10 +308,19 @@ void Dbb::logRecord(int32 sectionId, int32 recordId, Stream *stream, Transaction
 		updateRecord(sectionId, recordId, stream, transaction->transactionId, false);
 }
 
+void Dbb::updateBlob(Section *blobSection, int recordNumber, Stream* stream, Transaction* transaction)
+{
+	//updateBlob(blobSectionId, recordNumber, stream, TRANSACTION_ID(transaction));
+	updateRecord(blobSection, recordNumber, stream, transaction, true);
+	transaction->pendingPageWrites = true;
+}
+
+/***
 void Dbb::updateBlob(int32 sectionId, int32 recordId, Stream *stream, TransId transId)
 {
 	updateRecord(sectionId, recordId, stream, transId, true);
 }
+***/
 
 void Dbb::updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite)
 {
@@ -1347,10 +1356,4 @@ void Dbb::updateTableSpaceSection(int id)
 	Hdr *header = (Hdr*) bdb->buffer;
 	header->tableSpaceSectionId = id;
 	bdb->release(REL_HISTORY);
-}
-
-void Dbb::updateBlob(int blobSectionId, int recordNumber, Stream* stream, Transaction* transaction)
-{
-	updateBlob(blobSectionId, recordNumber, stream, TRANSACTION_ID(transaction));
-	transaction->pendingPageWrites = true;
 }

@@ -2294,6 +2294,9 @@ void Database::debugTrace(void)
 	
 	if (falcon_debug_trace & FALC0N_SYNC_OBJECTS)
 		SyncObject::dump();
-				
+	
+	if (falcon_debug_trace & FALC0N_FREEZE)
+		Synchronize::freezeSystem();
+	
 	falcon_debug_trace = 0;
 }

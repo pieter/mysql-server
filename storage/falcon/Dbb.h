@@ -113,9 +113,8 @@ public:
 	void	createSection(int32 sectionId, TransId transId);
 	void	dropDatabase();
 	void	enableSerialLog();
-	//void	setRecovering(bool flag);
 	void	rollback (TransId transId, bool updateTransaction);
-	void	updateBlob(int32 sectionId, int32 recordId, Stream *stream, TransId transId);
+	//void	updateBlob(int32 sectionId, int32 recordId, Stream *stream, TransId transId);
 	void	updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite);
 	void	prepareTransaction(TransId transId, int xidLength, const UCHAR *xid);
 	void	commit(Transaction *transaction);
@@ -185,7 +184,7 @@ public:
 	void	addShadow(DatabaseCopy* shadow);
 	void	skewHeader(Hdr* header);
 	void	printPage(Bdb* bdb);
-	void	updateBlob(int blobSectionId, int recordNumber, Stream* blob, Transaction* transaction);
+	void	updateBlob(Section *blobSection, int recordNumber, Stream* blob, Transaction* transaction);
 	
 	Cache		*cache;
 	Database	*database;

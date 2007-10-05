@@ -1214,7 +1214,7 @@ void SerialLog::putVersion()
 
 void SerialLog::wakeupFlushQueue(Thread *ourThread)
 {
-	ASSERT(syncWrite.getExclusiveThread() == Thread::getThread("SerialLog::wakeupFlushQueue"));
+	//ASSERT(syncWrite.getExclusiveThread() == Thread::getThread("SerialLog::wakeupFlushQueue"));
 	writer = NULL;
 	Thread *thread = srlQueue;
 	

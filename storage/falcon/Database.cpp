@@ -2219,6 +2219,8 @@ void Database::updateCardinalities(void)
 void Database::sync(void)
 {
 	if (!configuration->disableFsync)
+		dbb->sync();
+		/***
 		{
 		if (longSync)
 			Log::debug("Starting disk sync...\n");
@@ -2233,6 +2235,7 @@ void Database::sync(void)
 
 		longSync = delta > 0;
 		}
+		***/
 }
 
 void Database::preUpdate()

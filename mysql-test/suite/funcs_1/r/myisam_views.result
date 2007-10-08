@@ -10341,14 +10341,13 @@ ERROR HY000: View 'test3.v32' references invalid table(s) or column(s) or functi
 EXPLAIN SELECT * FROM test3.v32;
 ERROR HY000: View 'test3.v32' references invalid table(s) or column(s) or function(s) or definer/invoker of view lack rights to use them
 
-FIXME - Setting join_limit to 28 - hangs for higher values
+FIXME - Setting join_limit to 27 - hangs for higher values
 ----------------------------------------------------------
-SET @join_limit = 28;
+SET @join_limit = 27;
 SET @max_level = @join_limit - 1;
 DROP DATABASE IF EXISTS test3;
 DROP TABLE IF EXISTS test1.t1;
 DROP TABLE IF EXISTS test2.t1;
-DROP VIEW IF EXISTS test1.v27;
 DROP VIEW IF EXISTS test1.v26;
 DROP VIEW IF EXISTS test1.v25;
 DROP VIEW IF EXISTS test1.v24;

@@ -2902,14 +2902,14 @@ eval EXPLAIN SELECT * FROM test3.v$toplevel;
 #                       and OBN's box performs excessive paging.
 #                       (RAM: OBN ~384MB RAM, mleich 1 GB)
 #++++++++++++++++++++++++++++++++++++++++++++++
-let $message= FIXME - Setting join_limit to 28 - hangs for higher values;
+let $message= FIXME - Setting join_limit to 27 - hangs for higher values;
 --source include/show_msg.inc
 # OBN - Reduced from 30 in 5.1.21 to avoid hitting the ndbcluster limit
 #       of "ERROR HY000: Got temporary error 4006 'Connect failure
 #           - out of connection objects (increase MaxNoOfConcurrentTransactions)'
 #           from NDBCLUSTER " to early;
 #SET @join_limit = 61;
-SET @join_limit = 28; # OBN - see above
+SET @join_limit = 27; # OBN - see above
 SET @max_level = @join_limit - 1;
 --enable_query_log
 

@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <memory.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -107,6 +108,7 @@ IO::IO()
 	priorReads = priorWrites = priorFetches = priorFakes = 0;
 	dbb = NULL;
 	fatalError = false;
+	memset(writeTypes, 0, sizeof(writeTypes));
 }
 
 IO::~IO()
@@ -217,7 +219,7 @@ bool IO::trialRead(Bdb *bdb)
 	return true;
 }
 
-void IO::writePage(Bdb * bdb)
+void IO::writePage(Bdb * bdb, int type)
 {
 	if (fatalError)
 		FATAL ("can't continue after fatal error");
@@ -236,6 +238,8 @@ void IO::writePage(Bdb * bdb)
 		}
 
 	++writes;
+	++writesSinceSync;
+	++writeTypes[type];
 }
 
 void IO::readHeader(Hdr * header)
@@ -468,6 +472,8 @@ void IO::sync(void)
 #endif
 #endif
 
+	writesSinceSync = 0;
+	
 	if (traceFile)
 		traceOperation(TRACE_SYNC_END);
 }

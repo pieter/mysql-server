@@ -267,6 +267,7 @@ ADD_LIBRARY(ha_falcon
 		SyncWait.cpp 
 		Synchronize.cpp
 		SyncObject.cpp 
+		SyncTest.cpp 
 		SyncWait.cpp 
 		Syntax.cpp 
 		TableAttachment.cpp
@@ -533,9 +534,10 @@ ADD_LIBRARY(ha_falcon
 		StreamSegment.h 
 		SymbolManager.h 
 		Sync.h 
-		SyncWait.h 
 		Synchronize.h
 		SyncObject.h 
+		SyncTest.h 
+		SyncWait.h 
 		SynchronizationObject.h
 		SyncWait.h 
 		Syntax.h 

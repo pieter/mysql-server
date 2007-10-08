@@ -67,7 +67,6 @@ class Bdb
 public:
 	void	setWriter();
 	bool	isHigher (Bdb *bdb);
-	//void setPrecedence (int32 priorPage);
 	void	decrementUseCount();
 	void	incrementUseCount();
 	void	downGrade (LockType lockType);
@@ -98,14 +97,15 @@ public:
 	Bdb				*hash;		/* hash collision */
 	Bdb				*nextDirty;
 	Bdb				*priorDirty;
+	Bdb				*purifierNext;
 	PagePrecedence	*higher;
 	PagePrecedence	*lower;
 	Thread			*markingThread;
 	SyncObject		syncObject;
+	time_t			lastMark;
 	LockType		lockType;
 	short			flags;
 	bool			flushIt;
-	bool			purifyIt;
 	volatile INTERLOCK_TYPE	useCount;
 
 #ifdef COLLECT_BDB_HISTORY

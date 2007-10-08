@@ -38,6 +38,11 @@
 #include "DatabaseCopy.h"
 #include "Database.h"
 
+static const int PURIFIER_INTERWRITE_WAIT	= 10;		// in milliseconds
+static const int PURIFIER_STALE_THRESHOLD	= 10;		// in seconds
+static const int PURIFIER_INTERVAL			= 1000;		// in milliseconds
+static const int PURIFIER_FSYNC_THRESHOLD	= 20;
+
 //#define STOP_PAGE		64
 
 static const uint64 cacheHunkSize	= 1024 * 1024 * 128;
@@ -51,9 +56,9 @@ static const char THIS_FILE[]=__FILE__;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-Cache::Cache(Dbb *db, int pageSz, int hashSz, int numBuffers)
+Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 {
-	dbb = db;
+	database = db;
 	panicShutdown = false;
 	pageSize = pageSz;
 	hashSize = hashSz;
@@ -112,7 +117,7 @@ Cache::Cache(Dbb *db, int pageSz, int hashSz, int numBuffers)
 		}
 	
 	validateCache();
-	purifierThread = dbb->database->threads->start("Cache::Cache", &Cache::purifier, this);
+	purifierThread = database->threads->start("Cache::Cache", &Cache::purifier, this);
 }
 
 Cache::~Cache()
@@ -337,10 +342,10 @@ void Cache::flush()
 		
 		bdb->incrementUseCount(ADD_HISTORY);
 		sync.unlock();
-		bdb->addRef (Shared  COMMA_ADD_HISTORY);
+		bdb->addRef(Shared  COMMA_ADD_HISTORY);
 		bdb->decrementUseCount(REL_HISTORY);
-		writePage (bdb);
-		sync.lock (Exclusive);
+		writePage(bdb, WRITE_TYPE_FLUSH);
+		sync.lock(Exclusive);
 		bdb->release(REL_HISTORY);
 		}
 		
@@ -438,7 +443,7 @@ Bdb* Cache::findBuffer(Dbb *dbb, int pageNumber, LockType lockType)
 		if (!(bdb->flags & BDB_dirty))
 			break;
 			
-		writePage (bdb);
+		writePage (bdb, WRITE_TYPE_REUSE);
 		}
 
 	ASSERT(bdb->higher == NULL);
@@ -530,7 +535,7 @@ void Cache::markClean(Bdb *bdb)
 		clearPrecedence (bdb->higher);
 }
 
-void Cache::writePage(Bdb *bdb)
+void Cache::writePage(Bdb *bdb, int type)
 {
 	if (!(bdb->flags & BDB_dirty))
 		{
@@ -540,10 +545,10 @@ void Cache::writePage(Bdb *bdb)
 		return;
 		}
 
-	Dbb *database = bdb->dbb;
+	Dbb *dbb = bdb->dbb;
 	ASSERT(database);
 	markClean (bdb);
-	database->writePage(bdb);
+	dbb->writePage(bdb, type);
 	
 #ifdef STOP_PAGE			
 	if (bdb->pageNumber == STOP_PAGE)
@@ -558,12 +563,12 @@ void Cache::writePage(Bdb *bdb)
 		pageWriter->pageWritten(bdb->dbb, bdb->pageNumber);
 		}
 
-	if (database->shadows)
+	if (dbb->shadows)
 		{
-		Sync sync (&database->cloneSyncObject, "Cache::writePage");
+		Sync sync (&dbb->cloneSyncObject, "Cache::writePage");
 		sync.lock (Shared);
 
-		for (DatabaseCopy *shadow = database->shadows; shadow; shadow = shadow->next)
+		for (DatabaseCopy *shadow = dbb->shadows; shadow; shadow = shadow->next)
 			shadow->rewritePage(bdb);
 		}
 }
@@ -669,7 +674,7 @@ void Cache::setPrecedence(Bdb *lower, int32 highPageNumber)
 		while (bdb->higher)
 			bdb = bdb->higher->higher;
 			
-		writePage (bdb);
+		writePage (bdb, WRITE_TYPE_PRECEDENCE);
 		}
 
 	if ( (precedence = freePrecedence) )
@@ -745,7 +750,7 @@ void Cache::flush(Dbb *dbb)
 		if (bdb->dbb == dbb)
 			{
 			if (bdb->flags & (BDB_dirty | BDB_new))
-				writePage(bdb);
+				writePage(bdb, WRITE_TYPE_FLUSH);
 
 			bdb->dbb = NULL;
 			}
@@ -778,7 +783,7 @@ void Cache::shutdownNow()
 	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
 		{
 		Dbb *database = bdb->dbb;
-		database->writePage (bdb);
+		database->writePage (bdb, WRITE_TYPE_SHUTDOWN);
 		}
 
 
@@ -832,59 +837,46 @@ void Cache::purifier(void* arg)
 void Cache::purifier(void)
 {
 	Thread *thread = Thread::getThread("Database::ticker");
-
+	Sync sync(&syncDirty, "Cache::purify");
+	int writes = 0;
+	
 	while (!thread->shutdownInProgress)
 		{
-		purify();
-		thread->sleep (1000);
-		}
-}
-
-void Cache::purify(void)
-{
-	Sync sync(&syncDirty, "Cache::purify");
-	sync.lock(Exclusive);
-	Bdb *bdb;
-	bool hit = false;
-	
-#if TRACE_PAGE	
-	Log::debug("Starting page cache purify\n");
-#endif
-
-	for (bdb = firstDirty; bdb; bdb = bdb->nextDirty)
-		bdb->purifyIt = true;
-
-	for (int n = 0, target = numberDirtyPages / 2; n < target && (bdb = firstDirty); ++n)		
-		{
-		while (bdb && !bdb->purifyIt)
-			bdb = bdb->nextDirty;
-
-		if (!bdb)
-			break;
+		thread->sleep(PURIFIER_INTERVAL);
+		sync.lock(Shared);
+		Bdb *bdb;
+		int threshold = database->timestamp - PURIFIER_STALE_THRESHOLD;
+		Bdb *prospects = NULL;
 		
-		while (bdb->higher)
-			bdb = bdb->higher->higher;
-
-		if (!(bdb->flags & BDB_dirty))
-			{
-			markClean(bdb);
-			continue;
-			}
+		for (bdb = firstDirty; bdb; bdb = bdb->nextDirty)
+			if (bdb->lastMark <= threshold)
+				{
+				bdb->purifierNext = prospects;
+				prospects = bdb;
+				}
 		
-		bdb->incrementUseCount(ADD_HISTORY);
 		sync.unlock();
-		bdb->addRef (Shared  COMMA_ADD_HISTORY);
-		bdb->decrementUseCount(REL_HISTORY);
-		hit = true;
-		writePage (bdb);
-		sync.lock (Exclusive);
-		bdb->release(REL_HISTORY);
-		}
-
-	if (hit)
-		dbb->database->sync();
+		
+		while (!thread->shutdownInProgress && prospects)
+			{
+			bdb = prospects;
+			prospects = bdb->purifierNext;
 			
-#if TRACE_PAGE	
-	Log::debug("Ending page cache purify\n");
-#endif
+			if (!(bdb->flags & BDB_dirty) || bdb->lastMark > threshold)
+				continue;
+		
+			bdb->addRef (Shared  COMMA_ADD_HISTORY);
+
+			if ((bdb->flags & BDB_dirty) &&  bdb->lastMark < threshold)
+				writePage(bdb, WRITE_TYPE_PURIFIER);
+			
+			Dbb *dbb = bdb->dbb;
+			bdb->release(REL_HISTORY);
+			
+			if (dbb->writesSinceSync > PURIFIER_FSYNC_THRESHOLD)
+				dbb->sync();
+
+			thread->sleep(PURIFIER_INTERWRITE_WAIT);
+			}
+		}
 }

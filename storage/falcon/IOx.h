@@ -27,6 +27,14 @@
 #include "JString.h"
 #include "SyncObject.h"
 
+static const int WRITE_TYPE_FLUSH		= 0;
+static const int WRITE_TYPE_PURIFIER	= 1;
+static const int WRITE_TYPE_PRECEDENCE	= 2;
+static const int WRITE_TYPE_REUSE		= 3;
+static const int WRITE_TYPE_SHUTDOWN	= 4;
+static const int WRITE_TYPE_PAGE_WRITER	= 5;
+static const int WRITE_TYPE_CLONE		= 6;
+static const int WRITE_TYPE_MAX			= 7;
 
 class Bdb;
 class Hdr;
@@ -48,7 +56,7 @@ public:
 	void	seek (int pageNumber);
 	void	closeFile();
 	void	readHeader (Hdr *header);
-	void	writePage (Bdb *buffer);
+	void	writePage (Bdb *buffer, int type);
 	void	readPage (Bdb *page);
 	bool	createFile (const char *name, uint64 initialAllocation);
 	bool	openFile (const char *name, bool readOnly);
@@ -75,12 +83,14 @@ public:
 	int			pageSize;
 	int32		reads;
 	int32		writes;
+	int32		writesSinceSync;
 	int32		fetches;
 	int32		fakes;
 	int32		priorReads;
 	int32		priorWrites;
 	int32		priorFetches;
 	int32		priorFakes;
+	int			writeTypes[WRITE_TYPE_MAX];
 	bool		fatalError;
 
 //private:

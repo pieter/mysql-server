@@ -163,7 +163,7 @@ void Dbb::init(int pageSz, int cacheSize)
 	pageSize = pageSz;
 
 	if (!cache && cacheSize)
-		cache = new Cache (this, pageSize, cacheSize / 2, cacheSize);
+		cache = new Cache (database, pageSize, cacheSize / 2, cacheSize);
 
 	init();
 }

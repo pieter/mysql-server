@@ -35,6 +35,7 @@ class PageWriter;
 class Stream;
 class Sync;
 class Thread;
+class Database;
 
 class Cache  
 {
@@ -49,7 +50,7 @@ public:
 	void	setPrecedence (Bdb *lower, int32 highPageNumber);
 	void	validateUnique (Bdb *bdb);
 	void	analyze (Stream *stream);
-	void	writePage (Bdb *bdb);
+	void	writePage (Bdb *bdb, int type);
 	void	markClean (Bdb *bdb);
 	void	markDirty (Bdb *bdb);
 	void	validate();
@@ -57,7 +58,6 @@ public:
 	void	flush();
 	void	validateCache(void);
 	void	purifier(void);
-	void	purify(void);
 
 	static void purifier(void* arg);
 		
@@ -65,10 +65,11 @@ public:
 	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
 	Bdb*	trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType);
 
-	Cache(Dbb *db, int pageSize, int hashSize, int numberBuffers);
+	Cache(Database *db, int pageSize, int hashSize, int numberBuffers);
 	virtual ~Cache();
 
 	PageWriter	*pageWriter;
+	Database	*database;
 	SyncObject	syncObject;
 	int			numberBuffers;
 	bool		panicShutdown;
@@ -76,7 +77,6 @@ public:
 protected:
 	Bdb* findBuffer (Dbb *dbb, int pageNumber, LockType lockType);
 
-	Dbb			*dbb;
 	Bdb			*bdbs;
 	Bdb			*endBdbs;
 	Queue<Bdb>	bufferQueue;

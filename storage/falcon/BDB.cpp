@@ -27,7 +27,9 @@
 #include "SQLError.h"
 #include "Dbb.h"
 #include "Log.h"
+#include "Database.h"
 #include "Sync.h"
+
 //#define TRACE_PAGE 130049
 
 #ifdef _DEBUG
@@ -83,6 +85,7 @@ void Bdb::mark(TransId transId)
 	ASSERT (lockType == Exclusive);
 	transactionId = transId;
 	//cache->validateCache();
+	lastMark = cache->database->timestamp;
 
 #ifdef TRACE_PAGE
 	if (pageNumber == TRACE_PAGE)

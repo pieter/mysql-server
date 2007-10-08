@@ -27,6 +27,7 @@
 #include "BDB.h"
 #include "Cache.h"
 #include "Transaction.h"
+#include "IOx.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -182,7 +183,7 @@ void PageWriter::writer()
 			if (bdb)
 				{
 				if (bdb->flags & BDB_dirty)
-					cache->writePage(bdb);
+					cache->writePage(bdb, WRITE_TYPE_PAGE_WRITER);
 
 				bdb->release(REL_HISTORY);
 				}

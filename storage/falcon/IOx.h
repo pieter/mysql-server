@@ -66,6 +66,7 @@ public:
 	int		pread(int64 offset, int length, UCHAR* buffer);
 	int		pwrite(int64 offset, int length, const UCHAR* buffer);
 	void	sync(void);
+	void	reportWrites(void);
 
 	void			tracePage(Bdb* bdb);
 	void			traceOperation(int operation);

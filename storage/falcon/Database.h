@@ -45,6 +45,7 @@ static const int FALC0N_TRACE_TRANSACTIONS	= 1;
 static const int FALC0N_SYNC_TEST			= 2;
 static const int FALC0N_SYNC_OBJECTS		= 4;
 static const int FALC0N_FREEZE				= 8;
+static const int FALC0N_REPORT_WRITES		= 16;
 
 #define TABLE_HASH_SIZE		101
 

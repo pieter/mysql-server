@@ -120,7 +120,9 @@ int RecordGroup::retireRecords(Table *table, int base, RecordScavenge *recordSca
 		if (section)
 			{
 			int n = section->retireRecords(table, recordNumber, recordScavenge);
+			count += n;
 			
+			/***
 			if (n)
 				count += n;
 			else
@@ -128,6 +130,7 @@ int RecordGroup::retireRecords(Table *table, int base, RecordScavenge *recordSca
 				delete section;
 				*ptr = NULL;
 				}
+			***/
 			}
 		}
 

@@ -1571,6 +1571,7 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 	sync.lock(Shared);
 
 	activeVersions = false;
+	emptySections->clear();
 	int count = records->retireRecords(this, 0, recordScavenge);
 
 	if (count == 0)
@@ -1604,7 +1605,6 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 				emptySections->clear(recordNumber);
 				}
 				
-			emptySections->clear();
 			}
 		}
 	

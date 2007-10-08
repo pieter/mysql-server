@@ -337,3 +337,12 @@ void TableSpaceManager::expungeTableSpace(int tableSpaceId)
 	tableSpace->dropTableSpace();
 	delete tableSpace;
 }
+
+void TableSpaceManager::reportWrites(void)
+{
+	Sync sync(&syncObject, "TableSpaceManager::reportWrites");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		tableSpace->dbb->reportWrites();
+}

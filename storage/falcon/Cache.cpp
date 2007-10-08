@@ -39,9 +39,12 @@
 #include "Database.h"
 
 static const int PURIFIER_INTERWRITE_WAIT	= 10;		// in milliseconds
-static const int PURIFIER_STALE_THRESHOLD	= 10;		// in seconds
+static const int PURIFIER_STALE_THRESHOLD	= 3;		// in seconds
 static const int PURIFIER_INTERVAL			= 1000;		// in milliseconds
 static const int PURIFIER_FSYNC_THRESHOLD	= 20;
+
+static const int FLUSH_INTERWRITE_WAIT		= 10;		// in milliseconds
+static const int FLUSH_FSYNC_THRESHOLD		= 20;
 
 //#define STOP_PAGE		64
 
@@ -315,7 +318,8 @@ void Cache::flush()
 	Sync sync(&syncDirty, "Cache::flush");
 	sync.lock(Exclusive);
 	Bdb *bdb;
-
+	Thread *thread = Thread::getThread("Cache::flush");
+	
 #if TRACE_PAGE	
 	Log::debug("Starting page cace flush\n");
 #endif
@@ -345,8 +349,15 @@ void Cache::flush()
 		bdb->addRef(Shared  COMMA_ADD_HISTORY);
 		bdb->decrementUseCount(REL_HISTORY);
 		writePage(bdb, WRITE_TYPE_FLUSH);
-		sync.lock(Exclusive);
+		Dbb *dbb = bdb->dbb;
 		bdb->release(REL_HISTORY);
+		
+		if (dbb->writesSinceSync > FLUSH_FSYNC_THRESHOLD)
+			dbb->sync();
+
+		thread->sleep(FLUSH_INTERWRITE_WAIT);
+		
+		sync.lock(Exclusive);
 		}
 		
 #if TRACE_PAGE	

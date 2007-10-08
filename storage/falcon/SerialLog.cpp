@@ -119,6 +119,7 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	syncIndexes.setName("SerialLog::syncIndexes");
 	syncGopher.setName("SerialLog::syncGopher");
 	syncUpdateStall.setName("SerialLog::syncUpdateStall");
+	pending.syncObject.setName("SerialLog::pending transactions");
 }
 
 SerialLog::~SerialLog()

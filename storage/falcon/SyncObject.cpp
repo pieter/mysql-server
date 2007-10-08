@@ -650,6 +650,11 @@ void SyncObject::dump(void)
 						syncObject->exclusiveCount,
 						syncObject->waitCount,
 						(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+
+			syncObject->sharedCount = 0;
+			syncObject->exclusiveCount = 0;
+			syncObject->waitCount = 0;
+			syncObject->queueLength = 0;
 			}
 	
 	fclose(out);

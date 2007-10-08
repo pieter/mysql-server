@@ -58,6 +58,9 @@
 #include "Trigger.h"
 #endif
 
+//#define ATOMIC_UPDATE		Exclusive
+#define ATOMIC_UPDATE		Shared
+
 #undef new
 
 static const char *relatedTables [] = {
@@ -341,7 +344,7 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 			END_FOR;
 			
 			do
-				sync.lock(Exclusive);
+				sync.lock(ATOMIC_UPDATE);
 			while (!checkUniqueIndexes(transaction, record, &sync));
 			}
 
@@ -1106,7 +1109,7 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 			END_FOR;
 			
 			do
-				sync.lock(Exclusive);
+				sync.lock(ATOMIC_UPDATE);
 			while (!checkUniqueIndexes(transaction, record, &sync));
 			}
 
@@ -2672,7 +2675,7 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 			END_FOR;
 			
 			do
-				sync.lock(Exclusive);
+				sync.lock(ATOMIC_UPDATE);
 			while (!checkUniqueIndexes(transaction, record, &sync));
 			}
 
@@ -2802,7 +2805,7 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 			END_FOR;
 			
 			do
-				sync.lock(Exclusive);
+				sync.lock(ATOMIC_UPDATE);
 			while (!checkUniqueIndexes(transaction, record, &sync));
 			}
 

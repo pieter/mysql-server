@@ -878,5 +878,7 @@ void Cache::purifier(void)
 
 			thread->sleep(PURIFIER_INTERWRITE_WAIT);
 			}
+		
+		database->sync(PURIFIER_FSYNC_THRESHOLD);
 		}
 }

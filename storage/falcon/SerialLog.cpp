@@ -979,7 +979,7 @@ void SerialLog::checkpoint(bool force)
 		int64 blockNumber = writeBlock->blockNumber;
 		sync.unlock();
 		defaultDbb->flush();
-		database->sync();
+		database->sync(0);
 		logControl->checkpoint.append(blockNumber);
 		}
 }

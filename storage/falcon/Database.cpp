@@ -2216,26 +2216,15 @@ void Database::updateCardinalities(void)
 		}
 }
 
-void Database::sync(void)
+void Database::sync(int threshold)
 {
 	if (!configuration->disableFsync)
-		dbb->sync();
-		/***
 		{
-		if (longSync)
-			Log::debug("Starting disk sync...\n");
-
-		time_t before = DateTime::getNow();
-		dbb->sync();
-		tableSpaceManager->sync();
-		time_t delta = DateTime::getNow() - before;
-
-		if (delta || longSync)
-			Log::debug("Disk sync time: %d seconds\n", delta);
-
-		longSync = delta > 0;
+		if (threshold == 0 || dbb->writesSinceSync > threshold)
+			dbb->sync();
+			
+		tableSpaceManager->sync(threshold);
 		}
-		***/
 }
 
 void Database::preUpdate()

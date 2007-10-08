@@ -289,13 +289,14 @@ void TableSpaceManager::validate(int optionMask)
 		tableSpace->dbb->validate(optionMask);
 }
 
-void TableSpaceManager::sync(void)
+void TableSpaceManager::sync(int threshold)
 {
 	Sync sync(&syncObject, "TableSpaceManager::sync");
 	sync.lock(Shared);
 
 	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
-		tableSpace->dbb->sync();
+		if (threshold == 0 || tableSpace->dbb->writesSinceSync > threshold)
+			tableSpace->dbb->sync();
 }
 
 void TableSpaceManager::expungeTableSpace(int tableSpaceId)

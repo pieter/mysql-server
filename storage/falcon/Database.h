@@ -205,7 +205,7 @@ public:
 	void			getTransactionInfo(InfoTable* infoTable);
 	void			getSerialLogInfo(InfoTable* infoTable);
 	void 			setSyncDisable(int value);
-	void			sync(void);
+	void			sync(int threshold);
 	void			preUpdate();
 	void			setRecordMemoryMax(uint64 value);
 	void			setRecordScavengeThreshold(int value);

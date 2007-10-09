@@ -529,6 +529,7 @@ ADD_LIBRARY(ha_falcon
 		StorageDatabase.h
 		StorageHandler.h
 		StorageTable.h 
+		StorageParameters.h 
 		StorageTableShare.h 
 		Stream.h
 		StreamSegment.h 

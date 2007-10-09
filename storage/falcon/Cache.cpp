@@ -38,13 +38,16 @@
 #include "DatabaseCopy.h"
 #include "Database.h"
 
-static const int PURIFIER_INTERWRITE_WAIT	= 0;		// in milliseconds
-static const int PURIFIER_STALE_THRESHOLD	= 5;		// in seconds
-static const int PURIFIER_INTERVAL			= 1000;		// in milliseconds
-static const int PURIFIER_FSYNC_THRESHOLD	= 20;
+extern uint falcon_purifier_internval;
+extern uint falcon_sync_threshold;
 
-static const int FLUSH_INTERWRITE_WAIT		= 0;		// in milliseconds
-static const int FLUSH_FSYNC_THRESHOLD		= 20;
+#define PURIFIER_INTERWRITE_WAIT		0		// in milliseconds
+#define PURIFIER_STALE_THRESHOLD		5		// in seconds
+#define PURIFIER_FSYNC_THRESHOLD		falcon_sync_threshold
+#define PURIFIER_INTERVAL				falcon_purifier_internval
+
+#define FLUSH_INTERWRITE_WAIT			0		// in milliseconds
+#define FLUSH_FSYNC_THRESHOLD			falcon_sync_threshold
 
 //#define STOP_PAGE		64
 

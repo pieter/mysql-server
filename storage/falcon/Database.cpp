@@ -2216,7 +2216,7 @@ void Database::updateCardinalities(void)
 		}
 }
 
-void Database::sync(int threshold)
+void Database::sync(uint threshold)
 {
 	if (!configuration->disableFsync)
 		{

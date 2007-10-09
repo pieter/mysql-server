@@ -82,16 +82,16 @@ public:
 	SyncObject	syncObject;
 	int			fileId;
 	int			pageSize;
-	int32		reads;
-	int32		writes;
-	int32		writesSinceSync;
-	int32		fetches;
-	int32		fakes;
-	int32		priorReads;
-	int32		priorWrites;
-	int32		priorFetches;
-	int32		priorFakes;
-	int			writeTypes[WRITE_TYPE_MAX];
+	uint		reads;
+	uint		writes;
+	uint		writesSinceSync;
+	uint		fetches;
+	uint		fakes;
+	uint		priorReads;
+	uint		priorWrites;
+	uint		priorFetches;
+	uint		priorFakes;
+	uint		writeTypes[WRITE_TYPE_MAX];
 	bool		fatalError;
 
 //private:

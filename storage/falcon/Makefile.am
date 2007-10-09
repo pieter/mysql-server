@@ -157,7 +157,10 @@ falcon_headers= Agent.h Alias.h Application.h \
 		Stack.h Statement.h StorageConnection.h \
 		StorageDatabase.h \
 		StorageHandler.h \
-		StorageTable.h StorageTableShare.h Stream.h \
+		StorageParameters.h \
+		StorageTable.h \
+		StorageTableShare.h \
+		Stream.h \
 		StreamSegment.h SymbolManager.h Sync.h SynchronizationObject.h \
 		Synchronize.h \
 		SyncObject.h \

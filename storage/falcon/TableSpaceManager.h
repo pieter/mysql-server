@@ -51,7 +51,7 @@ public:
 	void			dropTableSpace(TableSpace* tableSpace);
 	void			reportStatistics(void);
 	void			validate(int optionMask);
-	void			sync(int threshold);
+	void			sync(uint threshold);
 	void			expungeTableSpace(int tableSpaceId);
 	void			reportWrites(void);
 

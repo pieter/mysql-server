@@ -84,7 +84,7 @@ extern "C" {
    @param count The planned number of tests to run. 
 */
 
-void plan(int count);
+void plan(int const count);
 
 
 /**
@@ -103,7 +103,7 @@ void plan(int count);
                which case nothing is printed.
 */
 
-void ok(int pass, char const *fmt, ...)
+void ok(int const pass, char const *fmt, ...)
   __attribute__((format(printf,2,3)));
 
 
@@ -135,7 +135,7 @@ void ok(int pass, char const *fmt, ...)
    @param reason     A reason for skipping the tests
  */
 
-void skip(int how_many, char const *reason, ...)
+void skip(int how_many, char const *const reason, ...)
     __attribute__((format(printf,2,3)));
 
 

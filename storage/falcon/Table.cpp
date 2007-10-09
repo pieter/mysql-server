@@ -339,13 +339,13 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		
 		if (indexes)
 			{
-			FOR_INDEXES(index, this);
-				index->insert(record, transaction);
-			END_FOR;
-			
 			do
 				sync.lock(ATOMIC_UPDATE);
 			while (!checkUniqueIndexes(transaction, record, &sync));
+
+			FOR_INDEXES(index, this);
+				index->insert(record, transaction);
+			END_FOR;
 			}
 
 		// Verify that record is valid
@@ -1104,13 +1104,13 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 		
 		if (indexes)
 			{
-			FOR_INDEXES(index, this);
-				index->update(oldRecord, record, transaction);
-			END_FOR;
-			
 			do
 				sync.lock(ATOMIC_UPDATE);
 			while (!checkUniqueIndexes(transaction, record, &sync));
+
+			FOR_INDEXES(index, this);
+				index->update(oldRecord, record, transaction);
+			END_FOR;
 			}
 
 		scavenge.lock(Shared);
@@ -2670,13 +2670,13 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 		
 		if (indexes)
 			{
-			FOR_INDEXES(index, this);
-				index->insert (record, transaction);
-			END_FOR;
-			
 			do
 				sync.lock(ATOMIC_UPDATE);
 			while (!checkUniqueIndexes(transaction, record, &sync));
+
+			FOR_INDEXES(index, this);
+				index->insert (record, transaction);
+			END_FOR;
 			}
 
 		// Do actual insert
@@ -2699,13 +2699,13 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 			insert(NULL, record, recordNumber);
 			}
 
+		garbageCollect(record, NULL, transaction, true);
+
 		if (recordNumber >= 0)
 			{
 			dbb->updateRecord(dataSection, recordNumber, NULL, transaction, false);
 			record->recordNumber = -1;
 			}
-
-		garbageCollect(record, NULL, transaction, true);
 
 		if (record)
 			record->release();
@@ -2800,13 +2800,13 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 		
 		if (indexes)
 			{
-			FOR_INDEXES(index, this);
-				index->update(oldRecord, record, transaction);
-			END_FOR;
-			
 			do
 				sync.lock(ATOMIC_UPDATE);
 			while (!checkUniqueIndexes(transaction, record, &sync));
+
+			FOR_INDEXES(index, this);
+				index->update(oldRecord, record, transaction);
+			END_FOR;
 			}
 
 		//updateInversion(record, transaction);

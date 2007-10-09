@@ -38,15 +38,16 @@
 #include "DatabaseCopy.h"
 #include "Database.h"
 
-extern uint falcon_purifier_internval;
+extern uint falcon_purifier_interval;
 extern uint falcon_sync_threshold;
+extern uint falcon_purifier_stale_threshold;
 
-#define PURIFIER_INTERWRITE_WAIT		0		// in milliseconds
-#define PURIFIER_STALE_THRESHOLD		5		// in seconds
+#define PURIFIER_INTERWRITE_WAIT		0									// in milliseconds
+#define PURIFIER_STALE_THRESHOLD		falcon_purifier_stale_threshold		// in seconds
 #define PURIFIER_FSYNC_THRESHOLD		falcon_sync_threshold
-#define PURIFIER_INTERVAL				falcon_purifier_internval
+#define PURIFIER_INTERVAL				falcon_purifier_interval
 
-#define FLUSH_INTERWRITE_WAIT			0		// in milliseconds
+#define FLUSH_INTERWRITE_WAIT			0									// in milliseconds
 #define FLUSH_FSYNC_THRESHOLD			falcon_sync_threshold
 
 //#define STOP_PAGE		64
@@ -906,8 +907,8 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 	int writes = dbb->writesSinceSync;
 	time_t start = database->timestamp;
 	dbb->sync();
-	time_t end = database->timestamp;
+	int delta = database->timestamp - start;
 	
-	if (end > start)
-		Log::debug("%s %s sync: %d page in %d seconds\n", dbb->fileName, text, writes, end - start);
+	if (delta > 1)
+		Log::debug("%s %s sync: %d page in %d seconds\n", dbb->fileName, text, writes, delta);
 }

@@ -107,7 +107,7 @@ static const char THIS_FILE[]=__FILE__;
 #define RECORD_RETIREMENT_AGE		60
 
 #ifdef STORAGE_ENGINE
-extern int falcon_debug_trace;
+extern uint falcon_debug_trace;
 #endif
 
 static const char *createTables = 

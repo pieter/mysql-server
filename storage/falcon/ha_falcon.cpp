@@ -563,7 +563,7 @@ void StorageInterface::getDemographics(void)
 			for (uint segment = 0; segment < key->key_parts; ++segment, n >>= 1)
 				{
 				ha_rows recordsPerSegment = (ha_rows) desc->segmentRecordCounts[segment];
-				key->rec_per_key[segment] = MAX(recordsPerSegment, n);
+				key->rec_per_key[segment] = MAX((uint)recordsPerSegment, n);
 				}
 			}
 		}
@@ -1464,7 +1464,7 @@ int StorageInterface::index_next_same(uchar *buf, const uchar *key, uint key_len
 double StorageInterface::scan_time(void)
 {
 	DBUG_ENTER("StorageInterface::scan_time");
-	DBUG_RETURN(stats.records * 1000);
+	DBUG_RETURN((double)stats.records * 1000);
 }
 
 bool StorageInterface::threadSwitch(THD* newThread)

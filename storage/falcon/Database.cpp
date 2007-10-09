@@ -2221,7 +2221,7 @@ void Database::sync(int threshold)
 	if (!configuration->disableFsync)
 		{
 		if (threshold == 0 || dbb->writesSinceSync > threshold)
-			dbb->sync();
+			cache->syncFile(dbb, "sync");
 			
 		tableSpaceManager->sync(threshold);
 		}

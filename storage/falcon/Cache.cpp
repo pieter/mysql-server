@@ -38,12 +38,12 @@
 #include "DatabaseCopy.h"
 #include "Database.h"
 
-static const int PURIFIER_INTERWRITE_WAIT	= 10;		// in milliseconds
-static const int PURIFIER_STALE_THRESHOLD	= 3;		// in seconds
+static const int PURIFIER_INTERWRITE_WAIT	= 0;		// in milliseconds
+static const int PURIFIER_STALE_THRESHOLD	= 5;		// in seconds
 static const int PURIFIER_INTERVAL			= 1000;		// in milliseconds
 static const int PURIFIER_FSYNC_THRESHOLD	= 20;
 
-static const int FLUSH_INTERWRITE_WAIT		= 10;		// in milliseconds
+static const int FLUSH_INTERWRITE_WAIT		= 0;		// in milliseconds
 static const int FLUSH_FSYNC_THRESHOLD		= 20;
 
 //#define STOP_PAGE		64
@@ -120,7 +120,9 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 		}
 	
 	validateCache();
-	purifierThread = database->threads->start("Cache::Cache", &Cache::purifier, this);
+
+	if (PURIFIER_INTERVAL)
+		purifierThread = database->threads->start("Cache::Cache", &Cache::purifier, this);
 }
 
 Cache::~Cache()
@@ -352,10 +354,11 @@ void Cache::flush()
 		Dbb *dbb = bdb->dbb;
 		bdb->release(REL_HISTORY);
 		
-		if (dbb->writesSinceSync > FLUSH_FSYNC_THRESHOLD)
-			dbb->sync();
+		if (FLUSH_FSYNC_THRESHOLD && dbb->writesSinceSync > FLUSH_FSYNC_THRESHOLD)
+			syncFile(dbb, "flush");
 
-		thread->sleep(FLUSH_INTERWRITE_WAIT);
+		if (FLUSH_INTERWRITE_WAIT)
+			thread->sleep(FLUSH_INTERWRITE_WAIT);
 		
 		sync.lock(Exclusive);
 		}
@@ -884,12 +887,24 @@ void Cache::purifier(void)
 			Dbb *dbb = bdb->dbb;
 			bdb->release(REL_HISTORY);
 			
-			if (dbb->writesSinceSync > PURIFIER_FSYNC_THRESHOLD)
-				dbb->sync();
+			if (PURIFIER_FSYNC_THRESHOLD && dbb->writesSinceSync > PURIFIER_FSYNC_THRESHOLD)
+				syncFile(dbb, "purifier");
 
-			thread->sleep(PURIFIER_INTERWRITE_WAIT);
+			if (PURIFIER_INTERWRITE_WAIT)
+				thread->sleep(PURIFIER_INTERWRITE_WAIT);
 			}
 		
 		database->sync(PURIFIER_FSYNC_THRESHOLD);
 		}
+}
+
+void Cache::syncFile(Dbb *dbb, const char *text)
+{
+	int writes = dbb->writesSinceSync;
+	time_t start = database->timestamp;
+	dbb->sync();
+	time_t end = database->timestamp;
+	
+	if (end > start)
+		Log::debug("%s %s sync: %d page in %d seconds\n", dbb->fileName, text, writes, end - start);
 }

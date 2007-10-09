@@ -23,6 +23,7 @@
 #include "Database.h"
 #include "SQLError.h"
 #include "Hdr.h"
+#include "Cache.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -121,4 +122,9 @@ bool TableSpace::fileNameEqual(const char* file)
 	//IO::expandFileName(file, sizeof(expandedName), expandedName);
 	
 	return filename == file;
+}
+
+void TableSpace::sync(void)
+{
+	database->cache->syncFile(dbb, "sync");
 }

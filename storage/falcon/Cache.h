@@ -58,6 +58,7 @@ public:
 	void	flush();
 	void	validateCache(void);
 	void	purifier(void);
+	void	syncFile(Dbb *dbb, const char *text);
 
 	static void purifier(void* arg);
 		

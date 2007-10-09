@@ -296,7 +296,7 @@ void TableSpaceManager::sync(int threshold)
 
 	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
 		if (threshold == 0 || tableSpace->dbb->writesSinceSync > threshold)
-			tableSpace->dbb->sync();
+			tableSpace->sync();
 }
 
 void TableSpaceManager::expungeTableSpace(int tableSpaceId)

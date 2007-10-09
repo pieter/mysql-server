@@ -5,5 +5,7 @@
 #
 --echo *** Bug #126: Second phase ***
 --echo *** Also test for bug #123 ***
+SET @@storage_engine = Falcon;
+
 SELECT * FROM t1;
 DROP TABLE t1, t2;

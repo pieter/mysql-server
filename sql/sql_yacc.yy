@@ -1174,7 +1174,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %type <item>
         literal text_literal insert_ident order_ident
-        simple_ident select_item2 expr opt_expr opt_else sum_expr in_sum_expr
+        simple_ident expr opt_expr opt_else sum_expr in_sum_expr
         variable variable_aux bool_pri
         predicate bit_expr
         table_wild simple_expr udf_expr
@@ -6683,7 +6683,14 @@ select_item_list:
         ;
 
 select_item:
-          remember_name select_item2 remember_end select_alias
+          remember_name table_wild remember_end
+          {
+            THD *thd= YYTHD;
+
+            if (add_item_to_list(thd, $2))
+              MYSQL_YYABORT;
+          }
+        | remember_name expr remember_end select_alias
           {
             THD *thd= YYTHD;
             DBUG_ASSERT($1 < $3);
@@ -6716,11 +6723,6 @@ remember_end:
             Lex_input_stream *lip= thd->m_lip;
             $$= (char*) lip->get_cpp_tok_end();
           }
-        ;
-
-select_item2:
-          table_wild { $$=$1; /* table.* */ }
-        | expr { $$=$1; }
         ;
 
 select_alias:

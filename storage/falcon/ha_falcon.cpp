@@ -558,12 +558,12 @@ void StorageInterface::getDemographics(void)
 
 		if (desc)
 			{
-			ha_rows n = 1 << desc->numberSegments;
+			ha_rows rows = 1 << desc->numberSegments;
 
-			for (uint segment = 0; segment < key->key_parts; ++segment, n >>= 1)
+			for (uint segment = 0; segment < key->key_parts; ++segment, rows >>= 1)
 				{
 				ha_rows recordsPerSegment = (ha_rows) desc->segmentRecordCounts[segment];
-				key->rec_per_key[segment] = (uint) MAX(recordsPerSegment, n);
+				key->rec_per_key[segment] = (ulong) MAX(recordsPerSegment, rows);
 				}
 			}
 		}

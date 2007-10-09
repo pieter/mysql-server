@@ -622,7 +622,7 @@ static struct my_option my_long_options[] =
    0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
    {"auto-vertical-output", OPT_AUTO_VERTICAL_OUTPUT,
     "Automatically switch to vertical output mode if the result is wider than the terminal width.",
-    (gptr*) &auto_vertical_output, (gptr*) &auto_vertical_output, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+    (uchar**) &auto_vertical_output, (uchar**) &auto_vertical_output, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"batch", 'B',
    "Don't use history file. Disable interactive behavior. (Enables --silent)", 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"character-sets-dir", OPT_CHARSETS_DIR,

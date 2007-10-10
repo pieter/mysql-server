@@ -37,10 +37,12 @@
 #include "Threads.h"
 #include "DatabaseCopy.h"
 #include "Database.h"
+#include "Bitmap.h"
 
 extern uint falcon_purifier_interval;
 extern uint falcon_sync_threshold;
 extern uint falcon_purifier_stale_threshold;
+extern uint falcon_io_threads;
 
 #define PURIFIER_INTERWRITE_WAIT		0									// in milliseconds
 #define PURIFIER_STALE_THRESHOLD		falcon_purifier_stale_threshold		// in seconds
@@ -85,6 +87,12 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 	memset(bufferHunks, 0, numberHunks * sizeof(char*));
 	syncObject.setName("Cache::syncObject");
 	syncDirty.setName("Cache::syncDirty");
+	syncFlush.setName("Cache::syncFlush");
+	flushBitmap = new Bitmap;
+	numberIoThreads = falcon_io_threads;
+	ioThreads = new Thread*[numberIoThreads];
+	memset(ioThreads, 0, numberIoThreads * sizeof(ioThreads[0]));
+	flushing = false;
 	
 	try
 		{	
@@ -125,14 +133,20 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 	
 	validateCache();
 
+	for (int n = 0; n < numberIoThreads; ++n)
+		ioThreads[n] = database->threads->start("Cache::Cache", &Cache::ioThread, this);
+	/***
 	if (PURIFIER_INTERVAL)
 		purifierThread = database->threads->start("Cache::Cache", &Cache::purifier, this);
+	***/
 }
 
 Cache::~Cache()
 {
 	delete [] hashTable;
 	delete [] bdbs;
+	delete [] ioThreads;
+	delete flushBitmap;
 	
 	if (bufferHunks)
 		{
@@ -321,6 +335,26 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 
 void Cache::flush()
 {
+	Sync flushLock(&syncFlush, "Cache::ioThread");
+	Sync sync(&syncDirty, "Cache::ioThread");
+	flushLock.lock(Exclusive);
+	sync.lock(Shared);
+	
+	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
+		{
+		bdb->flushIt = true;
+		flushBitmap->set(bdb->pageNumber);
+		}
+	
+	flushing = true;
+	sync.unlock();
+	flushLock.unlock();
+	
+	for (int n = 0; n < numberIoThreads; ++n)
+		if (ioThreads[n])
+			ioThreads[n]->wake();
+	
+	/***
 	Sync sync(&syncDirty, "Cache::flush");
 	sync.lock(Exclusive);
 	Bdb *bdb;
@@ -370,6 +404,7 @@ void Cache::flush()
 #if TRACE_PAGE	
 	Log::debug("Ending page cace flush\n");
 #endif
+	***/
 }
 
 void Cache::moveToHead(Bdb * bdb)
@@ -847,6 +882,7 @@ Bdb* Cache::trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType)
 	return bdb;
 }
 
+/***
 void Cache::purifier(void* arg)
 {
 	((Cache*) arg)->purifier();
@@ -901,6 +937,7 @@ void Cache::purifier(void)
 		database->sync(PURIFIER_FSYNC_THRESHOLD);
 		}
 }
+***/
 
 void Cache::syncFile(Dbb *dbb, const char *text)
 {
@@ -911,4 +948,85 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 	
 	if (delta > 1)
 		Log::debug("%s %s sync: %d page in %d seconds\n", dbb->fileName, text, writes, delta);
+}
+
+void Cache::ioThread(void* arg)
+{
+	((Cache*) arg)->ioThread();
+}
+
+void Cache::ioThread(void)
+{
+	Sync flushLock(&syncFlush, "Cache::ioThread");
+	Sync sync(&syncFlush, "Cache::ioThread");
+	Thread *thread = Thread::getThread("Cache::ioThread");
+	flushLock.lock(Exclusive);
+	
+	while (!thread->shutdownInProgress)
+		{
+		int32 pageNumber = flushBitmap->nextSet(0);
+		
+		if (pageNumber >= 0)
+			{
+			sync.lock(Shared);
+			int	slot = pageNumber % hashSize;
+			bool hit = false;
+			
+			for (Bdb *bdb = hashTable [slot]; bdb; bdb = bdb->hash)
+				if (bdb->pageNumber == pageNumber && bdb->flushIt && (bdb->flags & BDB_dirty))
+					{
+					bdb->flushIt = false;
+					
+					if (!bdb->hash)
+						flushBitmap->clear(pageNumber);
+						
+					bdb->incrementUseCount(ADD_HISTORY);
+					sync.unlock();
+					flushLock.unlock();
+					bdb->addRef(Shared  COMMA_ADD_HISTORY);
+					bdb->decrementUseCount(REL_HISTORY);
+					writePage(bdb, WRITE_TYPE_FLUSH);
+					bdb->release(REL_HISTORY);
+					flushLock.lock(Exclusive);
+					hit = true;
+					break;
+					}
+			
+			if (!hit)
+				{
+				sync.unlock();
+				flushBitmap->clear(pageNumber);
+				}
+			}
+		else 
+			{
+			if (flushing)
+				{
+				flushing = false;
+				flushLock.unlock();
+				database->pageCacheFlushed();
+				}
+			else
+				flushLock.unlock();
+			
+			thread->sleep();
+			flushLock.lock(Exclusive);
+			}
+		}
+				
+}
+
+void Cache::shutdown(void)
+{
+	for (int n = 0; n < numberIoThreads; ++n)
+		{
+		ioThreads[n]->shutdown();
+		ioThreads[n] = 0;
+		}
+		
+	Sync sync (&syncDirty, "Cache::shutdown");
+	sync.lock (Exclusive);
+
+	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
+		bdb->dbb->writePage(bdb, WRITE_TYPE_SHUTDOWN);
 }

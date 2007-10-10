@@ -55,21 +55,22 @@ Sync::~Sync()
 
 void Sync::lock(LockType type)
 {
+	ASSERT(state == None);
 	request = type;
-	syncObject->lock (this, type);
+	syncObject->lock(this, type);
 	state = type;
 }
 
 void Sync::lock(LockType type, const char *fromWhere)
 {
 	where = fromWhere;
-	lock (type);
+	lock(type);
 }
 
 void Sync::unlock()
 {
 	ASSERT (state != None);
-	syncObject->unlock (this, state);
+	syncObject->unlock(this, state);
 	state = None;
 }
 

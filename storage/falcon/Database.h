@@ -212,6 +212,7 @@ public:
 	void			setRecordScavengeFloor(int value);
 	void			forceRecordScavenge(void);
 	void			debugTrace(void);
+	void			pageCacheFlushed(void);
 
 	Dbb				*dbb;
 	Cache			*cache;

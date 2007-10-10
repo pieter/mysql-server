@@ -425,38 +425,14 @@ bool Dbb::addIndexEntry(int32 indexId, int indexVersion, IndexKey *key, int32 re
 	return result;
 }
 
-/***
-void Dbb::scanIndex(int32 indexId, int indexVersion, IndexKey* lowKey, IndexKey* highKey, int searchFlags, Bitmap *bitmap)
-{
-	switch (indexVersion)
-		{
-		case INDEX_VERSION_0:
-			Index2RootPage::scanIndex (this, indexId, lowKey, highKey, partial, NO_TRANSACTION, bitmap);
-			break;
-		
-		case INDEX_VERSION_1:
-			IndexRootPage::scanIndex (this, indexId, lowKey, highKey, partial, NO_TRANSACTION, bitmap);
-			break;
-		
-		default:
-			ASSERT(false);
-		}
-}
-***/
-
 void Dbb::flush()
 {
 	if (!cache)
 		return;
 
-	if (serialLog)
-		{
-		serialLog->preFlush();
-		cache->flush();
-		serialLog->pageCacheFlushed();
-		}
-	else
-		cache->flush();
+	//serialLog->preFlush();
+	cache->flush(this);
+	//serialLog->pageCacheFlushed();
 }
 
 Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
@@ -466,7 +442,6 @@ Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
 	openFile(fileName, false);
 	readHeader(&header);
 	bool headerSkew = false;
-
 	int n = header.pageSize;
 	
 	while (n && !(n & 1))

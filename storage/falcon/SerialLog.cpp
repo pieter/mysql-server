@@ -634,7 +634,6 @@ void SerialLog::shutdown()
 	wakeup();
 	Sync sync(&syncGopher, "SerialLog::shutdown");
 	sync.lock(Shared);
-	defaultDbb->flush();
 	checkpoint(false);
 	
 	if (workerThread)
@@ -979,7 +978,7 @@ void SerialLog::checkpoint(bool force)
 		sync.lock(Shared);
 		int64 blockNumber = writeBlock->blockNumber;
 		sync.unlock();
-		defaultDbb->flush();
+		database->flush();
 		database->sync(0);
 		logControl->checkpoint.append(blockNumber);
 		}

@@ -36,6 +36,7 @@ class Stream;
 class Sync;
 class Thread;
 class Database;
+class Bitmap;
 
 class Cache  
 {
@@ -57,10 +58,12 @@ public:
 	void	moveToHead (Bdb *bdb);
 	void	flush();
 	void	validateCache(void);
-	void	purifier(void);
+	//void	purifier(void);
 	void	syncFile(Dbb *dbb, const char *text);
+	void	ioThread(void);
 
-	static void purifier(void* arg);
+	static void ioThread(void* arg);
+	//static void purifier(void* arg);
 		
 	Bdb*	fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
 	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
@@ -69,9 +72,9 @@ public:
 	Cache(Database *db, int pageSize, int hashSize, int numberBuffers);
 	virtual ~Cache();
 
+	SyncObject	syncObject;
 	PageWriter	*pageWriter;
 	Database	*database;
-	SyncObject	syncObject;
 	int			numberBuffers;
 	bool		panicShutdown;
 
@@ -84,8 +87,11 @@ protected:
 	Bdb			**hashTable;
 	Bdb			*firstDirty;
 	Bdb			*lastDirty;
+	Bitmap		*flushBitmap;
 	char		**bufferHunks;
-	Thread		*purifierThread;
+	//Thread		*purifierThread;
+	Thread		**ioThreads;
+	SyncObject	syncFlush;
 	SyncObject	syncDirty;
 	PagePrecedence	*freePrecedence;
 	int			hashSize;
@@ -93,7 +99,11 @@ protected:
 	int			upperFraction;
 	int			numberHunks;
 	int			numberDirtyPages;
+	int			numberIoThreads;
 	volatile int bufferAge;
+	bool		flushing;
+public:
+	void shutdown(void);
 };
 
 #endif // !defined(AFX_CACHE_H__6A019C1F_A340_11D2_AB5A_0000C01D2301__INCLUDED_)

@@ -1201,7 +1201,8 @@ Transaction* Database::startTransaction(Connection *connection)
 
 void Database::flush()
 {
-	dbb->flush();
+	serialLog->preFlush();
+	cache->flush();
 }
 
 void Database::commitSystemTransaction()
@@ -1472,14 +1473,14 @@ void Database::shutdown()
 		java->shutdown (false);
 #endif
 
+	cache->shutdown();
+	serialLog->shutdown();
+
 	if (threads)
 		{
 		threads->shutdownAll();
 		threads->waitForAll();
 		}
-
-	if (serialLog)
-		serialLog->shutdown();
 
 	tableSpaceManager->shutdown(0);
 	dbb->shutdown(0);
@@ -2294,4 +2295,9 @@ void Database::debugTrace(void)
 		Synchronize::freezeSystem();
 	
 	falcon_debug_trace = 0;
+}
+
+void Database::pageCacheFlushed(void)
+{
+	serialLog->pageCacheFlushed();
 }

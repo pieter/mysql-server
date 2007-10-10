@@ -773,7 +773,8 @@ AC_CHECK_FUNC(bind, , AC_CHECK_LIB(bind, bind))
 AC_SEARCH_LIBS(crypt, crypt, AC_DEFINE(HAVE_CRYPT, 1, [crypt]))
 
 # For the sched_yield() function on Solaris
-AC_CHECK_FUNC(sched_yield, , AC_CHECK_LIB(posix4, sched_yield))
+AC_CHECK_FUNC(sched_yield, , AC_CHECK_LIB(posix4, sched_yield,
+[AC_DEFINE(HAVE_SCHED_YIELD) LIBS="$LIBS -lposix4"]))
 
 MYSQL_CHECK_ZLIB_WITH_COMPRESS
 

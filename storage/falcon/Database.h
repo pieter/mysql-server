@@ -212,6 +212,7 @@ public:
 	void			setRecordScavengeFloor(int value);
 	void			forceRecordScavenge(void);
 	void			debugTrace(void);
+	JString			setLogRoot(const char *defaultPath, bool create);
 
 	Dbb				*dbb;
 	Cache			*cache;

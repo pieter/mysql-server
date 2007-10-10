@@ -135,7 +135,7 @@ void RepositoryVolume::open()
 		}
 	catch (SQLException&)
 		{
-		if (dbb->doesFileExits (fileName))
+		if (dbb->doesFileExist(fileName))
 			throw;
 
 		create();

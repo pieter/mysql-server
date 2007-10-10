@@ -1,0 +1,47 @@
+SET @@storage_engine = Falcon;
+*** Bug#30031 ***
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int(11) NOT NULL, PRIMARY KEY (a)) ENGINE=Falcon;
+INSERT INTO t1 VALUES (4);
+INSERT INTO t1 VALUES (6);
+SELECT * from t1 ORDER BY a;
+a
+4
+6
+BEGIN;
+INSERT INTO t1 VALUES (5);
+DELETE FROM t1 WHERE  a= 5;
+INSERT INTO t1 VALUES (3);
+INSERT INTO t1 VALUES (7);
+SELECT * from t1 ORDER BY a;
+a
+3
+4
+6
+7
+SELECT * from t1;
+a
+4
+6
+INSERT INTO t1 VALUES (3);
+SELECT * from t1;
+a
+4
+6
+INSERT INTO t1 VALUES (7);
+COMMIT;
+ERROR 23000: Duplicate entry '3' for key 'PRIMARY'
+SELECT * from t1;
+a
+4
+6
+3
+7
+ERROR 23000: Duplicate entry '7' for key 'PRIMARY'
+SELECT * from t1;
+a
+4
+6
+3
+7
+DROP TABLE t1;

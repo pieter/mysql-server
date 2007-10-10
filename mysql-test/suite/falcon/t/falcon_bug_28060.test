@@ -1,0 +1,22 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28060: Falcon Changing schema does not work
+#
+--echo *** Bug #28060 ***
+--disable_warnings
+DROP DATABASE IF EXISTS rechange;
+--enable_warnings
+
+CREATE DATABASE rechange;
+USE rechange;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (239);
+DROP DATABASE rechange;
+
+USE test;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (239);
+
+# Final cleanup
+DROP TABLE t1;

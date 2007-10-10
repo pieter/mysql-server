@@ -1,0 +1,37 @@
+SELECT * FROM INFORMATION_SCHEMA.global_variables
+WHERE variable_name LiKE 'falcon_%';
+VARIABLE_NAME	VARIABLE_VALUE
+FALCON_CHECKPOINT_SCHEDULE	7 * * * * *
+FALCON_DEBUG_MASK	0
+FALCON_DEBUG_SERVER	ON
+FALCON_DISABLE_FSYNC	OFF
+FALCON_INDEX_CHILL_THRESHOLD	4
+FALCON_INITIAL_ALLOCATION	0
+FALCON_MAX_TRANSACTION_BACKLOG	150
+FALCON_PAGE_CACHE_SIZE	104857600
+FALCON_PAGE_SIZE	16384
+FALCON_RECORD_CHILL_THRESHOLD	5
+FALCON_RECORD_MEMORY_MAX	262144000
+FALCON_RECORD_SCAVENGE_FLOOR	50
+FALCON_RECORD_SCAVENGE_THRESHOLD	67
+FALCON_SCAVENGE_SCHEDULE	15,45 * * * * *
+FALCON_SERIAL_LOG_BUFFERS	10
+FALCON_SERIAL_LOG_DIR	
+SELECT
+@@falcon_checkpoint_schedule,
+@@falcon_disable_fsync,
+@@falcon_record_scavenge_threshold,
+@@falcon_scavenge_schedule,
+@@falcon_debug_mask,
+@@falcon_debug_server,
+@@falcon_index_chill_threshold,
+@@falcon_max_transaction_backlog,
+@@falcon_page_cache_size,
+@@falcon_page_size,
+@@falcon_record_chill_threshold,
+@@falcon_record_memory_max,
+@@falcon_record_scavenge_floor,
+@@falcon_serial_log_buffers,
+@@falcon_serial_log_dir;
+@@falcon_checkpoint_schedule	@@falcon_disable_fsync	@@falcon_record_scavenge_threshold	@@falcon_scavenge_schedule	@@falcon_debug_mask	@@falcon_debug_server	@@falcon_index_chill_threshold	@@falcon_max_transaction_backlog	@@falcon_page_cache_size	@@falcon_page_size	@@falcon_record_chill_threshold	@@falcon_record_memory_max	@@falcon_record_scavenge_floor	@@falcon_serial_log_buffers	@@falcon_serial_log_dir
+7 * * * * *	0	67	15,45 * * * * *	0	1	4	150	104857600	16384	5	262144000	50	10	NULL

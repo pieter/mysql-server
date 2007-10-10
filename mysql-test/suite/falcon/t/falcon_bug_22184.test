@@ -1,0 +1,19 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #22184: BLOB not inserted correctly
+#
+--echo *** Bug #22184 ***
+--disable_warnings
+DROP TABLE IF EXISTS t6;
+--enable_warnings
+
+SET @@max_allowed_packet = 20000000;
+CREATE TABLE t6 (s1 longblob);
+INSERT INTO t6 VALUES (repeat('a',2100000));
+INSERT INTO t6 VALUES (repeat('a',2200000));
+
+SELECT length(s1) FROM t6;
+
+# Final cleanup
+DROP TABLE t6;

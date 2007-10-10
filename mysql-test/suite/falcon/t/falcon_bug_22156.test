@@ -1,0 +1,21 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #22156: DROP SCHEMA test_db;
+#                  damages informations about table TEST_DB.t1
+# Note: Makes problems on Windows.
+#
+--echo *** Bug #22156 ***
+--disable_warnings
+DROP DATABASE IF EXISTS TEST_DB;
+DROP DATABASE IF EXISTS test_db;
+--enable_warnings
+
+CREATE SCHEMA test_db;
+CREATE SCHEMA TEST_DB;
+CREATE TABLE TEST_DB.t1 (f1 int);
+DROP DATABASE test_db;
+DROP DATABASE TEST_DB;
+
+# Final cleanup
+USE test;

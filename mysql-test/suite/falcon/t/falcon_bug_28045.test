@@ -1,0 +1,24 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE='Falcon';
+#
+# Bug #28045: Falcon ROLLBACK does not work correctly
+#
+--echo *** Bug #28045 ***
+--disable_warnings
+DROP TABLE IF EXISTS testSavepoints;
+--enable_warnings
+
+SET autocommit=1;
+CREATE TABLE testSavepoints (field1 int);
+SET autocommit=0;
+INSERT INTO testSavepoints VALUES (1);
+SAVEPOINT `afterInsert`;
+UPDATE testSavepoints SET field1=2;
+SAVEPOINT `afterUpdate`;
+DELETE FROM testSavepoints;
+SELECT count(*) FROM testSavepoints;
+ROLLBACK TO SAVEPOINT afterUpdate;
+SELECT count(*) FROM testSavepoints;
+
+# Final cleanup.
+DROP TABLE testSavepoints;

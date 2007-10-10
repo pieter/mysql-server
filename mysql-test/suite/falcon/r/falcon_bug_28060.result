@@ -1,0 +1,12 @@
+SET storage_engine = Falcon;
+*** Bug #28060 ***
+DROP DATABASE IF EXISTS rechange;
+CREATE DATABASE rechange;
+USE rechange;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (239);
+DROP DATABASE rechange;
+USE test;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (239);
+DROP TABLE t1;

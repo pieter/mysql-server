@@ -1,0 +1,52 @@
+--source include/have_falcon.inc
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE temporary table t1_temp (a int, b varchar(32)) ENGINE=FALCON;
+CREATE temporary table t2_temp (a int, b varchar(32)) ENGINE=FALCON;
+
+insert into t1_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+select * from t1_temp;
+
+CREATE table t1 as select * from t1_temp; 
+select * from t1;
+alter table t1 modify column b varchar(64);
+select * from t1;
+alter table t1 add column c varchar(64);
+select * from t1;
+
+insert into t2_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+
+alter table t2_temp modify column b varchar(64);
+select * from t2_temp;
+alter table t2_temp add column c varchar(64);
+select * from t2_temp;
+
+drop table t1_temp;
+drop table t2_temp;
+CREATE temporary table t1_temp (a int, b varchar(32)) ENGINE=FALCON;
+CREATE temporary table t2_temp (a int, b varchar(32)) ENGINE=FALCON;
+insert into t1_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+insert into t2_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+drop table t1_temp;
+drop table t2_temp;
+CREATE temporary table t1_temp (a int, b varchar(32)) ENGINE=FALCON;
+CREATE temporary table t2_temp (a int, b varchar(32)) ENGINE=FALCON;
+insert into t1_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+insert into t2_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+drop table t1_temp;
+drop table t2_temp;
+CREATE temporary table t1_temp (a int, b varchar(32)) ENGINE=FALCON;
+CREATE temporary table t2_temp (a int, b varchar(32)) ENGINE=FALCON;
+insert into t1_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+insert into t2_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+drop table t1_temp;
+drop table t2_temp;
+CREATE temporary table t1_temp (a int, b varchar(32)) ENGINE=FALCON;
+CREATE temporary table t2_temp (a int, b varchar(32)) ENGINE=FALCON;
+insert into t1_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+insert into t2_temp values (1, 'test1'), (2, 'test2'), (3, 'test3'), (4, 'test4');
+drop table t1_temp;
+drop table t2_temp;
+drop table t1;

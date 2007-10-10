@@ -98,9 +98,8 @@ SET_TARGET_PROPERTIES(mysqld PROPERTIES OUTPUT_NAME mysqld${MYSQLD_EXE_SUFFIX})
 # Work around for 2.4.6 bug, OUTPUT_NAME will not set the right .PDB
 # file name. Note that COMPILE_FLAGS set some temporary pdb during build,
 # LINK_FLAGS sets the real one.
-SET_TARGET_PROPERTIES(mysqld PROPERTIES
-                      COMPILE_FLAGS "/Fd${CMAKE_CFG_INTDIR}/mysqld${MYSQLD_EXE_SUFFIX}.pdb"
-                      LINK_FLAGS  "/PDB:${CMAKE_CFG_INTDIR}/mysqld${MYSQLD_EXE_SUFFIX}.pdb")
+#                      COMPILE_FLAGS "/Fd${CMAKE_CFG_INTDIR}/mysqld${MYSQLD_EXE_SUFFIX}.pdb"
+#                      LINK_FLAGS  "/PDB:${CMAKE_CFG_INTDIR}/mysqld${MYSQLD_EXE_SUFFIX}.pdb")
 
 IF(EMBED_MANIFESTS)
   MYSQL_EMBED_MANIFEST("mysqld" "asInvoker")
@@ -123,6 +122,9 @@ ENDIF(WITH_FEDERATED_STORAGE_ENGINE)
 IF(WITH_INNOBASE_STORAGE_ENGINE)
   TARGET_LINK_LIBRARIES(mysqld innobase)
 ENDIF(WITH_INNOBASE_STORAGE_ENGINE)
+IF(WITH_FALCON_STORAGE_ENGINE)
+  TARGET_LINK_LIBRARIES(mysqld ha_falcon)
+ENDIF(WITH_FALCON_STORAGE_ENGINE)
 
 ADD_DEPENDENCIES(mysqld GenError)
 

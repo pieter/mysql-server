@@ -1,0 +1,21 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #26802: Falcon: undetected unique violation when updating maximum values
+#
+--echo *** Bug #26802 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a int unsigned);
+INSERT INTO t1 VALUES (4294967295), (4294967294);
+CREATE UNIQUE INDEX i1 ON t1 (a);
+
+--error ER_DUP_ENTRY
+UPDATE t1 SET a = a + 1;
+
+SELECT * FROM t1 ORDER BY a;
+
+# Final cleanup.
+DROP TABLE t1;

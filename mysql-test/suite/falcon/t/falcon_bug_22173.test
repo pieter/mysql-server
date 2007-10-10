@@ -1,0 +1,20 @@
+--source include/have_falcon.inc
+--echo #---- Bug 22173 ----
+SET STORAGE_ENGINE='Falcon';
+
+#                                                                     #
+# This test is derived from innodb.test                               #
+#                                                                     #
+
+--enable_abort_on_error
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1 (a integer auto_increment primary key);
+insert into t1 (a) values (NULL),(NULL);
+truncate table t1;
+insert into t1 (a) values (NULL),(NULL);
+SELECT * from t1;
+drop table t1;

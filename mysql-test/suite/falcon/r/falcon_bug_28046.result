@@ -1,0 +1,35 @@
+#---- Bug 28046 ----
+SET STORAGE_ENGINE='Falcon';
+drop table if exists t1;
+# If I remove the auto_increment, the crash on the update disappers
+CREATE TABLE t1 (
+id BIGINT NOT NULL auto_increment,
+parent_id BIGINT,
+PRIMARY KEY (id)
+);
+INSERT INTO t1 VALUES (9,2),(24,4);
+# This UPDATE gets a crash
+update t1 set parent_id=parent_id+100;
+SELECT * FROM t1;
+id	parent_id
+9	102
+24	104
+DROP TABLE t1;
+CREATE TABLE t1 (
+id int(11) NOT NULL auto_increment,
+parent_id int(11) DEFAULT '0' NOT NULL,
+level tinyint(4) DEFAULT '0' NOT NULL,
+PRIMARY KEY (id),
+KEY parent_id (parent_id),
+KEY level (level)
+);
+INSERT INTO t1 VALUES (9,2,2),(24,4,2);
+# This UPDATE gets a crash
+update t1 set parent_id=parent_id+100;
+update t1 set id=24 where id=9;
+Got one of the listed errors
+SELECT * FROM t1;
+id	parent_id	level
+9	102	2
+24	104	2
+DROP TABLE t1;

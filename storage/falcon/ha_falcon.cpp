@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 MySQL AB
+/* Copyright (C) 2006, 2007 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -843,7 +843,11 @@ int StorageInterface::delete_table(const char *tableName)
 	storageTable->deleteStorageTable();
 	storageTable = NULL;
 
-	if (res == StorageErrorTableNotFound)
+	// (hk) Fix for Bug#31465 Running Falcon test suite leads
+	//                        to warnings about temp tables
+	// This fix could affect other DROP TABLE scenarios.
+	// if (res == StorageErrorTableNotFound)
+	if (res != StorageErrorUncommittedUpdates)
 		res = 0;
 
 	DBUG_RETURN(error(res));

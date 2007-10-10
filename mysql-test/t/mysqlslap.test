@@ -56,3 +56,16 @@
 # All this is really doing is making sure nothing crashes, there is no way
 # to test the actual output (all non-deterministic)
 --exec $MYSQL_SLAP --silent --auto-generate-sql --label="This is a test"
+
+--echo #
+--echo # Bug #29985: mysqlslap -- improper handling of resultsets in SPROCs
+--echo #
+
+--disable_warnings
+DROP PROCEDURE IF EXISTS p1;
+--enable_warnings
+CREATE PROCEDURE p1() SELECT 1;
+
+--exec $MYSQL_SLAP --create-schema=test --delimiter=";" --query="CALL p1; SELECT 1;" --silent 2>&1 
+
+DROP PROCEDURE p1;

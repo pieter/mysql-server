@@ -260,6 +260,8 @@ public:
     key_name.str= str;
     key_name.length= length;
   }
+
+  void print(THD *thd, String *str);
 }; 
 
 /* 

@@ -332,6 +332,7 @@ static void _lf_pinbox_real_free(LF_PINS *pins)
   void *list, **addr;
   struct st_lf_alloc_node *first, *last= NULL;
   LF_PINBOX *pinbox= pins->pinbox;
+  LINT_INIT(first);
 
   npins= pinbox->pins_in_array+1;
 

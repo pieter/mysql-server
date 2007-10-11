@@ -188,7 +188,7 @@ bool NBitmap::isUniqueIndex()
 	if (!equality || partial)
 		return false;
 
-	if (index->type != PrimaryKey && index->type != UniqueIndex)
+	if (!INDEX_IS_UNIQUE(index->type))
 		return false;
 
 	return true;

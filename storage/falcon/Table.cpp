@@ -2173,8 +2173,8 @@ bool Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record, 
 	Bitmap bitmap;
 
 	FOR_INDEXES(index, this);
-		if ((index->type == UniqueIndex || index->type == PrimaryKey) &&
-			 (!oldRecord || index->changed(record, oldRecord)))
+		if (INDEX_IS_UNIQUE(index->type) &&
+			(!oldRecord || index->changed(record, oldRecord)))
 			{
 			IndexKey indexKey(index);
 			index->makeKey(record, &indexKey);

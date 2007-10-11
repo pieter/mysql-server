@@ -216,12 +216,7 @@ Transaction::~Transaction()
 		Sync sync(&syncIndexes, "Transaction::~Transaction");
 		sync.lock(Exclusive);
 
-		for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
-			{
-			deferredIndexes = deferredIndex->nextInTransaction;
-			deferredIndex->detachTransaction();
-			--deferredIndexCount;
-			}
+		releaseDeferredIndexes();
 		}
 }
 
@@ -320,6 +315,13 @@ void Transaction::commitNoUpdates(void)
 	ASSERT(!deferredIndexes);
 	++transactionManager->committed;
 	
+	if (deferredIndexes)
+		{
+		Sync sync(&syncIndexes, "Transaction::commitNoUpdates");
+		sync.lock(Exclusive);
+		releaseDeferredIndexes();
+		}
+
 	if (hasLocks)
 		releaseRecordLocks();
 
@@ -391,6 +393,12 @@ void Transaction::rollback()
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
+	if (deferredIndexes)
+		{
+		Sync sync(&syncIndexes, "Transaction::rollback");
+		sync.lock(Exclusive);
+		releaseDeferredIndexes();
+		}
 	releaseSavePoints();
 	TransactionManager *transactionManager = database->transactionManager;
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
@@ -827,20 +835,8 @@ void Transaction::dropTable(Table* table)
 	Sync sync(&syncIndexes, "Transaction::dropTable");
 	sync.lock(Exclusive);
 
-	if (deferredIndexes)
-		{
-		
-		for (DeferredIndex **ptr = &deferredIndexes, *deferredIndex; (deferredIndex = *ptr);)
-			if (deferredIndex->index && (deferredIndex->index->table == table))
-				{
-				*ptr = deferredIndex->nextInTransaction;
-				deferredIndex->detachTransaction();
-				--deferredIndexCount;
-				}
-			else
-				ptr = &deferredIndex->next;
-		}
-	
+	releaseDeferredIndexes(table);
+
 	// Keep exclusive lock to avoid race condition with writeComplete
 	
 	for (RecordVersion **ptr = &firstRecord, *rec; (rec = *ptr);)
@@ -866,13 +862,7 @@ void Transaction::writeComplete(void)
 	Sync sync(&syncIndexes, "Transaction::writeComplete");
 	sync.lock(Exclusive);
 	
-	for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
-		{
-		ASSERT(deferredIndex->transaction == this);
-		deferredIndexes = deferredIndex->nextInTransaction;
-		deferredIndex->detachTransaction();
-		deferredIndexCount--;
-		}
+	releaseDeferredIndexes();
 
 	// Keep the synIndexes lock to avoid a race condition with dropTable
 	
@@ -1272,4 +1262,30 @@ void Transaction::printBlockage(void)
 	Sync sync (&transactionManager->activeTransactions.syncObject, "Transaction::printBlockage");
 	sync.lock (Shared);
 	printBlocking(0);
+}
+
+void Transaction::releaseDeferredIndexes(void)
+{
+	for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
+		{
+		ASSERT(deferredIndex->transaction == this);
+		deferredIndexes = deferredIndex->nextInTransaction;
+		deferredIndex->detachTransaction();
+		deferredIndexCount--;
+		}
+}
+
+void Transaction::releaseDeferredIndexes(Table* table)
+{
+	for (DeferredIndex **ptr = &deferredIndexes, *deferredIndex; (deferredIndex = *ptr);)
+		{
+		if (deferredIndex->index && (deferredIndex->index->table == table))
+			{
+			*ptr = deferredIndex->nextInTransaction;
+			deferredIndex->detachTransaction();
+			--deferredIndexCount;
+			}
+		else
+			ptr = &deferredIndex->next;
+		}
 }

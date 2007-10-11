@@ -127,6 +127,8 @@ public:
 	void		validateDependencies(bool noDependencies);
 	void		releaseSavePoints(void);
 	void		printBlocking(int level);
+	void		releaseDeferredIndexes(void);
+	void		releaseDeferredIndexes(Table* table);
 
 	inline bool isActive()
 		{

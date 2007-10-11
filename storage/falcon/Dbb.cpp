@@ -1218,7 +1218,7 @@ void Dbb::analyzeSection(int sectionId, const char *sectionName, int indentation
 
 	int utilization = (int) ((space - numbers.spaceAvailable) * 100 / space);
 	stream->indent(indentation);
-	stream->format ("%s (id %d)\n", sectionName, sectionId);
+	stream->format ("%s (id %d, table space %d)\n", sectionName, sectionId, tableSpaceId);
 	indentation += 3;
 	stream->indent(indentation);
 	stream->format ("Record locator pages: %d\n", numbers.sectionPages);
@@ -1245,7 +1245,7 @@ void Dbb::analyseIndex(int32 indexId, int indexVersion, const char *indexName, i
 		}
 	
 	stream->indent(indentation);
-	stream->format("Index %s (id %d) %d levels\n", indexName, indexId, indexAnalysis.levels);
+	stream->format("Index %s (id %d, table space %d) %d levels\n", indexName, indexId, indexAnalysis.levels, tableSpaceId);
 	indentation += 3;
 	stream->indent(indentation);
 	stream->format ("Upper index pages:    %d\n", indexAnalysis.upperLevelPages);

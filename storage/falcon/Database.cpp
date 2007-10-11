@@ -1909,7 +1909,7 @@ JString Database::analyze(int mask)
 		{
 		syncSystemTransaction.lock(Shared);
 		PreparedStatement *statement = prepareStatement (
-			"select schema,tableName,dataSection,blobSection from tables order by schema, tableName");
+			"select schema,tableName,dataSection,blobSection,tablespace from tables order by schema, tableName");
 		PreparedStatement *indexQuery = prepareStatement(
 			"select indexName, indexId from system.indexes where schema = ? and tableName = ?");
 		ResultSet *resultSet = statement->executeQuery();
@@ -1921,9 +1921,16 @@ JString Database::analyze(int mask)
 			const char *tableName = resultSet->getString (n++);
 			int dataSection = resultSet->getInt (n++);
 			int blobSection = resultSet->getInt (n++);
+			const char *tableSpaceName = resultSet->getString (n++);
+			TableSpace *tableSpace = NULL;
+
+			if (tableSpaceName[0])
+				tableSpace = tableSpaceManager->findTableSpace(tableSpaceName);
+			
+			Dbb *tableDbb = (tableSpace) ? tableSpace->dbb : dbb;
 			stream.format ("Table %s.%s\n", schema, tableName);
-			dbb->analyzeSection (dataSection, "Data section", 3, &stream);
-			dbb->analyzeSection (blobSection, "Blob section", 3, &stream);
+			tableDbb->analyzeSection (dataSection, "Data section", 3, &stream);
+			tableDbb->analyzeSection (blobSection, "Blob section", 3, &stream);
 			
 			indexQuery->setString(1, schema);
 			indexQuery->setString(2, tableName);
@@ -1935,7 +1942,7 @@ JString Database::analyze(int mask)
 				int combinedId = indexes->getInt(2);
 				int indexId = INDEX_ID(combinedId);
 				int indexVersion = INDEX_VERSION(combinedId);
-				dbb->analyseIndex(indexId, indexVersion, indexName, 3, &stream);
+				tableDbb->analyseIndex(indexId, indexVersion, indexName, 3, &stream);
 				}
 			
 			indexes->close();

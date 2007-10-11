@@ -38,7 +38,6 @@
 #include "DatabaseCopy.h"
 #include "Database.h"
 #include "Bitmap.h"
-#include ".\cache.h"
 
 extern uint falcon_purifier_interval;
 extern uint falcon_sync_threshold;
@@ -371,7 +370,7 @@ void Cache::flush(int64 arg)
 			{
 			if (last - start > 1)
 				{
-				Log::debug(" Flush run of %d pages starting at %d\n", last - start, start);
+				//Log::debug(" Flush run of %d pages starting at %d\n", last - start, start);
 				++runs;
 				runPages += last - start;
 				}
@@ -1049,8 +1048,8 @@ void Cache::ioThread(void)
 				int delta = database->timestamp - flushStart;
 				
 				if (delta > 1)
-					Log::debug("Cache flush: %d pages in %d seconds\n",
-								flushPages, delta);
+					Log::debug("Cache flush: %d pages in %d seconds (%d pps)\n",
+								flushPages, delta, flushPages / delta);
 
 				database->pageCacheFlushed(flushArg);
 				}

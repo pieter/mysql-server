@@ -45,7 +45,7 @@ ROLLBACK;
 connection conn1;
 reap;
 INSERT INTO t1 VALUES (0,6);
---error 1062
+--error ER_DUP_ENTRY
 INSERT INTO t1 VALUES (0,6);
 COMMIT;
 

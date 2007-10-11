@@ -11,5 +11,6 @@ CREATE INDEX i ON t2 (a);
 Warnings:
 Warning	1071	Specified key was too long; max key length is 1100 bytes
 Warning	1071	Specified key was too long; max key length is 1100 bytes
+Warning	1071	Specified key was too long; max key length is 1100 bytes
 DROP TABLE t1;
 DROP TABLE t2;

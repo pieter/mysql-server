@@ -35,7 +35,7 @@ INSERT INTO t1 VALUES (2);
 
 --echo # Switch to connection default
 connection default;
---error 1296
+--error ER_GET_ERRMSG 
 ALTER TABLE t1 DROP PARTITION p2;
 
 --echo # Switch to connection conn1

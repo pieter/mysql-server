@@ -1302,9 +1302,9 @@ explain select fld3 from t2 use index (fld1,fld3) where fld3 = 'honeysuckle';
 # The next should give an error
 #
 
--- error ER_KEY_DOES_NOT_EXITS
+--error ER_KEY_DOES_NOT_EXITS
 explain select fld3 from t2 ignore index (fld3,not_used);
--- error ER_KEY_DOES_NOT_EXITS
+--error ER_KEY_DOES_NOT_EXITS
 explain select fld3 from t2 use index (not_used);
 
 #
@@ -2010,9 +2010,9 @@ drop table t1;
 create table t1 (a int(11));
 select all all * from t1;
 select distinct distinct * from t1;
---error 1221
+--error ER_WRONG_USAGE
 select all distinct * from t1;
---error 1221
+--error ER_WRONG_USAGE
 select distinct all * from t1;
 drop table t1;
 
@@ -2309,9 +2309,9 @@ drop table t1;
 create table t1 (a int(11));
 select all all * from t1;
 select distinct distinct * from t1;
---error 1221
+--error ER_WRONG_USAGE
 select all distinct * from t1;
---error 1221
+--error ER_WRONG_USAGE
 select distinct all * from t1;
 drop table t1;
 
@@ -2393,9 +2393,9 @@ drop table t1;
 create table t1 (a int(11));
 select all all * from t1;
 select distinct distinct * from t1;
---error 1221
+--error ER_WRONG_USAGE
 select all distinct * from t1;
---error 1221
+--error ER_WRONG_USAGE
 select distinct all * from t1;
 drop table t1;
 
@@ -2523,7 +2523,7 @@ CREATE TABLE BUG_12595(a varchar(100));
 INSERT INTO BUG_12595 VALUES ('hakan%'), ('hakank'), ("ha%an");
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan\%';
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan*%' ESCAPE '*';
--- error 1210
+--error ER_WRONG_ARGUMENTS
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan**%' ESCAPE '**';
 # this should work when sql_mode is not NO_BACKSLASH_ESCAPES
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan%' ESCAPE '';
@@ -2537,16 +2537,16 @@ SET @@SQL_MODE='NO_BACKSLASH_ESCAPES';
 SHOW LOCAL VARIABLES LIKE 'SQL_MODE';
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan\%';
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan*%' ESCAPE '*';
--- error 1210
+--error ER_WRONG_ARGUMENTS
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan**%' ESCAPE '**';
--- error 1210
+--error ER_WRONG_ARGUMENTS
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan\%' ESCAPE '\\';
 #this gives an error when NO_BACKSLASH_ESCAPES is set
--- error 1210
+--error ER_WRONG_ARGUMENTS
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan%' ESCAPE '';
 SELECT * FROM BUG_12595 WHERE a LIKE 'ha\%an' ESCAPE 0x5c;
 SELECT * FROM BUG_12595 WHERE a LIKE 'ha|%an' ESCAPE '|';
--- error 1210
+--error ER_WRONG_ARGUMENTS
 SELECT * FROM BUG_12595 WHERE a LIKE 'hakan\n%' ESCAPE '\n';
 
 SET @@SQL_MODE=@OLD_SQL_MODE12595;
@@ -2575,13 +2575,13 @@ CREATE TABLE t3 (`id` TINYINT);
 INSERT INTO t1 VALUES (1),(2),(3);
 INSERT INTO t2 VALUES (2);
 INSERT INTO t3 VALUES (3);
--- error 1052
+--error ER_NON_UNIQ_ERROR
 SELECT t1.id,t3.id FROM t1 JOIN t2 ON (t2.id=t1.id) LEFT JOIN t3 USING (id);
--- error 1052
+--error ER_NON_UNIQ_ERROR
 SELECT t1.id,t3.id FROM t1 JOIN t2 ON (t2.notacolumn=t1.id) LEFT JOIN t3 USING (id);
--- error 1052
+--error ER_NON_UNIQ_ERROR
 SELECT id,t3.id FROM t1 JOIN t2 ON (t2.id=t1.id) LEFT JOIN t3 USING (id);
--- error 1052
+--error ER_NON_UNIQ_ERROR
 SELECT id,t3.id FROM (t1 JOIN t2 ON (t2.id=t1.id)) LEFT JOIN t3 USING (id);
 
 drop table t1, t2, t3;
@@ -2616,7 +2616,7 @@ insert into t4 values (1);
 select * from t1 join t2 join t3 on (t2.b = t3.b and t1.a = t3.a);
 # Notice that ',' has lower priority than 'join', thus we have that:
 # t1, t2 join t3 <==> t1, (t2 join t3).
--- error 1054
+--error ER_BAD_FIELD_ERROR
 select * from t1, t2 join t3 on (t2.b = t3.b and t1.a = t3.a);
 select * from t1 join t2 join t3 join t4 on (t1.a = t4.c and t2.b = t4.c);
 select * from t1 join t2 join t4 using (c);

@@ -23,7 +23,7 @@ INSERT INTO t1 VALUES (3), (0), (3);
 SELECT count(*) FROM t1;
 
 # Run this with --tmpdir=/tmp to crash Falcon change set 1.2282, 2006-09-05 
-#--error 1005
+#--error ER_CANT_CREATE_TABLE
 #CREATE TEMPORARY TABLE t1 (a int, b int);
 # End run this
 

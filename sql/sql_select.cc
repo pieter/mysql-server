@@ -5383,24 +5383,24 @@ best_access_path(JOIN      *join,
               (PREV_BITS(uint, n_fixed_parts) | sj_insideout_map) ==
                PREV_BITS(uint, keyinfo->key_parts))
           {
-            /* 
-              Not all parts are fixed. Produce bitmap of remaining bits and 
+            /*
+              Not all parts are fixed. Produce bitmap of remaining bits and
               check if all of them are covered.
             */
             sj_inside_out_scan= TRUE;
             DBUG_PRINT("info", ("Using sj InsideOut scan"));
             if (!n_fixed_parts)
             {
-              /* 
+              /*
                 It's a confluent ref scan.
 
-                That is, all found KEYUSE elements refer to IN-equalities, 
+                That is, all found KEYUSE elements refer to IN-equalities,
                 and there is really no ref access because there is no
                   t.keypart0 = {bound expression}
-                
-                Calculate the cost of complete loose index scan. 
+
+                Calculate the cost of complete loose index scan.
               */
-              records= s->table->file->stats.records;
+              records= (double)s->table->file->stats.records;
 
               /* The cost is entire index scan cost (divided by 2) */
               best_time= s->table->file->index_only_read_time(key, records);
@@ -7547,7 +7547,7 @@ make_join_select(JOIN *join,SQL_SELECT *select,COND *cond)
 
 	    /* Fix for EXPLAIN */
 	    if (sel->quick)
-	      join->best_positions[i].records_read= sel->quick->records;
+	      join->best_positions[i].records_read= (double)sel->quick->records;
 	  }
 	  else
 	  {
@@ -14923,6 +14923,12 @@ static int test_if_order_by_key(ORDER *order, TABLE *table, uint idx,
 
         for (; const_key_parts & 1 ; const_key_parts>>= 1)
           key_part++; 
+        /*
+         The primary and secondary key parts were all const (i.e. there's
+         one row).  The sorting doesn't matter.
+        */
+        if (key_part == key_part_end && reverse == 0)
+          DBUG_RETURN(1);
       }
       else
         DBUG_RETURN(0);
@@ -15578,7 +15584,7 @@ check_reverse_order:
 	select->quick=tmp;
       }
     }
-    else if (tab->ref.key >= 0 && tab->ref.key_parts < used_key_parts)
+    else if (tab->ref.key >= 0 && tab->ref.key_parts <= used_key_parts)
     {
       /*
 	SELECT * FROM t1 WHERE a=1 ORDER BY a DESC,b DESC

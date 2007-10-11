@@ -3207,7 +3207,7 @@ handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
     cost->zero();
     cost->avg_io_cost= 1; /* assume random seeks */
     if ((*flags & HA_MRR_INDEX_ONLY) && total_rows > 2)
-      cost->io_count= index_only_read_time(keyno, total_rows);
+      cost->io_count= index_only_read_time(keyno, (uint)total_rows);
     else
       cost->io_count= read_time(keyno, n_ranges, total_rows);
     cost->cpu_cost= (double) total_rows / TIME_FOR_COMPARE + 0.01;
@@ -3919,10 +3919,10 @@ bool DsMrr_impl::get_disk_sweep_mrr_cost(uint keynr, ha_rows rows, uint flags,
   if (n_full_steps != 0)
     cost->mem_cost= *buffer_size;
   else
-    cost->mem_cost= rows_in_last_step * elem_size;
+    cost->mem_cost= (double)rows_in_last_step * elem_size;
   
   /* Total cost of all index accesses */
-  index_read_cost= h->index_only_read_time(keynr, rows);
+  index_read_cost= h->index_only_read_time(keynr, (double)rows);
   cost->add_io(index_read_cost, 1 /* Random seeks */);
   return FALSE;
 }
@@ -4016,8 +4016,8 @@ void get_sweep_read_cost(TABLE *table, ha_rows nrows, bool interrupted,
   cost->zero();
   if (table->file->primary_key_is_clustered())
   {
-    cost->io_count= table->file->read_time(table->s->primary_key, nrows, 
-                                           nrows);
+    cost->io_count= table->file->read_time(table->s->primary_key,
+                                           (uint)nrows, nrows);
   }
   else
   {

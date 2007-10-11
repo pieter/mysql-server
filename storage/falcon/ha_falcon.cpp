@@ -86,7 +86,6 @@ uint					falcon_record_chill_threshold;
 uint					falcon_max_transaction_backlog;
 
 
-
 static struct st_mysql_show_var falconStatus[]=
 {
   //{"static",     (char*)"just a static text",     SHOW_CHAR},
@@ -573,7 +572,7 @@ void StorageInterface::getDemographics(void)
 			for (uint segment = 0; segment < key->key_parts; ++segment, n >>= 1)
 				{
 				ha_rows recordsPerSegment = (ha_rows) desc->segmentRecordCounts[segment];
-				key->rec_per_key[segment] = MAX(recordsPerSegment, n);
+				key->rec_per_key[segment] = (ulong) MAX(recordsPerSegment, n);
 				}
 			}
 		}
@@ -655,7 +654,6 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 		DBUG_RETURN(HA_ERR_NO_CONNECTION);
 
 	storageTable = storageConnection->getStorageTable(storageShare);
-	//storageTable->localTable = this;
 	storageTable->setLocalTable(this);
 	
 	int ret;
@@ -851,7 +849,7 @@ int StorageInterface::delete_table(const char *tableName)
 	storageTable->deleteStorageTable();
 	storageTable = NULL;
 
-	if (res == StorageErrorTableNotFound)
+	if (res != StorageErrorUncommittedUpdates) //(res == StorageErrorTableNotFound))
 		res = 0;
 
 	DBUG_RETURN(error(res));
@@ -1472,7 +1470,7 @@ int StorageInterface::index_next_same(uchar *buf, const uchar *key, uint key_len
 double StorageInterface::scan_time(void)
 {
 	DBUG_ENTER("StorageInterface::scan_time");
-	DBUG_RETURN(stats.records * 1000);
+	DBUG_RETURN((double ) (stats.records * 1000));
 }
 
 bool StorageInterface::threadSwitch(THD* newThread)

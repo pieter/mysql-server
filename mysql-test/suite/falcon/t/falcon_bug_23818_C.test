@@ -22,10 +22,8 @@ while ($k)
     SELECT @a + 1 into @a;
     SELECT rand(@a) * DEGREES(@a) into @b;
     SELECT FLOOR(MOD(@b,255)) into @c;
-    SELECT @a, @b, @c;
     UPDATE t1 SET a = a + 1;
     UPDATE t1 SET b = repeat(hex(@c), rand(@c) * 550);
-    SELECT a, length(b), left(b,10) from t1;
     dec $k;
 }
 --enable_query_log

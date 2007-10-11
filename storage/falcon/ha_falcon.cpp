@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 MySQL AB
+/* Copyright (C) 2006, 2007 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -558,12 +558,12 @@ void StorageInterface::getDemographics(void)
 
 		if (desc)
 			{
-			ha_rows n = 1 << desc->numberSegments;
+			ha_rows rows = 1 << desc->numberSegments;
 
-			for (uint segment = 0; segment < key->key_parts; ++segment, n >>= 1)
+			for (uint segment = 0; segment < key->key_parts; ++segment, rows >>= 1)
 				{
 				ha_rows recordsPerSegment = (ha_rows) desc->segmentRecordCounts[segment];
-				key->rec_per_key[segment] = MAX(recordsPerSegment, n);
+				key->rec_per_key[segment] = (ulong) MAX(recordsPerSegment, rows);
 				}
 			}
 		}
@@ -843,7 +843,11 @@ int StorageInterface::delete_table(const char *tableName)
 	storageTable->deleteStorageTable();
 	storageTable = NULL;
 
-	if (res == StorageErrorTableNotFound)
+	// (hk) Fix for Bug#31465 Running Falcon test suite leads
+	//                        to warnings about temp tables
+	// This fix could affect other DROP TABLE scenarios.
+	// if (res == StorageErrorTableNotFound)
+	if (res != StorageErrorUncommittedUpdates)
 		res = 0;
 
 	DBUG_RETURN(error(res));
@@ -1464,7 +1468,7 @@ int StorageInterface::index_next_same(uchar *buf, const uchar *key, uint key_len
 double StorageInterface::scan_time(void)
 {
 	DBUG_ENTER("StorageInterface::scan_time");
-	DBUG_RETURN(stats.records * 1000);
+	DBUG_RETURN((double)stats.records * 1000);
 }
 
 bool StorageInterface::threadSwitch(THD* newThread)

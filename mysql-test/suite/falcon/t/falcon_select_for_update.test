@@ -45,7 +45,7 @@ connection default;
 connection conn1;
 # This statement should fail with a deadlock.
 --real_sleep 1
---error 1213
+--error ER_LOCK_DEADLOCK
 SELECT a FROM t1 WHERE a = 1 FOR UPDATE;
 ROLLBACK;
 

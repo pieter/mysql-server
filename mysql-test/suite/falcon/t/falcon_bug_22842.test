@@ -30,7 +30,7 @@ INSERT INTO t1 VALUES (1,2);
 
 --echo # Switch to connection default
 connection default;
---error 1015
+--error ER_CANT_LOCK
 CREATE UNIQUE INDEX i ON t1 (s1);
 COMMIT;
 

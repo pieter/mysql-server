@@ -778,7 +778,7 @@ SET @@storage_engine = Falcon;
 DROP VIEW IF EXISTS v5y;
 CREATE VIEW v5y AS SELECT 1 AS ` `;
 Warnings:
-Warning	1466	Leading spaces are removed from name ' '
+Warning	1474	Name ' ' has become ''
 DROP VIEW v5y;
 *** Bug #27696 ***
 SET @@storage_engine = Falcon;

@@ -218,7 +218,7 @@ public:
 	View			*view;
 	Trigger			*triggers;
 	Bitmap			*recordBitmap;
-	Bitmap			*emptySections; //cwp
+	Bitmap			*emptySections;
 	Section			*dataSection;
 	Section			*blobSection;
 	TableSpace		*tableSpace;

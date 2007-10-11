@@ -210,7 +210,7 @@ User* RoleModel::findUser(const char * name)
 		createTables();
 
 	int slot = HASH (name, ROLE_HASH_SIZE);
-    User *user;
+	User *user;
 
 	for (user = users [slot]; user; user = (User*) user->collision)
 		if (user->name == name)

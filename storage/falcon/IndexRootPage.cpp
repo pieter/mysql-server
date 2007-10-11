@@ -1110,7 +1110,6 @@ void IndexRootPage::redoCreateIndex(Dbb* dbb, int indexId)
 Bdb* IndexRootPage::createIndexRoot(Dbb* dbb, TransId transId)
 {
 	Bdb *bdb = IndexPage::createNewLevel(dbb, 0, INDEX_CURRENT_VERSION, transId);
-	//BDB_HISTORY(bdb);
 
 	return bdb;
 }

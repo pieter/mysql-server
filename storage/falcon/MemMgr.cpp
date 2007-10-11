@@ -72,7 +72,7 @@ const int validateMinutia	= 16;
 
 // Nominal memory limits at startup--final values set during initialization
 
-static MemMgr		memoryManager(defaultRounding, FREE_OBJECTS_SIZE, HEAP_SIZE); //cwp
+static MemMgr		memoryManager(defaultRounding, FREE_OBJECTS_SIZE, HEAP_SIZE);
 static MemMgr		recordManager(defaultRounding, 2, HEAP_SIZE);
 //static MemMgr		recordObjectManager (defaultRounding, sizeof(RecordVersion) + 100, HEAP_SIZE);
 static MemControl	memControl;

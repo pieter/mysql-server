@@ -38,6 +38,7 @@
 #include "DatabaseCopy.h"
 #include "Database.h"
 #include "Bitmap.h"
+#include ".\cache.h"
 
 extern uint falcon_purifier_interval;
 extern uint falcon_sync_threshold;
@@ -166,27 +167,36 @@ Cache::~Cache()
 Bdb* Cache::probePage(Dbb *dbb, int32 pageNumber)
 {
 	ASSERT (pageNumber >= 0);
-	int	slot = pageNumber % hashSize;
 	Sync sync (&syncObject, "Cache::probePage");
 	sync.lock (Shared);
+	Bdb *bdb = findBdb(dbb, pageNumber);
+	
+	if (bdb)
+		{
+		bdb->incrementUseCount(ADD_HISTORY);
+		sync.unlock();
 
-	for (Bdb *bdb = hashTable [slot]; bdb; bdb = bdb->hash)
-		if (bdb->pageNumber == pageNumber && bdb->dbb == dbb)
+		if (bdb->buffer->pageType == PAGE_free)
 			{
-			bdb->incrementUseCount(ADD_HISTORY);
-			sync.unlock();
-
-			if (bdb->buffer->pageType == PAGE_free)
-				{
-				bdb->decrementUseCount(REL_HISTORY);
-				return NULL;
-				}
-
-			bdb->addRef(Shared  COMMA_ADD_HISTORY);
 			bdb->decrementUseCount(REL_HISTORY);
-
-			return bdb;
+			
+			return NULL;
 			}
+
+		bdb->addRef(Shared  COMMA_ADD_HISTORY);
+		bdb->decrementUseCount(REL_HISTORY);
+
+		return bdb;
+		}
+
+	return NULL;
+}
+
+Bdb* Cache::findBdb(Dbb* dbb, int32 pageNumber)
+{
+	for (Bdb *bdb = hashTable [pageNumber % hashSize]; bdb; bdb = bdb->hash)
+		if (bdb->pageNumber == pageNumber && bdb->dbb == dbb)
+			return bdb;
 
 	return NULL;
 }
@@ -340,13 +350,39 @@ void Cache::flush(int64 arg)
 	flushLock.lock(Exclusive);
 	sync.lock(Shared);
 	flushArg = arg;
+	flushPages = 0;
 	
 	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
 		{
 		bdb->flushIt = true;
 		flushBitmap->set(bdb->pageNumber);
+		++flushPages;
 		}
+
+	int start = 0;
+	int last = 0;
+	int runs = 0;
+	int runPages = 0;
 	
+	for (int n = 0; (n = flushBitmap->nextSet(n)) >= 0; ++n)
+		if (n == last + 1)
+			++last;
+		else
+			{
+			if (last - start > 1)
+				{
+				Log::debug(" Flush run of %d pages starting at %d\n", last - start, start);
+				++runs;
+				runPages += last - start;
+				}
+				
+			last = start = n;
+			}
+	
+	if (runs > 0)
+		Log::debug("Flush: %d runs of %d pages out of %d\n", runs, runPages, flushPages);			
+			
+	flushStart = database->timestamp;
 	flushing = true;
 	sync.unlock();
 	flushLock.unlock();
@@ -602,8 +638,13 @@ void Cache::writePage(Bdb *bdb, int type)
 	Dbb *dbb = bdb->dbb;
 	ASSERT(database);
 	markClean (bdb);
+	time_t start = database->timestamp;
 	dbb->writePage(bdb, type);
+	int delta = database->timestamp - start;
 	
+	if (delta > 1)
+		Log::debug("Page %d took %d seconds to write\n", bdb->pageNumber, delta);
+		
 #ifdef STOP_PAGE			
 	if (bdb->pageNumber == STOP_PAGE)
 		Log::debug("writing page %d/%d\n", bdb->pageNumber, dbb->tableSpaceId);
@@ -1005,6 +1046,12 @@ void Cache::ioThread(void)
 				{
 				flushing = false;
 				flushLock.unlock();
+				int delta = database->timestamp - flushStart;
+				
+				if (delta > 1)
+					Log::debug("Cache flush: %d pages in %d seconds\n",
+								flushPages, delta);
+
 				database->pageCacheFlushed(flushArg);
 				}
 			else

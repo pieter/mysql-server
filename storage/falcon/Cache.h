@@ -81,8 +81,10 @@ public:
 	bool		flushing;
 
 protected:
-	Bdb* findBuffer (Dbb *dbb, int pageNumber, LockType lockType);
+	Bdb*		findBuffer (Dbb *dbb, int pageNumber, LockType lockType);
+	Bdb*		findBdb(Dbb* dbb, int32 pageNumber);
 
+	int64		flushArg;
 	Bdb			*bdbs;
 	Bdb			*endBdbs;
 	Queue<Bdb>	bufferQueue;
@@ -96,13 +98,14 @@ protected:
 	SyncObject	syncFlush;
 	SyncObject	syncDirty;
 	PagePrecedence	*freePrecedence;
+	time_t		flushStart;
+	int			flushPages;
 	int			hashSize;
 	int			pageSize;
 	int			upperFraction;
 	int			numberHunks;
 	int			numberDirtyPages;
 	int			numberIoThreads;
-	int64		flushArg;
 	volatile int bufferAge;
 };
 

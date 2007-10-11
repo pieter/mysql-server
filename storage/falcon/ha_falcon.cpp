@@ -572,7 +572,6 @@ void StorageInterface::getDemographics(void)
 			for (uint segment = 0; segment < key->key_parts; ++segment, rows >>= 1)
 				{
 				ha_rows recordsPerSegment = (ha_rows) desc->segmentRecordCounts[segment];
-				key->rec_per_key[segment] = (ulong) MAX(recordsPerSegment, n);
 				key->rec_per_key[segment] = (ulong) MAX(recordsPerSegment, rows);
 				}
 			}
@@ -850,7 +849,6 @@ int StorageInterface::delete_table(const char *tableName)
 	storageTable->deleteStorageTable();
 	storageTable = NULL;
 
-	if (res != StorageErrorUncommittedUpdates) //(res == StorageErrorTableNotFound))
 	// (hk) Fix for Bug#31465 Running Falcon test suite leads
 	//                        to warnings about temp tables
 	// This fix could affect other DROP TABLE scenarios.
@@ -1476,7 +1474,6 @@ int StorageInterface::index_next_same(uchar *buf, const uchar *key, uint key_len
 double StorageInterface::scan_time(void)
 {
 	DBUG_ENTER("StorageInterface::scan_time");
-	DBUG_RETURN((double ) (stats.records * 1000));
 	DBUG_RETURN((double)stats.records * 1000);
 }
 

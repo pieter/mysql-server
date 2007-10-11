@@ -1,0 +1,37 @@
+SET storage_engine = Falcon;
+*** Bug #22143 ***
+DROP DATABASE IF EXISTS test2;
+CREATE DATABASE test2;
+USE test2;
+# Establish connection conn1 (user = root)
+SET storage_engine = Falcon;
+USE test2;
+# Switch to connection default
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (3), (0), (3);
+SELECT count(*) FROM t1;
+count(*)
+3
+CREATE TEMPORARY TABLE t1 (a int, b int);
+INSERT INTO t1 VALUES (2, 3);
+SELECT count(*) FROM t1;
+count(*)
+1
+# Switch to connection conn1
+CREATE TEMPORARY TABLE t1 (a int, b int, c int);
+INSERT INTO t1 VALUES (2, 3, 5), (5, 3, 2);
+SELECT count(*) FROM t1;
+count(*)
+2
+# Switch to connection default
+DROP TEMPORARY TABLE t1;
+SELECT count(*) FROM t1;
+count(*)
+3
+# Switch to connection conn1
+DROP TEMPORARY TABLE t1;
+SELECT count(*) FROM t1;
+count(*)
+3
+# Switch to connection default
+DROP DATABASE test2;

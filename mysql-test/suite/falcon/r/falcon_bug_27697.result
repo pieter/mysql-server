@@ -1,0 +1,30 @@
+*** Bug #27697 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS i;
+SET NAMES utf8;
+CREATE TABLE i (
+i char(1) CHARACTER SET utf8 COLLATE utf8_turkish_ci
+);
+INSERT INTO i VALUES ('i'), ('İ'), ('ı'), ('I');
+SELECT * FROM i WHERE i = 'i' ORDER BY i;
+i
+i
+İ
+SELECT * FROM i where i = 'I' ORDER BY i;
+i
+ı
+I
+CREATE INDEX i ON i (i);
+SELECT * FROM i WHERE i = 'i' ORDER BY i;
+i
+i
+İ
+SELECT * FROM i where i = 'I' ORDER BY i;
+i
+ı
+I
+SELECT count(*) FROM i;
+count(*)
+4
+DROP TABLE i;
+SET NAMES default;

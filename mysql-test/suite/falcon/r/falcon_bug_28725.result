@@ -1,0 +1,14 @@
+*** Bug #28725 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a decimal(19,19));
+INSERT INTO t1 VALUES (0.123456789012345678901234567890);
+Warnings:
+Note	1265	Data truncated for column 'a' at row 1
+SELECT * FROM t1;
+a
+0.1234567890123456789
+SELECT count(*) FROM t1;
+count(*)
+1
+DROP TABLE t1;

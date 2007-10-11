@@ -1,0 +1,46 @@
+--source include/have_falcon.inc
+#
+# Bug #27574: Falcon: crash if trigger and no autocommit
+#
+--echo *** Bug #27574 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+CREATE TABLE t1 (a int);
+CREATE TABLE t2 (a int);
+
+CREATE TRIGGER t1_bu BEFORE UPDATE ON t1 
+FOR EACH ROW UPDATE t2 set a = 2 WHERE a = 1;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+SET @@autocommit = 0;
+INSERT INTO t1 VALUES (0);
+INSERT INTO t2 VALUES (0);
+
+COMMIT;
+
+UPDATE t1 SET a = -1;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+SELECT count(*) FROM t2 WHERE a = 0;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+COMMIT;
+DROP TABLE t1;
+DROP TABLE t2;

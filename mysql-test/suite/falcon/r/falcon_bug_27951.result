@@ -1,0 +1,9 @@
+*** Bug #27951 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a serial, b varchar(500));
+INSERT INTO t1 (b) VALUES (repeat('a', 500));
+SELECT count(*) FROM t1;
+count(*)
+65536
+DROP TABLE t1;

@@ -1,0 +1,59 @@
+--source include/have_falcon.inc
+#
+# Bug #27895: Falcon: crash if new database and interleaving transactions
+#
+--echo *** Bug #27895 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP SCHEMA IF EXISTS db1;
+--enable_warnings
+
+SET @@autocommit = 0;
+CREATE SCHEMA db1;
+USE db1;
+CREATE TABLE t1 (a int, b varchar(10));
+INSERT INTO t1 VALUES (1, 'w');
+CREATE INDEX i1 on t1 (a, b);
+COMMIT;
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@autocommit = 0;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+START TRANSACTION;
+SELECT a, b FROM t1 WHERE b = 'w';
+INSERT INTO t1 VALUES (12, 'w');
+
+--echo # Switch to connection conn1
+connection conn1;
+USE db1;
+START TRANSACTION;
+INSERT INTO t1 VALUES (2, 'b');
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+COMMIT;
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+disconnect conn1;
+DROP SCHEMA db1;
+USE test;

@@ -1,0 +1,24 @@
+*** Bug #26803 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (
+a varchar(5),
+b varchar(5)
+);
+CREATE UNIQUE INDEX i1 ON t1 (a, b);
+INSERT INTO t1 VALUES ('y', 'y');
+INSERT INTO t1 VALUES ('y', 'y');
+ERROR 23000: Duplicate entry 'y-y' for key 'i1'
+INSERT INTO t1 VALUES ('y ', 'y');
+ERROR 23000: Duplicate entry 'y -y' for key 'i1'
+INSERT INTO t1 VALUES ('y', 'y ');
+ERROR 23000: Duplicate entry 'y-y ' for key 'i1'
+INSERT INTO t1 VALUES ('y ', 'y ');
+ERROR 23000: Duplicate entry 'y -y ' for key 'i1'
+SELECT count(*) FROM t1;
+count(*)
+1
+SELECT count(*) FROM t1 WHERE a = 'y' AND b ='y';
+count(*)
+1
+DROP TABLE t1;

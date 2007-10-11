@@ -1,0 +1,45 @@
+#
+# Bug#24017 crash, select on table with partial index
+#
+--echo *** Bug #24017 ***
+
+--source include/have_falcon.inc
+set storage_engine= Falcon;
+
+--disable_abort_on_error
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+#
+# Subtestcase of mix2_falcon
+#
+#
+# Test long varchars
+#
+# Attention: 2499 is the least harmless value.
+let $my_length= 2499;
+eval create table t1 (v varchar($my_length), key(v(10)));
+eval insert into t1 values(repeat('a',$my_length));
+eval select length(v) from t1 where v=repeat('a',$my_length);
+drop table t1;
+
+# This value is dangerous
+let $my_length= 2500;
+eval create table t1 (v varchar($my_length), key(v(10)));
+# Attention: The crash disappears if I do
+#            eval insert into t1 values(repeat('a',$my_length - 1));
+#            first.
+eval insert into t1 values(repeat('a',$my_length));
+# The next select crashes the server
+eval select length(v) from t1 where v=repeat('a',$my_length);
+drop table t1;
+
+# This value used within the original testcase.
+let $my_length= 65530;
+eval create table t1 (v varchar($my_length), key(v(10)));
+# Attention: The crash disappears if I do
+#            eval insert into t1 values(repeat('a',$my_length - 1));
+#            first.
+eval insert into t1 values(repeat('a',$my_length));
+eval select length(v) from t1 where v=repeat('a',$my_length);
+drop table t1;

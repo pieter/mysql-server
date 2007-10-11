@@ -1,0 +1,73 @@
+--source include/have_falcon.inc
+#
+# SELECT ... FOR UPDATE test.
+#
+--echo *** SELECT ... FOR UPDATE ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a int PRIMARY KEY);
+
+SET @@autocommit = 0;
+INSERT INTO t1 VALUES (1), (2), (3);
+COMMIT;
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@autocommit = 0;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+SELECT a FROM t1 WHERE a = 1 FOR UPDATE;
+
+--echo # Switch to connection conn1
+connection conn1;
+SELECT a FROM t1 WHERE a = 2 FOR UPDATE;
+
+--echo # Switch to connection default
+connection default;
+# This should wait for conn1's lock.
+--send SELECT a FROM t1 WHERE a = 2 FOR UPDATE
+
+--echo # Switch to connection conn1
+connection conn1;
+# This statement should fail with a deadlock.
+--real_sleep 1
+--error ER_LOCK_DEADLOCK
+SELECT a FROM t1 WHERE a = 1 FOR UPDATE;
+ROLLBACK;
+
+--echo # Switch to connection default
+connection default;
+--reap
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;

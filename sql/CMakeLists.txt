@@ -25,7 +25,6 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/sql 
                     ${CMAKE_SOURCE_DIR}/regex 
                     ${CMAKE_SOURCE_DIR}/zlib
-                    ${CMAKE_SOURCE_DIR}/sql/backup
 )
 
 SET_SOURCE_FILES_PROPERTIES(${CMAKE_SOURCE_DIR}/sql/message.rc 
@@ -76,10 +75,6 @@ ADD_EXECUTABLE(mysqld
                partition_info.cc rpl_utility.cc rpl_injector.cc sql_locale.cc
                rpl_rli.cc rpl_mi.cc sql_servers.cc
                sql_connect.cc scheduler.cc 
-               backup/stream.cc backup/logger.cc backup/string_pool.cc
-               backup/archive.cc backup/meta_backup.cc backup/data_backup.cc
-               backup/sql_backup.cc backup/be_default.cc backup/buffer_iterator.cc
-               backup/be_snapshot.cc
                ${PROJECT_SOURCE_DIR}/sql/sql_yacc.cc
                ${PROJECT_SOURCE_DIR}/sql/sql_yacc.h
                ${PROJECT_SOURCE_DIR}/include/mysqld_error.h
@@ -98,9 +93,8 @@ SET_TARGET_PROPERTIES(mysqld PROPERTIES OUTPUT_NAME mysqld${MYSQLD_EXE_SUFFIX})
 # Work around for 2.4.6 bug, OUTPUT_NAME will not set the right .PDB
 # file name. Note that COMPILE_FLAGS set some temporary pdb during build,
 # LINK_FLAGS sets the real one.
-SET_TARGET_PROPERTIES(mysqld PROPERTIES
-                      COMPILE_FLAGS "/Fd${CMAKE_CFG_INTDIR}/mysqld${MYSQLD_EXE_SUFFIX}.pdb"
-                      LINK_FLAGS  "/PDB:${CMAKE_CFG_INTDIR}/mysqld${MYSQLD_EXE_SUFFIX}.pdb")
+#                      COMPILE_FLAGS "/Fd${CMAKE_CFG_INTDIR}/mysqld${MYSQLD_EXE_SUFFIX}.pdb"
+#                      LINK_FLAGS  "/PDB:${CMAKE_CFG_INTDIR}/mysqld${MYSQLD_EXE_SUFFIX}.pdb")
 
 IF(EMBED_MANIFESTS)
   MYSQL_EMBED_MANIFEST("mysqld" "asInvoker")
@@ -123,6 +117,9 @@ ENDIF(WITH_FEDERATED_STORAGE_ENGINE)
 IF(WITH_INNOBASE_STORAGE_ENGINE)
   TARGET_LINK_LIBRARIES(mysqld innobase)
 ENDIF(WITH_INNOBASE_STORAGE_ENGINE)
+IF(WITH_FALCON_STORAGE_ENGINE)
+  TARGET_LINK_LIBRARIES(mysqld ha_falcon)
+ENDIF(WITH_FALCON_STORAGE_ENGINE)
 
 ADD_DEPENDENCIES(mysqld GenError)
 

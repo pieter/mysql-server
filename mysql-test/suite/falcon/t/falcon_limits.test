@@ -1,0 +1,14 @@
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--source include/have_falcon.inc
+SET storage_engine=falcon;
+
+# verify that setting storage engine worked
+create table t1 (a int);
+show create table t1;
+drop table t1;
+
+--source include/falcon_limit1.inc
+--source include/falcon_limit2.inc

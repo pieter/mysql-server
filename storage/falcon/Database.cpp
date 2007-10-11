@@ -1199,10 +1199,15 @@ Transaction* Database::startTransaction(Connection *connection)
 }
 
 
-void Database::flush()
+bool Database::flush(int64 arg)
 {
+	if (cache->flushing)
+		return false;
+			
 	serialLog->preFlush();
-	cache->flush();
+	cache->flush(arg);
+	
+	return true;
 }
 
 void Database::commitSystemTransaction()
@@ -1457,7 +1462,7 @@ void Database::shutdown()
 	if (repositoryManager)
 		repositoryManager->close();
 
-	flush();
+	flush(0);
 
 	if (scheduler)
 		scheduler->shutdown(false);
@@ -2297,7 +2302,7 @@ void Database::debugTrace(void)
 	falcon_debug_trace = 0;
 }
 
-void Database::pageCacheFlushed(void)
+void Database::pageCacheFlushed(int64 flushArg)
 {
-	serialLog->pageCacheFlushed();
+	serialLog->pageCacheFlushed(flushArg);
 }

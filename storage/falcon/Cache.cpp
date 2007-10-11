@@ -333,12 +333,13 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 	return bdb;
 }
 
-void Cache::flush()
+void Cache::flush(int64 arg)
 {
 	Sync flushLock(&syncFlush, "Cache::ioThread");
 	Sync sync(&syncDirty, "Cache::ioThread");
 	flushLock.lock(Exclusive);
 	sync.lock(Shared);
+	flushArg = arg;
 	
 	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
 		{
@@ -827,7 +828,7 @@ void Cache::setPageWriter(PageWriter *writer)
 	pageWriter = writer;
 }
 
-void Cache::shutdownNow()
+void Cache::shutdownNow(void)
 {
 	panicShutdown = true;
 	Sync sync (&syncDirty, "Cache::shutdownNow");
@@ -1004,7 +1005,7 @@ void Cache::ioThread(void)
 				{
 				flushing = false;
 				flushLock.unlock();
-				database->pageCacheFlushed();
+				database->pageCacheFlushed(flushArg);
 				}
 			else
 				flushLock.unlock();

@@ -41,7 +41,8 @@ class Bitmap;
 class Cache  
 {
 public:
-	void	shutdownNow();
+	void	shutdownNow(void);
+	void	shutdown(void);
 	Bdb*	probePage(Dbb *dbb, int32 pageNumber);
 	void	setPageWriter (PageWriter *writer);
 	bool	hasDirtyPages (Dbb *dbb);
@@ -56,7 +57,7 @@ public:
 	void	markDirty (Bdb *bdb);
 	void	validate();
 	void	moveToHead (Bdb *bdb);
-	void	flush();
+	void	flush(int64 arg);
 	void	validateCache(void);
 	//void	purifier(void);
 	void	syncFile(Dbb *dbb, const char *text);
@@ -77,6 +78,7 @@ public:
 	Database	*database;
 	int			numberBuffers;
 	bool		panicShutdown;
+	bool		flushing;
 
 protected:
 	Bdb* findBuffer (Dbb *dbb, int pageNumber, LockType lockType);
@@ -100,10 +102,8 @@ protected:
 	int			numberHunks;
 	int			numberDirtyPages;
 	int			numberIoThreads;
+	int64		flushArg;
 	volatile int bufferAge;
-	bool		flushing;
-public:
-	void shutdown(void);
 };
 
 #endif // !defined(AFX_CACHE_H__6A019C1F_A340_11D2_AB5A_0000C01D2301__INCLUDED_)

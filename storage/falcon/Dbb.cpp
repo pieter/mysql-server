@@ -875,7 +875,7 @@ Section* Dbb::getSequenceSection(TransId transId)
 		Hdr *headerPage = (Hdr*) bdb->buffer;
 		headerPage->sequenceSectionId = sequenceSectionId;
 		bdb->release(REL_HISTORY);
-		cache->flush();
+		cache->flush((int64) 0);
 		}
 
 	// Find action section

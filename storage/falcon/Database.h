@@ -179,7 +179,7 @@ public:
 	void			clearDebug();
 	void			setDebug();
 	void			commitSystemTransaction();
-	void			flush();
+	bool			flush(int64 arg);
 	
 	Transaction*	startTransaction(Connection *connection);
 	CompiledStatement* getCompiledStatement (Connection *connection, const char *sqlString);
@@ -212,7 +212,7 @@ public:
 	void			setRecordScavengeFloor(int value);
 	void			forceRecordScavenge(void);
 	void			debugTrace(void);
-	void			pageCacheFlushed(void);
+	void			pageCacheFlushed(int64 flushArg);
 
 	Dbb				*dbb;
 	Cache			*cache;

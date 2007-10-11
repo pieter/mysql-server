@@ -1221,7 +1221,7 @@ void Dbb::analyzeSection(int sectionId, const char *sectionName, int indentation
 	stream->format ("%s (id %d, table space %d)\n", sectionName, sectionId, tableSpaceId);
 	indentation += 3;
 	stream->indent(indentation);
-	stream->format ("Record locator pages: %d\n", numbers.sectionPages);
+	stream->format ("Record locator pages: %d\n", numbers.recordLocatorPages);
 	stream->indent(indentation);
 	stream->format ("Data pages:           %d\n", numbers.dataPages);
 	stream->indent(indentation);

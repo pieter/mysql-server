@@ -43,6 +43,9 @@ typedef struct {pthread_mutex_t rw;} my_atomic_rwlock_t;
 #define my_atomic_rwlock_rdunlock(name)    pthread_mutex_unlock(& (name)->rw)
 #define my_atomic_rwlock_wrunlock(name)    pthread_mutex_unlock(& (name)->rw)
 #define MY_ATOMIC_MODE "mutex"
+#ifndef MY_ATOMIC_MODE_RWLOCKS
+#define MY_ATOMIC_MODE_RWLOCKS 1
+#endif
 #endif
 
 #define make_atomic_add_body(S)     int ## S sav; sav= *a; *a+= v; v=sav;

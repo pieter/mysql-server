@@ -856,14 +856,13 @@ void Cache::purifier(void)
 {
 	Thread *thread = Thread::getThread("Database::ticker");
 	Sync sync(&syncDirty, "Cache::purify");
-	int writes = 0;
 	
 	while (!thread->shutdownInProgress)
 		{
 		thread->sleep(PURIFIER_INTERVAL);
 		sync.lock(Shared);
 		Bdb *bdb;
-		int threshold = database->timestamp - PURIFIER_STALE_THRESHOLD;
+		time_t threshold = database->timestamp - PURIFIER_STALE_THRESHOLD;
 		Bdb *prospects = NULL;
 		
 		for (bdb = firstDirty; bdb; bdb = bdb->nextDirty)
@@ -904,11 +903,12 @@ void Cache::purifier(void)
 
 void Cache::syncFile(Dbb *dbb, const char *text)
 {
+	const char *fileName = dbb->fileName;
 	int writes = dbb->writesSinceSync;
 	time_t start = database->timestamp;
 	dbb->sync();
-	int delta = database->timestamp - start;
+	time_t delta = database->timestamp - start;
 	
 	if (delta > 1)
-		Log::debug("%s %s sync: %d page in %d seconds\n", dbb->fileName, text, writes, delta);
+		Log::debug("%s %s sync: %d page in %d seconds\n", fileName, text, writes, delta);
 }

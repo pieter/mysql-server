@@ -81,7 +81,7 @@ public:
 	virtual ~SerialLog();
 
 	void			putVersion();
-	void			pageCacheFlushed();
+	void			pageCacheFlushed(int64 flushArg);
 
 	void			releaseBuffer (UCHAR *buffer);
 	UCHAR*			allocBuffer();

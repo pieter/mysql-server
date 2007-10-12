@@ -419,6 +419,7 @@ void Transaction::rollback()
 		record->nextInTrans = stack;
 		stack = record;
 		}
+		
 	lastRecord = NULL;
 
 	while (stack)

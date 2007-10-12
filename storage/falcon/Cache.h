@@ -36,11 +36,13 @@ class Stream;
 class Sync;
 class Thread;
 class Database;
+class Bitmap;
 
 class Cache  
 {
 public:
-	void	shutdownNow();
+	void	shutdownNow(void);
+	void	shutdown(void);
 	Bdb*	probePage(Dbb *dbb, int32 pageNumber);
 	void	setPageWriter (PageWriter *writer);
 	bool	hasDirtyPages (Dbb *dbb);
@@ -55,12 +57,14 @@ public:
 	void	markDirty (Bdb *bdb);
 	void	validate();
 	void	moveToHead (Bdb *bdb);
-	void	flush();
+	void	flush(int64 arg);
 	void	validateCache(void);
-	void	purifier(void);
+	//void	purifier(void);
 	void	syncFile(Dbb *dbb, const char *text);
+	void	ioThread(void);
 
-	static void purifier(void* arg);
+	static void ioThread(void* arg);
+	//static void purifier(void* arg);
 		
 	Bdb*	fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
 	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
@@ -69,30 +73,39 @@ public:
 	Cache(Database *db, int pageSize, int hashSize, int numberBuffers);
 	virtual ~Cache();
 
+	SyncObject	syncObject;
 	PageWriter	*pageWriter;
 	Database	*database;
-	SyncObject	syncObject;
 	int			numberBuffers;
 	bool		panicShutdown;
+	bool		flushing;
 
 protected:
-	Bdb* findBuffer (Dbb *dbb, int pageNumber, LockType lockType);
+	Bdb*		findBuffer (Dbb *dbb, int pageNumber, LockType lockType);
+	Bdb*		findBdb(Dbb* dbb, int32 pageNumber);
 
+	int64		flushArg;
 	Bdb			*bdbs;
 	Bdb			*endBdbs;
 	Queue<Bdb>	bufferQueue;
 	Bdb			**hashTable;
 	Bdb			*firstDirty;
 	Bdb			*lastDirty;
+	Bitmap		*flushBitmap;
 	char		**bufferHunks;
-	Thread		*purifierThread;
+	//Thread		*purifierThread;
+	Thread		**ioThreads;
+	SyncObject	syncFlush;
 	SyncObject	syncDirty;
 	PagePrecedence	*freePrecedence;
+	time_t		flushStart;
+	int			flushPages;
 	int			hashSize;
 	int			pageSize;
 	int			upperFraction;
 	int			numberHunks;
 	int			numberDirtyPages;
+	int			numberIoThreads;
 	volatile int bufferAge;
 };
 

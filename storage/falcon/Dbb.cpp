@@ -425,38 +425,14 @@ bool Dbb::addIndexEntry(int32 indexId, int indexVersion, IndexKey *key, int32 re
 	return result;
 }
 
-/***
-void Dbb::scanIndex(int32 indexId, int indexVersion, IndexKey* lowKey, IndexKey* highKey, int searchFlags, Bitmap *bitmap)
-{
-	switch (indexVersion)
-		{
-		case INDEX_VERSION_0:
-			Index2RootPage::scanIndex (this, indexId, lowKey, highKey, partial, NO_TRANSACTION, bitmap);
-			break;
-		
-		case INDEX_VERSION_1:
-			IndexRootPage::scanIndex (this, indexId, lowKey, highKey, partial, NO_TRANSACTION, bitmap);
-			break;
-		
-		default:
-			ASSERT(false);
-		}
-}
-***/
-
 void Dbb::flush()
 {
 	if (!cache)
 		return;
 
-	if (serialLog)
-		{
-		serialLog->preFlush();
-		cache->flush();
-		serialLog->pageCacheFlushed();
-		}
-	else
-		cache->flush();
+	//serialLog->preFlush();
+	cache->flush(this);
+	//serialLog->pageCacheFlushed();
 }
 
 Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
@@ -466,7 +442,6 @@ Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
 	openFile(fileName, false);
 	readHeader(&header);
 	bool headerSkew = false;
-
 	int n = header.pageSize;
 	
 	while (n && !(n & 1))
@@ -900,7 +875,7 @@ Section* Dbb::getSequenceSection(TransId transId)
 		Hdr *headerPage = (Hdr*) bdb->buffer;
 		headerPage->sequenceSectionId = sequenceSectionId;
 		bdb->release(REL_HISTORY);
-		cache->flush();
+		cache->flush((int64) 0);
 		}
 
 	// Find action section
@@ -1243,10 +1218,10 @@ void Dbb::analyzeSection(int sectionId, const char *sectionName, int indentation
 
 	int utilization = (int) ((space - numbers.spaceAvailable) * 100 / space);
 	stream->indent(indentation);
-	stream->format ("%s (id %d)\n", sectionName, sectionId);
+	stream->format ("%s (id %d, table space %d)\n", sectionName, sectionId, tableSpaceId);
 	indentation += 3;
 	stream->indent(indentation);
-	stream->format ("Record locator pages: %d\n", numbers.sectionPages);
+	stream->format ("Record locator pages: %d\n", numbers.recordLocatorPages);
 	stream->indent(indentation);
 	stream->format ("Data pages:           %d\n", numbers.dataPages);
 	stream->indent(indentation);
@@ -1270,7 +1245,7 @@ void Dbb::analyseIndex(int32 indexId, int indexVersion, const char *indexName, i
 		}
 	
 	stream->indent(indentation);
-	stream->format("Index %s (id %d) %d levels\n", indexName, indexId, indexAnalysis.levels);
+	stream->format("Index %s (id %d, table space %d) %d levels\n", indexName, indexId, indexAnalysis.levels, tableSpaceId);
 	indentation += 3;
 	stream->indent(indentation);
 	stream->format ("Upper index pages:    %d\n", indexAnalysis.upperLevelPages);

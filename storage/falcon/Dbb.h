@@ -60,7 +60,7 @@ static const int FillLevels = 5;
 
 struct SectionAnalysis 
 {
-   int32		sectionPages;
+   int32		recordLocatorPages;
    int32		dataPages;
    int32		overflowPages;
    int32		spaceAvailable;

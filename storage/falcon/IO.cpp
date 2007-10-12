@@ -29,10 +29,10 @@
 #include <windows.h>
 #include <io.h>
 #include <direct.h>
-#define LSEEK		_lseeki64
+#define LSEEK				_lseeki64
 #define SEEK_OFFSET	int64
-#define MKDIR(dir)			mkdir (dir)
-
+#define MKDIR(dir)			mkdir(dir)
+#define O_SYNC				0
 #else
 #include <sys/types.h>
 #include <aio.h>
@@ -116,7 +116,7 @@ IO::~IO()
 bool IO::openFile(const char * name, bool readOnly)
 {
 	fileName = name;
-	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : O_RDWR | O_BINARY);
+	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : O_SYNC | O_RDWR | O_BINARY);
 
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
@@ -145,7 +145,7 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 
 	fileName = name;
 	fileId = ::open (fileName,
-					O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+					O_SYNC | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
 					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 
 	if (fileId < 0)

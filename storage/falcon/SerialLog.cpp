@@ -634,7 +634,6 @@ void SerialLog::shutdown()
 	wakeup();
 	Sync sync(&syncGopher, "SerialLog::shutdown");
 	sync.lock(Shared);
-	defaultDbb->flush();
 	checkpoint(false);
 	
 	if (workerThread)
@@ -979,10 +978,34 @@ void SerialLog::checkpoint(bool force)
 		sync.lock(Shared);
 		int64 blockNumber = writeBlock->blockNumber;
 		sync.unlock();
-		defaultDbb->flush();
+		database->flush(blockNumber);
+		/*** moved to pageCacheFlushed()
+		database->sync(0);
+		logControl->checkpoint.append(blockNumber);
+		***/ 
+		}
+}
+
+void SerialLog::pageCacheFlushed(int64 blockNumber)
+{
+	if (blockNumber)
+		{
 		database->sync(0);
 		logControl->checkpoint.append(blockNumber);
 		}
+
+	lastFlushBlock = preFlushBlock;
+	Sync sync(&pending.syncObject, "SerialLog::pageCacheFlushed");	// pending.syncObject use for both
+	sync.lock(Exclusive);
+	
+	for (SerialLogTransaction *transaction, **ptr = &inactions.first; (transaction = *ptr);)
+		if (transaction->flushing && transaction->maxBlockNumber < lastFlushBlock)
+			{
+			inactions.remove(transaction);
+			delete transaction;
+			}
+		else
+			ptr = &transaction->next;
 }
 
 void SerialLog::initializeWriteBlock(SerialLogBlock *block)
@@ -1175,22 +1198,6 @@ void SerialLog::preFlush(void)
 	
 	for (SerialLogTransaction *action = inactions.first; action; action = action->next)
 		action->flushing = true;
-}
-
-void SerialLog::pageCacheFlushed()
-{
-	lastFlushBlock = preFlushBlock;
-	Sync sync(&pending.syncObject, "SerialLog::pageCacheFlushed");	// pending.syncObject use for both
-	sync.lock(Exclusive);
-	
-	for (SerialLogTransaction *transaction, **ptr = &inactions.first; (transaction = *ptr);)
-		if (transaction->flushing && transaction->maxBlockNumber < lastFlushBlock)
-			{
-			inactions.remove(transaction);
-			delete transaction;
-			}
-		else
-			ptr = &transaction->next;
 }
 
 int SerialLog::recoverLimboTransactions(void)

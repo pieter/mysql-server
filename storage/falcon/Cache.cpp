@@ -353,6 +353,7 @@ void Cache::flush(int64 arg)
 	sync.lock(Shared);
 	flushArg = arg;
 	flushPages = 0;
+	physicalWrites = 0;
 	
 	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
 		{
@@ -1061,10 +1062,12 @@ void Cache::ioThread(void)
 					flushLock.unlock();
 					int length = p - buffer;
 					
+					/***
 					if (length > pageSize)
 						Log::debug("Writing %d pages starting with %d to %s\n", 
 									length / pageSize, pageNumber, (const char*) dbb->fileName);
-						
+					***/
+					
 					dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
 					
 					while (bdbList)
@@ -1076,6 +1079,7 @@ void Cache::ioThread(void)
 						}
 						
 					flushLock.lock(Exclusive);
+					++physicalWrites;
 					break;
 					}
 			
@@ -1094,8 +1098,8 @@ void Cache::ioThread(void)
 				int delta = database->timestamp - flushStart;
 				
 				if (delta > 1)
-					Log::debug("Cache flush: %d pages in %d seconds (%d pps)\n",
-								flushPages, delta, flushPages / delta);
+					Log::debug("Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
+								flushPages, physicalWrites, delta, flushPages / delta);
 
 				database->pageCacheFlushed(flushArg);
 				}

@@ -100,6 +100,7 @@ protected:
 	PagePrecedence	*freePrecedence;
 	time_t		flushStart;
 	int			flushPages;
+	int			physicalWrites;
 	int			hashSize;
 	int			pageSize;
 	int			upperFraction;

@@ -238,6 +238,27 @@ void IO::writePage(Bdb * bdb, int type)
 	++writeTypes[type];
 }
 
+void IO::writePages(int32 pageNumber, int length, const UCHAR* data, int type)
+{
+	if (fatalError)
+		FATAL ("can't continue after fatal error");
+
+	SEEK_OFFSET offset = (int64) pageNumber * pageSize;
+	int ret = pwrite (offset, length, data);
+
+	if (ret != length)
+		{
+		declareFatalError();
+		FATAL ("write error on page %d (%d/%d/%d) of \"%s\": %s (%d)",
+				pageNumber, length, pageSize, fileId,
+				(const char*) fileName, strerror (errno), errno);
+		}
+
+	++writes;
+	++writesSinceSync;
+	++writeTypes[type];
+}
+
 void IO::readHeader(Hdr * header)
 {
 	int n = lseek (fileId, 0, SEEK_SET);

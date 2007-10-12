@@ -28,7 +28,7 @@
 #include <pthread.h>
 #endif
 
-#define SYNCHRONIZE_FREEZE
+//#define SYNCHRONIZE_FREEZE
 
 #ifdef SYNCHRONIZE_FREEZE
 #define DEBUG_FREEZE	if (synchronizeFreeze) Synchronize::freeze();

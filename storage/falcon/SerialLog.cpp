@@ -881,40 +881,6 @@ uint64 SerialLog::getReadBlock()
 	sync.lock(Shared);
 	uint64 blockNumber = lastFlushBlock;
 	
-	/***
-	SerialLogTransaction *transaction;
-	
-	for (transaction = running.first; transaction; transaction = transaction->next)
-		{
-		uint64 number = transaction->getBlockNumber();
-		
-		if (number == 1)
-			transaction->getBlockNumber();
-			
-		if (number > 0) 
-			blockNumber = MIN(blockNumber, number);
-		}
-	
-	for (transaction = pending.first; transaction; transaction = transaction->next)
-		{
-		uint64 number = transaction->getBlockNumber();
-		
-		if (number == 1)
-			transaction->getBlockNumber();
-			
-		if (number > 0) 
-			blockNumber = MIN(blockNumber, number);
-		}
-	
-	for (transaction = inactions.first; transaction; transaction = transaction->next)
-		{
-		uint64 number = transaction->minBlockNumber;
-			
-		if (number > 0) 
-			blockNumber = MIN(blockNumber, number);
-		}
-	***/
-	
 	if (earliest)
 		{
 		uint64 number = earliest->getBlockNumber();

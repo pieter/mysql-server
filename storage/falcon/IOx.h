@@ -62,6 +62,7 @@ public:
 	void	closeFile();
 	void	readHeader (Hdr *header);
 	void	writePage (Bdb *buffer, int type);
+	void	writePages(int32 pageNumber, int length, const UCHAR* data, int type);
 	void	readPage (Bdb *page);
 	bool	createFile (const char *name, uint64 initialAllocation);
 	bool	openFile (const char *name, bool readOnly);

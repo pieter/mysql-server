@@ -194,11 +194,15 @@ void Synchronize::shutdown()
 
 void Synchronize::freeze(void)
 {
+#ifdef SYNCHRONIZE_FREEZE
 	COMPARE_EXCHANGE(&synchronizeFreeze, synchronizeFreeze, 0);
+#endif
 }
 
 void Synchronize::freezeSystem(void)
 {
+#ifdef SYNCHRONIZE_FREEZE
 	COMPARE_EXCHANGE(&synchronizeFreeze, synchronizeFreeze, true);
 	freeze();
+#endif
 }

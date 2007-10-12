@@ -51,10 +51,11 @@
 	#define BDB_HISTORY(_bdb_)  {}
 #endif
 
-static const int BDB_dirty		= 1;
-static const int BDB_new		= 2;
-static const int BDB_writer		= 4;		// PageWriter wants to hear about this
-static const int BDB_register	= 8;		// Register with PageWrite on next release
+static const int BDB_dirty			= 1;
+static const int BDB_new			= 2;
+static const int BDB_writer			= 4;		// PageWriter wants to hear about this
+static const int BDB_register		= 8;		// Register with PageWrite on next release
+static const int BDB_write_pending	= 16;		// Asynchronous write is pending
 
 class Page;
 class Cache;
@@ -97,11 +98,13 @@ public:
 	Bdb				*hash;		/* hash collision */
 	Bdb				*nextDirty;
 	Bdb				*priorDirty;
-	Bdb				*purifierNext;
+	//Bdb			*purifierNext;
+	Bdb				*ioThreadNext;
 	PagePrecedence	*higher;
 	PagePrecedence	*lower;
 	Thread			*markingThread;
 	SyncObject		syncObject;
+	SyncObject		syncWrite;
 	time_t			lastMark;
 	LockType		lockType;
 	short			flags;

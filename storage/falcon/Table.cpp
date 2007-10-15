@@ -2477,7 +2477,7 @@ void Table::validateBlobs(int optionMask)
 			Log::debug ("Orphan blob %d, table %s.%s, blob section %d\n", next, schemaName, name, blobSectionId);
 			
 			if (optionMask & validateRepair)
-				dbb->updateRecord(blobSection, next, NULL, NO_TRANSACTION, false);
+				dbb->updateRecord(blobSection, next, (Stream*) NULL, (Transaction*) NULL, false);
 			}
 		}
 

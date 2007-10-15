@@ -6628,10 +6628,10 @@
 				RelativePath="..\..\..\netfrastructure\Word\MetaProperties.h">
 			</File>
 			<File
-				RelativePath="Word\MSWord.h">
+				RelativePath="..\..\..\netfrastructure\Word\MSWord.h">
 			</File>
 			<File
-				RelativePath="..\..\..\netfrastructure\Word\MSWord.h">
+				RelativePath="Word\MSWord.h">
 			</File>
 			<File
 				RelativePath="..\..\..\netfrastructure\Word\WordBinTable.cpp">
@@ -9142,6 +9142,42 @@
 		</File>
 		<File
 			RelativePath=".\LogLock.h">
+		</File>
+		<File
+			RelativePath=".\MemControl.cpp">
+		</File>
+		<File
+			RelativePath=".\MemControl.h">
+		</File>
+		<File
+			RelativePath=".\MemFreeBlock.cpp">
+		</File>
+		<File
+			RelativePath=".\MemFreeBlock.h">
+		</File>
+		<File
+			RelativePath=".\RecordScavenge.cpp">
+		</File>
+		<File
+			RelativePath=".\RecordScavenge.h">
+		</File>
+		<File
+			RelativePath=".\SRLBlobDelete.cpp">
+		</File>
+		<File
+			RelativePath=".\SRLBlobDelete.h">
+		</File>
+		<File
+			RelativePath=".\SRLCreateTableSpace.cpp">
+		</File>
+		<File
+			RelativePath=".\SRLCreateTableSpace.h">
+		</File>
+		<File
+			RelativePath=".\SRLDropTableSpace.cpp">
+		</File>
+		<File
+			RelativePath=".\SRLDropTableSpace.h">
 		</File>
 		<File
 			RelativePath=".\TableSpace.cpp">

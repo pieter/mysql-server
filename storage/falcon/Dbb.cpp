@@ -1102,7 +1102,7 @@ void Dbb::reportStatistics()
 	if (!deltaReads && !deltaWrites && !deltaFetches)
 		return;
 
-	Log::log (LogInfo, "Activity on %s: %d fetches, %d reads, %d writes\n",
+	Log::log (LogInfo, "%d: Activity on %s: %d fetches, %d reads, %d writes\n", database->deltaTime,
 				(const char*) fileName, deltaFetches, deltaReads, deltaWrites);
 	
 	priorReads = reads;

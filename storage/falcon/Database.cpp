@@ -429,6 +429,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	numberTemplateEvals = 0;
 	numberTemplateExpands = 0;
 	threads = new Threads (parent);
+	startTime = time (NULL);
 
 	symbolManager = NULL;
 	templateManager = NULL;
@@ -1729,8 +1730,9 @@ void Database::ticker()
 
 	while (!thread->shutdownInProgress)
 		{
-		timestamp = time (NULL);
-		thread->sleep (1000);
+		timestamp = time(NULL);
+		deltaTime = timestamp - startTime;
+		thread->sleep(1000);
 
 #ifdef STORAGE_ENGINE
 		if (falcon_debug_trace)

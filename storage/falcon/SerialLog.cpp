@@ -1341,8 +1341,8 @@ void SerialLog::reportStatistics(void)
 
 	if (count != priorCount || (uint64) delta != priorDelta || priorWrites != writes)
 		{
-		Log::log(LogInfo, "SerialLog: %d reads, %d writes, %d transactions, %d completed, %d stalls, " I64FORMAT " blocks, %d windows\n", 
-				 reads, writes, count, commits, stalls, delta, windows);
+		Log::log(LogInfo, "%d: SerialLog: %d reads, %d writes, %d transactions, %d completed, %d stalls, " I64FORMAT " blocks, %d windows\n", 
+				 database->deltaTime, reads, writes, count, commits, stalls, delta, windows);
 		priorCount = count;
 		priorDelta = delta;
 		priorWrites = writes;

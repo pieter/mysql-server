@@ -338,8 +338,8 @@ void TransactionManager::reportStatistics(void)
 	priorRolledBack = rolledBack;
 	
 	if (active || numberCommitted || numberRolledBack)
-		Log::log (LogInfo, "Transactions: %d committed, %d rolled back, %d active, %d post-commit\n",
-				  numberCommitted, numberRolledBack, active, pendingCleanup);
+		Log::log (LogInfo, "%d: Transactions: %d committed, %d rolled back, %d active, %d post-commit\n",
+				  database->deltaTime, numberCommitted, numberRolledBack, active, pendingCleanup);
 }
 
 void TransactionManager::removeCommittedTransaction(Transaction* transaction)

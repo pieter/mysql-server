@@ -1000,7 +1000,7 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 	time_t delta = database->timestamp - start;
 	
 	if (delta > 1)
-		Log::debug("%d: %s %s sync: %d page in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
+		Log::log(LogInfo, "%d: %s %s sync: %d page in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
 }
 
 void Cache::ioThread(void* arg)
@@ -1100,7 +1100,7 @@ void Cache::ioThread(void)
 				int delta = database->timestamp - flushStart;
 				
 				if (delta > 1)
-					Log::debug("%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
+					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
 								database->deltaTime, flushPages, physicalWrites, delta, flushPages / delta);
 
 				database->pageCacheFlushed(flushArg);

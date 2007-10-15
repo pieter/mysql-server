@@ -618,7 +618,7 @@ void SerialLog::createNewWindow(void)
 			}
 
 	if (fileOffset == 0)
-		Log::log("Switching log files (%d used)\n", file->highWater);
+		Log::log(LogInfo, "%d: Switching log files (%d used)\n", database->deltaTime, file->highWater);
 
 	writeWindow->deactivateWindow();
 	writeWindow = allocWindow(file, fileOffset);

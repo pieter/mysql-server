@@ -142,7 +142,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
   {
     free_underlaid_joins(thd, select_lex);
     thd->row_count_func= 0;
-    send_ok(thd);				// No matching records
+    send_ok(thd, (ha_rows) thd->row_count_func);  // No matching records
     DBUG_RETURN(0);
   }
 #endif
@@ -159,7 +159,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
     delete select;
     free_underlaid_joins(thd, select_lex);
     thd->row_count_func= 0;
-    send_ok(thd,0L);
+    send_ok(thd, (ha_rows) thd->row_count_func);
     /*
       We don't need to call reset_auto_increment in this case, because
       mysql_truncate always gives a NULL conds argument, hence we never
@@ -386,7 +386,7 @@ cleanup:
   if (error < 0 || (thd->lex->ignore && !thd->is_fatal_error))
   {
     thd->row_count_func= deleted;
-    send_ok(thd,deleted);
+    send_ok(thd, (ha_rows) thd->row_count_func);
     DBUG_PRINT("info",("%ld records deleted",(long) deleted));
   }
   DBUG_RETURN(error >= 0 || thd->net.report_error);
@@ -889,7 +889,7 @@ bool multi_delete::send_eof()
   if (!local_error)
   {
     thd->row_count_func= deleted;
-    ::send_ok(thd, deleted);
+    ::send_ok(thd, (ha_rows) thd->row_count_func);
   }
   return 0;
 }
@@ -926,6 +926,8 @@ bool mysql_truncate(THD *thd, TABLE_LIST *table_list, bool dont_send_ok)
   {
     handlerton *table_type= table->s->db_type();
     TABLE_SHARE *share= table->s;
+    bool frm_only= (share->tmp_table == TMP_TABLE_FRM_FILE_ONLY);
+
     if (!ha_check_storage_engine_flag(table_type, HTON_CAN_RECREATE))
       goto trunc_by_del;
 
@@ -939,7 +941,7 @@ bool mysql_truncate(THD *thd, TABLE_LIST *table_list, bool dont_send_ok)
                                              share->db.str,
 					     share->table_name.str, 1,
                                              OTM_OPEN))))
-      (void) rm_temporary_table(table_type, path);
+      (void) rm_temporary_table(table_type, path, frm_only);
     free_table_share(share);
     my_free((char*) table,MYF(0));
     /*

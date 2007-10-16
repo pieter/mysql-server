@@ -26,77 +26,111 @@
 
 #define COMMENT_STRING "Your bases"
 #define FRM_STRING "My bases"
-#define TEST_FILENAME "test.az"
+#define TEST_FILENAME "performance_test.az"
 #define TEST_STRING_INIT "YOU don't know about me without you have read a book by the name of The Adventures of Tom Sawyer; but that ain't no matter.  That book was made by Mr. Mark Twain, and he told the truth, mainly.  There was things which he stretched, but mainly he told the truth.  That is nothing.  I never seen anybody but lied one time or another, without it was Aunt Polly, or the widow, or maybe Mary.  Aunt Polly--Tom's Aunt Polly, she is--and Mary, and the Widow Douglas is all told about in that book, which is mostly a true book, with some stretchers, as I said before.  Now the way that the book winds up is this:  Tom and me found the money that the robbers hid in the cave, and it made us rich.  We got six thousand dollars apiece--all gold.  It was an awful sight of money when it was piled up.  Well, Judge Thatcher he took it and put it out at interest, and it fetched us a dollar a day apiece all the year round --more than a body could tell what to do with.  The Widow Douglas she took me for her son, and allowed she would..."
 #define TEST_LOOP_NUM 100
 
 
 #define ARCHIVE_ROW_HEADER_SIZE 4
 
-#define BUFFER_LEN 1024 + ARCHIVE_ROW_HEADER_SIZE
+#define BUFFER_LEN 1024
 
 char test_string[BUFFER_LEN];
 
-#define ONEGIG LL(1073741824)
+#define ROWS_TO_TEST LL(2000000)
 
 /* prototypes */
 long int timedif(struct timeval a, struct timeval b);
 int generate_data(unsigned long long length);
-int read_test(unsigned long long rows_to_test_for, int aio);
-
+int read_test(azio_stream *reader_handle, unsigned long long rows_to_test_for);
 
 int main(int argc, char *argv[])
 {
+  unsigned int x;
+  struct timeval start_time, end_time;
+  long int timing;
 
+  my_init();
   MY_INIT(argv[0]);
 
   if (argc != 1)
     return 1;
 
   printf("Performing write() test\n");
-  generate_data(ONEGIG);
-  printf("Performing read() test\n");
-  read_test(1044496L, 0);
-  printf("Performing aio_read() test\n");
-  read_test(1044496L, 1);
+  generate_data(ROWS_TO_TEST);
 
-  unlink(TEST_FILENAME);
+  for (x= 0; x < 2; x++)
+  {
+    unsigned int ret;
+    azio_stream reader_handle;
+
+    if (x)
+      printf("Performing aio_read() test\n");
+    else
+      printf("Performing read() test\n");
+
+    if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY)))
+    {
+      printf("Could not open test file\n");
+      return 0;
+    }
+
+    if (x)
+      azio_enable_aio(&reader_handle);
+
+    gettimeofday(&start_time, NULL);
+    read_test(&reader_handle, 1044496L);
+    gettimeofday(&end_time, NULL);
+    timing= timedif(end_time, start_time);
+    printf("Time took to read was %ld.%03ld seconds\n", timing / 1000, timing % 1000);
+
+    azclose(&reader_handle);
+  }
+
+  my_end(0);
 
   return 0;
 }
 
-int generate_data(unsigned long long length)
+int generate_data(unsigned long long rows_to_test)
 {
   azio_stream writer_handle;
-  unsigned long long write_length;
+  unsigned long long x;
   unsigned int ret;
   struct timeval start_time, end_time;
   long int timing;
-  unsigned long long count;
+  struct stat buf;
+
+  if ((stat(TEST_FILENAME, &buf)) == 0)
+  {
+    printf("Writer file already available\n");
+    return 0;
+  }
 
   if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY)))
   {
     printf("Could not create test file\n");
-    return 0;
+    exit(1);
   }
 
   gettimeofday(&start_time, NULL);
-  for (count= 0, write_length= 0; write_length < length ; 
-       write_length+= ret)
+  for (x= 0; x < rows_to_test; x++)
   {
-    count++;
-    ret= azwrite(&writer_handle, test_string, BUFFER_LEN);
+    ret= azwrite_row(&writer_handle, test_string, BUFFER_LEN);
     if (ret != BUFFER_LEN)
     {
       printf("Size %u\n", ret);
       assert(ret != BUFFER_LEN);
     }
-    if ((write_length % 14031) == 0)
+    if ((x % 14031) == 0)
     {
       azflush(&writer_handle,  Z_SYNC_FLUSH);
     }
   }
-  assert(write_length != count * BUFFER_LEN); /* Number of rows time BUFFER_LEN */
+  /* 
+    We put the flush in just to be honest with write speed, normally azclose 
+    would be fine.
+  */
   azflush(&writer_handle,  Z_SYNC_FLUSH);
   gettimeofday(&end_time, NULL);
   timing= timedif(end_time, start_time);
@@ -108,29 +142,23 @@ int generate_data(unsigned long long length)
   return 0;
 }
 
-int read_test(unsigned long long rows_to_test_for, int aio)
+int read_test(azio_stream *reader_handle, unsigned long long rows_to_test_for)
 {
-  azio_stream reader_handle;
   unsigned long long read_length= 0;
   unsigned long long count= 0;
   unsigned int ret;
-  char buffer[BUFFER_LEN];
   int error;
-  struct timeval start_time, end_time;
-  long int timing;
 
-  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY)))
+  while ((ret= azread_row(reader_handle, &error)))
   {
-    printf("Could not open test file\n");
-    return 0;
-  }
-  reader_handle.aio= aio;
+    if (error)
+    {
+      fprintf(stderr, "Got an error while reading at row %llu\n", count);
+      exit(1);
+    }
 
-  gettimeofday(&start_time, NULL);
-  while ((ret= azread(&reader_handle, buffer, BUFFER_LEN, &error)))
-  {
     read_length+= ret;
-    assert(!memcmp(buffer, test_string, ret));
+    assert(!memcmp(reader_handle->row_ptr, test_string, ret));
     if (ret != BUFFER_LEN)
     {
       printf("Size %u\n", ret);
@@ -139,11 +167,6 @@ int read_test(unsigned long long rows_to_test_for, int aio)
     count++;
   }
   assert(rows_to_test_for == rows_to_test_for);
-  gettimeofday(&end_time, NULL);
-  timing= timedif(end_time, start_time);
-  printf("Time took to read was %ld.%03ld seconds\n", timing / 1000, timing % 1000);
-
-  azclose(&reader_handle);
 
   return 0;
 }

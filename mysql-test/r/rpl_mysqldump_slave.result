@@ -7,5 +7,4 @@ start slave;
 #
 # New --dump-slave, --apply-slave-statements functionality
 #
-grant all privileges on *.* to root@locahost;
 use test;

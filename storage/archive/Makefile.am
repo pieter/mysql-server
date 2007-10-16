@@ -15,6 +15,12 @@
 
 #called from the top level Makefile
 
+if THREAD_SAFE_CLIENT
+LIBMYSQLCLIENT_LA =		$(top_builddir)/libmysql_r/libmysqlclient_r.la
+else
+LIBMYSQLCLIENT_LA =		$(top_builddir)/libmysql/libmysqlclient.la
+endif
+
 MYSQLDATAdir =          $(localstatedir)
 MYSQLSHAREdir =         $(pkgdatadir)
 MYSQLBASEdir=           $(prefix)
@@ -31,7 +37,7 @@ AM_CFLAGS = -DHAVE_MYSQL_CONFIG_H
 DEFS =                  @DEFS@
 
 noinst_HEADERS =	ha_archive.h azio.h
-noinst_PROGRAMS	=	archive_test archive_reader archive_performance
+noinst_PROGRAMS	=	archive_test archive_reader archive_performance concurrency_test
 
 EXTRA_LTLIBRARIES =	ha_archive.la
 pkglib_LTLIBRARIES =	@plugin_archive_shared_target@
@@ -74,6 +80,20 @@ archive_reader_LDADD =	$(top_builddir)/mysys/libmysys.a \
 			@ZLIB_LIBS@
 archive_reader_LDFLAGS = @NOINST_LDFLAGS@
 
+concurrency_test_SOURCES = concurrency_test.c azio.c
+concurrency_test_CFLAGS =	$(AM_CFLAGS) 
+concurrency_test_LDADD =	$(top_builddir)/mysys/libmysys.a \
+			$(top_builddir)/dbug/libdbug.a \
+			$(top_builddir)/strings/libmystrings.a \
+			$(LIBMYSQLCLIENT_LA) \
+			$(LDADD) \
+			@ZLIB_LIBS@
+concurrency_test_LDFLAGS = @NOINST_LDFLAGS@
+
+valgrind-test: archive_test archive_performance
+	libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes  ./concurrency_test
+	libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes  ./archive_test
+	libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes  ./archive_performance
 
 EXTRA_DIST =		CMakeLists.txt plug.in
 # Don't update the files from bitkeeper

@@ -1668,7 +1668,7 @@ void Database::retireRecords(bool forced)
 		Sync syncTbl (&syncTables, "Database::retireRecords");
 		syncTbl.lock (Shared);
 		Table *table;
-		time_t start = deltaTime;
+		time_t scavengeStart = deltaTime;
 		
 		for (table = tableList; table; table = table->next)
 			table->inventoryRecords(&recordScavenge);
@@ -1699,7 +1699,7 @@ void Database::retireRecords(bool forced)
 
 		syncTbl.unlock();
 		Log::log(LogScavenge, "%d: Scavenged %d records, " I64FORMAT " bytes in %d seconds\n", 
-					deltaTime, recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed, deltaTime - startTime);
+					deltaTime, recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed, deltaTime - scavengeStart);
 			
 		total = recordScavenge.spaceRemaining;
 		}

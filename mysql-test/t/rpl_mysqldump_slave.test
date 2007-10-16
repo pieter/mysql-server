@@ -4,7 +4,6 @@ source include/master-slave.inc;
 --echo # New --dump-slave, --apply-slave-statements functionality
 --echo #
 connection master;
-grant all privileges on *.* to root@locahost;
 use test;
 
 connection slave;

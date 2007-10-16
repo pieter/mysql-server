@@ -584,10 +584,9 @@ void IO::traceOperation(int operation)
 
 void IO::reportWrites(void)
 {
-	Log::debug("%s flush : %d, pure: %d, prec %d, reuse %d, pgwrt %d\n",
+	Log::debug("%s flush : %d, prec %d, reuse %d, pgwrt %d\n",
 		(const char*) fileName,
 		writeTypes[WRITE_TYPE_FLUSH],
-		writeTypes[WRITE_TYPE_PURIFIER],
 		writeTypes[WRITE_TYPE_PRECEDENCE],
 		writeTypes[WRITE_TYPE_REUSE],
 		writeTypes[WRITE_TYPE_PAGE_WRITER]);

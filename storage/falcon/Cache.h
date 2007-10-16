@@ -59,12 +59,10 @@ public:
 	void	moveToHead (Bdb *bdb);
 	void	flush(int64 arg);
 	void	validateCache(void);
-	//void	purifier(void);
 	void	syncFile(Dbb *dbb, const char *text);
 	void	ioThread(void);
 
 	static void ioThread(void* arg);
-	//static void purifier(void* arg);
 		
 	Bdb*	fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
 	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);

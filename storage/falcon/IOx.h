@@ -32,13 +32,12 @@
 #endif
 
 static const int WRITE_TYPE_FLUSH		= 0;
-static const int WRITE_TYPE_PURIFIER	= 1;
-static const int WRITE_TYPE_PRECEDENCE	= 2;
-static const int WRITE_TYPE_REUSE		= 3;
-static const int WRITE_TYPE_SHUTDOWN	= 4;
-static const int WRITE_TYPE_PAGE_WRITER	= 5;
-static const int WRITE_TYPE_CLONE		= 6;
-static const int WRITE_TYPE_MAX			= 7;
+static const int WRITE_TYPE_PRECEDENCE	= 1;
+static const int WRITE_TYPE_REUSE		= 2;
+static const int WRITE_TYPE_SHUTDOWN	= 3;
+static const int WRITE_TYPE_PAGE_WRITER	= 4;
+static const int WRITE_TYPE_CLONE		= 5;
+static const int WRITE_TYPE_MAX			= 6;
 
 class Bdb;
 class Hdr;

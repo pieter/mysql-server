@@ -39,18 +39,9 @@
 #include "Database.h"
 #include "Bitmap.h"
 
-extern uint falcon_purifier_interval;
-extern uint falcon_sync_threshold;
-extern uint falcon_purifier_stale_threshold;
 extern uint falcon_io_threads;
 
-#define PURIFIER_INTERWRITE_WAIT		0									// in milliseconds
-#define PURIFIER_STALE_THRESHOLD		falcon_purifier_stale_threshold		// in seconds
-#define PURIFIER_FSYNC_THRESHOLD		falcon_sync_threshold
-#define PURIFIER_INTERVAL				falcon_purifier_interval
-
 #define FLUSH_INTERWRITE_WAIT			0									// in milliseconds
-#define FLUSH_FSYNC_THRESHOLD			falcon_sync_threshold
 
 //#define STOP_PAGE		64
 
@@ -136,10 +127,6 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 
 	for (int n = 0; n < numberIoThreads; ++n)
 		ioThreads[n] = database->threads->start("Cache::Cache", &Cache::ioThread, this);
-	/***
-	if (PURIFIER_INTERVAL)
-		purifierThread = database->threads->start("Cache::Cache", &Cache::purifier, this);
-	***/
 }
 
 Cache::~Cache()
@@ -934,62 +921,6 @@ Bdb* Cache::trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType)
 
 	return bdb;
 }
-
-/***
-void Cache::purifier(void* arg)
-{
-	((Cache*) arg)->purifier();
-}
-
-void Cache::purifier(void)
-{
-	Thread *thread = Thread::getThread("Database::ticker");
-	Sync sync(&syncDirty, "Cache::purify");
-	
-	while (!thread->shutdownInProgress)
-		{
-		thread->sleep(PURIFIER_INTERVAL);
-		sync.lock(Shared);
-		Bdb *bdb;
-		time_t threshold = database->timestamp - PURIFIER_STALE_THRESHOLD;
-		Bdb *prospects = NULL;
-		
-		for (bdb = firstDirty; bdb; bdb = bdb->nextDirty)
-			if (bdb->lastMark <= threshold)
-				{
-				bdb->purifierNext = prospects;
-				prospects = bdb;
-				}
-		
-		sync.unlock();
-		
-		while (!thread->shutdownInProgress && prospects)
-			{
-			bdb = prospects;
-			prospects = bdb->purifierNext;
-			
-			if (!(bdb->flags & BDB_dirty) || bdb->lastMark > threshold)
-				continue;
-		
-			bdb->addRef (Shared  COMMA_ADD_HISTORY);
-
-			if ((bdb->flags & BDB_dirty) &&  bdb->lastMark < threshold)
-				writePage(bdb, WRITE_TYPE_PURIFIER);
-			
-			Dbb *dbb = bdb->dbb;
-			bdb->release(REL_HISTORY);
-			
-			if (PURIFIER_FSYNC_THRESHOLD && dbb->writesSinceSync > PURIFIER_FSYNC_THRESHOLD)
-				syncFile(dbb, "purifier");
-
-			if (PURIFIER_INTERWRITE_WAIT)
-				thread->sleep(PURIFIER_INTERWRITE_WAIT);
-			}
-		
-		database->sync(PURIFIER_FSYNC_THRESHOLD);
-		}
-}
-***/
 
 void Cache::syncFile(Dbb *dbb, const char *text)
 {

@@ -98,7 +98,6 @@ public:
 	Bdb				*hash;		/* hash collision */
 	Bdb				*nextDirty;
 	Bdb				*priorDirty;
-	//Bdb			*purifierNext;
 	Bdb				*ioThreadNext;
 	PagePrecedence	*higher;
 	PagePrecedence	*lower;

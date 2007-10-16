@@ -4326,6 +4326,47 @@ bool Item::is_datetime()
 }
 
 
+String *Item::check_well_formed_result(String *str, bool send_error)
+{
+  /* Check whether we got a well-formed string */
+  CHARSET_INFO *cs= str->charset();
+  int well_formed_error;
+  uint wlen= cs->cset->well_formed_len(cs,
+                                       str->ptr(), str->ptr() + str->length(),
+                                       str->length(), &well_formed_error);
+  if (wlen < str->length())
+  {
+    THD *thd= current_thd;
+    char hexbuf[7];
+    enum MYSQL_ERROR::enum_warning_level level;
+    uint diff= str->length() - wlen;
+    set_if_smaller(diff, 3);
+    octet2hex(hexbuf, str->ptr() + wlen, diff);
+    if (send_error)
+    {
+      my_error(ER_INVALID_CHARACTER_STRING, MYF(0),
+               cs->csname,  hexbuf);
+      return 0;
+    }
+    if ((thd->variables.sql_mode &
+         (MODE_STRICT_TRANS_TABLES | MODE_STRICT_ALL_TABLES)))
+    {
+      level= MYSQL_ERROR::WARN_LEVEL_ERROR;
+      null_value= 1;
+      str= 0;
+    }
+    else
+    {
+      level= MYSQL_ERROR::WARN_LEVEL_WARN;
+      str->length(wlen);
+    }
+    push_warning_printf(thd, level, ER_INVALID_CHARACTER_STRING,
+                        ER(ER_INVALID_CHARACTER_STRING), cs->csname, hexbuf);
+  }
+  return str;
+}
+
+
 /*
   Create a field to hold a string value from an item
 
@@ -4470,11 +4511,8 @@ Field *Item::tmp_table_field_from_field_type(TABLE *table, bool fixed_length)
       field= new Field_blob(max_length, maybe_null, name, collation.collation);
     break;					// Blob handled outside of case
   case MYSQL_TYPE_GEOMETRY:
-    field= new Field_geom(max_length, maybe_null, name, table->s,
-                          (Field::geometry_type)
-                          ((type() == Item::TYPE_HOLDER) ?
-                           ((Item_type_holder *)this)->get_geometry_type() :
-                           ((Item_geometry_func *)this)->get_geometry_type()));
+    field= new Field_geom(max_length, maybe_null,
+                          name, table->s, get_geometry_type());
   }
   if (field)
     field->init(table);
@@ -6616,9 +6654,7 @@ Item_type_holder::Item_type_holder(THD *thd, Item *item)
     decimals= 0;
   prev_decimal_int_part= item->decimal_int_part();
   if (item->field_type() == MYSQL_TYPE_GEOMETRY)
-    geometry_type= (item->type() == Item::FIELD_ITEM) ?
-      ((Item_field *)item)->get_geometry_type() :
-      (Field::geometry_type)((Item_geometry_func *)item)->get_geometry_type();
+    geometry_type= item->get_geometry_type();
 }
 
 

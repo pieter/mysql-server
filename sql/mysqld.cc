@@ -4356,9 +4356,6 @@ static void create_new_thread(THD *thd)
   NET *net=&thd->net;
   DBUG_ENTER("create_new_thread");
 
-  if (protocol_version > 9)
-    net->return_errno=1;
-
   /* don't allow too many connections */
   if (thread_count - delayed_insert_threads >= max_connections+1 || abort_loop)
   {

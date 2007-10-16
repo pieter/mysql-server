@@ -233,7 +233,7 @@ typedef struct st_net {
   unsigned int last_errno;
   unsigned char error;
   my_bool report_error; /* We should report error (we have unreported error) */
-  my_bool return_errno;
+  my_bool unused1; /* Please remove with the next incompatible ABI change */
   char last_error[MYSQL_ERRMSG_SIZE], sqlstate[SQLSTATE_LENGTH+1];
   void *extension;
 } NET;

@@ -236,9 +236,8 @@ net_printf_error(THD *thd, uint errcode, ...)
     format=va_arg(args,char*);
     errcode= ER_UNKNOWN_ERROR;
   }
-  offset= (net->return_errno ?
-	   ((thd->client_capabilities & CLIENT_PROTOCOL_41) ?
-	    2+SQLSTATE_LENGTH+1 : 2) : 0);
+  offset= (thd->client_capabilities & CLIENT_PROTOCOL_41 ?
+           2 + SQLSTATE_LENGTH + 1 : 2);
 #ifndef EMBEDDED_LIBRARY
   text_pos=(char*) net->buff + head_length + offset + 1;
   length= (uint) ((char*)net->buff_end - text_pos);
@@ -480,25 +479,18 @@ void net_send_error_packet(THD *thd, uint sql_errno, const char *err)
     DBUG_VOID_RETURN;
   }
 
-  if (net->return_errno)
-  {				// new client code; Add errno before message
-    int2store(buff,sql_errno);
-    pos= buff+2;
-    if (thd->client_capabilities & CLIENT_PROTOCOL_41)
-    {
-      /* The first # is to make the protocol backward compatible */
-      buff[2]= '#';
-      pos= (uchar*) strmov((char*) buff+3, mysql_errno_to_sqlstate(sql_errno));
-    }
-    length= (uint) (strmake((char*) pos, err, MYSQL_ERRMSG_SIZE-1) -
-                    (char*) buff);
-    err= (char*) buff;
-  }
-  else
+  int2store(buff,sql_errno);
+  pos= buff+2;
+  if (thd->client_capabilities & CLIENT_PROTOCOL_41)
   {
-    length=(uint) strlen(err);
-    set_if_smaller(length,MYSQL_ERRMSG_SIZE-1);
+    /* The first # is to make the protocol backward compatible */
+    buff[2]= '#';
+    pos= (uchar*) strmov((char*) buff+3, mysql_errno_to_sqlstate(sql_errno));
   }
+  length= (uint) (strmake((char*) pos, err, MYSQL_ERRMSG_SIZE-1) -
+                  (char*) buff);
+  err= (char*) buff;
+
   VOID(net_write_command(net,(uchar) 255, (uchar*) "", 0, (uchar*) err,
                          length));
   DBUG_VOID_RETURN;

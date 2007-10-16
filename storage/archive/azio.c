@@ -243,7 +243,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
     s->dirty= 1; /* We create the file dirty */
     s->start = AZHEADER_SIZE + AZMETA_BUFFER_SIZE;
     write_header(s);
-    s->pos= my_seek(s->file, 0, MY_SEEK_END, MYF(0));
+    s->pos= (size_t)my_seek(s->file, 0, MY_SEEK_END, MYF(0));
   }
   else if (s->mode == 'w') 
   {
@@ -251,7 +251,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
     my_pread(s->file, buffer, AZHEADER_SIZE + AZMETA_BUFFER_SIZE, 0,
              MYF(0));
     read_header(s, buffer);
-    s->pos= my_seek(s->file, 0, MY_SEEK_END, MYF(0));
+    s->pos= (size_t)my_seek(s->file, 0, MY_SEEK_END, MYF(0));
   }
   else
   {
@@ -397,7 +397,7 @@ void read_header(azio_stream *s, unsigned char *buffer)
     s->version= (unsigned int)buffer[AZ_VERSION_POS];
     s->minor_version= (unsigned int)buffer[AZ_MINOR_VERSION_POS];
     s->block_size= 1024 * buffer[AZ_BLOCK_POS];
-    s->start= (unsigned long long)uint8korr(buffer + AZ_START_POS);
+    s->start= (size_t)uint8korr(buffer + AZ_START_POS);
     s->rows= (unsigned long long)uint8korr(buffer + AZ_ROW_POS);
     s->check_point= (unsigned long long)uint8korr(buffer + AZ_CHECK_POS);
     s->forced_flushes= (unsigned long long)uint8korr(buffer + AZ_FLUSH_POS);
@@ -693,7 +693,7 @@ int do_flush (azio_stream *s, int flush)
   else
     s->dirty= AZ_STATE_SAVED; /* Mark it clean, we should be good now */
 
-  afterwrite_pos= my_tell(s->file, MYF(0));
+  afterwrite_pos= (size_t)my_tell(s->file, MYF(0));
   write_header(s);
 
   return  s->z_err == Z_STREAM_END ? Z_OK : s->z_err;
@@ -947,7 +947,7 @@ int azwrite_frm(azio_stream *s, char *blob, unsigned int length)
   my_pwrite(s->file, (uchar*) blob, s->frm_length, s->frm_start_pos, MYF(0));
 
   write_header(s);
-  s->pos= my_seek(s->file, 0, MY_SEEK_END, MYF(0));
+  s->pos= (size_t)my_seek(s->file, 0, MY_SEEK_END, MYF(0));
 
   return 0;
 }
@@ -979,7 +979,7 @@ int azwrite_comment(azio_stream *s, char *blob, unsigned int length)
             MYF(0));
 
   write_header(s);
-  s->pos= my_seek(s->file, 0, MY_SEEK_END, MYF(0));
+  s->pos= (size_t)my_seek(s->file, 0, MY_SEEK_END, MYF(0));
 
   return 0;
 }

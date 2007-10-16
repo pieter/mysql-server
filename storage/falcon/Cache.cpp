@@ -277,7 +277,7 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 
 	// If buffer has moved out of the upper "fraction" of the LRU queue, move it back up
 	
-	if (bdb->age > bufferAge + upperFraction)
+	if (bdb->age < bufferAge - upperFraction)
 		{
 		sync.lock (Exclusive, "Cache::fetchPage 3");
 		moveToHead (bdb);

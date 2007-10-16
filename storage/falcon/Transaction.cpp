@@ -136,6 +136,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 		freeSavePoints = localSavePoints + n;
 		}
 	
+	startTime = database->deltaTime;
 	blockingRecord = NULL;
 	thread = Thread::getThread("Transaction::init");
 	syncActive.lock(NULL, Exclusive);

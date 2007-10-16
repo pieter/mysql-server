@@ -56,6 +56,8 @@
 //#define STOP_RECORD	123
 static const int SECTION_HASH_SIZE	= 997;
 
+extern uint falcon_large_blob_threshold;
+
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;
@@ -310,17 +312,17 @@ void Dbb::logRecord(int32 sectionId, int32 recordId, Stream *stream, Transaction
 
 void Dbb::updateBlob(Section *blobSection, int recordNumber, Stream* stream, Transaction* transaction)
 {
-	//updateBlob(blobSectionId, recordNumber, stream, TRANSACTION_ID(transaction));
-	updateRecord(blobSection, recordNumber, stream, transaction, true);
-	transaction->pendingPageWrites = true;
+	if (!serialLog->recovering && stream && stream->totalLength < (int) falcon_large_blob_threshold)
+		{
+		serialLog->logControl->updateBlob.append(this, blobSection->sectionId, transaction->transactionId, recordNumber, stream);
+		updateRecord(blobSection, recordNumber, stream, transaction, false);
+		}
+	else
+		{
+		updateRecord(blobSection, recordNumber, stream, transaction, true);
+		transaction->pendingPageWrites = true;
+		}
 }
-
-/***
-void Dbb::updateBlob(int32 sectionId, int32 recordId, Stream *stream, TransId transId)
-{
-	updateRecord(sectionId, recordId, stream, transId, true);
-}
-***/
 
 void Dbb::updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite)
 {

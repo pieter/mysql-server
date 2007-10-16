@@ -68,7 +68,8 @@ static const int srlOverflowPages	= 31;
 static const int srlCreateTableSpace= 32;
 static const int srlDropTableSpace	= 33;
 static const int srlBlobDelete		= 34;
-static const int srlMax				= 35;
+static const int srlUpdateBlob		= 35;
+static const int srlMax				= 36;
 
 
 class SerialLog;

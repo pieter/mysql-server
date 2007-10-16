@@ -250,6 +250,7 @@ ADD_LIBRARY(ha_falcon
 		SRLSequencePage.cpp 
 		SRLSwitchLog.cpp 
 		SRLUpdateIndex.cpp
+		SRLUpdateBlob.cpp
 		SRLUpdateRecords.cpp
 		SRLVersion.cpp 
 		SRLWordUpdate.cpp 
@@ -520,6 +521,7 @@ ADD_LIBRARY(ha_falcon
 		SRLSequencePage.h 
 		SRLSwitchLog.h 
 		SRLUpdateIndex.h
+		SRLUpdateBlob.h
 		SRLUpdateRecords.h
 		SRLVersion.h
 		SRLWordUpdate.h 

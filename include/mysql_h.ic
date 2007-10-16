@@ -545,7 +545,7 @@ struct __attribute__((aligned(__alignof__(void *)), aligned(__alignof__(unsigned
     unsigned int last_errno;
     unsigned char error;
     my_bool report_error;
-    my_bool return_errno;
+    my_bool unused1;
     char last_error[512];
     char sqlstate[(5 + 1)];
     void * extension;

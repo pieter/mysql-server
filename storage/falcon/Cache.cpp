@@ -1054,6 +1054,7 @@ void Cache::ioThread(void)
 						p += pageSize;
 						bdb->release(REL_HISTORY);
 						markClean(bdb);
+						bdb->flags &= ~(BDB_dirty | BDB_new);
 						bdb = findBdb(dbb, bdb->pageNumber + 1);
 						
 						if (!bdb || !bdb->flushIt || !(bdb->flags & BDB_dirty))

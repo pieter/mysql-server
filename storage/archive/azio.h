@@ -33,9 +33,21 @@
   (zlib format), rfc1951.txt (deflate format) and rfc1952.txt (gzip format).
 */
 
-#include <zlib.h>
+#ifdef HAVE_MYSQL_CONFIG_H
+#include "../../include/config.h"
+#endif
 
-#include "../../mysys/mysys_priv.h"
+#ifdef HAVE_LIBRT
+#ifndef TARGET_OS_SOLARIS
+#define AZIO_AIO
+#include <aio.h>
+#endif  /* TARGET_OS_SOLARIS */
+#endif /* HAVE_LIBRT */
+
+#include <zlib.h>
+#include "my_global.h"
+#include "my_sys.h"
+
 #include <my_dir.h>
 
 #ifdef  __cplusplus
@@ -199,21 +211,23 @@ extern "C" {
 #define AZ_BUFSIZE_READ 32768
 #define AZ_BUFSIZE_WRITE 16384
 
-
 typedef struct azio_stream {
   z_stream stream;
   int      z_err;   /* error code for last stream operation */
   int      z_eof;   /* set if end of input file */
   File     file;   /* .gz file */
-  Byte     inbuf[AZ_BUFSIZE_READ];  /* input buffer */
+  Byte     *inbuf;  /* input buffer */
+  Byte     buffer1[AZ_BUFSIZE_READ];  /* input buffer */
+  Byte     buffer2[AZ_BUFSIZE_READ];  /* input buffer */
   Byte     outbuf[AZ_BUFSIZE_WRITE]; /* output buffer */
+  int      not_init; /* Are we good to go */
   uLong    crc;     /* crc32 of uncompressed data */
   char     *msg;    /* error message */
-  int      transparent; /* 1 if input file is not a .gz file */
   char     mode;    /* 'w' or 'r' */
   my_off_t  start;   /* start of compressed data in file (header skipped) */
   my_off_t  in;      /* bytes into deflate or inflate */
   my_off_t  out;     /* bytes out of deflate or inflate */
+  my_off_t  pos;     /* bytes out of deflate or inflate */
   int      back;    /* one character push-back */
   int      last;    /* true if push-back is last character */
   unsigned char version;   /* Version */
@@ -230,6 +244,10 @@ typedef struct azio_stream {
   unsigned int frm_length;   /* Position for start of FRM */
   unsigned int comment_start_pos;   /* Position for start of comment */
   unsigned int comment_length;   /* Position for start of comment */
+#ifdef AZIO_AIO
+  struct aiocb container;
+#endif
+  int aio;
 } azio_stream;
 
                         /* basic functions */

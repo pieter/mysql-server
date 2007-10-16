@@ -18,7 +18,7 @@
 #endif
 
 #include <zlib.h>
-#include "azlib.h"
+#include "azio.h"
 
 /*
   Please read ha_archive.cc first. If you are looking for more general
@@ -45,6 +45,8 @@ typedef struct st_archive_share {
   ha_rows rows_recorded;    /* Number of rows in tables */
   ulonglong mean_rec_length;
   char real_path[FN_REFLEN];
+  unsigned int  version;
+  ha_rows version_rows;
 } ARCHIVE_SHARE;
 
 /*

@@ -4353,7 +4353,6 @@ void create_thread_to_handle_connection(THD *thd)
 
 static void create_new_thread(THD *thd)
 {
-  NET *net=&thd->net;
   DBUG_ENTER("create_new_thread");
 
   /* don't allow too many connections */

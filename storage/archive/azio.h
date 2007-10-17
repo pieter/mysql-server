@@ -33,15 +33,32 @@
   (zlib format), rfc1951.txt (deflate format) and rfc1952.txt (gzip format).
 */
 
-#include <zlib.h>
+#ifdef HAVE_MYSQL_CONFIG_H
+#include "../../include/config.h"
+#endif
 
-#include "../../mysys/mysys_priv.h"
+#ifndef __AZIO_H__
+#define __AZIO_H__
+
+/* We currently allow this on all platforms */
+#define AZIO_AIO
+
+#include <zlib.h>
+#include "my_global.h"
+#include "my_sys.h"
+
 #include <my_dir.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 /* Start of MySQL Specific Information */
+
+/* Some personal debugging functions */
+#define WATCHPOINT fprintf(stderr, "\nWATCHPOINT %s:%d (%s)\n", __FILE__, __LINE__,__func__);fflush(stderr);
+#define WATCHPOINT_STRING(A) fprintf(stderr, "\nWATCHPOINT %s:%d (%s) %s\n", __FILE__, __LINE__,__func__,A);fflush(stderr);
+#define WATCHPOINT_NUMBER(A) fprintf(stderr, "\nWATCHPOINT %s:%d (%s) %d\n", __FILE__, __LINE__,__func__,A);fflush(stderr);
+#define WATCHPOINT_ERRNO(A) fprintf(stderr, "\nWATCHPOINT %s:%d (%s) %s\n", __FILE__, __LINE__,__func__, strerror(A));A= 0;fflush(stderr);
 
 /*
   ulonglong + ulonglong + ulonglong + ulonglong + uchar
@@ -199,21 +216,43 @@ extern "C" {
 #define AZ_BUFSIZE_READ 32768
 #define AZ_BUFSIZE_WRITE 16384
 
+typedef enum {
+  AZ_THREAD_FINISHED,
+  AZ_THREAD_ACTIVE,
+  AZ_THREAD_DEAD
+} az_thread_type;
+
+typedef struct azio_container_st azio_container_st;
+
+struct azio_container_st {
+  int fd;
+  az_thread_type ready;
+  size_t offset;
+  size_t read_size;
+  void *buffer;
+  pthread_mutex_t thresh_mutex;
+  pthread_cond_t threshhold;
+  pthread_t mainthread;            /* Thread descriptor */
+};
+
 
 typedef struct azio_stream {
   z_stream stream;
   int      z_err;   /* error code for last stream operation */
   int      z_eof;   /* set if end of input file */
   File     file;   /* .gz file */
-  Byte     inbuf[AZ_BUFSIZE_READ];  /* input buffer */
+  Byte     *inbuf;  /* input buffer */
+  Byte     buffer1[AZ_BUFSIZE_READ];  /* input buffer */
+  Byte     buffer2[AZ_BUFSIZE_READ];  /* input buffer */
   Byte     outbuf[AZ_BUFSIZE_WRITE]; /* output buffer */
+  int      aio_inited; /* Are we good to go */
   uLong    crc;     /* crc32 of uncompressed data */
   char     *msg;    /* error message */
-  int      transparent; /* 1 if input file is not a .gz file */
   char     mode;    /* 'w' or 'r' */
-  my_off_t  start;   /* start of compressed data in file (header skipped) */
-  my_off_t  in;      /* bytes into deflate or inflate */
-  my_off_t  out;     /* bytes out of deflate or inflate */
+  size_t  start;   /* start of compressed data in file (header skipped) */
+  size_t  in;      /* bytes into deflate or inflate */
+  size_t  out;     /* bytes out of deflate or inflate */
+  size_t  pos;     /* bytes out of deflate or inflate */
   int      back;    /* one character push-back */
   int      last;    /* true if push-back is last character */
   unsigned char version;   /* Version */
@@ -230,6 +269,12 @@ typedef struct azio_stream {
   unsigned int frm_length;   /* Position for start of FRM */
   unsigned int comment_start_pos;   /* Position for start of comment */
   unsigned int comment_length;   /* Position for start of comment */
+  unsigned long long aio_read_active;
+#ifdef AZIO_AIO
+  azio_container_st container;
+#endif
+  int aio;
+  char *row_ptr;
 } azio_stream;
 
                         /* basic functions */
@@ -265,21 +310,15 @@ int azdopen(azio_stream *s,File fd, int Flags);
 */
 
 
-extern unsigned int azread ( azio_stream *s, voidp buf, unsigned int len, int *error);
+unsigned int azread_internal( azio_stream *s, voidp buf, unsigned int len, int *error);
 /*
+   This function is legacy, do not use.
+
      Reads the given number of uncompressed bytes from the compressed file.
    If the input file was not in gzip format, gzread copies the given number
    of bytes into the buffer.
      gzread returns the number of uncompressed bytes actually read (0 for
    end of file, -1 for error). */
-
-extern unsigned int azwrite (azio_stream *s, const voidp buf, unsigned int len);
-/*
-     Writes the given number of uncompressed bytes into the compressed file.
-   azwrite returns the number of uncompressed bytes actually written
-   (0 in case of error).
-*/
-
 
 extern int azflush(azio_stream *file, int flush);
 /*
@@ -291,8 +330,8 @@ extern int azflush(azio_stream *file, int flush);
    degrade compression.
 */
 
-extern my_off_t azseek (azio_stream *file,
-                                      my_off_t offset, int whence);
+extern size_t azseek (azio_stream *file,
+                                      size_t offset, int whence);
 /*
       Sets the starting position for the next gzread or gzwrite on the
    given compressed file. The offset represents a number of bytes in the
@@ -316,7 +355,7 @@ extern int azrewind(azio_stream *file);
    gzrewind(file) is equivalent to (int)gzseek(file, 0L, SEEK_SET)
 */
 
-extern my_off_t aztell(azio_stream *file);
+extern size_t aztell(azio_stream *file);
 /*
      Returns the starting position for the next gzread or gzwrite on the
    given compressed file. This position represents a number of bytes in the
@@ -332,6 +371,10 @@ extern int azclose(azio_stream *file);
    error number (see function gzerror below).
 */
 
+size_t azwrite_row(azio_stream *s, void *buf, unsigned int len);
+size_t azread_row(azio_stream *s, int *error);
+
+unsigned int azio_enable_aio(azio_stream *s);
 extern int azwrite_frm (azio_stream *s, char *blob, unsigned int length);
 extern int azread_frm (azio_stream *s, char *blob);
 extern int azwrite_comment (azio_stream *s, char *blob, unsigned int length);
@@ -340,3 +383,5 @@ extern int azread_comment (azio_stream *s, char *blob);
 #ifdef	__cplusplus
 }
 #endif
+
+#endif /* AZIO_H */

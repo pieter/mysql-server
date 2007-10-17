@@ -337,6 +337,10 @@ void Cache::flush(int64 arg)
 	Sync flushLock(&syncFlush, "Cache::ioThread");
 	Sync sync(&syncDirty, "Cache::ioThread");
 	flushLock.lock(Exclusive);
+	
+	if (flushing)
+		return;
+
 	sync.lock(Shared);
 	flushArg = arg;
 	flushPages = 0;
@@ -350,6 +354,9 @@ void Cache::flush(int64 arg)
 		}
 
 	/***
+	char dumpName[256];
+	sprintf(dumpName, "pages-%d.txt", database->deltaTime);
+	FILE *file = fopen(dumpName, "w");
 	int start = 0;
 	int last = 0;
 	int runs = 0;
@@ -362,16 +369,18 @@ void Cache::flush(int64 arg)
 			{
 			if (last - start > 1)
 				{
+				fprintf(file, "\n%d - %d\n", start, last);
 				//Log::debug(" Flush run of %d pages starting at %d\n", last - start, start);
 				++runs;
 				runPages += last - start;
 				}
-				
+			
+			fprintf(file, "%d ", n);
 			last = start = n;
 			}
 	
-	if (runs > 0)
-		Log::debug("Flush: %d runs of %d pages out of %d\n", runs, runPages, flushPages);			
+	fprintf(file, "\n");
+	fclose(file);
 	***/
 			
 	flushStart = database->timestamp;
@@ -964,10 +973,11 @@ void Cache::ioThread(void)
 			// Look for a page to flush
 			
 			for (Bdb *bdb = hashTable [slot]; bdb; bdb = bdb->hash)
-				if (bdb->pageNumber == pageNumber && bdb->flushIt && (bdb->flags & BDB_dirty))
+				if (bdb->pageNumber == pageNumber && bdb->flushIt && (bdb->flags & (BDB_dirty || BDB_new)))
 					{
 					hit = true;
 					int32 pageNumber = bdb->pageNumber;
+					int count = 0;
 					Dbb *dbb = bdb->dbb;
 					
 					if (!bdb->hash)
@@ -975,6 +985,7 @@ void Cache::ioThread(void)
 					
 					while (p < end)
 						{
+						++count;
 						bdb->syncWrite.lock(NULL, Exclusive);
 						bdb->ioThreadNext = bdbList;
 						bdbList = bdb;
@@ -994,6 +1005,7 @@ void Cache::ioThread(void)
 					
 					sync.unlock();
 					flushLock.unlock();
+					//Log::debug(" Writing %s %d pages: %d - %d\n", dbb->fileName, count, pageNumber, pageNumber + count - 1);
 					int length = p - buffer;
 					
 					/***
@@ -1027,13 +1039,15 @@ void Cache::ioThread(void)
 			{
 			if (flushing)
 				{
+				int writes = physicalWrites;
+				int pages = flushPages;
+				int delta = database->timestamp - flushStart;
 				flushing = false;
 				flushLock.unlock();
-				int delta = database->timestamp - flushStart;
 				
-				if (delta > 1)
+				if (writes > 0)
 					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
-								database->deltaTime, flushPages, physicalWrites, delta, flushPages / delta);
+								database->deltaTime, pages, writes, delta, writes / MAX(delta, 1));
 
 				database->pageCacheFlushed(flushArg);
 				}

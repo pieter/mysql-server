@@ -916,9 +916,10 @@ void Cache::ioThread(void)
 						++count;
 						bdb->ioThreadNext = bdbList;
 						bdbList = bdb;
+						
 						bdb->incrementUseCount(ADD_HISTORY);
-						bdb->addRef(Shared  COMMA_ADD_HISTORY);
 						sync.unlock();
+						bdb->addRef(Shared  COMMA_ADD_HISTORY);
 						
 						bdb->syncWrite.lock(NULL, Exclusive);
 						ASSERT(!(bdb->flags & BDB_write_pending));

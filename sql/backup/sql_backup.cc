@@ -910,7 +910,10 @@ Backup_info::Table_ref::Table_ref(const Db_item &db, const String &name):
   const char *db= m_db_name.ptr();
   const char *name= m_name.ptr();
   ::build_table_filename(path, sizeof(path), db, name, "", 0);
-  m_table= ::open_temporary_table(thd, path, db, name, FALSE /* don't link to thd->temporary_tables */);
+  m_table= ::open_temporary_table(
+                thd, path, db, name, 
+                FALSE /* don't link to thd->temporary_tables */,
+                OTM_OPEN);
   
   /*
    Note: If table couldn't be opened (m_table==NULL), open_temporary_table() 

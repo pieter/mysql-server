@@ -625,6 +625,7 @@ void trans_register_ha(THD *thd, bool all, handlerton *ht_arg)
   trans->no_2pc|=(ht_arg->prepare==0);
   if (thd->transaction.xid_state.xid.is_null())
     thd->transaction.xid_state.xid.set(thd->query_id);
+
   DBUG_VOID_RETURN;
 }
 
@@ -4497,6 +4498,8 @@ int handler::ha_external_lock(THD *thd, int lock_type)
     We cache the table flags if the locking succeeded. Otherwise, we
     keep them as they were when they were fetched in ha_open().
   */
+  MYSQL_EXTERNAL_LOCK(lock_type);
+
   int error= external_lock(thd, lock_type);
   if (error == 0)
     cached_table_flags= table_flags();
@@ -4527,10 +4530,12 @@ int handler::ha_reset()
 int handler::ha_write_row(uchar *buf)
 {
   int error;
+  MYSQL_INSERT_ROW_START();
   if (unlikely(error= write_row(buf)))
     return error;
   if (unlikely(error= binlog_log_row<Write_rows_log_event>(table, 0, buf)))
     return error;
+  MYSQL_INSERT_ROW_END();
   return 0;
 }
 

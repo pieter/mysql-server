@@ -42,6 +42,7 @@ sinclude(config/ac-macros/alloca.m4)
 sinclude(config/ac-macros/check_cpu.m4)
 sinclude(config/ac-macros/character_sets.m4)
 sinclude(config/ac-macros/compiler_flag.m4)
+sinclude(config/ac-macros/dtrace.m4)
 sinclude(config/ac-macros/plugins.m4)
 sinclude(config/ac-macros/ha_ndbcluster.m4)
 sinclude(config/ac-macros/large_file.m4)
@@ -338,6 +339,11 @@ case "$target_os" in
       AC_DEFINE([HAVE_EXPLICIT_TEMPLATE_INSTANTIATION],
         [1], [Defined by configure. Use explicit template instantiation.])
     fi
+  ;;
+  *solaris*)
+    TARGET_SOLARIS="true"
+    AC_DEFINE([TARGET_OS_SOLARIS], [1], [Whether we are building for Solaris])
+    AC_SUBST(TARGET_SOLARIS)
   ;;
 esac
 AC_SUBST(CC)
@@ -798,6 +804,9 @@ AC_CHECK_FUNC(p2open, , AC_CHECK_LIB(gen, p2open))
 AC_CHECK_FUNC(bind, , AC_CHECK_LIB(bind, bind))
 # Check if crypt() exists in libc or libcrypt, sets LIBS if needed
 AC_SEARCH_LIBS(crypt, crypt, AC_DEFINE(HAVE_CRYPT, 1, [crypt]))
+
+# Check rt for aio_read
+AC_CHECK_LIB(rt, aio_read)
 
 # For the sched_yield() function on Solaris
 AC_CHECK_FUNC(sched_yield, , AC_CHECK_LIB(posix4, sched_yield))

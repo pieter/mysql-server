@@ -10,8 +10,9 @@ DROP TABLE if exists t1,t2,t3,t4,t5,t6;
 --enable_warnings
 
 SET storage_engine=ARCHIVE;
-SET GLOBAL archive_aio=OFF;
+SET GLOBAL archive_aio=ON;
 SHOW VARIABLES LIKE "archive_%";
+
 
 CREATE TABLE t1 (
   Period smallint(4) unsigned zerofill DEFAULT '0000' NOT NULL,
@@ -1353,16 +1354,8 @@ SELECT * FROM t2;
 
 # Test INSERT DELAYED and wait until the table has one more record
 SELECT COUNT(auto) FROM t2;
-INSERT DELAYED INTO t2 VALUES (99999,011403,37,'the','delayed','insert','');
-
-# Insert another record since in Archive delayed values are only
-# guaranteed to materialize based on either:
-# 1) A new row showing up from a normal insert
-# 2) A flush table  has occurred.
-INSERT INTO t2 VALUES (100000,000001,00,'after','delayed','insert','');
-
-# Wait for the delayed insert to appear
-while (`SELECT COUNT(auto)!=1215 FROM t2`)
+INSERT DELAYED INTO t2 VALUES (4,011403,37,'intercepted','audiology','tinily','');
+while (`SELECT COUNT(auto)!=1214 FROM t2`)
 {
   sleep 0.1;
 }
@@ -1371,7 +1364,7 @@ SELECT COUNT(auto) FROM t2;
 # Adding test for ALTER TABLE
 ALTER TABLE t2 DROP COLUMN fld6; 
 SHOW CREATE TABLE t2;
-SELECT * FROM t2 WHERE auto != 100000;
+SELECT * FROM t2;
 
 
 # Adding tests for autoincrement

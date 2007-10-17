@@ -27,6 +27,14 @@ SUBDIRS =		share backup
 libexec_PROGRAMS =	mysqld
 EXTRA_PROGRAMS =	gen_lex_hash
 bin_PROGRAMS =		mysql_tzinfo_to_sql
+DTRACE =                @DTRACE@
+DTRACEFLAGS =           @DTRACEFLAGS@
+DTRACEFILES =           handler.o \
+			filesort.o \
+			sql_insert.o \
+			sql_delete.o \
+			sql_select.o \
+			sql_update.o
 
 noinst_LTLIBRARIES=	libndb.la \
 			udf_example.la
@@ -75,6 +83,7 @@ noinst_HEADERS =	item.h item_func.h item_sum.h item_cmpfunc.h \
 			sql_plugin.h authors.h \
 			event_data_objects.h event_scheduler.h \
 			sql_partition.h partition_info.h partition_element.h \
+			probes.h \
 			contributors.h sql_servers.h
 
 mysqld_SOURCES =	sql_lex.cc sql_handler.cc sql_partition.cc \
@@ -120,6 +129,10 @@ mysqld_SOURCES =	sql_lex.cc sql_handler.cc sql_partition.cc \
 			sql_builtin.cc sql_tablespace.cc partition_info.cc \
 			sql_servers.cc
 
+if HAVE_DTRACE
+  mysqld_SOURCES += probes.d
+endif
+
 nodist_mysqld_SOURCES =	mini_client_errors.c pack.c client.c my_time.c my_user.c 
 
 libndb_la_CPPFLAGS=	@ndbcluster_includes@
@@ -144,6 +157,7 @@ BUILT_MAINT_SRC =	sql_yacc.cc sql_yacc.h
 BUILT_SOURCES =		$(BUILT_MAINT_SRC) lex_hash.h link_sources
 EXTRA_DIST =		udf_example.c udf_example.def $(BUILT_MAINT_SRC) \
 			nt_servc.cc nt_servc.h message.mc CMakeLists.txt \
+			probes.d \
 			udf_example.c udf_example.def
 CLEANFILES =        	lex_hash.h sql_yacc.output link_sources
 DISTCLEANFILES =        $(EXTRA_PROGRAMS)
@@ -175,6 +189,16 @@ lex_hash.h:	gen_lex_hash.cc lex.h
 udf_example_la_SOURCES= udf_example.c
 udf_example_la_LDFLAGS= -module -rpath $(pkglibdir)
 
+probes.h: probes.d
+	$(DTRACE) $(DTRACEFLAGS) -h -s probes.d
+	mv probes.h probes.h.bak
+	sed "s/#include <unistd.h>//g" probes.h.bak > probes.h
+	rm probes.h.bak
+
+SUFFIXES : .d
+
+.d.o : $(DTRACEFILES)
+	$(DTRACE) $(DTRACEFLAGS) -G -s $< $(DTRACEFILES)
 
 # Don't update the files from bitkeeper
 %::SCCS/s.%

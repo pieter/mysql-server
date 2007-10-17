@@ -256,6 +256,7 @@ bool handle_select(THD *thd, LEX *lex, select_result *result,
   bool res;
   register SELECT_LEX *select_lex = &lex->select_lex;
   DBUG_ENTER("handle_select");
+  MYSQL_SELECT_START();
 
   if (select_lex->master_unit()->is_union() || 
       select_lex->master_unit()->fake_select_lex)
@@ -290,6 +291,7 @@ bool handle_select(THD *thd, LEX *lex, select_result *result,
   if (unlikely(res))
     result->abort();
 
+  MYSQL_SELECT_END();
   DBUG_RETURN(res);
 }
 

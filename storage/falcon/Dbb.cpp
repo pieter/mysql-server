@@ -1098,19 +1098,21 @@ void Dbb::reportStatistics()
 {
 	int deltaReads = reads - priorReads;
 	int deltaWrites = writes - priorWrites;
+	int deltaFlushWrites = flushWrites - priorFlushWrites;
 	int deltaFetches = fetches - priorFetches;
 	//int deltaFakes = reads - priorFakes;
 
 	if (!deltaReads && !deltaWrites && !deltaFetches)
 		return;
 
-	Log::log (LogInfo, "%d: Activity on %s: %d fetches, %d reads, %d writes\n", database->deltaTime,
-				(const char*) fileName, deltaFetches, deltaReads, deltaWrites);
+	Log::log (LogInfo, "%d: Activity on %s: %d fetches, %d reads, %d writes, %d flushWrites\n", database->deltaTime,
+				(const char*) fileName, deltaFetches, deltaReads, deltaWrites, deltaFlushWrites);
 	
 	priorReads = reads;
 	priorWrites = writes;
 	priorFetches = fetches;
 	priorFakes = fakes;
+	priorFlushWrites = flushWrites;
 }
 
 void Dbb::commit(Transaction *transaction)

@@ -426,7 +426,7 @@ void Cache::flush(int64 arg)
 		sync.unlock();
 		bdb->addRef(Shared  COMMA_ADD_HISTORY);
 		bdb->decrementUseCount(REL_HISTORY);
-		writePage(bdb, WRITE_TYPE_FLUSH);
+		writePage(bdb, WRITE_TYPE_FORCE);
 		Dbb *dbb = bdb->dbb;
 		bdb->release(REL_HISTORY);
 		
@@ -852,7 +852,7 @@ void Cache::flush(Dbb *dbb)
 		if (bdb->dbb == dbb)
 			{
 			if (bdb->flags & (BDB_dirty | BDB_new))
-				writePage(bdb, WRITE_TYPE_FLUSH);
+				writePage(bdb, WRITE_TYPE_FORCE);
 
 			bdb->dbb = NULL;
 			}
@@ -1047,7 +1047,7 @@ void Cache::ioThread(void)
 				
 				if (writes > 0)
 					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
-								database->deltaTime, pages, writes, delta, writes / MAX(delta, 1));
+								database->deltaTime, pages, writes, delta, pages / MAX(delta, 1));
 
 				database->pageCacheFlushed(flushArg);
 				}

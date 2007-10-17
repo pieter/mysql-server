@@ -52,10 +52,11 @@
 #endif
 
 static const int BDB_dirty			= 1;
-static const int BDB_new			= 2;
+//static const int BDB_new			= 2;
 static const int BDB_writer			= 4;		// PageWriter wants to hear about this
 static const int BDB_register		= 8;		// Register with PageWrite on next release
 static const int BDB_write_pending	= 16;		// Asynchronous write is pending
+//static const int BDB_marked			= (BDB_dirty | BDB_new);
 
 class Page;
 class Cache;

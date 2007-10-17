@@ -75,6 +75,10 @@ public:
 	PageWriter	*pageWriter;
 	Database	*database;
 	int			numberBuffers;
+	int			noBdb;
+	int			notMarked;
+	int			notDirty;
+	int			notFlushed;
 	bool		panicShutdown;
 	bool		flushing;
 

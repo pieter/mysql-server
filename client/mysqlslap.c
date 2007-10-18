@@ -139,6 +139,7 @@ static my_bool opt_compress= FALSE, tty_password= FALSE,
                auto_generate_sql= FALSE;
 const char *opt_auto_generate_sql_type= "mixed";
 
+static unsigned int random_seed= 0;
 static unsigned long connect_flags= CLIENT_MULTI_RESULTS;
 
 static int verbose, delimiter_length;

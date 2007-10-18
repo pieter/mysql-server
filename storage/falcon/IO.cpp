@@ -102,6 +102,7 @@ IO::IO()
 	fileId = -1;
 	reads = writes = fetches = fakes = flushWrites = 0;
 	priorReads = priorWrites = priorFetches = priorFakes = priorFlushWrites = 0;
+	writesSinceSync = 0;
 	dbb = NULL;
 	fatalError = false;
 	memset(writeTypes, 0, sizeof(writeTypes));

@@ -870,7 +870,7 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 	time_t delta = database->timestamp - start;
 	
 	if (delta > 1)
-		Log::log(LogInfo, "%d: %s %s sync: %d page in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
+		Log::log(LogInfo, "%d: %s %s sync: %d pages in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
 }
 
 void Cache::ioThread(void* arg)
@@ -967,7 +967,7 @@ void Cache::ioThread(void)
 								if (!bdb2)
 									++notMarked;
 								}
-							else if (!bdb->flags & !(bdb->flags & BDB_dirty))
+							else
 								++notDirty;
 								
 							break;
@@ -981,15 +981,18 @@ void Cache::ioThread(void)
 					//Log::debug(" %d Writing %s %d pages: %d - %d\n", thread->threadId, (const char*) dbb->fileName, count, pageNumber, pageNumber + count - 1);
 					int length = p - buffer;
 					dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
+					int unlockCount = 0;
 					
-					while (bdbList)
+					for (bdb = bdbList; bdb; bdb = bdb->ioThreadNext)
 						{
-						bdbList->flags &= ~BDB_write_pending;
-						bdbList->decrementUseCount(REL_HISTORY);
-						bdbList->syncWrite.unlock();
-						bdbList = bdbList->ioThreadNext;
+						ASSERT(bdb->flags & BDB_write_pending);
+						bdb->flags &= ~BDB_write_pending;
+						bdb->syncWrite.unlock();
+						bdb->decrementUseCount(REL_HISTORY);
+						++unlockCount;
 						}
-						
+					
+					ASSERT(count == unlockCount);
 					flushLock.lock(Exclusive);
 					++physicalWrites;
 					
@@ -1016,7 +1019,7 @@ void Cache::ioThread(void)
 					{
 					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
 								database->deltaTime, pages, writes, delta, pages / MAX(delta, 1));
-					Log::debug(" No markd %d, bdb %d, not flushed %d, not marked %d, not dirty %d\n", 
+					Log::debug(" Marked %d, bdb %d, not flushed %d, not marked %d, not dirty %d\n", 
 								marked, noBdb, notFlushed, notMarked, notDirty);
 					}
 

@@ -1054,3 +1054,5 @@ static void copy_key(MI_INFO *info,uint inx,uchar *rec,uchar *key_buff)
   }
   return;
 }
+
+#include "mi_extrafunc.h"

@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <memory.h>
+#include <errno.h>
 #include "Engine.h"
 #include "Database.h"
 #include "Dbb.h"
@@ -588,8 +589,11 @@ Database::~Database()
 
 void Database::createDatabase(const char * filename)
 {
-	const char *p = strrchr(filename, '.');
-	JString logRoot = (p) ? JString(filename, (int) (p - filename)) : name;
+	// If valid, use the user-defined serial log path, otherwise use the default.
+	
+	JString logRoot = setLogRoot(filename, true);
+	
+	//TBD: Return error to server.
 	
 #ifdef STORAGE_ENGINE
 	int page_size = falcon_page_size;
@@ -657,10 +661,12 @@ void Database::openDatabase(const char * filename)
 	cache = dbb->open (filename, configuration->pageCacheSize, 0);
 	start();
 
-	if (dbb->logRoot.IsEmpty())
+	if (   dbb->logRoot.IsEmpty()
+	    || (!configuration->serialLogDir.IsEmpty() && dbb->logRoot != configuration->serialLogDir))
 		{
-		const char *p = strrchr(filename, '.');
-		dbb->logRoot = (p) ? JString(filename, (int) (p - filename)) : name;
+		// If valid, use the user-defined serial log path, otherwise use the default.
+		
+		dbb->logRoot = setLogRoot(filename, true);
 		}
 		
 	if (serialLog)
@@ -2262,4 +2268,50 @@ void Database::setRecordScavengeFloor(int value)
 void Database::forceRecordScavenge(void)
 {
 	retireRecords(true);
+}
+JString Database::setLogRoot(const char *defaultPath, bool create)
+{
+	bool error = false;
+	char fullDefaultPath[PATH_MAX];
+	const char *baseName;
+	JString userRoot;
+
+	// Construct a fully qualified path for the default serial log location.
+	
+	const char *p = strrchr(defaultPath, '.');
+	JString  defaultRoot = (p) ? JString(defaultPath, (int)(p - defaultPath)) : name;
+
+	dbb->expandFileName((const char*)defaultRoot, sizeof(fullDefaultPath), fullDefaultPath, &baseName); 
+	
+	// If defined, serialLogDir is a valid, fully qualified path. Verify that
+	// it is also a valid location for the serial log. Otherwise, use the default.
+	
+	if (!configuration->serialLogDir.IsEmpty())
+		{
+		int errnum;
+		
+		userRoot = configuration->serialLogDir + baseName;
+
+		if (dbb->fileStat(JString(userRoot+".fl1"), NULL, &errnum) != 0)
+			{		
+			switch (errnum)
+				{
+				case 0:		 // file exists, don't care if create == true
+					break;
+				
+				case ENOENT: // no file, but !create means file expected
+					error = !create;
+					break;
+					
+				default:	 // invalid path or other error
+					error = true;
+					break;
+				}
+			}
+		}
+		
+	if (!userRoot.IsEmpty() && !error)
+		return userRoot.getString();
+	else
+		return defaultRoot.getString();
 }

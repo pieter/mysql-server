@@ -27,6 +27,10 @@
 #include "JString.h"
 #include "SyncObject.h"
 
+#ifndef PATH_MAX
+#define PATH_MAX		256
+#endif
+
 
 class Bdb;
 class Hdr;
@@ -43,7 +47,8 @@ public:
 	void	writeHeader (Hdr *header);
 	int		read(int length, UCHAR *buffer);
 	void	write(uint32 length, const UCHAR *data);
-	bool	doesFileExits (const char *fileName);
+	bool	doesFileExist(const char *fileName);
+	int		fileStat(const char *fileName, struct stat *stats = NULL, int *errnum = NULL);
 	void	declareFatalError();
 	void	seek (int pageNumber);
 	void	closeFile();
@@ -66,7 +71,8 @@ public:
 	static void		traceClose(void);
 	
 	static void		createPath (const char *fileName);
-	static void		expandFileName (const char *fileName, int length, char *buffer);
+	static const char *baseName(const char *path);
+	static void		expandFileName(const char *fileName, int length, char *buffer, const char **baseFileName = NULL);
 	static void		deleteFile(const char* fileName);
 
 	JString		fileName;

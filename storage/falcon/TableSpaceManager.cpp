@@ -151,7 +151,7 @@ TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fi
 	int id = (int) sequence->update(1, database->getSystemTransaction());
 	TableSpace *tableSpace = new TableSpace(database, name, id, fileName, initialAllocation);
 	
-	if (tableSpace->dbb->doesFileExits(fileName))
+	if (tableSpace->dbb->doesFileExist(fileName))
 		{
 		delete tableSpace;
 		throw SQLError(DDL_ERROR, "table space file name \"%s\" already exists\n", fileName);

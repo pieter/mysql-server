@@ -247,6 +247,8 @@
 #endif
 #undef inline_test_2
 #undef inline_test_1
+/* helper macro for "instantiating" inline functions */
+#define STATIC_INLINE static inline
 
 /*
   The following macros are used to control inlining a bit more than
@@ -1020,6 +1022,7 @@ typedef long long intptr;
 #error sizeof(void *) is neither sizeof(int) nor sizeof(long) nor sizeof(long long)
 #endif
 
+#define MY_ERRPTR ((void*)(intptr)1)
 #ifdef USE_RAID
 /*
   The following is done with a if to not get problems with pre-processors

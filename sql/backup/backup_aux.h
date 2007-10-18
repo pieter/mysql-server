@@ -3,12 +3,6 @@
 
 #include <backup/api_types.h>
 
-inline
-bool operator==(const String &s1, const String &s2)
-{
-  return stringcmp(&s1,&s2) == 0;
-}
-
 namespace backup {
 
 /**

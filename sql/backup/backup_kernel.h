@@ -153,7 +153,10 @@ class Backup_info: public Archive_info, public Logger
   int snapshot_image_no; ///< Position of the snapshot image in @c images list, -1 if not used.
 
   Db_item*    add_db(const backup::Db_ref&);
-  Table_item* add_table(Db_item&, const Table_ref&);
+  Table_item* add_table(const Table_ref&);
+  
+  /// Value returned by @c add_table if it decides that the table should be skipped.
+  static const Table_item *const skip_table;
 
   int add_db_items(Db_item&);
   int add_table_items(Table_item&);

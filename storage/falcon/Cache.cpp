@@ -350,6 +350,7 @@ void Cache::flush(int64 arg)
 	notMarked = 0;
 	notFlushed = 0;
 	notDirty = 0;
+	marked = 0;
 	
 	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
 		{
@@ -524,9 +525,11 @@ void Cache::markClean(Bdb *bdb)
 	Sync sync (&syncDirty, "Cache::markClean");
 	sync.lock (Exclusive);
 
+	/***
 	if (bdb->flushIt)
-		Log::debug(" Cleaning page %d in %s marked for flush\n", bdb->pageNumber, bdb->dbb->fileName);
-		
+		Log::debug(" Cleaning page %d in %s marked for flush\n", bdb->pageNumber, (const char*) bdb->dbb->fileName);
+	***/
+	
 	bdb->flushIt = false;
 	--numberDirtyPages;
 	
@@ -940,7 +943,12 @@ void Cache::ioThread(void)
 							break;
 							}
 						
-						if (!bdb->flushIt || !(bdb->flags & BDB_dirty))
+						if (bdb->flags & BDB_dirty)
+							{
+							if (!bdb->flushIt)
+								++marked;
+							}
+						else
 							{
 							if (!flushBitmap->isSet(bdb->pageNumber))
 								{
@@ -970,7 +978,7 @@ void Cache::ioThread(void)
 						sync.unlock();
 						
 					flushLock.unlock();
-					//Log::debug(" %d Writing %s %d pages: %d - %d\n", thread->threadId, dbb->fileName, count, pageNumber, pageNumber + count - 1);
+					//Log::debug(" %d Writing %s %d pages: %d - %d\n", thread->threadId, (const char*) dbb->fileName, count, pageNumber, pageNumber + count - 1);
 					int length = p - buffer;
 					dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
 					
@@ -1008,7 +1016,8 @@ void Cache::ioThread(void)
 					{
 					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
 								database->deltaTime, pages, writes, delta, pages / MAX(delta, 1));
-					Log::debug(" No bdb %d, not flushed %d, not marked %d, not dirty %d\n", noBdb, notFlushed, notMarked, notDirty);
+					Log::debug(" No markd %d, bdb %d, not flushed %d, not marked %d, not dirty %d\n", 
+								marked, noBdb, notFlushed, notMarked, notDirty);
 					}
 
 				database->pageCacheFlushed(flushArg);

@@ -79,6 +79,7 @@ public:
 	int			notMarked;
 	int			notDirty;
 	int			notFlushed;
+	int			marked;
 	bool		panicShutdown;
 	bool		flushing;
 

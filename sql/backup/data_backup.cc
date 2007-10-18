@@ -299,7 +299,7 @@ class Scheduler::Pump: public Backup_pump
  public:
 
   Pump(uint no, Image_info &img, OStream &s):
-    Backup_pump(no,img,bw), start_pos(0), bw(2048,s)
+    Backup_pump(no,img,bw), start_pos(0), bw(io_buffer_size,s)
   {}
 
   size_t pos() const

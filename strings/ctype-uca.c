@@ -9462,40 +9462,6 @@ CHARSET_INFO my_charset_utf8_esperanto_uca_ci=
     &my_collation_any_uca_handler
 };
 
-CHARSET_INFO my_charset_utf8_sinhala_uca_ci=
-{
-    211,0,0,		/* number       */
-    MY_CS_COMPILED|MY_CS_STRNXFRM|MY_CS_UNICODE,
-    "utf8",		/* cs name    */
-    "utf8_sinhala_ci",	/* name         */
-    "",			/* comment      */
-    sinhala,		/* tailoring    */
-    ctype_utf8,		/* ctype        */
-    NULL,		/* to_lower     */
-    NULL,		/* to_upper     */
-    NULL,		/* sort_order   */
-    NULL,		/* contractions */
-    NULL,		/* sort_order_big*/
-    NULL,		/* tab_to_uni   */
-    NULL,		/* tab_from_uni */
-    my_unicase_default, /* caseinfo     */
-    NULL,		/* state_map    */
-    NULL,		/* ident_map    */
-    8,			/* strxfrm_multiply */
-    1,                  /* caseup_multiply  */
-    1,                  /* casedn_multiply  */
-    3,			/* mbminlen     */
-    3,			/* mbmaxlen     */
-    9,			/* min_sort_char */
-    0xFFFF,		/* max_sort_char */
-    ' ',                /* pad char      */
-    0,                  /* escape_with_backslash_is_dangerous */
-    1,                  /* levels_for_compare */
-    1,                  /* levels_for_order   */
-    &my_charset_utf8_handler,
-    &my_collation_any_uca_handler
-};
-
 CHARSET_INFO my_charset_utf8_hungarian_uca_ci=
 {
     210,0,0,		/* number       */
@@ -9519,6 +9485,40 @@ CHARSET_INFO my_charset_utf8_hungarian_uca_ci=
     1,                  /* caseup_multiply  */
     1,                  /* casedn_multiply  */
     1,			/* mbminlen     */
+    3,			/* mbmaxlen     */
+    9,			/* min_sort_char */
+    0xFFFF,		/* max_sort_char */
+    ' ',                /* pad char      */
+    0,                  /* escape_with_backslash_is_dangerous */
+    1,                  /* levels_for_compare */
+    1,                  /* levels_for_order   */
+    &my_charset_utf8_handler,
+    &my_collation_any_uca_handler
+};
+
+CHARSET_INFO my_charset_utf8_sinhala_uca_ci=
+{
+    211,0,0,		/* number       */
+    MY_CS_COMPILED|MY_CS_STRNXFRM|MY_CS_UNICODE,
+    "utf8",		/* cs name    */
+    "utf8_sinhala_ci",	/* name         */
+    "",			/* comment      */
+    sinhala,		/* tailoring    */
+    ctype_utf8,		/* ctype        */
+    NULL,		/* to_lower     */
+    NULL,		/* to_upper     */
+    NULL,		/* sort_order   */
+    NULL,		/* contractions */
+    NULL,		/* sort_order_big*/
+    NULL,		/* tab_to_uni   */
+    NULL,		/* tab_from_uni */
+    my_unicase_default, /* caseinfo     */
+    NULL,		/* state_map    */
+    NULL,		/* ident_map    */
+    8,			/* strxfrm_multiply */
+    1,                  /* caseup_multiply  */
+    1,                  /* casedn_multiply  */
+    3,			/* mbminlen     */
     3,			/* mbmaxlen     */
     9,			/* min_sort_char */
     0xFFFF,		/* max_sort_char */

@@ -127,7 +127,9 @@ IF(CMAKE_GENERATOR MATCHES "Visual Studio 7" OR
 
     # generate map files, set stack size (see bug#20815)
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /MAP /MAPINFO:EXPORTS")
-    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:1048576")
+    SET(thread_stack_size 1048576)
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:${thread_stack_size}")
+    ADD_DEFINITIONS(-DPTHREAD_STACK_MIN=${thread_stack_size})
 
     # remove support for Exception handling
     STRING(REPLACE "/GX"   "" CMAKE_CXX_FLAGS            ${CMAKE_CXX_FLAGS})
@@ -239,6 +241,9 @@ ADD_SUBDIRECTORY(sql)
 ADD_SUBDIRECTORY(server-tools/instance-manager)
 ADD_SUBDIRECTORY(libmysql)
 ADD_SUBDIRECTORY(tests)
+ADD_SUBDIRECTORY(unittest/mytap)
+ADD_SUBDIRECTORY(unittest/examples)
+ADD_SUBDIRECTORY(unittest/mysys)
 IF(WITH_EMBEDDED_SERVER) 
   ADD_SUBDIRECTORY(libmysqld)
   ADD_SUBDIRECTORY(libmysqld/examples)

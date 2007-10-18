@@ -2035,14 +2035,14 @@ pthread_handler_t timer_thread(void *p)
   uint *timer_length= (uint *)p;
   struct timespec abstime;
 
+  DBUG_ENTER("timer_thread");
+
   if (mysql_thread_init())
   {
     fprintf(stderr,"%s: mysql_thread_init() failed.\n",
             my_progname);
     exit(1);
   }
-
-  DBUG_ENTER("timer_thread");
 
   /* 
     We lock around the initial call in case were we in a loop. This 
@@ -2079,6 +2079,8 @@ pthread_handler_t run_task(void *p)
   statement *ptr;
   thread_context *con= (thread_context *)p;
 
+  DBUG_ENTER("run_task");
+
   if (mysql_thread_init())
   {
     fprintf(stderr,"%s: mysql_thread_init() failed.\n",
@@ -2086,7 +2088,6 @@ pthread_handler_t run_task(void *p)
     exit(1);
   }
 
-  DBUG_ENTER("run_task");
   DBUG_PRINT("info", ("task script \"%s\"", con->stmt ? con->stmt->string : ""));
 
   pthread_mutex_lock(&sleeper_mutex);

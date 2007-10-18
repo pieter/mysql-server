@@ -136,6 +136,9 @@ class Table_ref
     return buf;
   }
 
+  const char* describe(describe_buf &buf) const
+  { return describe(buf,sizeof(buf)); }
+  
  protected:
 
   /*

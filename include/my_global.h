@@ -107,6 +107,11 @@
 #define NETWARE_SET_SCREEN_MODE(A)
 #endif
 
+/* Workaround for _LARGE_FILES and _LARGE_FILE_API incompatibility on AIX */
+#if defined(_AIX) && defined(_LARGE_FILE_API)
+#undef _LARGE_FILE_API
+#endif
+
 /*
   The macros below are used to allow build of Universal/fat binaries of
   MySQL and MySQL applications under darwin. 
@@ -242,6 +247,8 @@
 #endif
 #undef inline_test_2
 #undef inline_test_1
+/* helper macro for "instantiating" inline functions */
+#define STATIC_INLINE static inline
 
 /*
   The following macros are used to control inlining a bit more than
@@ -854,8 +861,8 @@ typedef SOCKET_SIZE_TYPE size_socket;
 #define DBL_MAX		1.79769313486231470e+308
 #define FLT_MAX		((float)3.40282346638528860e+38)
 #endif
-#ifndef SSIZE_MAX
-#define SSIZE_MAX ((~((size_t) 0)) / 2)
+#ifndef SIZE_T_MAX
+#define SIZE_T_MAX ~((size_t) 0)
 #endif
 
 #ifndef HAVE_FINITE
@@ -1015,6 +1022,7 @@ typedef long long intptr;
 #error sizeof(void *) is neither sizeof(int) nor sizeof(long) nor sizeof(long long)
 #endif
 
+#define MY_ERRPTR ((void*)(intptr)1)
 #ifdef USE_RAID
 /*
   The following is done with a if to not get problems with pre-processors

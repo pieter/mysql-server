@@ -323,7 +323,7 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 	if (!bdb)
 		bdb = findBuffer(dbb, pageNumber, Exclusive);
 
-	ASSERT(!(bdb->flags & BDB_dirty));
+	//ASSERT(!(bdb->flags & BDB_dirty));
 	bdb->mark(transId);
 	memset(bdb->buffer, 0, pageSize);
 	bdb->buffer->pageType = type;
@@ -575,9 +575,10 @@ void Cache::writePage(Bdb *bdb, int type)
 	markClean (bdb);
 	time_t start = database->timestamp;
 	dbb->writePage(bdb, type);
-	time_t delta = database->timestamp - start;
 	
 	/***
+	time_t delta = database->timestamp - start;
+
 	if (delta > 1)
 		Log::debug("Page %d took %d seconds to write\n", bdb->pageNumber, delta);
 	***/
@@ -876,6 +877,7 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 void Cache::ioThread(void* arg)
 {
 	((Cache*) arg)->ioThread();
+	Log::debug("Cache::ioThread shutting down\n");
 }
 
 void Cache::ioThread(void)
@@ -917,14 +919,14 @@ void Cache::ioThread(void)
 					while (p < end)
 						{
 						++count;
-						bdb->ioThreadNext = bdbList;
-						bdbList = bdb;
-						
 						bdb->incrementUseCount(ADD_HISTORY);
 						sync.unlock();
 						bdb->addRef(Shared  COMMA_ADD_HISTORY);
 						
 						bdb->syncWrite.lock(NULL, Exclusive);
+						bdb->ioThreadNext = bdbList;
+						bdbList = bdb;
+						
 						ASSERT(!(bdb->flags & BDB_write_pending));
 						bdb->flags |= BDB_write_pending;
 						memcpy(p, bdb->buffer, pageSize);
@@ -982,11 +984,13 @@ void Cache::ioThread(void)
 					int length = p - buffer;
 					dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
 					int unlockCount = 0;
-					
-					for (bdb = bdbList; bdb; bdb = bdb->ioThreadNext)
+					Bdb *next;
+
+					for (bdb = bdbList; bdb; bdb = next)
 						{
 						ASSERT(bdb->flags & BDB_write_pending);
 						bdb->flags &= ~BDB_write_pending;
+						next = bdb->ioThreadNext;
 						bdb->syncWrite.unlock();
 						bdb->decrementUseCount(REL_HISTORY);
 						++unlockCount;

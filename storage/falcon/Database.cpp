@@ -1450,6 +1450,8 @@ void Database::execute(const char * sql)
 
 void Database::shutdown()
 {
+	Log::log("%d: Falcon shutdown\n", deltaTime);
+
 	if (shuttingDown)
 		return;
 	
@@ -1469,7 +1471,7 @@ void Database::shutdown()
 	if (repositoryManager)
 		repositoryManager->close();
 
-	flush(0);
+	//flush(0);
 
 	if (scheduler)
 		scheduler->shutdown(false);

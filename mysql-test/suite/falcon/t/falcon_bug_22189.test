@@ -1,0 +1,75 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #22189: Duplicate entry '1' for key 'PRIMARY'
+#
+--echo *** Bug #22189 ***
+--disable_warnings
+DROP DATABASE IF EXISTS db62;
+--enable_warnings
+
+--echo # Establish connection conn1 (user = root)
+connect (conn1,localhost,root,,);
+SET @@storage_engine = Falcon;
+
+--echo # Switch to connection default
+connection default;
+SET @@autocommit = 0;
+CREATE DATABASE db62;
+USE db62;
+DROP TABLE IF EXISTS x1;
+CREATE TABLE x1 (x1 int primary key, x2 int);
+COMMIT;
+INSERT INTO x1 VALUES (0,0),(1,1);
+COMMIT;
+DROP TABLE IF EXISTS x1;
+CREATE TABLE x1 (x1 int primary key, x2 int);
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+START TRANSACTION;
+SELECT * FROM x1;
+INSERT INTO x1 VALUES (0,0);
+
+--echo # Switch to connection conn1
+connection conn1;
+SET @@autocommit = 1;
+USE db62;
+--send INSERT INTO x1 VALUES (1,1)
+
+--echo # Switch to connection default
+connection default;
+INSERT INTO x1 VALUES (1,2);
+
+--echo # Switch to connection conn1
+connection conn1;
+--send INSERT INTO x1 VALUES (0,3)
+
+--echo # Switch to connection default
+connection default;
+ROLLBACK;
+UPDATE x1 SET x1 = 1, x2 = 4;
+SELECT * FROM x1;
+
+--echo # Switch to connection conn1
+connection conn1;
+--send UPDATE x1 SET x1 = 0, x2 = 5
+--send INSERT INTO x1 VALUES (0,6)
+
+--echo # Switch to connection default
+connection default;
+ROLLBACK;
+
+--echo # Switch to connection conn1
+connection conn1;
+INSERT INTO x1 VALUES (0,6);
+--error 1062
+INSERT INTO x1 VALUES (0,6);
+
+--echo # Switch to connection default
+connection default;
+SELECT * FROM x1;
+
+# Final cleanup
+disconnect conn1;
+connection default;
+DROP DATABASE db62;
+USE test;

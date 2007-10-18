@@ -1,0 +1,30 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #26607: Falcon: decimal(31,30) does not work
+#
+--echo *** Bug #26607 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  a decimal(31, 30),
+  b decimal(18, 18)
+);
+
+INSERT INTO t1 (a) VALUES (-9.999999999999999999999999999999);
+INSERT INTO t1 (a) VALUES (9.999999999999999999999999999999);
+
+INSERT INTO t1 (b) VALUES (-0.123456789012345678);
+INSERT INTO t1 (b) VALUES (0.123456789012345678);
+
+
+SELECT count(*) FROM t1 WHERE a = -9.999999999999999999999999999999;
+SELECT count(*) FROM t1 WHERE a = 9.999999999999999999999999999999;
+
+SELECT count(*) FROM t1 WHERE b = -0.123456789012345678;
+SELECT count(*) FROM t1 WHERE b = 0.123456789012345678;
+
+# Final cleanup.
+DROP TABLE t1;

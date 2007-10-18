@@ -1,0 +1,32 @@
+--source include/have_falcon.inc
+--echo #---- Bug 22174 ----
+SET STORAGE_ENGINE='Falcon';
+
+#                                                                     #
+# This test is derived from innodb.test                               #
+#                                                                     #
+
+--enable_abort_on_error
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--disable_abort_on_error
+create table t1 (id int NOT NULL,id2 int NOT NULL,id3 int NOT NULL,dummy1 char(30),primary key (id,id2),index index_id3 (id3));
+insert into t1 values (0,0,0,'ABCDEFGHIJ'),(2,2,2,'BCDEFGHIJK'),(1,1,1,'CDEFGHIJKL');
+LOCK TABLES t1 WRITE;
+--error ER_DUP_ENTRY
+insert into t1 values (99,1,2,'D'),(1,1,2,'D');
+select id from t1 ORDER BY id, id2;
+UNLOCK TABLES;
+DROP TABLE t1;
+create table t1 (id int NOT NULL,id2 int NOT NULL,id3 int NOT NULL,dummy1 char(30),primary key (id,id2),index index_id3 (id3));
+insert into t1 values (0,0,0,'ABCDEFGHIJ'),(2,2,2,'BCDEFGHIJK'),(1,1,1,'CDEFGHIJKL');
+LOCK TABLES t1 WRITE;
+--error ER_DUP_ENTRY
+insert into t1 values (99,1,2,'D'),(1,1,2,'D');
+select id from t1 ORDER BY id, id2;
+UNLOCK TABLES;
+DROP TABLE t1;
+--enable_abort_on_error

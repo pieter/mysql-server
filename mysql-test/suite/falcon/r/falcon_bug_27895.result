@@ -1,0 +1,31 @@
+*** Bug #27895 ***
+SET @@storage_engine = 'Falcon';
+DROP SCHEMA IF EXISTS db1;
+SET @@autocommit = 0;
+CREATE SCHEMA db1;
+USE db1;
+CREATE TABLE t1 (a int, b varchar(10));
+INSERT INTO t1 VALUES (1, 'w');
+CREATE INDEX i1 on t1 (a, b);
+COMMIT;
+# Establish connection conn1
+SET storage_engine = 'Falcon';
+SET @@autocommit = 0;
+# Switch to connection default
+START TRANSACTION;
+SELECT a, b FROM t1 WHERE b = 'w';
+a	b
+1	w
+INSERT INTO t1 VALUES (12, 'w');
+# Switch to connection conn1
+USE db1;
+START TRANSACTION;
+INSERT INTO t1 VALUES (2, 'b');
+COMMIT;
+# Switch to connection default
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+3
+DROP SCHEMA db1;
+USE test;

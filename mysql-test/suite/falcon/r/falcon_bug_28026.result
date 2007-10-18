@@ -1,0 +1,41 @@
+*** Bug #28026 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int)
+PARTITION BY LIST (a) (
+PARTITION p8 VALUES in (8,88),
+PARTITION p9 VALUES in (9,99)
+);
+INSERT INTO t1 VALUES (8);
+INSERT INTO t1 VALUES (9);
+COMMIT;
+# Establish connection conn1
+SET storage_engine = 'Falcon';
+SET @@autocommit = 0;
+# Switch to connection default
+SELECT * FROM t1 WHERE a = 8 FOR UPDATE;
+a
+8
+# Switch to connection conn1
+SELECT * FROM t1 WHERE a = 9 FOR UPDATE;
+a
+9
+# Switch to connection default
+SELECT * FROM t1 WHERE a = 9 FOR UPDATE;
+# Switch to connection conn1
+SELECT * FROM t1 WHERE a = 8 FOR UPDATE;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
+# Switch to connection default
+a
+9
+UPDATE t1 SET a = 88 WHERE a = 8;
+UPDATE t1 SET a = 99 WHERE a = 9;
+COMMIT;
+SELECT * FROM t1 ORDER BY a;
+a
+88
+99
+COMMIT;
+DROP TABLE t1;

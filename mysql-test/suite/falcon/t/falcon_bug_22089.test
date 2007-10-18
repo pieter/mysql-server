@@ -1,0 +1,10 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #22089: Can't create temporary tables
+#
+--echo *** Bug #22089 ***
+CREATE TEMPORARY TABLE t1 (a int);
+
+# Final cleanup.
+DROP TEMPORARY TABLE t1;

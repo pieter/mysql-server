@@ -1,0 +1,18 @@
+#
+# Bug#24008 crash on rename table
+#
+--echo *** Bug #24008 ***
+
+
+--source include/have_falcon.inc
+let $engine_type= Falcon;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2;
+--enable_warnings
+
+eval create table t1 (a integer) engine=$engine_type;
+rename table t1 to t2;
+
+# Final cleanup
+DROP TABLE t2;

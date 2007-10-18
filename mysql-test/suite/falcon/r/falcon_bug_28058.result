@@ -1,0 +1,20 @@
+SET storage_engine = Falcon;
+*** Bug #28058 ***
+DROP DATABASE IF EXISTS f12;
+SET storage_engine = Falcon;
+CREATE DATABASE f12;
+USE f12;
+SET @@autocommit=0;
+CREATE TABLE tf2 (s2 char(50));
+COMMIT;
+START TRANSACTION;
+INSERT INTO tf2 VALUES ('The plain');
+SAVEPOINT a;
+UPDATE tf2 SET s2 = 'b';
+ROLLBACK TO SAVEPOINT a;
+SELECT * FROM tf2;
+s2
+The plain
+COMMIT;
+DROP DATABASE f12;
+USE test;

@@ -1,0 +1,38 @@
+--source include/have_falcon.inc
+#
+# Record cache memory leak test inspired by Kevin.
+#
+# Note: Do not run in ramdisk! Original test is with loop count of
+#   250000. This takes to long on various Pushbuild machines. Therefore
+#   the loop count is lowered to 100000
+#
+SET STORAGE_ENGINE = 'Falcon';
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (c1 varchar(100));
+INSERT INTO t1 VALUES (repeat('A', 100));
+INSERT INTO t1 VALUES (repeat('B', 100));
+INSERT INTO t1 VALUES (repeat('C', 100));
+COMMIT;
+
+BEGIN;
+# During this series of updates, there should be no increase in memory
+# since each previous record version should be freed once it is replaced.
+
+--disable_query_log
+let $i= 100000;
+while ($i)
+{
+    UPDATE t1 SET c1 = lower(c1);
+    UPDATE t1 SET c1 = upper(c1);
+
+    dec $i;
+}
+--enable_query_log
+
+COMMIT;
+
+# Final cleanup.
+DROP TABLE t1;

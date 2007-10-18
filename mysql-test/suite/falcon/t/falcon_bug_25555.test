@@ -1,0 +1,16 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #25555 Falcon: crash if create index on nullable utf8 column
+#
+--echo *** Bug #25555 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a char(5) character set utf8);
+INSERT INTO t1 VALUES ('a'),(null);
+CREATE INDEX i1 on t1 (a);
+
+# Final cleanup.
+DROP TABLE t1;

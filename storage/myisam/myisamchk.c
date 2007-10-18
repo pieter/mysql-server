@@ -1813,3 +1813,5 @@ void mi_check_print_error(MI_CHECK *param, const char *fmt,...)
   va_end(args);
   DBUG_VOID_RETURN;
 }
+
+#include "mi_extrafunc.h"

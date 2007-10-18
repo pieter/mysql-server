@@ -1,0 +1,16 @@
+SET STORAGE_ENGINE='Falcon';
+#---- Bug 28055 ----
+DROP TABLE IF EXISTS t1;
+create table t1(a date);
+create table t2(a date, key(a));
+insert into t1 values('2005-10-01');
+insert into t2 values('2005-10-01');
+select * from t1
+where t1.a between t1.a and t1.a;
+a
+2005-10-01
+select * from t1, t2
+where t2.a = t1.a;
+a	a
+2005-10-01	2005-10-01
+drop table t1, t2;

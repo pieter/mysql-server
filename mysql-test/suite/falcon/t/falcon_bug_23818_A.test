@@ -1,0 +1,33 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #23818 Falcon: crash with random updates of long varchar columns
+#      First part. Original bug reports loops 100000 times.
+#
+--echo *** Bug #23818_A ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (a int, b varchar(1100));
+INSERT INTO t1 VALUES (0,null),(0,null),(0,null);
+CREATE INDEX i1 ON t1 (b);
+
+--disable_result_log
+--disable_query_log
+set @a = 32710;
+
+let $k = 200;
+while ($k)
+{
+    SELECT @a + 1 into @a;
+    SELECT rand(@a) * DEGREES(@a) into @b;
+    SELECT FLOOR(MOD(@b,255)) into @c;
+    UPDATE t1 SET a = a + 1;
+    UPDATE t1 SET b = repeat(hex(@c), rand(@c) * 550);
+    dec $k;
+}
+--enable_query_log
+--enable_result_log
+
+# Final cleanup.
+DROP TABLE t1;

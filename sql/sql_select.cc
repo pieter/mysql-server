@@ -5395,22 +5395,22 @@ best_access_path(JOIN      *join,
               (PREV_BITS(uint, n_fixed_parts) | sj_insideout_map) ==
                PREV_BITS(uint, keyinfo->key_parts))
           {
-            /* 
-              Not all parts are fixed. Produce bitmap of remaining bits and 
+            /*
+              Not all parts are fixed. Produce bitmap of remaining bits and
               check if all of them are covered.
             */
             sj_inside_out_scan= TRUE;
             DBUG_PRINT("info", ("Using sj InsideOut scan"));
             if (!n_fixed_parts)
             {
-              /* 
+              /*
                 It's a confluent ref scan.
 
-                That is, all found KEYUSE elements refer to IN-equalities, 
+                That is, all found KEYUSE elements refer to IN-equalities,
                 and there is really no ref access because there is no
                   t.keypart0 = {bound expression}
-                
-                Calculate the cost of complete loose index scan. 
+
+                Calculate the cost of complete loose index scan.
               */
               records= (double)s->table->file->stats.records;
 

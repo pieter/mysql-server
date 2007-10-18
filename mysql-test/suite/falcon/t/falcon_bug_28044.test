@@ -1,0 +1,15 @@
+--source include/have_falcon.inc
+#
+# Bug #28044: Falcon crash when selecting on column of type NUMERIC
+#
+--echo #---- Bug 28044 ----
+SET STORAGE_ENGINE='Falcon';
+--disable_warnings
+DROP TABLE IF EXISTS t14_1;
+--enable_warnings
+CREATE TABLE t14_1 (f1 NUMERIC (64));
+INSERT INTO t14_1 SET f1 = 1;
+# Auxiliary command, which should only show that the server is alive
+SELECT 1;
+SELECT * FROM t14_1;
+DROP TABLE t14_1;

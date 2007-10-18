@@ -1,0 +1,20 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28038: Falcon Large DECIMAL values stored incorrectly
+#
+--echo *** Bug #28038 ***
+--disable_warnings
+DROP TABLE IF EXISTS tj23;
+--enable_warnings
+
+CREATE TABLE tj23 (
+  s1 decimal(20)
+);
+INSERT INTO tj23 VALUES (12345678901234567890);
+INSERT INTO tj23 VALUES (12345678901234567891);
+INSERT INTO tj23 VALUES (12345678901234567892);
+SELECT * FROM tj23 ORDER by s1;
+
+# Final cleanup
+DROP TABLE tj23;

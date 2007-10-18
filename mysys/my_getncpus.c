@@ -16,24 +16,30 @@
 /* get the number of (online) CPUs */
 
 #include "mysys_priv.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 static int ncpus=0;
 
-#ifdef _SC_NPROCESSORS_ONLN
 int my_getncpus()
 {
   if (!ncpus)
+  {
+#ifdef _SC_NPROCESSORS_ONLN
     ncpus= sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(__WIN__)
+#ifdef REGGIE_WILL_FIX_IN_A_PORTABLE_WAY
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    ncpus= sysinfo.dwNumberOfProcessors;
+#else
+    ncpus=2;
+#endif
+#else
+/* unknown so play safe: assume SMP and forbid uniprocessor build */
+    ncpus= 2;
+#endif
+  }
   return ncpus;
 }
-
-#else
-/* unknown */
-int my_getncpus()
-{
-  return 2;
-}
-
-#endif
-

@@ -17,6 +17,7 @@
 
 #include "ftdefs.h"
 #include "sp_defs.h"
+#include <my_bit.h>
 
 #if defined(MSDOS) || defined(__WIN__)
 #ifdef __WIN__

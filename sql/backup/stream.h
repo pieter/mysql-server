@@ -9,6 +9,16 @@
 
  Generic Stream Interface for serializing basic types (integers, strings etc).
  */
+ 
+namespace backup {
+
+// TODO: remove the upper limit on chunk size
+
+const size_t io_buffer_size= 1024*1024;   // buffer size for kernel/driver data transfers
+const size_t max_chunk_size= 2*1024*1024; // upper limit on a single chunk size
+
+}
+ 
 
 namespace util
 {
@@ -446,7 +456,7 @@ class Window
    last_byte(m_buf+buf_size), m_head(m_buf), m_end(m_buf), m_blocked(FALSE)
   {}
 
-  static const size_t buf_size= 4*1024; ///< data buffer size
+  static const size_t buf_size= max_chunk_size; ///< data buffer size
   byte  m_buf[buf_size];
 
   byte  *last_byte; ///< points at the byte after the last byte of m_buf

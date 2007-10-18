@@ -39,10 +39,10 @@ MYSQL_PLUGIN_ACTIONS(falcon,[
   ])
 
   # Falcon uses exceptions and STL.
-  CXXLDFLAGS="$CXXLDFLAGS -lstdc++"
+  CXXLDFLAGS="$CXXLDFLAGS -fexceptions -lstdc++"
   FALCON_CXXFLAGS="$falcon_cxx_no_invalid_offsetof -fexceptions"
   case "$with_debug" in
-    yes)  FALCON_CXXFLAGS="$FALCON_CXXFLAGS -D_DEBUG -DMEM_DEBUG" ;;
+    yes)  FALCON_CXXFLAGS="$FALCON_CXXFLAGS -D_DEBUG" ;;
     full) FALCON_CXXFLAGS="$FALCON_CXXFLAGS -D_DEBUG -DMEM_DEBUG" ;;
   esac
 

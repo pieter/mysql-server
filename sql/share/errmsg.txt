@@ -6134,6 +6134,10 @@ ER_BACKUP_LIST_DB_TABLES
         eng "Can't enumerate tables in database %-.64s"
 ER_BACKUP_SKIP_VIEW
         eng "Skipping view %-.64s in database %-.64s"
+ER_BACKUP_NO_ENGINE
+        eng "Skipping table %-.64s since it has no valid storage engine"
+ER_BACKUP_TABLE_OPEN
+        eng "Can't open table %-.64s"
 ER_BACKUP_READ_HEADER
         eng "Can't read backup archive preamble"
 ER_BACKUP_WRITE_HEADER

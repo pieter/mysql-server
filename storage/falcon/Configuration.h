@@ -56,6 +56,7 @@ public:
 	int64		javaInitialAllocation;
 	int64		javaSecondaryAllocation;
 	uint		serialLogWindows;
+	JString		serialLogDir;
 	uint		indexChillThreshold;
 	uint		recordChillThreshold;
 	int			useCount;

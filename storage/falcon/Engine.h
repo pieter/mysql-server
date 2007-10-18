@@ -33,6 +33,12 @@
 static const char THIS_FILE[]=__FILE__;
 #endif
 
+#ifdef _WIN32
+const char SEPARATOR = '\\';
+#else
+const char SEPARATOR = '/';
+#endif
+
 #ifdef MEMORY_MANAGER
 #include "MemoryManager.h"
 #endif

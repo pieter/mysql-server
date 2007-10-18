@@ -72,7 +72,7 @@ public:
 
   void sort(CMP_FUNC cmp_func)
   {
-    qsort(array.buffer, array.elements, sizeof(Elem), (qsort_cmp)cmp_func);
+    my_qsort(array.buffer, array.elements, sizeof(Elem), (qsort_cmp)cmp_func);
   }
 };
 
@@ -143,7 +143,7 @@ public:
 
   void sort(CMP_FUNC cmp_func)
   {
-    qsort(buffer, n_elements, sizeof(Elem*), (qsort_cmp)cmp_func);
+    my_qsort(buffer, n_elements, sizeof(Elem*), (qsort_cmp)cmp_func);
   }
 };
 

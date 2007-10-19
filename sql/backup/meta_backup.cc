@@ -365,7 +365,7 @@ int silent_exec_query(THD *thd, String &query)
 
   thd->net.vio= save_vio;
 
-  if (thd->query_error)
+  if (thd->is_slave_error)
   {
     DBUG_PRINT("restore",
               ("error executing query %s!", thd->query));

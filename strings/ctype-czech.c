@@ -313,7 +313,7 @@ while (1)						\
   if (value == 255)					\
   {							\
     int i;						\
-    for (i = 0; i < (int) sizeof(doubles); i++)		\
+    for (i= 0; i < (int) array_elements(doubles); i++)  \
     {							\
       const char * pattern = doubles[i].word;		\
       const char * q = (const char *) p;		\

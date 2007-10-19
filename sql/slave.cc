@@ -2283,7 +2283,7 @@ log '%s' at position %s, relay log '%s' position: %s", RPL_LOG_NAME,
   if (sys_init_slave.value_length)
   {
     execute_init_command(thd, &sys_init_slave, &LOCK_sys_init_slave);
-    if (thd->query_error)
+    if (thd->is_slave_error)
     {
       sql_print_error("\
 Slave SQL thread aborted. Can't execute init_slave query");

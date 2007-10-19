@@ -88,8 +88,6 @@ TARGET_LINK_LIBRARIES(mysqld
                       heap myisam myisammrg mysys yassl zlib debug dbug yassl 
                       taocrypt strings vio regex wsock32 ws2_32)
 
-TARGET_LINK_LIBRARIES(mysqld backup)
-
 SET_TARGET_PROPERTIES(mysqld PROPERTIES OUTPUT_NAME mysqld${MYSQLD_EXE_SUFFIX})
 
 # Work around for 2.4.6 bug, OUTPUT_NAME will not set the right .PDB
@@ -175,4 +173,3 @@ ADD_LIBRARY(udf_example MODULE udf_example.c udf_example.def)
 ADD_DEPENDENCIES(udf_example strings)
 TARGET_LINK_LIBRARIES(udf_example strings wsock32)
 
-ADD_SUBDIRECTORY(backup)

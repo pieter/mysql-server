@@ -29,6 +29,7 @@
 #include "sql_cursor.h"
 
 #include <m_ctype.h>
+#include <my_bit.h>
 #include <hash.h>
 #include <ft_global.h>
 

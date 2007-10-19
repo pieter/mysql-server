@@ -1,0 +1,35 @@
+# Test how online backup handles tables using non-existent storage engines
+# The server used to crash in this situation (BUG#30938)
+
+# .frm file for a table using non-existent storage engine
+--let $table_def=$MYSQL_TEST_DIR/std_data/bug30938.frm
+--let $backup_out_path=$MYSQLTEST_VARDIR/master-data
+
+--disable_warnings
+DROP DATABASE IF EXISTS db;
+--enable_warnings
+
+CREATE DATABASE db;
+CREATE TABLE db.t1 (a int, b char(32))
+ENGINE=myisam;
+
+# copy description of a table using non-existent storage engine
+--copy_file $table_def $MYSQLTEST_VARDIR/master-data/db/t2.frm
+
+# backup test database, the table with no storage engine will be ignored
+BACKUP DATABASE db TO "db.backup";
+
+# wipe-out backed-up database
+DROP DATABASE db;
+CREATE DATABASE db;
+
+RESTORE FROM "db.backup";
+
+# check that the table with no engine was excluded
+SHOW TABLES IN db;
+# check that table t was correctly restored
+SHOW CREATE TABLE db.t1;	
+
+# clean up
+DROP DATABASE db;
+--remove_file $backup_out_path/db.backup

@@ -321,17 +321,17 @@ BACKUP DATABASE bup_default TO "bup_default.bak";
 Backup Summary
  header     =       43 bytes
  meta-data  =      890 bytes
- data       =     7425 bytes
+ data       =     7411 bytes
               --------------
- total            8358 bytes
+ total            8344 bytes
 DROP DATABASE bup_default;
 RESTORE FROM "bup_default.bak";
 Restore Summary
  header     =       43 bytes
  meta-data  =      890 bytes
- data       =     7425 bytes
+ data       =     7411 bytes
               --------------
- total            8358 bytes
+ total            8344 bytes
 SELECT * FROM bup_default.t1;
 a
 1

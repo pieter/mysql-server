@@ -1313,6 +1313,7 @@ Bdb* Section::getSectionPage(int sequence, LockType lockType, TransId transId)
 	Sync sync(&syncObject, "Section::getSectionPage");
 	sync.lock(Shared);
 	int pageNumber = sectionPages.get(sequence);
+	sync.unlock();
 	
 	if (pageNumber)
 		{
@@ -1328,7 +1329,6 @@ Bdb* Section::getSectionPage(int sequence, LockType lockType, TransId transId)
 		bdb->release(REL_HISTORY);
 		}
 	
-	sync.unlock();
 	sync.lock(Exclusive);
 	Bdb *bdb = getSectionPage(dbb, root, sequence, lockType, transId);
 	BDB_HISTORY(bdb);

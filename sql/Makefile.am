@@ -23,7 +23,7 @@ INCLUDES =		@ZLIB_INCLUDES@ \
 			-I$(top_builddir)/include -I$(top_srcdir)/include \
 			-I$(top_srcdir)/regex -I$(srcdir) $(openssl_includes)
 WRAPLIBS=		@WRAPLIBS@
-SUBDIRS =		share backup
+SUBDIRS =		share 
 libexec_PROGRAMS =	mysqld
 EXTRA_PROGRAMS =	gen_lex_hash
 bin_PROGRAMS =		mysql_tzinfo_to_sql
@@ -44,15 +44,14 @@ SUPPORTING_LIBS =	$(top_builddir)/vio/libvio.a \
 			$(top_builddir)/dbug/libdbug.a \
 			$(top_builddir)/regex/libregex.a \
 			$(top_builddir)/strings/libmystrings.a
-mysqld_DEPENDENCIES=	@mysql_plugin_libs@ $(SUPPORTING_LIBS) backup/libbackup.la libndb.la
+mysqld_DEPENDENCIES=	@mysql_plugin_libs@ $(SUPPORTING_LIBS) libndb.la
 LDADD = $(SUPPORTING_LIBS) @ZLIB_LIBS@ @NDB_SCI_LIBS@
 mysqld_LDADD =		libndb.la \
 			@MYSQLD_EXTRA_LDFLAGS@ \
 			@pstack_libs@ \
 			@mysql_plugin_libs@ \
 			$(LDADD)  $(CXXLDFLAGS) $(WRAPLIBS) @LIBDL@ \
-			$(yassl_libs) $(openssl_libs) @MYSQLD_EXTRA_LIBS@ \
-			backup/libbackup.la
+			$(yassl_libs) $(openssl_libs) @MYSQLD_EXTRA_LIBS@ 
 
 noinst_HEADERS =	item.h item_func.h item_sum.h item_cmpfunc.h \
 			item_strfunc.h item_timefunc.h \

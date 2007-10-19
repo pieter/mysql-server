@@ -1,0 +1,28 @@
+SET @@storage_engine = Falcon;
+*** Bug #25537 ***
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+CREATE TABLE t1 (a int, b varchar(500));
+INSERT INTO t1 VALUES (0,null),(0,null),(0,null);
+CREATE INDEX i1 ON t1 (b);
+CREATE PROCEDURE p1 ()
+BEGIN
+DECLARE a int DEFAULT 32710;
+DECLARE b int DEFAULT 0;
+DECLARE c int DEFAULT 0;
+DECLARE v int DEFAULT 0;
+DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
+while v < 1000 do
+START TRANSACTION;
+SELECT a + 1 into a;
+SELECT rand(a) * DEGREES(a) into b;
+SELECT FLOOR(MOD(b,255)) into c;
+UPDATE t1 SET b = repeat(hex(c), rand(c) * 250);
+COMMIT;
+/* SELECT v; */
+SET v = v + 1;
+end while;
+END//
+CALL p1();
+DROP TABLE t1;
+DROP PROCEDURE p1;

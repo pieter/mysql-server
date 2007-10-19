@@ -1,0 +1,45 @@
+--source include/have_falcon.inc
+--disable_abort_on_error
+SET storage_engine = Falcon;
+#
+# Bug #30480: Falcon: searches fail if LIKE and key partition
+#
+--echo *** Bug #30480 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+###########################################################################
+# Description:
+# create a Falcon table with a latin1 column with a default collation.
+# The table is partitioned and indexed.
+# insert two rows, containing 'Ä' and 'AA'.
+# search for LIKE 'A%'.
+# get no rows, even though I inserted 'AA'.
+#
+# The result is similar to Bug#28527
+# But Bug#28527 requires an ascii() function, which should soon be
+# illegal, so it will probably disappear. 
+# This is different: a key partition, no
+# ascii() function, a non-ASCII value, and a default collation.
+
+CREATE TABLE t1 (s1 varchar(5) CHARACTER SET latin1);
+SET NAMES utf8;
+CREATE INDEX id on t1 (s1);
+INSERT INTO t1 VALUES (0x8e);
+INSERT INTO t1 VALUES ('AA');
+SELECT s1, HEX(s1) FROM t1;
+
+CREATE TABLE t2 (s1 varchar(5) CHARACTER SET latin1) partition by key(s1);
+SET NAMES utf8;
+CREATE INDEX id on t2 (s1);
+INSERT INTO t2 VALUES (0x8e);
+INSERT INTO t2 VALUES ('AA');
+SELECT s1, HEX(s1) FROM t2;
+
+SELECT s1, HEX(s1) FROM t1 WHERE s1 like 'A%';
+SELECT s1, HEX(s1) FROM t2 WHERE s1 like 'A%';
+
+# Final cleanup.
+DROP TABLE t1;

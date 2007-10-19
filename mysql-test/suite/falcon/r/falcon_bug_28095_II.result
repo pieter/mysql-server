@@ -1,0 +1,9 @@
+*** Bug #126: Second phase ***
+*** Also test for bug #123 ***
+SET @@storage_engine = Falcon;
+SELECT * FROM t1;
+a
+1
+2
+3
+DROP TABLE t1, t2;

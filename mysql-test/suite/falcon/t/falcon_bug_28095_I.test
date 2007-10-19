@@ -1,0 +1,20 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Mantis bug #126 first phase: Drop table causes crash
+# Mantis bug #113: JStar is crashing on shutdown
+#
+--echo *** Bug #126: First phase ***
+--echo *** Also covering bug #113 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (3);
+SELECT * FROM t1;
+
+CREATE TABLE t2 (b int);

@@ -1,0 +1,43 @@
+--source include/have_falcon.inc
+#
+# Bug #27697: Non-western-collation searches fail if index exists
+#
+--echo *** Bug #27697 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS i;
+--enable_warnings
+
+SET NAMES utf8;
+CREATE TABLE i (
+  i char(1) CHARACTER SET utf8 COLLATE utf8_turkish_ci
+);
+INSERT INTO i VALUES ('i'), ('İ'), ('ı'), ('I');
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+SELECT * FROM i WHERE i = 'i' ORDER BY i;
+SELECT * FROM i where i = 'I' ORDER BY i;
+
+CREATE INDEX i ON i (i);
+
+SELECT * FROM i WHERE i = 'i' ORDER BY i;
+SELECT * FROM i where i = 'I' ORDER BY i;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM i;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE i;
+SET NAMES default;

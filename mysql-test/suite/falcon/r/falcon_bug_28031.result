@@ -1,0 +1,15 @@
+SET storage_engine = Falcon;
+*** Bug #28031 ***
+DROP TABLE IF EXISTS ti;
+SET @@autocommit=1;
+SELECT @@autocommit;
+@@autocommit
+1
+CREATE TABLE ti (s1 int);
+START TRANSACTION;
+INSERT INTO ti VALUES (0);
+ROLLBACK;
+SELECT count(*) FROM ti;
+count(*)
+0
+DROP TABLE ti;

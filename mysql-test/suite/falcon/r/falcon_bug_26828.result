@@ -1,0 +1,32 @@
+SET @@storage_engine = Falcon;
+*** Bug #26828 ***
+DROP SCHEMA IF EXISTS db1;
+CREATE SCHEMA db1;
+USE db1;
+CREATE TABLE t1 (a int)
+PARTITION BY list(a) (
+PARTITION p1 VALUES IN (1)
+);
+# Establish connection conn1 (user = root)
+SET storage_engine = Falcon;
+USE db1;
+# Switch to connection default
+INSERT INTO t1 VALUES (1)//
+CREATE PROCEDURE p1 ()
+BEGIN
+DECLARE v int DEFAULT 0;
+WHILE v < 50 DO
+/* IF v mod 100 = 0 THEN
+SELECT v;
+END IF; */
+UPDATE t1 SET a = 1;
+SET v = v + 1;
+END WHILE;
+END//
+CALL p1();
+# Switch to connection conn1
+CALL p1();
+# Switch to connection default
+DROP TABLE t1;
+DROP SCHEMA db1;
+USE test;

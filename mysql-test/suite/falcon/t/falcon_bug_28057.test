@@ -1,0 +1,27 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28057: Falcon OR fails if index exists (3)
+#
+--echo *** Bug #28057 ***
+--disable_warnings
+DROP TABLE IF EXISTS t7;
+--enable_warnings
+
+# Part 1
+CREATE TABLE t7 (s1 int);
+CREATE INDEX it7 ON t7 (s1);
+INSERT INTO t7 VALUES (null),(0),(1);
+SELECT * FROM t7;
+SELECT * FROM t7 WHERE s1 IS NULL OR s1 = 0 OR s1 = 1;
+DROP TABLE t7;
+
+# Part 2
+CREATE TABLE t7 (s1 varchar(5));
+CREATE INDEX it7 ON t7 (s1);
+INSERT INTO t7 VALUES (null),(''),(' ');
+SELECT * FROM t7;
+SELECT * FROM t7 WHERE s1 >= '' OR s1 IS NULL;
+
+# Final cleanup
+DROP TABLE t7;

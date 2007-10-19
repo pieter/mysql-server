@@ -1,0 +1,21 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28031: Falcon Difference from InnoDB autocommit behaviour 
+#
+--echo *** Bug #28031 ***
+--disable_warnings
+DROP TABLE IF EXISTS ti;
+--enable_warnings
+
+SET @@autocommit=1;
+SELECT @@autocommit;
+
+CREATE TABLE ti (s1 int);
+START TRANSACTION;
+INSERT INTO ti VALUES (0);
+ROLLBACK;
+SELECT count(*) FROM ti;
+
+# Final cleanup
+DROP TABLE ti;

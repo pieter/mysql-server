@@ -291,6 +291,8 @@ int32 Section::insertStub(TransId transId)
 
 	for (int32 line = (freeLines) ? 0 : nextLine;; ++line)
 		{
+		ASSERT(sync.state == Exclusive);
+		
 		// If there are some recently released free record numbers, use them first
 
 		if (freeLines)
@@ -312,6 +314,7 @@ int32 Section::insertStub(TransId transId)
 		if (reservedRecordNumbers && reservedRecordNumbers->isSet(line))
 			continue;
 
+		sync.unlock();
 		int32 indexSequence = line / linesPerPage;
 		RecordLocatorPage *page;
 
@@ -334,6 +337,7 @@ int32 Section::insertStub(TransId transId)
 				bdb->release(REL_HISTORY);
 				bdb = NULL;
 				line = (line + linesPerSection) / linesPerSection * linesPerSection - 1;
+				sync.lock(Exclusive);
 				
 				continue;
 				}
@@ -377,8 +381,8 @@ int32 Section::insertStub(TransId transId)
 			
 			bdb->mark(transId);
 			index->line = 1;
-			page->maxLine = MAX (page->maxLine, slot + 1);
-			ASSERT (page->maxLine <= dbb->pagesPerSection);
+			page->maxLine = MAX(page->maxLine, slot + 1);
+			ASSERT(page->maxLine <= dbb->pagesPerSection);
 			bdb->release(REL_HISTORY);
 
 			// We have our line.  Find the next potential line, and if it isn't in this
@@ -388,27 +392,30 @@ int32 Section::insertStub(TransId transId)
 
 			if (reservedRecordNumbers || freeLines)
 				{
+				sync.lock(Shared);
 				int next = nextLine;
 
 				if (reservedRecordNumbers)
 					{
-					int n = reservedRecordNumbers->nextSet (line + 1);
+					int n = reservedRecordNumbers->nextSet(line + 1);
+					
 					if (n >= 0 && n < next)
 						next = n;
 					}
 
 				if (freeLines)
 					{
-					int n = freeLines->nextSet (line + 1);
+					int n = freeLines->nextSet(line + 1);
 					
 					if (n >= 0 && n < next)
 						next = n;
 					}
 
 				int nextSequence = next / linesPerSection;
-
+				sync.unlock();
+				
 				if (nextSequence > sequence)
-					markFull (true, sequence, transId);
+					markFull(true, sequence, transId);
 
 				if (!freeLines)
 					nextLine = line + 1;
@@ -418,7 +425,7 @@ int32 Section::insertStub(TransId transId)
 				nextLine = line + 1;
 
 				if (nextLine % linesPerSection == 0)
-					markFull (true, sequence, transId);
+					markFull(true, sequence, transId);
 				}
 				
 			return line;
@@ -426,7 +433,9 @@ int32 Section::insertStub(TransId transId)
 
 		if (line % linesPerSection == linesPerSection - 1 &&
 			(!reservedRecordNumbers || reservedRecordNumbers->nextSet(0) > line))
-			markFull (true, indexSequence / dbb->pagesPerSection, transId);
+			markFull(true, indexSequence / dbb->pagesPerSection, transId);
+			
+		sync.lock(Exclusive);
 		}
 }
 

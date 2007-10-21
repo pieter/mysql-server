@@ -348,13 +348,6 @@ extern size_t azseek (azio_stream *file,
    would be before the current position.
 */
 
-extern int azrewind(azio_stream *file);
-/*
-     Rewinds the given file. This function is supported only for reading.
-
-   gzrewind(file) is equivalent to (int)gzseek(file, 0L, SEEK_SET)
-*/
-
 extern size_t aztell(azio_stream *file);
 /*
      Returns the starting position for the next gzread or gzwrite on the
@@ -371,6 +364,7 @@ extern int azclose(azio_stream *file);
    error number (see function gzerror below).
 */
 
+int azread_init(azio_stream *s);
 size_t azwrite_row(azio_stream *s, void *buf, unsigned int len);
 size_t azread_row(azio_stream *s, int *error);
 

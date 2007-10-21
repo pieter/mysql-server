@@ -167,6 +167,7 @@ int small_test(int aio)
     azio_enable_aio(&reader_handle);
 
   /* Read the original data */
+  azread_init(&reader_handle);
   for (x= 0; x < writer_handle.rows; x++)
   {
     ret= azread_row(&reader_handle, &error);
@@ -189,7 +190,7 @@ int small_test(int aio)
   assert(writer_handle.rows == TEST_LOOP_NUM+1);
 
   /* Read final write */
-  azrewind(&reader_handle);
+  azread_init(&reader_handle);
   for (x= 0; x < writer_handle.rows; x++)
   {
     ret= azread_row(&reader_handle, &error);
@@ -203,7 +204,7 @@ int small_test(int aio)
 
 
   /* Rewind and full test */
-  azrewind(&reader_handle);
+  azread_init(&reader_handle);
   for (x= 0; x < writer_handle.rows; x++)
   {
     ret= azread_row(&reader_handle, &error);
@@ -225,7 +226,7 @@ int small_test(int aio)
   azflush(&reader_handle,  Z_SYNC_FLUSH);
 
   /* Rewind and full test */
-  azrewind(&reader_handle);
+  azread_init(&reader_handle);
   for (x= 0; x < writer_handle.rows; x++)
   {
     ret= azread_row(&reader_handle, &error);
@@ -307,6 +308,7 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for, in
     unsigned long long count;
     printf("Pass %d of azread_row()\n", x);
 
+    azread_init(&reader_handle);
     for (count= 0; count < writer_handle.rows; count++)
     {
       ret= azread_row(&reader_handle, &error);
@@ -318,7 +320,7 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for, in
         assert(ret != BUFFER_LEN);
       }
     }
-    azrewind(&reader_handle);
+    azread_init(&reader_handle);
 
     assert(read_length == write_length);
     assert(writer_handle.rows == rows_to_test_for);

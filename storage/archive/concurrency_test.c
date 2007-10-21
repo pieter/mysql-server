@@ -283,7 +283,7 @@ void *run_task(void *p)
   count= 0;
   while (1)
   {
-    azrewind(&reader_handle);
+    azread_init(&reader_handle);
     while ((ret= azread_row(&reader_handle, &error)))
       context->counter++;
 

@@ -29,6 +29,7 @@ static int const az_magic[3] = {0xfe, 0x03, 0x01}; /* az magic header */
 
 static int az_open(azio_stream *s, const char *path, int Flags, File  fd);
 static unsigned int azwrite(azio_stream *s, void *buf, unsigned int len);
+static int azrewind (azio_stream *s);
 static int do_flush(azio_stream *file, int flush);
 static int    get_byte(azio_stream *s);
 static void   check_header(azio_stream *s);
@@ -748,6 +749,32 @@ int ZEXPORT azflush (s, flush)
     my_sync(s->file, MYF(0));
     return  s->z_err == Z_STREAM_END ? Z_OK : s->z_err;
   }
+}
+
+/* ===========================================================================
+  Initiazliaze for reading
+*/
+int azread_init(azio_stream *s)
+{
+  int returnable;
+
+  /* This will reset any aio reads */
+  returnable= azrewind(s);
+
+  if (returnable == -1)
+    return returnable;
+
+#ifdef NOT_YET
+  /* Put one in the chamber */
+  if (s->aio != AZ_METHOD_BLOCK)
+  {
+    do_aio_cleanup(s);
+    if (!(azio_read(s, s->buffer1, s->pos)))
+      s->aio_inited= 1;
+  }
+#endif
+
+  return returnable;
 }
 
 /* ===========================================================================

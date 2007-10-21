@@ -149,6 +149,7 @@ int read_test(azio_stream *reader_handle, unsigned long long rows_to_test_for)
   unsigned int ret;
   int error;
 
+  azread_init(reader_handle);
   while ((ret= azread_row(reader_handle, &error)))
   {
     if (error)

@@ -268,7 +268,7 @@ int ha_archive::read_data_header(azio_stream *file_to_read)
 {
   DBUG_ENTER("ha_archive::read_data_header");
 
-  if (azrewind(file_to_read) == -1)
+  if (azread_init(file_to_read) == -1)
     DBUG_RETURN(HA_ERR_CRASHED_ON_USAGE);
 
   if (file_to_read->version >= 3)

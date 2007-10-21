@@ -2527,7 +2527,7 @@ int NfsPluginHandler::call_fillDatabaseIOTable(THD *thd, TABLE_LIST *tables, CON
 
 ST_FIELD_INFO databaseIOFieldInfo[]=
 {
-	{"DATABASE",	  120, MYSQL_TYPE_STRING,	0, 0, "Database", SKIP_OPEN_TABLE},
+	{"TABLESPACE",	  120, MYSQL_TYPE_STRING,	0, 0, "Tablespace", SKIP_OPEN_TABLE},
 	{"PAGE_SIZE",		4, MYSQL_TYPE_LONG,		0, 0, "Page Size", SKIP_OPEN_TABLE},
 	{"BUFFERS",			4, MYSQL_TYPE_LONG,		0, 0, "Buffers", SKIP_OPEN_TABLE},
 	{"PHYSICAL_READS",	4, MYSQL_TYPE_LONG,		0, 0, "Physical Reads", SKIP_OPEN_TABLE},

@@ -39,6 +39,7 @@
 #include "SRLCreateTableSpace.h"
 #include "SRLDropTableSpace.h"
 #include "Log.h"
+#include "InfoTable.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -278,6 +279,15 @@ void TableSpaceManager::reportStatistics(void)
 
 	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
 		tableSpace->dbb->reportStatistics();
+}
+
+void TableSpaceManager::getIOInfo(InfoTable* infoTable)
+{
+	Sync sync(&syncObject, "TableSpaceManager::getIOInfo");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		tableSpace->getIOInfo(infoTable);
 }
 
 void TableSpaceManager::validate(int optionMask)

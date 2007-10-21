@@ -26,6 +26,7 @@
 
 class Dbb;
 class Database;
+class InfoTable;
 
 class TableSpace  
 {
@@ -38,6 +39,7 @@ public:
 	void	shutdown(TransId transId);
 	void	dropTableSpace(void);
 	bool	fileNameEqual(const char* file);
+	void	getIOInfo(InfoTable* infoTable);
 
 	JString		name;
 	JString		filename;

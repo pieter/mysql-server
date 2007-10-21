@@ -183,7 +183,7 @@ int azopen(azio_stream *s, const char *path, int Flags, az_method method)
   s->mode = 'r';
   s->version = (unsigned char)az_magic[1]; /* this needs to be a define to version */
   s->version = (unsigned char)az_magic[2]; /* minor version */
-  s->method= AZ_METHOD_BLOCK;
+  s->method= method;
 
   /*
     We do our own version of append by nature. 
@@ -266,9 +266,16 @@ int azopen(azio_stream *s, const char *path, int Flags, az_method method)
   else
   {
     check_header(s); /* skip the .az header */
-    s->method= method;
-    if (s->method == AZ_METHOD_AIO)
-      azio_enable_aio(s);
+  }
+
+  switch (s->method)
+  {
+  case AZ_METHOD_AIO:
+    azio_enable_aio(s);
+    break;
+  case AZ_METHOD_BLOCK:
+  case AZ_METHOD_MAX:
+    break;
   }
 
   return 1;
@@ -695,9 +702,6 @@ int do_flush (azio_stream *s, int flush)
 
 static unsigned int azio_enable_aio(azio_stream *s)
 {
-  if (s->mode == 'w')
-    return 1;
-
   VOID(pthread_cond_init(&s->container.threshhold, NULL));
   VOID(pthread_mutex_init(&s->container.thresh_mutex, NULL));
   azio_start(s);
@@ -936,8 +940,15 @@ int azclose (azio_stream *s)
   returnable= destroy(s);
   assert(s->aio_read_active == 0);
 
-  if (s->method == AZ_METHOD_AIO)
+  switch (s->method)
+  {
+  case AZ_METHOD_AIO:
     azio_disable_aio(s);
+    break;
+  case AZ_METHOD_BLOCK:
+  case AZ_METHOD_MAX:
+    break;
+  }
 
   /* If we allocated memory for row reading, now free it */
   if (s->row_ptr)

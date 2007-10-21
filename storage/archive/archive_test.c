@@ -33,18 +33,20 @@
 
 char test_string[BUFFER_LEN];
 
-#define HALFGIG LL(536870912)
-#define TWOGIG LL(2147483648)
-#define FOURGIG LL(4294967296)
-#define EIGHTGIG LL(8589934592)
+unsigned long long row_lengths[]= {LL(536870912), LL(2147483648), LL(4294967296), LL(8589934592)};
+unsigned long long row_numbers[]= {LL(524288), LL(2097152), LL(4194304), LL(8388608)};
 
 /* prototypes */
 int size_test(unsigned long long length, unsigned long long rows_to_test_for, az_method method);
 int small_test(az_method method);
+long int timedif(struct timeval a, struct timeval b);
 
 
 int main(int argc, char *argv[])
 {
+  az_method method;
+  unsigned int x;
+
   if (argc > 2)
     return 0;
 
@@ -52,22 +54,39 @@ int main(int argc, char *argv[])
 
   MY_INIT(argv[0]);
 
-  small_test(0);
-  small_test(1);
+  for (method= AZ_METHOD_BLOCK; method < AZ_METHOD_MAX; method++)
+  {
+    struct timeval start_time, end_time;
+    long int timing;
+
+    printf("Testing %d\n", (int)method);
+    gettimeofday(&start_time, NULL);
+    small_test(method);
+    gettimeofday(&end_time, NULL);
+    timing= timedif(end_time, start_time);
+    printf("\tTime took %ld.%03ld seconds\n\n", timing / 1000, timing % 1000);
+  }
 
   if (argc > 1)
     return 0;
 
   /* Start size tests */
-  printf("About to run 2/4/8 gig tests now, you may want to hit CTRL-C\n");
-  size_test(HALFGIG, 524288L, 0);
-  size_test(HALFGIG, 524288L, 1);
-  size_test(TWOGIG, 2097152L, 0);
-  size_test(TWOGIG, 2097152L, 1);
-  size_test(FOURGIG, 4194304L, 0);
-  size_test(FOURGIG, 4194304L, 1);
-  size_test(EIGHTGIG, 8388608L, 0);
-  size_test(EIGHTGIG, 8388608L, 1);
+  printf("About to run .5/2/4/8 gig tests now, you may want to hit CTRL-C\n");
+  for (x= 0; x < 4; x++) /* 4 is the current size of the array we use */
+  {
+    for (method= AZ_METHOD_BLOCK; method < AZ_METHOD_MAX; method++)
+    {
+      struct timeval start_time, end_time;
+      long int timing;
+
+      printf("Testing %llu bytes with (%d)\n", row_lengths[x], (int)method);
+      gettimeofday(&start_time, NULL);
+      size_test(row_lengths[x], row_numbers[x], method);
+      gettimeofday(&end_time, NULL);
+      timing= timedif(end_time, start_time);
+      printf("\tTime took %ld.%03ld seconds\n\n", timing / 1000, timing % 1000);
+    }
+  }
 
   my_end(0);
 
@@ -210,8 +229,6 @@ int small_test(az_method method)
     assert(!memcmp(reader_handle.row_ptr, test_string, ret));
   }
 
-  printf("Finished reading\n");
-
   if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_RDWR|O_BINARY, method)))
   {
     printf("Could not open file (%s) for appending\n", TEST_FILENAME);
@@ -266,7 +283,8 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for,
   int error;
   int x;
 
-  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY,
+  if (!(ret= azopen(&writer_handle, TEST_FILENAME, 
+                    O_CREAT|O_RDWR|O_TRUNC|O_BINARY,
                     method)))
   {
     printf("Could not create test file\n");
@@ -291,8 +309,6 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for,
   assert(write_length == count * BUFFER_LEN); /* Number of rows time BUFFER_LEN */
   azflush(&writer_handle,  Z_SYNC_FLUSH);
 
-  printf("Reading back data\n");
-
   if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY,
                     method)))
   {
@@ -300,10 +316,10 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for,
     exit(1);
   }
 
+  /* We do a double loop to test speed */
   for (x= 0, read_length= 0; x < 2; x++, read_length= 0)
   {
     unsigned long long count;
-    printf("Pass %d of azread_row()\n", x);
 
     azread_init(&reader_handle);
     for (count= 0; count < writer_handle.rows; count++)
@@ -324,7 +340,19 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for,
   }
   azclose(&writer_handle);
   azclose(&reader_handle);
+
   unlink(TEST_FILENAME);
 
   return 0;
+}
+
+long int timedif(struct timeval a, struct timeval b)
+{
+    register int us, s;
+ 
+    us = a.tv_usec - b.tv_usec;
+    us /= 1000;
+    s = a.tv_sec - b.tv_sec;
+    s *= 1000;
+    return s + us;
 }

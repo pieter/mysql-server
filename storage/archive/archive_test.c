@@ -39,8 +39,8 @@ char test_string[BUFFER_LEN];
 #define EIGHTGIG LL(8589934592)
 
 /* prototypes */
-int size_test(unsigned long long length, unsigned long long rows_to_test_for, int aio);
-int small_test(int aio);
+int size_test(unsigned long long length, unsigned long long rows_to_test_for, az_method method);
+int small_test(az_method method);
 
 
 int main(int argc, char *argv[])
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-int small_test(int aio)
+int small_test(az_method method)
 {
   unsigned int ret;
   char comment_str[10];
@@ -88,7 +88,8 @@ int small_test(int aio)
 
   unlink(TEST_FILENAME);
 
-  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_BINARY)))
+  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_BINARY,
+                    method)))
   {
     printf("Could not create test file\n");
     return 0;
@@ -107,14 +108,12 @@ int small_test(int aio)
                 strlen(FRM_STRING)));
 
 
-  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY)))
+  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY,
+                    method)))
   {
     printf("Could not open test file\n");
     return 0;
   }
-
-  if (aio)
-    azio_enable_aio(&reader_handle);
 
   assert(reader_handle.rows == 0);
   assert(reader_handle.auto_increment == 0);
@@ -156,15 +155,13 @@ int small_test(int aio)
 
   azclose(&reader_handle);
 
-  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY)))
+  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY,
+                    method)))
   {
     printf("Could not open test file\n");
     return 0;
   }
 
-
-  if (aio)
-    azio_enable_aio(&reader_handle);
 
   /* Read the original data */
   azread_init(&reader_handle);
@@ -215,7 +212,7 @@ int small_test(int aio)
 
   printf("Finished reading\n");
 
-  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_RDWR|O_BINARY)))
+  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_RDWR|O_BINARY, method)))
   {
     printf("Could not open file (%s) for appending\n", TEST_FILENAME);
     return 0;
@@ -258,7 +255,8 @@ int small_test(int aio)
   return 0;
 }
 
-int size_test(unsigned long long length, unsigned long long rows_to_test_for, int aio)
+int size_test(unsigned long long length, unsigned long long rows_to_test_for, 
+              az_method method)
 {
   azio_stream writer_handle, reader_handle;
   unsigned long long write_length;
@@ -268,7 +266,8 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for, in
   int error;
   int x;
 
-  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY)))
+  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY,
+                    method)))
   {
     printf("Could not create test file\n");
     exit(1);
@@ -294,14 +293,12 @@ int size_test(unsigned long long length, unsigned long long rows_to_test_for, in
 
   printf("Reading back data\n");
 
-  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY)))
+  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY,
+                    method)))
   {
     printf("Could not open test file\n");
     exit(1);
   }
-
-  if (aio)
-    azio_enable_aio(&reader_handle);
 
   for (x= 0, read_length= 0; x < 2; x++, read_length= 0)
   {

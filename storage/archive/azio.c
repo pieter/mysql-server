@@ -27,9 +27,9 @@ static int const az_magic[3] = {0xfe, 0x03, 0x01}; /* az magic header */
 #define COMMENT      0x10 /* bit 4 set: file comment present */
 #define RESERVED     0xE0 /* bits 5..7: reserved */
 
-static int az_open(azio_stream *s, const char *path, int Flags, File  fd);
 static unsigned int azwrite(azio_stream *s, void *buf, unsigned int len);
 static int azrewind (azio_stream *s);
+static unsigned int azio_enable_aio(azio_stream *s);
 static int do_flush(azio_stream *file, int flush);
 static int    get_byte(azio_stream *s);
 static void   check_header(azio_stream *s);
@@ -45,6 +45,9 @@ static void do_aio_cleanup(azio_stream *s);
 
 static pthread_handler_t run_task(void *p)
 {
+  int fd;
+  char *buffer;
+  size_t offset;
   azio_stream *s= (azio_stream *)p;  
 
   my_thread_init();
@@ -56,13 +59,17 @@ static pthread_handler_t run_task(void *p)
     {
       pthread_cond_wait(&s->container.threshhold, &s->container.thresh_mutex);
     }
+    offset= s->container.offset;
+    fd= s->container.fd;
+    buffer= s->container.buffer;
     pthread_mutex_unlock(&s->container.thresh_mutex);
 
     if (s->container.ready == AZ_THREAD_DEAD)
       break;
 
-    s->container.read_size= my_pread(s->container.fd, (uchar *)s->container.buffer, 
-                                     AZ_BUFSIZE_READ, s->container.offset, MYF(0));
+    s->container.read_size= my_pread(fd, (uchar *)buffer, AZ_BUFSIZE_READ, 
+                                     offset, MYF(0));
+
     pthread_mutex_lock(&s->container.thresh_mutex);
     s->container.ready= AZ_THREAD_FINISHED; 
     pthread_mutex_unlock(&s->container.thresh_mutex);
@@ -149,11 +156,12 @@ static int azio_read(azio_stream *s)
   can be checked to distinguish the two cases (if errno is zero, the
   zlib error is Z_MEM_ERROR).
 */
-int az_open (azio_stream *s, const char *path, int Flags, File fd)
+int azopen(azio_stream *s, const char *path, int Flags, az_method method)
 {
   int err;
   int level = Z_DEFAULT_COMPRESSION ; /* compression level */
   int strategy = Z_DEFAULT_STRATEGY; /* compression strategy */
+  File fd= -1;
 
   memset(s, 0, sizeof(azio_stream));
 
@@ -175,6 +183,7 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
   s->mode = 'r';
   s->version = (unsigned char)az_magic[1]; /* this needs to be a define to version */
   s->version = (unsigned char)az_magic[2]; /* minor version */
+  s->method= AZ_METHOD_BLOCK;
 
   /*
     We do our own version of append by nature. 
@@ -257,6 +266,9 @@ int az_open (azio_stream *s, const char *path, int Flags, File fd)
   else
   {
     check_header(s); /* skip the .az header */
+    s->method= method;
+    if (s->method == AZ_METHOD_AIO)
+      azio_enable_aio(s);
   }
 
   return 1;
@@ -301,25 +313,6 @@ void write_header(azio_stream *s)
   /* Always begin at the begining, and end there as well */
   my_pwrite(s->file, (uchar*) buffer, AZHEADER_SIZE + AZMETA_BUFFER_SIZE, 0,
             MYF(0));
-}
-
-/* ===========================================================================
-  Opens a gzip (.gz) file for reading or writing.
-*/
-int azopen(azio_stream *s, const char *path, int Flags)
-{
-  return az_open(s, path, Flags, -1);
-}
-
-/* ===========================================================================
-  Associate a gzFile with the file descriptor fd. fd is not dup'ed here
-  to mimic the behavio(u)r of fdopen.
-*/
-int azdopen(azio_stream *s, File fd, int Flags)
-{
-  if (fd < 0) return 0;
-
-  return az_open (s, NULL, Flags, fd);
 }
 
 /* ===========================================================================
@@ -700,7 +693,7 @@ int do_flush (azio_stream *s, int flush)
   return  s->z_err == Z_STREAM_END ? Z_OK : s->z_err;
 }
 
-unsigned int azio_enable_aio(azio_stream *s)
+static unsigned int azio_enable_aio(azio_stream *s)
 {
   if (s->mode == 'w')
     return 1;
@@ -708,8 +701,6 @@ unsigned int azio_enable_aio(azio_stream *s)
   VOID(pthread_cond_init(&s->container.threshhold, NULL));
   VOID(pthread_mutex_init(&s->container.thresh_mutex, NULL));
   azio_start(s);
-
-  s->aio= 1;
 
   return 0;
 }
@@ -721,7 +712,7 @@ void azio_disable_aio(azio_stream *s)
   VOID(pthread_mutex_destroy(&s->container.thresh_mutex));
   VOID(pthread_cond_destroy(&s->container.threshhold));
 
-  s->aio= 0;
+  s->method= AZ_METHOD_BLOCK;
 }
 
 int ZEXPORT azflush (s, flush)
@@ -766,7 +757,7 @@ int azread_init(azio_stream *s)
 
 #ifdef NOT_YET
   /* Put one in the chamber */
-  if (s->aio != AZ_METHOD_BLOCK)
+  if (s->method != AZ_METHOD_BLOCK)
   {
     do_aio_cleanup(s);
     if (!(azio_read(s, s->buffer1, s->pos)))
@@ -945,7 +936,7 @@ int azclose (azio_stream *s)
   returnable= destroy(s);
   assert(s->aio_read_active == 0);
 
-  if (s->aio)
+  if (s->method == AZ_METHOD_AIO)
     azio_disable_aio(s);
 
   /* If we allocated memory for row reading, now free it */
@@ -1022,7 +1013,7 @@ int azread_comment(azio_stream *s, char *blob)
 #ifdef AZIO_AIO
 static void do_aio_cleanup(azio_stream *s)
 {
-  if (s->aio == 0)
+  if (s->method == AZ_METHOD_BLOCK)
     return;
 
   azio_ready(s);
@@ -1037,7 +1028,7 @@ static void do_aio_cleanup(azio_stream *s)
 static void get_block(azio_stream *s)
 {
 #ifdef AZIO_AIO
-  if (s->aio && s->mode == 'r' && s->pos < s->check_point)
+  if (s->method == AZ_METHOD_AIO && s->mode == 'r' && s->pos < s->check_point)
   {
     if (!s->aio_inited)
     {

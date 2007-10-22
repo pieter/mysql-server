@@ -1,9 +1,15 @@
 --source include/have_ucs2.inc
+--source include/have_utf16.inc
+--source include/have_utf32.inc
+
 
 --disable_warnings
 drop table if exists t1;
 --enable_warnings
 
+--echo In the following tests we change the order of letter "b"
+--echo making it equal to letter "a", and check that it works
+--echo with all Unicode character sets
 set names utf8;
 
 --replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
@@ -21,9 +27,19 @@ insert into t1 values ('a');
 select * from t1 where c1='b';
 drop table t1;
 
-#
-#  Vietnamese experimental collation
-#
+show collation like 'utf16_test_ci';
+create table t1 (c1 char(1) character set utf16 collate utf16_test_ci);
+insert into t1 values ('a');
+select * from t1 where c1='b';
+drop table t1;
+
+show collation like 'utf32_test_ci';
+create table t1 (c1 char(1) character set utf32 collate utf32_test_ci);
+insert into t1 values ('a');
+select * from t1 where c1='b';
+drop table t1;
+
+--echo  Vietnamese experimental collation
 
 show collation like 'ucs2_vn_ci';
 create table t1 (c1 char(1) character set ucs2 collate ucs2_vn_ci);

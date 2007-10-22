@@ -268,14 +268,14 @@ static int add_collation(CHARSET_INFO *cs)
       }
       else if (!strcmp(cs->csname, "utf16"))
       {
-#if defined (HAVE_CHARSET_utf8mb3) && defined(HAVE_UCA_COLLATIONS)
+#if defined (HAVE_CHARSET_utf16) && defined(HAVE_UCA_COLLATIONS)
         copy_uca_collation(newcs, &my_charset_utf16_unicode_ci);
         newcs->state|= MY_CS_AVAILABLE | MY_CS_LOADED | MY_CS_NONASCII;
 #endif
       }
       else if (!strcmp(cs->csname, "utf32"))
       {
-#if defined (HAVE_CHARSET_utf8mb3) && defined(HAVE_UCA_COLLATIONS)
+#if defined (HAVE_CHARSET_utf32) && defined(HAVE_UCA_COLLATIONS)
         copy_uca_collation(newcs, &my_charset_utf32_unicode_ci);
         newcs->state|= MY_CS_AVAILABLE | MY_CS_LOADED | MY_CS_NONASCII;
 #endif

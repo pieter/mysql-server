@@ -2898,13 +2898,8 @@ void Statement::renameTables(Syntax *syntax)
 		if (statement->findTable(to, false))
 			throw SQLError(DDL_ERROR, "rename table target \"%s.%s\" already exists", name, schema);
 
-		Sync sync(&database->syncSysConnection, "Statement::renameTables");
-		sync.lock(Shared);
-
 		Table *table = statement->getTable(from);
 		table->rename(schema, name);
-
-		sync.unlock();
 		database->commitSystemTransaction();
 		}
 }

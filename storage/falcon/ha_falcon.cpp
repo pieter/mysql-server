@@ -1311,7 +1311,10 @@ int StorageInterface::rename_table(const char *from, const char *to)
 	if (ret)
 		DBUG_RETURN(ret);
 
-	DBUG_RETURN(storageShare->renameTable(storageConnection, to));
+	if ( (ret = storageShare->renameTable(storageConnection, to)) )
+		DBUG_RETURN(ret);
+	
+	DBUG_RETURN(error(ret));
 }
 
 
@@ -1344,7 +1347,7 @@ int StorageInterface::read_range_first(const key_range *start_key,
 		int ret = storageTable->setIndexBound((const unsigned char*) start_key->key,
 												start_key->length, LowerBound);
 		if (ret)
-			DBUG_RETURN(ret);
+			DBUG_RETURN(error(ret));
 		}
 
 	if (end_key)
@@ -1355,7 +1358,7 @@ int StorageInterface::read_range_first(const key_range *start_key,
 		int ret = storageTable->setIndexBound((const unsigned char*) end_key->key,
 												end_key->length, UpperBound);
 		if (ret)
-			DBUG_RETURN(ret);
+			DBUG_RETURN(error(ret));
 		}
 
 	storageTable->indexScan();

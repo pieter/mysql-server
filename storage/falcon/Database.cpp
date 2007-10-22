@@ -1224,6 +1224,13 @@ void Database::commitSystemTransaction()
 	systemConnection->commit();
 }
 
+void Database::rollbackSystemTransaction(void)
+{
+	Sync sync (&syncSysConnection, "Database::commitSystemTransaction");
+	sync.lock (Exclusive);
+	systemConnection->rollback();
+}
+
 void Database::setDebug()
 {
 	dbb->setDebug();

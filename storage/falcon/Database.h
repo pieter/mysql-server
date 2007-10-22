@@ -179,6 +179,7 @@ public:
 	void			clearDebug();
 	void			setDebug();
 	void			commitSystemTransaction();
+	void			rollbackSystemTransaction(void);
 	bool			flush(int64 arg);
 	
 	Transaction*	startTransaction(Connection *connection);

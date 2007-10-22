@@ -2225,7 +2225,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
                                                sql_field->interval_list);
         List_iterator<String> int_it(sql_field->interval_list);
         String conv, *tmp;
-        char comma_buf[2];
+        char comma_buf[4];
         int comma_length= cs->cset->wc_mb(cs, ',', (uchar*) comma_buf,
                                           (uchar*) comma_buf + 
                                           sizeof(comma_buf));
@@ -2494,12 +2494,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     }
     key_name_str.str= (char*) key->name;
     key_name_str.length= key->name ? strlen(key->name) : 0;
-    if (check_string_char_length(&key_name_str, "", NAME_CHAR_LEN,
-                                 system_charset_info, 1))
-    {
-      my_error(ER_TOO_LONG_IDENT, MYF(0), key->name);
+    if (check_identifier_name(&key_name_str, ER_TOO_LONG_IDENT))
       DBUG_RETURN(TRUE);
-    }
     key_iterator2.rewind ();
     if (key->type != Key::FOREIGN_KEY)
     {
@@ -3958,17 +3954,20 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
   Protocol *protocol= thd->protocol;
   LEX *lex= thd->lex;
   int result_code;
+  CHARSET_INFO *cs= system_charset_info;
   DBUG_ENTER("mysql_admin_table");
 
   if (end_active_trans(thd))
     DBUG_RETURN(1);
-  field_list.push_back(item = new Item_empty_string("Table", NAME_CHAR_LEN*2));
+  field_list.push_back(item = new Item_empty_string("Table",
+                                                    NAME_CHAR_LEN * 2,
+                                                    cs));
   item->maybe_null = 1;
-  field_list.push_back(item = new Item_empty_string("Op", 10));
+  field_list.push_back(item = new Item_empty_string("Op", 10, cs));
   item->maybe_null = 1;
-  field_list.push_back(item = new Item_empty_string("Msg_type", 10));
+  field_list.push_back(item = new Item_empty_string("Msg_type", 10, cs));
   item->maybe_null = 1;
-  field_list.push_back(item = new Item_empty_string("Msg_text", 255));
+  field_list.push_back(item = new Item_empty_string("Msg_text", 255, cs));
   item->maybe_null = 1;
   if (protocol->send_fields(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))

@@ -1150,8 +1150,8 @@ default character set utf8;
 select CHARACTER_MAXIMUM_LENGTH, CHARACTER_OCTET_LENGTH from
 information_schema.columns where table_schema='test' and table_name = 't1';
 CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH
-1	3
-9	27
+1	4
+9	36
 drop table t1;
 use mysql;
 INSERT INTO `proc` VALUES ('test','','PROCEDURE','','SQL','CONTAINS_SQL',

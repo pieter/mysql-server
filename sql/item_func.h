@@ -1537,6 +1537,11 @@ public:
 
   bool fix_fields(THD *thd, Item **ref);
   void fix_length_and_dec(void);
+
+  inline Field *get_sp_result_field()
+  {
+    return sp_result_field;
+  }
 };
 
 

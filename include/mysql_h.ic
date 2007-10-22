@@ -538,14 +538,14 @@ struct __attribute__((aligned(__alignof__(void *)), aligned(__alignof__(unsigned
     unsigned char reading_or_writing;
     char save_char;
     my_bool no_send_ok;
-    my_bool no_send_eof;
+    my_bool unused;
     my_bool compress;
     my_bool no_send_error;
     unsigned char * query_cache_query;
     unsigned int last_errno;
     unsigned char error;
     my_bool report_error;
-    my_bool return_errno;
+    my_bool unused1;
     char last_error[512];
     char sqlstate[(5 + 1)];
     void * extension;

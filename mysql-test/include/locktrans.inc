@@ -77,6 +77,7 @@ LOCK TABLE information_schema.tables WRITE;
 --echo #
 --echo # The new keywords EXCLUSIVE and NOWAIT are not reserved words.
 eval CREATE TABLE t4 (exclusive INT, nowait INT) ENGINE=$engine_type;
+LOCK TABLE t4 WRITE;
 DROP TABLE t4;
 #
 --echo #

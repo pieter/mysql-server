@@ -321,7 +321,7 @@ int32 Section::insertStub(TransId transId)
 		// OK, go see if there's space there.  If the whole section page is
 		// full, don't bother
 
-		if (indexSequence != segment)
+		if (bdb == NULL || indexSequence != segment)
 			{
 			int sequence = indexSequence / dbb->pagesPerSection;
 
@@ -433,7 +433,11 @@ int32 Section::insertStub(TransId transId)
 
 		if (line % linesPerSection == linesPerSection - 1 &&
 			(!reservedRecordNumbers || reservedRecordNumbers->nextSet(0) > line))
+			{
+			bdb->release(REL_HISTORY);
+			bdb = NULL;
 			markFull(true, indexSequence / dbb->pagesPerSection, transId);
+			}
 			
 		sync.lock(Exclusive);
 		}

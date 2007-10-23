@@ -49,12 +49,6 @@
 #include "LogStream.h"
 #endif
 
-#ifdef _WIN32
-#define SEPARATOR	'\\'
-#else
-#define SEPARATOR	'/'
-#endif
-
 static const int guardBytes = sizeof(long); // * 2048;
 
 #ifndef ASSERT

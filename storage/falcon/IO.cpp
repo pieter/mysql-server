@@ -66,10 +66,6 @@
 #define S_IWGRP		0
 #endif
 
-#ifndef PATH_MAX
-#define PATH_MAX		256
-#endif
-
 #include <fcntl.h>
 #include <sys/stat.h>
 #include "Engine.h"
@@ -303,34 +299,81 @@ void IO::createPath(const char *fileName)
 		}
 }
 
-void IO::expandFileName(const char *fileName, int length, char *buffer)
+const char* IO::baseName(const char *path)
 {
+	const char *ptr = strrchr(path, SEPARATOR);
+	return (ptr ? ptr + 1 : path);
+}
+
+void IO::expandFileName(const char *fileName, int length, char *buffer, const char **baseFileName)
+{
+	char expandedName[PATH_MAX+1];
+	const char *path;
 #ifdef _WIN32
-	char expandedName [PATH_MAX], *baseName;
-	GetFullPathName (fileName, sizeof (expandedName), expandedName, &baseName);
-	const char *path = expandedName;
+	char *base;
+	
+	GetFullPathName(fileName, sizeof (expandedName), expandedName, &base);
+	
+	path = expandedName;
 #else
-	char expandedName [PATH_MAX];
+	const char *base;
+	char tempName[PATH_MAX+1];
 	expandedName [0] = 0;
-	const char *path = realpath (fileName, expandedName);
+	tempName[0] = 0;
+	
+	path = realpath(fileName, tempName);
 
 	if (!path)
-		if (errno == ENOENT && expandedName [0])
+		{
+		// By definition, the contents of tempName is undefined if realPath() fails.
+		// If errno == ENOENT, then tempName will contain the resolved path without
+		// the filename--unless it doesn't. Append the filename if necessary.
+			
+		if (errno == ENOENT)
+			{
+			base = baseName(fileName);
+			
+			if (strcmp(base, baseName(tempName)))
+				snprintf(expandedName, PATH_MAX, "%s/%s", tempName, base);
+			else
+				snprintf(expandedName, PATH_MAX, "%s", tempName);
+		
 			path = expandedName;
+			}
 		else
 			path = fileName;
+		}
+	
 #endif
 	if ((int) strlen (path) >= length)
 		throw SQLError (IO_ERROR, "expanded filename exceeds buffer length\n");
 
 	strcpy (buffer, path);
+	
+	if (baseFileName)
+		*baseFileName = baseName(buffer);
 }
 
-bool IO::doesFileExits(const char *fileName)
+bool IO::doesFileExist(const char *fileName)
 {
 	struct stat stats;
+	int errnum;
+	
+	return fileStat(fileName, &stats, &errnum) == 0;
+}
 
-	return stat(fileName, &stats) == 0;
+int IO::fileStat(const char *fileName, struct stat *fileStats, int *errnum)
+{
+	struct stat stats;
+	int retCode = stat(fileName, &stats);
+	
+	if (fileStats)
+		*fileStats = stats;
+
+	if (errnum)
+		*errnum = (retCode == 0) ? 0 : errno;
+		
+	return(retCode);
 }
 
 void IO::write(uint32 length, const UCHAR *data)

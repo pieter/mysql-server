@@ -1250,7 +1250,6 @@ disconnect user1;
 disconnect user2;
 disconnect user3;
 
-
 #
 # Bug #28211 RENAME DATABASE and query cache don't play nicely together
 #
@@ -1316,6 +1315,7 @@ INSERT INTO t1 SET a = 'aaaa';
 SELECT 1 FROM t1 GROUP BY
   (SELECT LAST_INSERT_ID() FROM t1 ORDER BY MIN(a) ASC LIMIT 1);
 DROP TABLE t1;
+
 
 --echo End of 5.1 tests
 

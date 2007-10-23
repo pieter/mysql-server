@@ -2234,7 +2234,8 @@ void StorageInterface::decodeRecord(uchar *buf)
 					break;
 
 				case MYSQL_TYPE_DATETIME:
-					field->store(dataStream->getInt64(), false);
+					//field->store(dataStream->getInt64(), false);
+					int8store(field->ptr, dataStream->getInt64());
 					break;
 
 				case MYSQL_TYPE_VARCHAR:

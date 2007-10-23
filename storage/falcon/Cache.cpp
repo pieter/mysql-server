@@ -807,21 +807,6 @@ void Cache::setPageWriter(PageWriter *writer)
 	pageWriter = writer;
 }
 
-void Cache::shutdownNow(void)
-{
-	panicShutdown = true;
-	Sync sync (&syncDirty, "Cache::shutdownNow");
-	sync.lock (Exclusive);
-
-	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
-		{
-		Dbb *database = bdb->dbb;
-		database->writePage (bdb, WRITE_TYPE_SHUTDOWN);
-		}
-
-
-}
-
 void Cache::validateCache(void)
 {
 	//MemMgrValidate(bufferSpace);
@@ -882,6 +867,8 @@ void Cache::ioThread(void* arg)
 
 void Cache::ioThread(void)
 {
+	Sync syncThread(&syncThreads, "Cache::ioThread");
+	syncThread.lock(Shared);
 	Sync flushLock(&syncFlush, "Cache::ioThread");
 	Sync sync(&syncObject, "Cache::ioThread");
 	Thread *thread = Thread::getThread("Cache::ioThread");
@@ -1042,15 +1029,28 @@ void Cache::ioThread(void)
 
 void Cache::shutdown(void)
 {
-	for (int n = 0; n < numberIoThreads; ++n)
-		{
-		ioThreads[n]->shutdown();
-		ioThreads[n] = 0;
-		}
-		
+	shutdownThreads();
 	Sync sync (&syncDirty, "Cache::shutdown");
 	sync.lock (Exclusive);
 
 	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
 		bdb->dbb->writePage(bdb, WRITE_TYPE_SHUTDOWN);
+}
+
+void Cache::shutdownNow(void)
+{
+	panicShutdown = true;
+	shutdown();
+}
+
+void Cache::shutdownThreads(void)
+{
+	for (int n = 0; n < numberIoThreads; ++n)
+		{
+		ioThreads[n]->shutdown();
+		ioThreads[n] = 0;
+		}
+	
+	Sync sync(&syncThreads, "Cache::shutdownThreads");
+	sync.lock(Exclusive);
 }

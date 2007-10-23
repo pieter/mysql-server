@@ -61,6 +61,7 @@ public:
 	void	validateCache(void);
 	void	syncFile(Dbb *dbb, const char *text);
 	void	ioThread(void);
+	void	shutdownThreads(void);
 
 	static void ioThread(void* arg);
 		
@@ -100,6 +101,7 @@ protected:
 	Thread		**ioThreads;
 	SyncObject	syncFlush;
 	SyncObject	syncDirty;
+	SyncObject	syncThreads;
 	PagePrecedence	*freePrecedence;
 	time_t		flushStart;
 	int			flushPages;

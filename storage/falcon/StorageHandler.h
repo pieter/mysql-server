@@ -21,6 +21,7 @@
 #define MASTER_NAME				"FALCON_MASTER"
 #define MASTER_PATH				"falcon_master.fts"
 #define DEFAULT_TABLESPACE		"FALCON_USER"
+#define DEFAULT_TABLESPACE_PATH "falcon_user.fts"
 #define TEMPORARY_TABLESPACE	"FALCON_TEMPORARY"
 #define TEMPORARY_PATH			"falcon_temporary.fts"
 

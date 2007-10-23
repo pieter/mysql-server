@@ -2167,13 +2167,16 @@ limit_not_met:
 
       if (!opt_only_print)
       {
-        if (mysql_field_count(&mysql))
+        do
         {
-          result= mysql_store_result(&mysql);
-          while ((row = mysql_fetch_row(result)))
-            counter++;
-          mysql_free_result(result);
-        }
+          if (mysql_field_count(&mysql))
+          {
+            result= mysql_store_result(&mysql);
+            while ((row = mysql_fetch_row(result)))
+              counter++;
+            mysql_free_result(result);
+          }
+        } while(mysql_next_result(&mysql) == 0);
       }
       queries++;
 

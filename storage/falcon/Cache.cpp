@@ -573,7 +573,7 @@ void Cache::writePage(Bdb *bdb, int type)
 	Dbb *dbb = bdb->dbb;
 	ASSERT(database);
 	markClean (bdb);
-	time_t start = database->timestamp;
+	// time_t start = database->timestamp;
 	dbb->writePage(bdb, type);
 	
 	/***
@@ -1015,7 +1015,7 @@ void Cache::ioThread(void)
 				{
 				int writes = physicalWrites;
 				int pages = flushPages;
-				int delta = database->timestamp - flushStart;
+				time_t delta = database->timestamp - flushStart;
 				flushing = false;
 				flushLock.unlock();
 				

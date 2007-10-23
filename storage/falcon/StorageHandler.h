@@ -125,7 +125,7 @@ public:
 	StorageDatabase		*storageDatabases[databaseHashSize];
 	StorageDatabase		*databaseList;
 	StorageTableShare	*tables[tableHashSize];
-	Connection		*dictionaryConnection;
+	Connection			*dictionaryConnection;
 	int					mySqlLockSize;
 };
 

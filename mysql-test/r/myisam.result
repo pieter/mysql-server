@@ -1849,7 +1849,7 @@ t1	CREATE TABLE `t1` (
   `a` int(11) NOT NULL,
   `b` varchar(2048) DEFAULT NULL,
   KEY `a` (`a`) KEY_BLOCK_SIZE=1024,
-  KEY `b` (`b`(1332)) KEY_BLOCK_SIZE=6144
+  KEY `b` (`b`(1332)) KEY_BLOCK_SIZE=8192
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 KEY_BLOCK_SIZE=2048
 alter table t1 add c int, add key (c);
 show create table t1;

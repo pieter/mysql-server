@@ -49,7 +49,7 @@
 //#define STALL_THRESHOLD	1000
 
 #define BACKOFF	\
-		if (thread)\
+		if (false)\
 			thread->sleep(1);\
 		else\
 			thread = Thread::getThread("SyncObject::lock")
@@ -59,7 +59,7 @@
 #define BUMP(counter)							++counter
 #define BUMP_INTERLOCKED(counter)				INTERLOCKED_INCREMENT(counter)
 
-static const int				MAX_SYNC_OBJECTS = 2000;
+static const int				MAX_SYNC_OBJECTS = 300000;
 static volatile INTERLOCK_TYPE	nextSyncObjectId;
 static SyncObject				*syncObjects[MAX_SYNC_OBJECTS];
 
@@ -112,6 +112,7 @@ SyncObject::SyncObject()
 	waitCount = 0;
 	queueLength = 0;
 	where = NULL;
+	name = NULL;
 	objectId = INTERLOCKED_INCREMENT(nextSyncObjectId);
 	
 	if (objectId < MAX_SYNC_OBJECTS)
@@ -153,8 +154,11 @@ void SyncObject::lock(Sync *sync, LockType type)
 			INTERLOCK_TYPE newState = oldState + 1;
 
 			if (COMPARE_EXCHANGE(&lockState, oldState, newState))
+				{
+				DEBUG_FREEZE;
 				return;
-			
+				}
+				
 			BACKOFF;
 			}
 
@@ -174,6 +178,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				{
 				bumpWaiters(-1);
 				mutex.release();
+				DEBUG_FREEZE;
 				
 				return;
 				}
@@ -188,6 +193,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 			++monitorCount;
 			bumpWaiters(-1);
 			mutex.release();
+			DEBUG_FREEZE;
 			
 			return;
 			}
@@ -201,6 +207,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 			{
 			++monitorCount;
 			BUMP(exclusiveCount);
+			DEBUG_FREEZE;
 			
 			return;
 			}
@@ -216,6 +223,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				{
 				exclusiveThread = thread;
 				BUMP(exclusiveCount);
+				DEBUG_FREEZE;
 				
 				return; 
 				}
@@ -239,6 +247,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				exclusiveThread = thread;
 				bumpWaiters(-1);
 				mutex.release();
+				DEBUG_FREEZE;
 				
 				return;
 				}
@@ -248,6 +257,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 		}
 
 	wait (type, thread, sync);
+	DEBUG_FREEZE;
 }
 
 void SyncObject::unlock(Sync *sync, LockType type)
@@ -258,6 +268,7 @@ void SyncObject::unlock(Sync *sync, LockType type)
 		{
 		ASSERT (monitorCount > 0);
 		--monitorCount;
+		DEBUG_FREEZE;
 
 		return;
 		}
@@ -273,6 +284,7 @@ void SyncObject::unlock(Sync *sync, LockType type)
 		
 		if (COMPARE_EXCHANGE(&lockState, oldState, newState))
 			{
+			DEBUG_FREEZE;
 			if (waiters)
 				grantLocks();
 				
@@ -302,6 +314,8 @@ void SyncObject::unlock(Sync *sync, LockType type)
 	if (waiters)
 		grantLocks();
 	***/
+	
+	DEBUG_FREEZE;
 }
 
 void SyncObject::downGrade(LockType type)
@@ -314,10 +328,11 @@ void SyncObject::downGrade(LockType type)
 		if (COMPARE_EXCHANGE(&lockState, -1, 1))
 			{
 			exclusiveThread = NULL;
+			DEBUG_FREEZE;
 			
 			if (waiters)
 				grantLocks();
-				
+
 			return;
 			}
 }
@@ -595,14 +610,6 @@ void SyncObject::frequentStaller(Thread *thread, Sync *sync)
 	thread->lockGranted = lockGranted;
 	thread->lockPending = lockPending;
 }
-
-void SyncObject::setWhere(const char* string)
-{
-#ifdef TRACE_SYNC_OBJECTS
-	where = string;
-#endif
-}
-
 void SyncObject::analyze(Stream* stream)
 {
 #ifdef TRACE_SYNC_OBJECTS
@@ -617,6 +624,40 @@ void SyncObject::analyze(Stream* stream)
 					syncObject->exclusiveCount,
 					syncObject->waitCount,
 					(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+#endif
+}
+
+void SyncObject::dump(void)
+{
+#ifdef TRACE_SYNC_OBJECTS
+	FILE *out = fopen("SyncObject.dat", "w");
+	
+	if (!out)
+		return;
+		
+	fprintf(out, "Where\tShares\tExclusives\tWaits\tAverage Queue\n");
+	SyncObject *syncObject;
+	
+	for (int n = 1; n < MAX_SYNC_OBJECTS; ++n)
+		if ( (syncObject = syncObjects[n]) )
+			{
+			const char *name = (syncObject->name) ? syncObject->name : syncObject->where;
+			
+			if (name)
+				fprintf(out, "%s\t%d\t%d\t%d\t%d\t\n",
+						name,
+						syncObject->sharedCount,
+						syncObject->exclusiveCount,
+						syncObject->waitCount,
+						(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+
+			syncObject->sharedCount = 0;
+			syncObject->exclusiveCount = 0;
+			syncObject->waitCount = 0;
+			syncObject->queueLength = 0;
+			}
+	
+	fclose(out);
 #endif
 }
 
@@ -636,4 +677,11 @@ void SyncObject::getSyncInfo(InfoTable* infoTable)
 			infoTable->putInt(n++, queueLength);
 			infoTable->putRecord();
 			}
+}
+
+void SyncObject::setName(const char* string)
+{
+#ifdef TRACE_SYNC_OBJECTS
+	name = string;
+#endif
 }

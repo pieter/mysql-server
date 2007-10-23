@@ -103,11 +103,28 @@ void DeferredIndex::addNode(IndexKey* indexKey, int32 recordNumber)
 {
 	Sync sync(&syncObject, "DeferredIndex::addNode");
 	sync.lock(Exclusive);
+	DINode *node;
+	DIUniqueNode *uniqueNode = NULL;
 
-	DINode *node = (DINode*) alloc(sizeof(DINode) + indexKey->keyLength - 1);
+	if (INDEX_IS_UNIQUE(index->type))
+		{
+		int nodeSize = sizeof(DIUniqueNode) + indexKey->keyLength - 1;
+		uniqueNode = (DIUniqueNode*) alloc(nodeSize);
+		uniqueNode->collision = NULL;
+		node = &uniqueNode->node;
+		}
+	else
+		{
+		int nodeSize = sizeof(DINode) + indexKey->keyLength - 1;
+		node = (DINode*) alloc(nodeSize);;
+		}
+
 	node->recordNumber = recordNumber;
 	node->keyLength = indexKey->keyLength;
 	memcpy(node->key, indexKey->key, node->keyLength);
+
+	if (INDEX_IS_UNIQUE(index->type))
+		index->addToDIHash(uniqueNode);
 
 	// Calculate how much space in the serial log this node will take up
 	
@@ -367,6 +384,16 @@ bool DeferredIndex::deleteNode(IndexKey* key, int32 recordNumber)
 		if (n == 0)
 			{
 			DINode *node = leaf->nodes[slot];
+
+			if (INDEX_IS_UNIQUE(index->type))
+				{
+				DIUniqueNode *uniqueNode = UNIQUE_NODE(node);
+				Sync sync(&index->syncDIHash, "DeferredIndex::deleteNode");
+				sync.lock(Exclusive);
+
+				index->removeFromDIHash(uniqueNode);
+				}
+
 			
 			if (node == minValue)
 				{
@@ -549,7 +576,7 @@ int DeferredIndex::checkTail(uint position, DINode* node)
 				return n;
 			}
 	
-	return 0;		
+	return 0;
 }
 
 int DeferredIndex::checkTail(uint position, IndexKey *indexKey)

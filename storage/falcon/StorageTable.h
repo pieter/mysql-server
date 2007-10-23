@@ -95,6 +95,7 @@ public:
 	virtual void	setReadAfterKey(void);
 	virtual void	unlockRow(void);
 	virtual int		optimize(void);
+	virtual void	setLocalTable(StorageInterface* handler);
 
 	JString				name;
 	StorageTable		*collision;

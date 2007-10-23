@@ -476,7 +476,7 @@ void JString::setString(const char * source, int length)
 
 int JString::findSubstring(const char * string, const char * sub)
 {
-    for (const char *p = string; *p; ++p)
+	for (const char *p = string; *p; ++p)
 		{
 		const char *s, *q;
 		

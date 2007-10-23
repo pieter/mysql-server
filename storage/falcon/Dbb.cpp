@@ -56,6 +56,8 @@
 //#define STOP_RECORD	123
 static const int SECTION_HASH_SIZE	= 997;
 
+extern uint falcon_large_blob_threshold;
+
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;
@@ -163,7 +165,7 @@ void Dbb::init(int pageSz, int cacheSize)
 	pageSize = pageSz;
 
 	if (!cache && cacheSize)
-		cache = new Cache (this, pageSize, cacheSize / 2, cacheSize);
+		cache = new Cache (database, pageSize, cacheSize / 2, cacheSize);
 
 	init();
 }
@@ -308,9 +310,18 @@ void Dbb::logRecord(int32 sectionId, int32 recordId, Stream *stream, Transaction
 		updateRecord(sectionId, recordId, stream, transaction->transactionId, false);
 }
 
-void Dbb::updateBlob(int32 sectionId, int32 recordId, Stream *stream, TransId transId)
+void Dbb::updateBlob(Section *blobSection, int recordNumber, Stream* stream, Transaction* transaction)
 {
-	updateRecord(sectionId, recordId, stream, transId, true);
+	if (!serialLog->recovering && stream && stream->totalLength < (int) falcon_large_blob_threshold)
+		{
+		serialLog->logControl->updateBlob.append(this, blobSection->sectionId, transaction->transactionId, recordNumber, stream);
+		updateRecord(blobSection, recordNumber, stream, transaction, false);
+		}
+	else
+		{
+		updateRecord(blobSection, recordNumber, stream, transaction, true);
+		transaction->pendingPageWrites = true;
+		}
 }
 
 void Dbb::updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite)
@@ -416,38 +427,14 @@ bool Dbb::addIndexEntry(int32 indexId, int indexVersion, IndexKey *key, int32 re
 	return result;
 }
 
-/***
-void Dbb::scanIndex(int32 indexId, int indexVersion, IndexKey* lowKey, IndexKey* highKey, int searchFlags, Bitmap *bitmap)
-{
-	switch (indexVersion)
-		{
-		case INDEX_VERSION_0:
-			Index2RootPage::scanIndex (this, indexId, lowKey, highKey, partial, NO_TRANSACTION, bitmap);
-			break;
-		
-		case INDEX_VERSION_1:
-			IndexRootPage::scanIndex (this, indexId, lowKey, highKey, partial, NO_TRANSACTION, bitmap);
-			break;
-		
-		default:
-			ASSERT(false);
-		}
-}
-***/
-
 void Dbb::flush()
 {
 	if (!cache)
 		return;
 
-	if (serialLog)
-		{
-		serialLog->preFlush();
-		cache->flush();
-		serialLog->pageCacheFlushed();
-		}
-	else
-		cache->flush();
+	//serialLog->preFlush();
+	cache->flush(this);
+	//serialLog->pageCacheFlushed();
 }
 
 Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
@@ -457,7 +444,6 @@ Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
 	openFile(fileName, false);
 	readHeader(&header);
 	bool headerSkew = false;
-
 	int n = header.pageSize;
 	
 	while (n && !(n & 1))
@@ -891,7 +877,7 @@ Section* Dbb::getSequenceSection(TransId transId)
 		Hdr *headerPage = (Hdr*) bdb->buffer;
 		headerPage->sequenceSectionId = sequenceSectionId;
 		bdb->release(REL_HISTORY);
-		cache->flush();
+		cache->flush((int64) 0);
 		}
 
 	// Find action section
@@ -1112,19 +1098,21 @@ void Dbb::reportStatistics()
 {
 	int deltaReads = reads - priorReads;
 	int deltaWrites = writes - priorWrites;
+	int deltaFlushWrites = flushWrites - priorFlushWrites;
 	int deltaFetches = fetches - priorFetches;
 	//int deltaFakes = reads - priorFakes;
 
 	if (!deltaReads && !deltaWrites && !deltaFetches)
 		return;
 
-	Log::log (LogInfo, "Activity on %s: %d fetches, %d reads, %d writes\n",
-				(const char*) fileName, deltaFetches, deltaReads, deltaWrites);
+	Log::log (LogInfo, "%d: Activity on %s: %d fetches, %d reads, %d writes, %d flushWrites\n", database->deltaTime,
+				(const char*) fileName, deltaFetches, deltaReads, deltaWrites, deltaFlushWrites);
 	
 	priorReads = reads;
 	priorWrites = writes;
 	priorFetches = fetches;
 	priorFakes = fakes;
+	priorFlushWrites = flushWrites;
 }
 
 void Dbb::commit(Transaction *transaction)
@@ -1234,10 +1222,10 @@ void Dbb::analyzeSection(int sectionId, const char *sectionName, int indentation
 
 	int utilization = (int) ((space - numbers.spaceAvailable) * 100 / space);
 	stream->indent(indentation);
-	stream->format ("%s (id %d)\n", sectionName, sectionId);
+	stream->format ("%s (id %d, table space %d)\n", sectionName, sectionId, tableSpaceId);
 	indentation += 3;
 	stream->indent(indentation);
-	stream->format ("Record locator pages: %d\n", numbers.sectionPages);
+	stream->format ("Record locator pages: %d\n", numbers.recordLocatorPages);
 	stream->indent(indentation);
 	stream->format ("Data pages:           %d\n", numbers.dataPages);
 	stream->indent(indentation);
@@ -1261,7 +1249,7 @@ void Dbb::analyseIndex(int32 indexId, int indexVersion, const char *indexName, i
 		}
 	
 	stream->indent(indentation);
-	stream->format("Index %s (id %d) %d levels\n", indexName, indexId, indexAnalysis.levels);
+	stream->format("Index %s (id %d, table space %d) %d levels\n", indexName, indexId, indexAnalysis.levels, tableSpaceId);
 	indentation += 3;
 	stream->indent(indentation);
 	stream->format ("Upper index pages:    %d\n", indexAnalysis.upperLevelPages);
@@ -1347,10 +1335,4 @@ void Dbb::updateTableSpaceSection(int id)
 	Hdr *header = (Hdr*) bdb->buffer;
 	header->tableSpaceSectionId = id;
 	bdb->release(REL_HISTORY);
-}
-
-void Dbb::updateBlob(int blobSectionId, int recordNumber, Stream* stream, Transaction* transaction)
-{
-	updateBlob(blobSectionId, recordNumber, stream, TRANSACTION_ID(transaction));
-	transaction->pendingPageWrites = true;
 }

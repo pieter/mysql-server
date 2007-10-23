@@ -163,6 +163,9 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 		case srlBlobDelete:
 			return &blobDelete;
 			
+		case srlUpdateBlob:
+			return &updateBlob;
+			
 		default:
 			ASSERT(false);
 		}

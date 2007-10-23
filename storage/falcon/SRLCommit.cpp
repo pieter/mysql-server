@@ -46,7 +46,8 @@ void SRLCommit::append(Transaction *transaction)
 	transaction->addRef();
 	START_RECORD(srlCommit, "SRLCommit::append");
 	putInt(transaction->transactionId);
-	uint64 commitBlockNumber = log->nextBlockNumber;
+	//uint64 commitBlockNumber = log->nextBlockNumber;
+	uint64 commitBlockNumber = log->getWriteBlockNumber();
 	SerialLogTransaction *srlTransaction = log->getTransaction(transaction->transactionId);
 	
 	if (transaction->hasUpdates)

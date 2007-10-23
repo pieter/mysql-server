@@ -26,6 +26,7 @@
 
 class Dbb;
 class Database;
+class InfoTable;
 
 class TableSpace  
 {
@@ -38,6 +39,7 @@ public:
 	void	shutdown(TransId transId);
 	void	dropTableSpace(void);
 	bool	fileNameEqual(const char* file);
+	void	getIOInfo(InfoTable* infoTable);
 
 	JString		name;
 	JString		filename;
@@ -49,6 +51,7 @@ public:
 	uint64		initialAllocation;
 	int			tableSpaceId;
 	bool		active;
+	void sync(void);
 };
 
 #endif // !defined(AFX_TABLESPACE_H__FAD68264_27D0_4E8B_B19C_911F9DC25A89__INCLUDED_)

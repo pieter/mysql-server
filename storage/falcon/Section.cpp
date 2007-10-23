@@ -64,6 +64,8 @@ Section::Section(Dbb *pDbb, int32 id, TransId transId)
 	level = -1;
 	reservedRecordNumbers = NULL;
 	freeLines = NULL;
+	syncObject.setName("Section::syncObject");
+	syncInsert.setName("Section::syncInsert");
 }
 
 Section::~Section()
@@ -456,7 +458,6 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 {
 	// Do some fancy accounting to avoid premature use of record number.
 	// If the record number has been reserved, don't bother to delete it.
-
 
 	if (!stream)
 		{

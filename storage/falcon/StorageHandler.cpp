@@ -107,7 +107,6 @@ StorageHandler::StorageHandler(int lockSize)
 	dictionaryConnection = NULL;
 	databaseList = NULL;
 	defaultDatabase = NULL;
-	globalTableSpace = false;
 }
 
 StorageHandler::~StorageHandler(void)
@@ -420,7 +419,7 @@ Connection* StorageHandler::getDictionaryConnection(void)
 	return dictionaryConnection;
 }
 
-int StorageHandler::createTablespace(const char* tableSpaceName, const char* filename, int tableSpaceMode)
+int StorageHandler::createTablespace(const char* tableSpaceName, const char* filename)
 {
 	if (!defaultDatabase)
 		initialize();
@@ -552,7 +551,7 @@ void StorageHandler::removeTable(StorageTableShare* table)
 			}
 }
 
-StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* tableShare, THD* mySqlThread, int mySqlThdId, OpenOption createFlag, int tableSpaceMode)
+StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* tableShare, THD* mySqlThread, int mySqlThdId, OpenOption createFlag)
 {
 	Sync sync(&syncObject, "StorageConnection::getStorageConnection");
 	
@@ -597,18 +596,7 @@ StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* table
 			}
 	
 	
-	if (tableSpaceMode == TABLESPACE_INTERNAL)
-		storageConnection = new StorageConnection(this, storageDatabase, mySqlThread, mySqlThdId);
-	else
-		{
-		const char *dbName = tableShare->tableSpace;
-		char path[FILENAME_MAX];
-		tableShare->getDefaultPath(path);
-		storageDatabase = getStorageDatabase(dbName, path);
-		storageConnection = new StorageConnection(this, storageDatabase, mySqlThread, mySqlThdId);
-		storageDatabase->release();
-		}
-		
+	storageConnection = new StorageConnection(this, storageDatabase, mySqlThread, mySqlThdId);
 	bool success = false;
 	
 	if (createFlag != CreateDatabase) // && createFlag != OpenTemporaryDatabase)

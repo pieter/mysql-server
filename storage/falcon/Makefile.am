@@ -151,15 +151,23 @@ falcon_headers= Agent.h Alias.h Application.h \
 		SRLSequencePage.h \
 		SRLSwitchLog.h \
 		SRLUpdateIndex.h \
+		SRLUpdateBlob.h \
 		SRLUpdateRecords.h \
 		SRLVersion.h \
 		SRLWordUpdate.h \
 		Stack.h Statement.h StorageConnection.h \
 		StorageDatabase.h \
 		StorageHandler.h \
-		StorageTable.h StorageTableShare.h Stream.h \
+		StorageParameters.h \
+		StorageTable.h \
+		StorageTableShare.h \
+		Stream.h \
 		StreamSegment.h SymbolManager.h Sync.h SynchronizationObject.h \
-		Synchronize.h SyncObject.h SyncWait.h Syntax.h \
+		Synchronize.h \
+		SyncObject.h \
+		SyncTest.h \
+		SyncWait.h \
+		Syntax.h \
 		TableAttachment.h \
 		TableFilter.h \
 		Table.h \
@@ -306,6 +314,7 @@ falcon_sources= Agent.cpp Alias.cpp \
 		SRLSequencePage.cpp \
 		SRLSwitchLog.cpp \
 		SRLUpdateIndex.cpp \
+		SRLUpdateBlob.cpp \
 		SRLUpdateRecords.cpp \
 		SRLVersion.cpp \
 		SRLWordUpdate.cpp \
@@ -315,7 +324,11 @@ falcon_sources= Agent.cpp Alias.cpp \
 		StorageHandler.cpp \
 		StorageTable.cpp StorageTableShare.cpp Stream.cpp \
 		StreamSegment.cpp SymbolManager.cpp Sync.cpp Synchronize.cpp \
-		SyncObject.cpp SyncWait.cpp Syntax.cpp TableAttachment.cpp \
+		SyncObject.cpp\
+		SyncTest.cpp\
+		SyncWait.cpp\
+		Syntax.cpp\
+		TableAttachment.cpp \
 		Table.cpp \
 		TableSpace.cpp \
 		TableSpaceManager.cpp \

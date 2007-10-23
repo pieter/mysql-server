@@ -35,15 +35,20 @@
 
 #ifdef STORAGE_ENGINE
 #define CONFIG_FILE	"falcon.conf"
+
+#define PARAMETER(name, text, min, default, max, flags, function) extern uint falcon_##name;
+#include "StorageParameters.h"
+#undef PARAMETER
+
 extern uint64		falcon_record_memory_max;
-extern int			falcon_record_scavenge_threshold;
-extern int			falcon_record_scavenge_floor;
+extern uint			falcon_record_scavenge_threshold;
+extern uint			falcon_record_scavenge_floor;
 extern uint64		falcon_initial_allocation;
 extern uint			falcon_allocation_extent;
 extern char			falcon_disable_fsync;
 extern uint			falcon_page_size;
 extern uint64		falcon_page_cache_size;
-extern int			falcon_debug_mask;
+//extern uint		falcon_debug_mask;
 extern uint			falcon_serial_log_buffers;
 extern uint			falcon_index_chill_threshold;
 extern uint			falcon_record_chill_threshold;
@@ -53,6 +58,10 @@ extern char*		falcon_scavenge_schedule;
 extern char*		falcon_serial_log_dir;
 #else
 #define CONFIG_FILE	"netfraserver.conf"
+#define PARAMETER(name, text, min, default, max, flags, function) uint falcon_##name = default;
+#include "StorageParameters.h"
+#undef PARAMETER
+
 #endif
 
 #ifdef _DEBUG

@@ -32,6 +32,7 @@ SyncTest::SyncTest(void) : Thread("SyncTest")
 
 SyncTest::~SyncTest(void)
 {
+	useCount = 0;
 	delete [] threads;
 }
 
@@ -77,7 +78,6 @@ void SyncTest::test()
 		sync.unlock();
 		Thread::sleep(1000);
 		stop = true;
-		//sync.lock(Exclusive);
 		threadBarn->waitForAll();
 		int total = 0;
 		
@@ -90,7 +90,6 @@ void SyncTest::test()
 			printf(" %d", threads[thd].count);
 					
 		printf("\n");
-		//sync.unlock();
 		}
 	
 	threadBarn->shutdownAll();

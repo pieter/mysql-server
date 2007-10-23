@@ -39,6 +39,9 @@ SRLUpdateIndex::~SRLUpdateIndex(void)
 
 void SRLUpdateIndex::append(DeferredIndex* deferredIndex)
 {
+	Sync syncIndexes(&log->syncIndexes, "SRLUpdateIndex::append");
+	syncIndexes.lock(Exclusive);
+
 	Transaction *transaction = deferredIndex->transaction;
 	DeferredIndexWalker walker(deferredIndex, NULL);
 	uint indexId = deferredIndex->index->indexId;

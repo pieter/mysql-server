@@ -23,6 +23,8 @@
 #include "Database.h"
 #include "SQLError.h"
 #include "Hdr.h"
+#include "Cache.h"
+#include "InfoTable.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -121,4 +123,22 @@ bool TableSpace::fileNameEqual(const char* file)
 	//IO::expandFileName(file, sizeof(expandedName), expandedName);
 	
 	return filename == file;
+}
+
+void TableSpace::sync(void)
+{
+	database->cache->syncFile(dbb, "sync");
+}
+
+void TableSpace::getIOInfo(InfoTable* infoTable)
+{
+	int n = 0;
+	infoTable->putString(n++, name);
+	infoTable->putInt(n++, dbb->pageSize);
+	infoTable->putInt(n++, dbb->cache->numberBuffers);
+	infoTable->putInt(n++, dbb->reads);
+	infoTable->putInt(n++, dbb->writes);
+	infoTable->putInt(n++, dbb->fetches);
+	infoTable->putInt(n++, dbb->fakes);
+	infoTable->putRecord();
 }

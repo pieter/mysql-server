@@ -138,17 +138,12 @@ flush_cached_records(JOIN *join, JOIN_TAB *join_tab, bool skip_last);
 static enum_nested_loop_state
 end_send(JOIN *join, JOIN_TAB *join_tab, bool end_of_records);
 static enum_nested_loop_state
-end_send_group(JOIN *join, JOIN_TAB *join_tab, bool end_of_records);
-static enum_nested_loop_state
 end_write(JOIN *join, JOIN_TAB *join_tab, bool end_of_records);
 static enum_nested_loop_state
 end_update(JOIN *join, JOIN_TAB *join_tab, bool end_of_records);
 static enum_nested_loop_state
 end_unique_update(JOIN *join, JOIN_TAB *join_tab, bool end_of_records);
-static enum_nested_loop_state
-end_write_group(JOIN *join, JOIN_TAB *join_tab, bool end_of_records);
 
-static int test_if_group_changed(List<Cached_item> &list);
 static int join_read_const_table(JOIN_TAB *tab, POSITION *pos);
 static int join_read_system(JOIN_TAB *tab);
 static int join_read_const(JOIN_TAB *tab);
@@ -2259,7 +2254,7 @@ JOIN::exec()
 	  test_if_skip_sort_order(&join_tab[const_tables], order,
 				  select_limit, 0, 
                                   &join_tab[const_tables].table->
-                                    keys_in_use_for_order_by))))
+                                    keys_in_use_for_query))))
       order=0;
     having= tmp_having;
     select_describe(this, need_tmp,
@@ -3372,7 +3367,7 @@ bool JOIN::flatten_subqueries()
   Setup for execution all subqueries of a query, for which the optimizer
   chose hash semi-join.
 
-  @detail Iterate over all subqueries of the query, and if they are under an
+  @details Iterate over all subqueries of the query, and if they are under an
   IN predicate, and the optimizer chose to compute it via hash semi-join:
   - try to initialize all data structures needed for the materialized execution
     of the IN predicate,
@@ -3396,8 +3391,7 @@ bool JOIN::setup_subquery_materialization()
   for (SELECT_LEX_UNIT *un= select_lex->first_inner_unit(); un;
        un= un->next_unit())
   {
-    for (SELECT_LEX *sl= un->first_select(); sl;
-         sl= sl->next_select())
+    for (SELECT_LEX *sl= un->first_select(); sl; sl= sl->next_select())
     {
       Item_subselect *subquery_predicate= sl->master_unit()->item;
       if (subquery_predicate &&
@@ -3557,7 +3551,9 @@ int pull_out_semijoin_tables(JOIN *join)
       {
         if (tbl->table && !(pulled_tables & tbl->table->map))
         {
-          if (find_eq_ref_candidate(tbl->table, sj_nest->nested_join->used_tables))
+          if (find_eq_ref_candidate(tbl->table, 
+                                    sj_nest->nested_join->used_tables & 
+                                    ~pulled_tables))
           {
             pulled_a_table= TRUE;
             pulled_tables |= tbl->table->map;
@@ -5171,11 +5167,20 @@ set_position(JOIN *join,uint idx,JOIN_TAB *table,KEYUSE *key)
 
 
 /*
-  Walk over IN-equalites and see which are bound.
-  (Q: where do we get them?)
-   A1: keep left/right list... (A2: accumulate...)
-  This step has an additional merit over KEYUSE-based bind detection 
-  because it handles ie_i's that are not keyparts.
+  Given a semi-join nest, find out which of the IN-equalities are bound
+
+  SYNOPSIS
+    get_bound_sj_equalities()
+      sj_nest           Semi-join nest
+      remaining_tables  Tables that are not yet bound
+
+  DESCRIPTION
+    Given a semi-join nest, find out which of the IN-equalities have their
+    left part expression bound (i.e. the said expression doesn't refer to
+    any of remaining_tables and can be evaluated).
+
+  RETURN
+    Bitmap of bound IN-equalities.
 */
 
 ulonglong get_bound_sj_equalities(TABLE_LIST *sj_nest, 
@@ -5387,6 +5392,7 @@ best_access_path(JOIN      *join,
              ...
         */
         if (try_sj_inside_out && 
+            table->covering_keys.is_set(key) &&
             (handled_sj_equalities | bound_sj_equalities) ==     // (1)
             PREV_BITS(ulonglong, s->emb_sj_nest->sj_in_exprs)) // (1)
         {
@@ -14309,7 +14315,7 @@ end_send(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
 
 
 	/* ARGSUSED */
-static enum_nested_loop_state
+enum_nested_loop_state
 end_send_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
 	       bool end_of_records)
 {
@@ -14318,7 +14324,7 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
   DBUG_ENTER("end_send_group");
 
   if (!join->first_record || end_of_records ||
-      (idx=test_if_group_changed(join->group_fields)) >= 0)
+      (idx=test_if_item_cache_changed(join->group_fields)) >= 0)
   {
     if (join->first_record || 
         (end_of_records && !join->group && !join->group_optimized_away))
@@ -14398,7 +14404,7 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
       if (end_of_records)
 	DBUG_RETURN(NESTED_LOOP_OK);
       join->first_record=1;
-      VOID(test_if_group_changed(join->group_fields));
+      VOID(test_if_item_cache_changed(join->group_fields));
     }
     if (idx < (int) join->send_group_parts)
     {
@@ -14423,7 +14429,7 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
 
 
 	/* ARGSUSED */
-static enum_nested_loop_state
+enum_nested_loop_state
 end_write(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
 	  bool end_of_records)
 {
@@ -14613,7 +14619,7 @@ end_unique_update(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
 
 
 	/* ARGSUSED */
-static enum_nested_loop_state
+enum_nested_loop_state
 end_write_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
 		bool end_of_records)
 {
@@ -14627,7 +14633,7 @@ end_write_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
     DBUG_RETURN(NESTED_LOOP_KILLED);             /* purecov: inspected */
   }
   if (!join->first_record || end_of_records ||
-      (idx=test_if_group_changed(join->group_fields)) >= 0)
+      (idx=test_if_item_cache_changed(join->group_fields)) >= 0)
   {
     if (join->first_record || (end_of_records && !join->group))
     {
@@ -14666,7 +14672,7 @@ end_write_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
       if (end_of_records)
 	DBUG_RETURN(NESTED_LOOP_OK);
       join->first_record=1;
-      VOID(test_if_group_changed(join->group_fields));
+      VOID(test_if_item_cache_changed(join->group_fields));
     }
     if (idx < (int) join->send_group_parts)
     {
@@ -15242,6 +15248,8 @@ find_field_in_item_list (Field *field, void *data)
   If we can use an index, the JOIN_TAB / tab->select struct
   is changed to use the index.
 
+  The index must cover all fields in <order>, or it will not be considered.
+
   RETURN
     0 We have to use filesort to do the sorting
     1 We can use an index.
@@ -15405,12 +15413,6 @@ test_if_skip_sort_order(JOIN_TAB *tab,ORDER *order,ha_rows select_limit,
     LINT_INIT(best_key_direction);
     LINT_INIT(best_records); 
 
-    /* 
-      filesort() and join cache are usually faster than reading in 
-      index order and not using join cache
-    */
-    if (tab->type == JT_ALL && tab->join->tables > tab->join->const_tables + 1)
-      DBUG_RETURN(0);
     /*
       If not used with LIMIT, only use keys if the whole query can be
       resolved with a key;  This is because filesort() is usually faster than
@@ -15418,6 +15420,12 @@ test_if_skip_sort_order(JOIN_TAB *tab,ORDER *order,ha_rows select_limit,
     */
     if (select_limit >= table_records)
     {
+      /* 
+        filesort() and join cache are usually faster than reading in 
+        index order and not using join cache
+        */
+      if (tab->type == JT_ALL && tab->join->tables > tab->join->const_tables + 1)
+        DBUG_RETURN(0);
       keys= *table->file->keys_to_use_for_scanning();
       keys.merge(table->covering_keys);
 
@@ -17141,7 +17149,7 @@ alloc_group_fields(JOIN *join,ORDER *group)
   {
     for (; group ; group=group->next)
     {
-      Cached_item *tmp=new_Cached_item(join->thd, *group->item);
+      Cached_item *tmp=new_Cached_item(join->thd, *group->item, FALSE);
       if (!tmp || join->group_fields.push_front(tmp))
 	return TRUE;
     }
@@ -17151,10 +17159,22 @@ alloc_group_fields(JOIN *join,ORDER *group)
 }
 
 
-static int
-test_if_group_changed(List<Cached_item> &list)
+/*
+  Test if a single-row cache of items changed, and update the cache.
+
+  @details Test if a list of items that typically represents a result
+  row has changed. If the value of some item changed, update the cached
+  value for this item.
+  
+  @param list list of <item, cached_value> pairs stored as Cached_item.
+
+  @return -1 if no item changed
+  @return index of the first item that changed
+*/
+
+int test_if_item_cache_changed(List<Cached_item> &list)
 {
-  DBUG_ENTER("test_if_group_changed");
+  DBUG_ENTER("test_if_item_cache_changed");
   List_iterator<Cached_item> li(list);
   int idx= -1,i;
   Cached_item *buff;
@@ -17503,6 +17523,9 @@ change_to_use_tmp_fields(THD *thd, Item **ref_pointer_array,
 	  item_field= (Item*) new Item_field(field);
 	if (!item_field)
 	  DBUG_RETURN(TRUE);                    // Fatal error
+
+        if (item->real_item()->type() != Item::FIELD_ITEM)
+          field->orig_table= 0;
 	item_field->name= item->name;
         if (item->type() == Item::REF_ITEM)
         {
@@ -18477,13 +18500,14 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
       }
       else
       {
-        ha_rows examined_rows;
+        double examined_rows;
         if (tab->select && tab->select->quick)
-          examined_rows= tab->select->quick->records;
+          examined_rows= rows2double(tab->select->quick->records);
         else if (tab->type == JT_NEXT || tab->type == JT_ALL)
-          examined_rows= tab->limit ? tab->limit : tab->table->file->records();
+          examined_rows= rows2double(tab->limit ? tab->limit : 
+                                     tab->table->file->records());
         else
-          examined_rows=(ha_rows)join->best_positions[i].records_read; 
+          examined_rows= join->best_positions[i].records_read; 
  
         item_list.push_back(new Item_int((longlong) (ulonglong) examined_rows, 
                                          MY_INT64_NUM_DECIMAL_DIGITS));
@@ -18819,6 +18843,43 @@ static void print_join(THD *thd, String *str, List<TABLE_LIST> *tables)
 }
 
 
+/**
+  @brief Print an index hint
+
+  @details Prints out the USE|FORCE|IGNORE index hint.
+
+  @param      thd         the current thread
+  @param[out] str         appends the index hint here
+  @param      hint        what the hint is (as string : "USE INDEX"|
+                          "FORCE INDEX"|"IGNORE INDEX")
+  @param      hint_length the length of the string in 'hint'
+  @param      indexes     a list of index names for the hint
+*/
+
+void 
+Index_hint::print(THD *thd, String *str)
+{
+  switch (type)
+  {
+    case INDEX_HINT_IGNORE: str->append(STRING_WITH_LEN("IGNORE INDEX")); break;
+    case INDEX_HINT_USE:    str->append(STRING_WITH_LEN("USE INDEX")); break;
+    case INDEX_HINT_FORCE:  str->append(STRING_WITH_LEN("FORCE INDEX")); break;
+  }
+  str->append (STRING_WITH_LEN(" ("));
+  if (key_name.length)
+  {
+    if (thd && !my_strnncoll(system_charset_info,
+                             (const uchar *)key_name.str, key_name.length, 
+                             (const uchar *)primary_key_name, 
+                             strlen(primary_key_name)))
+      str->append(primary_key_name);
+    else
+      append_identifier(thd, str, key_name.str, key_name.length);
+  }
+  str->append(')');
+}
+
+
 /*
   Print table as it should be in join list
 
@@ -18885,6 +18946,18 @@ void TABLE_LIST::print(THD *thd, String *str)
     {
       str->append(' ');
       append_identifier(thd, str, alias, strlen(alias));
+    }
+
+    if (index_hints)
+    {
+      List_iterator<Index_hint> it(*index_hints);
+      Index_hint *hint;
+
+      while ((hint= it++))
+      {
+        str->append (STRING_WITH_LEN(" "));
+        hint->print (thd, str);
+      }
     }
   }
 }

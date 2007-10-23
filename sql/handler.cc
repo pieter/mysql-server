@@ -3403,6 +3403,8 @@ int handler::multi_range_read_next(char **range_info)
     }
     else
     {
+      if (was_semi_consistent_read())
+        goto scan_it_again;
       /*
         We need to set this for the last range only, but checking this
         condition is more expensive than just setting the result code.
@@ -3414,6 +3416,7 @@ start:
     /* Try the next range(s) until one matches a record. */
     while (!(range_res= mrr_funcs.next(mrr_iter, &mrr_cur_range)))
     {
+scan_it_again:
       result= read_range_first(mrr_cur_range.start_key.keypart_map ?
                                  &mrr_cur_range.start_key : 0,
                                mrr_cur_range.end_key.keypart_map ?

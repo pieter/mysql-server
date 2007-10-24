@@ -1381,8 +1381,8 @@ my_strnxfrm_utf16(CHARSET_INFO *cs,
     if (dst + 2 >= de)
       break;
     
-    *dst++= (uchar) wc >> 8;
-    *dst++= (uchar) wc & 0xFF;
+    *dst++= (uchar) (wc >> 8);
+    *dst++= (uchar) (wc & 0xFF);
   }
   return my_strxfrm_pad_desc_and_reverse(cs, d0, dst, de,
                                          nweights, flags, 0);
@@ -2210,8 +2210,8 @@ my_strnxfrm_utf32(CHARSET_INFO *cs,
     if (dst + 2 >= de)
       break;
     
-    *dst++= (uchar) wc >> 8;
-    *dst++= (uchar) wc & 0xFF;
+    *dst++= (uchar) (wc >> 8);
+    *dst++= (uchar) (wc & 0xFF);
   }
   return my_strxfrm_pad_desc_and_reverse_utf32(cs, d0, dst, de,
                                                nweights, flags, 0);

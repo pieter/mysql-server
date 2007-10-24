@@ -9,7 +9,7 @@ AC_CANONICAL_SYSTEM
 # remember to also update version.c in ndb
 # When changing major version number please also check switch statement
 # in mysqlbinlog::check_master_version().
-AM_INIT_AUTOMAKE(mysql, 5.2.6-alpha)
+AM_INIT_AUTOMAKE(mysql, 6.0.4-alpha)
 AM_CONFIG_HEADER([include/config.h:config.h.in])
 
 NDB_VERSION_MAJOR=6
@@ -795,6 +795,7 @@ AC_CHECK_HEADERS([xfs/xfs.h])
 #--------------------------------------------------------------------
 
 AC_CHECK_LIB(m, floor, [], AC_CHECK_LIB(m, __infinity))
+AC_CHECK_FUNCS(log2)
 
 AC_CHECK_LIB(nsl_r, gethostbyname_r, [],
   AC_CHECK_LIB(nsl, gethostbyname_r))
@@ -2675,7 +2676,7 @@ AC_CONFIG_FILES(Makefile extra/Makefile mysys/Makefile dnl
  strings/Makefile regex/Makefile storage/Makefile dnl
  man/Makefile BUILD/Makefile vio/Makefile dnl
  libmysql/Makefile libmysql_r/Makefile client/Makefile dnl
- sql/Makefile sql/share/Makefile sql/backup/Makefile dnl
+ sql/Makefile sql/share/Makefile dnl
  sql/sql_builtin.cc sql-common/Makefile dnl
  dbug/Makefile scripts/Makefile include/Makefile dnl
  tests/Makefile Docs/Makefile support-files/Makefile dnl

@@ -1,0 +1,33 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #28049: Falcon Hang after fifteen exceptions
+#
+--echo *** Bug #28049 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p;
+--enable_warnings
+
+delimiter //;
+set @@autocommit=0//
+create procedure p ()
+begin
+  declare v int default 0;
+  declare continue handler for sqlexception begin end;
+  create table t1 (s1 int unique);
+  while v < 1000 do
+    insert into t1 values (v);
+    update t1 set s1 = s1 * 2;
+    select distinct v from t1;
+    set v = v + 1;
+    end while;
+  end;
+//
+call p()//
+
+# Final cleanup.
+DROP TABLE t1//
+DROP PROCEDURE p//
+
+delimiter ;//

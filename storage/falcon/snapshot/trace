@@ -1,0 +1,7 @@
+#/bin/bash
+gdb ../../../sql/mysqld $1 << END > mysqld.backtrace
+set height 0
+thread apply all bt 10
+quit
+END
+snapshot mysqld.backtrace

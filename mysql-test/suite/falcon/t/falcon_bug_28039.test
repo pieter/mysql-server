@@ -1,0 +1,46 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28039: Falcon Crash if INSERT ON DUPLICATE KEY with two 
+#                  interleaving transactions
+#
+--echo *** Bug #28039 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo # Establish connection con1 (root)
+connect (con1,localhost,root,,test);
+SET storage_engine = Falcon;
+
+--echo # Switch to connection default
+connection default;
+set transaction isolation level read committed;
+SET @@autocommit=0;
+CREATE TABLE t1 (
+  s1 int,
+  s2 int,
+  PRIMARY KEY (s1)
+);
+INSERT INTO t1 VALUES (1,2);
+
+--echo # Switch to connection con1
+connection con1;
+set transaction isolation level read committed;
+SET @@autocommit=0;
+--send INSERT INTO t1 VALUES (1,2) ON DUPLICATE KEY UPDATE s2 = 5
+
+--echo # Switch to connection default
+connection default;
+COMMIT;
+
+--echo # Switch to connection con1
+connection con1;
+--reap
+SELECT * FROM t1;
+COMMIT;
+
+# Final cleanup
+disconnect con1;
+connection default;
+DROP TABLE t1;

@@ -1,0 +1,16 @@
+SET storage_engine = Falcon;
+*** Bug #28028 ***
+DROP TABLE IF EXISTS t3;
+CREATE TABLE t3 (
+place_id int (10) unsigned,
+ts timestamp, 
+PRIMARY KEY (place_id, ts)
+);
+INSERT INTO t3 VALUES (1,20000928174434);
+SELECT * FROM t3 WHERE place_id = 1 AND ts>='2000-09-28 00:00:00';
+place_id	ts
+1	2000-09-28 17:44:34
+SELECT * FROM t3 WHERE place_id = 1 AND ts >= 20000928000000;
+place_id	ts
+1	2000-09-28 17:44:34
+DROP TABLE t3;

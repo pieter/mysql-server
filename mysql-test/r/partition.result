@@ -1225,6 +1225,10 @@ INSERT INTO t1 SELECT a + 8, b FROM t1;
 ALTER TABLE t1 ADD PARTITION (PARTITION p1 VALUES LESS THAN (64));
 ALTER TABLE t1 DROP PARTITION p1;
 DROP TABLE t1;
+create table t (s1 int) engine=myisam partition by key (s1);
+create trigger t_ad after delete on t for each row insert into t values (old.s1);
+insert into t values (1);
+drop table t;
 create table t2 (b int);
 create table t1 (b int)
 PARTITION BY RANGE (t2.b) (

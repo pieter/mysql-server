@@ -1,0 +1,16 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #22166: Case insensitive table names
+# https://intranet.mysql.com/~mmatthews/mantis/view.php?id=199 
+#
+--echo *** Bug #22166 ***
+--disable_warnings
+DROP TABLE IF EXISTS t,T;
+--enable_warnings
+
+CREATE TABLE t(id int);
+CREATE TABLE T(id int);
+
+# Final cleanup
+DROP TABLE t,T;

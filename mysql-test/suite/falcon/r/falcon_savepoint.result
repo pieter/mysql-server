@@ -1,0 +1,48 @@
+SET STORAGE_ENGINE = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (c1 int, c2 varchar(8));
+INSERT INTO t1 VALUES (1, 'AAAAAAAA');
+INSERT INTO t1 VALUES (2, 'BBBBBBBB');
+BEGIN;
+SELECT * FROM t1;
+c1	c2
+1	AAAAAAAA
+2	BBBBBBBB
+INSERT INTO t1 VALUES (3, 'CCCCCCCC');
+UPDATE t1 SET c2 = lower(c2);
+SAVEPOINT sp1;
+SELECT * FROM t1;
+c1	c2
+1	aaaaaaaa
+2	bbbbbbbb
+3	cccccccc
+UPDATE t1 SET c2 = upper(c2);
+UPDATE t1 SET c2 = right(c2, 6);
+SAVEPOINT sp2;
+SELECT * FROM t1;
+c1	c2
+1	AAAAAA
+2	BBBBBB
+3	CCCCCC
+UPDATE t1 SET c2 = lower(c2);
+UPDATE t1 SET c2 = right(c2, 4);
+DELETE FROM t1 WHERE c1 = 2;
+Savepoint sp3;
+SELECT * FROM t1;
+c1	c2
+1	aaaa
+3	cccc
+ROLLBACK TO SAVEPOINT sp1;
+SELECT * FROM t1;
+c1	c2
+1	aaaaaaaa
+2	bbbbbbbb
+3	cccccccc
+SAVEPOINT sp1;
+ROLLBACK;
+SELECT * FROM t1;
+c1	c2
+1	AAAAAAAA
+2	BBBBBBBB
+COMMIT;
+DROP TABLE t1;

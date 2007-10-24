@@ -1,0 +1,48 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #22165: ALTER crash if two interleaving transactions
+#
+--echo *** Bug #22165 ***
+--disable_warnings
+DROP PROCEDURE IF EXISTS db1.p1;
+DROP EVENT IF EXISTS db1.e1;
+DROP EVENT IF EXISTS db1.e2;
+DROP DATABASE IF EXISTS db1;
+--enable_warnings
+
+delimiter //;
+CREATE DATABASE db1//
+USE db1//
+CREATE PROCEDURE p1 ()
+begin
+  declare v int default 0;
+  declare continue handler for sqlexception
+  begin
+    declare continue handler for sqlexception begin end;
+    ALTER TABLE t1 MODIFY COLUMN c timestamp;
+  end;
+  while v < 10 do
+    START TRANSACTION;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    INSERT INTO t1 (a, b) VALUES (v, 'a');
+    UPDATE t1 SET c = current_timestamp WHERE a = v;
+    COMMIT;
+    SET v = v + 1;
+  end while;
+end//
+CREATE TABLE t1 (a bigint, b varchar(1000), c timestamp)//
+
+CREATE EVENT e1 ON SCHEDULE EVERY 1 second DO CALL db1.p1()//
+CREATE EVENT e2 ON SCHEDULE EVERY 1 second DO CALL db1.p1()//
+SET GLOBAL event_scheduler = 1//
+--sleep 60
+
+# Final cleanup
+SET GLOBAL event_scheduler = 0//
+DROP EVENT db1.e1//
+DROP EVENT db1.e2//
+DROP PROCEDURE db1.p1//
+DROP DATABASE db1//
+
+delimiter ;//

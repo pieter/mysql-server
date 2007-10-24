@@ -1422,6 +1422,15 @@ ALTER TABLE t1 DROP PARTITION p1;
 DROP TABLE t1;
 
 #
+# Bug #30484: Partitions: crash with self-referencing trigger
+#
+
+create table t (s1 int) engine=myisam partition by key (s1);
+create trigger t_ad after delete on t for each row insert into t values (old.s1);
+insert into t values (1);
+drop table t;
+
+#
 # Bug #27084 partitioning by list seems failing when using case 
 # BUG #18198: Case no longer supported, test case removed
 #

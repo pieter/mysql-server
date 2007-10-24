@@ -1,0 +1,63 @@
+--source include/have_falcon.inc
+#
+# Bug #28006: Falcon: isolation failed after alter
+# Note: related to Bug#15491 "ALTER TABLE violates REPEATABLE READ"
+#
+--echo *** Bug #28006 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+SET @@tx_isolation = 'REPEATABLE-READ';
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+COMMIT;
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@tx_isolation = 'REPEATABLE-READ';
+SET @@autocommit = 0;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+BEGIN;
+SELECT * FROM t1;
+
+--echo # Switch to connection conn1
+connection conn1;
+ALTER TABLE t1 ADD COLUMN b int;
+ALTER TABLE t1 DROP COLUMN a;
+
+--echo # Switch to connection default
+connection default;
+SELECT * FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection conn1
+connection conn1;
+COMMIT;
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;

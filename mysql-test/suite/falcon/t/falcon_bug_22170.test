@@ -1,0 +1,23 @@
+--source include/have_falcon.inc
+#
+# Bug #22170: Moving to another database doesn't work 
+#
+--echo *** Bug #22170 ***
+--disable_warnings
+DROP DATABASE IF EXISTS falcon211;
+DROP DATABASE IF EXISTS falcon212;
+--enable_warnings
+CREATE DATABASE falcon211;
+USE falcon211;
+CREATE TABLE t1 (s1 int) Engine MyISAM;
+CREATE TABLE t2 (s1 int) Engine Falcon;
+CREATE DATABASE falcon212;
+RENAME TABLE t1 TO falcon212.t1;
+RENAME TABLE t2 TO falcon212.t2;
+USE falcon212;
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t2;
+
+# Final cleanup
+DROP DATABASE falcon211;
+DROP DATABASE falcon212;

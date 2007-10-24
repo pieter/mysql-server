@@ -1,0 +1,46 @@
+--source include/have_falcon.inc
+#
+# Bug #27767: Falcon: crash after select for update
+#
+--echo *** Bug #27767 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+CREATE INDEX i1 on t1 (a);
+INSERT INTO t1 VALUES (7);
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@autocommit = 0;
+START TRANSACTION;
+SELECT * FROM t1 WHERE a = 7 FOR UPDATE;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+disconnect conn1;
+DROP TABLE t1;
+USE test;

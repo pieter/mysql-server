@@ -1,0 +1,73 @@
+--source include/have_falcon.inc
+#
+# Bug #30124: UPDATE has unacceptable performance
+#
+# This update should take just a few seconds.
+# It must unlock 900,000 records after updating only 100,000.
+# With the bug, it took 30 to 60 minutes.
+# It takes a while to build the file though.
+#
+# Note: original test case is with loop count of 1 mio.
+#       Lowered to 500k due to long run time.
+--echo *** Bug #30124 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+--enable_warnings
+
+SET @@autocommit=0;
+
+CREATE TABLE t1 (a int auto_increment PRIMARY KEY, b int);
+
+PREPARE stmt1 FROM 'INSERT INTO t1 (b) VALUES (?)';
+
+DELIMITER //;
+CREATE PROCEDURE p1()
+BEGIN
+  SET @i = 0;
+  SET @v = 0;
+
+  WHILE @i < 500000 DO
+    SET @a = @v;
+
+    EXECUTE stmt1 USING @a;
+
+    SET @v = @v + 1;
+    IF @v = 10 THEN
+      SET @v = 0;
+    END IF;
+
+    SET @i = @i + 1;
+  END WHILE;
+END;//
+DELIMITER ;//
+
+CALL p1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+SET @@autocommit = 1;
+UPDATE t1 SET b = 5 WHERE b = 3;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+SELECT count(*) FROM t1 WHERE b = 5;
+
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DEALLOCATE PREPARE stmt1;
+DROP TABLE t1;
+DROP PROCEDURE p1;

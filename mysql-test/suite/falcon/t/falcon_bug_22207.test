@@ -1,0 +1,56 @@
+--source include/have_falcon.inc
+#
+# Record cache memory leak test inspired by Kevin.
+#
+# Note: Do not run in ramdisk!
+#   For Mantis bug #257, set the inner loop to 10 and the middle loop to 10,000.
+#   We set the middle loop to 500 to cope with run time on various Pushbuild machines.
+#
+SET STORAGE_ENGINE = 'Falcon';
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (c1 varchar(50), c2 int, c3 char(1));
+INSERT INTO t1 VALUES (repeat('A', 50), 0, 'A');
+INSERT INTO t1 VALUES (repeat('B', 50), 0, 'B');
+INSERT INTO t1 VALUES (repeat('C', 50), 0, 'C');
+#INSERT INTO t1 VALUES (repeat('D', 50), 0, 'D');
+#INSERT INTO t1 VALUES (repeat('E', 50), 0, 'E');
+#INSERT INTO t1 VALUES (repeat('F', 50), 0, 'F');
+#INSERT INTO t1 VALUES (repeat('G', 50), 0, 'G');
+#INSERT INTO t1 VALUES (repeat('H', 50), 0, 'H');
+#INSERT INTO t1 VALUES (repeat('I', 50), 0, 'I');
+COMMIT;
+
+# During this series of updates, there should be no increase in memory
+# since each previous record version should be freed once it is replaced.
+
+# Outer loop controls how many SELECTs are done.
+let $i= 10;
+while ($i) 
+{
+    # Next loop controls how often a COMMIT is done
+    --disable_query_log
+    let $j= 500;
+    while ($j) 
+    {
+        # Inner loop controls how many UPDATES are done.
+        BEGIN;
+        let $k= 10;
+        while ($k) 
+        {
+            UPDATE t1 SET c2 = c2 + 1, c1 = concat(rpad(conv(c2,10,10),10,'_'), repeat(c3, 40));
+            dec $k;
+        }
+        dec $j;
+        COMMIT;
+    }
+    --enable_query_log
+    SELECT c1 from t1;
+    dec $i;
+}
+
+
+# Final cleanup.
+DROP TABLE t1;

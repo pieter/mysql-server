@@ -1,0 +1,29 @@
+SET @@storage_engine = Falcon;
+*** Bug #22185 ***
+DROP TABLE IF EXISTS sbtest;
+# Establish connection conn1 (user = root)
+SET @@storage_engine = Falcon;
+# Switch to connection default
+CREATE TABLE sbtest (
+id int(10) unsigned NOT NULL,
+k int(10) unsigned NOT NULL DEFAULT 0,
+c char(120) NOT NULL DEFAULT '',
+pad char(60) NOT NULL DEFAULT '',
+PRIMARY KEY (id),
+KEY k (k)
+);
+INSERT INTO sbtest VALUES (10000, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+INSERT INTO sbtest VALUES (10001, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+INSERT INTO sbtest VALUES (10002, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+BEGIN;
+UPDATE sbtest SET pad = 'qq' WHERE id = 10000;
+# Switch to connection conn1
+UPDATE sbtest SET pad = 'eee' WHERE id = 10000;
+# Switch to connection default
+COMMIT;
+# Switch to connection conn1
+SELECT count(*) FROM sbtest;
+count(*)
+3
+# Switch to connection default
+DROP TABLE sbtest;

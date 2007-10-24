@@ -1090,8 +1090,8 @@ my_uni_utf16(CHARSET_INFO *cs __attribute__((unused)),
   {
     if (s + 2 > e)
       return MY_CS_TOOSMALL2;
-    *s++= (wc >> 8);
-    *s= (wc & 0xFF);
+    *s++= (uchar) (wc >> 8);
+    *s= (uchar) (wc & 0xFF);
     return 2;
   }
 
@@ -1099,10 +1099,10 @@ my_uni_utf16(CHARSET_INFO *cs __attribute__((unused)),
   {
     if (s + 4 > e)
       return MY_CS_TOOSMALL4;
-    *s++= ((wc-= 0x10000) >> 18) | 0xD8;
-    *s++= (wc >> 10) & 0xFF;
-    *s++= ((wc >> 8) & 3) | 0xDC;
-    *s= wc & 0xFF;
+    *s++= (uchar) ((wc-= 0x10000) >> 18) | 0xD8;
+    *s++= (uchar) (wc >> 10) & 0xFF;
+    *s++= (uchar) ((wc >> 8) & 3) | 0xDC;
+    *s= (uchar) wc & 0xFF;
     return 4;
   }
 
@@ -1381,8 +1381,8 @@ my_strnxfrm_utf16(CHARSET_INFO *cs,
     if (dst + 2 >= de)
       break;
     
-    *dst++= wc >> 8;
-    *dst++= wc & 0xFF;
+    *dst++= (uchar) wc >> 8;
+    *dst++= (uchar) wc & 0xFF;
   }
   return my_strxfrm_pad_desc_and_reverse(cs, d0, dst, de,
                                          nweights, flags, 0);
@@ -1884,10 +1884,10 @@ my_uni_utf32(CHARSET_INFO *cs __attribute__((unused)),
   if (s + 4 > e) 
     return MY_CS_TOOSMALL4;
   
-  s[0]= (wc >> 24);
-  s[1]= (wc >> 16) & 0xFF;
-  s[2]= (wc >> 8)  & 0xFF;
-  s[3]= wc & 0xFF;
+  s[0]= (uchar) (wc >> 24);
+  s[1]= (uchar) (wc >> 16) & 0xFF;
+  s[2]= (uchar) (wc >> 8)  & 0xFF;
+  s[3]= (uchar) wc & 0xFF;
   return 4;
 }
 
@@ -2210,8 +2210,8 @@ my_strnxfrm_utf32(CHARSET_INFO *cs,
     if (dst + 2 >= de)
       break;
     
-    *dst++= wc >> 8;
-    *dst++= wc & 0xFF;
+    *dst++= (uchar) wc >> 8;
+    *dst++= (uchar) wc & 0xFF;
   }
   return my_strxfrm_pad_desc_and_reverse_utf32(cs, d0, dst, de,
                                                nweights, flags, 0);

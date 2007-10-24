@@ -41,9 +41,7 @@
 
 extern uint falcon_io_threads;
 
-#define FLUSH_INTERWRITE_WAIT			0									// in milliseconds
-
-//#define STOP_PAGE		28
+//#define STOP_PAGE		98
 
 static const uint64 cacheHunkSize		= 1024 * 1024 * 128;
 static const int	ASYNC_BUFFER_SIZE	= 1024000;
@@ -331,8 +329,7 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 	bdb->mark(transId);
 	memset(bdb->buffer, 0, pageSize);
 	Page *page = bdb->buffer;
-	page->pageType = type;
-	page->checksum = (short) pageNumber;
+	page->setType(type, pageNumber);
 	moveToHead(bdb);
 
 	return bdb;

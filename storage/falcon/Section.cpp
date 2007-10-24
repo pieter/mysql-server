@@ -211,7 +211,8 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 			SectionPage *newPage = (SectionPage*) newBdb->buffer;
 			memcpy(newPage, page, dbb->pageSize);
 			memset(page, 0, dbb->pageSize);
-			page->pageType = PAGE_sections;
+			//page->pageType = PAGE_sections;
+			page->setType(PAGE_sections, newBdb->pageNumber);
 			page->section = newPage->section;
 			page->level = newPage->level + 1;
 			page->pages[0] = newBdb->pageNumber;
@@ -230,13 +231,14 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 				{
 				if (page->level == 1)
 					{
-					bdb = dbb->handoffPage (bdb, pageNumber, PAGE_sections, requestedLockType);
+					bdb = dbb->handoffPage(bdb, pageNumber, PAGE_sections, requestedLockType);
 					BDB_HISTORY(bdb);
+					
 					return bdb;
 					}
 
 				lockType = lockTypes [page->level - 1];
-				bdb = dbb->handoffPage (bdb, pageNumber, PAGE_sections, lockType);
+				bdb = dbb->handoffPage(bdb, pageNumber, PAGE_sections, lockType);
 				BDB_HISTORY(bdb);
 				page = (SectionPage*) bdb->buffer;
 				}
@@ -1177,7 +1179,8 @@ void Section::redoSectionPage(Dbb *dbb, int32 parentPage, int32 pageNumber, int 
 			sectionPage->level != level)
 			{
 			memset(sectionPage, 0, dbb->pageSize);
-			sectionPage->pageType = PAGE_sections;
+			//sectionPage->pageType = PAGE_sections;
+			sectionPage->setType(PAGE_sections, sectionBdb->pageNumber);
 			sectionPage->section = sectionId;
 			sectionPage->sequence = sequence;
 			sectionPage->level = level;
@@ -1244,7 +1247,8 @@ void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostF
 			Bdb *locatorBdb = dbb->fakePage(pageNumber, PAGE_record_locator, 0);
 			BDB_HISTORY(locatorBdb);
 			RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
-			locatorPage->pageType = PAGE_record_locator;
+			//locatorPage->pageType = PAGE_record_locator;
+			locatorPage->setType(PAGE_record_locator, locatorBdb->pageNumber);
 			locatorPage->section = sectionId;
 			locatorPage->sequence = sequence;
 			locatorPage->maxLine = 0;
@@ -1283,7 +1287,8 @@ void Section::redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber
 	
 	rootBdb->mark(NO_TRANSACTION);
 	memset(page, 0, dbb->pageSize);
-	page->pageType = PAGE_sections;
+	//page->pageType = PAGE_sections;
+	page->setType(PAGE_sections, rootBdb->pageNumber);
 	page->section = newPage->section;
 	page->level = newPage->level + 1;
 	page->pages[0] = newPageNumber;
@@ -1296,8 +1301,9 @@ void Section::redoDataPage(int32 pageNumber, int32 locatorPageNumber)
 	Bdb *bdb = dbb->fakePage(pageNumber, PAGE_data, NO_TRANSACTION);
 	BDB_HISTORY(bdb);
 	DataPage *dataPage = (DataPage*) bdb->buffer;
-	memset (dataPage, 0, dbb->pageSize);			// page may have been dirtied by partial read
-	dataPage->pageType = PAGE_data;
+	//memset(dataPage, 0, dbb->pageSize);			// page may have been dirtied by partial read
+	//dataPage->pageType = PAGE_data;
+	memset(&dataPage->maxLine, 0, dbb->pageSize - OFFSET(DataPage*, maxLine));
 	
 	Bdb *locatorBdb = dbb->fetchPage(locatorPageNumber, PAGE_record_locator, Shared);
 	BDB_HISTORY(locatorBdb);

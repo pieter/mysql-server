@@ -68,7 +68,7 @@ void PageInventoryPage::create(Dbb * dbb, TransId transId)
 
 Bdb* PageInventoryPage::createInventoryPage(Dbb * dbb, int32 pageNumber, TransId transId)
 {
-	Bdb *bdb = dbb->fakePage (pageNumber, PAGE_inventory, transId);
+	Bdb *bdb = dbb->fakePage(pageNumber, PAGE_inventory, transId);
 	BDB_HISTORY(bdb);
 	PageInventoryPage *page = (PageInventoryPage*) bdb->buffer;
 

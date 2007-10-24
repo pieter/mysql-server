@@ -178,6 +178,7 @@ TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fi
 		throw;
 		}
 
+	database->dbb->flush();
 	database->serialLog->logControl->createTableSpace.append(tableSpace);
 	
 	return tableSpace;

@@ -387,7 +387,13 @@ int Value::compare(Value * value)
 				if (scale != value->scale)
 					break;
 
-				return (int) (data.quad - value->data.quad);
+				if (data.quad > value->data.quad)
+					return 1;
+
+				if (data.quad < value->data.quad)
+					return -1;
+					
+				return 0;
 
 			/*** fall through is just fine
 			case BlobPtr:

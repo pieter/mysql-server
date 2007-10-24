@@ -96,14 +96,14 @@ int32 Section::createSection(Dbb * dbb, TransId transId)
 			if (sectionsBdb)
 				sectionsBdb->release(REL_HISTORY);
 
-			sectionsBdb = getSectionPage (dbb, SECTION_ROOT, n, Exclusive, transId);
+			sectionsBdb = getSectionPage(dbb, SECTION_ROOT, n, Exclusive, transId);
 			BDB_HISTORY(sectionsBdb);
 			sections = (SectionPage*) sectionsBdb->buffer;
 			}
 
 		int slot = id % dbb->pagesPerSection;
 
-		if (sections->pages [slot] == 0)
+		if (sections->pages[slot] == 0)
 			{
 			if (dbb->sectionInUse(id))
 				{
@@ -112,7 +112,7 @@ int32 Section::createSection(Dbb * dbb, TransId transId)
 				}
 			else
 				{
-				Bdb *sectionBdb = dbb->allocPage (PAGE_sections, transId);
+				Bdb *sectionBdb = dbb->allocPage(PAGE_sections, transId);
 				BDB_HISTORY(sectionBdb);
 				int32 sectionPageNumber = sectionBdb->pageNumber;
 				page = (SectionPage*) sectionBdb->buffer;
@@ -149,7 +149,7 @@ void Section::createSection(Dbb *dbb, int32 sectionId, TransId transId)
 	if (sections->pages [slot] == 0)
 		{
 		sectionsBdb->mark(transId);
-		Bdb *sectionBdb = dbb->allocPage (PAGE_sections, transId);
+		Bdb *sectionBdb = dbb->allocPage(PAGE_sections, transId);
 		BDB_HISTORY(sectionBdb);
 		Log::debug("Section::createSection: recreating section %d, root %d\n", 
 					sectionId, sectionBdb->pageNumber);
@@ -251,7 +251,7 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 					break;
 					}
 
-				Bdb *newBdb = dbb->allocPage (PAGE_sections, transId);
+				Bdb *newBdb = dbb->allocPage(PAGE_sections, transId);
 				BDB_HISTORY(newBdb);
 				SectionPage *newPage = (SectionPage*) newBdb->buffer;
 				int32 newPageNumber = newBdb->pageNumber;
@@ -446,7 +446,7 @@ int32 Section::insertStub(TransId transId)
 
 void Section::reInsertStub(int32 recordNumber, TransId transId)
 {
-	Bdb *bdb = fetchIndexPage (root, recordNumber, Exclusive, transId);
+	Bdb *bdb = fetchLocatorPage (root, recordNumber, Exclusive, transId);
 	BDB_HISTORY(bdb);
 	if (!bdb)
 		//NOT_YET_IMPLEMENTED;
@@ -500,6 +500,7 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 
 	bdb->mark(transId);
 	RecordLocatorPage *locatorPage = (RecordLocatorPage*) bdb->buffer;
+	ASSERT(locatorPage->section == sectionId);
 	int line = recordNumber % dbb->linesPerPage;
 	RecordIndex *index = locatorPage->elements + line;
 
@@ -556,7 +557,7 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 	bdb->release(REL_HISTORY);
 }
 
-Bdb* Section::fetchIndexPage(int32 root, int32 recordNumber, LockType lockType, TransId transId)
+Bdb* Section::fetchLocatorPage(int32 root, int32 recordNumber, LockType lockType, TransId transId)
 {
 	int32 n = recordNumber / dbb->linesPerPage;
 	Bdb *bdb = getSectionPage (n / dbb->pagesPerSection, Shared, transId);
@@ -572,7 +573,10 @@ Bdb* Section::fetchIndexPage(int32 root, int32 recordNumber, LockType lockType, 
 		}
 
 	bdb = dbb->handoffPage (bdb, pageNumber, PAGE_record_locator, lockType);
+	RecordLocatorPage *locatorPage = (RecordLocatorPage*) bdb->buffer;
+	ASSERT(locatorPage->section == sectionId);
 	BDB_HISTORY(bdb);
+	
 	return bdb;
 }
 
@@ -668,7 +672,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 		
 	/* Record doesn't fit on last used data page, make another */
 
-	Bdb *bdb = dbb->allocPage (PAGE_data, transId);
+	Bdb *bdb = dbb->allocPage(PAGE_data, transId);
 	BDB_HISTORY(bdb);
 	DataPage *page = (DataPage*) bdb->buffer;
 	page->maxLine = 0;
@@ -713,7 +717,7 @@ int Section::storeTail(Stream * stream, int maxRecord, int *pLength, TransId tra
 	
 	while (length + (int) sizeof (int32) > maxRecord)
 		{
-		Bdb *bdb = dbb->allocPage (PAGE_data_overflow, transId);
+		Bdb *bdb = dbb->allocPage(PAGE_data_overflow, transId);
 		BDB_HISTORY(bdb);
 		pageNumbers.set(bdb->pageNumber);
 		
@@ -742,7 +746,7 @@ int Section::storeTail(Stream * stream, int maxRecord, int *pLength, TransId tra
 
 bool Section::fetchRecord(int32 recordNumber, Stream *stream, TransId transId)
 {
-	Bdb *bdb = fetchIndexPage(root, recordNumber, Shared, transId);
+	Bdb *bdb = fetchLocatorPage(root, recordNumber, Shared, transId);
 	BDB_HISTORY(bdb);
 	if (!bdb)
 		return false;
@@ -797,6 +801,8 @@ int32 Section::findNextRecord(int32 pageNumber, int32 startingRecord, Stream *st
 
 	if (locatorPage->pageType == PAGE_record_locator)
 		{
+		ASSERT(locatorPage->section == sectionId);
+		
 		for (int slot = startingRecord % dbb->linesPerPage; slot < locatorPage->maxLine; ++slot)
 			if (locatorPage->elements [slot].page)
 				{
@@ -1216,17 +1222,18 @@ void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostF
 		
 		if (!isPostFlush)
 			{
-			Bdb *indexBdb = dbb->trialFetch(pageNumber, PAGE_record_locator, Shared);
-			BDB_HISTORY(indexBdb);
+			Bdb *locatorBdb = dbb->trialFetch(pageNumber, PAGE_record_locator, Shared);
+			BDB_HISTORY(locatorBdb);
 			
-			if (indexBdb)
+			if (locatorBdb)
 				{
-				RecordLocatorPage *locatorPage = (RecordLocatorPage*) indexBdb->buffer;
+				RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
+				ASSERT(locatorPage->section == sectionId);
 				
 				if (locatorPage->section != sectionId || locatorPage->sequence != sequence)
 					rebuild = true;
 
-				indexBdb->release(REL_HISTORY);
+				locatorBdb->release(REL_HISTORY);
 				}
 			else
 				rebuild = true;
@@ -1234,15 +1241,15 @@ void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostF
 				
 		if (rebuild)
 			{
-			Bdb *indexBdb = dbb->fakePage(pageNumber, PAGE_record_locator, 0);
-			BDB_HISTORY(indexBdb);
-			RecordLocatorPage *locatorPage = (RecordLocatorPage*) indexBdb->buffer;
+			Bdb *locatorBdb = dbb->fakePage(pageNumber, PAGE_record_locator, 0);
+			BDB_HISTORY(locatorBdb);
+			RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
 			locatorPage->pageType = PAGE_record_locator;
 			locatorPage->section = sectionId;
 			locatorPage->sequence = sequence;
 			locatorPage->maxLine = 0;
 
-			indexBdb->release(REL_HISTORY);
+			locatorBdb->release(REL_HISTORY);
 			}
 		}
 

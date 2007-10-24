@@ -43,7 +43,7 @@ extern uint falcon_io_threads;
 
 #define FLUSH_INTERWRITE_WAIT			0									// in milliseconds
 
-//#define STOP_PAGE		64
+//#define STOP_PAGE		28
 
 static const uint64 cacheHunkSize		= 1024 * 1024 * 128;
 static const int	ASYNC_BUFFER_SIZE	= 1024000;
@@ -263,7 +263,11 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 		}
 
 	Page *page = bdb->buffer;
-
+	
+	if (page->checksum != (short) pageNumber)
+		FATAL ("page %d wrong page number, got %d\n",
+				 bdb->pageNumber, page->checksum);
+	
 	if (pageType && page->pageType != pageType)
 		{
 		/*** future code
@@ -326,7 +330,9 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 	//ASSERT(!(bdb->flags & BDB_dirty));
 	bdb->mark(transId);
 	memset(bdb->buffer, 0, pageSize);
-	bdb->buffer->pageType = type;
+	Page *page = bdb->buffer;
+	page->pageType = type;
+	page->checksum = (short) pageNumber;
 	moveToHead(bdb);
 
 	return bdb;

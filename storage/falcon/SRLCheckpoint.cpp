@@ -65,5 +65,5 @@ void SRLCheckpoint::redo()
 
 void SRLCheckpoint::print()
 {
-	logPrint("Checkpoint\n");
+	logPrint("Checkpoint block " I64FORMAT "\n", blockNumber);
 }

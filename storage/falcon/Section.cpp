@@ -42,10 +42,10 @@
 #include "PageInventoryPage.h"
 
 //#define STOP_PAGE	114
-//#define STOP_SECTION
+//#define STOP_SECTION	40
 
 #ifdef STOP_SECTION
-static int stopSection = 18;
+static int stopSection = 40;
 #endif
 
 #ifdef _DEBUG

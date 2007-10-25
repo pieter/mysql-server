@@ -73,6 +73,7 @@ class Sync;
 class Transaction;
 class InfoTable;
 class TableSpaceManager;
+class Gopher;
 
 class SerialLog : public Schedule, public SyncObject
 {
@@ -112,7 +113,7 @@ public:
 	void			recover();
 	void			start();
 	void			open(JString fileRoot, bool createFlag);
-	void			gopherThread();
+	//void			gopherThread();
 	void			copyClone(JString fileRoot, int logOffset, int logLength);
 	int				recoverLimboTransactions(void);
 	void			preFlush(void);
@@ -149,7 +150,7 @@ public:
 	Dbb*			findDbb(int tableSpaceId);
 	uint64			getWriteBlockNumber(void);
 	
-	static void		gopherThread(void *arg);
+	//static void		gopherThread(void *arg);
 
 	TableSpaceManager	*tableSpaceManager;
 	SerialLogFile		*file1;
@@ -164,7 +165,8 @@ public:
 	RecoveryObjects		*recoverySections;
 	RecoveryObjects		*recoveryIndexes;
 	Dbb					*defaultDbb;
-	Thread				*workerThread;
+	Gopher				*gophers;
+	//Thread			*workerThread;
 	Thread				*srlQueue;
 	Thread				*endSrlQueue;
 	SerialLogControl	*logControl;
@@ -173,6 +175,8 @@ public:
 	uint64				lastFlushBlock;
 	uint64				lastReadBlock;
 	uint64				preFlushBlock;
+	uint64				recoveryBlockNumber;
+	uint64				lastBlockWritten;
 	UCHAR				*recordStart;
 	UCHAR				*writePtr;
 	UCHAR				*writeWarningTrack;

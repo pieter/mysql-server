@@ -12,33 +12,24 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+   
+#ifndef _SERIAL_LOG_H_
+#define _SERIAL_LOG_H_
 
-#ifndef _GOPHER_H_
-#define _GOPHER_H_
+#include "SerialLogRecord.h"
 
-#include "SyncObject.h"
 
-class SerialLog;
-class Thread;
-
-class Gopher
+class SRLSession : public SerialLogRecord
 {
 public:
-	Gopher(SerialLog *serialLog);
-	~Gopher(void);
-
-	void		gopherThread(void);
-	void		start(void);
-	void		shutdown(void);
-	void		wakeup(void);
+	SRLSession(void);
+	~SRLSession(void);
+	void append(int64 priorRecoveryBlock, int64 priorCheckpointBlock);
+	virtual void read(void);
+	virtual void print(void);
 	
-	static void gopherThread(void* arg);
-
-	SerialLog	*log;
-	//SyncObject	syncGopher;
-	Thread		*workerThread;
-	Gopher		*next;
-	bool		active;
+	int64	recoveryBlock;
+	int64	checkpointBlock;
 };
 
 #endif

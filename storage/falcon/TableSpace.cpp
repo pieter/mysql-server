@@ -134,7 +134,7 @@ void TableSpace::sync(void)
 void TableSpace::save(void)
 {
 	PStatement statement = database->prepareStatement(
-		"insert into system.tablespaces (tablespace,tablespace_id,filename) values (?,?,?)");
+		"replace into system.tablespaces (tablespace,tablespace_id,filename) values (?,?,?)");
 	int n = 1;
 	statement->setString(n++, name);
 	statement->setInt(n++, tableSpaceId);

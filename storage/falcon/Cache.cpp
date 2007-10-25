@@ -41,7 +41,7 @@
 
 extern uint falcon_io_threads;
 
-//#define STOP_PAGE		98
+//#define STOP_PAGE		109
 
 static const uint64 cacheHunkSize		= 1024 * 1024 * 128;
 static const int	ASYNC_BUFFER_SIZE	= 1024000;
@@ -779,8 +779,10 @@ void Cache::freePage(Dbb *dbb, int32 pageNumber)
 
 void Cache::flush(Dbb *dbb)
 {
-	Sync sync (&syncDirty, "Cache::flush(Dbb)");
-	sync.lock (Exclusive);
+	//Sync sync (&syncDirty, "Cache::flush(Dbb)");
+	//sync.lock (Exclusive);
+	Sync sync (&syncObject, "Cache::freePage");
+	sync.lock (Shared);
 
 	for (Bdb *bdb = bdbs; bdb < endBdbs; ++bdb)
 		if (bdb->dbb == dbb)

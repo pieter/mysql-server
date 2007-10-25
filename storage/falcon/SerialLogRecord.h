@@ -69,7 +69,8 @@ static const int srlCreateTableSpace= 32;
 static const int srlDropTableSpace	= 33;
 static const int srlBlobDelete		= 34;
 static const int srlUpdateBlob		= 35;
-static const int srlMax				= 36;
+static const int srlSession			= 36;
+static const int srlMax				= 37;
 
 
 class SerialLog;

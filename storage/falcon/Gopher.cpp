@@ -25,6 +25,7 @@
 Gopher::Gopher(SerialLog *serialLog)
 {
 	log = serialLog;
+	workerThread = NULL;
 }
 
 Gopher::~Gopher(void)
@@ -38,12 +39,13 @@ void Gopher::gopherThread(void* arg)
 
 void Gopher::gopherThread(void)
 {
-	Sync deadMan(&syncGopher, "Gopher::gopherThread");
-	deadMan.lock(Exclusive);
+	Sync deadMan(&log->syncGopher, "Gopher::gopherThread");
+	deadMan.lock(Shared);
 	workerThread = Thread::getThread("Gopher::gopherThread");
 	active = true;
 	Sync sync (&log->pending.syncObject, "Gopher::gopherThread pending");
 	Sync updateBlocker(&log->syncUpdateStall, "Gopher::gopherThread blocker");
+	sync.lock(Exclusive);
 	
 	while (!workerThread->shutdownInProgress && !log->finishing)
 		{
@@ -55,15 +57,18 @@ void Gopher::gopherThread(void)
 				updateBlocker.unlock();
 				}
 
+			sync.unlock();
 			workerThread->sleep();
-			
+			sync.lock(Exclusive);
+
 			continue;
 			}
 		
 		SerialLogTransaction *transaction = log->pending.first;
+		log->pending.remove(transaction);
+		sync.unlock();
 		transaction->doAction();
 		sync.lock(Exclusive);
-		log->pending.remove(transaction);
 		log->inactions.append(transaction);
 		
 		if (log->pending.count > log->maxTransactions && !log->blocking)
@@ -73,8 +78,6 @@ void Gopher::gopherThread(void)
 			//Log::debug("Transaction backlog limit exceed, freezing updates\n");
 			++log->backlogStalls;
 			}
-
-		sync.unlock();
 		}
 
 	active = false;
@@ -90,4 +93,10 @@ void Gopher::shutdown(void)
 {
 	if (workerThread)
 		workerThread->shutdown();
+}
+
+void Gopher::wakeup(void)
+{
+	if (workerThread)
+		workerThread->wake();
 }

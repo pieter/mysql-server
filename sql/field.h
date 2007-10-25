@@ -470,6 +470,24 @@ public:
       ((flags >> COLUMN_FORMAT_FLAGS) & COLUMN_FORMAT_MASK);
   }
 
+#ifndef DBUG_OFF
+  /* Print field value into debug trace, in NULL-aware way. */
+  void dbug_print()
+  {
+    if (is_real_null())
+      fprintf(DBUG_FILE, "NULL");
+    else
+    {
+      char buf[256];
+      String str(buf, sizeof(buf), &my_charset_bin);
+      str.length(0);
+      String *pstr;
+      pstr= val_str(&str);
+      fprintf(DBUG_FILE, "'%s'", pstr->c_ptr_safe());
+    }
+  }
+#endif
+
   /* Hash value */
   virtual void hash(ulong *nr, ulong *nr2);
   friend bool reopen_table(THD *,struct st_table *,bool);
@@ -1543,7 +1561,6 @@ public:
   int  store(double nr);
   int  store(longlong nr, bool unsigned_val);
   int  store_decimal(const my_decimal *);
-  uint get_key_image(uchar *buff,uint length,imagetype type);
   uint size_of() const { return sizeof(*this); }
   int  reset(void) { return !maybe_null() || Field_blob::reset(); }
   geometry_type get_geometry_type() { return geom_type; };

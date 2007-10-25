@@ -309,6 +309,10 @@ enum_nested_loop_state sub_select_cache(JOIN *join, JOIN_TAB *join_tab, bool
                                         end_of_records);
 enum_nested_loop_state sub_select(JOIN *join,JOIN_TAB *join_tab, bool
                                   end_of_records);
+enum_nested_loop_state end_send_group(JOIN *join, JOIN_TAB *join_tab,
+                                      bool end_of_records);
+enum_nested_loop_state end_write_group(JOIN *join, JOIN_TAB *join_tab,
+                                       bool end_of_records);
 
 /*
   Information about a position of table within a join order. Used in join
@@ -720,9 +724,13 @@ public:
   store_key(THD *thd, Field *field_arg, uchar *ptr, uchar *null, uint length)
     :null_key(0), null_ptr(null), err(0)
   {
-    if (field_arg->type() == MYSQL_TYPE_BLOB)
+    if (field_arg->type() == MYSQL_TYPE_BLOB
+        || field_arg->type() == MYSQL_TYPE_GEOMETRY)
     {
-        /* Key segments are always packed with a 2 byte length prefix */
+      /* 
+        Key segments are always packed with a 2 byte length prefix.
+        See mi_rkey for details.
+      */
       to_field= new Field_varstring(ptr, length, 2, null, 1, 
                                     Field::NONE, field_arg->field_name,
                                     field_arg->table->s, field_arg->charset());
@@ -862,3 +870,4 @@ bool error_if_full_join(JOIN *join);
 int report_error(TABLE *table, int error);
 int safe_index_read(JOIN_TAB *tab);
 COND *remove_eq_conds(THD *thd, COND *cond, Item::cond_result *cond_value);
+int test_if_item_cache_changed(List<Cached_item> &list);

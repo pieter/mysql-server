@@ -262,9 +262,11 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 
 	Page *page = bdb->buffer;
 	
+	/***
 	if (page->checksum != (short) pageNumber)
 		FATAL ("page %d wrong page number, got %d\n",
 				 bdb->pageNumber, page->checksum);
+	***/
 	
 	if (pageType && page->pageType != pageType)
 		{

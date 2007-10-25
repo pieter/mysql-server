@@ -149,6 +149,8 @@ public:
 	void			preUpdate(void);
 	Dbb*			findDbb(int tableSpaceId);
 	uint64			getWriteBlockNumber(void);
+	void			unblockUpdates(void);
+	void			blockUpdates(void);
 	
 	//static void		gopherThread(void *arg);
 

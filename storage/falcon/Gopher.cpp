@@ -44,7 +44,6 @@ void Gopher::gopherThread(void)
 	workerThread = Thread::getThread("Gopher::gopherThread");
 	active = true;
 	Sync sync (&log->pending.syncObject, "Gopher::gopherThread pending");
-	Sync updateBlocker(&log->syncUpdateStall, "Gopher::gopherThread blocker");
 	sync.lock(Exclusive);
 	
 	while (!workerThread->shutdownInProgress && !log->finishing)
@@ -52,10 +51,7 @@ void Gopher::gopherThread(void)
 		if (!log->pending.first || !log->pending.first->isRipe())
 			{
 			if (log->blocking)
-				{
-				log->blocking = false;
-				updateBlocker.unlock();
-				}
+				log->unblockUpdates();
 
 			sync.unlock();
 			workerThread->sleep();
@@ -72,12 +68,7 @@ void Gopher::gopherThread(void)
 		log->inactions.append(transaction);
 		
 		if (log->pending.count > log->maxTransactions && !log->blocking)
-			{
-			log->blocking = true;
-			updateBlocker.lock(Exclusive);
-			//Log::debug("Transaction backlog limit exceed, freezing updates\n");
-			++log->backlogStalls;
-			}
+			log->blockUpdates();
 		}
 
 	active = false;

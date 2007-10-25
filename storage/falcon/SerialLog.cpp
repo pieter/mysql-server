@@ -665,6 +665,9 @@ void SerialLog::shutdown()
 	Sync sync(&syncGopher, "SerialLog::shutdown");
 	sync.lock(Exclusive);
 
+	if (blocking)
+		unblockUpdates();
+
 	checkpoint(false);
 	
 	/***
@@ -1562,4 +1565,29 @@ void SerialLog::preUpdate(void)
 uint64 SerialLog::getWriteBlockNumber(void)
 {
 	return writeBlock->blockNumber;
+}
+
+void SerialLog::unblockUpdates(void)
+{
+	Sync sync(&pending.syncObject, "SerialLog::unblockUpdates");
+	sync.lock(Exclusive);
+	
+	if (blocking)
+		{
+		blocking = false;
+		syncUpdateStall.unlock();
+		}
+}
+
+void SerialLog::blockUpdates(void)
+{
+	Sync sync(&pending.syncObject, "SerialLog::blockUpdates");
+	sync.lock(Exclusive);
+	
+	if (!blocking)
+		{
+		blocking = true;
+		syncUpdateStall.lock(NULL, Exclusive);
+		++backlogStalls;
+		}
 }

@@ -784,6 +784,7 @@ void Database::openDatabase(const char * filename)
 	getApplication ("base");
 #endif
 
+	tableSpaceManager->initialize();
 	internalScheduler->start();
 
 	if (configuration->schedulerEnabled)
@@ -1494,8 +1495,8 @@ void Database::shutdown()
 		java->shutdown (false);
 #endif
 
-	cache->shutdown();
 	serialLog->shutdown();
+	cache->shutdown();
 
 	if (threads)
 		{

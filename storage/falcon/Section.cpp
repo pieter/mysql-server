@@ -42,6 +42,11 @@
 #include "PageInventoryPage.h"
 
 //#define STOP_PAGE	114
+//#define STOP_SECTION
+
+#ifdef STOP_SECTION
+static int stopSection = 18;
+#endif
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -471,6 +476,11 @@ void Section::reInsertStub(int32 recordNumber, TransId transId)
 
 void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, bool earlyWrite)
 {
+#ifdef STOP_SECTION
+	if (sectionId == stopSection)
+		Log::debug("UpdateRecord %d in section %d/%d\n", recordNumber, sectionId, dbb->tableSpaceId);
+#endif
+
 	// Do some fancy accounting to avoid premature use of record number.
 	// If the record number has been reserved, don't bother to delete it.
 
@@ -1298,6 +1308,11 @@ void Section::redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber
 
 void Section::redoDataPage(int32 pageNumber, int32 locatorPageNumber)
 {
+#ifdef STOP_SECTION
+	if (sectionId == stopSection)
+		Log::debug("Redo data page %d, locator page %d in section %d/%d\n", pageNumber, locatorPageNumber, sectionId, dbb->tableSpaceId);
+#endif
+
 	Bdb *bdb = dbb->fakePage(pageNumber, PAGE_data, NO_TRANSACTION);
 	BDB_HISTORY(bdb);
 	DataPage *dataPage = (DataPage*) bdb->buffer;
@@ -1317,7 +1332,7 @@ void Section::redoDataPage(int32 pageNumber, int32 locatorPageNumber)
 			if (line >= dataPage->maxLine)
 				dataPage->maxLine = line + 1;
 			
-			dataPage->lineIndex[line].offset = dbb->pageSize;
+			dataPage->lineIndex[line].offset = dbb->pageSize - 1;
 			dataPage->lineIndex[line].length = 0;
 			}
 	

@@ -81,6 +81,9 @@ void SRLDataPage::read()
 
 void SRLDataPage::pass1()
 {
+	if (log->tracePage == pageNumber || log->tracePage == locatorPageNumber)
+		print();
+
 	log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
 	log->bumpSectionIncarnation(sectionId, tableSpaceId, objInUse);
 }
@@ -113,6 +116,6 @@ void SRLDataPage::redo()
 
 void SRLDataPage::print()
 {
-	logPrint("Data Page %d/%d, section %d, locator page %d\n",
-			 pageNumber, tableSpaceId, sectionId, locatorPageNumber);
+	logPrint("DataPage section %d/%d, locator page %d, page %d, \n",
+			 sectionId, tableSpaceId, locatorPageNumber, pageNumber);
 }

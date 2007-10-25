@@ -20,6 +20,8 @@
 #include "Engine.h"
 #include "SRLCreateTableSpace.h"
 #include "TableSpace.h"
+#include "Database.h"
+#include "TableSpaceManager.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -60,7 +62,7 @@ void SRLCreateTableSpace::read()
 
 void SRLCreateTableSpace::pass1()
 {
-
+	log->database->tableSpaceManager->redoCreateTableSpace(tableSpaceId, nameLength, name, filenameLength, filename);
 }
 
 void SRLCreateTableSpace::pass2()
@@ -76,4 +78,9 @@ void SRLCreateTableSpace::commit()
 void SRLCreateTableSpace::redo()
 {
 
+}
+
+void SRLCreateTableSpace::print(void)
+{
+	logPrint("Create Table Space %d, name %.*s, filename %.*s\n", tableSpaceId, nameLength, name, filenameLength, filename);
 }

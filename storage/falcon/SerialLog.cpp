@@ -82,7 +82,7 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	memset(transactions, 0, sizeof(transactions));
 	earliest = latest = NULL;
 	lastFlushBlock = 1;
-	preFlushBlock = 1;
+	//preFlushBlock = 1;
 	lastReadBlock = 0;
 	eventNumber = 0;
 	endSrlQueue = NULL;
@@ -436,7 +436,7 @@ void SerialLog::recover()
 		writeWindow->firstBlockNumber = writeBlock->blockNumber;
 		}
 
-	preFlushBlock = writeBlock->blockNumber;
+	//preFlushBlock = writeBlock->blockNumber;
 	delete recoveryPages;
 	delete recoverySections;
 	delete recoveryIndexes;
@@ -449,6 +449,7 @@ void SerialLog::recover()
 			ASSERT(false);
 		
 	recovering = false;
+	lastFlushBlock = writeBlock->blockNumber;
 	checkpoint(true);
 	
 	for (TableSpaceInfo *info = tableSpaceInfo; info; info = info->next)
@@ -919,7 +920,7 @@ uint64 SerialLog::getReadBlock()
 {
 	Sync sync (&pending.syncObject, "SerialLog::getReadBlock");
 	sync.lock(Shared);
-	uint64 blockNumber = lastFlushBlock;
+	uint64 blockNumber = lastBlockWritten;
 	
 	if (earliest)
 		{
@@ -1002,7 +1003,9 @@ void SerialLog::pageCacheFlushed(int64 blockNumber)
 		logControl->checkpoint.append(blockNumber);
 		}
 
-	lastFlushBlock = preFlushBlock;
+	if (blockNumber)
+		lastFlushBlock = blockNumber; //preFlushBlock;
+		
 	Sync sync(&pending.syncObject, "SerialLog::pageCacheFlushed");	// pending.syncObject use for both
 	sync.lock(Exclusive);
 	
@@ -1200,7 +1203,7 @@ bool SerialLog::bumpIndexIncarnation(int indexId, int tableSpaceId, int state)
 
 void SerialLog::preFlush(void)
 {
-	preFlushBlock = writeBlock->blockNumber - 1;
+	//preFlushBlock = writeBlock->blockNumber - 1;
 	Sync sync(&pending.syncObject, "SerialLog::preFlush");
 	sync.lock(Shared);
 	

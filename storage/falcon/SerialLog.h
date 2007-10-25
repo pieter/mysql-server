@@ -174,7 +174,7 @@ public:
 	uint64				highWaterBlock;
 	uint64				lastFlushBlock;
 	uint64				lastReadBlock;
-	uint64				preFlushBlock;
+	//uint64			preFlushBlock;
 	uint64				recoveryBlockNumber;
 	uint64				lastBlockWritten;
 	UCHAR				*recordStart;

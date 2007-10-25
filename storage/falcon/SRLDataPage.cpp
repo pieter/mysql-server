@@ -85,6 +85,7 @@ void SRLDataPage::pass1()
 		print();
 
 	log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
+	log->bumpPageIncarnation(locatorPageNumber, tableSpaceId, objInUse);
 	log->bumpSectionIncarnation(sectionId, tableSpaceId, objInUse);
 }
 
@@ -94,7 +95,8 @@ void SRLDataPage::pass2()
 		print();
 	
 	bool sectionActive = log->bumpSectionIncarnation(sectionId, tableSpaceId, objInUse);
-	
+	bool locatorPageActive = log->bumpPageIncarnation(locatorPageNumber, tableSpaceId, objInUse);
+
 	if (log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse))
 		{
 		if (sectionActive)
@@ -105,12 +107,14 @@ void SRLDataPage::pass2()
 		else
 			log->redoFreePage(pageNumber, tableSpaceId);
 		}
+	else if (sectionActive && locatorPageActive)
+		Section::redoSectionLine(log->getDbb(tableSpaceId), locatorPageNumber, pageNumber);
 }
 
 void SRLDataPage::redo()
 {
-	//bool sectionActive = 
 	log->bumpSectionIncarnation(sectionId, tableSpaceId, objInUse);
+	log->bumpPageIncarnation(locatorPageNumber, tableSpaceId, objInUse);
 	log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
 }
 

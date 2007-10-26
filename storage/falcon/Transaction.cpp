@@ -42,7 +42,7 @@
 #include "Format.h"
 #include "LogLock.h"
 
-extern UINT		falcon_lock_timeout;
+extern uint		falcon_lock_timeout;
 
 static const char *stateNames [] = {
 	"Active",

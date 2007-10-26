@@ -35,3 +35,10 @@ Page::~Page()
 
 }
 ***/
+
+
+void Page::setType(short type, int32 page)
+{
+	pageType = type;
+	//checksum = (short) page;
+}

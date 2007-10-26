@@ -120,6 +120,7 @@ public:
 	int			thaw(RecordVersion* record);
 	void		thaw(DeferredIndex* deferredIndex);
 	void		print(void);
+	void		printBlockage(void);
 	void		getInfo(InfoTable* infoTable);
 	void		fullyCommitted(void);
 	void		releaseCommittedTransaction(void);
@@ -150,6 +151,7 @@ public:
 	DeferredIndex	*deferredIndexes;
 	Thread			*thread;
 	Record			*blockingRecord;
+	time_t			startTime;
 	int				deferredIndexCount;
 	int				statesAllocated;
 	int				isolationLevel;
@@ -189,8 +191,6 @@ protected:
 	RecordVersion	**recordPtr;
 
 	virtual ~Transaction();
-public:
-	void printBlockage(void);
 };
 
 #endif // !defined(AFX_TRANSACTION_H__02AD6A4D_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

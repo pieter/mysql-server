@@ -60,7 +60,7 @@ public:
 	int32	insertStub (TransId transId);
 	int32	getSectionRoot();
 	Bdb*	getSectionPage(int sequence, LockType lockType, TransId transId);
-	Bdb*	fetchIndexPage (int32 root, int32 recordNumber, LockType lockType, TransId transId);
+	Bdb*	fetchLocatorPage (int32 root, int32 recordNumber, LockType lockType, TransId transId);
 
 	static void		redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber, int pageLength, const UCHAR* pageData, int32 newPageNumber);
 	void			redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostFlush);

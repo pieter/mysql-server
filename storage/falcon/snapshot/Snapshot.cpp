@@ -33,6 +33,11 @@ const char *methods[] = {
 	"SerialLog::preUpdate",
 	"IO::readPage",
 	"IO::writePage",
+	"Cache::ioThread",
+	"Section::insertStub",
+	"Index::addToDIHash",
+	"Index::scanDIHash",
+	"Gopher::gopherThread",
 	NULL
 	};
 

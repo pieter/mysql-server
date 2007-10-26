@@ -83,6 +83,5 @@ void SRLIndexDelete::redo()
 
 void SRLIndexDelete::print()
 {
-	Log::debug("Serial Log Index Delete indexId %d, recordId %d, length %d\n",
-			indexId, recordId, length);
+	logPrint("Index Delete indexId %d, recordId %d, length %d\n", indexId, recordId, length);
 }

@@ -31,13 +31,13 @@
 #define PATH_MAX		256
 #endif
 
-static const int WRITE_TYPE_FLUSH		= 0;
-static const int WRITE_TYPE_PURIFIER	= 1;
-static const int WRITE_TYPE_PRECEDENCE	= 2;
-static const int WRITE_TYPE_REUSE		= 3;
-static const int WRITE_TYPE_SHUTDOWN	= 4;
-static const int WRITE_TYPE_PAGE_WRITER	= 5;
-static const int WRITE_TYPE_CLONE		= 6;
+static const int WRITE_TYPE_FORCE		= 0;
+static const int WRITE_TYPE_PRECEDENCE	= 1;
+static const int WRITE_TYPE_REUSE		= 2;
+static const int WRITE_TYPE_SHUTDOWN	= 3;
+static const int WRITE_TYPE_PAGE_WRITER	= 4;
+static const int WRITE_TYPE_CLONE		= 5;
+static const int WRITE_TYPE_FLUSH		= 6;
 static const int WRITE_TYPE_MAX			= 7;
 
 class Bdb;
@@ -91,11 +91,13 @@ public:
 	int			pageSize;
 	uint		reads;
 	uint		writes;
+	uint		flushWrites;
 	uint		writesSinceSync;
 	uint		fetches;
 	uint		fakes;
 	uint		priorReads;
 	uint		priorWrites;
+	uint		priorFlushWrites;
 	uint		priorFetches;
 	uint		priorFakes;
 	uint		writeTypes[WRITE_TYPE_MAX];

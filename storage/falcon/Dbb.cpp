@@ -54,7 +54,11 @@
 #include "DatabaseClone.h"
 
 //#define STOP_RECORD	123
+//#define TRACE_PAGE	109
+
 static const int SECTION_HASH_SIZE	= 997;
+
+extern uint falcon_large_blob_threshold;
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -231,6 +235,11 @@ Bdb* Dbb::allocPage(PageType pageType, TransId transId)
 {
 	Bdb *bdb = PageInventoryPage::allocPage (this, pageType, transId);
 
+#ifdef TRACE_PAGE
+	if (bdb->pageNumber == TRACE_PAGE)
+		Log::debug("Allocating trace page %d\n", bdb->pageNumber);
+#endif
+
 	if (bdb->pageNumber > highPage)
 		highPage = bdb->pageNumber;
 
@@ -310,17 +319,17 @@ void Dbb::logRecord(int32 sectionId, int32 recordId, Stream *stream, Transaction
 
 void Dbb::updateBlob(Section *blobSection, int recordNumber, Stream* stream, Transaction* transaction)
 {
-	//updateBlob(blobSectionId, recordNumber, stream, TRANSACTION_ID(transaction));
-	updateRecord(blobSection, recordNumber, stream, transaction, true);
-	transaction->pendingPageWrites = true;
+	if (!serialLog->recovering && stream && stream->totalLength < (int) falcon_large_blob_threshold)
+		{
+		serialLog->logControl->updateBlob.append(this, blobSection->sectionId, transaction->transactionId, recordNumber, stream);
+		updateRecord(blobSection, recordNumber, stream, transaction, false);
+		}
+	else
+		{
+		updateRecord(blobSection, recordNumber, stream, transaction, true);
+		transaction->pendingPageWrites = true;
+		}
 }
-
-/***
-void Dbb::updateBlob(int32 sectionId, int32 recordId, Stream *stream, TransId transId)
-{
-	updateRecord(sectionId, recordId, stream, transId, true);
-}
-***/
 
 void Dbb::updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite)
 {
@@ -555,7 +564,14 @@ void Dbb::freePage(int32 pageNumber)
 void Dbb::freePage(Bdb * bdb, TransId transId)
 {
 	int32 pageNumber = bdb->pageNumber;
-	bdb->buffer->pageType = PAGE_free;
+
+#ifdef TRACE_PAGE
+	if (pageNumber == TRACE_PAGE)
+		Log::debug("Freeing trace page %d\n",pageNumber);
+#endif
+
+	//bdb->buffer->pageType = PAGE_free;
+	bdb->buffer->setType(PAGE_free, pageNumber);
 	cache->markClean(bdb);
 	bdb->release(REL_HISTORY);
 
@@ -813,7 +829,8 @@ int64 Dbb::updateSequence(int sequenceId, int64 delta, TransId transId)
 		bdb->mark(transId);
 		
 		if (page->pageType == PAGE_sections)
-			page->pageType = PAGE_sequences;
+			//page->pageType = PAGE_sequences;
+			page->setType(PAGE_sequences, bdb->pageNumber);
 			
 		value = page->sequences [slot] += delta;
 		}
@@ -1096,19 +1113,21 @@ void Dbb::reportStatistics()
 {
 	int deltaReads = reads - priorReads;
 	int deltaWrites = writes - priorWrites;
+	int deltaFlushWrites = flushWrites - priorFlushWrites;
 	int deltaFetches = fetches - priorFetches;
 	//int deltaFakes = reads - priorFakes;
 
 	if (!deltaReads && !deltaWrites && !deltaFetches)
 		return;
 
-	Log::log (LogInfo, "Activity on %s: %d fetches, %d reads, %d writes\n",
-				(const char*) fileName, deltaFetches, deltaReads, deltaWrites);
+	Log::log (LogInfo, "%d: Activity on %s: %d fetches, %d reads, %d writes, %d flushWrites\n", database->deltaTime,
+				(const char*) fileName, deltaFetches, deltaReads, deltaWrites, deltaFlushWrites);
 	
 	priorReads = reads;
 	priorWrites = writes;
 	priorFetches = fetches;
 	priorFakes = fakes;
+	priorFlushWrites = flushWrites;
 }
 
 void Dbb::commit(Transaction *transaction)
@@ -1288,7 +1307,8 @@ void Dbb::upgradeSequenceSection(void)
 		BDB_HISTORY(sequenceBdb);
 		memcpy(sequenceBdb->buffer, bdb->buffer, pageSize);
 		memset(sectionPage, 0, pageSize);
-		sectionPage->pageType = PAGE_sections;
+		//sectionPage->pageType = PAGE_sections;
+		sectionPage->setType(PAGE_sections, sequenceBdb->pageNumber);
 		sectionPage->section = sequenceSectionId;
 		sectionPage->pages[0] = sequenceBdb->pageNumber;
 		sequenceBdb->release(REL_HISTORY);

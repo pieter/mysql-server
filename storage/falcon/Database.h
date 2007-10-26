@@ -179,6 +179,7 @@ public:
 	void			clearDebug();
 	void			setDebug();
 	void			commitSystemTransaction();
+	void			rollbackSystemTransaction(void);
 	bool			flush(int64 arg);
 	
 	Transaction*	startTransaction(Connection *connection);
@@ -273,24 +274,26 @@ public:
 	PageWriter			*pageWriter;
 	PreparedStatement	*updateCardinality;
 	MemMgr				*recordDataPool;
+	time_t				startTime;
 	
-	volatile time_t	timestamp;
-	volatile int	numberQueries;
-	volatile int	numberRecords;
-	volatile int	numberTemplateEvals;
-	volatile int	numberTemplateExpands;
-	int				odsVersion;
-	int				noSchedule;
+	volatile time_t		deltaTime;
+	volatile time_t		timestamp;
+	volatile int		numberQueries;
+	volatile int		numberRecords;
+	volatile int		numberTemplateEvals;
+	volatile int		numberTemplateExpands;
+	int					odsVersion;
+	int					noSchedule;
 
 	volatile INTERLOCK_TYPE	currentGeneration;
 	//volatile long	overflowSize;
 	//volatile long 	ageGroupSizes [AGE_GROUPS];
-	uint64			recordMemoryMax;
-	uint64			recordScavengeThreshold;
-	uint64			recordScavengeFloor;
-	int64			lastRecordMemory;
-	time_t			creationTime;
-	volatile time_t	lastScavenge;
+	uint64				recordMemoryMax;
+	uint64				recordScavengeThreshold;
+	uint64				recordScavengeFloor;
+	int64				lastRecordMemory;
+	time_t				creationTime;
+	volatile time_t		lastScavenge;
 };
 
 #endif // !defined(AFX_DATABASE_H__5EC961D1_A406_11D2_AB5B_0000C01D2301__INCLUDED_)

@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 MySQL AB
+/* Copyright (C) 2007 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,32 +13,31 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#ifndef _GOPHER_H_
-#define _GOPHER_H_
+#ifndef _SRL_UPDATE_BLOB_H_
+#define _SRL_UPDATE_BLOB_H_
 
-#include "SyncObject.h"
+#include "SerialLogRecord.h"
 
-class SerialLog;
-class Thread;
-
-class Gopher
+class SRLUpdateBlob : public SerialLogRecord
 {
 public:
-	Gopher(SerialLog *serialLog);
-	~Gopher(void);
-
-	void		gopherThread(void);
-	void		start(void);
-	void		shutdown(void);
-	void		wakeup(void);
+	SRLUpdateBlob(void);
+	~SRLUpdateBlob(void);
 	
-	static void gopherThread(void* arg);
-
-	SerialLog	*log;
-	//SyncObject	syncGopher;
-	Thread		*workerThread;
-	Gopher		*next;
-	bool		active;
+	void append(Dbb *dbb, int32 sectionId, TransId transId, int recordNumber, Stream* data);
+	
+	virtual void read(void);
+	virtual void pass1(void);
+	virtual void pass2(void);
+	virtual void commit(void);
+	virtual void redo(void);
+	virtual void print(void);
+	
+	const UCHAR		*data;
+	int			recordNumber;
+	int			tableSpaceId;
+	int			length;
+	int			sectionId;
 };
 
 #endif

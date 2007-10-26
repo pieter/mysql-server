@@ -2866,27 +2866,38 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 
 void Table::rename(const char *newSchema, const char *newName)
 {
-	for (const char **tbl = relatedTables; *tbl; ++tbl)
-		{
-		char sql [512];
-		snprintf(sql, sizeof(sql), 
-				 "update system.%s "
-				 "  set schema=?, tableName=? "
-				 "  where schema=? and tableName=?", *tbl);
-		PreparedStatement *statement = database->prepareStatement(sql);
-		statement->setString(1, newSchema);
-		statement->setString(2, newName);
-		statement->setString(3, schemaName);
-		statement->setString(4, name);
-		statement->executeUpdate();
-		statement->close();
-		}
-
-	Index *primaryKey = getPrimaryKey();
-	database->renameTable(this, newSchema, newName);
+	Sync sync(&database->syncSysConnection, "Statement::renameTables");
+	sync.lock(Exclusive);
 	
-	if (primaryKey)
-		primaryKey->rename(getPrimaryKeyName());
+	try
+		{
+		for (const char **tbl = relatedTables; *tbl; ++tbl)
+			{
+			char sql [512];
+			snprintf(sql, sizeof(sql), 
+					"update system.%s "
+					"  set schema=?, tableName=? "
+					"  where schema=? and tableName=?", *tbl);
+			PreparedStatement *statement = database->prepareStatement(sql);
+			statement->setString(1, newSchema);
+			statement->setString(2, newName);
+			statement->setString(3, schemaName);
+			statement->setString(4, name);
+			statement->executeUpdate();
+			statement->close();
+			}
+
+		Index *primaryKey = getPrimaryKey();
+		database->renameTable(this, newSchema, newName);
+		
+		if (primaryKey)
+			primaryKey->rename(getPrimaryKeyName());
+		}
+	catch(...)
+		{
+		database->rollbackSystemTransaction();
+		throw;
+		}
 }
 
 int Table::storeBlob(Transaction *transaction, uint32 length, const UCHAR *data)

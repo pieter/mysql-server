@@ -429,6 +429,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	numberTemplateEvals = 0;
 	numberTemplateExpands = 0;
 	threads = new Threads (parent);
+	startTime = time (NULL);
 
 	symbolManager = NULL;
 	templateManager = NULL;
@@ -757,6 +758,7 @@ void Database::openDatabase(const char * filename)
 	statement->close();
 	upgradeSystemTables();
 	Trigger::initialize (this);
+	serialLog->checkpoint(true);
 	//validate(0);
 
 #ifndef STORAGE_ENGINE
@@ -783,6 +785,7 @@ void Database::openDatabase(const char * filename)
 	getApplication ("base");
 #endif
 
+	tableSpaceManager->initialize();
 	internalScheduler->start();
 
 	if (configuration->schedulerEnabled)
@@ -1223,6 +1226,13 @@ void Database::commitSystemTransaction()
 	systemConnection->commit();
 }
 
+void Database::rollbackSystemTransaction(void)
+{
+	Sync sync (&syncSysConnection, "Database::commitSystemTransaction");
+	sync.lock (Exclusive);
+	systemConnection->rollback();
+}
+
 void Database::setDebug()
 {
 	dbb->setDebug();
@@ -1449,6 +1459,8 @@ void Database::execute(const char * sql)
 
 void Database::shutdown()
 {
+	Log::log("%d: Falcon shutdown\n", deltaTime);
+
 	if (shuttingDown)
 		return;
 	
@@ -1468,7 +1480,7 @@ void Database::shutdown()
 	if (repositoryManager)
 		repositoryManager->close();
 
-	flush(0);
+	//flush(0);
 
 	if (scheduler)
 		scheduler->shutdown(false);
@@ -1484,8 +1496,8 @@ void Database::shutdown()
 		java->shutdown (false);
 #endif
 
-	cache->shutdown();
 	serialLog->shutdown();
+	cache->shutdown();
 
 	if (threads)
 		{
@@ -1667,6 +1679,7 @@ void Database::retireRecords(bool forced)
 		Sync syncTbl (&syncTables, "Database::retireRecords");
 		syncTbl.lock (Shared);
 		Table *table;
+		time_t scavengeStart = deltaTime;
 		
 		for (table = tableList; table; table = table->next)
 			table->inventoryRecords(&recordScavenge);
@@ -1696,8 +1709,8 @@ void Database::retireRecords(bool forced)
 			}
 
 		syncTbl.unlock();
-		Log::log(LogScavenge, " %d records, " I64FORMAT " bytes reclaimed\n", 
-					recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed);
+		Log::log(LogScavenge, "%d: Scavenged %d records, " I64FORMAT " bytes in %d seconds\n", 
+					deltaTime, recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed, deltaTime - scavengeStart);
 			
 		total = recordScavenge.spaceRemaining;
 		}
@@ -1729,8 +1742,9 @@ void Database::ticker()
 
 	while (!thread->shutdownInProgress)
 		{
-		timestamp = time (NULL);
-		thread->sleep (1000);
+		timestamp = time(NULL);
+		deltaTime = timestamp - startTime;
+		thread->sleep(1000);
 
 #ifdef STORAGE_ENGINE
 		if (falcon_debug_trace)

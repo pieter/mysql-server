@@ -114,7 +114,6 @@ public:
 	void	dropDatabase();
 	void	enableSerialLog();
 	void	rollback (TransId transId, bool updateTransaction);
-	//void	updateBlob(int32 sectionId, int32 recordId, Stream *stream, TransId transId);
 	void	updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite);
 	void	prepareTransaction(TransId transId, int xidLength, const UCHAR *xid);
 	void	commit(Transaction *transaction);
@@ -146,7 +145,6 @@ public:
 	void	deleteIndex (int32 indexId, int indexVersion, TransId transId);
 	Cache*	open (const char *fileName, int64 cacheSize, TransId transId);
 	void	flush();
-	//void	scanIndex (int32 indexId, int indexVersion, IndexKey* lowKey, IndexKey* highKey, int searchFlags, Bitmap *bitmap);
 	bool	addIndexEntry (int32 indexId, int indexVersion, IndexKey *key, int32 recordNumber, TransId transId);
 	int32	createIndex(TransId transId);
 	int32	findNextRecord (Section *section, int32 startingRecord, Stream *stream);
@@ -219,7 +217,6 @@ public:
 	SerialLog	*serialLog;
 	JString		logRoot;
 	SparseArray<int32, 100>	sequencePages;
-	//bool		recovering;
 };
 
 #endif // !defined(AFX_DBB_H__6A019C20_A340_11D2_AB5A_0000C01D2301__INCLUDED_)

@@ -794,7 +794,8 @@ void IndexRootPage::redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPage, 
 		 indexPage->level == level)
 		{
 		memset(indexPage, 0, dbb->pageSize);
-		indexPage->pageType = PAGE_btree;
+		//indexPage->pageType = PAGE_btree;
+		indexPage->setType(PAGE_btree, bdb->pageNumber);
 		}
 
 	indexPage->level = level;

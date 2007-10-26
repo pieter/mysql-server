@@ -24,6 +24,7 @@
 #include "SQLError.h"
 #include "Hdr.h"
 #include "Cache.h"
+#include "PStatement.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -44,6 +45,7 @@ TableSpace::TableSpace(Database *db, const char *spaceName, int spaceId, const c
 	dbb = new Dbb(database->dbb, tableSpaceId);
 	active = false;
 	initialAllocation = allocation;
+	needSave = false;
 }
 
 TableSpace::~TableSpace()
@@ -127,4 +129,16 @@ bool TableSpace::fileNameEqual(const char* file)
 void TableSpace::sync(void)
 {
 	database->cache->syncFile(dbb, "sync");
+}
+
+void TableSpace::save(void)
+{
+	PStatement statement = database->prepareStatement(
+		"replace into system.tablespaces (tablespace,tablespace_id,filename) values (?,?,?)");
+	int n = 1;
+	statement->setString(n++, name);
+	statement->setInt(n++, tableSpaceId);
+	statement->setString(n++, filename);
+	statement->executeUpdate();
+	needSave = false;
 }

@@ -13,32 +13,32 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#ifndef _GOPHER_H_
-#define _GOPHER_H_
+#include <stdio.h>
+#include "Engine.h"
+#include "SRLSession.h"
 
-#include "SyncObject.h"
-
-class SerialLog;
-class Thread;
-
-class Gopher
+SRLSession::SRLSession(void)
 {
-public:
-	Gopher(SerialLog *serialLog);
-	~Gopher(void);
+}
 
-	void		gopherThread(void);
-	void		start(void);
-	void		shutdown(void);
-	void		wakeup(void);
-	
-	static void gopherThread(void* arg);
+SRLSession::~SRLSession(void)
+{
+}
 
-	SerialLog	*log;
-	//SyncObject	syncGopher;
-	Thread		*workerThread;
-	Gopher		*next;
-	bool		active;
-};
+void SRLSession::append(int64 priorRecoveryBlock, int64 priorCheckpointBlock)
+{
+	START_RECORD(srlCheckpoint, "SRLCheckpoint::append");
+	putInt64(priorRecoveryBlock);
+	putInt64(priorCheckpointBlock);
+}
 
-#endif
+void SRLSession::read(void)
+{
+	recoveryBlock = getInt64();
+	checkpointBlock = getInt64();
+}
+
+void SRLSession::print(void)
+{
+	logPrint("Session start recovery " I64FORMAT ", checkpoint " I64FORMAT ", \n", recoveryBlock, checkpointBlock);
+}

@@ -326,10 +326,15 @@ void TransactionManager::reportStatistics(void)
 	sync.lock (Shared);
 	Transaction *transaction;
 	int active = 0;
+	time_t maxTime = 0;
 	
 	for (transaction = activeTransactions.first; transaction; transaction = transaction->next)
 		if (transaction->state == Active)
+			{
 			++active;
+			time_t age = database->deltaTime - transaction->startTime;
+			maxTime = MAX(age, maxTime);
+			}
 			
 	int pendingCleanup = committedTransactions.count;
 	int numberCommitted = committed - priorCommitted;
@@ -338,8 +343,8 @@ void TransactionManager::reportStatistics(void)
 	priorRolledBack = rolledBack;
 	
 	if (active || numberCommitted || numberRolledBack)
-		Log::log (LogInfo, "Transactions: %d committed, %d rolled back, %d active, %d post-commit\n",
-				  numberCommitted, numberRolledBack, active, pendingCleanup);
+		Log::log (LogInfo, "%d: Transactions: %d committed, %d rolled back, %d active, %d post-commit, oldest %d seconds\n",
+				  database->deltaTime, numberCommitted, numberRolledBack, active, pendingCleanup, maxTime);
 }
 
 void TransactionManager::removeCommittedTransaction(Transaction* transaction)

@@ -59,12 +59,11 @@ public:
 	void	moveToHead (Bdb *bdb);
 	void	flush(int64 arg);
 	void	validateCache(void);
-	//void	purifier(void);
 	void	syncFile(Dbb *dbb, const char *text);
 	void	ioThread(void);
+	void	shutdownThreads(void);
 
 	static void ioThread(void* arg);
-	//static void purifier(void* arg);
 		
 	Bdb*	fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
 	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
@@ -77,6 +76,11 @@ public:
 	PageWriter	*pageWriter;
 	Database	*database;
 	int			numberBuffers;
+	int			noBdb;
+	int			notMarked;
+	int			notDirty;
+	int			notFlushed;
+	int			marked;
 	bool		panicShutdown;
 	bool		flushing;
 
@@ -97,6 +101,7 @@ protected:
 	Thread		**ioThreads;
 	SyncObject	syncFlush;
 	SyncObject	syncDirty;
+	SyncObject	syncThreads;
 	PagePrecedence	*freePrecedence;
 	time_t		flushStart;
 	int			flushPages;

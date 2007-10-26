@@ -285,16 +285,20 @@ void SyncObject::unlock(Sync *sync, LockType type)
 		if (COMPARE_EXCHANGE(&lockState, oldState, newState))
 			{
 			DEBUG_FREEZE;
+
 			if (waiters)
 				grantLocks();
 				
 			return;
 			}
 			
+		/***
 		if (thread)
 			thread->sleep(1);
 		else
 			thread = Thread::getThread("SyncObject::lock");
+		***/
+		BACKOFF;
 		}
 
 	/*** this should be faster, but doesn't seem to be

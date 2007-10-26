@@ -42,6 +42,8 @@
 #include "Format.h"
 #include "LogLock.h"
 
+extern UINT		falcon_lock_timeout;
+
 static const char *stateNames [] = {
 	"Active",
 	"Limbo",
@@ -928,9 +930,7 @@ void Transaction::waitForTransaction()
 	***/
 	
 	Sync sync(&syncActive, "Transaction::waitForTransaction");
-	sync.lock(Shared);
-	//syncActive.lock(NULL, Shared);
-	//syncActive.unlock();
+	sync.lock(Shared, falcon_lock_timeout);
 }
 
 void Transaction::addRef()

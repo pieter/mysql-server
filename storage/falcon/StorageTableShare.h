@@ -74,7 +74,8 @@ enum StorageError {
 	StorageWarningReadUncommitted	= -102,
 	StorageErrorTablesSpaceOperationFailed = -103,
 	StorageErrorOutOfMemory			= -104,		// memory pool limit reached or system memory exhausted
-	StorageErrorOutOfRecordMemory	= -105		// memory pool limit reached or system memory exhausted
+	StorageErrorOutOfRecordMemory	= -105,		// memory pool limit reached or system memory exhausted
+	StorageErrorLockTimeout			= -106
 	};
 	
 static const int StoreErrorIndexShift	= 10;

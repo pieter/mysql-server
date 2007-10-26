@@ -228,7 +228,7 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 		{
 		sync.unlock();
 		actual = Exclusive;
-		sync.lock(Exclusive, "Cache::fetchPage 2");
+		sync.lock(Exclusive);
 
 		for (bdb = hashTable [slot]; bdb; bdb = bdb->hash)
 			if (bdb->pageNumber == pageNumber && bdb->dbb == dbb)
@@ -283,7 +283,7 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 	
 	if (bdb->age < bufferAge - upperFraction)
 		{
-		sync.lock (Exclusive, "Cache::fetchPage 3");
+		sync.lock (Exclusive);
 		moveToHead (bdb);
 		}
 		

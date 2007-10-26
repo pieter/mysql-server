@@ -503,6 +503,10 @@ int StorageTable::translateError(SQLException *exception, int defaultStorageErro
 				errorCode = StorageErrorOutOfRecordMemory;
 				break;
 
+			case LOCK_TIMEOUT:
+				errorCode = StorageErrorLockTimeout;
+				break;
+	
 			default:
 				errorCode = defaultStorageError;
 			}

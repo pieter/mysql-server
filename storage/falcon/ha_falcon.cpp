@@ -1536,7 +1536,10 @@ int StorageInterface::error(int storageError)
 		case StorageErrorDeadlock:
 			DBUG_PRINT("info", ("StorageErrorDeadlock"));
 			DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
-			//DBUG_RETURN(200 - storageError);
+
+		case StorageErrorLockTimeout:
+			DBUG_PRINT("info", ("StorageErrorLockTimeout"));
+			DBUG_RETURN(HA_ERR_LOCK_WAIT_TIMEOUT);
 
 		case StorageErrorRecordNotFound:
 			DBUG_PRINT("info", ("StorageErrorRecordNotFound"));
@@ -1553,10 +1556,6 @@ int StorageInterface::error(int storageError)
 		case StorageErrorBadKey:
 			DBUG_PRINT("info", ("StorageErrorBadKey"));
 			DBUG_RETURN(HA_ERR_WRONG_INDEX);
-
-		case StorageErrorIndexOverflow:
-			DBUG_PRINT("info", ("StorageErrorIndexOverflow"));
-			DBUG_RETURN(HA_WRONG_CREATE_OPTION); // HA_ERR_TOO_LONG_KEY does not exist
 
 		case StorageErrorTableExits:
 			DBUG_PRINT("info", ("StorageErrorTableExits"));

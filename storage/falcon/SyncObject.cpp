@@ -130,7 +130,7 @@ SyncObject::~SyncObject()
 #endif
 }
 
-void SyncObject::lock(Sync *sync, LockType type)
+void SyncObject::lock(Sync *sync, LockType type, int timeout)
 {
 	Thread *thread;
 
@@ -256,7 +256,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 			}
 		}
 
-	wait (type, thread, sync);
+	wait(type, thread, sync, timeout);
 	DEBUG_FREEZE;
 }
 
@@ -341,7 +341,7 @@ void SyncObject::downGrade(LockType type)
 			}
 }
 
-void SyncObject::wait(LockType type, Thread *thread, Sync *sync)
+void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 {
 	++stalls;
 	BUMP(waitCount);
@@ -377,6 +377,37 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync)
 	++thread->activeLocks;
 	mutex.release();
 
+	if (timeout)
+		for (;;)
+			{
+			bool wakeup = thread->sleep (timeout);
+			
+			if (thread->lockGranted)
+				return;
+			
+			mutex.lock();
+			
+			if (thread->lockGranted)
+				{
+				mutex.unlock();
+				
+				return;
+				}
+			
+			for (ptr = &que; *ptr; ptr = &(*ptr)->que)
+				if (*ptr == thread)
+					{
+					*ptr = thread->que;
+					--waiters;
+					break;
+					}
+			
+			mutex.unlock();
+			
+			throw SQLError(LOCK_TIMEOUT, "lock timed out after %d milliseconds\n", timeout);
+			}
+		
+		
 	while (!thread->lockGranted)
 		{
 		bool wakeup = thread->sleep (10000);

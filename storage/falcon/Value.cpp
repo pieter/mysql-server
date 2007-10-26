@@ -561,7 +561,7 @@ void Value::setValue(double value)
 {
 	clear();
 	type = Double;
-	data.dbl = value;
+	data.dbl = (value == 0 ? 0 : value);
 	scale = 0;
 }
 

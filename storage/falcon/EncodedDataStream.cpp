@@ -1258,7 +1258,10 @@ void EncodedDataStream::encodeDouble(double dbl)
 		double d;
 		} u;
 
-	u.d = dbl;
+	// Convert negative 0 to 0
+		
+	u.d = (dbl == 0 ? 0 : dbl);
+		
 	int count = 0;
 
 	while (count < 8 && u.chars[count] == 0)

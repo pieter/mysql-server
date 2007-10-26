@@ -592,7 +592,7 @@ static struct my_option my_long_options[] =
     (uchar**) &opt_ignore_sql_errors, 
     0, GET_BOOL, NO_ARG, 0, 0, 0,
     0, 0, 0},
-  {"commit", OPT_SLAP_COMMIT, "Commit records after X number of statements.",
+  {"commit", OPT_SLAP_COMMIT, "Commit records every X number of statements.",
     (uchar**) &commit_rate, (uchar**) &commit_rate, 0, GET_UINT, REQUIRED_ARG,
     0, 0, 0, 0, 0, 0},
   {"compress", 'C', "Use compression in server/client protocol.",
@@ -627,7 +627,7 @@ static struct my_option my_long_options[] =
     "Delimiter to use in SQL statements supplied in file or command line.",
     (uchar**) &delimiter, (uchar**) &delimiter, 0, GET_STR, REQUIRED_ARG,
     0, 0, 0, 0, 0, 0},
-  {"detach", OPT_SLAP_DETACH, "Detach connections after X number of requests.",
+  {"detach", OPT_SLAP_DETACH, "Detach connections every X number of requests.",
     (uchar**) &detach_rate, (uchar**) &detach_rate, 0, GET_UINT, REQUIRED_ARG, 
     0, 0, 0, 0, 0, 0},
   {"engine", 'e', "Storage engine to use for creating the table.",
@@ -2072,7 +2072,8 @@ pthread_handler_t timer_thread(void *p)
 pthread_handler_t run_task(void *p)
 {
   ulonglong counter= 0, queries;
-  ulonglong trans_counter;
+  ulonglong detach_counter;
+  unsigned int commit_counter;
   MYSQL mysql;
   MYSQL_RES *result;
   MYSQL_ROW row;
@@ -2106,12 +2107,16 @@ pthread_handler_t run_task(void *p)
     printf("connected!\n");
   queries= 0;
 
+  commit_counter= 0;
+  if (commit_rate)
+    run_query(mysql, "SET AUTOCOMMIT=0", strlen("SET AUTOCOMMIT=0"));
+
 limit_not_met:
-    for (ptr= con->stmt, trans_counter= 0; 
+    for (ptr= con->stmt, detach_counter= 0; 
          ptr && ptr->length; 
-         ptr= ptr->next, trans_counter++)
+         ptr= ptr->next, detach_counter++)
     {
-      if (!opt_only_print && detach_rate && !(trans_counter % detach_rate))
+      if (!opt_only_print && detach_rate && !(detach_counter % detach_rate))
       {
         slap_close(&mysql);
         slap_connect(&mysql, TRUE);
@@ -2176,8 +2181,11 @@ limit_not_met:
       }
       queries++;
 
-      if (commit_rate && commit_rate <= trans_counter)
-        run_query(&mysql, "COMMIT", strlen("COMMIT"));
+      if (commit_rate && (++commit_counter == commit_rate))
+      {
+        commit_counter= 0;
+        run_query(mysql, "COMMIT", strlen("COMMIT"));
+      }
 
       /* If the timer is set, and the alarm is not active then end */
       if (opt_timer_length && timer_alarm == FALSE)

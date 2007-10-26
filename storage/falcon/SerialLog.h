@@ -113,7 +113,6 @@ public:
 	void			recover();
 	void			start();
 	void			open(JString fileRoot, bool createFlag);
-	//void			gopherThread();
 	void			copyClone(JString fileRoot, int logOffset, int logLength);
 	int				recoverLimboTransactions(void);
 	void			preFlush(void);
@@ -152,8 +151,6 @@ public:
 	void			unblockUpdates(void);
 	void			blockUpdates(void);
 	
-	//static void		gopherThread(void *arg);
-
 	TableSpaceManager	*tableSpaceManager;
 	SerialLogFile		*file1;
 	SerialLogFile		*file2;
@@ -168,7 +165,6 @@ public:
 	RecoveryObjects		*recoveryIndexes;
 	Dbb					*defaultDbb;
 	Gopher				*gophers;
-	//Thread			*workerThread;
 	Thread				*srlQueue;
 	Thread				*endSrlQueue;
 	SerialLogControl	*logControl;
@@ -176,7 +172,6 @@ public:
 	uint64				highWaterBlock;
 	uint64				lastFlushBlock;
 	uint64				lastReadBlock;
-	//uint64			preFlushBlock;
 	uint64				recoveryBlockNumber;
 	uint64				lastBlockWritten;
 	UCHAR				*recordStart;

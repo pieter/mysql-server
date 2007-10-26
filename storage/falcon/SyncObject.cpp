@@ -262,11 +262,11 @@ void SyncObject::lock(Sync *sync, LockType type, int timeout)
 
 void SyncObject::unlock(Sync *sync, LockType type)
 {
-	ASSERT(lockState != 0);
+	//ASSERT(lockState != 0);
 	
 	if (monitorCount)
 		{
-		ASSERT (monitorCount > 0);
+		//ASSERT (monitorCount > 0);
 		--monitorCount;
 		DEBUG_FREEZE;
 
@@ -277,7 +277,7 @@ void SyncObject::unlock(Sync *sync, LockType type)
 	
 	for (;;)
 		{
-		ASSERT ((type == Shared && lockState > 0) || (type == Exclusive && lockState == -1));
+		//ASSERT ((type == Shared && lockState > 0) || (type == Exclusive && lockState == -1));
 		long oldState = lockState;
 		long newState = (type == Shared) ? oldState - 1 : 0;
 		exclusiveThread = NULL;
@@ -292,33 +292,9 @@ void SyncObject::unlock(Sync *sync, LockType type)
 			return;
 			}
 			
-		/***
-		if (thread)
-			thread->sleep(1);
-		else
-			thread = Thread::getThread("SyncObject::lock");
-		***/
 		BACKOFF;
 		}
 
-	/*** this should be faster, but doesn't seem to be
-	exclusiveThread = NULL;
-	
-	if (type == Shared)
-		{
-		ASSERT(lockState > 0);
-		INTERLOCKED_DECREMENT(lockState);
-		}
-	else
-		{
-		ASSERT(lockState == -1);
-		INTERLOCKED_INCREMENT(lockState);
-		}
-	
-	if (waiters)
-		grantLocks();
-	***/
-	
 	DEBUG_FREEZE;
 }
 

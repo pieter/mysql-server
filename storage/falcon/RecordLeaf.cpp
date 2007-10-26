@@ -40,6 +40,7 @@ static const char THIS_FILE[]=__FILE__;
 
 RecordLeaf::RecordLeaf()
 {
+	base = 0;
 	memset (records, 0, sizeof (records));
 	syncObject.setName("RecordLeaf::syncObject");
 }

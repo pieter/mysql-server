@@ -36,6 +36,7 @@
 #include "FilterTree.h"
 #include "FilterDifferences.h"
 #include "RecordLeaf.h"
+#include "RecordGroup.h"
 #include "SQLError.h"
 #include "ForeignKey.h"
 #include "Sync.h"
@@ -833,14 +834,33 @@ Record* Table::fetch(int32 recordNumber)
 	for (;;)
 		{
 		sync.lock (Shared);
-		
-		if (records && (record = records->fetch(recordNumber)) )
+
+		if (records)
 			{
-			record->poke();
+			RecordSection *section = records;
+			int id = recordNumber;
 			
-			return record;
+			while (section->base)
+				{
+				int slot = id / section->base;
+				id = id % section->base;
+
+				if (slot >= RECORD_SLOTS)
+					goto notFound;
+
+				if ( !(section = ((RecordGroup*) section)->records[slot]) )
+					goto notFound;
+				}
+			
+			if ( (record = section->fetch(id)) )
+				{
+				record->poke();
+				
+				return record;
+				}
 			}
 
+		notFound:
 		sync.unlock();
 		
 		if ( !(record = databaseFetch(recordNumber)) )

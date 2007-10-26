@@ -439,9 +439,7 @@ void Dbb::flush()
 	if (!cache)
 		return;
 
-	//serialLog->preFlush();
 	cache->flush(this);
-	//serialLog->pageCacheFlushed();
 }
 
 Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)

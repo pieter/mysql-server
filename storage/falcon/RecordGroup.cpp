@@ -44,8 +44,7 @@ RecordGroup::RecordGroup(int32 recordBase)
 RecordGroup::~RecordGroup()
 {
 	for (int n = 0; n < RECORD_SLOTS; ++n)
-		if (records [n])
-			delete records [n];
+		delete records[n];
 }
 
 RecordGroup::RecordGroup(int32 recordBase, int32 id, RecordSection * section)

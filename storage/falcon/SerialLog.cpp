@@ -72,7 +72,6 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	file2 = new SerialLogFile();
 	logControl = new SerialLogControl(this);
 	active = false;
-	//workerThread = NULL;
 	nextBlockNumber = 0;
 	firstWindow = NULL;
 	lastWindow = NULL;
@@ -82,7 +81,6 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	memset(transactions, 0, sizeof(transactions));
 	earliest = latest = NULL;
 	lastFlushBlock = 1;
-	//preFlushBlock = 1;
 	lastReadBlock = 0;
 	eventNumber = 0;
 	endSrlQueue = NULL;
@@ -175,58 +173,6 @@ SerialLog::~SerialLog()
 		}
 }
 
-/***
-void SerialLog::gopherThread(void *arg)
-{
-	((SerialLog*) arg)->gopherThread();
-}
-
-void SerialLog::gopherThread()
-{
-	Sync deadMan(&syncGopher, "SerialLog::gopherThread");
-	deadMan.lock(Exclusive);
-	workerThread = Thread::getThread("SerialLog::gopherThread");
-	active = true;
-	Sync sync (&pending.syncObject, "SerialLog::gopherThread pending");
-	Sync updateBlocker(&syncUpdateStall, "SerialLog::gopherThread blocker");
-	
-	while (!workerThread->shutdownInProgress && !finishing)
-		{
-		if (!pending.first || !pending.first->isRipe())
-			{
-			if (blocking)
-				{
-				blocking = false;
-				updateBlocker.unlock();
-				}
-
-			workerThread->sleep();
-			
-			continue;
-			}
-		
-		SerialLogTransaction *transaction = pending.first;
-		transaction->doAction();
-		sync.lock(Exclusive);
-		pending.remove(transaction);
-		inactions.append(transaction);
-		
-		if (pending.count > maxTransactions && !blocking)
-			{
-			blocking = true;
-			updateBlocker.lock(Exclusive);
-			//Log::debug("Transaction backlog limit exceed, freezing updates\n");
-			++backlogStalls;
-			}
-
-		sync.unlock();
-		}
-
-	active = false;
-	workerThread = NULL;
-}
-***/
-
 void SerialLog::open(JString fileRoot, bool createFlag)
 {
 	file1->open(fileRoot + ".fl1", createFlag);
@@ -252,7 +198,6 @@ void SerialLog::open(JString fileRoot, bool createFlag)
 
 void SerialLog::start()
 {
-	//database->threads->start("SerialLog::start", gopherThread, this);
 	logControl->session.append(recoveryBlockNumber, 0);
 	
 	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
@@ -986,15 +931,9 @@ void SerialLog::checkpoint(bool force)
 		{
 		Sync sync(&syncWrite, "SerialLog::checkpoint");
 		sync.lock(Shared);
-		//int64 blockNumber = writeBlock->blockNumber;
 		int64 blockNumber = lastBlockWritten;
 		sync.unlock();
 		database->flush(blockNumber);
-		
-		/*** moved to pageCacheFlushed()
-		database->sync(0);
-		logControl->checkpoint.append(blockNumber);
-		***/ 
 		}
 }
 
@@ -1206,7 +1145,6 @@ bool SerialLog::bumpIndexIncarnation(int indexId, int tableSpaceId, int state)
 
 void SerialLog::preFlush(void)
 {
-	//preFlushBlock = writeBlock->blockNumber - 1;
 	Sync sync(&pending.syncObject, "SerialLog::preFlush");
 	sync.lock(Shared);
 	

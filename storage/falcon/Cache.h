@@ -62,7 +62,8 @@ public:
 	void	syncFile(Dbb *dbb, const char *text);
 	void	ioThread(void);
 	void	shutdownThreads(void);
-
+	bool	continueWrite(Bdb* startingBdb);
+	
 	static void ioThread(void* arg);
 		
 	Bdb*	fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
@@ -76,11 +77,6 @@ public:
 	PageWriter	*pageWriter;
 	Database	*database;
 	int			numberBuffers;
-	int			noBdb;
-	int			notMarked;
-	int			notDirty;
-	int			notFlushed;
-	int			marked;
 	bool		panicShutdown;
 	bool		flushing;
 
@@ -97,7 +93,6 @@ protected:
 	Bdb			*lastDirty;
 	Bitmap		*flushBitmap;
 	char		**bufferHunks;
-	//Thread		*purifierThread;
 	Thread		**ioThreads;
 	SyncObject	syncFlush;
 	SyncObject	syncDirty;

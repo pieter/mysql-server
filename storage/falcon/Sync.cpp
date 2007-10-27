@@ -43,13 +43,8 @@ Sync::Sync(SynchronizationObject *obj, const char *fromWhere)
 
 Sync::~Sync()
 {
-	ASSERT (state != Invalid);
-
 	if (syncObject && state != None)
-		{
 		syncObject->unlock(this, state);
-		state = Invalid;
-		}
 }
 
 void Sync::lock(LockType type)

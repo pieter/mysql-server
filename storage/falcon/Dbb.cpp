@@ -54,6 +54,8 @@
 #include "DatabaseClone.h"
 
 //#define STOP_RECORD	123
+//#define TRACE_PAGE	109
+
 static const int SECTION_HASH_SIZE	= 997;
 
 extern uint falcon_large_blob_threshold;
@@ -232,6 +234,11 @@ Bdb* Dbb::trialFetch(int32 pageNumber, PageType pageType, LockType lockType)
 Bdb* Dbb::allocPage(PageType pageType, TransId transId)
 {
 	Bdb *bdb = PageInventoryPage::allocPage (this, pageType, transId);
+
+#ifdef TRACE_PAGE
+	if (bdb->pageNumber == TRACE_PAGE)
+		Log::debug("Allocating trace page %d\n", bdb->pageNumber);
+#endif
 
 	if (bdb->pageNumber > highPage)
 		highPage = bdb->pageNumber;
@@ -432,9 +439,7 @@ void Dbb::flush()
 	if (!cache)
 		return;
 
-	//serialLog->preFlush();
 	cache->flush(this);
-	//serialLog->pageCacheFlushed();
 }
 
 Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
@@ -557,7 +562,14 @@ void Dbb::freePage(int32 pageNumber)
 void Dbb::freePage(Bdb * bdb, TransId transId)
 {
 	int32 pageNumber = bdb->pageNumber;
-	bdb->buffer->pageType = PAGE_free;
+
+#ifdef TRACE_PAGE
+	if (pageNumber == TRACE_PAGE)
+		Log::debug("Freeing trace page %d\n",pageNumber);
+#endif
+
+	//bdb->buffer->pageType = PAGE_free;
+	bdb->buffer->setType(PAGE_free, pageNumber);
 	cache->markClean(bdb);
 	bdb->release(REL_HISTORY);
 
@@ -815,7 +827,8 @@ int64 Dbb::updateSequence(int sequenceId, int64 delta, TransId transId)
 		bdb->mark(transId);
 		
 		if (page->pageType == PAGE_sections)
-			page->pageType = PAGE_sequences;
+			//page->pageType = PAGE_sequences;
+			page->setType(PAGE_sequences, bdb->pageNumber);
 			
 		value = page->sequences [slot] += delta;
 		}
@@ -1292,7 +1305,8 @@ void Dbb::upgradeSequenceSection(void)
 		BDB_HISTORY(sequenceBdb);
 		memcpy(sequenceBdb->buffer, bdb->buffer, pageSize);
 		memset(sectionPage, 0, pageSize);
-		sectionPage->pageType = PAGE_sections;
+		//sectionPage->pageType = PAGE_sections;
+		sectionPage->setType(PAGE_sections, sequenceBdb->pageNumber);
 		sectionPage->section = sequenceSectionId;
 		sectionPage->pages[0] = sequenceBdb->pageNumber;
 		sequenceBdb->release(REL_HISTORY);

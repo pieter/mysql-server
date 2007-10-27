@@ -36,6 +36,7 @@
 #include "FilterTree.h"
 #include "FilterDifferences.h"
 #include "RecordLeaf.h"
+#include "RecordGroup.h"
 #include "SQLError.h"
 #include "ForeignKey.h"
 #include "Sync.h"
@@ -833,14 +834,33 @@ Record* Table::fetch(int32 recordNumber)
 	for (;;)
 		{
 		sync.lock (Shared);
-		
-		if (records && (record = records->fetch(recordNumber)) )
+
+		if (records)
 			{
-			record->poke();
+			RecordSection *section = records;
+			int id = recordNumber;
 			
-			return record;
+			while (section->base)
+				{
+				int slot = id / section->base;
+				id = id % section->base;
+
+				if (slot >= RECORD_SLOTS)
+					goto notFound;
+
+				if ( !(section = ((RecordGroup*) section)->records[slot]) )
+					goto notFound;
+				}
+			
+			if ( (record = section->fetch(id)) )
+				{
+				record->poke();
+				
+				return record;
+				}
 			}
 
+		notFound:
 		sync.unlock();
 		
 		if ( !(record = databaseFetch(recordNumber)) )
@@ -2863,27 +2883,38 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 
 void Table::rename(const char *newSchema, const char *newName)
 {
-	for (const char **tbl = relatedTables; *tbl; ++tbl)
-		{
-		char sql [512];
-		snprintf(sql, sizeof(sql), 
-				 "update system.%s "
-				 "  set schema=?, tableName=? "
-				 "  where schema=? and tableName=?", *tbl);
-		PreparedStatement *statement = database->prepareStatement(sql);
-		statement->setString(1, newSchema);
-		statement->setString(2, newName);
-		statement->setString(3, schemaName);
-		statement->setString(4, name);
-		statement->executeUpdate();
-		statement->close();
-		}
-
-	Index *primaryKey = getPrimaryKey();
-	database->renameTable(this, newSchema, newName);
+	Sync sync(&database->syncSysConnection, "Statement::renameTables");
+	sync.lock(Exclusive);
 	
-	if (primaryKey)
-		primaryKey->rename(getPrimaryKeyName());
+	try
+		{
+		for (const char **tbl = relatedTables; *tbl; ++tbl)
+			{
+			char sql [512];
+			snprintf(sql, sizeof(sql), 
+					"update system.%s "
+					"  set schema=?, tableName=? "
+					"  where schema=? and tableName=?", *tbl);
+			PreparedStatement *statement = database->prepareStatement(sql);
+			statement->setString(1, newSchema);
+			statement->setString(2, newName);
+			statement->setString(3, schemaName);
+			statement->setString(4, name);
+			statement->executeUpdate();
+			statement->close();
+			}
+
+		Index *primaryKey = getPrimaryKey();
+		database->renameTable(this, newSchema, newName);
+		
+		if (primaryKey)
+			primaryKey->rename(getPrimaryKeyName());
+		}
+	catch(...)
+		{
+		database->rollbackSystemTransaction();
+		throw;
+		}
 }
 
 int Table::storeBlob(Transaction *transaction, uint32 length, const UCHAR *data)

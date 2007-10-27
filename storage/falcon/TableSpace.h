@@ -39,6 +39,8 @@ public:
 	void	shutdown(TransId transId);
 	void	dropTableSpace(void);
 	bool	fileNameEqual(const char* file);
+	void	sync(void);
+	void	save(void);
 	void	getIOInfo(InfoTable* infoTable);
 
 	JString		name;
@@ -51,7 +53,7 @@ public:
 	uint64		initialAllocation;
 	int			tableSpaceId;
 	bool		active;
-	void sync(void);
+	bool		needSave;
 };
 
 #endif // !defined(AFX_TABLESPACE_H__FAD68264_27D0_4E8B_B19C_911F9DC25A89__INCLUDED_)

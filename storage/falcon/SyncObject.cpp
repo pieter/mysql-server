@@ -130,7 +130,7 @@ SyncObject::~SyncObject()
 #endif
 }
 
-void SyncObject::lock(Sync *sync, LockType type)
+void SyncObject::lock(Sync *sync, LockType type, int timeout)
 {
 	Thread *thread;
 
@@ -256,17 +256,17 @@ void SyncObject::lock(Sync *sync, LockType type)
 			}
 		}
 
-	wait (type, thread, sync);
+	wait(type, thread, sync, timeout);
 	DEBUG_FREEZE;
 }
 
 void SyncObject::unlock(Sync *sync, LockType type)
 {
-	ASSERT(lockState != 0);
+	//ASSERT(lockState != 0);
 	
 	if (monitorCount)
 		{
-		ASSERT (monitorCount > 0);
+		//ASSERT (monitorCount > 0);
 		--monitorCount;
 		DEBUG_FREEZE;
 
@@ -277,7 +277,7 @@ void SyncObject::unlock(Sync *sync, LockType type)
 	
 	for (;;)
 		{
-		ASSERT ((type == Shared && lockState > 0) || (type == Exclusive && lockState == -1));
+		//ASSERT ((type == Shared && lockState > 0) || (type == Exclusive && lockState == -1));
 		long oldState = lockState;
 		long newState = (type == Shared) ? oldState - 1 : 0;
 		exclusiveThread = NULL;
@@ -285,36 +285,16 @@ void SyncObject::unlock(Sync *sync, LockType type)
 		if (COMPARE_EXCHANGE(&lockState, oldState, newState))
 			{
 			DEBUG_FREEZE;
+
 			if (waiters)
 				grantLocks();
 				
 			return;
 			}
 			
-		if (thread)
-			thread->sleep(1);
-		else
-			thread = Thread::getThread("SyncObject::lock");
+		BACKOFF;
 		}
 
-	/*** this should be faster, but doesn't seem to be
-	exclusiveThread = NULL;
-	
-	if (type == Shared)
-		{
-		ASSERT(lockState > 0);
-		INTERLOCKED_DECREMENT(lockState);
-		}
-	else
-		{
-		ASSERT(lockState == -1);
-		INTERLOCKED_INCREMENT(lockState);
-		}
-	
-	if (waiters)
-		grantLocks();
-	***/
-	
 	DEBUG_FREEZE;
 }
 
@@ -337,7 +317,7 @@ void SyncObject::downGrade(LockType type)
 			}
 }
 
-void SyncObject::wait(LockType type, Thread *thread, Sync *sync)
+void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 {
 	++stalls;
 	BUMP(waitCount);
@@ -373,6 +353,37 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync)
 	++thread->activeLocks;
 	mutex.release();
 
+	if (timeout)
+		for (;;)
+			{
+			bool wakeup = thread->sleep (timeout);
+			
+			if (thread->lockGranted)
+				return;
+			
+			mutex.lock();
+			
+			if (thread->lockGranted)
+				{
+				mutex.unlock();
+				
+				return;
+				}
+			
+			for (ptr = &que; *ptr; ptr = &(*ptr)->que)
+				if (*ptr == thread)
+					{
+					*ptr = thread->que;
+					--waiters;
+					break;
+					}
+			
+			mutex.unlock();
+			
+			throw SQLError(LOCK_TIMEOUT, "lock timed out after %d milliseconds\n", timeout);
+			}
+		
+		
 	while (!thread->lockGranted)
 		{
 		bool wakeup = thread->sleep (10000);

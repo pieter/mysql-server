@@ -27,16 +27,18 @@ public:
 	Gopher(SerialLog *serialLog);
 	~Gopher(void);
 
+	void		gopherThread(void);
+	void		start(void);
+	void		shutdown(void);
+	void		wakeup(void);
+	
+	static void gopherThread(void* arg);
+
 	SerialLog	*log;
-	SyncObject	syncGopher;
+	//SyncObject	syncGopher;
 	Thread		*workerThread;
 	Gopher		*next;
 	bool		active;
-	
-	static void gopherThread(void* arg);
-	void gopherThread(void);
-	void start(void);
-	void shutdown(void);
 };
 
 #endif

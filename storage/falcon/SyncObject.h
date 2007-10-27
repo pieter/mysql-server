@@ -74,7 +74,7 @@ public:
 	void		setName(const char* name);
 
 	virtual void	unlock (Sync *sync, LockType type);
-	virtual void	lock (Sync *sync, LockType type);
+	virtual void	lock (Sync *sync, LockType type, int timeout = 0);
 	virtual void	findLocks (LinkedList &threads, LinkedList& syncObjects);
 
 	static void		analyze(Stream* stream);
@@ -85,7 +85,7 @@ public:
 		{ return exclusiveThread; };
 
 protected:
-	void wait(LockType type, Thread *thread, Sync *sync);
+	void wait(LockType type, Thread *thread, Sync *sync, int timeout);
 
 	int32				monitorCount;
 	Mutex				mutex;

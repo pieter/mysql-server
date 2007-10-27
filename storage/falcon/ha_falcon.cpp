@@ -1311,7 +1311,10 @@ int StorageInterface::rename_table(const char *from, const char *to)
 	if (ret)
 		DBUG_RETURN(ret);
 
-	DBUG_RETURN(storageShare->renameTable(storageConnection, to));
+	if ( (ret = storageShare->renameTable(storageConnection, to)) )
+		DBUG_RETURN(ret);
+	
+	DBUG_RETURN(error(ret));
 }
 
 
@@ -1344,7 +1347,7 @@ int StorageInterface::read_range_first(const key_range *start_key,
 		int ret = storageTable->setIndexBound((const unsigned char*) start_key->key,
 												start_key->length, LowerBound);
 		if (ret)
-			DBUG_RETURN(ret);
+			DBUG_RETURN(error(ret));
 		}
 
 	if (end_key)
@@ -1355,7 +1358,7 @@ int StorageInterface::read_range_first(const key_range *start_key,
 		int ret = storageTable->setIndexBound((const unsigned char*) end_key->key,
 												end_key->length, UpperBound);
 		if (ret)
-			DBUG_RETURN(ret);
+			DBUG_RETURN(error(ret));
 		}
 
 	storageTable->indexScan();
@@ -1533,7 +1536,10 @@ int StorageInterface::error(int storageError)
 		case StorageErrorDeadlock:
 			DBUG_PRINT("info", ("StorageErrorDeadlock"));
 			DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
-			//DBUG_RETURN(200 - storageError);
+
+		case StorageErrorLockTimeout:
+			DBUG_PRINT("info", ("StorageErrorLockTimeout"));
+			DBUG_RETURN(HA_ERR_LOCK_WAIT_TIMEOUT);
 
 		case StorageErrorRecordNotFound:
 			DBUG_PRINT("info", ("StorageErrorRecordNotFound"));
@@ -1550,10 +1556,6 @@ int StorageInterface::error(int storageError)
 		case StorageErrorBadKey:
 			DBUG_PRINT("info", ("StorageErrorBadKey"));
 			DBUG_RETURN(HA_ERR_WRONG_INDEX);
-
-		case StorageErrorIndexOverflow:
-			DBUG_PRINT("info", ("StorageErrorIndexOverflow"));
-			DBUG_RETURN(HA_WRONG_CREATE_OPTION); // HA_ERR_TOO_LONG_KEY does not exist
 
 		case StorageErrorTableExits:
 			DBUG_PRINT("info", ("StorageErrorTableExits"));

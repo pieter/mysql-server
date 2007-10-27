@@ -42,6 +42,8 @@ class Page
 public:
 	//Page();
 	//~Page();
+	
+	void setType(short pageType, int32 pageNumber);
 
 	short	pageType;
 	short	checksum;
@@ -49,6 +51,7 @@ public:
 #ifdef DEBUG_INDEX_PAGE
 	int32	pageNumber;
 #endif
+
 };
 
 #endif // !defined(AFX_PAGE_H__6A019C1D_A340_11D2_AB5A_0000C01D2301__INCLUDED_)

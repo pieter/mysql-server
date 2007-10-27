@@ -23,7 +23,6 @@
 #include "SynchronizationObject.h"
 #include "Synchronize.h"
 #include "Log.h"
-#include "LinkedList.h"
 
 #ifndef ASSERT
 #define ASSERT(bool)
@@ -57,16 +56,25 @@ void Sync::lock(LockType type)
 {
 	ASSERT(state == None);
 	request = type;
-	syncObject->lock(this, type);
+	syncObject->lock(this, type, 0);
 	state = type;
 }
 
+void Sync::lock(LockType type, int timeout)
+{
+	ASSERT(state == None);
+	request = type;
+	syncObject->lock(this, type, timeout);
+	state = type;
+}
+
+/***
 void Sync::lock(LockType type, const char *fromWhere)
 {
 	where = fromWhere;
 	lock(type);
 }
-
+***/
 void Sync::unlock()
 {
 	ASSERT (state != None);

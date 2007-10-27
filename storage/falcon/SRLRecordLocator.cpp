@@ -92,6 +92,6 @@ void SRLRecordLocator::redo()
 
 void SRLRecordLocator::print()
 {
-	logPrint("RecordLocator sectionId %d/%d, sequence %d, pageNumber %d\n",
+	logPrint("RecordLocator sectionId %d/%d, sequence %d, page %d\n",
 			sectionId, tableSpaceId, sequence, pageNumber);
 }

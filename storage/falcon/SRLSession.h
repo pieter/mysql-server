@@ -12,34 +12,24 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+   
+#ifndef _SERIAL_LOG_H_
+#define _SERIAL_LOG_H_
+
+#include "SerialLogRecord.h"
 
 
-#ifndef _SYNCHRONIZATIONOBJECT_H_
-#define _SYNCHRONIZATIONOBJECT_H_
-
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
-
-enum LockType {
-	None,
-	Exclusive,
-	Shared,
-	Invalid
-	};
-
-class LinkedList;
-class Sync;
-
-class SynchronizationObject
+class SRLSession : public SerialLogRecord
 {
 public:
-	SynchronizationObject(void) {};
-	virtual ~SynchronizationObject(void) {}
+	SRLSession(void);
+	~SRLSession(void);
+	void append(int64 priorRecoveryBlock, int64 priorCheckpointBlock);
+	virtual void read(void);
+	virtual void print(void);
 	
-	virtual void unlock (Sync *sync, LockType type) = 0;
-	virtual void lock (Sync *sync, LockType type, int timeout) = 0;
-	virtual void findLocks (LinkedList &threads, LinkedList& syncObjects) = 0;
+	int64	recoveryBlock;
+	int64	checkpointBlock;
 };
 
 #endif

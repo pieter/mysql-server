@@ -41,9 +41,7 @@
 
 extern uint falcon_io_threads;
 
-#define FLUSH_INTERWRITE_WAIT			0									// in milliseconds
-
-//#define STOP_PAGE		64
+//#define STOP_PAGE		109
 
 static const uint64 cacheHunkSize		= 1024 * 1024 * 128;
 static const int	ASYNC_BUFFER_SIZE	= 1024000;
@@ -230,7 +228,7 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 		{
 		sync.unlock();
 		actual = Exclusive;
-		sync.lock(Exclusive, "Cache::fetchPage 2");
+		sync.lock(Exclusive);
 
 		for (bdb = hashTable [slot]; bdb; bdb = bdb->hash)
 			if (bdb->pageNumber == pageNumber && bdb->dbb == dbb)
@@ -263,7 +261,13 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 		}
 
 	Page *page = bdb->buffer;
-
+	
+	/***
+	if (page->checksum != (short) pageNumber)
+		FATAL ("page %d wrong page number, got %d\n",
+				 bdb->pageNumber, page->checksum);
+	***/
+	
 	if (pageType && page->pageType != pageType)
 		{
 		/*** future code
@@ -279,7 +283,7 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 	
 	if (bdb->age < bufferAge - upperFraction)
 		{
-		sync.lock (Exclusive, "Cache::fetchPage 3");
+		sync.lock (Exclusive);
 		moveToHead (bdb);
 		}
 		
@@ -326,7 +330,8 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 	//ASSERT(!(bdb->flags & BDB_dirty));
 	bdb->mark(transId);
 	memset(bdb->buffer, 0, pageSize);
-	bdb->buffer->pageType = type;
+	Page *page = bdb->buffer;
+	page->setType(type, pageNumber);
 	moveToHead(bdb);
 
 	return bdb;
@@ -776,8 +781,10 @@ void Cache::freePage(Dbb *dbb, int32 pageNumber)
 
 void Cache::flush(Dbb *dbb)
 {
-	Sync sync (&syncDirty, "Cache::flush(Dbb)");
-	sync.lock (Exclusive);
+	//Sync sync (&syncDirty, "Cache::flush(Dbb)");
+	//sync.lock (Exclusive);
+	Sync sync (&syncObject, "Cache::freePage");
+	sync.lock (Shared);
 
 	for (Bdb *bdb = bdbs; bdb < endBdbs; ++bdb)
 		if (bdb->dbb == dbb)
@@ -805,21 +812,6 @@ bool Cache::hasDirtyPages(Dbb *dbb)
 void Cache::setPageWriter(PageWriter *writer)
 {
 	pageWriter = writer;
-}
-
-void Cache::shutdownNow(void)
-{
-	panicShutdown = true;
-	Sync sync (&syncDirty, "Cache::shutdownNow");
-	sync.lock (Exclusive);
-
-	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
-		{
-		Dbb *database = bdb->dbb;
-		database->writePage (bdb, WRITE_TYPE_SHUTDOWN);
-		}
-
-
 }
 
 void Cache::validateCache(void)
@@ -882,6 +874,8 @@ void Cache::ioThread(void* arg)
 
 void Cache::ioThread(void)
 {
+	Sync syncThread(&syncThreads, "Cache::ioThread");
+	syncThread.lock(Shared);
 	Sync flushLock(&syncFlush, "Cache::ioThread");
 	Sync sync(&syncObject, "Cache::ioThread");
 	Thread *thread = Thread::getThread("Cache::ioThread");
@@ -1042,15 +1036,28 @@ void Cache::ioThread(void)
 
 void Cache::shutdown(void)
 {
-	for (int n = 0; n < numberIoThreads; ++n)
-		{
-		ioThreads[n]->shutdown();
-		ioThreads[n] = 0;
-		}
-		
+	shutdownThreads();
 	Sync sync (&syncDirty, "Cache::shutdown");
 	sync.lock (Exclusive);
 
 	for (Bdb *bdb = firstDirty; bdb; bdb = bdb->nextDirty)
 		bdb->dbb->writePage(bdb, WRITE_TYPE_SHUTDOWN);
+}
+
+void Cache::shutdownNow(void)
+{
+	panicShutdown = true;
+	shutdown();
+}
+
+void Cache::shutdownThreads(void)
+{
+	for (int n = 0; n < numberIoThreads; ++n)
+		{
+		ioThreads[n]->shutdown();
+		ioThreads[n] = 0;
+		}
+	
+	Sync sync(&syncThreads, "Cache::shutdownThreads");
+	sync.lock(Exclusive);
 }

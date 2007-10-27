@@ -42,7 +42,7 @@ public:
 	virtual bool	inactive();
 	
 	RecordSection	*records [RECORD_SLOTS];
-	int32			base;
+	//int32			base;
 };
 
 #endif // !defined(AFX_RECORDGROUP_H__02AD6A55_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

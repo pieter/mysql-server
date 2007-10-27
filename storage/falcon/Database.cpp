@@ -758,6 +758,7 @@ void Database::openDatabase(const char * filename)
 	statement->close();
 	upgradeSystemTables();
 	Trigger::initialize (this);
+	serialLog->checkpoint(true);
 	//validate(0);
 
 #ifndef STORAGE_ENGINE
@@ -784,6 +785,7 @@ void Database::openDatabase(const char * filename)
 	getApplication ("base");
 #endif
 
+	tableSpaceManager->initialize();
 	internalScheduler->start();
 
 	if (configuration->schedulerEnabled)
@@ -1224,6 +1226,13 @@ void Database::commitSystemTransaction()
 	systemConnection->commit();
 }
 
+void Database::rollbackSystemTransaction(void)
+{
+	Sync sync (&syncSysConnection, "Database::commitSystemTransaction");
+	sync.lock (Exclusive);
+	systemConnection->rollback();
+}
+
 void Database::setDebug()
 {
 	dbb->setDebug();
@@ -1487,8 +1496,8 @@ void Database::shutdown()
 		java->shutdown (false);
 #endif
 
-	cache->shutdown();
 	serialLog->shutdown();
+	cache->shutdown();
 
 	if (threads)
 		{

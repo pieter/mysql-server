@@ -43,6 +43,8 @@ public:
 	virtual	int		retireRecords(Table *table, int base, RecordScavenge *recordScavenge) = 0;
 	virtual	void	inventoryRecords(RecordScavenge* recordScavenge) = 0;
 	virtual	int		countActiveRecords() = 0;
+
+	int32			base;
 };
 
 #endif // !defined(AFX_RECORDSECTION_H__02AD6A54_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

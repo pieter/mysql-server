@@ -35,6 +35,9 @@ const char *methods[] = {
 	"IO::writePage",
 	"Cache::ioThread",
 	"Section::insertStub",
+	"Index::addToDIHash",
+	"Index::scanDIHash",
+	"Gopher::gopherThread",
 	NULL
 	};
 

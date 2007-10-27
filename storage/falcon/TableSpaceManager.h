@@ -56,6 +56,8 @@ public:
 	void			sync(uint threshold);
 	void			expungeTableSpace(int tableSpaceId);
 	void			reportWrites(void);
+	void			redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName);
+	void			initialize(void);
 
 	Database	*database;
 	TableSpace	*tableSpaces;

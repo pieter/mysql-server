@@ -163,6 +163,9 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 		case srlBlobDelete:
 			return &blobDelete;
 			
+		case srlSession:
+			return &session;
+			
 		case srlUpdateBlob:
 			return &updateBlob;
 			

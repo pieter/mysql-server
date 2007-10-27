@@ -60,6 +60,7 @@
 #include "SRLDropTableSpace.h"
 #include "SRLBlobDelete.h"
 #include "SRLUpdateBlob.h"
+#include "SRLSession.h"
 
 #define LOW_BYTE_FLAG	0x80
 
@@ -133,6 +134,7 @@ public:
 	SRLDropTableSpace	dropTableSpace;
 	SRLBlobDelete		blobDelete;
 	SRLUpdateBlob		updateBlob;
+	SRLSession			session;
 };
 
 #endif // !defined(AFX_SERIALLOGCONTROL_H__77229761_E146_4AE4_8BBC_2114F6A0FC93__INCLUDED_)

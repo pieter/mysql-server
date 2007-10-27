@@ -33,7 +33,7 @@ class Sync
 public:
 	void print (const char* label);
 	void findLocks (LinkedList &threads, LinkedList& syncObjects);
-	void lock (LockType type, const char *fromWhere);
+	//void lock (LockType type, const char *fromWhere);
 	//void print(int level);
 	void setObject (SynchronizationObject *obj);
 	void unlock();
@@ -46,6 +46,7 @@ public:
 	LockType	request;
 	Sync		*prior;
 	const char	*where;
+	void lock(LockType type, int timeout);
 };
 
 #endif // !defined(AFX_SYNC_H__59333A55_BC53_11D2_AB5E_0000C01D2301__INCLUDED_)

@@ -13,33 +13,32 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#include <stdio.h>
+#include "Engine.h"
+#include "SRLSession.h"
 
-#ifndef _SYNCHRONIZATIONOBJECT_H_
-#define _SYNCHRONIZATIONOBJECT_H_
-
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
-
-enum LockType {
-	None,
-	Exclusive,
-	Shared,
-	Invalid
-	};
-
-class LinkedList;
-class Sync;
-
-class SynchronizationObject
+SRLSession::SRLSession(void)
 {
-public:
-	SynchronizationObject(void) {};
-	virtual ~SynchronizationObject(void) {}
-	
-	virtual void unlock (Sync *sync, LockType type) = 0;
-	virtual void lock (Sync *sync, LockType type, int timeout) = 0;
-	virtual void findLocks (LinkedList &threads, LinkedList& syncObjects) = 0;
-};
+}
 
-#endif
+SRLSession::~SRLSession(void)
+{
+}
+
+void SRLSession::append(int64 priorRecoveryBlock, int64 priorCheckpointBlock)
+{
+	START_RECORD(srlCheckpoint, "SRLCheckpoint::append");
+	putInt64(priorRecoveryBlock);
+	putInt64(priorCheckpointBlock);
+}
+
+void SRLSession::read(void)
+{
+	recoveryBlock = getInt64();
+	checkpointBlock = getInt64();
+}
+
+void SRLSession::print(void)
+{
+	logPrint("Session start recovery " I64FORMAT ", checkpoint " I64FORMAT ", \n", recoveryBlock, checkpointBlock);
+}

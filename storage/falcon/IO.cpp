@@ -32,15 +32,18 @@
 #define LSEEK				_lseeki64
 #define SEEK_OFFSET	int64
 #define MKDIR(dir)			mkdir(dir)
-#define O_SYNC				0
+#define WRITE_MODE			0
 #else
 #include <sys/types.h>
-#include <aio.h>
 #include <unistd.h>
 #include <signal.h>
 
 #ifdef STORAGE_ENGINE
 #include "config.h"
+#endif
+
+#ifndef WRITE_MODE
+#define WRITE_MODE			O_DIRECT
 #endif
 
 #ifdef TARGET_OS_LINUX
@@ -54,7 +57,7 @@
 #include <sys/file.h>
 #define O_BINARY		0
 #define O_RANDOM		0
-#define MKDIR(dir)			mkdir (dir, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)
+#define MKDIR(dir)			mkdir(dir, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)
 #endif
 
 #ifndef LSEEK
@@ -117,7 +120,7 @@ IO::~IO()
 bool IO::openFile(const char * name, bool readOnly)
 {
 	fileName = name;
-	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : O_SYNC | O_RDWR | O_BINARY);
+	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : WRITE_MODE | O_RDWR | O_BINARY);
 
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
@@ -146,7 +149,7 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 
 	fileName = name;
 	fileId = ::open (fileName,
-					O_SYNC | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+					WRITE_MODE | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
 					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 
 	if (fileId < 0)
@@ -503,38 +506,7 @@ void IO::sync(void)
 		}
 	
 #else
-#ifdef _POSIX_SYNCHRONIZED_IO_XXX
-	aiocb ocb;
-	bzero(&ocb, sizeof(ocb));
-	ocb.aio_fildes = fileId;
-	ocb.aio_sigevent.sigev_notify = SIGEV_NONE;
-	int ret = aio_fsync(O_DSYNC, &ocb);
-
-	if (ret == -1)
-		{
-		declareFatalError();
-		FATAL ("aio_fsync error on \"%s\": %s (%d)",
-				(const char*) fileName, strerror (errno), errno);
-		}
-		
-	int iterations = 0;
-
-	while ( (ret = aio_error(&ocb)) == EINPROGRESS)
-		++iterations;
-
-	if ( (ret = aio_return(&ocb)) )
-		{
-		int error = aio_error(&ocb);
-		declareFatalError();
-		FATAL ("aio_fsync final error on \"%s\": %s (%d)",
-				(const char*) fileName, strerror(error), error);
-		}
-		
-#else
-	//Sync sync (&syncObject, "IO::sync");
-	//sync.lock(Exclusive);
 	fsync(fileId);
-#endif
 #endif
 
 	writesSinceSync = 0;

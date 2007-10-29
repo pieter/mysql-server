@@ -22,7 +22,13 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <io.h>
+#define WRITE_MODE			0
 #else
+
+#ifdef STORAGE_ENGINE
+#include "config.h"
+#endif
+
 #include <unistd.h>
 #endif
 
@@ -40,14 +46,14 @@
 #include "Sync.h"
 #include "SQLError.h"
 
-#ifndef O_SYNC
-#define O_SYNC		0
-#endif
 
 #ifndef O_BINARY
 #define O_BINARY	0
 #endif
 
+#ifndef WRITE_MODE
+#define WRITE_MODE			O_DIRECT
+#endif
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -110,16 +116,16 @@ void SerialLogFile::open(JString filename, bool create)
 #else
 
 	if (create)
-		handle = ::open(filename,  O_SYNC | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+		handle = ::open(filename,  WRITE_MODE | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 	else
-		handle = ::open(filename, O_SYNC | O_RDWR | O_BINARY);
+		handle = ::open(filename, WRITE_MODE | O_RDWR | O_BINARY);
 
 	if (handle <= 0)		
 		throw SQLEXCEPTION (IO_ERROR, "can't open file \"%s\": %s (%d)", 
 							(const char*) filename, strerror (errno), errno);
 
 	fileName = filename;
-	sectorSize = 512;
+	sectorSize = 4096;
 #endif
 
 	if (create)
@@ -145,16 +151,15 @@ void SerialLogFile::close()
 
 void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *data)
 {
-	Sync sync(&syncObject, "SerialLogFile::write");
-	sync.lock(Exclusive);
-	//ASSERT(position == writePoint || position == 0 || writePoint == 0);
-	
+	uint32 effectiveLength = ROUNDUP(length, sectorSize);
+
 	if (!(position == writePoint || position == 0 || writePoint == 0))
 		throw SQLError(IO_ERROR, "serial log left in inconsistent state");
 		
-	uint32 effectiveLength = ROUNDUP(length, sectorSize);
-
 #ifdef _WIN32
+	
+	Sync sync(&syncObject, "SerialLogFile::write");
+	sync.lock(Exclusive);
 	
 	if (position != offset)
 		{
@@ -172,6 +177,15 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 
 #else
 
+#if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
+	uint32 n = ::pwrite (handle, buffer, length, offset);
+#else
+	Sync sync (&syncObject, "IO::pwrite");
+	sync.lock (Exclusive);
+
+	longSeek(offset);
+	ret = (int) ::write (fileId, buffer, length);
+
 	if (position != offset)
 		{
 		off_t loc = lseek(handle, position, SEEK_SET);
@@ -183,6 +197,7 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 		}
 
 	uint32 n = ::write(handle, data, effectiveLength);
+#endif
 
 	if (n != effectiveLength)
 		throw SQLEXCEPTION (IO_ERROR, "serial write error on \"%s\": %s (%d)", 
@@ -196,13 +211,12 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 
 uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 {
-	Sync sync(&syncObject, "SerialLogFile::read");
-	sync.lock(Exclusive);
-	ASSERT(position < writePoint || writePoint == 0);
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
 
 #ifdef _WIN32
-
+	Sync sync(&syncObject, "SerialLogFile::read");
+	sync.lock(Exclusive);
+	ASSERT(position < writePoint || writePoint == 0);
 	LARGE_INTEGER pos;
 	pos.QuadPart = position;
 	
@@ -220,6 +234,12 @@ uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 	return ret;
 #else
 
+#if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
+	int n = ::pread (handle, data, effectiveLength, position);
+#else
+	Sync sync(&syncObject, "SerialLogFile::read");
+	sync.lock(Exclusive);
+	ASSERT(position < writePoint || writePoint == 0);
 	off_t loc = lseek(handle, position, SEEK_SET);
 
 	if (loc != position)
@@ -227,6 +247,7 @@ uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 							(const char*) fileName, strerror (errno), errno);
 		
 	int n = ::read(handle, data, effectiveLength);
+#endif
 
 	if (n < 0)
 		throw SQLEXCEPTION (IO_ERROR, "serial read error on \"%s\": %s (%d)", 

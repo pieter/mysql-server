@@ -38,7 +38,6 @@
 #include "DatabaseCopy.h"
 #include "Database.h"
 #include "Bitmap.h"
-#include ".\cache.h"
 
 extern uint falcon_io_threads;
 
@@ -1000,10 +999,13 @@ bool Cache::continueWrite(Bdb* startingBdb)
 	int clean = 1;
 	int dirty = 0;
 	
-	for (int32 pageNumber = startingBdb->pageNumber + 1;; ++pageNumber)
+	for (int32 pageNumber = startingBdb->pageNumber + 1, end = pageNumber+ 5; pageNumber < end; ++pageNumber)
 		{
 		Bdb *bdb = findBdb(dbb, pageNumber);
 		
+		if (dirty > clean)
+			return true;
+			
 		if (!bdb)
 			return dirty >= clean;
 		
@@ -1012,6 +1014,8 @@ bool Cache::continueWrite(Bdb* startingBdb)
 		else
 			++clean;
 		}
+	
+	return (dirty >= clean);
 }
 
 void Cache::shutdown(void)

@@ -4966,6 +4966,7 @@ compare_tables(THD *thd,
       create_info->used_fields & HA_CREATE_USED_ENGINE ||
       create_info->used_fields & HA_CREATE_USED_CHARSET ||
       create_info->used_fields & HA_CREATE_USED_DEFAULT_CHARSET ||
+      create_info->used_fields & HA_CREATE_USED_ROW_FORMAT ||
       (alter_info->flags & (ALTER_RECREATE | ALTER_FOREIGN_KEY)) ||
       order_num ||
       !table->s->mysql_version ||
@@ -5267,7 +5268,8 @@ bool alter_table_manage_keys(TABLE *table, int indexes_were_disabled,
   if (error == HA_ERR_WRONG_COMMAND)
   {
     push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_NOTE,
-                        ER_ILLEGAL_HA, ER(ER_ILLEGAL_HA), table->s->table_name);
+                        ER_ILLEGAL_HA, ER(ER_ILLEGAL_HA),
+                        table->s->table_name.str);
     error= 0;
   } else if (error)
     table->file->print_error(error, MYF(0));
@@ -5736,7 +5738,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   {
     if (def->change && ! def->field)
     {
-      my_error(ER_BAD_FIELD_ERROR, MYF(0), def->change, table->s->table_name);
+      my_error(ER_BAD_FIELD_ERROR, MYF(0), def->change, table->s->table_name.str);
       goto err;
     }
       /*
@@ -5771,7 +5773,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   }
       if (!find)
   {
-	my_error(ER_BAD_FIELD_ERROR, MYF(0), def->after, table->s->table_name);
+	my_error(ER_BAD_FIELD_ERROR, MYF(0), def->after, table->s->table_name.str);
     goto err;
   }
       find_it.after(def);			// Put element after this
@@ -5796,7 +5798,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   if (alter_info->alter_list.elements)
   {
     my_error(ER_BAD_FIELD_ERROR, MYF(0),
-             alter_info->alter_list.head()->name, table->s->table_name);
+             alter_info->alter_list.head()->name, table->s->table_name.str);
     goto err;
     }
   if (!new_create_list.elements)

@@ -8,11 +8,8 @@
 #
 test -f Makefile && make maintainer-clean
 
-aclocal
-autoheader
-libtoolize --automake --force --copy
-automake --force --add-missing --copy
-autoconf
+path=`dirname $0`
+. $path/autorun.sh
 
 # Default to gcc for CC and CXX
 if test -z "$CXX" ; then

@@ -74,3 +74,15 @@ SELECT count(*) from mysqlslap.t1;
 # in our way.
 #
 --exec $MYSQL_SLAP --silent --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write --timer-length=1
+--echo #
+--echo # Bug #29985: mysqlslap -- improper handling of resultsets in SPROCs
+--echo #
+
+--disable_warnings
+DROP PROCEDURE IF EXISTS p1;
+--enable_warnings
+CREATE PROCEDURE p1() SELECT 1;
+
+--exec $MYSQL_SLAP --create-schema=test --delimiter=";" --query="CALL p1; SELECT 1;" --silent 2>&1 
+
+DROP PROCEDURE p1;

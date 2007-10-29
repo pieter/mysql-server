@@ -139,7 +139,8 @@ static my_bool opt_compress= FALSE, tty_password= FALSE,
                auto_generate_sql= FALSE;
 const char *opt_auto_generate_sql_type= "mixed";
 
-static unsigned long connect_flags= CLIENT_MULTI_RESULTS;
+static unsigned long connect_flags= CLIENT_MULTI_RESULTS |
+                                    CLIENT_MULTI_STATEMENTS;
 
 static int verbose, delimiter_length;
 static uint commit_rate;
@@ -2166,13 +2167,16 @@ limit_not_met:
 
       if (!opt_only_print)
       {
-        if (mysql_field_count(&mysql))
+        do
         {
-          result= mysql_store_result(&mysql);
-          while ((row = mysql_fetch_row(result)))
-            counter++;
-          mysql_free_result(result);
-        }
+          if (mysql_field_count(&mysql))
+          {
+            result= mysql_store_result(&mysql);
+            while ((row = mysql_fetch_row(result)))
+              counter++;
+            mysql_free_result(result);
+          }
+        } while(mysql_next_result(&mysql) == 0);
       }
       queries++;
 

@@ -253,6 +253,7 @@ public:
 	SyncObject		syncResultSets;
 	SyncObject		syncConnectionStatements;
 	SyncObject		syncScavenge;
+	SyncObject		syncSerialLogIO;
 	Threads			*threads;
 	Scheduler		*scheduler;
 	Scheduler		*internalScheduler;

@@ -157,9 +157,12 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 {
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
     time_t start = database->timestamp;
-
+	Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::write");
+	
 	if (!(position == writePoint || position == 0 || writePoint == 0))
 		throw SQLError(IO_ERROR, "serial log left in inconsistent state");
+	
+	syncIO.lock(Exclusive);
 		
 #ifdef _WIN32
 	

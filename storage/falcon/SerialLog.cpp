@@ -186,8 +186,6 @@ void SerialLog::open(JString fileRoot, bool createFlag)
 	bzero(bufferSpace, len);
 #endif
 
-    //IPTR round = ABS( (IPTR) bufferSpace % sectorSize);
-    //UCHAR *space = (UCHAR*) bufferSpace + round;
 	UCHAR *space = (UCHAR*) (((UIPTR) bufferSpace + sectorSize - 1) / sectorSize * sectorSize);
 
 	for (int n = 0; n < windowBuffers; ++n, space += SRL_WINDOW_SIZE)

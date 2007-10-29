@@ -873,6 +873,7 @@ void Cache::ioThread(void)
 	syncThread.lock(Shared);
 	Sync flushLock(&syncFlush, "Cache::ioThread");
 	Sync sync(&syncObject, "Cache::ioThread");
+	Sync syncPIO(&database->syncSerialLogIO, "Cache::ioThread");
 	Thread *thread = Thread::getThread("Cache::ioThread");
 	UCHAR *rawBuffer = new UCHAR[ASYNC_BUFFER_SIZE];
 	UCHAR *buffer = (UCHAR*) (((UIPTR) rawBuffer + pageSize - 1) / pageSize * pageSize);
@@ -941,6 +942,8 @@ void Cache::ioThread(void)
 					flushLock.unlock();
 					//Log::debug(" %d Writing %s %d pages: %d - %d\n", thread->threadId, (const char*) dbb->fileName, count, pageNumber, pageNumber + count - 1);
 					int length = p - buffer;
+					syncPIO.lock(Shared);
+					syncPIO.unlock();
 					dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
 					Bdb *next;
 

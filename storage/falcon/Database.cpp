@@ -407,8 +407,6 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	memset(unTables, 0, sizeof (unTables));
 	memset(schemas, 0, sizeof (schemas));
 	currentGeneration = 1;
-	//overflowSize = 0;
-	//memset((void*) ageGroupSizes, 0, sizeof (ageGroupSizes));
 	tableList = NULL;
 	recordMemoryMax = configuration->recordMemoryMax;
 	recordScavengeFloor = configuration->recordScavengeFloor;
@@ -469,6 +467,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	syncResultSets.setName("Database::syncResultSets");
 	syncConnectionStatements.setName("Database::syncConnectionStatements");
 	syncScavenge.setName("Database::syncScavenge");
+	syncSerialLogIO.setName("Database::syncSerialLogIO");
 }
 
 

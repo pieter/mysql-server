@@ -1029,6 +1029,9 @@ public:
       is_expensive_cache= walk(&Item::is_expensive_processor, 0, (uchar*)0);
     return test(is_expensive_cache);
   }
+  virtual Field::geometry_type get_geometry_type() const
+    { return Field::GEOM_GEOMETRY; };
+  String *check_well_formed_result(String *str, bool send_error= 0);
 };
 
 
@@ -1271,6 +1274,8 @@ public:
   Item_name_const(Item *name_arg, Item *val):
     value_item(val), name_item(name_arg)
   {
+    if(!value_item->basic_const_item())
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), "NAME_CONST");
     Item::maybe_null= TRUE;
   }
 
@@ -1496,11 +1501,37 @@ public:
   int fix_outer_field(THD *thd, Field **field, Item **reference);
   virtual Item *update_value_transformer(uchar *select_arg);
   void print(String *str);
-  Field::geometry_type get_geometry_type()
+  Field::geometry_type get_geometry_type() const
   {
     DBUG_ASSERT(field_type() == MYSQL_TYPE_GEOMETRY);
     return field->get_geometry_type();
   }
+
+#ifndef DBUG_OFF
+  void dbug_print()
+  {
+    fprintf(DBUG_FILE, "<field ");
+    if (field)
+    {
+      fprintf(DBUG_FILE, "'%s.%s': ", field->table->alias, field->field_name);
+      field->dbug_print();
+    }
+    else
+      fprintf(DBUG_FILE, "NULL");
+
+    fprintf(DBUG_FILE, ", result_field: ");
+    if (result_field)
+    {
+      fprintf(DBUG_FILE, "'%s.%s': ",
+              result_field->table->alias, result_field->field_name);
+      result_field->dbug_print();
+    }
+    else
+      fprintf(DBUG_FILE, "NULL");
+    fprintf(DBUG_FILE, ">\n");
+  }
+#endif
+
   friend class Item_default_value;
   friend class Item_insert_value;
   friend class st_select_lex_unit;
@@ -2048,6 +2079,7 @@ public:
   enum_field_types field_type() const { return MYSQL_TYPE_VARCHAR; }
   // to prevent drop fixed flag (no need parent cleanup call)
   void cleanup() {}
+  void print(String *str);
   bool eq(const Item *item, bool binary_cmp) const;
   virtual Item *safe_charset_converter(CHARSET_INFO *tocs);
   bool check_partition_func_processor(uchar *int_arg) {return FALSE;}
@@ -2469,9 +2501,24 @@ class Cached_item_field :public Cached_item
   uint length;
 
 public:
-  Cached_item_field(Item_field *item)
+#ifndef DBUG_OFF
+  void dbug_print()
   {
-    field= item->field;
+    uchar *org_ptr;
+    org_ptr= field->ptr;
+    fprintf(DBUG_FILE, "new: ");
+    field->dbug_print();
+    field->ptr= buff;
+    fprintf(DBUG_FILE, ", old: ");
+    field->dbug_print();
+    field->ptr= org_ptr;
+    fprintf(DBUG_FILE, "\n");
+  }
+#endif
+  Cached_item_field(Field *arg_field) : field(arg_field)
+  {
+    field= arg_field;
+    /* TODO: take the memory allocation below out of the constructor. */
     buff= (uchar*) sql_calloc(length=field->pack_length());
   }
   bool cmp(void);
@@ -2836,7 +2883,7 @@ public:
   Field *make_field_by_type(TABLE *table);
   static uint32 display_length(Item *item);
   static enum_field_types get_real_type(Item *);
-  Field::geometry_type get_geometry_type() { return geometry_type; };
+  Field::geometry_type get_geometry_type() const { return geometry_type; };
 };
 
 
@@ -2847,7 +2894,8 @@ void mark_select_range_as_dependent(THD *thd,
                                     Field *found_field, Item *found_item,
                                     Item_ident *resolved_item);
 
-extern Cached_item *new_Cached_item(THD *thd, Item *item);
+extern Cached_item *new_Cached_item(THD *thd, Item *item,
+                                    bool use_result_field);
 extern Item_result item_cmp_type(Item_result a,Item_result b);
 extern void resolve_const_item(THD *thd, Item **ref, Item *cmp_item);
 extern bool field_is_equal_to_item(Field *field,Item *item);

@@ -2596,7 +2596,6 @@ static void mark_all_partitions_as_used(partition_info *part_info);
 
 #ifndef DBUG_OFF
 static void print_partitioning_index(KEY_PART *parts, KEY_PART *parts_end);
-static void dbug_print_field(Field *field);
 static void dbug_print_segment_range(SEL_ARG *arg, KEY_PART *part);
 static void dbug_print_singlepoint_range(SEL_ARG **start, uint num);
 #endif
@@ -3453,22 +3452,6 @@ static void print_partitioning_index(KEY_PART *parts, KEY_PART *parts_end)
   DBUG_VOID_RETURN;
 }
 
-/* Print field value into debug trace, in NULL-aware way. */
-static void dbug_print_field(Field *field)
-{
-  if (field->is_real_null())
-    fprintf(DBUG_FILE, "NULL");
-  else
-  {
-    char buf[256];
-    String str(buf, sizeof(buf), &my_charset_bin);
-    str.length(0);
-    String *pstr;
-    pstr= field->val_str(&str);
-    fprintf(DBUG_FILE, "'%s'", pstr->c_ptr_safe());
-  }
-}
-
 
 /* Print a "c1 < keypartX < c2" - type interval into debug trace. */
 static void dbug_print_segment_range(SEL_ARG *arg, KEY_PART *part)
@@ -3478,7 +3461,7 @@ static void dbug_print_segment_range(SEL_ARG *arg, KEY_PART *part)
   if (!(arg->min_flag & NO_MIN_RANGE))
   {
     store_key_image_to_rec(part->field, arg->min_value, part->length);
-    dbug_print_field(part->field);
+    part->field->dbug_print();
     if (arg->min_flag & NEAR_MIN)
       fputs(" < ", DBUG_FILE);
     else
@@ -3494,7 +3477,7 @@ static void dbug_print_segment_range(SEL_ARG *arg, KEY_PART *part)
     else
       fputs(" <= ", DBUG_FILE);
     store_key_image_to_rec(part->field, arg->max_value, part->length);
-    dbug_print_field(part->field);
+    part->field->dbug_print();
   }
   fputs("\n", DBUG_FILE);
   DBUG_UNLOCK_FILE;
@@ -3525,7 +3508,7 @@ static void dbug_print_singlepoint_range(SEL_ARG **start, uint num)
   {
     Field *field= (*arg)->field;
     fprintf(DBUG_FILE, "%s%s=", (arg==start)?"":", ", field->field_name);
-    dbug_print_field(field);
+    field->dbug_print();
   }
   fputs("\n", DBUG_FILE);
   DBUG_UNLOCK_FILE;
@@ -5021,7 +5004,7 @@ static SEL_TREE *get_func_mm_tree(RANGE_OPT_PARAM *param, Item_func *cond_func,
 
     if (inv)
     {
-      if (func->array->result_type() != ROW_RESULT)
+      if (func->array && func->array->result_type() != ROW_RESULT)
       {
         /*
           We get here for conditions in form "t.key NOT IN (c1, c2, ...)",

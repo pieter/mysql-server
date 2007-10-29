@@ -216,3 +216,9 @@ CREATE TABLE mysqlslap.t1 (id int, name varchar(64));
 SELECT count(*) from mysqlslap.t1;
 count(*)
 20
+#
+# Bug #29985: mysqlslap -- improper handling of resultsets in SPROCs
+#
+DROP PROCEDURE IF EXISTS p1;
+CREATE PROCEDURE p1() SELECT 1;
+DROP PROCEDURE p1;

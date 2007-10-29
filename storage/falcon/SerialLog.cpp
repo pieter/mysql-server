@@ -68,8 +68,8 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	tableSpaceManager = database->tableSpaceManager;
 	creationTime = database->creationTime;
 	maxTransactions = maxTransactionBacklog;
-	file1 = new SerialLogFile();
-	file2 = new SerialLogFile();
+	file1 = new SerialLogFile(database);
+	file2 = new SerialLogFile(database);
 	logControl = new SerialLogControl(this);
 	active = false;
 	nextBlockNumber = 0;
@@ -186,8 +186,9 @@ void SerialLog::open(JString fileRoot, bool createFlag)
 	bzero(bufferSpace, len);
 #endif
 
-    IPTR round = ABS( (IPTR) bufferSpace % sectorSize);
-    UCHAR *space = (UCHAR*) bufferSpace + round;
+    //IPTR round = ABS( (IPTR) bufferSpace % sectorSize);
+    //UCHAR *space = (UCHAR*) bufferSpace + round;
+	UCHAR *space = (UCHAR*) (((UIPTR) bufferSpace + sectorSize - 1) / sectorSize * sectorSize);
 
 	for (int n = 0; n < windowBuffers; ++n, space += SRL_WINDOW_SIZE)
 		buffers.push(space);

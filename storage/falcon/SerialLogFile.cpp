@@ -45,6 +45,8 @@
 #include "SerialLog.h"
 #include "Sync.h"
 #include "SQLError.h"
+#include "Database.h"
+#include "Log.h"
 
 
 #ifndef O_BINARY
@@ -53,6 +55,7 @@
 
 #ifndef WRITE_MODE
 #define WRITE_MODE			O_DIRECT
+//#define WRITE_MODE			O_SYNC
 #endif
 
 #ifdef _DEBUG
@@ -65,8 +68,9 @@ static const char THIS_FILE[]=__FILE__;
 //////////////////////////////////////////////////////////////////////
 
 
-SerialLogFile::SerialLogFile()
+SerialLogFile::SerialLogFile(Database *db)
 {
+	database = db;
 	handle = 0;
 	offset = 0;
 	highWater = 0;
@@ -152,6 +156,7 @@ void SerialLogFile::close()
 void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *data)
 {
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
+    time_t start = database->timestamp;
 
 	if (!(position == writePoint || position == 0 || writePoint == 0))
 		throw SQLError(IO_ERROR, "serial log left in inconsistent state");
@@ -178,13 +183,13 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 #else
 
 #if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
-	uint32 n = ::pwrite (handle, buffer, length, offset);
+	uint32 n = ::pwrite (handle, data, effectiveLength, offset);
 #else
 	Sync sync (&syncObject, "IO::pwrite");
 	sync.lock (Exclusive);
 
 	longSeek(offset);
-	ret = (int) ::write (fileId, buffer, length);
+	uint32 n = ::write(handle, data, effectiveLength);
 
 	if (position != offset)
 		{
@@ -203,6 +208,11 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 		throw SQLEXCEPTION (IO_ERROR, "serial write error on \"%s\": %s (%d)", 
 							(const char*) fileName, strerror (errno), errno);
 #endif
+
+	time_t delta = database->timestamp - start;
+
+	if (delta > 1)
+		Log::debug("Serial log write took %d seconds\n", delta);
 
 	offset = position + effectiveLength;
 	writePoint = offset;
@@ -265,7 +275,7 @@ void SerialLogFile::zap()
 {
 	UCHAR *junk = new UCHAR[sectorSize];
 	memset(junk, 0, sectorSize);
-	write(0, sectorSize, (SerialLogBlock*) junk);
+	//write(0, sectorSize, (SerialLogBlock*) junk);
 	delete junk;
 }
 

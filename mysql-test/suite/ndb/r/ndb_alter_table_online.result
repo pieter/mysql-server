@@ -441,31 +441,31 @@ truncate ndb_show_tables_results;
 *******************************
 ALTER ONLINE TABLE t1 ADD c FLOAT;
 Warnings:
-Warning	1475	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
+Warning	1477	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
 *******************************
 * Add column d as nullable DOUBLE
 *******************************
 ALTER ONLINE TABLE t1 ADD d DOUBLE UNSIGNED;
 Warnings:
-Warning	1475	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
+Warning	1477	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
 *******************************
 * Add column e as nullable DECIMAL
 *******************************
 ALTER ONLINE TABLE t1 ADD e DECIMAL(5,2);
 Warnings:
-Warning	1475	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
+Warning	1477	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
 *******************************
 * Add column f as nullable DATETIME
 *******************************
 ALTER ONLINE TABLE t1 ADD f DATETIME;
 Warnings:
-Warning	1475	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
+Warning	1477	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
 *******************************
 * Add column g as nullable BINARY
 *******************************
 ALTER TABLE t1 ADD g BINARY(4);
 Warnings:
-Warning	1475	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
+Warning	1477	Converted FIXED field to DYNAMIC to enable on-line ADD COLUMN
 
 ndb_show_tables completed.....
 
@@ -519,7 +519,7 @@ CREATE TABLE t1
 TABLESPACE ts1 STORAGE DISK
 ENGINE=NDB;
 Warnings:
-Warning	1475	DYNAMIC column b with STORAGE DISK is not supported, column will become FIXED
+Warning	1477	DYNAMIC column b with STORAGE DISK is not supported, column will become FIXED
 ALTER ONLINE TABLE t1 CHANGE b b_1 INT COLUMN_FORMAT DYNAMIC;
 ERROR 42000: This version of MySQL doesn't yet support 'ALTER ONLINE TABLE t1 CHANGE b b_1 INT COLUMN_FORMAT DYNAMIC'
 DROP TABLE t1;
@@ -537,7 +537,7 @@ CREATE TABLE t1
 (pk1 INT NOT NULL PRIMARY KEY, b INT COLUMN_FORMAT DYNAMIC)ROW_FORMAT=FIXED
 ENGINE=NDB;
 Warnings:
-Warning	1475	Row format FIXED incompatible with dynamic attribute b
+Warning	1477	Row format FIXED incompatible with dynamic attribute b
 -- t1 --
 Version: #
 Fragment type: 5

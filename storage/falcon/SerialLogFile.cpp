@@ -58,6 +58,8 @@
 //#define WRITE_MODE			O_SYNC
 #endif
 
+extern uint	falcon_serial_log_priority;
+
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;
@@ -162,7 +164,8 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 	if (!(position == writePoint || position == 0 || writePoint == 0))
 		throw SQLError(IO_ERROR, "serial log left in inconsistent state");
 	
-	syncIO.lock(Exclusive);
+	if (falcon_serial_log_priority)
+		syncIO.lock(Exclusive);
 		
 #ifdef _WIN32
 	

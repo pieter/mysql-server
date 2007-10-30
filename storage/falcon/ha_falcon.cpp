@@ -70,7 +70,6 @@ uint					falcon_record_scavenge_threshold;
 uint					falcon_record_scavenge_floor;
 unsigned long long		falcon_initial_allocation;
 uint					falcon_allocation_extent;
-my_bool					falcon_disable_fsync;
 unsigned long long		falcon_page_cache_size;
 uint					falcon_page_size;
 uint					falcon_serial_log_buffers;
@@ -2784,15 +2783,6 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 	//uint newFalconRecordChillThreshold = *((uint *) save);
 }
 
-
-void StorageInterface::updateFsyncDisable(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
-{
-	falcon_disable_fsync = *(my_bool*) save;
-
-	if (storageHandler)
-		storageHandler->setSyncDisable(falcon_disable_fsync);
-}
-
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
 	falcon_record_memory_max = *(unsigned long long*) save;
@@ -2822,11 +2812,6 @@ static MYSQL_SYSVAR_BOOL(debug_server, falcon_debug_server,
   PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
   "Enable Falcon debug code.",
   NULL, NULL, FALSE);
-
-static MYSQL_SYSVAR_BOOL(disable_fsync, falcon_disable_fsync,
-  PLUGIN_VAR_NOCMDARG, // | PLUGIN_VAR_READONLY,
-  "Disable periodic fsync().",
-  NULL, StorageInterface::updateFsyncDisable, FALSE);
 
 static MYSQL_SYSVAR_STR(serial_log_dir, falcon_serial_log_dir,
   PLUGIN_VAR_RQCMDARG| PLUGIN_VAR_READONLY | PLUGIN_VAR_MEMALLOC,
@@ -2920,7 +2905,6 @@ static struct st_mysql_sys_var* falconVariables[]= {
 #include "StorageParameters.h"
 #undef PARAMETER
 	MYSQL_SYSVAR(debug_server),
-	MYSQL_SYSVAR(disable_fsync),
 	MYSQL_SYSVAR(serial_log_dir),
 	MYSQL_SYSVAR(checkpoint_schedule),
 	MYSQL_SYSVAR(scavenge_schedule),

@@ -940,7 +940,7 @@ void SerialLog::pageCacheFlushed(int64 blockNumber)
 {
 	if (blockNumber)
 		{
-		database->sync(0);
+		database->sync();
 		logControl->checkpoint.append(blockNumber);
 		}
 

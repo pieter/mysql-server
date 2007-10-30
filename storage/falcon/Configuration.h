@@ -51,7 +51,6 @@ public:
 	int			recordScavengeFloorPct;
 	uint64		initialAllocation;
 	uint64		allocationExtent;
-	bool		disableFsync;
 	uint64		pageCacheSize;
 	int64		javaInitialAllocation;
 	int64		javaSecondaryAllocation;

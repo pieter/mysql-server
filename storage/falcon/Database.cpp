@@ -2248,26 +2248,17 @@ void Database::updateCardinalities(void)
 		}
 }
 
-void Database::sync(uint threshold)
+void Database::sync()
 {
-	if (!configuration->disableFsync)
-		{
-		if (threshold == 0 || dbb->writesSinceSync > threshold)
-			cache->syncFile(dbb, "sync");
-			
-		tableSpaceManager->sync(threshold);
-		}
+//	if (threshold == 0 || dbb->writesSinceSync > threshold)
+		cache->syncFile(dbb, "sync");
+		
+	tableSpaceManager->sync();
 }
 
 void Database::preUpdate()
 {
 	serialLog->preUpdate();
-}
-
-void Database::setSyncDisable(int value)
-{
-	if (configuration)
-		configuration->disableFsync = value != 0;
 }
 
 void Database::setRecordMemoryMax(uint64 value)

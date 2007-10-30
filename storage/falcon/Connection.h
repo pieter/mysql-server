@@ -149,7 +149,6 @@ public:
 	virtual void		dropDatabase();
 	virtual int			getTransactionIsolation();
 	virtual void		setTransactionIsolation  (int level);
-	virtual void		setSyncDisable(int value);
 	virtual void		setRecordMemoryMax(uint64 maxMemory);
 	virtual void		setRecordScavengeThreshold(int value);
 	virtual void		setRecordScavengeFloor(int value);

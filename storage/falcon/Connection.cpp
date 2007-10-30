@@ -1840,12 +1840,6 @@ char* Connection::getCurrentStatement(char* buffer, uint bufferLength)
 	return buffer;
 }
 
-void Connection::setSyncDisable(int value)
-{
-	if (database)
-		database->setSyncDisable(value);
-}
-
 void Connection::setRecordMemoryMax(uint64 value)
 {
 	if (database)

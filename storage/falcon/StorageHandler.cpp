@@ -927,12 +927,6 @@ void StorageHandler::getTablesInfo(InfoTable* infoTable)
 		}
 }
 
-void StorageHandler::setSyncDisable(int value)
-{
-	if (dictionaryConnection)
-		dictionaryConnection->setSyncDisable(value);
-}
-
 void StorageHandler::setRecordMemoryMax(uint64 value)
 {
 	if (dictionaryConnection)

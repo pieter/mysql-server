@@ -1122,7 +1122,7 @@ show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` text,
-  KEY `a` (`a`(255))
+  KEY `a` (`a`(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 drop table t1;
 CREATE TABLE t1 (

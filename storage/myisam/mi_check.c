@@ -791,6 +791,7 @@ static int chk_index(MI_CHECK *param, MI_INFO *info, MI_KEYDEF *keyinfo,
     if (keypos >= endpos ||
 	(key_length=(*keyinfo->get_key)(keyinfo,nod_flag,&keypos,key)) == 0)
       break;
+    DBUG_ASSERT(key_length <= sizeof(key));
     if (keypos > endpos)
     {
       mi_check_print_error(param,"Wrong key block length at page: %s",llstr(page,llbuff));

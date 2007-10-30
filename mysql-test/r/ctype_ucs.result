@@ -89,7 +89,17 @@ lpad(f1, 12, "-o-/")
 drop table t2;
 SET NAMES koi8r;
 SET character_set_connection=ucs2;
-create table t1 (a varchar(10) character set ucs2, key(a));
+select @@collation_connection;
+@@collation_connection
+ucs2_general_ci
+create table t1 as select repeat(' ',10) as a union select null;
+alter table t1 add key(a);
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(10) CHARACTER SET ucs2 DEFAULT NULL,
+  KEY `a` (`a`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1
 insert into t1 values ("a"),("abc"),("abcd"),("hello"),("test");
 explain select * from t1 where a like 'abc%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra

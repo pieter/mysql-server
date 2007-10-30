@@ -189,7 +189,7 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 #else
 
 #if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
-	uint32 n = ::pwrite (handle, data, effectiveLength, offset);
+	uint32 n = ::pwrite (handle, data, effectiveLength, position);
 #else
 	Sync sync (&syncObject, "IO::pwrite");
 	sync.lock (Exclusive);
@@ -228,6 +228,10 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 {
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
+	Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::read");
+
+	if (falcon_serial_log_priority)
+		syncIO.lock(Exclusive);
 
 #ifdef _WIN32
 	Sync sync(&syncObject, "SerialLogFile::read");

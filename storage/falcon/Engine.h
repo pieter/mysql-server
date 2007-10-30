@@ -69,7 +69,7 @@ using namespace NAMESPACE;
 #define ISDIGIT(c)			(c >= '0' && c <= '9')
 #define UPPER(c)			((ISLOWER (c)) ? c - 'a' + 'A' : c)
 #define ROUNDUP(n,b)		(((n) + b - 1) & ~(b - 1))
-#define ALIGN(ptr,b)		((UCHAR*) ROUNDUP((UIPTR) ptr, b))
+#define ALIGN(ptr,b)		((UCHAR*) (((UIPTR) ptr + b - 1) / b * b))
 #define SQLEXCEPTION		SQLError
 
 typedef int				int32;

@@ -2211,9 +2211,10 @@ void Database::getTransactionSummaryInfo(InfoTable* infoTable)
 
 void Database::updateCardinalities(void)
 {
+	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
+	syncSystemTransaction.lock(Shared);
 	Sync sync (&syncTables, "Database::updateCardinalities");
 	sync.lock (Shared);
-	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
 	bool hit = false;
 	
 	for (Table *table = tableList; table; table = table->next)
@@ -2228,7 +2229,6 @@ void Database::updateCardinalities(void)
 					updateCardinality = prepareStatement(
 						"update system.tables set cardinality=? where schema=? and tablename=?");
 						
-				syncSystemTransaction.lock(Shared);
 				hit = true;
 				}
 			

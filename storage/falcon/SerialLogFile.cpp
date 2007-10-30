@@ -279,9 +279,11 @@ uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 
 void SerialLogFile::zap()
 {
-	UCHAR *junk = new UCHAR[sectorSize];
-	memset(junk, 0, sectorSize);
-	//write(0, sectorSize, (SerialLogBlock*) junk);
+	UCHAR *junk = new UCHAR[sectorSize * 2];
+	//UCHAR *buffer = (UCHAR*) (((UIPTR) junk + sectorSize - 1) / sectorSize * sectorSize);
+	UCHAR *buffer = ALIGN(junk, sectorSize);
+	memset(buffer, 0, sectorSize);
+	write(0, sectorSize, (SerialLogBlock*) buffer);
 	delete junk;
 }
 

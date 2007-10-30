@@ -1546,6 +1546,23 @@ my_xml_entity_to_char(const char *name, uint length)
 }
 
 
+/**
+  @brief Convert newline, linefeed, tab to space
+  
+  @param chr    character
+  
+  @details According to the "XML 1.0" standard,
+           only space (#x20) characters, carriage returns,
+           line feeds or tabs are considered as spaces.
+           Convert all of them to space (#x20) for parsing simplicity.
+*/
+static int
+my_tospace(int chr)
+{
+  return (chr == '\t' || chr == '\r' || chr == '\n') ? ' ' : chr;
+}
+
+
 /*
   Read an xml value: handle multibyte and xml escape
 */
@@ -1554,7 +1571,7 @@ int READ_INFO::read_value(int delim, String *val)
   int chr;
   String tmp;
 
-  for (chr= GET; chr != delim && chr != my_b_EOF; )
+  for (chr= my_tospace(GET); chr != delim && chr != my_b_EOF; )
   {
 #ifdef USE_MB
     if (my_mbcharlen(read_charset, chr) > 1)
@@ -1564,18 +1581,20 @@ int READ_INFO::read_value(int delim, String *val)
       for (i= 1; i < ml; i++) 
       {
         val->append(chr);
-        chr= GET;
+        /*
+          Don't use my_tospace() in the middle of a multi-byte character
+          TODO: check that the multi-byte sequence is valid.
+        */
+        chr= GET; 
         if (chr == my_b_EOF)
           return chr;
       }
     }
 #endif
-    if(my_isspace(read_charset, chr)) /* convert newline, tab etc to space */
-      val->append(' ');
-    else if(chr == '&')
+    if(chr == '&')
     {
       tmp.length(0);
-      for (chr= GET ; chr != ';' ; chr= GET)
+      for (chr= my_tospace(GET) ; chr != ';' ; chr= my_tospace(GET))
       {
         if (chr == my_b_EOF)
           return chr;
@@ -1592,7 +1611,7 @@ int READ_INFO::read_value(int delim, String *val)
     }
     else
       val->append(chr);
-    chr= GET; 
+    chr= my_tospace(GET);
   }            
   return chr;
 }
@@ -1615,12 +1634,12 @@ int READ_INFO::read_xml()
   attribute.length(0);
   value.length(0);
   
-  for (chr= GET; chr != my_b_EOF ; )
+  for (chr= my_tospace(GET); chr != my_b_EOF ; )
   {
     switch(chr){
     case '<':  /* read tag */
         /* TODO: check if this is a comment <!-- comment -->  */
-      chr= GET;
+      chr= my_tospace(GET);
       if(chr == '!')
       {
         chr2= GET;
@@ -1630,7 +1649,7 @@ int READ_INFO::read_xml()
         {
           chr2= 0;
           chr3= 0;
-          chr= GET;
+          chr= my_tospace(GET);
           
           while(chr != '>' || chr2 != '-' || chr3 != '-')
           {
@@ -1644,7 +1663,7 @@ int READ_INFO::read_xml()
               chr2= 0;
               chr3= 0;
             }
-            chr= GET;
+            chr= my_tospace(GET);
             if (chr == my_b_EOF)
               goto found_eof;
           }
@@ -1657,7 +1676,7 @@ int READ_INFO::read_xml()
       {
         if(chr != delim) /* fix for the '<field name =' format */
           tag.append(chr);
-        chr= GET;
+        chr= my_tospace(GET);
       }
       
       // row tag should be in ROWS IDENTIFIED BY '<row>' - stored in line_term 
@@ -1682,7 +1701,7 @@ int READ_INFO::read_xml()
       
     case ' ': /* read attribute */
       while(chr == ' ')  /* skip blanks */
-        chr= GET;
+        chr= my_tospace(GET);
       
       if(!in_tag)
         break;
@@ -1690,7 +1709,7 @@ int READ_INFO::read_xml()
       while(chr != '=' && chr != '/' && chr != '>' && chr != my_b_EOF)
       {
         attribute.append(chr);
-        chr= GET;
+        chr= my_tospace(GET);
       }
       break;
       
@@ -1714,13 +1733,13 @@ int READ_INFO::read_xml()
       
     case '/': /* close tag */
       level--;
-      chr= GET;
+      chr= my_tospace(GET);
       if(chr != '>')   /* if this is an empty tag <tag   /> */
         tag.length(0); /* we should keep tag value          */
       while(chr != '>' && chr != my_b_EOF)
       {
         tag.append(chr);
-        chr= GET;
+        chr= my_tospace(GET);
       }
       
       if((tag.length() == line_term_length -2) &&
@@ -1730,7 +1749,7 @@ int READ_INFO::read_xml()
                                  level, tag.c_ptr_safe()));
          DBUG_RETURN(0); //normal return
       }
-      chr= GET;
+      chr= my_tospace(GET);
       break;   
       
     case '=': /* attribute name end - read the value */
@@ -1742,7 +1761,7 @@ int READ_INFO::read_xml()
           this is format <field name="xx">xx</field>
           where actual fieldname is in attribute
         */
-        delim= GET;
+        delim= my_tospace(GET);
         tag.length(0);
         attribute.length(0);
         chr= '<'; /* we pretend that it is a tag */
@@ -1776,11 +1795,11 @@ int READ_INFO::read_xml()
       attribute.length(0);
       value.length(0);
       if (chr != ' ')
-        chr= GET;
+        chr= my_tospace(GET);
       break;
     
     default:
-      chr= GET;  
+      chr= my_tospace(GET);
     } /* end switch */
   } /* end while */
   

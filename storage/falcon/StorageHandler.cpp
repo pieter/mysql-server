@@ -472,15 +472,7 @@ int StorageHandler::deleteTablespace(const char* tableSpaceName)
 StorageTableShare* StorageHandler::findTable(const char* pathname)
 {
 	char filename [1024];
-	char c, prior = 0;
-	char *q = filename;
-	filename[0] = 0;
-	
-	for (const char *p = pathname; (c = *p++); prior = c)
-		if (c != SEPARATOR || c != prior)
-			*q++ = c;
-
-	*q = 0 ;
+	cleanFileName(pathname, filename, sizeof(filename));
 	Sync sync(&hashSyncObject, "StorageHandler::findTable");
 	int slot = JString::hash(filename, tableHashSize);
 	StorageTableShare *tableShare;
@@ -507,6 +499,36 @@ StorageTableShare* StorageHandler::findTable(const char* pathname)
 	tables[slot] = tableShare;
 	
 	return tableShare;
+}
+
+StorageTableShare* StorageHandler::preDeleteTable(const char* pathname)
+{
+	if (!defaultDatabase)
+		initialize();
+
+	char filename [1024];
+	cleanFileName(pathname, filename, sizeof(filename));
+	int slot = JString::hash(filename, tableHashSize);
+	StorageTableShare *tableShare;
+
+	if (tables[slot])
+		{
+		Sync sync(&hashSyncObject, "StorageHandler::preDeleteTable");
+		sync.lock(Shared);
+		
+		for (tableShare = tables[slot]; tableShare; tableShare = tableShare->collision)
+			if (tableShare->pathName == filename)
+				return tableShare;
+		}
+
+	tableShare = new StorageTableShare(this, filename, NULL, mySqlLockSize, false);
+	JString path = tableShare->lookupPathName();
+	delete tableShare;
+	
+	if (path == pathname)
+		return findTable(pathname);
+	
+	return NULL;
 }
 
 StorageTableShare* StorageHandler::createTable(const char* pathname, const char *tableSpaceName, bool tempTable)
@@ -943,4 +965,18 @@ void StorageHandler::setRecordScavengeFloor(int value)
 {
 	if (dictionaryConnection)
 		dictionaryConnection->setRecordScavengeFloor(value);
+}
+
+void StorageHandler::cleanFileName(const char* pathname, char* filename, int filenameLength)
+{
+	char c, prior = 0;
+	char *q = filename;
+	char *end = filename + filenameLength - 1;
+	filename[0] = 0;
+	
+	for (const char *p = pathname; q < end && (c = *p++); prior = c)
+		if (c != SEPARATOR || c != prior)
+			*q++ = c;
+
+	*q = 0;
 }

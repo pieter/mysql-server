@@ -474,7 +474,14 @@ uint64 StorageTableShare::estimateCardinality(void)
 
 bool StorageTableShare::tableExists(void)
 {
-	Sync sync(&storageHandler->dictionarySyncObject, "StorageTableShare::save");
+	JString path = lookupPathName();
+	
+	return !path.IsEmpty();
+}
+
+JString StorageTableShare::lookupPathName(void)
+{
+	Sync sync(&storageHandler->dictionarySyncObject, "StorageTableShare::lookupPathName");
 	sync.lock(Exclusive);
 	Connection *connection = storageHandler->getDictionaryConnection();
 	PreparedStatement *statement = connection->prepareStatement(
@@ -483,13 +490,13 @@ bool StorageTableShare::tableExists(void)
 	statement->setString(n++, schemaName);
 	statement->setString(n++, name);
 	ResultSet *resultSet = statement->executeQuery();
-	bool hit = false;
-	
+	JString path;
+		
 	if (resultSet->next())
-		hit = true;
+		path = resultSet->getString(1);
 	
 	statement->close();
 	connection->commit();
 	
-	return hit;
+	return path;
 }

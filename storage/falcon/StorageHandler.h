@@ -100,6 +100,7 @@ public:
 	virtual void		setRecordMemoryMax(uint64 size);
 	virtual void		setRecordScavengeThreshold(int value);
 	virtual void		setRecordScavengeFloor(int value);
+	virtual	StorageTableShare* preDeleteTable(const char* pathname);
 
 	StorageDatabase*	getStorageDatabase(const char* dbName, const char* path);
 	void				remove(StorageConnection* storageConnection);
@@ -113,9 +114,9 @@ public:
 	void				removeConnection(StorageConnection* storageConnection);
 	int					closeConnections(THD* thd);
 	int					dropDatabase(const char* path);
-	//void				copyOldDictionary(void);
 	void				initialize(void);
 	void				dropTempTables(void);
+	void				cleanFileName(const char* pathname, char* filename, int filenameLength);
 	
 	StorageConnection	*connections[connectionHashSize];
 	StorageDatabase		*defaultDatabase;

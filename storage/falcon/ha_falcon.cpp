@@ -821,7 +821,8 @@ int StorageInterface::delete_table(const char *tableName)
 		mySqlThread = current_thd;
 
 	if (!storageShare)
-		storageShare = storageHandler->findTable(tableName);
+		if ( !(storageShare = storageHandler->preDeleteTable(tableName)) )
+			DBUG_RETURN(0);
 
 	if (!storageConnection)
 		if ( !(storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, OpenDatabase)) )
@@ -1308,7 +1309,7 @@ int StorageInterface::rename_table(const char *from, const char *to)
 	int ret = open(from, 0, 0);
 
 	if (ret)
-		DBUG_RETURN(ret);
+		DBUG_RETURN(error(ret));
 
 	if ( (ret = storageShare->renameTable(storageConnection, to)) )
 		DBUG_RETURN(ret);

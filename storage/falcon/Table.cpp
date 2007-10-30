@@ -2904,6 +2904,8 @@ void Table::rename(const char *newSchema, const char *newName)
 			statement->close();
 			}
 
+		database->commitSystemTransaction();
+		sync.unlock();
 		Index *primaryKey = getPrimaryKey();
 		database->renameTable(this, newSchema, newName);
 		

@@ -265,11 +265,16 @@ void IO::writePages(int32 pageNumber, int length, const UCHAR* data, int type)
 
 void IO::readHeader(Hdr * header)
 {
+	static const int sectorSize = 4096;
+	UCHAR temp[sectorSize * 2];
+	UCHAR *buffer = (UCHAR*) (((UIPTR) temp + sectorSize - 1) / sectorSize * sectorSize);
 	int n = lseek (fileId, 0, SEEK_SET);
-	n = ::read (fileId, header, sizeof (Hdr));
+	n = ::read (fileId, buffer, sectorSize);
 
-	if (n != sizeof (Hdr))
+	if (n < sizeof (Hdr))
 		FATAL ("read error on database header");
+	
+	memcpy(header, buffer, sizeof(Hdr));
 }
 
 void IO::closeFile()

@@ -545,10 +545,15 @@ select hex(right(_utf16 0xD800DC00D87FDFFF, 1));
 #
 create table t1 (a varchar(10) character set utf16);
 # Bad sequences
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf16 0xD800);
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf16 0xDC00);
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf16 0xD800D800);
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf16 0xD800E800);
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf16 0xD8000800);
 # Good sequences
 insert into t1 values (_utf16 0xD800DC00);

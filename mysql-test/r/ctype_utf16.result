@@ -921,31 +921,21 @@ hex(right(_utf16 0xD800DC00D87FDFFF, 1))
 D87FDFFF
 create table t1 (a varchar(10) character set utf16);
 insert into t1 values (_utf16 0xD800);
-Warnings:
-Warning	1366	Incorrect string value: '\xD8\x00' for column 'a' at row 1
+ERROR HY000: Invalid utf16 character string: 'D800'
 insert into t1 values (_utf16 0xDC00);
-Warnings:
-Warning	1366	Incorrect string value: '\xDC\x00' for column 'a' at row 1
+ERROR HY000: Invalid utf16 character string: 'DC00'
 insert into t1 values (_utf16 0xD800D800);
-Warnings:
-Warning	1366	Incorrect string value: '\xD8\x00\xD8\x00' for column 'a' at row 1
+ERROR HY000: Invalid utf16 character string: 'D800D8'
 insert into t1 values (_utf16 0xD800E800);
-Warnings:
-Warning	1366	Incorrect string value: '\xD8\x00\xE8\x00' for column 'a' at row 1
+ERROR HY000: Invalid utf16 character string: 'D800E8'
 insert into t1 values (_utf16 0xD8000800);
-Warnings:
-Warning	1366	Incorrect string value: '\xD8\x00\x08\x00' for column 'a' at row 1
+ERROR HY000: Invalid utf16 character string: 'D80008'
 insert into t1 values (_utf16 0xD800DC00);
 insert into t1 values (_utf16 0xD800DCFF);
 insert into t1 values (_utf16 0xDBFFDC00);
 insert into t1 values (_utf16 0xDBFFDCFF);
 select hex(a) from t1;
 hex(a)
-
-
-
-
-
 D800DC00
 D800DCFF
 DBFFDC00

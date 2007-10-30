@@ -15,11 +15,11 @@ select hex('a'), hex('a ');
 #
 select hex(_utf32 0x44);
 select hex(_utf32 0x3344);
-select hex(_utf32 0x113344);
+select hex(_utf32 0x103344);
 
 select hex(_utf32 X'44');
 select hex(_utf32 X'3344');
-select hex(_utf32 X'113344');
+select hex(_utf32 X'103344');
 
 
 #
@@ -585,9 +585,13 @@ select left('abcd',2);
 #
 create table t1 (a varchar(10) character set utf32);
 insert into t1 values (_utf32 0x0010FFFF);
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf32 0x00110000);
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf32 0x00110101);
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf32 0x01000101);
+--error ER_INVALID_CHARACTER_STRING
 insert into t1 values (_utf32 0x11000101);
 select hex(a) from t1;
 drop table t1;

@@ -756,6 +756,17 @@ bool check_string_byte_length(LEX_STRING *str, const char *err_msg,
 bool check_string_char_length(LEX_STRING *str, const char *err_msg,
                               uint max_char_length, CHARSET_INFO *cs,
                               bool no_error);
+bool check_identifier_name(LEX_STRING *str, uint max_char_length,
+                           uint err_code, const char *param_for_err_msg);
+inline bool check_identifier_name(LEX_STRING *str, uint err_code)
+{
+  return check_identifier_name(str, NAME_CHAR_LEN, err_code, "");
+}
+inline bool check_identifier_name(LEX_STRING *str)
+{
+  return check_identifier_name(str, NAME_CHAR_LEN, 0, "");
+}
+
 
 bool parse_sql(THD *thd,
                class Lex_input_stream *lip,

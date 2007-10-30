@@ -457,6 +457,9 @@ int my_strnncollsp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
 #define my_strnxfrm_mb_non_ascii_char(cs, dst, src, se)                  \
 {                                                                        \
   switch (cs->cset->ismbchar(cs, (const char*) src, (const char*) se)) { \
+  case 4:                                                                \
+    *dst++= *src++;                                                      \
+    /* fall through */                                                   \
   case 3:                                                                \
     *dst++= *src++;                                                      \
     /* fall through */                                                   \
@@ -484,7 +487,7 @@ my_strnxfrm_mb(CHARSET_INFO *cs,
   const uchar *se= src + srclen;
   const uchar *sort_order= cs->sort_order;
 
-  DBUG_ASSERT(cs->mbmaxlen <= 3);
+  DBUG_ASSERT(cs->mbmaxlen <= 4);
 
   /*
     If "srclen" is smaller than both "dstlen" and "nweights"
@@ -1102,9 +1105,14 @@ size_t my_numcells_mb(CHARSET_INFO *cs, const char *b, const char *e)
   {
     int mb_len;
     uint pg;
-    if ((mb_len= cs->cset->mb_wc(cs, &wc, (uchar*) b, (uchar*) e)) <= 0)
+    if ((mb_len= cs->cset->mb_wc(cs, &wc, (uchar*) b, (uchar*) e)) <= 0 ||
+        wc > 0xFFFF)
     {
-      mb_len= 1; /* Let's think a wrong sequence takes 1 dysplay cell */
+      /*
+        Let's think a wrong sequence takes 1 dysplay cell.
+        Also, consider supplementary characters as taking one cell.
+      */
+      mb_len= 1;
       b++;
       continue;
     }
@@ -1122,7 +1130,7 @@ int my_mb_ctype_mb(CHARSET_INFO *cs, int *ctype,
 {
   my_wc_t wc;
   int res= cs->cset->mb_wc(cs, &wc, s, e);
-  if (res <= 0)
+  if (res <= 0 || wc > 0xFFFF)
     *ctype= 0;
   else
     *ctype= my_uni_ctype[wc>>8].ctype ?

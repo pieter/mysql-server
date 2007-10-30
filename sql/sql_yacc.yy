@@ -10306,9 +10306,8 @@ user:
             $$->host.str= (char *) "%";
             $$->host.length= 1;
 
-            if (check_string_char_length(&$$->user, ER(ER_USERNAME),
-                                         USERNAME_CHAR_LENGTH,
-                                         system_charset_info, 0))
+            if (check_identifier_name(&$$->user, USERNAME_CHAR_LENGTH,
+                                      ER_WRONG_STRING_LENGTH, ER(ER_USERNAME)))
               MYSQL_YYABORT;
           }
         | ident_or_text '@' ident_or_text
@@ -10318,9 +10317,9 @@ user:
               MYSQL_YYABORT;
             $$->user = $1; $$->host=$3;
 
-            if (check_string_char_length(&$$->user, ER(ER_USERNAME),
-                                         USERNAME_CHAR_LENGTH,
-                                         system_charset_info, 0) ||
+            if (check_identifier_name(&$$->user, USERNAME_CHAR_LENGTH,
+                                      ER_WRONG_STRING_LENGTH,
+                                      ER(ER_USERNAME)) ||
                 check_string_byte_length(&$$->host, ER(ER_HOSTNAME),
                                          HOSTNAME_LENGTH))
               MYSQL_YYABORT;

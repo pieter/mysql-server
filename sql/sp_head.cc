@@ -446,13 +446,8 @@ check_routine_name(LEX_STRING *ident)
     my_error(ER_SP_WRONG_NAME, MYF(0), ident->str);
     return TRUE;
   }
-  if (check_string_char_length(ident, "", NAME_CHAR_LEN,
-                               system_charset_info, 1))
-  {
-    my_error(ER_TOO_LONG_IDENT, MYF(0), ident->str);
+  if (check_identifier_name(ident, ER_TOO_LONG_IDENT))
     return TRUE;
-  }
-
   return FALSE;
 }
 

@@ -189,7 +189,7 @@ Item_func::fix_fields(THD *thd, Item **ref)
     }
   }
   fix_length_and_dec();
-  if (thd->net.report_error) // An error inside fix_length_and_dec occured
+  if (thd->is_error()) // An error inside fix_length_and_dec occured
     return TRUE;
   fixed= 1;
   thd->thd_marker= save_thd_marker;
@@ -4092,7 +4092,7 @@ my_decimal *user_var_entry::val_decimal(my_bool *null_value, my_decimal *val)
 
   NOTES
     For now it always return OK. All problem with value evaluating
-    will be caught by thd->net.report_error check in sql_set_variables().
+    will be caught by thd->is_error() check in sql_set_variables().
 
   RETURN
     FALSE OK.

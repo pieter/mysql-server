@@ -9908,7 +9908,7 @@ NUM_literal:
         | DECIMAL_NUM
           {
             $$= new Item_decimal($1.str, $1.length, YYTHD->charset());
-            if (YYTHD->net.report_error)
+            if (YYTHD->is_error())
             {
               MYSQL_YYABORT;
             }
@@ -9916,7 +9916,7 @@ NUM_literal:
         | FLOAT_NUM
           {
             $$ = new Item_float($1.str, $1.length);
-            if (YYTHD->net.report_error)
+            if (YYTHD->is_error())
             {
               MYSQL_YYABORT;
             }

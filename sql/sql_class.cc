@@ -498,12 +498,12 @@ void THD::push_internal_handler(Internal_error_handler *handler)
 }
 
 
-bool THD::handle_error(uint sql_errno,
+bool THD::handle_error(uint sql_errno, const char *message,
                        MYSQL_ERROR::enum_warning_level level)
 {
   if (m_internal_handler)
   {
-    return m_internal_handler->handle_error(sql_errno, level, this);
+    return m_internal_handler->handle_error(sql_errno, message, level, this);
   }
 
   return FALSE;                                 // 'FALSE', as per coding style
@@ -1394,7 +1394,7 @@ bool select_send::send_data(List<Item> &items)
   thd->sent_row_count++;
   if (!thd->vio_ok())
     DBUG_RETURN(0);
-  if (!thd->net.report_error)
+  if (! thd->is_error())
     DBUG_RETURN(protocol->write());
   protocol->remove_last_row();
   DBUG_RETURN(1);
@@ -1415,7 +1415,7 @@ bool select_send::send_eof()
     mysql_unlock_tables(thd, thd->lock);
     thd->lock=0;
   }
-  if (!thd->net.report_error)
+  if (! thd->is_error())
   {
     ::send_eof(thd);
     status= 0;

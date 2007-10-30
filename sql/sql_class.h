@@ -978,6 +978,7 @@ public:
     @return true if the error is handled
   */
   virtual bool handle_error(uint sql_errno,
+                            const char *message,
                             MYSQL_ERROR::enum_warning_level level,
                             THD *thd) = 0;
 };
@@ -1492,7 +1493,7 @@ public:
   bool	     in_lock_tables;
   /**
     True if a slave error. Causes the slave to stop. Not the same
-    as the statement execution error (net.report_error), since
+    as the statement execution error (is_error()), since
     a statement may be expected to return an error, e.g. because
     it returned an error on master, and this is OK on the slave.
   */
@@ -1740,6 +1741,20 @@ public:
     net.report_error= 1;
     DBUG_PRINT("error",("Fatal error set"));
   }
+  /**
+    TRUE if there is an error in the error stack.
+
+    Please use this method instead of direct access to
+    net.report_error.
+
+    If TRUE, the current (sub)-statement should be aborted.
+    The main difference between this member and is_fatal_error
+    is that a fatal error can not be handled by a stored
+    procedure continue handler, whereas a normal error can.
+
+    To raise this flag, use my_error().
+  */
+  inline bool is_error() const { return net.report_error; }
   inline CHARSET_INFO *charset() { return variables.character_set_client; }
   void update_charset();
 
@@ -1933,7 +1948,7 @@ public:
     @param level the error level
     @return true if the error is handled
   */
-  virtual bool handle_error(uint sql_errno,
+  virtual bool handle_error(uint sql_errno, const char *message,
                             MYSQL_ERROR::enum_warning_level level);
 
   /**

@@ -1787,6 +1787,7 @@ void st_select_lex::mark_as_dependent(st_select_lex *last)
   for (SELECT_LEX *s= this;
        s && s != last;
        s= s->outer_select())
+  {
     if (!(s->uncacheable & UNCACHEABLE_DEPENDENT))
     {
       // Select is dependent of outer select
@@ -1802,8 +1803,11 @@ void st_select_lex::mark_as_dependent(st_select_lex *last)
           sl->uncacheable|= UNCACHEABLE_UNITED;
       }
     }
-  is_correlated= TRUE;
-  this->master_unit()->item->is_correlated= TRUE;
+    s->is_correlated= TRUE;
+    Item_subselect *subquery_predicate= s->master_unit()->item;
+    if (subquery_predicate)
+      subquery_predicate->is_correlated= TRUE;
+  }
 }
 
 bool st_select_lex_node::set_braces(bool value)      { return 1; }

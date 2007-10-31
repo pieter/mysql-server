@@ -2240,12 +2240,9 @@ void Database::updateCardinalities(void)
 			}
 		}
 	
-	if (hit)
-		{
-		sync.unlock();
-		syncSystemTransaction.unlock();
-		commitSystemTransaction();
-		}
+	sync.unlock();
+	syncSystemTransaction.unlock();
+	commitSystemTransaction();
 }
 
 void Database::sync()

@@ -284,10 +284,9 @@ public:
 	volatile int		numberTemplateExpands;
 	int					odsVersion;
 	int					noSchedule;
-
+	uint32				serialLogBlockSize;
+	
 	volatile INTERLOCK_TYPE	currentGeneration;
-	//volatile long	overflowSize;
-	//volatile long 	ageGroupSizes [AGE_GROUPS];
 	uint64				recordMemoryMax;
 	uint64				recordScavengeThreshold;
 	uint64				recordScavengeFloor;

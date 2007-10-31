@@ -150,6 +150,7 @@ public:
 	uint64			getWriteBlockNumber(void);
 	void			unblockUpdates(void);
 	void			blockUpdates(void);
+	int				getBlockSize(void);
 	
 	TableSpaceManager	*tableSpaceManager;
 	SerialLogFile		*file1;

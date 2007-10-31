@@ -498,7 +498,8 @@ Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
 	logOffset = headerPage->logOffset;
 	logLength = headerPage->logLength;
 	tableSpaceSectionId = headerPage->tableSpaceSectionId;
-
+	database->serialLogBlockSize = headerPage->serialLogBlockSize;
+	
 	if (headerPage->haveIndexVersionNumber)
 		defaultIndexVersion = headerPage->defaultIndexVersionNumber;
 	else if (headerPage->odsVersion == ODS_VERSION2 && header.odsMinorVersion == ODS_MINOR_VERSION0)
@@ -1348,5 +1349,15 @@ void Dbb::updateTableSpaceSection(int id)
 	bdb->mark(NO_TRANSACTION);
 	Hdr *header = (Hdr*) bdb->buffer;
 	header->tableSpaceSectionId = id;
+	bdb->release(REL_HISTORY);
+}
+
+void Dbb::updateSerialLogBlockSize(void)
+{
+	Bdb *bdb = fetchPage(HEADER_PAGE, PAGE_header, Exclusive);
+	BDB_HISTORY(bdb);
+	bdb->mark(NO_TRANSACTION);
+	Hdr *header = (Hdr*) bdb->buffer;
+	header->serialLogBlockSize = database->serialLogBlockSize;
 	bdb->release(REL_HISTORY);
 }

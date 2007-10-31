@@ -247,7 +247,7 @@ int StorageDatabase::nextRow(StorageTable* storageTable, int recordNumber, bool 
 				return StorageErrorRecordNotFound;
 
 			record = (lockForUpdate)
-			               ? table->fetchForUpdate(transaction, candidate)
+			               ? table->fetchForUpdate(transaction, candidate, false)
 			               : candidate->fetchVersion(transaction);
 			
 			if (!record)
@@ -311,7 +311,7 @@ int StorageDatabase::fetch(StorageConnection *storageConnection, StorageTable* s
 			return StorageErrorRecordNotFound;
 
 		Record *record = (lockForUpdate)
-		               ? table->fetchForUpdate(transaction, candidate)
+		               ? table->fetchForUpdate(transaction, candidate, false)
 		               : candidate->fetchVersion(transaction);
 		
 		if (!record)
@@ -384,7 +384,7 @@ int StorageDatabase::nextIndexed(StorageTable *storageTable, void* recordBitmap,
 			if (candidate)
 				{
 				Record *record = (lockForUpdate) 
-				               ? table->fetchForUpdate(transaction, candidate)
+				               ? table->fetchForUpdate(transaction, candidate, true)
 				               : candidate->fetchVersion(transaction);
 				
 				if (record)
@@ -425,6 +425,8 @@ int StorageDatabase::nextIndexed(StorageTable *storageTable, void* recordBitmap,
 				return StorageErrorOutOfRecordMemory;
 			case DEADLOCK:
 				return StorageErrorDeadlock;
+			case RETRY_AFTER_WAIT:
+				return StorageErrorWaited;
 			}
 
 		return StorageErrorRecordNotFound;

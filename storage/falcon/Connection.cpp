@@ -166,7 +166,7 @@ void Connection::init(Configuration *config)
 	recordCount = 0;
 	registeredStatements = NULL;
 	nextHandle = 0;
-	isolationLevel = TRANSACTION_SERIALIZABLE;
+	isolationLevel = TRANSACTION_CONSISTENT_READ;
 	mySqlThreadId = 0;
 	currentStatement = NULL;
 }

@@ -356,7 +356,7 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 	if (timeout)
 		for (;;)
 			{
-			bool wakeup = thread->sleep (timeout);
+			thread->sleep (timeout);
 			
 			if (thread->lockGranted)
 				return;

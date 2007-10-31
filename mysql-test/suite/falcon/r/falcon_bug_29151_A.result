@@ -1,0 +1,79 @@
+*** Bug #29151 ***
+SET @@storage_engine = Falcon;
+SET GLOBAL FALCON_INNODB_COMPATIBILITY=OFF;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int, b int, c char(10), PRIMARY KEY (a));
+# Establish connection conn1
+INSERT INTO t1 VALUES(490, 0, 'inserted');
+# Switch to connection default
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+INSERT INTO t1 VALUES(490, 1, 'inserted');
+SELECT * FROM t1;
+a	b	c
+490	1	inserted
+# Switch to connection conn1
+BEGIN;
+SELECT * FROM t1;
+a	b	c
+490	0	inserted
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+# Switch to connection default
+SELECT * FROM t1;
+a	b	c
+490	1	inserted
+COMMIT;
+# Switch to connection conn1
+ERROR HY000: Record has changed since last read in table 't1'
+SELECT * FROM t1;
+a	b	c
+490	0	inserted
+COMMIT;
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+INSERT INTO t1 VALUES(490, 3, 'inserted');
+# Switch to connection default
+BEGIN;
+SELECT * FROM t1;
+a	b	c
+490	1	inserted
+DELETE FROM t1 WHERE a = 490;
+# Switch to connection conn1
+SELECT * FROM t1;
+a	b	c
+490	3	inserted
+COMMIT;
+# Switch to connection default
+ERROR HY000: Record has changed since last read in table 't1'
+SELECT * FROM t1;
+a	b	c
+490	1	inserted
+COMMIT;
+INSERT INTO t1 VALUES(490, 4, 'inserted');
+ERROR 23000: Duplicate entry '490' for key 'PRIMARY'
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+# Switch to connection conn1
+BEGIN;
+SELECT * FROM t1;
+a	b	c
+490	3	inserted
+INSERT INTO t1 VALUES(490, 5, 'inserted');
+# Switch to connection default
+SELECT * FROM t1;
+a	b	c
+COMMIT;
+# Switch to connection conn1
+ERROR 23000: Duplicate entry '490' for key 'PRIMARY'
+SELECT * FROM t1;
+a	b	c
+490	3	inserted
+COMMIT;
+# Switch to connection default
+SELECT * FROM t1;
+a	b	c
+# Switch to connection default
+DROP TABLE t1;

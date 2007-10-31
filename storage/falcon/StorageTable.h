@@ -24,6 +24,8 @@
 static const int UpperBound	= 1;
 static const int LowerBound = 2;
 
+static const int MaxRetryAferWait = 5;
+
 struct StorageKey {
 	int			numberSegments;
 	IndexKey	indexKey;

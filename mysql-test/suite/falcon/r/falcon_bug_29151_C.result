@@ -1,0 +1,83 @@
+*** Bug #29151 ***
+SET @@storage_engine = Falcon;
+SET GLOBAL FALCON_INNODB_COMPATIBILITY=ON;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int, b int, c char(10), PRIMARY KEY (a));
+# Establish connection conn1
+INSERT INTO t1 VALUES(490, 0, 'inserted');
+# Switch to connection default
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+INSERT INTO t1 VALUES(490, 1, 'inserted');
+SELECT * FROM t1;
+a	b	c
+490	1	inserted
+# Switch to connection conn1
+BEGIN;
+SELECT * FROM t1;
+a	b	c
+490	0	inserted
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+# Switch to connection default
+SELECT * FROM t1;
+a	b	c
+490	1	inserted
+COMMIT;
+# Switch to connection conn1
+DELETE FROM t1 WHERE a = 490;
+INSERT INTO t1 VALUES(490, 2, 'inserted');
+COMMIT;
+SELECT * FROM t1;
+a	b	c
+490	2	inserted
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+INSERT INTO t1 VALUES(490, 3, 'inserted');
+# Switch to connection default
+BEGIN;
+SELECT * FROM t1;
+a	b	c
+490	2	inserted
+DELETE FROM t1 WHERE a = 490;
+# Switch to connection conn1
+SELECT * FROM t1;
+a	b	c
+490	3	inserted
+COMMIT;
+# Switch to connection default
+SELECT * FROM t1;
+a	b	c
+490	2	inserted
+COMMIT;
+SELECT * FROM t1;
+a	b	c
+INSERT INTO t1 VALUES(490, 4, 'inserted');
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+SELECT * FROM t1;
+a	b	c
+# Switch to connection conn1
+BEGIN;
+SELECT * FROM t1;
+a	b	c
+490	4	inserted
+INSERT INTO t1 VALUES(490, 5, 'inserted');
+# Switch to connection default
+SELECT * FROM t1;
+a	b	c
+COMMIT;
+# Switch to connection conn1
+SELECT * FROM t1;
+a	b	c
+490	4	inserted
+490	5	inserted
+COMMIT;
+# Switch to connection default
+SELECT * FROM t1;
+a	b	c
+490	5	inserted
+# Switch to connection default
+DROP TABLE t1;

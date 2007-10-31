@@ -54,8 +54,8 @@ enum State {
 	// The following are 'relative states'.  See getRelativeState()
 	
 	Us,						// 4
-	CommittedAndOlder,		// 5
-	CommittedButYounger,	// 6
+	CommittedVisible,		// 5
+	CommittedInvisible,		// 6
 	WasActive,				// 7
 	Deadlock,				// 8
 	
@@ -79,6 +79,9 @@ struct Savepoint {
 
 static const int LOCAL_SAVE_POINTS = 5;
 
+static const int FOR_READING = 0;
+static const int FOR_WRITING = 1;
+
 // flags for getRelativeStates()
 #define WAIT_IF_ACTIVE		1
 #define DO_NOT_WAIT			2
@@ -95,7 +98,7 @@ public:
 	void		expungeTransaction (Transaction *transaction);
 	void		commitRecords();
 	void		releaseDependencies();
-	bool		visible (Transaction *transaction, TransId transId);
+	bool		visible (Transaction *transaction, TransId transId, int forWhat);
 	void		addRecord (RecordVersion *record);
 	void		prepare(int xidLength, const UCHAR *xid);
 	void		rollback();

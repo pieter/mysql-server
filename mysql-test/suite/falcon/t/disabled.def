@@ -31,7 +31,7 @@ falcon_bug_26058    : Bug#26058 2007-05-03 hakank Currently failing
 falcon_bug_27997    : Bug#27997 2007-04-21 hakank Currently failing
 falcon_bug_28006    : Bug#28006 2007-08-22 hakank Won't fix, see also Bug#15491
 falcon_bug_28076    : Bug#28076 2007-04-25 klewis Currently failing
-falcon_bug_29151    : Bug#29151 2007-08-01 hakank Currently failing
+falcon_bug_29151_A  : Bug#29151 Test A is failing, not catching the expected error
 falcon_bug_29246    : Bug#29246 2007-06-21 hakank Currently failing
 falcon_bug_30282    : Bug#30282 2007-08-21 hakank Currently failing
 falcon_bug_30878    : Bug#30878 2007-09-06 cpowers Currently failing (server bug)

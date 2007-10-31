@@ -951,12 +951,15 @@ int32 Table::getBlobId(Value * value, int32 oldId, bool cloneFlag, Transaction *
 		case ClobPtr:
 			{
 			Clob* clob = value->getClob();
+			
 			if (clob->isBlobReference())
 				{
-				id = getIndirectId (clob, transaction);
+				id = getIndirectId(clob, transaction);
 				clob->release();
+				
 				return  id;
 				}
+				
 			clob->release();
 			}
 			break;
@@ -964,12 +967,15 @@ int32 Table::getBlobId(Value * value, int32 oldId, bool cloneFlag, Transaction *
 		case BlobPtr:
 			{
 			Blob* blob = value->getBlob();
+			
 			if (blob->isBlobReference())
 				{
-				id = getIndirectId (blob, transaction);
+				id = getIndirectId(blob, transaction);
 				blob->release();
+				
 				return  id;
 				}
+				
 			blob->release();
 			}
 			break;
@@ -1018,6 +1024,7 @@ void Table::makeSearchable(Field * field, Transaction *transaction)
 	for (int32 next = 0; (record = fetchNext(next));)
 		{
 		next = record->recordNumber + 1;
+		
 		for (Record *version = record; version; version = version->getPriorVersion())
 			if (version->hasRecord())
 				{
@@ -1026,9 +1033,11 @@ void Table::makeSearchable(Field * field, Transaction *transaction)
 				Filter stream(tableId, field->id, version->recordNumber, &value);
 				words += database->addInversion(&stream, transaction);
 				++records;
+				
 				if (records % 100 == 0)
 					Log::debug("%d records inverted with %d words\n", records, words);
 				}
+				
 		record->release();
 		}
 
@@ -1045,6 +1054,7 @@ void Table::makeNotSearchable(Field *field, Transaction *transaction)
 	for (int32 next = 0; (record = fetchNext(next));)
 		{
 		next = record->recordNumber + 1;
+		
 		for (Record *version = record; version; version = version->getPriorVersion())
 			if (version->hasRecord())
 				{
@@ -1053,6 +1063,7 @@ void Table::makeNotSearchable(Field *field, Transaction *transaction)
 				Filter stream(tableId, field->id, version->recordNumber, &value);
 				database->removeFromInversion(&stream, transaction);
 				}
+				
 		record->release();
 		}
 
@@ -1193,6 +1204,7 @@ void Table::reIndexInversion(Transaction *transaction)
 	for (int32 next = 0; (record = fetchNext(next));)
 		{
 		next = record->recordNumber + 1;
+		
 		for (Record *version = record; version; version = version->getPriorVersion())
 			if (version->hasRecord())
 				FOR_FIELDS(field, this)
@@ -1205,6 +1217,7 @@ void Table::reIndexInversion(Transaction *transaction)
 						database->addInversion(&stream, transaction);
 						}
 				END_FOR;
+				
 		record->release();
 		}
 }
@@ -1244,6 +1257,7 @@ ForeignKey* Table::findForeignKey(Field * field, bool foreign)
 	for (ForeignKey *key = foreignKeys; key; key = key->next)
 		{
 		key->bind(database);
+		
 		if (key->isMember(field, foreign))
 			return key;
 		}
@@ -1260,9 +1274,11 @@ bool Table::indexExists(ForeignKey * foreignKey)
 		if (index->numberFields == foreignKey->numberFields)
 			{
 			int n;
+			
 			for (n = 0; n < index->numberFields; ++n)
 				if (index->fields [n] != foreignKey->foreignFields [n])
 					break;
+					
 			if (n == index->numberFields)
 				return true;
 			}
@@ -1911,6 +1927,7 @@ void Table::fireTriggers(Transaction *transaction, int operation, Record *before
 			{
 			if ((trigger->mask & operation) && trigger->isEnabled(transaction->connection))
 				trigger->fireTrigger(transaction, operation, before, after);
+				
 			if (trigger->mask & (PreCommit | PostCommit))
 				transaction->commitTriggers = true;
 			}
@@ -2072,6 +2089,7 @@ void Table::reIndex(Transaction *transaction)
 				FOR_INDEXES(index, this);
 					index->insert(version, transaction);
 				END_FOR;
+				
 		record->release();
 		}
 }
@@ -2198,6 +2216,7 @@ bool Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record, 
 			(!oldRecord || index->changed(record, oldRecord)))
 			{
 			bool noConflict = checkUniqueIndex(index, transaction, record, sync);
+			
 			if (!noConflict)
 				return false;
 			}
@@ -2223,8 +2242,10 @@ bool Table::checkUniqueIndex(Index *index, Transaction *transaction, RecordVersi
 	for (int32 recordNumber = 0; (recordNumber = bitmap.nextSet(recordNumber)) >= 0; ++recordNumber)
 		{
 		int rc = checkUniqueRecordVersion(recordNumber, index, transaction, record, sync);
+		
 		if (rc == checkUniqueWaited)
 			return false;  // restart the search with a new lock
+			
 		if (rc == checkUniqueIsDone)
 			return true;  // No need to search any more record versions.
 		// else rc == checkUniqueNext
@@ -2272,8 +2293,10 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 		if (state == WasActive)
 			{
 			rec->release();
+			
 			if (activeTransaction)
 				activeTransaction->release();
+				
 			return checkUniqueWaited;
 			}
 
@@ -2295,15 +2318,17 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 				case Us:
 					// No conflict with a visible deleted record.
 					rec->release();
+					
 					if (activeTransaction)
 						activeTransaction->release();
+						
 					return checkUniqueNext;	// Check next record number.
 
 				case CommittedInvisible:
 					// This state only happens for consistent read
 					ASSERT(IS_CONSISTENT_READ(transaction->isolationLevel));
-
 					foundFirstCommitted = true;
+					
 					continue;	// Next record version.
 
 				case Active:
@@ -2313,6 +2338,7 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 
 					activeTransaction = dup->getTransaction();
 					activeTransaction->addRef();
+					
 					continue;
 
 				default:
@@ -2340,6 +2366,7 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 					
 				state = transaction->getRelativeState(dup, WAIT_IF_ACTIVE);
 				rec->release();
+				
 				if (activeTransaction)
 					activeTransaction->release();
 				
@@ -2362,6 +2389,7 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 			// Found a duplicate conflict.
 
 			rec->release();
+			
 			if (activeTransaction)
 				activeTransaction->release();
 
@@ -2406,8 +2434,10 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 		if (state == Us)
 			{
 			rec->release();
+			
 			if (activeTransaction)
 				activeTransaction->release();
+				
 			return checkUniqueNext;	 // Check next record number.
 			}
 
@@ -2417,14 +2447,17 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 		if (state == CommittedVisible)
 			{
 			rec->release();
+			
 			if (activeTransaction)
 				activeTransaction->release();
+				
 			return checkUniqueNext;	// Check next record number
 			}
 		}	// for each record version...
 
 	if (rec)
 		rec->release();
+		
 	if (activeTransaction)
 		activeTransaction->release();
 

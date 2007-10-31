@@ -31,22 +31,25 @@ class LinkedList;
 class Sync  
 {
 public:
-	void print (const char* label);
-	void findLocks (LinkedList &threads, LinkedList& syncObjects);
-	//void lock (LockType type, const char *fromWhere);
-	//void print(int level);
-	void setObject (SynchronizationObject *obj);
-	void unlock();
-	void lock (LockType type);
 	Sync(SynchronizationObject *obj, const char *where);
 	virtual ~Sync();
+
+	void	print (const char* label);
+	void	findLocks (LinkedList &threads, LinkedList& syncObjects);
+	//void	lock (LockType type, const char *fromWhere);
+	//void	print(int level);
+	void	setObject (SynchronizationObject *obj);
+	void	unlock();
+	void	lock (LockType type);
+	void	lock(LockType type, int timeout);
 
 	SynchronizationObject	*syncObject;
 	LockType	state;
 	LockType	request;
 	Sync		*prior;
 	const char	*where;
-	void lock(LockType type, int timeout);
+	const char	*marked;
+	void mark(const char* text);
 };
 
 #endif // !defined(AFX_SYNC_H__59333A55_BC53_11D2_AB5E_0000C01D2301__INCLUDED_)

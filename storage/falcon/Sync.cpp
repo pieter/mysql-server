@@ -39,10 +39,14 @@ Sync::Sync(SynchronizationObject *obj, const char *fromWhere)
 	syncObject = obj;
 	where = fromWhere;
 	prior = NULL;
+	marked = NULL;
 }
 
 Sync::~Sync()
 {
+	if (marked)
+		Log::log("Sync::~Sync: %s\n", marked);
+		
 	if (syncObject && state != None)
 		syncObject->unlock(this, state);
 }
@@ -107,4 +111,11 @@ void Sync::print(const char *label)
 {
 	LOG_DEBUG ("%s %s state %d (%d) syncObject %p\n", 
 			   label, where, state, request, syncObject);
+}
+
+void Sync::mark(const char* text)
+{
+	marked = text;
+	
+	Log::debug("Sync::mark %s\n", marked);
 }

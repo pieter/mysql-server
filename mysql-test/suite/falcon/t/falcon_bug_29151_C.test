@@ -1,5 +1,6 @@
---disable_abort_on_error
 --source include/have_falcon.inc
+#--disable_abort_on_error
+
 #
 # Bug #29151: Falcon: running sysbench 0.4.8 leads to duplicate key errors duplicate key
 #

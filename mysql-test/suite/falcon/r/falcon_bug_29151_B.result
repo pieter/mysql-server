@@ -1,11 +1,9 @@
 *** Bug #29151 ***
 SET @@storage_engine = Falcon;
-SET GLOBAL INNODB_COMPATIBILITY=OFF;
-ERROR HY000: Unknown system variable 'INNODB_COMPATIBILITY'
+SET GLOBAL FALCON_INNODB_COMPATIBILITY=OFF;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (a int, b int, c char(10), PRIMARY KEY (a));
 # Establish connection conn1
-connect(localhost,root,,test,9306,C:/Work/build/Chg-24/mysql-6.0-falcon-team/mysql-test/var/tmp/master.sock);
 INSERT INTO t1 VALUES(490, 0, 'inserted');
 # Switch to connection default
 BEGIN;

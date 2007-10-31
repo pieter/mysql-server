@@ -1,4 +1,6 @@
---disable_abort_on_error
+--source include/have_falcon.inc
+#--disable_abort_on_error
+
 #
 # 29151_A: Test the Consistent Read Isolation mode
 #          when a blocking transaction commits.
@@ -37,7 +39,7 @@ connection conn1;
 BEGIN;
 SELECT * FROM t1;
 # This one blocks in case the other transaction aborts.
---error 0,65433
+--error HY000
 --send UPDATE t1 SET c = 'updated' WHERE a = 490
 
 --echo # Switch to connection default

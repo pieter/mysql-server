@@ -1,4 +1,6 @@
---disable_abort_on_error
+--source include/have_falcon.inc
+#--disable_abort_on_error
+
 #
 # 29151_A: Test the Consistent Read Isolation mode
 #          when a blocking transaction aborts.
@@ -9,7 +11,7 @@
 # --- Initialization for Falcon's Consistent Read
 # -----------------------------------------------------
 eval SET @@storage_engine = Falcon;
-SET GLOBAL INNODB_COMPATIBILITY=OFF;
+SET GLOBAL FALCON_INNODB_COMPATIBILITY=OFF;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;

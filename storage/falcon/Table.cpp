@@ -2183,200 +2183,251 @@ bool Table::isDuplicate(Index *index, Record *record1, Record *record2)
 /**
 @brief		Determine if the record we intend to write will have a duplicate conflict
 			with any pending or visible records.
-@details	For these purposes, TRANSACTION_WRITE_COMMITTED acts like 
-			TRANSACTION_READ_COMMITTED.
+@details	For each index, call checkUniqueIndex.  
+			Return true if the search succeeded by not finding a duplicate.
+			Return false if a wait occurred and the caller neeeds to re-lock the sync object
+			and try again.  If a duplicate is found release the sync and throw an exception.
 **/
 
 bool Table::checkUniqueIndexes(Transaction *transaction, RecordVersion *record, Sync *sync)
 {
 	Record *oldRecord = record->priorVersion;
-	Bitmap bitmap;
 
 	FOR_INDEXES(index, this);
 		if (INDEX_IS_UNIQUE(index->type) &&
 			(!oldRecord || index->changed(record, oldRecord)))
 			{
-			IndexKey indexKey(index);
-			index->makeKey(record, &indexKey);
-			index->scanIndex(&indexKey, &indexKey, false, NULL, &bitmap);
-
-			for (int32 recordNumber = 0; (recordNumber = bitmap.nextSet(recordNumber)) >= 0; ++recordNumber)
-				{
-				Record *rec;
-				Transaction *activeTransaction = NULL;
-				State state = CommittedAndOlder;
-
-				if (oldRecord && recordNumber == oldRecord->recordNumber)
-					continue;
-
-				do	{
-					bool foundFirstCommitted = false;
-
-					if ( !(rec = fetch(recordNumber)) )
-						break;
-
-					for (Record *dup = rec; dup; dup = dup->getPriorVersion())
-						{
-						if (dup == record)
-							continue;
-							
-						// Get the record's transaction state, waiting while pending.
-						
-						state = transaction->getRelativeState(dup, DO_NOT_WAIT);
-
-						// If we waited on an active transaction, we must start looking again from the top
-						
-						if (state == WasActive)
-							{
-							rec->release();
-							break;
-							}
-
-						// Check for a deleted record or a record lock
-
-						if (!dup->hasRecord())
-							{
-							if (dup->state == recLock)
-								continue;   // Deletion is still pending, keep looking for a dup.
-
-							if (state == CommittedAndOlder || state == Us)
-								break;
-
-							if (transaction->isolationLevel == TRANSACTION_REPEATABLE_READ)
-								if (state == CommittedButYounger)
-									foundFirstCommitted = true;
-								
-							continue;   // Deletion is still pending, keep looking for a dup.
-							}
-
-						// May need to skip some record versions.
-
-						if (transaction->isolationLevel == TRANSACTION_REPEATABLE_READ)
-							{
-							if (foundFirstCommitted && (state == CommittedButYounger))
-								// Look for an older committed record, ignoring those inbetween.
-								continue;
-							}
-
-						if (state == RolledBack)
-							continue;
-
-						if (isDuplicate(index, record, dup))
-							{
-							if (state == Active)
-								{
-								// wait for that transaction to finish, then check again
-
-								if (sync)
-									sync->unlock();
-									
-								state = transaction->getRelativeState(dup, WAIT_IF_ACTIVE);
-								rec->release();
-								
-								return false;
-								
-								/***
-								if (state != Deadlock)
-									{
-									state = WasActive;  // Stay in the do loop.  state will be rechecked.
-									rec->release();
-									break;  // break out of 'for each record version'
-									}
-								***/
-								}
-
-							if (activeTransaction)
-								{
-								if (sync)
-									sync->unlock();
-									
-								state = transaction->getRelativeState(activeTransaction,
-													activeTransaction->transactionId, WAIT_IF_ACTIVE);
-								rec->release();
-								activeTransaction->release();
-								
-								return false;
-								/***
-								state = WasActive;  // Stay in the do loop.  state will be rechecked.
-								rec->release();
-								activeTransaction->release();
-								activeTransaction = NULL;
-								break;  // break out of 'for each record version'
-								***/
-								}
-
-							// isDuplicate(index, record, dup);		// uncomment to debug
-							rec->release();
-							const char *text = "duplicate values for key %s in table %s.%s";
-							int code = UNIQUE_DUPLICATE;
-
-							if (state == Deadlock)
-								{
-								text = "deadlock on key %s in table %s.%s";
-								code = DEADLOCK;
-								}
-								
-							SQLEXCEPTION exception(code, text,
-													(const char*) index->name, 
-													(const char*) schemaName,
-													(const char*) name);
-							exception.setObject(schemaName, index->name);
-							
-							throw exception;
-							}
-
-						// This record was not a duplicate.  Keep looking?
-
-						if ((state == Active) && 
-							(transaction->isolationLevel != TRANSACTION_REPEATABLE_READ))
-							{
-							/*
-							We don't wait on an active transaction when the scanIndex found
-							a hit but isDuplicate() says it's not.  This is true for null
-							values and can be true for newly inserted key values invisible
-							to an older transaction.  And if this is Repeatable Read, we need 
-							see the older committed record.
-							But for Read Committed, if the pending record is not a duplicate
-							and the committed record is, we still need to wait on that active
-							transaction before knowing for sure if the comitted record will
-							stay that way.
-							*/
-
-							activeTransaction = dup->getTransaction();
-							activeTransaction->addRef();
-							}
-
-						if (state == Us)
-							break;
-
-						if (transaction->isolationLevel == TRANSACTION_REPEATABLE_READ)
-							{
-							if (state == CommittedButYounger)
-								foundFirstCommitted = true;
-							else if (state == CommittedAndOlder)
-								break;
-							}
-						else  // just use the committed version.
-							{
-							if (state == CommittedButYounger || state == CommittedAndOlder)
-								break;
-							}
-						}
-					} while (state == WasActive);
-
-				if (rec)
-					rec->release();
-					
-				if (activeTransaction)
-					{
-					activeTransaction->release();
-					activeTransaction = NULL;
-					}
-				}
+			bool noConflict = checkUniqueIndex(index, transaction, record, sync);
+			if (!noConflict)
+				return false;
 			}
 	END_FOR;
 	
 	return true;
+}
+
+/**
+@brief		Determine if the record we intend to write will have a duplicate conflict
+			with any pending or visible records within a single index.
+@details	For each record number found in a scanIndex, call checkUniqueRecordVersion.
+			Return same as checkUniqueIndexes.
+**/
+
+bool Table::checkUniqueIndex(Index *index, Transaction *transaction, RecordVersion *record, Sync *sync)
+{
+	Bitmap bitmap;
+	IndexKey indexKey(index);
+	index->makeKey(record, &indexKey);
+	index->scanIndex(&indexKey, &indexKey, false, NULL, &bitmap);
+
+	for (int32 recordNumber = 0; (recordNumber = bitmap.nextSet(recordNumber)) >= 0; ++recordNumber)
+		{
+		int rc = checkUniqueRecordVersion(recordNumber, index, transaction, record, sync);
+		if (rc == checkUniqueWaited)
+			return false;  // restart the search with a new lock
+		if (rc == checkUniqueIsDone)
+			return true;  // No need to search any more record versions.
+		// else rc == checkUniqueNext
+		}
+
+	return true; // Did not find a duplicate
+}
+
+/**
+@brief		Determine if the record we intend to write will have a duplicate conflict
+			with any pending or visible recordVersions for a single index and record Number.
+@details	Search through the record version , call checkUniqueRecordVersion.
+			Return same as checkUniqueIndexes.
+**/
+
+int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transaction *transaction, RecordVersion *record, Sync *sync)
+{
+	Record *rec;
+	Record *oldRecord = record->priorVersion;
+	Transaction *activeTransaction = NULL;
+	State state = CommittedVisible;
+
+	if (oldRecord && recordNumber == oldRecord->recordNumber)
+		return checkUniqueNext;	 // Check next record number.
+
+	// This flag is used to skip all records in the chain between the 
+	// first younger committed record and the first older committed record.
+
+	bool foundFirstCommitted = false;
+
+	if ( !(rec = fetch(recordNumber)) )
+		return checkUniqueNext;	 // Check next record number.
+
+	for (Record *dup = rec; dup; dup = dup->getPriorVersion())
+		{
+		if (dup == record)
+			continue;	// Check next record version
+
+		// Get the record's transaction state. Don't wait yet.
+
+		state = transaction->getRelativeState(dup, DO_NOT_WAIT);
+
+		// If we waited on an active transaction, we must start looking again from the top
+		
+		if (state == WasActive)
+			{
+			rec->release();
+			if (activeTransaction)
+				activeTransaction->release();
+			return checkUniqueWaited;
+			}
+
+		// Check for a deleted record or a record lock
+
+		if (!dup->hasRecord())
+			{
+			// If the record is locked, keep looking for a dup.
+
+			if (dup->state == recLock)
+				continue;  // Next record version.
+
+			// The record has been deleted.
+			ASSERT(dup->state == recDeleted);
+
+			switch (state)
+				{
+				case CommittedVisible:
+				case Us:
+					// No conflict with a visible deleted record.
+					rec->release();
+					if (activeTransaction)
+						activeTransaction->release();
+					return checkUniqueNext;	// Check next record number.
+
+				case CommittedInvisible:
+					// This state only happens for consistent read
+					ASSERT(IS_CONSISTENT_READ(transaction->isolationLevel));
+
+					foundFirstCommitted = true;
+					continue;	// Next record version.
+
+				case Active:
+					// A pending transaction deleted a record.
+					// Keep looking for a possible duplicate conflict,
+					// either visible, or pending at a savepoint.
+
+					activeTransaction = dup->getTransaction();
+					activeTransaction->addRef();
+					continue;  
+				}
+
+			continue;   // record was deleted, keep looking for a dup.
+			}
+
+		// We can skip CommittedInvisible record versions between the first
+		// one and the record version visible to this transaction.
+
+		if ((state == CommittedInvisible) && foundFirstCommitted)
+			continue;
+
+		if (state == RolledBack)
+			continue;  // check next record version
+
+		if (isDuplicate(index, record, dup))
+			{
+			if (state == Active)
+				{
+				// wait for that transaction, then restart checkUniqueIndexes()
+
+				if (sync)
+					sync->unlock();
+					
+				state = transaction->getRelativeState(dup, WAIT_IF_ACTIVE);
+				rec->release();
+				if (activeTransaction)
+					activeTransaction->release();
+				
+				return checkUniqueWaited;
+				}
+
+			if (activeTransaction)
+				{
+				if (sync)
+					sync->unlock();
+				
+				state = transaction->getRelativeState(activeTransaction,
+						activeTransaction->transactionId, WAIT_IF_ACTIVE);
+				activeTransaction->release();
+				rec->release();
+				
+				return checkUniqueWaited;
+				}
+
+			// Found a duplicate conflict.
+
+			rec->release();
+			if (activeTransaction)
+				activeTransaction->release();
+
+			const char *text = "duplicate values for key %s in table %s.%s";
+			int code = UNIQUE_DUPLICATE;
+
+			if (state == Deadlock)
+				{
+				text = "deadlock on key %s in table %s.%s";
+				code = DEADLOCK;
+				}
+				
+			SQLEXCEPTION exception(code, text,
+									(const char*) index->name, 
+									(const char*) schemaName,
+									(const char*) name);
+			exception.setObject(schemaName, index->name);
+			
+			throw exception;
+			}
+
+		// This record was not a duplicate.  Keep looking?
+
+		if (state == Active)
+			{
+			// This pending record is not a duplicate but an older version is.
+			// Only wait on this record if the duplicate is visible or pending
+			// at a savepoint.
+
+			if (!activeTransaction)
+				{
+				activeTransaction = dup->getTransaction();
+				activeTransaction->addRef();
+				}
+
+			continue;  // check next record version
+			}
+
+		// If the record is pending by us, then this record version is the only
+		// one we need to look at.
+
+		if (state == Us)
+			{
+			rec->release();
+			if (activeTransaction)
+				activeTransaction->release();
+			return checkUniqueNext;	 // Check next record number.
+			}
+
+		if (state == CommittedInvisible)
+			foundFirstCommitted = true;	// continue checking record versions.
+
+		if (state == CommittedVisible)
+			{
+			rec->release();
+			if (activeTransaction)
+				activeTransaction->release();
+			return checkUniqueNext;	// Check next record number
+			}
+		}	// for each record version...
+
+	if (rec)
+		rec->release();
+	if (activeTransaction)
+		activeTransaction->release();
+
+	return checkUniqueNext;
 }
 
 bool Table::dropForeignKey(int fieldCount, Field **fields, Table *references)
@@ -3127,13 +3178,13 @@ void Table::checkAncestor(Record* current, Record* oldRecord)
 // the refCount on source if nothing is returned.  But since this
 // does not have a catch, no functions below it should throw an exception.
 
-Record* Table::fetchForUpdate(Transaction* transaction, Record* source)
+Record* Table::fetchForUpdate(Transaction* transaction, Record* source, bool usingIndex)
 {
 	Record *record = source;
 	int recordNumber = record->recordNumber;
-	
+
 	// If we already have this locked or updated, get the active version
-	
+
 	if (record->getTransaction() == transaction)
 		{
 		if (record->state == recDeleted)
@@ -3145,11 +3196,11 @@ Record* Table::fetchForUpdate(Transaction* transaction, Record* source)
 
 		if (record->state != recLock)
 			return record;
-		
+
 		Record *prior = record->getPriorVersion();
 		prior->addRef();
 		record->release();
-		
+
 		return prior;
 		}
 
@@ -3163,9 +3214,15 @@ Record* Table::fetchForUpdate(Transaction* transaction, Record* source)
 
 		switch (state)
 			{
-			case CommittedButYounger:
-			case CommittedAndOlder:
-			case Committed:
+			case CommittedInvisible:
+				// CommittedInvisible only happens for consistent read.
+
+				ASSERT(IS_CONSISTENT_READ(transaction->isolationLevel));
+				record->release();
+				Log::debug("Table::fetchForUpdate: update conflict in table %s.%s", schemaName, name);
+				throw SQLError(UPDATE_CONFLICT, "update conflict in table %s.%s", schemaName, name);
+
+			case CommittedVisible:
 				{
 				if (record->state == recDeleted)
 					{
@@ -3173,7 +3230,9 @@ Record* Table::fetchForUpdate(Transaction* transaction, Record* source)
 					
 					return NULL;
 					}
-					
+
+				// Lock the record
+
 				RecordVersion *recordVersion = allocRecordVersion(NULL, transaction, record);
 				recordVersion->state = recLock;
 				//sync.lock(Exclusive);
@@ -3199,9 +3258,22 @@ Record* Table::fetchForUpdate(Transaction* transaction, Record* source)
 			
 			case Deadlock:
 				record->release();
-				throw SQLError(DEADLOCK, "deadlock on table %s.%s", schemaName, name);
+				throw SQLError(DEADLOCK, "Deadlock on table %s.%s", schemaName, name);
 				
 			case WasActive:
+				if (   (usingIndex)
+					&& (   IS_READ_COMMITTED(transaction->isolationLevel)
+					    || IS_WRITE_COMMITTED(transaction->isolationLevel)))
+					{
+					// Let the index be rescanned since what was just committed
+					// may now be visible for changes.
+
+					record->release();
+					throw SQLError(RETRY_AFTER_WAIT, "Waited for record %d on table %s.%s", 
+						recordNumber, schemaName, name);
+					}
+				break;
+
 			case RolledBack:
 				break;
 				
@@ -3212,48 +3284,12 @@ Record* Table::fetchForUpdate(Transaction* transaction, Record* source)
 			}
 			
 		record->release();
-		record = fetch(recordNumber);	
+		record = fetch(recordNumber);
 		
 		if (record == NULL)
 			return NULL;	
 		}
 }
-
-/***
-Record* RecordVersion::fetchVersion(Transaction * trans)
-{
-	// Unless the record is at least as old as the transaction, it's not for us
-	
-	if (state != recLock)
-		{
-		if (trans->isolationLevel == TRANSACTION_READ_COMMITTED)
-			{
-			if (!transaction || transaction->state == Committed || transaction == trans)
-				{
-				if (state == recChilled)
-					thaw();
-					
-				return (data.record) ? this : NULL;
-				}
-			}
-		else if (transactionId <= trans->transactionId)
-			{
-			if (trans->visible (transaction))
-				{
-				if (state == recChilled)
-					thaw();
-					
-				return (data.record) ? this : NULL;
-				}
-			}
-		}
-
-	if (!priorVersion)
-		return NULL;
-		
-	return priorVersion->fetchVersion (trans);
-}
-***/
 
 int64 Table::estimateCardinality(void)
 {

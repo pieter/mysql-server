@@ -435,7 +435,7 @@ Bitmap* Index::scanIndex(IndexKey* lowKey, IndexKey* highKey, int searchFlags, T
 			{
 			for (DeferredIndex *deferredIndex = deferredIndexes.first; deferredIndex; deferredIndex = deferredIndex->next)
 				{
-				if (transaction->visible(deferredIndex->transaction, deferredIndex->transactionId))
+				if (transaction->visible(deferredIndex->transaction, deferredIndex->transactionId, FOR_WRITING))
 					{
 					deferredIndex->scanIndex(lowKey, highKey, searchFlags, bitmap);
 					

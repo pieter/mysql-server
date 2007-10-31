@@ -123,63 +123,41 @@ int StorageTable::updateRow(int recordNumber)
 int StorageTable::next(int recordNumber, bool lockForUpdate)
 {
 	recordLocked = false;
+
 	int ret = storageDatabase->nextRow(this, recordNumber, lockForUpdate);
-	
-	/***
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-		
+
 	return ret;
 }
 
 int StorageTable::nextIndexed(int recordNumber, bool lockForUpdate)
 {
+	int ret = 0;
 	recordLocked = false;
-	int ret = storageDatabase->nextIndexed(this, bitmap, recordNumber, lockForUpdate);
 
-	/***	
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-	
+	// Re-Scan the index if there was a wait
+
+	for (int i = 0; i < MaxRetryAferWait; i++)
+		{
+		ret = storageDatabase->nextIndexed(this, bitmap, recordNumber, lockForUpdate);
+		if (ret == StorageErrorWaited)
+			indexScan();
+		else
+			break;
+		}
+	if (ret == StorageErrorWaited)
+		ret = StorageErrorUpdateConflict;
+
 	return ret;
 }
 
 int StorageTable::fetch(int recordNumber, bool lockForUpdate)
 {
 	recordLocked = false;
+
 	int ret = storageDatabase->fetch(storageConnection, this, recordNumber, lockForUpdate);
 
-	/***	
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-		
 	return ret;
 }
-
-/***
-int StorageTable::lockRecord(void)
-{
-	try
-		{
-		if (storageDatabase->lockRecord(this, record))
-			recordLocked = true;
-		}
-	catch (SQLException& exception)
-		{
-		storageConnection->setErrorText(&exception);
-		
-		return StorageErrorUpdateConflict;
-		}
-	
-	return 0;
-}
-***/
 
 void StorageTable::transactionEnded(void)
 {
@@ -506,7 +484,11 @@ int StorageTable::translateError(SQLException *exception, int defaultStorageErro
 			case LOCK_TIMEOUT:
 				errorCode = StorageErrorLockTimeout;
 				break;
-	
+
+			case RETRY_AFTER_WAIT:
+				errorCode = StorageErrorWaited;
+				break;
+
 			default:
 				errorCode = defaultStorageError;
 			}

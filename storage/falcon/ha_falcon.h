@@ -21,6 +21,11 @@ class THD;
 class my_decimal;
 
 //#define XA_ENABLED
+static const int TRANSACTION_READ_UNCOMMITTED = 1;	// Dirty reads, non-repeatable reads and phantom reads can occur.
+static const int TRANSACTION_READ_COMMITTED   = 2;	// Dirty reads are prevented; non-repeatable reads and phantom reads can occur.
+static const int TRANSACTION_WRITE_COMMITTED  = 4;	// Dirty reads are prevented; non-repeatable reads happen after writes; phantom reads can occur.
+static const int TRANSACTION_CONSISTENT_READ  = 8;	// Dirty reads and non-repeatable reads are prevented; phantom reads can occur.   
+static const int TRANSACTION_SERIALIZABLE     = 16;	// Dirty reads, non-repeatable reads and phantom reads are prevented.
 
 struct st_table_share;
 struct StorageIndexDesc;
@@ -29,8 +34,8 @@ struct StorageBlob;
 class StorageInterface : public handler
 {
 public:
-  StorageInterface(handlerton *, st_table_share *table_arg);
-  ~StorageInterface(void);
+	StorageInterface(handlerton *, st_table_share *table_arg);
+	~StorageInterface(void);
 
 	virtual int		open(const char *name, int mode, uint test_if_locked);
 	virtual const char *table_type(void) const;
@@ -63,7 +68,7 @@ public:
 	virtual int		index_init(uint idx, bool sorted);
 	virtual int		index_end(void);
 	virtual int		index_next(uchar *buf);
-	virtual int	index_next_same(uchar *buf, const uchar *key, uint key_len);
+	virtual int		index_next_same(uchar *buf, const uchar *key, uint key_len);
 
 	virtual ha_rows	records_in_range(uint index,
 	                                 key_range *lower, key_range *upper);
@@ -130,6 +135,7 @@ public:
 	static int		rollback_by_xid(handlerton* hton, XID* xid);
 
 	static void		updateFsyncDisable(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save);
+	static void		updateInnodbCompatibility(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save);
 	static void		updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 	static void		updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 	static void		updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);

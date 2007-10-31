@@ -43,11 +43,13 @@ INSERT INTO t1 VALUES(49990, 0, 'c1');
 --echo # Switch to connection conn1
 connection conn1;
 BEGIN;
+SELECT * FROM t1;
 # This one blocks until other transaction COMMITs.
 --send UPDATE t1 SET b=b+1 WHERE a = 49990
 
 --echo # Switch to connection default
 connection default;
+--real_sleep 1
 COMMIT;
 
 --echo # Switch to connection conn1

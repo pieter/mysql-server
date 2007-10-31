@@ -94,17 +94,17 @@ Record* RecordVersion::fetchVersion(Transaction * trans)
 
 	if (state != recLock)
 		{
-		if (trans->isolationLevel == TRANSACTION_READ_COMMITTED)
+		if (IS_READ_COMMITTED(trans->isolationLevel))
 			{
 			int state = (recTransaction) ? recTransaction->state : 0;
 			
 			if (!transaction || state == Committed || recTransaction == trans)
 				return (getRecordData()) ? this : NULL;
 			}
-		// else TRANSACTION_REPEATABLE_READ OR TRANSACTION_WRITE_COMMITTED
+		// else IS_REPEATABLE_READ(trans->isolationLevel)
 		else if (transactionId <= trans->transactionId)
 			{
-			if (trans->visible(recTransaction, transactionId))
+			if (trans->visible(recTransaction, transactionId, FOR_READING))
 				return (getRecordData()) ? this : NULL;
 			}
 		}

@@ -1,0 +1,126 @@
+--disable_abort_on_error
+#
+# 29151_A: Test the Consistent Read Isolation mode
+#          when a blocking transaction commits.
+#
+--echo *** Bug #29151 ***
+
+# -----------------------------------------------------
+# --- Initialization for Falcon's Consistent Read
+# -----------------------------------------------------
+SET @@storage_engine = Falcon;
+SET GLOBAL FALCON_INNODB_COMPATIBILITY=OFF;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a int, b int, c char(10), PRIMARY KEY (a));
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+INSERT INTO t1 VALUES(490, 0, 'inserted');
+
+# -------------------------------------------------------
+# Test if an UPDATE will fail after waiting
+# -------------------------------------------------------
+--echo # Switch to connection default
+connection default;
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+INSERT INTO t1 VALUES(490, 1, 'inserted');
+SELECT * FROM t1;
+
+--echo # Switch to connection conn1
+connection conn1;
+BEGIN;
+SELECT * FROM t1;
+# This one blocks in case the other transaction aborts.
+--error 0,65433
+--send UPDATE t1 SET c = 'updated' WHERE a = 490
+
+--echo # Switch to connection default
+connection default;
+SELECT * FROM t1;
+--real_sleep 1
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+--reap
+SELECT * FROM t1;
+#--error 0,65433
+#DELETE FROM t1 WHERE a = 490;
+#--error ER_DUP_ENTRY
+#INSERT INTO t1 VALUES(490, 2, 'inserted');
+COMMIT;
+
+
+# -------------------------------------------------------
+# Test if a DELETE will fail after waiting
+# -------------------------------------------------------
+
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+INSERT INTO t1 VALUES(490, 3, 'inserted');
+
+--echo # Switch to connection default
+connection default;
+BEGIN;
+SELECT * FROM t1;
+--error 0,65433
+--send DELETE FROM t1 WHERE a = 490
+
+--echo # Switch to connection conn1
+connection conn1;
+SELECT * FROM t1;
+--real_sleep 1
+COMMIT;
+
+--echo # Switch to connection default
+connection default;
+--reap
+SELECT * FROM t1;
+COMMIT;
+
+# -------------------------------------------------------
+# Test if an INSERT will fail after waiting
+# -------------------------------------------------------
+
+INSERT INTO t1 VALUES(490, 4, 'inserted');
+BEGIN;
+UPDATE t1 SET c = 'updated' WHERE a = 490;
+DELETE FROM t1 WHERE a = 490;
+
+--echo # Switch to connection conn1
+connection conn1;
+BEGIN;
+SELECT * FROM t1;
+--error ER_DUP_ENTRY
+--send INSERT INTO t1 VALUES(490, 5, 'inserted')
+
+--echo # Switch to connection default
+connection default;
+SELECT * FROM t1;
+--real_sleep 1
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+--reap
+SELECT * FROM t1;
+COMMIT;
+
+--echo # Switch to connection default
+connection default;
+SELECT * FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;

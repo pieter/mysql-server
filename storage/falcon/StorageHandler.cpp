@@ -914,8 +914,39 @@ void StorageHandler::getTablesInfo(InfoTable* infoTable)
 		
 		while (resultSet->next())
 			{
-			for (int n = 0; n < 3; ++n)
-				infoTable->putString(n, resultSet->getString(n + 1));
+
+			// Parse table and partition name
+			
+			const char *pStr = resultSet->getString(2);
+			char *pTable = NULL;
+			char *pPart = NULL;
+			
+			if (pStr)
+				{
+				const int max_buf = 1024;
+				char buffer[max_buf+1];
+				
+				pTable = buffer;
+				*pTable = 0;
+				strncpy(buffer, pStr, (size_t)max_buf);
+				
+				char *pBuf = strchr(buffer, '#');
+				
+				if (pBuf)
+					{
+					*pBuf = 0;
+					if ((pPart = strrchr(++pBuf, '#')) != NULL)
+						pPart++;
+					}
+				}
+					
+			infoTable->putString(0, resultSet->getString(1));	// database
+			infoTable->putString(1, (pTable ? pTable : pStr));	// table
+			infoTable->putString(2, (pPart ? pPart : ""));		// partition
+			infoTable->putString(3, resultSet->getString(3));	// tablespace
+		
+			//for (int n = 0; n < 3; ++n)
+			//	infoTable->putString(n, resultSet->getString(n + 1));
 			
 			infoTable->putRecord();
 			}

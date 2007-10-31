@@ -512,7 +512,7 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 
 	bdb->mark(transId);
 	RecordLocatorPage *locatorPage = (RecordLocatorPage*) bdb->buffer;
-	ASSERT(locatorPage->section == sectionId);
+	ASSERT(locatorPage->section == sectionId || locatorPage->section == 0);
 	int line = recordNumber % dbb->linesPerPage;
 	RecordIndex *index = locatorPage->elements + line;
 
@@ -586,7 +586,7 @@ Bdb* Section::fetchLocatorPage(int32 root, int32 recordNumber, LockType lockType
 
 	bdb = dbb->handoffPage (bdb, pageNumber, PAGE_record_locator, lockType);
 	RecordLocatorPage *locatorPage = (RecordLocatorPage*) bdb->buffer;
-	ASSERT(locatorPage->section == sectionId);
+	ASSERT(locatorPage->section == sectionId || locatorPage->section == 0);
 	BDB_HISTORY(bdb);
 	
 	return bdb;
@@ -813,7 +813,7 @@ int32 Section::findNextRecord(int32 pageNumber, int32 startingRecord, Stream *st
 
 	if (locatorPage->pageType == PAGE_record_locator)
 		{
-		ASSERT(locatorPage->section == sectionId);
+		ASSERT(locatorPage->section == sectionId || locatorPage->section == 0);
 		
 		for (int slot = startingRecord % dbb->linesPerPage; slot < locatorPage->maxLine; ++slot)
 			if (locatorPage->elements [slot].page)
@@ -1241,7 +1241,7 @@ void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostF
 			if (locatorBdb)
 				{
 				RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
-				ASSERT(locatorPage->section == sectionId);
+				ASSERT(locatorPage->section == sectionId || locatorPage->section == 0);
 				
 				if (locatorPage->section != sectionId || locatorPage->sequence != sequence)
 					rebuild = true;

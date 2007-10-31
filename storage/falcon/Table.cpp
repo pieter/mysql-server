@@ -2313,10 +2313,11 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 
 					activeTransaction = dup->getTransaction();
 					activeTransaction->addRef();
-					continue;  
-				}
+					continue;
 
-			continue;   // record was deleted, keep looking for a dup.
+				default:
+					continue;   // record was deleted, keep looking for a dup.
+				}
 			}
 
 		// We can skip CommittedInvisible record versions between the first

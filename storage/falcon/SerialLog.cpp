@@ -166,7 +166,7 @@ SerialLog::~SerialLog()
 		delete info;
 		}
 	
-	for (Gopher *gopher; gopher = gophers;)
+	for (Gopher *gopher; (gopher = gophers);)
 		{
 		gophers = gopher->next;
 		delete gopher;

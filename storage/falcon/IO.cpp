@@ -32,7 +32,7 @@
 #define LSEEK				_lseeki64
 #define SEEK_OFFSET	int64
 #define MKDIR(dir)			mkdir(dir)
-#define WRITE_MODE			0
+#define O_SYNC				0
 #else
 #include <sys/types.h>
 #include <unistd.h>
@@ -40,10 +40,6 @@
 
 #ifdef STORAGE_ENGINE
 #include "config.h"
-#endif
-
-#ifndef WRITE_MODE
-#define WRITE_MODE			O_DIRECT
 #endif
 
 #ifdef TARGET_OS_LINUX
@@ -86,6 +82,8 @@
 
 #define TRACE_FILE	"falcon.trace"
 
+extern uint		falcon_direct_io;
+
 static const int TRACE_SYNC_START	= -1;
 static const int TRACE_SYNC_END		= -2;
 
@@ -120,7 +118,7 @@ IO::~IO()
 bool IO::openFile(const char * name, bool readOnly)
 {
 	fileName = name;
-	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : WRITE_MODE | O_RDWR | O_BINARY);
+	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode() | O_RDWR | O_BINARY);
 
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
@@ -149,7 +147,7 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 
 	fileName = name;
 	fileId = ::open (fileName,
-					WRITE_MODE | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+					getWriteMode() | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
 					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 
 	if (fileId < 0)
@@ -571,4 +569,14 @@ void IO::reportWrites(void)
 		writeTypes[WRITE_TYPE_PAGE_WRITER]);
 		
 	memset(writeTypes, 0, sizeof(writeTypes));
+}
+
+int IO::getWriteMode(void)
+{
+#ifdef O_DIRECT
+	if (falcon_direct_io)
+		return O_DIRECT;
+#endif
+
+	return O_SYNC;
 }

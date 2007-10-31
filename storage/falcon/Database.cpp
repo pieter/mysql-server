@@ -107,9 +107,7 @@ static const char THIS_FILE[]=__FILE__;
 #define STATEMENT_RETIREMENT_AGE	60
 #define RECORD_RETIREMENT_AGE		60
 
-#ifdef STORAGE_ENGINE
 extern uint falcon_debug_trace;
-#endif
 
 static const char *createTables = 
 	"create table Tables (\
@@ -456,6 +454,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	updateCardinality = NULL;
 	lastScavenge = 0;
 	scavengeCycle = 0;
+	serialLogBlockSize = configuration->serialLogBlockSize;
 	longSync = false;
 	recordDataPool = MemMgrGetFixedPool(MemMgrPoolRecordData);
 	//recordObjectPool = MemMgrGetFixedPool(MemMgrPoolRecordObject);
@@ -656,7 +655,8 @@ void Database::createDatabase(const char * filename)
 		upgradeSystemTables();
 		scheduler->start();
 		internalScheduler->start();
-
+		serialLogBlockSize = serialLog->getBlockSize();
+		dbb->updateSerialLogBlockSize();
 		commitSystemTransaction();
 		serialLog->checkpoint(true);
 		}
@@ -2240,12 +2240,9 @@ void Database::updateCardinalities(void)
 			}
 		}
 	
-	if (hit)
-		{
-		sync.unlock();
-		syncSystemTransaction.unlock();
-		commitSystemTransaction();
-		}
+	sync.unlock();
+	syncSystemTransaction.unlock();
+	commitSystemTransaction();
 }
 
 void Database::sync()

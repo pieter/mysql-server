@@ -61,6 +61,7 @@ public:
 	int			useCount;
 	int			maxThreads;
 	uint		maxTransactionBacklog;
+	short		serialLogBlockSize;
 	bool		schedulerEnabled;
 };
 

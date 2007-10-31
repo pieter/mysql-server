@@ -66,11 +66,20 @@ void SerialLogWindow::setPosition(SerialLogFile *logFile, int64 logOrigin)
 
 SerialLogBlock* SerialLogWindow::readFirstBlock()
 {
-	uint32 length = file->read(origin, sectorSize, buffer);
+	uint32 length;
+	
+	try
+		{
+		length = file->read(origin, sectorSize, buffer);
+		}
+	catch (SQLException&)
+		{
+		return NULL;
+		}
 
 	if (length != sectorSize)
 		return NULL;
-
+		
 	SerialLogBlock *block = (SerialLogBlock*) buffer;
 
 	if (block->creationTime != (uint32) log->creationTime || 

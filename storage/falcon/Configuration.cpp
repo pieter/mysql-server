@@ -85,6 +85,7 @@ Configuration::Configuration(const char *configFile)
 {
 	checkpointSchedule = "7,37 * * * * *";
 	scavengeSchedule = "15,45 * * * * *";
+	serialLogBlockSize			= falcon_serial_log_block_size;
 
 #ifdef STORAGE_ENGINE
 	recordMemoryMax				= falcon_record_memory_max;
@@ -140,12 +141,10 @@ Configuration::Configuration(const char *configFile)
 	serialLogWindows			= 10;
 	initialAllocation			= 0;
 	allocationExtent			= 10;
-	disableFsync				= false;
 	pageCacheSize				= getMemorySize(PAGE_CACHE_MEMORY);
 	indexChillThreshold			= 4 * ONE_MB;
 	recordChillThreshold		= 5 * ONE_MB;
 	maxTransactionBacklog		= MAX_TRANSACTION_BACKLOG;
-	disableFsync				= false;
 #endif
 
 	javaInitialAllocation = 0;
@@ -219,6 +218,8 @@ Configuration::Configuration(const char *configFile)
 				checkpointSchedule = value;
 			else if (parameter.equalsNoCase ("max_threads"))
 				maxThreads = atoi(value);
+			else if (parameter.equalsNoCase ("serial_log_block_size"))
+				serialLogBlockSize = atoi(value);
 			else if (parameter.equalsNoCase ("scrub"))
 				Log::scrubWords (value);
 			else if (parameter.equalsNoCase ("scheduler"))

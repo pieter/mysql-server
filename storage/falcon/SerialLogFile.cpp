@@ -22,7 +22,6 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <io.h>
-#define WRITE_MODE			0
 #else
 
 #ifdef STORAGE_ENGINE
@@ -47,16 +46,13 @@
 #include "SQLError.h"
 #include "Database.h"
 #include "Log.h"
+#include "IOx.h"
 
 
 #ifndef O_BINARY
 #define O_BINARY	0
 #endif
 
-#ifndef WRITE_MODE
-#define WRITE_MODE			O_DIRECT
-//#define WRITE_MODE			O_SYNC
-#endif
 
 extern uint	falcon_serial_log_priority;
 
@@ -77,6 +73,7 @@ SerialLogFile::SerialLogFile(Database *db)
 	offset = 0;
 	highWater = 0;
 	writePoint = 0;
+	sectorSize = database->serialLogBlockSize;
 }
 
 SerialLogFile::~SerialLogFile()
@@ -117,21 +114,20 @@ void SerialLogFile::open(JString filename, bool create)
 	if (!GetDiskFreeSpace(pathName, &sectorsPerCluster, &bytesPerSector, &numberFreeClusters, &numberClusters))
 		throw SQLError(IO_ERROR, "GetDiskFreeSpace failed for \"%s\"", (const char*) pathName);
 
-	sectorSize = bytesPerSector;
-	//fileLength = ROUNDUP(fileLength, sectorSize);
+	sectorSize = MAX(bytesPerSector, database->serialLogBlockSize);
 #else
 
 	if (create)
-		handle = ::open(filename,  WRITE_MODE | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+		handle = ::open(filename,  IO::getWriteMode() | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 	else
-		handle = ::open(filename, WRITE_MODE | O_RDWR | O_BINARY);
+		handle = ::open(filename, IO::getWriteMode() | O_RDWR | O_BINARY);
 
 	if (handle <= 0)		
 		throw SQLEXCEPTION (IO_ERROR, "can't open file \"%s\": %s (%d)", 
 							(const char*) filename, strerror (errno), errno);
 
 	fileName = filename;
-	sectorSize = 4096;
+	sectorSize = MAX(512, database->serialLogBlockSize);
 #endif
 
 	if (create)
@@ -193,9 +189,6 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 #else
 	Sync sync (&syncObject, "IO::pwrite");
 	sync.lock (Exclusive);
-
-	longSeek(offset);
-	uint32 n = ::write(handle, data, effectiveLength);
 
 	if (position != offset)
 		{

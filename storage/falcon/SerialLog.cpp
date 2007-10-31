@@ -1528,3 +1528,8 @@ void SerialLog::blockUpdates(void)
 		++backlogStalls;
 		}
 }
+
+int SerialLog::getBlockSize(void)
+{
+	return file1->sectorSize;
+}

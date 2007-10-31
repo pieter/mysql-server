@@ -978,6 +978,9 @@ int32 Table::getBlobId(Value * value, int32 oldId, bool cloneFlag, Transaction *
 			;
 		}
 
+	if (!blobSection)
+		blobSection = dbb->findSection(blobSectionId);
+
 	Blob *blob = value->getBlob();
 	int32 recordNumber = dbb->insertStub(blobSectionId, transaction);
 	blob->length();

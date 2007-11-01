@@ -534,7 +534,7 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 			int spaceAvailable = deleteLine(dataBdb, index->line, bdb->pageNumber, transId, locatorPage, line);
 			locatorPage->deleteLine(line, spaceAvailable);
 			ASSERT(index->page == 0 && index->line == 0);
-			//locatorPage->validateSpaceSlots();
+			locatorPage->validateSpaceSlots();
 			bdb->release(REL_HISTORY);
 
 			if (flags & SECTION_FULL)
@@ -678,7 +678,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 				}
 
 			bdb->release(REL_HISTORY);
-			//recordLocatorPage->validateSpaceSlots();
+			recordLocatorPage->validateSpaceSlots();
 			}
 		}
 		
@@ -688,7 +688,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 	BDB_HISTORY(bdb);
 	DataPage *page = (DataPage*) bdb->buffer;
 	page->maxLine = 0;
-	//recordLocatorPage->validateSpaceSlots();
+	recordLocatorPage->validateSpaceSlots();
 	RecordIndex temp;
 	int spaceAvailable = page->storeRecord(dbb, bdb, &temp, length, stream, overflowPageNumber, transId, earlyWrite);
 	
@@ -1323,7 +1323,8 @@ void Section::redoDataPage(int32 pageNumber, int32 locatorPageNumber)
 	Bdb *locatorBdb = dbb->fetchPage(locatorPageNumber, PAGE_record_locator, Shared);
 	BDB_HISTORY(locatorBdb);
 	RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
-
+	locatorPage->validateSpaceSlots();
+	
 	for (int n = 0; n < locatorPage->maxLine; ++n)
 		if (locatorPage->elements[n].page == pageNumber)
 			{
@@ -1336,6 +1337,7 @@ void Section::redoDataPage(int32 pageNumber, int32 locatorPageNumber)
 			dataPage->lineIndex[line].length = 0;
 			}
 	
+	locatorPage->validateSpaceSlots();
 	locatorBdb->release(REL_HISTORY);
 	bdb->release(REL_HISTORY);
 }
@@ -1375,6 +1377,7 @@ void Section::redoSectionLine(Dbb* dbb, int32 pageNumber, int32 dataPageNumber)
 	BDB_HISTORY(bdb);
 	bdb->mark(NO_TRANSACTION);
 	RecordLocatorPage *page = (RecordLocatorPage*) bdb->buffer;
+	//page->validateSpaceSlots();
 	page->expungeDataPage(dataPageNumber);
 	bdb->release(REL_HISTORY);
 }

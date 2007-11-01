@@ -48,6 +48,7 @@ SRLIndexDelete::~SRLIndexDelete()
 
 void SRLIndexDelete::append(Dbb *dbb, int32 indexId, int idxVersion, IndexKey *key, int32 recordNumber, TransId transactionId)
 {
+	ASSERT(idxVersion <= INDEX_CURRENT_VERSION);
 	START_RECORD(srlIndexDelete, "SRLIndexDelete::append");
 	putInt(dbb->tableSpaceId);
 	putInt(indexId);
@@ -69,6 +70,7 @@ void SRLIndexDelete::read()
 	recordId = getInt();
 	length = getInt();
 	data = getData(length);
+	ASSERT(indexVersion <= INDEX_CURRENT_VERSION);
 }
 
 

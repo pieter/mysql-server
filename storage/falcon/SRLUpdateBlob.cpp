@@ -30,7 +30,7 @@ SRLUpdateBlob::~SRLUpdateBlob(void)
 
 void SRLUpdateBlob::append(Dbb *dbb, int32 sectionId, TransId transId, int recordNumber, Stream* stream)
 {
-	START_RECORD(srlUpdateBlob, "SRLUpdateBlob::append");
+	START_RECORD(srlSmallBlob, "SRLUpdateBlob::append");
 	putInt(dbb->tableSpaceId);
 	putInt(sectionId);
 	putInt(transId);

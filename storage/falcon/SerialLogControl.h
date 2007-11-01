@@ -109,7 +109,7 @@ public:
 	SRLRecordStub		recordStub;
 	SRLSequence			sequence;
 	SRLCheckpoint		checkpoint;
-	SRLBlobUpdate		blobUpdate;
+	SRLBlobUpdate		largeBlob;
 	SRLDelete			deleteData;
 	SRLDropTable		dropTable;
 	SRLCreateSection	createSection;
@@ -133,7 +133,7 @@ public:
 	SRLCreateTableSpace	createTableSpace;
 	SRLDropTableSpace	dropTableSpace;
 	SRLBlobDelete		blobDelete;
-	SRLUpdateBlob		updateBlob;
+	SRLUpdateBlob		smallBlob;
 	SRLSession			session;
 };
 

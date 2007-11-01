@@ -94,8 +94,8 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 		case srlCheckpoint:
 			return &checkpoint;
 
-		case srlBlobUpdate:
-			return &blobUpdate;
+		case srlLargBlob:
+			return &largeBlob;
 
 		case srlDropTable:
 			return &dropTable;
@@ -166,8 +166,8 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 		case srlSession:
 			return &session;
 			
-		case srlUpdateBlob:
-			return &updateBlob;
+		case srlSmallBlob:
+			return &smallBlob;
 			
 		default:
 			ASSERT(false);

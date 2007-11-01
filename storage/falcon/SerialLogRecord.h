@@ -43,7 +43,7 @@ static const int srlWordUpdate		= 6;
 static const int srlRecordStub		= 7;
 static const int srlCheckpoint		= 8;
 static const int srlSequence		= 9;
-static const int srlBlobUpdate		= 10;
+static const int srlLargBlob		= 10;
 static const int srlRollback		= 11;
 static const int srlDelete			= 12;
 static const int srlDropTable		= 13;
@@ -68,7 +68,7 @@ static const int srlOverflowPages	= 31;
 static const int srlCreateTableSpace= 32;
 static const int srlDropTableSpace	= 33;
 static const int srlBlobDelete		= 34;
-static const int srlUpdateBlob		= 35;
+static const int srlSmallBlob		= 35;
 static const int srlSession			= 36;
 static const int srlMax				= 37;
 

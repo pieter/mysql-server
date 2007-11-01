@@ -892,9 +892,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       /*
         Multiple queries exits, execute them individually
       */
-      if (thd->lock || thd->open_tables || thd->derived_tables ||
-          thd->prelocked_mode)
-        close_thread_tables(thd);
+      close_thread_tables(thd);
       ulong length= (ulong)(packet_end - next_packet);
 
       log_slow_statement(thd);
@@ -1231,12 +1229,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
     break;
   }
-  if (thd->lock || thd->open_tables || thd->derived_tables ||
-      thd->prelocked_mode)
-  {
-    THD_SET_PROC_INFO(thd, "closing tables");
-    close_thread_tables(thd);			/* Free tables */
-  }
+
+  THD_SET_PROC_INFO(thd, "closing tables");
+  /* Free tables */
+  close_thread_tables(thd);
+
   /*
     assume handlers auto-commit (if some doesn't - transaction handling
     in MySQL should be redesigned to support it; it's a big change,

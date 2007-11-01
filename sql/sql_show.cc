@@ -1722,7 +1722,7 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
         thd_info->state_info= (char*) (tmp->net.reading_or_writing ?
                                        (tmp->net.reading_or_writing == 2 ?
                                         "Writing to net" :
-                                        thd_info->command == COM_SLEEP ? "" :
+                                        thd_info->command == COM_SLEEP ? NullS :
                                         "Reading from net") :
                                        tmp->proc_info ? tmp->proc_info :
                                        tmp->mysys_var &&
@@ -1848,7 +1848,7 @@ int fill_schema_processlist(THD* thd, TABLE_LIST* tables, COND* cond)
       val= (char*) (tmp->net.reading_or_writing ?
                     (tmp->net.reading_or_writing == 2 ?
                      "Writing to net" :
-                     tmp->command == COM_SLEEP ? "" :
+                     tmp->command == COM_SLEEP ? NullS :
                      "Reading from net") :
                     tmp->proc_info ? tmp->proc_info :
                     tmp->mysys_var &&

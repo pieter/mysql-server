@@ -1035,7 +1035,7 @@ void end_connection(THD *thd)
   Initialize THD to handle queries
 */
 
-static void prepare_new_connection_state(THD* thd)
+void prepare_new_connection_state(THD* thd)
 {
   Security_context *sctx= thd->security_ctx;
 

@@ -5,3 +5,12 @@
 #
 --error 1477
 CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=MyISAM;
+
+#
+# BUG#31114 - falcon : creating tablespace with same name twice returns
+#             Unknown error -103
+#
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
+--error 1655
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts2.fts' ENGINE=falcon;
+DROP TABLESPACE ts1 ENGINE=falcon;

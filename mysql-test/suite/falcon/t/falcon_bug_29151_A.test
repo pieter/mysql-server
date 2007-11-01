@@ -39,7 +39,6 @@ connection conn1;
 BEGIN;
 SELECT * FROM t1;
 # This one blocks in case the other transaction aborts.
---error HY000
 --send UPDATE t1 SET c = 'updated' WHERE a = 490
 
 --echo # Switch to connection default
@@ -50,12 +49,13 @@ COMMIT;
 
 --echo # Switch to connection conn1
 connection conn1;
+--error 1020
 --reap
 SELECT * FROM t1;
-#--error 0,65433
-#DELETE FROM t1 WHERE a = 490;
-#--error ER_DUP_ENTRY
-#INSERT INTO t1 VALUES(490, 2, 'inserted');
+--error 1020
+DELETE FROM t1 WHERE a = 490;
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES(490, 2, 'inserted');
 COMMIT;
 
 
@@ -72,7 +72,6 @@ INSERT INTO t1 VALUES(490, 3, 'inserted');
 connection default;
 BEGIN;
 SELECT * FROM t1;
---error 0,65433
 --send DELETE FROM t1 WHERE a = 490
 
 --echo # Switch to connection conn1
@@ -83,16 +82,17 @@ COMMIT;
 
 --echo # Switch to connection default
 connection default;
+--error 1020
 --reap
 SELECT * FROM t1;
-COMMIT;
+ROLLBACK;
 
 # -------------------------------------------------------
 # Test if an INSERT will fail after waiting
 # -------------------------------------------------------
 
-INSERT INTO t1 VALUES(490, 4, 'inserted');
 BEGIN;
+SELECT * FROM t1;
 UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
 
@@ -100,7 +100,6 @@ DELETE FROM t1 WHERE a = 490;
 connection conn1;
 BEGIN;
 SELECT * FROM t1;
---error ER_DUP_ENTRY
 --send INSERT INTO t1 VALUES(490, 5, 'inserted')
 
 --echo # Switch to connection default
@@ -111,6 +110,7 @@ COMMIT;
 
 --echo # Switch to connection conn1
 connection conn1;
+--error ER_DUP_ENTRY
 --reap
 SELECT * FROM t1;
 COMMIT;

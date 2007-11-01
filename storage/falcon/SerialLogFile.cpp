@@ -127,6 +127,9 @@ void SerialLogFile::open(JString filename, bool create)
 							(const char*) filename, strerror (errno), errno);
 
 	fileName = filename;
+	struct stat statBuffer;
+	fstat(handle, &statBuffer);
+	//sectorSize = MAX(statBuffer.st_blksize, database->serialLogBlockSize);
 	sectorSize = MAX(512, database->serialLogBlockSize);
 #endif
 

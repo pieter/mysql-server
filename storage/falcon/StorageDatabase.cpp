@@ -641,6 +641,9 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 			++numberIndexes;
 			}
 
+		Sync sync(&database->syncSysConnection, "StorageDatabase::renameTable");
+		sync.lock(Exclusive);
+
 		for (int n = firstIndex; n < numberIndexes; ++n)
 			{
 			char indexName[256];
@@ -654,8 +657,6 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 				}
 			}
 
-		Sync sync(&database->syncSysConnection, "StorageDatabase::renameTable");
-		sync.lock(Exclusive);
 		table->rename(schemaName, tableName);
 
 		if (sequence)

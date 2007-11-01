@@ -614,7 +614,7 @@ const char **StorageInterface::bas_ext(void) const
 ulonglong StorageInterface::table_flags(void) const
 {
 	DBUG_ENTER("StorageInterface::table_flags");
-	DBUG_RETURN(HA_REC_NOT_IN_SEQ | HA_NULL_IN_KEY | HA_AUTO_PART_KEY |
+	DBUG_RETURN(HA_REC_NOT_IN_SEQ | HA_NULL_IN_KEY | // HA_AUTO_PART_KEY |
 	            HA_PARTIAL_COLUMN_READ | HA_CAN_GEOMETRY | HA_BINLOG_ROW_CAPABLE);
 }
 

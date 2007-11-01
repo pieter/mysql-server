@@ -92,6 +92,12 @@ typedef struct ndb_index_data {
   NdbRecord *ndb_unique_record_row;
 } NDB_INDEX_DATA;
 
+typedef enum ndb_write_op {
+  NDB_INSERT = 0,
+  NDB_UPDATE = 1,
+  NDB_PK_UPDATE = 2
+} NDB_WRITE_OP;
+
 class NDB_ALTER_DATA : public Sql_alloc
 {
 public:
@@ -181,9 +187,30 @@ struct Ndb_tuple_id_range_guard {
 
 #ifdef HAVE_NDB_BINLOG
 /* NDB_SHARE.flags */
-#define NSF_HIDDEN_PK 1 /* table has hidden primary key */
-#define NSF_BLOB_FLAG 2 /* table has blob attributes */
-#define NSF_NO_BINLOG 4 /* table should not be binlogged */
+#define NSF_HIDDEN_PK   1u /* table has hidden primary key */
+#define NSF_BLOB_FLAG   2u /* table has blob attributes */
+#define NSF_NO_BINLOG   4u /* table should not be binlogged */
+#define NSF_BINLOG_FULL 8u /* table should be binlogged with full rows */
+#define NSF_BINLOG_USE_UPDATE 16u  /* table update should be binlogged using
+                                     update log event */
+inline void set_binlog_logging(NDB_SHARE *share)
+{ share->flags&= ~NSF_NO_BINLOG; }
+inline void set_binlog_nologging(NDB_SHARE *share)
+{ share->flags|= NSF_NO_BINLOG; }
+inline my_bool get_binlog_nologging(NDB_SHARE *share)
+{ return (share->flags & NSF_NO_BINLOG) != 0; }
+inline void set_binlog_updated_only(NDB_SHARE *share)
+{ share->flags&= ~NSF_BINLOG_FULL; }
+inline void set_binlog_full(NDB_SHARE *share)
+{ share->flags|= NSF_BINLOG_FULL; }
+inline my_bool get_binlog_full(NDB_SHARE *share)
+{ return (share->flags & NSF_BINLOG_FULL) != 0; }
+inline void set_binlog_use_write(NDB_SHARE *share)
+{ share->flags&= ~NSF_BINLOG_USE_UPDATE; }
+inline void set_binlog_use_update(NDB_SHARE *share)
+{ share->flags|= NSF_BINLOG_USE_UPDATE; }
+inline my_bool get_binlog_use_update(NDB_SHARE *share)
+{ return (share->flags & NSF_BINLOG_USE_UPDATE) != 0; }
 #endif
 
 typedef enum ndb_query_state_bits {
@@ -487,7 +514,7 @@ private:
                              void *tab);
   int set_range_data(void *tab, partition_info* part_info);
   int set_list_data(void *tab, partition_info* part_info);
-  int complemented_read(const uchar *old_data, uchar *new_data,
+  int ndb_pk_update_row(const uchar *old_data, uchar *new_data,
                         uint32 old_part_id);
   int pk_read(const uchar *key, uint key_len, uchar *buf, uint32 part_id);
   int ordered_index_scan(const key_range *start_key,
@@ -511,7 +538,7 @@ private:
                                       const NdbOperation *first,
                                       const NdbOperation *last,
                                       uint errcode);
-  int peek_indexed_rows(const uchar *record, bool check_pk);
+  int peek_indexed_rows(const uchar *record, NDB_WRITE_OP write_op);
   int scan_handle_lock_tuple(NdbScanOperation *scanOp, NdbTransaction *trans);
   int fetch_next(NdbScanOperation* op);
   int next_result(uchar *buf); 
@@ -562,6 +589,7 @@ private:
                       const MY_BITMAP *bitmap, uint *set_count);
   friend int g_get_ndb_blobs_value(NdbBlob *ndb_blob, void *arg);
   void eventSetAnyValue(THD *thd, NdbOperation *op);
+  bool check_index_fields_in_write_set(uint keyno);
 
   NdbOperation *pk_unique_index_read_key(uint idx, const uchar *key, uchar *buf,
                                          NdbOperation::LockMode lm);
@@ -601,7 +629,7 @@ private:
   int start_statement(THD *thd, Thd_ndb *thd_ndb, Ndb* ndb);
   int init_handler_for_statement(THD *thd, Thd_ndb *thd_ndb);
 
-  NdbTransaction *m_active_trans;
+  Thd_ndb *m_thd_ndb;
   NdbScanOperation *m_active_cursor;
   const NdbDictionary::Table *m_table;
   /*
@@ -703,6 +731,7 @@ private:
   bool m_disable_multi_read;
   const uchar *m_multi_range_result_ptr;
   const NdbOperation *m_current_multi_operation;
+  NdbIndexScanOperation *m_multi_cursor;
   Ndb *get_ndb();
 };
 

@@ -41,7 +41,7 @@ SRLRecordLocator::~SRLRecordLocator()
 
 void SRLRecordLocator::append(Dbb *dbb, TransId transId, int id, int seq, int32 page)
 {
-	START_RECORD(srlSectionIndex, "SRLRecordLocator::append");
+	START_RECORD(srlRecordLocator, "SRLRecordLocator::append");
 
 	if (transId)
 		{

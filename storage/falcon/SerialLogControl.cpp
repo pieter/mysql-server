@@ -109,7 +109,7 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 		case srlFreePage:
 			return &freePage;
 
-		case srlSectionIndex:
+		case srlRecordLocator:
 			return &recordLocator;
 
 		case srlDataPage:

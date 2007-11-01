@@ -282,8 +282,8 @@ bool handle_select(THD *thd, LEX *lex, select_result *result,
 		      result, unit, select_lex);
   }
   DBUG_PRINT("info",("res: %d  report_error: %d", res,
-		     thd->net.report_error));
-  res|= thd->net.report_error;
+		     thd->is_error()));
+  res|= thd->is_error();
   if (unlikely(res))
     result->abort();
 
@@ -512,7 +512,7 @@ JOIN::prepare(Item ***rref_pointer_array,
 			 (having->fix_fields(thd, &having) ||
 			  having->check_cols(1)));
     select_lex->having_fix_field= 0;
-    if (having_fix_rc || thd->net.report_error)
+    if (having_fix_rc || thd->is_error())
       DBUG_RETURN(-1);				/* purecov: inspected */
     thd->lex->allow_sum_func= save_allow_sum_func;
   }
@@ -1365,7 +1365,7 @@ JOIN::optimize()
   }
 
   conds= optimize_cond(this, conds, join_list, &cond_value);   
-  if (thd->net.report_error)
+  if (thd->is_error())
   {
     error= 1;
     DBUG_PRINT("error",("Error from optimize_cond"));
@@ -1374,7 +1374,7 @@ JOIN::optimize()
 
   {
     having= optimize_cond(this, having, join_list, &having_value);
-    if (thd->net.report_error)
+    if (thd->is_error())
     {
       error= 1;
       DBUG_PRINT("error",("Error from optimize_cond"));
@@ -1579,7 +1579,7 @@ JOIN::optimize()
   {
     ORDER *org_order= order;
     order=remove_const(this, order,conds,1, &simple_order);
-    if (thd->net.report_error)
+    if (thd->is_error())
     {
       error= 1;
       DBUG_PRINT("error",("Error from remove_const"));
@@ -1710,7 +1710,7 @@ JOIN::optimize()
     group_list= remove_const(this, (old_group_list= group_list), conds,
                              rollup.state == ROLLUP::STATE_NONE,
 			     &simple_group);
-    if (thd->net.report_error)
+    if (thd->is_error())
     {
       error= 1;
       DBUG_PRINT("error",("Error from remove_const"));
@@ -1733,7 +1733,7 @@ JOIN::optimize()
   {
     group_list= procedure->group= remove_const(this, procedure->group, conds,
 					       1, &simple_group);
-    if (thd->net.report_error)
+    if (thd->is_error())
     {
       error= 1;
       DBUG_PRINT("error",("Error from remove_const"));
@@ -2657,10 +2657,10 @@ JOIN::exec()
       }
     }
   }
-  /* XXX: When can we have here thd->net.report_error not zero? */
-  if (thd->net.report_error)
+  /* XXX: When can we have here thd->is_error() not zero? */
+  if (thd->is_error())
   {
-    error= thd->net.report_error;
+    error= thd->is_error();
     DBUG_VOID_RETURN;
   }
   curr_join->having= curr_join->tmp_having;
@@ -2878,7 +2878,7 @@ mysql_select(THD *thd, Item ***rref_pointer_array,
     join->having_history= (join->having?join->having:join->tmp_having);
   }
 
-  if (thd->net.report_error)
+  if (thd->is_error())
     goto err;
 
   join->exec();
@@ -2904,7 +2904,7 @@ err:
   {
     THD_SET_PROC_INFO(thd, "end");
     err|= select_lex->cleanup();
-    DBUG_RETURN(err || thd->net.report_error);
+    DBUG_RETURN(err || thd->is_error());
   }
   DBUG_RETURN(join->error);
 }
@@ -8463,7 +8463,14 @@ void JOIN::cleanup(bool full)
       for (tab= join_tab, end= tab+tables; tab != end; tab++)
       {
 	if (tab->table)
-	    tab->table->file->ha_index_or_rnd_end();
+        {
+          if (tab->table->key_read)
+          {
+            tab->table->key_read= 0;
+            tab->table->file->extra(HA_EXTRA_NO_KEYREAD);
+          }
+          tab->table->file->ha_index_or_rnd_end();
+        }
       }
     }
     cleanup_sj_tmp_tables(this);//
@@ -13004,7 +13011,7 @@ do_select(JOIN *join,List<Item> *fields,TABLE *table,Procedure *procedure)
     DBUG_PRINT("error",("Error: do_select() failed"));
   }
 #endif
-  DBUG_RETURN(join->thd->net.report_error ? -1 : rc);
+  DBUG_RETURN(join->thd->is_error() ? -1 : rc);
 }
 
 
@@ -18764,7 +18771,7 @@ bool mysql_explain_union(THD *thd, SELECT_LEX_UNIT *unit, select_result *result)
 			first->options | thd->options | SELECT_DESCRIBE,
 			result, unit, first);
   }
-  DBUG_RETURN(res || thd->net.report_error);
+  DBUG_RETURN(res || thd->is_error());
 }
 
 

@@ -130,7 +130,7 @@ static int do_select(JOIN *join,List<Item> *fields,TABLE *tmp_table,
 
 static enum_nested_loop_state
 evaluate_join_record(JOIN *join, JOIN_TAB *join_tab,
-                     int error, my_bool *report_error);
+                     int error);
 static enum_nested_loop_state
 evaluate_null_complemented_join_record(JOIN *join, JOIN_TAB *join_tab);
 static enum_nested_loop_state
@@ -13167,7 +13167,6 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
 
   int error;
   enum_nested_loop_state rc;
-  my_bool *report_error= &(join->thd->net.report_error);
   READ_RECORD *info= &join_tab->read_record;
 
   if (join_tab->flush_weedout_table)
@@ -13204,7 +13203,7 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
     join->thd->row_count= 0;
 
     error= (*join_tab->read_first_record)(join_tab);
-    rc= evaluate_join_record(join, join_tab, error, report_error);
+    rc= evaluate_join_record(join, join_tab, error);
   }
   
   /* 
@@ -13214,7 +13213,7 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
   while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab)
   {
     error= info->read_record(info);
-    rc= evaluate_join_record(join, join_tab, error, report_error);
+    rc= evaluate_join_record(join, join_tab, error);
   }
 
   if (rc == NESTED_LOOP_NO_MORE_ROWS &&
@@ -13323,13 +13322,13 @@ int do_sj_reset(SJ_TMP_TABLE *sj_tbl)
 
 static enum_nested_loop_state
 evaluate_join_record(JOIN *join, JOIN_TAB *join_tab,
-                     int error, my_bool *report_error)
+                     int error)
 {
   bool not_used_in_distinct=join_tab->not_used_in_distinct;
   ha_rows found_records=join->found_records;
   COND *select_cond= join_tab->select_cond;
 
-  if (error > 0 || (*report_error))				// Fatal error
+  if (error > 0 || (join->thd->is_error()))     // Fatal error
     return NESTED_LOOP_ERROR;
   if (error < 0)
     return NESTED_LOOP_NO_MORE_ROWS;

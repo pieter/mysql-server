@@ -685,7 +685,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 					{
 					if (earlyWrite)
 						{
-						dbb->serialLog->logControl->blobUpdate.append(dbb, transId, indexPageNumber, indexSlot, temp.page, temp.line);
+						dbb->serialLog->logControl->largeBlob.append(dbb, transId, indexPageNumber, indexSlot, temp.page, temp.line);
 						bdb->setWriter();
 						}
 					else
@@ -724,7 +724,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 		{
 		if (earlyWrite)
 			{
-			dbb->serialLog->logControl->blobUpdate.append(dbb, transId, indexPageNumber, indexSlot, temp.page, temp.line);
+			dbb->serialLog->logControl->largeBlob.append(dbb, transId, indexPageNumber, indexSlot, temp.page, temp.line);
 			bdb->setWriter();
 			}
 		else

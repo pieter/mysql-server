@@ -29,6 +29,10 @@ ERROR HY000: Record has changed since last read in table 't1'
 SELECT * FROM t1;
 a	b	c
 490	0	inserted
+DELETE FROM t1 WHERE a = 490;
+ERROR HY000: Record has changed since last read in table 't1'
+INSERT INTO t1 VALUES(490, 2, 'inserted');
+ERROR 23000: Duplicate entry '490' for key 'PRIMARY'
 COMMIT;
 BEGIN;
 UPDATE t1 SET c = 'updated' WHERE a = 490;
@@ -50,10 +54,11 @@ ERROR HY000: Record has changed since last read in table 't1'
 SELECT * FROM t1;
 a	b	c
 490	1	inserted
-COMMIT;
-INSERT INTO t1 VALUES(490, 4, 'inserted');
-ERROR 23000: Duplicate entry '490' for key 'PRIMARY'
+ROLLBACK;
 BEGIN;
+SELECT * FROM t1;
+a	b	c
+490	3	inserted
 UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
 # Switch to connection conn1

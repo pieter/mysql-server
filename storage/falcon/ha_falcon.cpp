@@ -1778,6 +1778,8 @@ int StorageInterface::alter_tablespace(handlerton* hton, THD* thd, st_alter_tabl
 		{
 		case CREATE_TABLESPACE:
 			ret = storageHandler->createTablespace(ts_info->tablespace_name, ts_info->data_file_name, falcon_tablespace_mode);
+			if (ret == StorageErrorTableSpaceExist)
+				ret= HA_ERR_TABLESPACE_EXIST;
 			break;
 
 		case DROP_TABLESPACE:

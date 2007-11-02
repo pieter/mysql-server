@@ -74,6 +74,7 @@
 #include "RecordScavenge.h"
 #include "LogStream.h"
 #include "SyncTest.h"
+#include "PriorityScheduler.h"
 
 #ifndef STORAGE_ENGINE
 #include "Applications.h"
@@ -452,6 +453,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	pageWriter = NULL;
 	zombieTables = NULL;
 	updateCardinality = NULL;
+	ioScheduler = new PriorityScheduler;
 	lastScavenge = 0;
 	scavengeCycle = 0;
 	serialLogBlockSize = configuration->serialLogBlockSize;
@@ -466,7 +468,6 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	syncResultSets.setName("Database::syncResultSets");
 	syncConnectionStatements.setName("Database::syncConnectionStatements");
 	syncScavenge.setName("Database::syncScavenge");
-	syncSerialLogIO.setName("Database::syncSerialLogIO");
 }
 
 
@@ -597,6 +598,7 @@ Database::~Database()
 	delete filterSetManager;
 	delete repositoryManager;
 	delete transactionManager;
+	delete ioScheduler;
 }
 
 void Database::createDatabase(const char * filename)
@@ -2247,9 +2249,7 @@ void Database::updateCardinalities(void)
 
 void Database::sync()
 {
-//	if (threshold == 0 || dbb->writesSinceSync > threshold)
-		cache->syncFile(dbb, "sync");
-		
+	cache->syncFile(dbb, "sync");
 	tableSpaceManager->sync();
 }
 

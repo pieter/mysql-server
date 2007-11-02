@@ -38,6 +38,7 @@
 #include "DatabaseCopy.h"
 #include "Database.h"
 #include "Bitmap.h"
+#include "Priority.h"
 
 extern uint falcon_io_threads;
 
@@ -252,8 +253,11 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 			if (bdb->pageNumber == STOP_PAGE)
 				Log::debug("reading page %d/%d\n", bdb->pageNumber, dbb->tableSpaceId);
 #endif
-				
+			
+			Priority priority(database->ioScheduler);
+			priority.schedule(PRIORITY_MEDIUM);	
 			dbb->readPage(bdb);
+			priority.finished();
 			
 			if (actual != lockType)
 				bdb->downGrade(lockType);
@@ -574,7 +578,10 @@ void Cache::writePage(Bdb *bdb, int type)
 	ASSERT(database);
 	markClean (bdb);
 	// time_t start = database->timestamp;
+	Priority priority(database->ioScheduler);
+	priority.schedule(PRIORITY_MEDIUM);	
 	dbb->writePage(bdb, type);
+	priority.finished();
 	
 	/***
 	time_t delta = database->timestamp - start;
@@ -864,7 +871,6 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 void Cache::ioThread(void* arg)
 {
 	((Cache*) arg)->ioThread();
-	Log::debug("Cache::ioThread shutting down\n");
 }
 
 void Cache::ioThread(void)
@@ -873,7 +879,8 @@ void Cache::ioThread(void)
 	syncThread.lock(Shared);
 	Sync flushLock(&syncFlush, "Cache::ioThread");
 	Sync sync(&syncObject, "Cache::ioThread");
-	Sync syncPIO(&database->syncSerialLogIO, "Cache::ioThread");
+	//Sync syncPIO(&database->syncSerialLogIO, "Cache::ioThread");
+	Priority priority(database->ioScheduler);
 	Thread *thread = Thread::getThread("Cache::ioThread");
 	UCHAR *rawBuffer = new UCHAR[ASYNC_BUFFER_SIZE];
 	UCHAR *buffer = (UCHAR*) (((UIPTR) rawBuffer + pageSize - 1) / pageSize * pageSize);
@@ -942,9 +949,9 @@ void Cache::ioThread(void)
 					flushLock.unlock();
 					//Log::debug(" %d Writing %s %d pages: %d - %d\n", thread->threadId, (const char*) dbb->fileName, count, pageNumber, pageNumber + count - 1);
 					int length = p - buffer;
-					syncPIO.lock(Shared);
-					syncPIO.unlock();
+					priority.schedule(PRIORITY_LOW);
 					dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
+					priority.finished();
 					Bdb *next;
 
 					for (bdb = bdbList; bdb; bdb = next)

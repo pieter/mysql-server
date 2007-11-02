@@ -47,6 +47,7 @@
 #include "Database.h"
 #include "Log.h"
 #include "IOx.h"
+#include "Priority.h"
 
 
 #ifndef O_BINARY
@@ -158,13 +159,15 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 {
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
     time_t start = database->timestamp;
-	Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::write");
+	//Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::write");
+	Priority priority(database->ioScheduler);
 	
 	if (!(position == writePoint || position == 0 || writePoint == 0))
 		throw SQLError(IO_ERROR, "serial log left in inconsistent state");
 	
 	if (falcon_serial_log_priority)
-		syncIO.lock(Exclusive);
+		//syncIO.lock(Exclusive);
+		priority.schedule(PRIORITY_HIGH);
 		
 #ifdef _WIN32
 	
@@ -224,10 +227,12 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 {
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
-	Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::read");
+	//Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::read");
+	Priority priority(database->ioScheduler);
 
 	if (falcon_serial_log_priority)
-		syncIO.lock(Exclusive);
+		//syncIO.lock(Exclusive);
+		priority.schedule(PRIORITY_HIGH);
 
 #ifdef _WIN32
 	Sync sync(&syncObject, "SerialLogFile::read");

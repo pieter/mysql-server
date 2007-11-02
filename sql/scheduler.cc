@@ -522,7 +522,7 @@ thread_exit:
 
 /*
   Returns TRUE if the connection needs immediate processing and FALSE if 
-  instead it's queued for libevent processing,
+  instead it's queued for libevent processing or closed,
 */
 static bool libevent_needs_immediate_processing(THD *thd)
 {

@@ -1,0 +1,42 @@
+#--disable_abort_on_error
+
+#
+# 29452: Prevent ohterwise unpreventable deadlocks with a wait lock timout
+#
+--echo *** Bug #29452 - Wait Lock Timout ***
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+SHOW VARIABLES LIKE 'FALCON_LOCK_TIMEOUT';
+SET GLOBAL FALCON_LOCK_TIMEOUT = 2000;
+SHOW VARIABLES LIKE 'FALCON_LOCK_TIMEOUT';
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+
+--echo # Switch to connection default
+connection default;
+CREATE TABLE t1 (a varchar(50), PRIMARY KEY (a)) engine = falcon;
+CREATE TABLE t2 (a varchar(50)) engine = myisam;
+CREATE TRIGGER bi BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO t2 VALUES ('inserted by trigger');
+BEGIN;
+INSERT INTO t1 VALUES('inserted by client 1');
+SELECT * FROM t1;
+SELECT * FROM t2;
+
+--echo # Switch to connection conn1
+connection conn1;
+BEGIN;
+SELECT * FROM t1;
+SELECT * FROM t2;
+--error 1205
+INSERT INTO t1 VALUES('inserted by client 1');
+
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;
+

@@ -53,7 +53,7 @@ SET @@storage_engine = Falcon;
 create table t1 (
 a char(10) not null, 
 b int not null auto_increment, 
-primary key(a,b)
+primary key(b,a)
 );
 drop table t1;
 *** Bug #87 ***
@@ -700,15 +700,15 @@ DROP TABLE IF EXISTS t1;
 CREATE TABLE t1(
 Month date NOT NULL,
 Type tinyint(3) unsigned NOT NULL auto_increment,
-UNIQUE KEY Month (Month,Type)
+UNIQUE KEY Month (Type, Month)
 );
 INSERT INTO t1 VALUES
-('2003-09-01', 1),
-('2003-09-01', 1),
-('2003-09-01', 2),
-('2003-09-01', 2),
-('2003-09-01', 3);
-ERROR 23000: Duplicate entry '2003-09-01-1' for key 'Month'
+(1, '2003-09-01'),
+(1, '2003-09-01'),
+(2, '2003-09-01'),
+(2, '2003-09-01'),
+(3, '2003-09-01');
+ERROR 23000: Duplicate entry '255-0000-00-00' for key 'Month'
 DROP TABLE t1;
 *** Bug #206 ***
 SET @@storage_engine = Falcon;

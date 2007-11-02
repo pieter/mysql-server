@@ -14,3 +14,11 @@ CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
 --error 1655
 CREATE TABLESPACE ts1 ADD DATAFILE 'ts2.fts' ENGINE=falcon;
 DROP TABLESPACE ts1 ENGINE=falcon;
+
+#
+# BUG#31296 - falcon does not remove associated tablespace file.
+#
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
+DROP TABLESPACE ts1 ENGINE=falcon;
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
+DROP TABLESPACE ts1 ENGINE=falcon;

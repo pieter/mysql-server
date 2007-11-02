@@ -1316,10 +1316,13 @@ int StorageInterface::rename_table(const char *from, const char *to)
 	if (ret)
 		DBUG_RETURN(error(ret));
 
-	if ( (ret = storageShare->renameTable(storageConnection, to)) )
-		DBUG_RETURN(ret);
+	ret = storageShare->renameTable(storageConnection, to);
 	
-	DBUG_RETURN(error(ret));
+	if (ret)
+		DBUG_RETURN(error(ret));
+
+	DBUG_RETURN(ret);
+
 }
 
 

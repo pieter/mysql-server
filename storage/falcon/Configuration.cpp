@@ -297,9 +297,10 @@ int64 Configuration::getMemorySize(const char *string)
 	return n;
 }
 
-int64 Configuration::getAvailablePhysicalMemory()
+uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
 {
-	int64 availableMemory = 0;
+	uint64 availableMemory = 0;
+	uint64 totalMemory = 0;
 
 #ifdef _WIN32
 	MEMORYSTATUSEX stat;
@@ -309,7 +310,10 @@ int64 Configuration::getAvailablePhysicalMemory()
 	stat.dwLength = sizeof(stat);
 
 	if (GlobalMemoryStatusEx(&stat) != 0)
+		{
 		availableMemory = stat.ullAvailPhys;
+		totalMemory = stat.ullTotalPhys;
+		}
 	else
 		error = GetLastError();
 
@@ -334,15 +338,24 @@ int64 Configuration::getAvailablePhysicalMemory()
 	availableMemory *= ONE_MB;
 	*/
 #else
-	int32 pageSize		= sysconf(_SC_PAGESIZE);
-	//int32 physPages	= sysconf(_SC_PHYS_PAGES);
-	int32 avPhysPages	= sysconf(_SC_AVPHYS_PAGES);
+	int64 pageSize		= (int64)sysconf(_SC_PAGESIZE);
+	int64 physPages		= (int64)sysconf(_SC_PHYS_PAGES);
+	int64 avPhysPages	= (int64)sysconf(_SC_AVPHYS_PAGES);
 
-	if ((pageSize > 0) && (avPhysPages > 0))
-		availableMemory = (pageSize * avPhysPages);
+	if (pageSize > 0 && physPages > 0 && avPhysPages > 0)
+		{
+		availableMemory = (uint64)(pageSize * avPhysPages);
+		totalMemory = (uint64)(pageSize * physPages);
+		}
 #endif
 
-	return availableMemory;
+	if (available)
+		*available = availableMemory;
+	
+	if (total)
+		*total = totalMemory;
+	
+	return totalMemory;
 }
 
 
@@ -395,7 +408,10 @@ void Configuration::setRecordScavengeFloor(int floor)
 
 void Configuration::setRecordMemoryMax(uint64 value)
 {
+	uint64 totalMemory = getPhysicalMemory();
+	
 	recordMemoryMax = MAX(value, MIN_RECORD_MEMORY);
+	recordMemoryMax = MIN(value, totalMemory);
 	
 	setRecordScavengeThreshold(recordScavengeThresholdPct);
 	

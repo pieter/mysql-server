@@ -966,6 +966,7 @@ void StorageHandler::getTablesInfo(InfoTable* infoTable)
 			infoTable->putString(1, (pTable ? pTable : pStr));	// table
 			infoTable->putString(2, (pPart ? pPart : ""));		// partition
 			infoTable->putString(3, resultSet->getString(3));	// tablespace
+			infoTable->putString(4, resultSet->getString(2));	// internal name
 		
 			//for (int n = 0; n < 3; ++n)
 			//	infoTable->putString(n, resultSet->getString(n + 1));

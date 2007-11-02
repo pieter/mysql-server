@@ -118,8 +118,11 @@ IO::~IO()
 bool IO::openFile(const char * name, bool readOnly)
 {
 	fileName = name;
-	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode() | O_RDWR | O_BINARY);
+	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(0) | O_RDWR | O_BINARY);
 
+	if (fileId < 0)
+		fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(1) | O_RDWR | O_BINARY);
+	
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
 							name, strerror (errno), errno);
@@ -147,9 +150,13 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 
 	fileName = name;
 	fileId = ::open (fileName,
-					getWriteMode() | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+					getWriteMode(0) | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
 					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 
+	if (fileId < 0)
+	fileId = ::open (fileName,
+					getWriteMode(1) | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't create file \"%s\", %s (%d)", 
 								name, strerror (errno), errno);
@@ -571,10 +578,10 @@ void IO::reportWrites(void)
 	memset(writeTypes, 0, sizeof(writeTypes));
 }
 
-int IO::getWriteMode(void)
+int IO::getWriteMode(int attempt)
 {
 #ifdef O_DIRECT
-	if (falcon_direct_io)
+	if ((attempt == 0 && falcon_direct_io > 0) || falcon_direct_io > 1)
 		return O_DIRECT;
 #endif
 

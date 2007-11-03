@@ -426,7 +426,7 @@ Bitmap* Index::scanIndex(IndexKey* lowKey, IndexKey* highKey, int searchFlags, T
 		scanDIHash(lowKey, searchFlags, bitmap);
 		}
 
-	if (deferredIndexes.first)
+	else if (deferredIndexes.first)
 		{
 		Sync sync(&deferredIndexes.syncObject, "Index::scanIndex");
 		sync.lock(Shared);

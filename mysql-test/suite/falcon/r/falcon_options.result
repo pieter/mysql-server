@@ -1,6 +1,7 @@
 SHOW VARIABLES LIKE 'falcon_%';
 Variable_name	Value
 falcon_checkpoint_schedule	7 * * * * *
+falcon_consistent_read	ON
 falcon_debug_mask	0
 falcon_debug_server	OFF
 falcon_debug_trace	0
@@ -8,7 +9,6 @@ falcon_direct_io	1
 falcon_gopher_threads	5
 falcon_index_chill_threshold	4
 falcon_initial_allocation	0
-falcon_innodb_compatibility	ON
 falcon_io_threads	2
 falcon_large_blob_threshold	160000
 falcon_lock_timeout	0
@@ -74,6 +74,7 @@ SELECT * FROM INFORMATION_SCHEMA.global_variables
 WHERE variable_name LIKE 'falcon%';
 VARIABLE_NAME	VARIABLE_VALUE
 FALCON_CHECKPOINT_SCHEDULE	7 * * * * *
+FALCON_CONSISTENT_READ	ON
 FALCON_DEBUG_MASK	4096
 FALCON_DEBUG_SERVER	OFF
 FALCON_DEBUG_TRACE	0
@@ -81,7 +82,6 @@ FALCON_DIRECT_IO	1
 FALCON_GOPHER_THREADS	5
 FALCON_INDEX_CHILL_THRESHOLD	4
 FALCON_INITIAL_ALLOCATION	0
-FALCON_INNODB_COMPATIBILITY	ON
 FALCON_IO_THREADS	2
 FALCON_LARGE_BLOB_THRESHOLD	160000
 FALCON_LOCK_TIMEOUT	0

@@ -7,6 +7,7 @@ SELECT * FROM INFORMATION_SCHEMA.global_variables
          WHERE variable_name LiKE 'falcon_%';
 
 SELECT @@falcon_checkpoint_schedule;
+SELECT @@falcon_consistent_read;
 SELECT @@falcon_debug_mask;
 SELECT @@falcon_debug_server;
 SELECT @@falcon_debug_trace;
@@ -14,7 +15,6 @@ SELECT @@falcon_direct_io;
 SELECT @@falcon_gopher_threads;
 SELECT @@falcon_index_chill_threshold;
 SELECT @@falcon_initial_allocation;
-SELECT @@falcon_innodb_compatibility;
 SELECT @@falcon_io_threads;
 SELECT @@falcon_large_blob_threshold;
 SELECT @@falcon_lock_timeout;

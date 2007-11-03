@@ -27,7 +27,7 @@ SRLSession::~SRLSession(void)
 
 void SRLSession::append(int64 priorRecoveryBlock, int64 priorCheckpointBlock)
 {
-	START_RECORD(srlCheckpoint, "SRLCheckpoint::append");
+	START_RECORD(srlSession, "SRLCheckpoint::append");
 	putInt64(priorRecoveryBlock);
 	putInt64(priorCheckpointBlock);
 }

@@ -70,7 +70,6 @@ enum StorageError {
 	StorageErrorTruncation			= -11,
 	StorageErrorUncommittedRecords	= -12,		// more general; used for alter table
 	StorageErrorIndexOverflow		= -13,		// key value is too long
-	StorageErrorWaited				= -14,		// Waited on another transaction.
 	StorageWarningSerializable		= -101,
 	StorageWarningReadUncommitted	= -102,
 	StorageErrorTablesSpaceOperationFailed = -103,

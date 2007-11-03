@@ -9,6 +9,7 @@
 # ----------------------------------------------------- #
 let $engine = 'Falcon';
 eval SET @@storage_engine = $engine;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -73,3 +74,4 @@ COMMIT;
 connection default;
 disconnect conn1;
 DROP TABLE t1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

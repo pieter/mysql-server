@@ -425,8 +425,6 @@ int StorageDatabase::nextIndexed(StorageTable *storageTable, void* recordBitmap,
 				return StorageErrorOutOfRecordMemory;
 			case DEADLOCK:
 				return StorageErrorDeadlock;
-			case RETRY_AFTER_WAIT:
-				return StorageErrorWaited;
 			}
 
 		return StorageErrorRecordNotFound;

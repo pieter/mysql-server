@@ -7,10 +7,10 @@
 --echo *** Bug #29151 ***
 
 # -----------------------------------------------------
-# --- Initialization for 'InnoDB Compatibility Mode'
+--echo *** Initialization for 'InnoDB Compatibility Mode'
 # -----------------------------------------------------
 SET @@storage_engine = Falcon;
-SET GLOBAL FALCON_INNODB_COMPATIBILITY=ON;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -23,7 +23,7 @@ connect (conn1,localhost,root,,);
 INSERT INTO t1 VALUES(490, 0, 'inserted');
 
 # -------------------------------------------------------
-# Test if an UPDATE will get the new record after waiting
+--echo *** Test if an UPDATE will get the new record after waiting
 # -------------------------------------------------------
 --echo # Switch to connection default
 connection default;
@@ -55,7 +55,7 @@ COMMIT;
 SELECT * FROM t1;
 
 # -------------------------------------------------------
-# Test if a DELETE will get the new record after waiting
+--echo *** Test if a DELETE will get the new record after waiting
 # -------------------------------------------------------
 
 BEGIN;
@@ -81,9 +81,11 @@ connection default;
 SELECT * FROM t1;
 COMMIT;
 SELECT * FROM t1;
+DELETE FROM t1 WHERE a = 490;
+SELECT * FROM t1;
 
 # -------------------------------------------------------
-# Test if an INSERT will wait on a pending non-block
+--echo *** Test if an INSERT will wait on a pending non-block
 # -------------------------------------------------------
 
 INSERT INTO t1 VALUES(490, 4, 'inserted');

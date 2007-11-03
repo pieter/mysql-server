@@ -1,5 +1,6 @@
 *** Bug #29151 ***
 SET @@storage_engine = 'Falcon';
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (
 a int,
@@ -36,3 +37,4 @@ a	b	c
 COMMIT;
 # Switch to connection default
 DROP TABLE t1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

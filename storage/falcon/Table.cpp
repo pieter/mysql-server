@@ -3297,21 +3297,6 @@ Record* Table::fetchForUpdate(Transaction* transaction, Record* source, bool usi
 				throw SQLError(DEADLOCK, "Deadlock on table %s.%s", schemaName, name);
 				
 			case WasActive:
-				/***
-				if (   (usingIndex)
-					&& (   IS_READ_COMMITTED(transaction->isolationLevel)
-					    || IS_WRITE_COMMITTED(transaction->isolationLevel)))
-					{
-					// Let the index be rescanned since what was just committed
-					// may now be visible for changes.
-
-					record->release();
-					throw SQLError(RETRY_AFTER_WAIT, "Waited for record %d on table %s.%s", 
-						recordNumber, schemaName, name);
-					}
-				***/
-				break;
-
 			case RolledBack:
 				break;
 				

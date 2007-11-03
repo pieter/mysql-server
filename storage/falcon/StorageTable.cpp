@@ -131,21 +131,9 @@ int StorageTable::next(int recordNumber, bool lockForUpdate)
 
 int StorageTable::nextIndexed(int recordNumber, bool lockForUpdate)
 {
-	int ret = 0;
 	recordLocked = false;
 
-	// Re-Scan the index if there was a wait
-
-	for (int i = 0; i < MaxRetryAferWait; i++)
-		{
-		ret = storageDatabase->nextIndexed(this, bitmap, recordNumber, lockForUpdate);
-		if (ret == StorageErrorWaited)
-			indexScan();
-		else
-			break;
-		}
-	if (ret == StorageErrorWaited)
-		ret = StorageErrorUpdateConflict;
+	int ret = storageDatabase->nextIndexed(this, bitmap, recordNumber, lockForUpdate);
 
 	return ret;
 }
@@ -483,10 +471,6 @@ int StorageTable::translateError(SQLException *exception, int defaultStorageErro
 
 			case LOCK_TIMEOUT:
 				errorCode = StorageErrorLockTimeout;
-				break;
-
-			case RETRY_AFTER_WAIT:
-				errorCode = StorageErrorWaited;
 				break;
 
 			default:

@@ -135,7 +135,7 @@ public:
 	static int		rollback_by_xid(handlerton* hton, XID* xid);
 
 	static void		updateFsyncDisable(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save);
-	static void		updateInnodbCompatibility(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save);
+	static void		updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save);
 	static void		updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 	static void		updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 	static void		updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);

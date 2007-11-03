@@ -1004,7 +1004,6 @@ void Cache::ioThread(void)
 
 bool Cache::continueWrite(Bdb* startingBdb)
 {
-	int32 pageNumber = startingBdb->pageNumber;
 	Dbb *dbb = startingBdb->dbb;
 	int clean = 1;
 	int dirty = 0;

@@ -276,7 +276,7 @@ void IO::readHeader(Hdr * header)
 	int n = lseek (fileId, 0, SEEK_SET);
 	n = ::read (fileId, buffer, sectorSize);
 
-	if (n < sizeof (Hdr))
+	if (n < (int) sizeof (Hdr))
 		FATAL ("read error on database header");
 	
 	memcpy(header, buffer, sizeof(Hdr));

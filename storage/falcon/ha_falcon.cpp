@@ -83,7 +83,7 @@ FILE					*falcon_log_file;
 uint					falcon_index_chill_threshold;
 uint					falcon_record_chill_threshold;
 uint					falcon_max_transaction_backlog;
-my_bool					falcon_innodb_compatibility;	// default is yes for now.
+my_bool					falcon_consistent_read;	// default is yes.
 
 int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
 						                       TRANSACTION_READ_COMMITTED,
@@ -2794,12 +2794,12 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 	//uint newFalconRecordChillThreshold = *((uint *) save);
 }
 
-void StorageInterface::updateInnodbCompatibility(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
+void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
 {
-	falcon_innodb_compatibility = *(my_bool*) save;
+	falcon_consistent_read = *(my_bool*) save;
 
-	int newRepeatableRead = (falcon_innodb_compatibility ? 
-		TRANSACTION_WRITE_COMMITTED : TRANSACTION_CONSISTENT_READ);
+	int newRepeatableRead = (falcon_consistent_read ? 
+		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
 
 	if (isolation_levels[2] != newRepeatableRead)
 		isolation_levels[2] = newRepeatableRead;
@@ -2922,10 +2922,10 @@ static MYSQL_SYSVAR_UINT(max_transaction_backlog, falcon_max_transaction_backlog
   "Maximum number of backlogged transactions.",
   NULL, NULL, 150, 1, 1000000, 1);
 
-static MYSQL_SYSVAR_BOOL(innodb_compatibility, falcon_innodb_compatibility,
+static MYSQL_SYSVAR_BOOL(consistent_read, falcon_consistent_read,
   PLUGIN_VAR_RQCMDARG,
-  "Enable InnoDB Compatibility Mode for Repeatable Reads",
-  NULL, StorageInterface::updateInnodbCompatibility, TRUE);
+  "Enable ConsistentRead Mode for Repeatable Reads",
+  NULL, StorageInterface::updateConsistentRead, TRUE);
 
 static struct st_mysql_sys_var* falconVariables[]= {
 #define PARAMETER(name, text, min, deflt, max, flags, function) MYSQL_SYSVAR(name),
@@ -2947,7 +2947,7 @@ static struct st_mysql_sys_var* falconVariables[]= {
 	MYSQL_SYSVAR(index_chill_threshold),
 	MYSQL_SYSVAR(record_chill_threshold),
 	MYSQL_SYSVAR(max_transaction_backlog),
-	MYSQL_SYSVAR(innodb_compatibility),
+	MYSQL_SYSVAR(consistent_read),
 	NULL
 };
 

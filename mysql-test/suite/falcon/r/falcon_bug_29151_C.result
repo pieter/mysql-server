@@ -89,3 +89,4 @@ a	b	c
 490	5	inserted
 # Switch to connection default
 DROP TABLE t1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

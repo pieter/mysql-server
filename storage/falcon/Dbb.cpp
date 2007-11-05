@@ -321,7 +321,7 @@ void Dbb::updateBlob(Section *blobSection, int recordNumber, Stream* stream, Tra
 {
 	if (!serialLog->recovering && stream && stream->totalLength < (int) falcon_large_blob_threshold)
 		{
-		serialLog->logControl->updateBlob.append(this, blobSection->sectionId, transaction->transactionId, recordNumber, stream);
+		serialLog->logControl->smallBlob.append(this, blobSection->sectionId, transaction->transactionId, recordNumber, stream);
 		updateRecord(blobSection, recordNumber, stream, transaction, false);
 		}
 	else

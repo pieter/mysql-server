@@ -166,7 +166,7 @@ SerialLog::~SerialLog()
 		delete info;
 		}
 	
-	for (Gopher *gopher; gopher = gophers;)
+	for (Gopher *gopher; (gopher = gophers);)
 		{
 		gophers = gopher->next;
 		delete gopher;
@@ -602,7 +602,9 @@ void SerialLog::createNewWindow(void)
 void SerialLog::shutdown()
 {
 	finishing = true;
-	wakeup();
+	
+	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
+		gopher->wakeup();
 
 	// Wait for all gopher threads to exit
 	
@@ -613,11 +615,6 @@ void SerialLog::shutdown()
 		unblockUpdates();
 
 	checkpoint(false);
-	
-	/***
-	if (workerThread)
-		workerThread->shutdown();
-	***/
 	
 	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
 		gopher->shutdown();
@@ -704,7 +701,11 @@ void SerialLog::wakeup()
 	***/
 	
 	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
-		gopher->wakeup();
+		if (gopher->workerThread->sleeping)
+			{
+			gopher->wakeup();
+			break;
+			}
 }
 
 void SerialLog::release(SerialLogWindow *window)

@@ -66,9 +66,13 @@ public:
 	
 	static void ioThread(void* arg);
 		
-	Bdb*	fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
-	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
-	Bdb*	trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType);
+	Bdb*		fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
+	Bdb*		fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
+	Bdb*		trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType);
+
+	void		analyzeFlush(void);
+	static void	openTraceFile(void);
+	static void	closeTraceFile(void);
 
 	Cache(Database *db, int pageSize, int hashSize, int numberBuffers);
 	virtual ~Cache();

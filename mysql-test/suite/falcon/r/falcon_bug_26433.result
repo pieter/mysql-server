@@ -48,7 +48,7 @@ CREATE INDEX i1 ON t1 (b, a);
 CREATE INDEX i2 ON t1 (c, a);
 select 'd';
 SET v = 0;
-while v < 1500 do
+while v < 500 do
 SET v500 = rand(@a) * 500;
 SET v499  = rand(@a) * 499;
 SET v255  = rand(@a) * 255;

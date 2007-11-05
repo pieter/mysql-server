@@ -158,6 +158,8 @@ ADD_LIBRARY(ha_falcon
 		Parameters.cpp 
 		PreparedStatement.cpp
 		PrettyPrint.cpp 
+		Priority.cpp
+		PriorityScheduler.cpp
 		Privilege.cpp 
 		PrivilegeObject.cpp 
 		Protocol.cpp
@@ -426,6 +428,8 @@ ADD_LIBRARY(ha_falcon
 		Parameters.h 
 		PreparedStatement.h
 		PrettyPrint.h 
+		Priority.h
+		PriorityScheduler.h
 		Privilege.h 
 		PrivilegeObject.h 
 		Protocol.h

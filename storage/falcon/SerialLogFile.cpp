@@ -47,6 +47,7 @@
 #include "Database.h"
 #include "Log.h"
 #include "IOx.h"
+#include "Priority.h"
 
 
 #ifndef O_BINARY
@@ -117,16 +118,25 @@ void SerialLogFile::open(JString filename, bool create)
 	sectorSize = MAX(bytesPerSector, database->serialLogBlockSize);
 #else
 
-	if (create)
-		handle = ::open(filename,  IO::getWriteMode() | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-	else
-		handle = ::open(filename, IO::getWriteMode() | O_RDWR | O_BINARY);
+	for (int attempt = 0; attempt < 2; ++attempt)
+		{
+		if (create)
+			handle = ::open(filename,  IO::getWriteMode(attempt) | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+		else
+			handle = ::open(filename, IO::getWriteMode(attempt) | O_RDWR | O_BINARY);
+
+		if (handle > 0)
+			break;
+		}
 
 	if (handle <= 0)		
 		throw SQLEXCEPTION (IO_ERROR, "can't open file \"%s\": %s (%d)", 
 							(const char*) filename, strerror (errno), errno);
 
 	fileName = filename;
+	struct stat statBuffer;
+	fstat(handle, &statBuffer);
+	//sectorSize = MAX(statBuffer.st_blksize, database->serialLogBlockSize);
 	sectorSize = MAX(512, database->serialLogBlockSize);
 #endif
 
@@ -155,13 +165,15 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 {
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
     time_t start = database->timestamp;
-	Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::write");
+	//Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::write");
+	Priority priority(database->ioScheduler);
 	
 	if (!(position == writePoint || position == 0 || writePoint == 0))
 		throw SQLError(IO_ERROR, "serial log left in inconsistent state");
 	
 	if (falcon_serial_log_priority)
-		syncIO.lock(Exclusive);
+		//syncIO.lock(Exclusive);
+		priority.schedule(PRIORITY_HIGH);
 		
 #ifdef _WIN32
 	
@@ -221,10 +233,12 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 {
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
-	Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::read");
+	//Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::read");
+	Priority priority(database->ioScheduler);
 
 	if (falcon_serial_log_priority)
-		syncIO.lock(Exclusive);
+		//syncIO.lock(Exclusive);
+		priority.schedule(PRIORITY_HIGH);
 
 #ifdef _WIN32
 	Sync sync(&syncObject, "SerialLogFile::read");

@@ -247,7 +247,7 @@ int StorageDatabase::nextRow(StorageTable* storageTable, int recordNumber, bool 
 				return StorageErrorRecordNotFound;
 
 			record = (lockForUpdate)
-			               ? table->fetchForUpdate(transaction, candidate)
+			               ? table->fetchForUpdate(transaction, candidate, false)
 			               : candidate->fetchVersion(transaction);
 			
 			if (!record)
@@ -311,7 +311,7 @@ int StorageDatabase::fetch(StorageConnection *storageConnection, StorageTable* s
 			return StorageErrorRecordNotFound;
 
 		Record *record = (lockForUpdate)
-		               ? table->fetchForUpdate(transaction, candidate)
+		               ? table->fetchForUpdate(transaction, candidate, false)
 		               : candidate->fetchVersion(transaction);
 		
 		if (!record)
@@ -384,7 +384,7 @@ int StorageDatabase::nextIndexed(StorageTable *storageTable, void* recordBitmap,
 			if (candidate)
 				{
 				Record *record = (lockForUpdate) 
-				               ? table->fetchForUpdate(transaction, candidate)
+				               ? table->fetchForUpdate(transaction, candidate, true)
 				               : candidate->fetchVersion(transaction);
 				
 				if (record)
@@ -639,6 +639,9 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 			++numberIndexes;
 			}
 
+		Sync sync(&database->syncSysConnection, "StorageDatabase::renameTable");
+		sync.lock(Exclusive);
+
 		for (int n = firstIndex; n < numberIndexes; ++n)
 			{
 			char indexName[256];
@@ -652,8 +655,6 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 				}
 			}
 
-		Sync sync(&database->syncSysConnection, "StorageDatabase::renameTable");
-		sync.lock(Exclusive);
 		table->rename(schemaName, tableName);
 
 		if (sequence)

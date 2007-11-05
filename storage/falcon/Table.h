@@ -39,6 +39,10 @@ static const int PostDelete = 32;
 static const int PreCommit	= 64;
 static const int PostCommit	= 128;
 
+static const int checkUniqueWaited	= 0;
+static const int checkUniqueIsDone	= 1;
+static const int checkUniqueNext	= 2;
+
 #define FORMAT_HASH_SIZE		20
 #define FOR_FIELDS(field,table)	{for (Field *field=table->fields; field; field = field->next){
 #define FOR_INDEXES(index,table)	{for (Index *index=table->indexes; index; index = index->next){
@@ -99,6 +103,8 @@ public:
 	void		makeNotSearchable (Field *field, Transaction *transaction);
 	bool		dropForeignKey (int fieldCount, Field **fields, Table *references);
 	bool		checkUniqueIndexes (Transaction *transaction, RecordVersion *record, Sync *sync);
+	bool		checkUniqueIndex(Index *index, Transaction *transaction, RecordVersion *record, Sync *sync);
+	int			checkUniqueRecordVersion(int32 recordNumber, Index *index, Transaction *transaction, RecordVersion *record, Sync *sync);
 	bool		isDuplicate (Index *index, Record *record1, Record *record2);
 	void		checkDrop();
 	Field*		findField (const WCString *fieldName);
@@ -181,7 +187,7 @@ public:
 	int64		estimateCardinality(void);
 	void		optimize(Connection *connection);
 	
-	Record*			fetchForUpdate(Transaction* transaction, Record* record);
+	Record*			fetchForUpdate(Transaction* transaction, Record* record, bool usingIndex);
 	RecordVersion*	lockRecord(Record* record, Transaction* transaction);
 	void			unlockRecord(int recordNumber);
 	void			unlockRecord(RecordVersion* record, bool remove);

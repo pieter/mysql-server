@@ -34,7 +34,7 @@ public:
 	void		release();
 	void		addRef();
 	int64		getMemorySize(const char *string);
-	int64		getAvailablePhysicalMemory();
+	uint64		getPhysicalMemory(uint64 *available = NULL, uint64 *total = NULL);
 	bool		getLine(void *file, int length, char *line);
 	void		setRecordScavengeThreshold(int threshold);
 	void		setRecordScavengeFloor(int floor);

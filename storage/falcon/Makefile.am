@@ -95,6 +95,8 @@ falcon_headers= Agent.h Alias.h Application.h \
 		NSequence.h NStat.h NUpdate.h OpSys.h Page.h \
 		PageInventoryPage.h PagePrecedence.h PageType.h PageWriter.h \
 		Parameter.h Parameters.h PreparedStatement.h PrettyPrint.h \
+		Priority.h \
+		PriorityScheduler.h \
 		Privilege.h PrivilegeObject.h PrivType.h Properties.h \
 		Protocol.h PStatement.h Queue.h QueryString.h RecordGroup.h \
 		Record.h RecordLeaf.h \
@@ -256,7 +258,10 @@ falcon_sources= Agent.cpp Alias.cpp \
 		NStat.cpp NUpdate.cpp OpSys.cpp Page.cpp \
 		PageInventoryPage.cpp PagePrecedence.cpp PageWriter.cpp \
 		Parameter.cpp Parameters.cpp PreparedStatement.cpp \
-		PrettyPrint.cpp Privilege.cpp PrivilegeObject.cpp Protocol.cpp \
+		PrettyPrint.cpp \
+		Priority.cpp \
+		PriorityScheduler.cpp \
+		Privilege.cpp PrivilegeObject.cpp Protocol.cpp \
 		PStatement.cpp QueryString.cpp Record.cpp \
 		RecordGroup.cpp RecordLeaf.cpp \
 		RecordLocatorPage.cpp \

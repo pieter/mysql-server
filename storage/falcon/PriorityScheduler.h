@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 MySQL AB
+/* Copyright (C) 2007 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,32 +13,27 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include <stdio.h>
-#include "Engine.h"
-#include "SRLSession.h"
+#ifndef _PRIORITY_SCHEDULER_H_
+#define _PRIORITY_SCHEDULER_H_
 
-SRLSession::SRLSession(void)
-{
-}
+#include "Mutex.h"
+#include "Priority.h"
 
-SRLSession::~SRLSession(void)
-{
-}
+class Thread;
 
-void SRLSession::append(int64 priorRecoveryBlock, int64 priorCheckpointBlock)
+class PriorityScheduler
 {
-	START_RECORD(srlSession, "SRLCheckpoint::append");
-	putInt64(priorRecoveryBlock);
-	putInt64(priorCheckpointBlock);
-}
+public:
+	PriorityScheduler(void);
+	~PriorityScheduler(void);
+	
+	void	schedule(int priority);
+	void	finished(int priority);
 
-void SRLSession::read(void)
-{
-	recoveryBlock = getInt64();
-	checkpointBlock = getInt64();
-}
+	int		currentPriority;
+	int		count;
+	Thread	*waitingThreads[PRIORITY_MAX];
+	Mutex	mutex;
+};
 
-void SRLSession::print(void)
-{
-	logPrint("Session start recovery " I64FORMAT ", checkpoint " I64FORMAT ", \n", recoveryBlock, checkpointBlock);
-}
+#endif

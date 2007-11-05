@@ -98,8 +98,15 @@ int MACAddress::getAddresses()
 	for (const char **device = devices; *device; ++device)
 		{
 		strncpy (request.ifr_name, *device, IFNAMSIZ);
+#ifdef SIOCGIFHWADDR
 		if (ioctl (fd, SIOCGIFHWADDR, &request) == 0)
 			macAddresses [count++] = getAddress (6, (UCHAR*) request.ifr_hwaddr.sa_data);
+#else
+#ifdef SIOCGENADDR
+		if (ioctl (fd, SIOCGENADDR, &request) == 0)
+			macAddresses [count++] = getAddress (6, (UCHAR*) request.ifr_ifru.ifru_enaddr[0]);
+#endif
+#endif
 		}
 
 	close (fd);

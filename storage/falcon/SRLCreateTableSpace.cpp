@@ -17,6 +17,7 @@
 //
 //////////////////////////////////////////////////////////////////////
 
+#include <string.h>
 #include "Engine.h"
 #include "SRLCreateTableSpace.h"
 #include "TableSpace.h"

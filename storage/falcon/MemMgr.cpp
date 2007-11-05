@@ -19,6 +19,7 @@
 #endif
 
 #include <stdio.h>
+#include <string.h>
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #include <stdlib.h>
 #else

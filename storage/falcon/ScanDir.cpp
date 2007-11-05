@@ -131,13 +131,15 @@ bool ScanDir::isDirectory()
 #else
 	if (!data)
 		return false;
-		
-	if ( data->d_type == DT_DIR)
+
+#ifdef DT_DIR
+	if (data->d_type == DT_DIR)
 		return true;
+#endif
 	
 	struct stat buf;
 
-    if (stat (getFilePath(), &buf))
+	if (stat (getFilePath(), &buf))
 		return false;
 
 	return S_ISDIR (buf.st_mode);

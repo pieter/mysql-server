@@ -245,7 +245,7 @@ Thread* Thread::getThread(const char *desc)
 
 #ifdef _PTHREADS
 	if (!thread->threadId)
-		thread->threadId = (unsigned long) pthread_self();
+		thread->threadId = pthread_self();
 #endif
 
 	return thread;

@@ -53,8 +53,34 @@ enum pool_command_op
   NOT_IN_USE_OP= 0, NORMAL_OP= 1, CONNECT_OP, KILL_OP, DIE_OP
 };
 
+#if defined(HAVE_LIBEVENT) && !defined(EMBEDDED_LIBRARY)
+
+#define HAVE_POOL_OF_THREADS 1
+
+struct event;
+
+class thd_scheduler
+{
+public:
+  bool logged_in;
+  struct event* io_event;
+  struct event* kill_event;
+  int kill_pipe[2];
+  LIST list_need_processing;
+
+  thd_scheduler();
+  ~thd_scheduler();
+  bool init(THD* parent_thd);
+};
+
+void pool_of_threads_scheduler(scheduler_functions* func);
+
+#else
+
 #define HAVE_POOL_OF_THREADS 0                  /* For easyer tests */
 #define pool_of_threads_scheduler(A) one_thread_per_connection_scheduler(A)
 
 class thd_scheduler
 {};
+
+#endif

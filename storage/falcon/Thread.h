@@ -87,12 +87,7 @@ public:
 	void			*argument;
 	void			(* volatile function)(void*);
 	void*			threadHandle;
-
-#ifdef _WIN32
-	unsigned long	threadId;
-#else
-	pthread_t	threadId;
-#endif
+	THREAD_ID  		threadId;
 	Threads			*threadBarn;
 	Thread			*next;				// next thread in "thread barn"
 	Thread			*prior;				// next thread in "thread barn"

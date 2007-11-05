@@ -1087,18 +1087,19 @@ void Cache::analyzeFlush(void)
 		if ( (bdb = findBdb(dbb, pageNumber)) )
 			{
 			int start = pageNumber;
+			int type = bdb->buffer->pageType;
 			
 			for (; (bdb = findBdb(dbb, ++pageNumber)) && bdb->flushIt;)
 				;
 			
-			fprintf(traceFile, " %d flushed: %d to %d\n", pageNumber - start, start, pageNumber - 1);
+			fprintf(traceFile, " %d flushed: %d to %d, first type %d\n", pageNumber - start, start, pageNumber - 1, type);
 			
 			for (int max = pageNumber + 5; pageNumber < max && (bdb = findBdb(dbb, pageNumber)) && !bdb->flushIt; ++pageNumber)
 				{
 				if (bdb->flags & BDB_dirty)
-					fprintf(traceFile, " %d dirty not flushed\n", pageNumber);
+					fprintf(traceFile, "     %d dirty not flushed, type %d \n", pageNumber, bdb->buffer->pageType);
 				else
-					fprintf(traceFile," %d not dirty\n", pageNumber);
+					fprintf(traceFile,"      %d not dirty, type %d\n", pageNumber, bdb->buffer->pageType);
 				}
 			}
 		else

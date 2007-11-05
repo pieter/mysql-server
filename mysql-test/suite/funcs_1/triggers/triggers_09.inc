@@ -107,8 +107,9 @@ let $message= Testcase 3.5.9.3:;
 	select f118, f121, f122, f136, f163 from tb3 where f122='Test 3.5.9.3' order by f136;
 	select  @tr_var_b4_118, @tr_var_b4_121, @tr_var_b4_122, 
 		@tr_var_b4_136, @tr_var_b4_163;
-	select  @tr_var_af_118, @tr_var_af_121, @tr_var_af_122, 
-		@tr_var_af_136, @tr_var_af_163;
+#FIXME 31561
+#	select  @tr_var_af_118, @tr_var_af_121, @tr_var_af_122, 
+#		@tr_var_af_136, @tr_var_af_163;
 #Cleanup
 	--disable_warnings 
 	drop trigger trg2_a;

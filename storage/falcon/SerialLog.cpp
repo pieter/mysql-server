@@ -704,7 +704,11 @@ void SerialLog::wakeup()
 	***/
 	
 	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
-		gopher->wakeup();
+		if (gopher->workerThread->sleeping)
+			{
+			gopher->wakeup();
+			break;
+			}
 }
 
 void SerialLog::release(SerialLogWindow *window)

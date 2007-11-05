@@ -61,7 +61,7 @@ static const char THIS_FILE[]=__FILE__;
 
 Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 {
-	openTraceFile();
+	//openTraceFile();
 	database = db;
 	panicShutdown = false;
 	pageSize = pageSz;

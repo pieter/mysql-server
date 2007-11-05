@@ -43,6 +43,9 @@
 extern uint falcon_io_threads;
 
 //#define STOP_PAGE		109
+#define TRACE_FILE	"cache.trace"
+
+static FILE			*traceFile;
 
 static const uint64 cacheHunkSize		= 1024 * 1024 * 128;
 static const int	ASYNC_BUFFER_SIZE	= 1024000;
@@ -58,6 +61,7 @@ static const char THIS_FILE[]=__FILE__;
 
 Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 {
+	openTraceFile();
 	database = db;
 	panicShutdown = false;
 	pageSize = pageSz;
@@ -130,6 +134,9 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 
 Cache::~Cache()
 {
+	if (traceFile)
+		closeTraceFile();
+
 	delete [] hashTable;
 	delete [] bdbs;
 	delete [] ioThreads;
@@ -362,6 +369,9 @@ void Cache::flush(int64 arg)
 		flushBitmap->set(bdb->pageNumber);
 		++flushPages;
 		}
+
+	if (traceFile)
+		analyzeFlush();
 
 	flushStart = database->timestamp;
 	flushing = true;
@@ -1053,4 +1063,67 @@ void Cache::shutdownThreads(void)
 	
 	Sync sync(&syncThreads, "Cache::shutdownThreads");
 	sync.lock(Exclusive);
+}
+
+void Cache::analyzeFlush(void)
+{
+	Dbb *dbb = NULL;
+	Bdb *bdb;
+	
+	for (bdb = firstDirty; bdb; bdb = bdb->nextDirty)
+		if (bdb->dbb->tableSpaceId == 1)
+			{
+			dbb = bdb->dbb;
+			
+			break;
+			}
+	
+	if (!dbb)
+		return;
+	
+	fprintf(traceFile, "-------- time %d -------\n", database->deltaTime);
+
+	for (int pageNumber = 0; (pageNumber = flushBitmap->nextSet(pageNumber)) >= 0;)
+		if ( (bdb = findBdb(dbb, pageNumber)) )
+			{
+			int start = pageNumber;
+			
+			for (; (bdb = findBdb(dbb, ++pageNumber)) && bdb->flushIt;)
+				;
+			
+			fprintf(traceFile, " %d flushed: %d to %d\n", pageNumber - start, start, pageNumber - 1);
+			
+			for (int max = pageNumber + 5; pageNumber < max && (bdb = findBdb(dbb, pageNumber)) && !bdb->flushIt; ++pageNumber)
+				{
+				if (bdb->flags & BDB_dirty)
+					fprintf(traceFile, " %d dirty not flushed\n", pageNumber);
+				else
+					fprintf(traceFile," %d not dirty\n", pageNumber);
+				}
+			}
+		else
+			++pageNumber;
+	
+	fflush(traceFile);			
+}
+
+void Cache::openTraceFile(void)
+{
+#ifdef TRACE_FILE
+	if (traceFile)
+		closeTraceFile();
+		
+	traceFile = fopen(TRACE_FILE, "w");
+#endif
+}
+
+void Cache::closeTraceFile(void)
+{
+#ifdef TRACE_FILE
+	if (traceFile)
+		{
+		fclose(traceFile);
+		traceFile = NULL;
+		}
+#endif
 }

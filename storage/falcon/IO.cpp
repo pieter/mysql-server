@@ -80,7 +80,7 @@
 #include "Debug.h"
 #include "Synchronize.h"
 
-#define TRACE_FILE	"falcon.trace"
+#define TRACE_FILE	"io.trace"
 
 extern uint		falcon_direct_io;
 

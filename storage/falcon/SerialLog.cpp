@@ -602,7 +602,9 @@ void SerialLog::createNewWindow(void)
 void SerialLog::shutdown()
 {
 	finishing = true;
-	wakeup();
+	
+	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
+		gopher->wakeup();
 
 	// Wait for all gopher threads to exit
 	
@@ -613,11 +615,6 @@ void SerialLog::shutdown()
 		unblockUpdates();
 
 	checkpoint(false);
-	
-	/***
-	if (workerThread)
-		workerThread->shutdown();
-	***/
 	
 	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
 		gopher->shutdown();

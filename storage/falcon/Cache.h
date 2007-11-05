@@ -70,6 +70,10 @@ public:
 	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
 	Bdb*	trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType);
 
+	void	analyzeFlush(void);
+	void	openTraceFile(void);
+	void	closeTraceFile(void);
+
 	Cache(Database *db, int pageSize, int hashSize, int numberBuffers);
 	virtual ~Cache();
 

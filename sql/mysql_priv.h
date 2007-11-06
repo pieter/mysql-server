@@ -1200,6 +1200,10 @@ bool reopen_tables(THD *thd,bool get_locks,bool in_refresh);
 void close_data_files_and_morph_locks(THD *thd, const char *db,
                                       const char *table_name);
 void close_handle_and_leave_table_as_lock(TABLE *table);
+bool open_new_frm(THD *thd, TABLE_SHARE *share, const char *alias,
+                  uint db_stat, uint prgflag,
+                  uint ha_open_flags, TABLE *outparam,
+                  TABLE_LIST *table_desc, MEM_ROOT *mem_root);
 bool wait_for_tables(THD *thd);
 bool table_is_used(TABLE *table, bool wait_for_name_lock);
 TABLE *drop_locked_tables(THD *thd,const char *db, const char *table_name);

@@ -27,15 +27,6 @@ _flex_tmp.c: .*not enough actual parameters for macro 'yywrap'.*
 pars0lex.l: .*conversion from 'ulint' to 'int', possible loss of data.*
 
 #
-# bdb is not critical to keep up to date
-#
-.*/bdb/.* : .*discards qualifiers from pointer target type.*
-.*/bdb/.* : .*unused parameter.*
-.*/bdb/.* : .*may be used uninitialized.*
-.*/bdb/.* : .*empty body in an if-statement.*
-db_vrfy.c : .*comparison is always false due to limited range of data type.*
-
-#
 # Ignore all conversion warnings on windows 64
 # (Is safe as we are not yet supporting strings >= 2G)
 #
@@ -77,3 +68,16 @@ mi_packrec.c : .*result of 32-bit shift implicitly converted to 64 bits.* : 560-
 # Wrong compiler warnings
 #
 .* : .*no matching operator delete found; memory will not be freed if initialization throws an exception.*
+
+#
+# Third party code
+#
+
+.*/extra/libevent/.* : .*comparison between signed and unsigned.*
+.*/extra/libevent/.* : .*unused parameter.*
+.*/extra/libevent/.* : .*empty body in an if-statement.*
+.*/extra/libevent/.* : .*comparison of unsigned expression >= 0 is always true.*
+.*/extra/libevent/.* : .*assignment discards qualifiers from pointer target type.*
+.*/extra/libevent/.* : .*initialization discards qualifiers from pointer target type.*
+
+

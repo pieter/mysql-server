@@ -23,6 +23,8 @@
 #include <ft_global.h>
 #include <keycache.h>
 
+#include <backup/api_types.h>
+
 #ifndef NO_HASH
 #define NO_HASH				/* Not yet implemented */
 #endif
@@ -751,6 +753,7 @@ struct handlerton
                                  const char *name);
    uint32 license; /* Flag for Engine License */
    void *data; /* Location for engines to keep personal structures */
+   backup_factory *get_backup_engine; // Online backup hook
 };
 
 

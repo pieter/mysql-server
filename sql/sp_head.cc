@@ -163,6 +163,7 @@ sp_get_flags_for_command(LEX *lex)
     }
     /* fallthrough */
   case SQLCOM_ANALYZE:
+  case SQLCOM_BACKUP:
   case SQLCOM_OPTIMIZE:
   case SQLCOM_PRELOAD_KEYS:
   case SQLCOM_ASSIGN_TO_KEYCACHE:
@@ -208,6 +209,7 @@ sp_get_flags_for_command(LEX *lex)
   case SQLCOM_SHOW_VARIABLES:
   case SQLCOM_SHOW_WARNS:
   case SQLCOM_REPAIR:
+  case SQLCOM_RESTORE:
     flags= sp_head::MULTI_RESULTS;
     break;
   /*

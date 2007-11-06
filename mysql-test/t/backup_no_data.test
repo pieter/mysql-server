@@ -1,0 +1,82 @@
+connect (backup,localhost,root,,);
+connect (restore,localhost,root,,);
+
+connection backup;
+
+# save empty test database on the side
+--exec cp -rf $MYSQLTEST_VARDIR/master-data/test $MYSQLTEST_VARDIR/test.orig
+
+--disable_warnings
+DROP DATABASE IF EXISTS empty_db;
+--enable_warnings
+
+CREATE DATABASE empty_db;
+
+BACKUP DATABASE empty_db TO 'empty_db.bak';
+BACKUP DATABASE * TO 'all.bak';
+
+DROP DATABASE empty_db;
+DROP DATABASE test;
+
+SHOW DATABASES;
+
+connection restore;
+
+SHOW DATABASES;
+
+RESTORE FROM 'all.bak';
+
+SHOW DATABASES;
+
+DROP DATABASE empty_db;
+DROP DATABASE test;
+
+RESTORE FROM 'empty_db.bak';
+
+SHOW DATABASES;
+SHOW TABLES IN empty_db;
+
+RESTORE FROM 'all.bak';
+
+SHOW DATABASES;
+SHOW TABLES IN empty_db;
+
+connection backup;
+
+USE test;
+
+DROP TABLE IF EXISTS t1;
+
+CREATE TABLE t1 (
+  `dir_code` char(4),
+  `building` char(6)
+) ENGINE=myisam DEFAULT CHARSET=latin1;
+
+USE empty_db;
+
+--disable_warnings
+DROP VIEW IF EXISTS v1;
+--enable_warnings
+
+CREATE VIEW v1 AS SELECT * FROM test.t1;
+
+BACKUP DATABASE empty_db TO 'empty_db.bak';
+
+disconnect backup;
+
+connection restore;
+
+SHOW DATABASES;
+
+RESTORE FROM 'empty_db.bak';
+
+USE empty_db;
+
+SHOW TABLES;
+DROP DATABASE IF EXISTS empty_db;
+
+# restore test database to the exact state from the beginning of this test
+--exec rm -rf $MYSQLTEST_VARDIR/master-data/test/*
+--exec cp -rf $MYSQLTEST_VARDIR/test.orig $MYSQLTEST_VARDIR/master-data/test
+--exec rm -rf $MYSQLTEST_VARDIR/test.orig/*
+

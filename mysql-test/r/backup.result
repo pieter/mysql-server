@@ -1,0 +1,430 @@
+DROP DATABASE IF EXISTS db1;
+Warnings:
+Note	1008	Can't drop database 'db1'; database doesn't exist
+DROP DATABASE IF EXISTS db2;
+Warnings:
+Note	1008	Can't drop database 'db2'; database doesn't exist
+CREATE DATABASE db1;
+CREATE DATABASE db2;
+USE db1;
+DROP TABLE IF EXISTS `building`;
+Warnings:
+Note	1051	Unknown table 'building'
+CREATE TABLE `building` (
+`dir_code` char(4),
+`building` char(6)
+) ENGINE=archive DEFAULT CHARSET=latin1;
+LOCK TABLES `building` WRITE;
+INSERT INTO `building` VALUES ('N41','1300'),('N01','1453'),('M00','1000'),('N41','1301'),('N41','1305');
+UNLOCK TABLES;
+DROP TABLE IF EXISTS `directorate`;
+Warnings:
+Note	1051	Unknown table 'directorate'
+CREATE TABLE `directorate` (
+`dir_code` char(4),
+`dir_name` char(30),
+`dir_head_id` char(9)
+) ENGINE=archive DEFAULT CHARSET=latin1;
+LOCK TABLES `directorate` WRITE;
+INSERT INTO `directorate` VALUES ('N41','Development','333445555'),('N01','Human Resources','123654321'),('M00','Management','333444444');
+UNLOCK TABLES;
+USE db2;
+DROP TABLE IF EXISTS `staff`;
+Warnings:
+Note	1051	Unknown table 'staff'
+CREATE TABLE `staff` (
+`id` char(9),
+`first_name` char(20),
+`mid_name` char(20),
+`last_name` char(30),
+`sex` char(1),
+`salary` int(11),
+`mgr_id` char(9)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+LOCK TABLES `staff` WRITE;
+INSERT INTO `staff` VALUES ('333445555','John','Q','Smith','M',30000,'333444444'),('123763153','William','E','Walters','M',25000,'123654321'),('333444444','Alicia','F','St.Cruz','F',25000,NULL),('921312388','Goy','X','Hong','F',40000,'123654321'),('800122337','Rajesh','G','Kardakarna','M',38000,'333445555'),('820123637','Monty','C','Smythe','M',38000,'333445555'),('830132335','Richard','E','Jones','M',38000,'333445555'),('333445665','Edward','E','Engles','M',25000,'333445555'),('123654321','Beware','D','Borg','F',55000,'333444444'),('123456789','Wilma','N','Maxima','F',43000,'333445555');
+UNLOCK TABLES;
+DROP TABLE IF EXISTS `tasking`;
+Warnings:
+Note	1051	Unknown table 'tasking'
+CREATE TABLE `tasking` (
+`id` char(9),
+`project_number` char(9),
+`hours_worked` double(10,2)
+) ENGINE=blackhole DEFAULT CHARSET=latin1;
+LOCK TABLES `tasking` WRITE;
+INSERT INTO `tasking` VALUES ('333445555','405',23),('123763153','405',33.5),('921312388','601',44),('800122337','300',13),('820123637','300',9.5),('830132335','401',8.5),('333445555','300',11),('921312388','500',13),('800122337','300',44),('820123637','401',500.5),('830132335','400',12),('333445665','600',300.25),('123654321','607',444.75),('123456789','300',1000);
+UNLOCK TABLES;
+BACKUP DATABASE db1,db2 TO 'test.ba';
+Backup Summary
+ header     =       52 bytes
+ meta-data  =      807 bytes
+ data       =     1217 bytes
+              --------------
+ total            2076 bytes
+DROP DATABASE db1;
+DROP DATABASE db2;
+USE mysql;
+RESTORE FROM 'test.ba';
+Restore Summary
+ header     =       52 bytes
+ meta-data  =      807 bytes
+ data       =     1217 bytes
+              --------------
+ total            2076 bytes
+USE db1;
+SHOW TABLES;
+Tables_in_db1
+building
+directorate
+SELECT * FROM building;
+dir_code	building
+N41	1300
+N01	1453
+M00	1000
+N41	1301
+N41	1305
+SELECT * FROM directorate;
+dir_code	dir_name	dir_head_id
+N41	Development	333445555
+N01	Human Resources	123654321
+M00	Management	333444444
+USE db2;
+SHOW TABLES;
+Tables_in_db2
+staff
+tasking
+SELECT * FROM staff;
+id	first_name	mid_name	last_name	sex	salary	mgr_id
+333445555	John	Q	Smith	M	30000	333444444
+123763153	William	E	Walters	M	25000	123654321
+333444444	Alicia	F	St.Cruz	F	25000	NULL
+921312388	Goy	X	Hong	F	40000	123654321
+800122337	Rajesh	G	Kardakarna	M	38000	333445555
+820123637	Monty	C	Smythe	M	38000	333445555
+830132335	Richard	E	Jones	M	38000	333445555
+333445665	Edward	E	Engles	M	25000	333445555
+123654321	Beware	D	Borg	F	55000	333444444
+123456789	Wilma	N	Maxima	F	43000	333445555
+SHOW CREATE TABLE tasking;
+Table	Create Table
+tasking	CREATE TABLE `tasking` (
+  `id` char(9) DEFAULT NULL,
+  `project_number` char(9) DEFAULT NULL,
+  `hours_worked` double(10,2) DEFAULT NULL
+) ENGINE=BLACKHOLE DEFAULT CHARSET=latin1
+DROP DATABASE IF EXISTS db1;
+DROP DATABASE IF EXISTS db2;
+DROP DATABASE IF EXISTS bup_default;
+CREATE DATABASE bup_default;
+CREATE TABLE bup_default.wide (
+`a` int(11) NOT NULL AUTO_INCREMENT,
+`b` char(255) DEFAULT NULL,
+`c` char(255) DEFAULT NULL,
+`d` char(255) DEFAULT NULL,
+`e` char(255) DEFAULT NULL,
+`f` char(255) DEFAULT NULL,
+`g` char(255) DEFAULT NULL,
+`h` char(255) DEFAULT NULL,
+`i` char(255) DEFAULT NULL,
+`j` char(255) DEFAULT NULL,
+`k` char(255) DEFAULT NULL,
+`l` char(255) DEFAULT NULL,
+`m` char(255) DEFAULT NULL,
+`n` char(255) DEFAULT NULL,
+`o` char(255) DEFAULT NULL,
+`p` char(255) DEFAULT NULL,
+`q` TEXT,
+PRIMARY KEY (`a`)
+) ENGINE=myisam DEFAULT CHARSET=latin1;
+CREATE TABLE bup_default.t1 (a int) engine=innodb;
+CREATE TABLE bup_default.t2 (a int) engine=myisam;
+CREATE TABLE bup_default.t1_blob (a int, b text) engine=innodb;
+INSERT INTO bup_default.wide VALUES (
+NULL,
+"This is column b pass 01",
+"This is column c pass 01",
+"This is column d pass 01",
+"This is column e pass 01",
+"This is column f pass 01",
+"This is column g pass 01",
+"This is column h pass 01",
+"This is column i pass 01",
+"This is column j pass 01",
+"This is column k pass 01",
+"This is column l pass 01",
+"This is column m pass 01",
+"This is column n pass 01",
+"This is column o pass 01",
+"This is column p pass 01",
+"Running the server in debug:
+
+linux:/home/Chuck # mysqld-debug -u root --debug=d,enter,exit:t:F:L:g:O,/tmp/mys
+qld.trace &
+[2] 7492
+[1]   Done                    kwrite /tmp/mysqld.trace
+linux:/home/Chuck # 060601 21:18:45  InnoDB: Started; log sequence number 0 4640
+3
+060601 21:18:45 [Note] mysqld-debug: ready for connections.
+Version: '5.1.9-beta-debug-log'  socket: '/var/lib/mysql/mysql.sock'  port: 3306
+  MySQL Community Server - Debug (GPL)
+060601 21:18:57 [Note] mysqld-debug: Normal shutdown
+
+060601 21:18:59  InnoDB: Starting shutdown...
+060601 21:19:01  InnoDB: Shutdown completed; log sequence number 0 46403
+060601 21:19:01 [Note] mysqld-debug: Shutdown complete
+
+Running the client:
+
+Chuck@linux:~> mysql -uroot -p
+Enter password:");
+INSERT INTO bup_default.t1 VALUES (1);
+INSERT INTO bup_default.t1 VALUES (2);
+INSERT INTO bup_default.t1 VALUES (3);
+INSERT INTO bup_default.t1 VALUES (4);
+INSERT INTO bup_default.t2 VALUES (1);
+INSERT INTO bup_default.t2 VALUES (2);
+INSERT INTO bup_default.t2 VALUES (3);
+INSERT INTO bup_default.t2 VALUES (4);
+INSERT INTO bup_default.t1_blob VALUES (1,"Short text will fit in buffer.");
+INSERT INTO bup_default.t1_blob VALUES (2,"Replication Failover
+--------------------
+One of the greatest advantages of MySQL replication is the ability to failover in the event of a server crash. More specifically, if you need to take your master server offline you can promote one of your slaves as a master and thereby minimize the interruption to your users.
+
+Promoting a Slave to a Master
+-----------------------------
+When your master fails beyond repair, you can quickly replace it with your slave and reestablish service to your databases and applications. The process for promoting a slave to a master involves taking the master offline (if not already), flushing the logs and safely shutting down the slave, then restarting the slave to run as the master. A simplified process is shown below.
+
+1. Lock the tables on your master.
+2. Record the location of the binlog on the master for point in time recovery (if needed).
+3. Flush the logs on the slave.
+4. Shutdown the master.
+5. Shutdown the slave you want to promote.
+6. Restart the slave specifying the startup options for the master.
+
+Notes
+-----
+Your configuration may require slightly differing steps in the process to match your environment. Things to consider include how the applications connect to the server, where the data is store (NAS or other detached storage), and the mode of replication among your master and slave(s).
+
+Remember to keep the server_id the same as it was when the promoted slave was a slave!
+
+If you have applications that use embedded hostnames or IP addresses in their connections to the master, you have two choices; 1) you can change the slave's hostname and IP to that of the master and restart the server, or 2) you can redirect your clients to the promoted slave.
+
+Failover and Invoked Objects
+----------------------------
+For most applications, the failover sequence described above will get you a viable master and return your database system to service. If you use invoked objects, specifically events, the promotion of the slave to a master involves some additional steps.
+
+If you are unsure if you have any events that are replicated, you can issue the following command on the slave (you need to have privileges to run the show commands):
+
+SHOW EVENTS WHERE STATUS = 'SLAVESIDE_DISABLED';
+
+This query will list all of the events on the slave that have been replicated FROM the master. You will also see a column named ORIGINATOR that lists the server_id of the originating master. Together with the STATUS column, you can quickly determine which events need to be activated on the newly promoted slave.
+
+To turn the events on, you can create and run the following stored procedure:
+NORMAL END!");
+SELECT * FROM bup_default.t1;
+a
+1
+2
+3
+4
+SELECT * FROM bup_default.t2;
+a
+1
+2
+3
+4
+SELECT COUNT(*) FROM bup_default.t1_blob;
+COUNT(*)
+2
+SELECT * FROM bup_default.t1_blob;;
+a	1
+b	Short text will fit in buffer.
+a	2
+b	Replication Failover
+--------------------
+One of the greatest advantages of MySQL replication is the ability to failover in the event of a server crash. More specifically, if you need to take your master server offline you can promote one of your slaves as a master and thereby minimize the interruption to your users.
+
+Promoting a Slave to a Master
+-----------------------------
+When your master fails beyond repair, you can quickly replace it with your slave and reestablish service to your databases and applications. The process for promoting a slave to a master involves taking the master offline (if not already), flushing the logs and safely shutting down the slave, then restarting the slave to run as the master. A simplified process is shown below.
+
+1. Lock the tables on your master.
+2. Record the location of the binlog on the master for point in time recovery (if needed).
+3. Flush the logs on the slave.
+4. Shutdown the master.
+5. Shutdown the slave you want to promote.
+6. Restart the slave specifying the startup options for the master.
+
+Notes
+-----
+Your configuration may require slightly differing steps in the process to match your environment. Things to consider include how the applications connect to the server, where the data is store (NAS or other detached storage), and the mode of replication among your master and slave(s).
+
+Remember to keep the server_id the same as it was when the promoted slave was a slave!
+
+If you have applications that use embedded hostnames or IP addresses in their connections to the master, you have two choices; 1) you can change the slave's hostname and IP to that of the master and restart the server, or 2) you can redirect your clients to the promoted slave.
+
+Failover and Invoked Objects
+----------------------------
+For most applications, the failover sequence described above will get you a viable master and return your database system to service. If you use invoked objects, specifically events, the promotion of the slave to a master involves some additional steps.
+
+If you are unsure if you have any events that are replicated, you can issue the following command on the slave (you need to have privileges to run the show commands):
+
+SHOW EVENTS WHERE STATUS = 'SLAVESIDE_DISABLED';
+
+This query will list all of the events on the slave that have been replicated FROM the master. You will also see a column named ORIGINATOR that lists the server_id of the originating master. Together with the STATUS column, you can quickly determine which events need to be activated on the newly promoted slave.
+
+To turn the events on, you can create and run the following stored procedure:
+NORMAL END!
+SELECT COUNT(*) FROM bup_default.wide;
+COUNT(*)
+1
+SELECT * FROM bup_default.wide;;
+a	1
+b	This is column b pass 01
+c	This is column c pass 01
+d	This is column d pass 01
+e	This is column e pass 01
+f	This is column f pass 01
+g	This is column g pass 01
+h	This is column h pass 01
+i	This is column i pass 01
+j	This is column j pass 01
+k	This is column k pass 01
+l	This is column l pass 01
+m	This is column m pass 01
+n	This is column n pass 01
+o	This is column o pass 01
+p	This is column p pass 01
+q	Running the server in debug:
+
+linux:/home/Chuck # mysqld-debug -u root --debug=d,enter,exit:t:F:L:g:O,/tmp/mys
+qld.trace &
+[2] 7492
+[1]   Done                    kwrite /tmp/mysqld.trace
+linux:/home/Chuck # 060601 21:18:45  InnoDB: Started; log sequence number 0 4640
+3
+060601 21:18:45 [Note] mysqld-debug: ready for connections.
+Version: '5.1.9-beta-debug-log'  socket: '/var/lib/mysql/mysql.sock'  port: 3306
+  MySQL Community Server - Debug (GPL)
+060601 21:18:57 [Note] mysqld-debug: Normal shutdown
+
+060601 21:18:59  InnoDB: Starting shutdown...
+060601 21:19:01  InnoDB: Shutdown completed; log sequence number 0 46403
+060601 21:19:01 [Note] mysqld-debug: Shutdown complete
+
+Running the client:
+
+Chuck@linux:~> mysql -uroot -p
+Enter password:
+BACKUP DATABASE bup_default TO "bup_default.bak";
+Backup Summary
+ header     =       43 bytes
+ meta-data  =      890 bytes
+ data       =     7411 bytes
+              --------------
+ total            8344 bytes
+DROP DATABASE bup_default;
+RESTORE FROM "bup_default.bak";
+Restore Summary
+ header     =       43 bytes
+ meta-data  =      890 bytes
+ data       =     7411 bytes
+              --------------
+ total            8344 bytes
+SELECT * FROM bup_default.t1;
+a
+1
+2
+3
+4
+SELECT * FROM bup_default.t2;
+a
+1
+2
+3
+4
+SELECT COUNT(*) FROM bup_default.t1_blob;
+COUNT(*)
+2
+SELECT * FROM bup_default.t1_blob;;
+a	1
+b	Short text will fit in buffer.
+a	2
+b	Replication Failover
+--------------------
+One of the greatest advantages of MySQL replication is the ability to failover in the event of a server crash. More specifically, if you need to take your master server offline you can promote one of your slaves as a master and thereby minimize the interruption to your users.
+
+Promoting a Slave to a Master
+-----------------------------
+When your master fails beyond repair, you can quickly replace it with your slave and reestablish service to your databases and applications. The process for promoting a slave to a master involves taking the master offline (if not already), flushing the logs and safely shutting down the slave, then restarting the slave to run as the master. A simplified process is shown below.
+
+1. Lock the tables on your master.
+2. Record the location of the binlog on the master for point in time recovery (if needed).
+3. Flush the logs on the slave.
+4. Shutdown the master.
+5. Shutdown the slave you want to promote.
+6. Restart the slave specifying the startup options for the master.
+
+Notes
+-----
+Your configuration may require slightly differing steps in the process to match your environment. Things to consider include how the applications connect to the server, where the data is store (NAS or other detached storage), and the mode of replication among your master and slave(s).
+
+Remember to keep the server_id the same as it was when the promoted slave was a slave!
+
+If you have applications that use embedded hostnames or IP addresses in their connections to the master, you have two choices; 1) you can change the slave's hostname and IP to that of the master and restart the server, or 2) you can redirect your clients to the promoted slave.
+
+Failover and Invoked Objects
+----------------------------
+For most applications, the failover sequence described above will get you a viable master and return your database system to service. If you use invoked objects, specifically events, the promotion of the slave to a master involves some additional steps.
+
+If you are unsure if you have any events that are replicated, you can issue the following command on the slave (you need to have privileges to run the show commands):
+
+SHOW EVENTS WHERE STATUS = 'SLAVESIDE_DISABLED';
+
+This query will list all of the events on the slave that have been replicated FROM the master. You will also see a column named ORIGINATOR that lists the server_id of the originating master. Together with the STATUS column, you can quickly determine which events need to be activated on the newly promoted slave.
+
+To turn the events on, you can create and run the following stored procedure:
+NORMAL END!
+SELECT COUNT(*) FROM bup_default.wide;
+COUNT(*)
+1
+SELECT * FROM bup_default.wide;;
+a	1
+b	This is column b pass 01
+c	This is column c pass 01
+d	This is column d pass 01
+e	This is column e pass 01
+f	This is column f pass 01
+g	This is column g pass 01
+h	This is column h pass 01
+i	This is column i pass 01
+j	This is column j pass 01
+k	This is column k pass 01
+l	This is column l pass 01
+m	This is column m pass 01
+n	This is column n pass 01
+o	This is column o pass 01
+p	This is column p pass 01
+q	Running the server in debug:
+
+linux:/home/Chuck # mysqld-debug -u root --debug=d,enter,exit:t:F:L:g:O,/tmp/mys
+qld.trace &
+[2] 7492
+[1]   Done                    kwrite /tmp/mysqld.trace
+linux:/home/Chuck # 060601 21:18:45  InnoDB: Started; log sequence number 0 4640
+3
+060601 21:18:45 [Note] mysqld-debug: ready for connections.
+Version: '5.1.9-beta-debug-log'  socket: '/var/lib/mysql/mysql.sock'  port: 3306
+  MySQL Community Server - Debug (GPL)
+060601 21:18:57 [Note] mysqld-debug: Normal shutdown
+
+060601 21:18:59  InnoDB: Starting shutdown...
+060601 21:19:01  InnoDB: Shutdown completed; log sequence number 0 46403
+060601 21:19:01 [Note] mysqld-debug: Shutdown complete
+
+Running the client:
+
+Chuck@linux:~> mysql -uroot -p
+Enter password:
+DROP DATABASE IF EXISTS bup_default;

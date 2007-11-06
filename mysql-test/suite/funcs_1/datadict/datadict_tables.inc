@@ -30,7 +30,7 @@ eval $dd_part1 columns                               $dd_part2;
 eval $dd_part1 character_sets                        $dd_part2;
 eval $dd_part1 collations                            $dd_part2;
 eval $dd_part1 collation_character_set_applicability $dd_part2;
---replace_column 16 <Created> 17 <Last_Altered>
+--replace_column 23 <Created> 24 <Last_Altered>
 eval $dd_part1 routines                              $dd_part2;
 eval $dd_part1 statistics                            $dd_part2;
 eval $dd_part1 views                                 $dd_part2;
@@ -41,6 +41,7 @@ eval $dd_part1 column_privileges                     $dd_part2;
 eval $dd_part1 table_constraints                     $dd_part2;
 eval $dd_part1 key_column_usage                      $dd_part2;
 eval $dd_part1 triggers                              $dd_part2;
+eval $dd_part1 parameters                            $dd_part2;
 
 # later planned new tables for INFORMATION_SCHEMA (not before version 5.0.11)
 #
@@ -54,9 +55,6 @@ eval $dd_part1 triggers                              $dd_part2;
 
 #### DON'T FORGET TO ADD THE NEW TABLES TO THE CORRESPONDING FILES
 #### datadict_tables_error_<errno>.test !
-
---error 1109
-eval $dd_part1 parameters $dd_part2;
 
 --error 0,1109
 eval $dd_part1 referential_constraints $dd_part2;

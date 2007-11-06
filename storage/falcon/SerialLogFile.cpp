@@ -95,7 +95,7 @@ void SerialLogFile::open(JString filename, bool create)
 						0,							// share mode
 						NULL,						// security attributes
 						(create) ? CREATE_ALWAYS : OPEN_ALWAYS,
-						FILE_FLAG_NO_BUFFERING | FILE_FLAG_RANDOM_ACCESS,
+						FILE_FLAG_NO_BUFFERING | FILE_FLAG_RANDOM_ACCESS | FILE_FLAG_WRITE_THROUGH,
 						0);
 
 	if (handle == INVALID_HANDLE_VALUE)

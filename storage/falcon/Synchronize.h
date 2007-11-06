@@ -28,6 +28,15 @@
 #include <pthread.h>
 #endif
 
+//#define SYNCHRONIZE_FREEZE
+
+#ifdef SYNCHRONIZE_FREEZE
+#define DEBUG_FREEZE	if (synchronizeFreeze) Synchronize::freeze();
+extern INTERLOCK_TYPE synchronizeFreeze;
+#else
+#define DEBUG_FREEZE
+#endif
+
 #ifdef ENGINE
 #define LOG_DEBUG	Log::debug
 #define DEBUG_BREAK	Log::debugBreak
@@ -59,6 +68,8 @@ public:
 	pthread_cond_t	condition;
 	pthread_mutex_t	mutex;
 #endif
+	static void freeze(void);
+	static void freezeSystem(void);
 };
 
 #endif // !defined(AFX_SYNCHRONIZE_H__9E13C6D8_1F3E_11D3_AB74_0000C01D2301__INCLUDED_)

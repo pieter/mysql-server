@@ -34,7 +34,6 @@
 #include "SQLException.h"
 
 static const char *FALCON_TEMPORARY		= "/falcon_temporary";
-static const char *GLOBAL_TABLESPACE	= "-global-";
 static const char *DB_ROOT				= ".fts";
 
 #if defined(_WIN32) && MYSQL_VERSION_ID < 0x50100
@@ -67,8 +66,6 @@ StorageTableShare::StorageTableShare(StorageHandler *handler, const char * path,
 	
 	if (tempTable)
 		tableSpace = TEMPORARY_TABLESPACE;
-	else if (storageHandler->globalTableSpace)
-		tableSpace = GLOBAL_TABLESPACE;
 	else if (tableSpaceName && tableSpaceName[0])
 		tableSpace = JString::upcase(tableSpaceName);
 	else
@@ -132,10 +129,13 @@ int StorageTableShare::deleteTable(StorageConnection *storageConnection)
 {
 	int res = storageDatabase->deleteTable(storageConnection, this);
 	
-	if (res == 0)
+	if (res == 0 || res == StorageErrorTableNotFound)
 		{
 		unRegisterTable();
-		storageHandler->removeTable(this);
+		
+		if (res == 0)
+			storageHandler->removeTable(this);
+			
 		delete this;
 		}
 

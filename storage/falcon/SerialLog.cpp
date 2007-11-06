@@ -114,6 +114,12 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	windowBuffers = MAX(database->configuration->serialLogWindows, 10);
 	tableSpaceInfo = NULL;
 	memset(tableSpaces, 0, sizeof(tableSpaces));
+	syncWrite.setName("SerialLog::syncWrite");
+	syncSections.setName("SerialLog::syncSections");
+	syncIndexes.setName("SerialLog::syncIndexes");
+	syncGopher.setName("SerialLog::syncGopher");
+	syncUpdateStall.setName("SerialLog::syncUpdateStall");
+	pending.syncObject.setName("SerialLog::pending transactions");
 }
 
 SerialLog::~SerialLog()
@@ -612,7 +618,7 @@ void SerialLog::createNewWindow(void)
 			}
 
 	if (fileOffset == 0)
-		Log::log("Switching log files (%d used)\n", file->highWater);
+		Log::log(LogInfo, "%d: Switching log files (%d used)\n", database->deltaTime, file->highWater);
 
 	writeWindow->deactivateWindow();
 	writeWindow = allocWindow(file, fileOffset);
@@ -628,7 +634,6 @@ void SerialLog::shutdown()
 	wakeup();
 	Sync sync(&syncGopher, "SerialLog::shutdown");
 	sync.lock(Shared);
-	defaultDbb->flush();
 	checkpoint(false);
 	
 	if (workerThread)
@@ -876,40 +881,6 @@ uint64 SerialLog::getReadBlock()
 	sync.lock(Shared);
 	uint64 blockNumber = lastFlushBlock;
 	
-	/***
-	SerialLogTransaction *transaction;
-	
-	for (transaction = running.first; transaction; transaction = transaction->next)
-		{
-		uint64 number = transaction->getBlockNumber();
-		
-		if (number == 1)
-			transaction->getBlockNumber();
-			
-		if (number > 0) 
-			blockNumber = MIN(blockNumber, number);
-		}
-	
-	for (transaction = pending.first; transaction; transaction = transaction->next)
-		{
-		uint64 number = transaction->getBlockNumber();
-		
-		if (number == 1)
-			transaction->getBlockNumber();
-			
-		if (number > 0) 
-			blockNumber = MIN(blockNumber, number);
-		}
-	
-	for (transaction = inactions.first; transaction; transaction = transaction->next)
-		{
-		uint64 number = transaction->minBlockNumber;
-			
-		if (number > 0) 
-			blockNumber = MIN(blockNumber, number);
-		}
-	***/
-	
 	if (earliest)
 		{
 		uint64 number = earliest->getBlockNumber();
@@ -973,10 +944,34 @@ void SerialLog::checkpoint(bool force)
 		sync.lock(Shared);
 		int64 blockNumber = writeBlock->blockNumber;
 		sync.unlock();
-		defaultDbb->flush();
-		database->sync();
+		database->flush(blockNumber);
+		/*** moved to pageCacheFlushed()
+		database->sync(0);
+		logControl->checkpoint.append(blockNumber);
+		***/ 
+		}
+}
+
+void SerialLog::pageCacheFlushed(int64 blockNumber)
+{
+	if (blockNumber)
+		{
+		database->sync(0);
 		logControl->checkpoint.append(blockNumber);
 		}
+
+	lastFlushBlock = preFlushBlock;
+	Sync sync(&pending.syncObject, "SerialLog::pageCacheFlushed");	// pending.syncObject use for both
+	sync.lock(Exclusive);
+	
+	for (SerialLogTransaction *transaction, **ptr = &inactions.first; (transaction = *ptr);)
+		if (transaction->flushing && transaction->maxBlockNumber < lastFlushBlock)
+			{
+			inactions.remove(transaction);
+			delete transaction;
+			}
+		else
+			ptr = &transaction->next;
 }
 
 void SerialLog::initializeWriteBlock(SerialLogBlock *block)
@@ -1171,22 +1166,6 @@ void SerialLog::preFlush(void)
 		action->flushing = true;
 }
 
-void SerialLog::pageCacheFlushed()
-{
-	lastFlushBlock = preFlushBlock;
-	Sync sync(&pending.syncObject, "SerialLog::pageCacheFlushed");	// pending.syncObject use for both
-	sync.lock(Exclusive);
-	
-	for (SerialLogTransaction *transaction, **ptr = &inactions.first; (transaction = *ptr);)
-		if (transaction->flushing && transaction->maxBlockNumber < lastFlushBlock)
-			{
-			inactions.remove(transaction);
-			delete transaction;
-			}
-		else
-			ptr = &transaction->next;
-}
-
 int SerialLog::recoverLimboTransactions(void)
 {
 	int count = 0;
@@ -1209,7 +1188,7 @@ void SerialLog::putVersion()
 
 void SerialLog::wakeupFlushQueue(Thread *ourThread)
 {
-	ASSERT(syncWrite.getExclusiveThread() == Thread::getThread("SerialLog::wakeupFlushQueue"));
+	//ASSERT(syncWrite.getExclusiveThread() == Thread::getThread("SerialLog::wakeupFlushQueue"));
 	writer = NULL;
 	Thread *thread = srlQueue;
 	
@@ -1362,8 +1341,8 @@ void SerialLog::reportStatistics(void)
 
 	if (count != priorCount || (uint64) delta != priorDelta || priorWrites != writes)
 		{
-		Log::log(LogInfo, "SerialLog: %d reads, %d writes, %d transactions, %d completed, %d stalls, " I64FORMAT " blocks, %d windows\n", 
-				 reads, writes, count, commits, stalls, delta, windows);
+		Log::log(LogInfo, "%d: SerialLog: %d reads, %d writes, %d transactions, %d completed, %d stalls, " I64FORMAT " blocks, %d windows\n", 
+				 database->deltaTime, reads, writes, count, commits, stalls, delta, windows);
 		priorCount = count;
 		priorDelta = delta;
 		priorWrites = writes;
@@ -1533,4 +1512,9 @@ void SerialLog::preUpdate(void)
 	
 	Sync sync(&syncUpdateStall, "SerialLog::preUpdate");
 	sync.lock(Shared);
+}
+
+uint64 SerialLog::getWriteBlockNumber(void)
+{
+	return writeBlock->blockNumber;
 }

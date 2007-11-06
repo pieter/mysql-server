@@ -32,6 +32,7 @@ static const int TS_HASH_SIZE = 101;
 class TableSpace;
 class Database;
 class Transaction;
+class InfoTable;
 
 class TableSpaceManager  
 {
@@ -50,15 +51,17 @@ public:
 	void			dropDatabase(void);
 	void			dropTableSpace(TableSpace* tableSpace);
 	void			reportStatistics(void);
+	void			getIOInfo(InfoTable* infoTable);
+	void			validate(int optionMask);
+	void			sync(uint threshold);
+	void			expungeTableSpace(int tableSpaceId);
+	void			reportWrites(void);
 
 	Database	*database;
 	TableSpace	*tableSpaces;
 	TableSpace	*nameHash[TS_HASH_SIZE];
 	TableSpace	*idHash[TS_HASH_SIZE];
 	SyncObject	syncObject;
-	void validate(int optionMask);
-	void sync(void);
-	void expungeTableSpace(int tableSpaceId);
 };
 
 #endif // !defined(AFX_TABLESPACEMANAGER_H__BD1D39F6_2201_4136_899C_7CB106E99B8C__INCLUDED_)

@@ -172,7 +172,6 @@ void SectionPage::validateIndexes(Dbb *dbb, Validation *validation, int base)
 
 void SectionPage::analyze(Dbb *dbb, SectionAnalysis *analysis, int sectionId, int sequence, Bitmap *dataPages)
 {
-	++analysis->sectionPages;
 
 	for (int n = 0; n < dbb->pagesPerSection; ++n)
 		{
@@ -185,6 +184,7 @@ void SectionPage::analyze(Dbb *dbb, SectionAnalysis *analysis, int sectionId, in
 			
 			if (level == 0)
 				{
+				++analysis->recordLocatorPages;
 				RecordLocatorPage *indexPage = (RecordLocatorPage*) indexBdb->buffer;
 				indexPage->analyze (dbb, analysis, sectionId, sequence * dbb->pagesPerSection + n, dataPages);
 				}

@@ -40,6 +40,7 @@
 #include "InfoTable.h"
 #include "Thread.h"
 #include "Format.h"
+#include "LogLock.h"
 
 static const char *stateNames [] = {
 	"Active",
@@ -135,6 +136,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 		freeSavePoints = localSavePoints + n;
 		}
 	
+	startTime = database->deltaTime;
 	blockingRecord = NULL;
 	thread = Thread::getThread("Transaction::init");
 	syncActive.lock(NULL, Exclusive);
@@ -215,12 +217,7 @@ Transaction::~Transaction()
 		Sync sync(&syncIndexes, "Transaction::~Transaction");
 		sync.lock(Exclusive);
 
-		for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
-			{
-			deferredIndexes = deferredIndex->nextInTransaction;
-			deferredIndex->detachTransaction();
-			--deferredIndexCount;
-			}
+		releaseDeferredIndexes();
 		}
 }
 
@@ -257,7 +254,7 @@ void Transaction::commit()
 	database->dbb->logUpdatedRecords(this, firstRecord);
 	
 	if (pendingPageWrites)
-		database->pageWriter->waitForWrites(transactionId);
+		database->pageWriter->waitForWrites(this);
 //#endif
 	
 	if (hasLocks)
@@ -319,6 +316,13 @@ void Transaction::commitNoUpdates(void)
 	ASSERT(!deferredIndexes);
 	++transactionManager->committed;
 	
+	if (deferredIndexes)
+		{
+		Sync sync(&syncIndexes, "Transaction::commitNoUpdates");
+		sync.lock(Exclusive);
+		releaseDeferredIndexes();
+		}
+
 	if (hasLocks)
 		releaseRecordLocks();
 
@@ -390,6 +394,12 @@ void Transaction::rollback()
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
+	if (deferredIndexes)
+		{
+		Sync sync(&syncIndexes, "Transaction::rollback");
+		sync.lock(Exclusive);
+		releaseDeferredIndexes();
+		}
 	releaseSavePoints();
 	TransactionManager *transactionManager = database->transactionManager;
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
@@ -410,6 +420,7 @@ void Transaction::rollback()
 		record->nextInTrans = stack;
 		stack = record;
 		}
+		
 	lastRecord = NULL;
 
 	while (stack)
@@ -479,7 +490,7 @@ void Transaction::prepare(int xidLen, const UCHAR *xidPtr)
 		memcpy(xid, xidPtr, xidLength);
 		}
 		
-	database->pageWriter->waitForWrites(transactionId);
+	database->pageWriter->waitForWrites(this);
 	state = Limbo;
 	database->dbb->prepareTransaction(transactionId, xidLength, xid);
 
@@ -826,20 +837,8 @@ void Transaction::dropTable(Table* table)
 	Sync sync(&syncIndexes, "Transaction::dropTable");
 	sync.lock(Exclusive);
 
-	if (deferredIndexes)
-		{
-		
-		for (DeferredIndex **ptr = &deferredIndexes, *deferredIndex; (deferredIndex = *ptr);)
-			if (deferredIndex->index && (deferredIndex->index->table == table))
-				{
-				*ptr = deferredIndex->nextInTransaction;
-				deferredIndex->detachTransaction();
-				--deferredIndexCount;
-				}
-			else
-				ptr = &deferredIndex->next;
-		}
-	
+	releaseDeferredIndexes(table);
+
 	// Keep exclusive lock to avoid race condition with writeComplete
 	
 	for (RecordVersion **ptr = &firstRecord, *rec; (rec = *ptr);)
@@ -865,13 +864,7 @@ void Transaction::writeComplete(void)
 	Sync sync(&syncIndexes, "Transaction::writeComplete");
 	sync.lock(Exclusive);
 	
-	for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
-		{
-		ASSERT(deferredIndex->transaction == this);
-		deferredIndexes = deferredIndex->nextInTransaction;
-		deferredIndex->detachTransaction();
-		deferredIndexCount--;
-		}
+	releaseDeferredIndexes();
 
 	// Keep the synIndexes lock to avoid a race condition with dropTable
 	
@@ -1139,13 +1132,14 @@ void Transaction::printBlocking(int level)
 
 	++level;
 
-	Table *table = blockingRecord->format->table;
-	
 	if (blockingRecord)
+		{
+		Table *table = blockingRecord->format->table;
 		Log::debug("%*s Blocking on %s.%s record %d\n",
 				   level * INDENT, "",
-				   table->name, table->schemaName,
+				   table->schemaName, table->name, 
 				   blockingRecord->recordNumber);
+		}
 
 	for (record = firstRecord; record; record = record->nextInTrans)
 		{
@@ -1164,8 +1158,8 @@ void Transaction::printBlocking(int level)
 		
 		Log::debug("%*s Record %s.%s number %d %s\n",
 				   level * INDENT, "",
-				   table->name, 
 				   table->schemaName,
+				   table->name, 
 				   record->recordNumber,
 				   what);
 		}
@@ -1260,5 +1254,40 @@ void Transaction::releaseSavePoints(void)
 		
 		if (savePoint < localSavePoints || savePoint >= localSavePoints + LOCAL_SAVE_POINTS)
 			delete savePoint;
+		}
+}
+
+void Transaction::printBlockage(void)
+{
+	TransactionManager *transactionManager = database->transactionManager;
+	LogLock logLock;
+	Sync sync (&transactionManager->activeTransactions.syncObject, "Transaction::printBlockage");
+	sync.lock (Shared);
+	printBlocking(0);
+}
+
+void Transaction::releaseDeferredIndexes(void)
+{
+	for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
+		{
+		ASSERT(deferredIndex->transaction == this);
+		deferredIndexes = deferredIndex->nextInTransaction;
+		deferredIndex->detachTransaction();
+		deferredIndexCount--;
+		}
+}
+
+void Transaction::releaseDeferredIndexes(Table* table)
+{
+	for (DeferredIndex **ptr = &deferredIndexes, *deferredIndex; (deferredIndex = *ptr);)
+		{
+		if (deferredIndex->index && (deferredIndex->index->table == table))
+			{
+			*ptr = deferredIndex->nextInTransaction;
+			deferredIndex->detachTransaction();
+			--deferredIndexCount;
+			}
+		else
+			ptr = &deferredIndex->next;
 		}
 }

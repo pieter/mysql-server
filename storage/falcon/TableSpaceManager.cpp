@@ -39,6 +39,7 @@
 #include "SRLCreateTableSpace.h"
 #include "SRLDropTableSpace.h"
 #include "Log.h"
+#include "InfoTable.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -151,7 +152,7 @@ TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fi
 	int id = (int) sequence->update(1, database->getSystemTransaction());
 	TableSpace *tableSpace = new TableSpace(database, name, id, fileName, initialAllocation);
 	
-	if (tableSpace->dbb->doesFileExits(fileName))
+	if (tableSpace->dbb->doesFileExist(fileName))
 		{
 		delete tableSpace;
 		throw SQLError(DDL_ERROR, "table space file name \"%s\" already exists\n", fileName);
@@ -280,6 +281,15 @@ void TableSpaceManager::reportStatistics(void)
 		tableSpace->dbb->reportStatistics();
 }
 
+void TableSpaceManager::getIOInfo(InfoTable* infoTable)
+{
+	Sync sync(&syncObject, "TableSpaceManager::getIOInfo");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		tableSpace->getIOInfo(infoTable);
+}
+
 void TableSpaceManager::validate(int optionMask)
 {
 	Sync sync(&syncObject, "TableSpaceManager::validate");
@@ -289,13 +299,14 @@ void TableSpaceManager::validate(int optionMask)
 		tableSpace->dbb->validate(optionMask);
 }
 
-void TableSpaceManager::sync(void)
+void TableSpaceManager::sync(uint threshold)
 {
 	Sync sync(&syncObject, "TableSpaceManager::sync");
 	sync.lock(Shared);
 
 	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
-		tableSpace->dbb->sync();
+		if (threshold == 0 || tableSpace->dbb->writesSinceSync > threshold)
+			tableSpace->sync();
 }
 
 void TableSpaceManager::expungeTableSpace(int tableSpaceId)
@@ -336,4 +347,13 @@ void TableSpaceManager::expungeTableSpace(int tableSpaceId)
 	sync.unlock();
 	tableSpace->dropTableSpace();
 	delete tableSpace;
+}
+
+void TableSpaceManager::reportWrites(void)
+{
+	Sync sync(&syncObject, "TableSpaceManager::reportWrites");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		tableSpace->dbb->reportWrites();
 }

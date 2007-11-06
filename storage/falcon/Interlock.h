@@ -148,7 +148,7 @@ inline INTERLOCK_TYPE interlockedExchange(volatile long* addend, long value)
 		"lock\n\t" "xchg %0,%1\n\t" 
 		: "=r" (ret)
 		: "m" (*(addend)), "0" (ret)
-        : "memory"
+		: "memory"
 		);
 	return ret;
 #else

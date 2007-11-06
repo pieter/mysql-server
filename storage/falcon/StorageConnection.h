@@ -66,7 +66,7 @@ public:
 	virtual int		prepare(int xidLength, const unsigned char *xid);
 	virtual int		rollback(void);
 	virtual int		startTransaction(int isolationLevel);
-	virtual int     startImplicitTransaction(int isolationLevel);
+	virtual int		startImplicitTransaction(int isolationLevel);
 	virtual void	endImplicitTransaction(void);
 	virtual int		savepointSet();
 	virtual int		savepointRelease(int savePoint);

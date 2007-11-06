@@ -21,6 +21,7 @@
 #define MASTER_NAME				"FALCON_MASTER"
 #define MASTER_PATH				"falcon_master.fts"
 #define DEFAULT_TABLESPACE		"FALCON_USER"
+#define DEFAULT_TABLESPACE_PATH "falcon_user.fts"
 #define TEMPORARY_TABLESPACE	"FALCON_TEMPORARY"
 #define TEMPORARY_PATH			"falcon_temporary.fts"
 
@@ -78,12 +79,12 @@ public:
 	virtual int			commitByXID(int xidLength, const unsigned char* xid);
 	virtual int			rollbackByXID(int xidLength, const unsigned char* xis);
 	virtual Connection*	getDictionaryConnection(void);
-	virtual int			createTablespace(const char* tableSpaceName, const char* filename, int tableSpaceMode);
+	virtual int			createTablespace(const char* tableSpaceName, const char* filename);
 	virtual int			deleteTablespace(const char* tableSpaceName);
 
 	virtual StorageTableShare* findTable(const char* pathname);
 	virtual StorageTableShare* createTable(const char* pathname, const char *tableSpaceName, bool tempTable);
-	virtual StorageConnection* getStorageConnection(StorageTableShare* tableShare, THD* mySqlThread, int mySqlThdId, OpenOption createFlag, int tableSpaceMode);
+	virtual StorageConnection* getStorageConnection(StorageTableShare* tableShare, THD* mySqlThread, int mySqlThdId, OpenOption createFlag);
 
 	virtual void		getIOInfo(InfoTable* infoTable);
 	virtual void		getMemoryDetailInfo(InfoTable* infoTable);
@@ -125,9 +126,8 @@ public:
 	StorageDatabase		*storageDatabases[databaseHashSize];
 	StorageDatabase		*databaseList;
 	StorageTableShare	*tables[tableHashSize];
-	Connection		*dictionaryConnection;
+	Connection			*dictionaryConnection;
 	int					mySqlLockSize;
-	bool				globalTableSpace;
 };
 
 #endif

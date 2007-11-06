@@ -37,16 +37,10 @@
 
 #define DICTIONARY_ACCOUNT		"mysql"
 #define DICTIONARY_PW			"mysql"
-#define FALCON_USER				"falcon_user.fts"
-#define FALCON_TEMPORARY		"falcon_temporary.fts"
+#define FALCON_USER				DEFAULT_TABLESPACE_PATH
+#define FALCON_TEMPORARY		TEMPORARY_PATH
 
 #define HASH(address,size)				(int)(((UIPTR) address >> 2) % size)
-
-#ifdef _WIN32
-	static const char SLASH = '\\';
-#else
-	static const char SLASH = '/';
-#endif
 
 struct StorageSavepoint {
 	StorageSavepoint*	next;
@@ -107,7 +101,6 @@ StorageHandler::StorageHandler(int lockSize)
 	dictionaryConnection = NULL;
 	databaseList = NULL;
 	defaultDatabase = NULL;
-	globalTableSpace = false;
 }
 
 StorageHandler::~StorageHandler(void)
@@ -420,7 +413,7 @@ Connection* StorageHandler::getDictionaryConnection(void)
 	return dictionaryConnection;
 }
 
-int StorageHandler::createTablespace(const char* tableSpaceName, const char* filename, int tableSpaceMode)
+int StorageHandler::createTablespace(const char* tableSpaceName, const char* filename)
 {
 	if (!defaultDatabase)
 		initialize();
@@ -451,6 +444,13 @@ int StorageHandler::deleteTablespace(const char* tableSpaceName)
 	if (!defaultDatabase)
 		initialize();
 
+	if (   !strcasecmp(tableSpaceName, MASTER_NAME)
+		|| !strcasecmp(tableSpaceName, DEFAULT_TABLESPACE)
+		|| !strcasecmp(tableSpaceName, TEMPORARY_TABLESPACE))
+		{
+			return StorageErrorTablesSpaceOperationFailed;
+		}
+		
 	try
 		{
 		CmdGen gen;
@@ -477,7 +477,7 @@ StorageTableShare* StorageHandler::findTable(const char* pathname)
 	filename[0] = 0;
 	
 	for (const char *p = pathname; (c = *p++); prior = c)
-		if (c != SLASH || c != prior)
+		if (c != SEPARATOR || c != prior)
 			*q++ = c;
 
 	*q = 0 ;
@@ -552,7 +552,7 @@ void StorageHandler::removeTable(StorageTableShare* table)
 			}
 }
 
-StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* tableShare, THD* mySqlThread, int mySqlThdId, OpenOption createFlag, int tableSpaceMode)
+StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* tableShare, THD* mySqlThread, int mySqlThdId, OpenOption createFlag)
 {
 	Sync sync(&syncObject, "StorageConnection::getStorageConnection");
 	
@@ -597,18 +597,7 @@ StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* table
 			}
 	
 	
-	if (tableSpaceMode == TABLESPACE_INTERNAL)
-		storageConnection = new StorageConnection(this, storageDatabase, mySqlThread, mySqlThdId);
-	else
-		{
-		const char *dbName = tableShare->tableSpace;
-		char path[FILENAME_MAX];
-		tableShare->getDefaultPath(path);
-		storageDatabase = getStorageDatabase(dbName, path);
-		storageConnection = new StorageConnection(this, storageDatabase, mySqlThread, mySqlThdId);
-		storageDatabase->release();
-		}
-		
+	storageConnection = new StorageConnection(this, storageDatabase, mySqlThread, mySqlThdId);
 	bool success = false;
 	
 	if (createFlag != CreateDatabase) // && createFlag != OpenTemporaryDatabase)
@@ -714,7 +703,7 @@ int StorageHandler::dropDatabase(const char* path)
 {
 	/***
 	char pathname[FILENAME_MAX];
-	const char *slash = pathname;
+	const char *SEPARATOR = pathname;
 	char *q = pathname;
 	
 	for (const char *p = path; *p;)
@@ -726,14 +715,14 @@ int StorageHandler::dropDatabase(const char* path)
 			if (*p == 0)
 				break;
 				
-			slash = q + 1;
+			SEPARATOR = q + 1;
 			}
 		
 		*q++ = c;
 		}
 	
 	*q = 0;
-	JString dbName = JString::upcase(slash);
+	JString dbName = JString::upcase(SEPARATOR);
 	strcpy(q, StorageTableShare::getDefaultRoot());	
 	StorageDatabase *storageDatabase = getStorageDatabase(dbName, pathname);
 	databaseDropped(storageDatabase, NULL);

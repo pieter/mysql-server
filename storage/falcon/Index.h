@@ -37,13 +37,15 @@ static const int INDEX_CURRENT_VERSION	= INDEX_VERSION_1;
 #define INDEX_ID(combined)		(combined % INDEX_VERSION_FACTOR)
 #define INDEX_VERSION(combined)	(combined / INDEX_VERSION_FACTOR)
 #define INDEX_COMPOSITE(id,vers)(vers * INDEX_VERSION_FACTOR + id)
-
+//* These kind of commented lines implement multiple DI hase sizes.
+//*	#define MAX_DI_HASH_TABLES 5
 
 static const int PrimaryKey			= 0;
 static const int UniqueIndex		= 1;
 static const int SecondaryIndex		= 2;
 static const int ForeignKeyIndex	= 3;
 static const int IndexTypeMask		= 0x7;
+#define INDEX_IS_UNIQUE(t) ((t == PrimaryKey) || (t == UniqueIndex))
 
 static const int StorageEngineIndex	= 0x10;
 
@@ -72,7 +74,7 @@ struct IndexSegment {
 	int		length;
 	};
 
-class Index  
+class Index
 {
 public:
 	const char* getSchemaName();
@@ -115,6 +117,12 @@ public:
 	static JString	getTableName (Database *database, const char *schema, const char *indexName);
 	static void		deleteIndex (Database *database, const char *schema, const char *indexName);
 
+//*	uint32		hash(UCHAR *buf, int len, uint hashSize);
+	uint32		hash(UCHAR *buf, int len);
+	void		addToDIHash(struct DIUniqueNode *uniqueNode);
+	void		removeFromDIHash(struct DIUniqueNode *uniqueNode);
+	void		scanDIHash(IndexKey* scanKey, int searchFlags, Bitmap *bitmap);
+
 	Index(Table *tbl, const char *indexName, int count, int typ);
 	Index(Table *tbl, const char *indexName, int indexType, int id, int numberFields);
 	virtual ~Index();
@@ -136,6 +144,14 @@ public:
 	bool		savePending;
 	bool		damaged;
 	bool		rebuild;
+//*	uint		curHashTable;
+//*	DIUniqueNode **DIHashTables[MAX_DI_HASH_TABLES];
+//*	int			DIHashTableCounts[MAX_DI_HASH_TABLES];
+//*	int			DIHashTableSlotsUsed[MAX_DI_HASH_TABLES];
+	DIUniqueNode **DIHashTable;
+	int			DIHashTableCounts;
+	int			DIHashTableSlotsUsed;
+	SyncObject	syncDIHash;
 };
 
 #endif // !defined(AFX_INDEX_H__02AD6A44_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

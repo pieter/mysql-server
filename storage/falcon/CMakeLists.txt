@@ -250,6 +250,7 @@ ADD_LIBRARY(ha_falcon
 		SRLSequencePage.cpp 
 		SRLSwitchLog.cpp 
 		SRLUpdateIndex.cpp
+		SRLUpdateBlob.cpp
 		SRLUpdateRecords.cpp
 		SRLVersion.cpp 
 		SRLWordUpdate.cpp 
@@ -267,6 +268,7 @@ ADD_LIBRARY(ha_falcon
 		SyncWait.cpp 
 		Synchronize.cpp
 		SyncObject.cpp 
+		SyncTest.cpp 
 		SyncWait.cpp 
 		Syntax.cpp 
 		TableAttachment.cpp
@@ -519,6 +521,7 @@ ADD_LIBRARY(ha_falcon
 		SRLSequencePage.h 
 		SRLSwitchLog.h 
 		SRLUpdateIndex.h
+		SRLUpdateBlob.h
 		SRLUpdateRecords.h
 		SRLVersion.h
 		SRLWordUpdate.h 
@@ -528,14 +531,16 @@ ADD_LIBRARY(ha_falcon
 		StorageDatabase.h
 		StorageHandler.h
 		StorageTable.h 
+		StorageParameters.h 
 		StorageTableShare.h 
 		Stream.h
 		StreamSegment.h 
 		SymbolManager.h 
 		Sync.h 
-		SyncWait.h 
 		Synchronize.h
 		SyncObject.h 
+		SyncTest.h 
+		SyncWait.h 
 		SynchronizationObject.h
 		SyncWait.h 
 		Syntax.h 

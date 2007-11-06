@@ -114,6 +114,7 @@ public:
 	bool IsEmpty();
 	const char* after (char c);
 	JString before (char c);
+
 	bool operator == (const char *string);
 	bool operator == (const WCString *stuff);
 	bool operator != (const char *stuff);
@@ -126,9 +127,9 @@ public:
 	~JString();
 	
 	void		append (const char*);
+	void		append (const char*, int length);
 	void		setString (const char*);
 	void		setString (const char *source, int length);
-
 	void		Format (const char*, ...);
 	
 	inline const char	*getString()
@@ -143,6 +144,7 @@ public:
 	
 	JString& operator = (const char *string);
 	JString& operator = (const JString& string);
+	JString& operator+=(char c);
 	JString& operator+=(const char *string);
 	JString& operator+=(const JString& string);
 

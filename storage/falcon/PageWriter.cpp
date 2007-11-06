@@ -26,6 +26,8 @@
 #include "Database.h"
 #include "BDB.h"
 #include "Cache.h"
+#include "Transaction.h"
+#include "IOx.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -181,7 +183,7 @@ void PageWriter::writer()
 			if (bdb)
 				{
 				if (bdb->flags & BDB_dirty)
-					cache->writePage(bdb);
+					cache->writePage(bdb, WRITE_TYPE_PAGE_WRITER);
 
 				bdb->release(REL_HISTORY);
 				}
@@ -260,7 +262,7 @@ void PageWriter::removeElement(DirtyPage *element)
 		release(transaction);
 }
 
-void PageWriter::waitForWrites(TransId transactionId)
+void PageWriter::waitForWrites(Transaction *transaction)
 {
 	Sync sync(&syncObject, "PageWriter::waitForWrites");
 	Thread *thread = NULL;
@@ -268,15 +270,16 @@ void PageWriter::waitForWrites(TransId transactionId)
 	for (;;)
 		{
 		sync.lock(Exclusive);
-		DirtyTrans *transaction = findDirtyTransaction(transactionId);
+		DirtyTrans *dirtyTrans = findDirtyTransaction(transaction->transactionId);
 
-		if (!transaction)
+		if (!dirtyTrans)
 			return;
 
 		if (!thread)
 			thread = Thread::getThread("PageWriter::waitForWrites");
 
-		transaction->thread = thread;
+		dirtyTrans->thread = thread;
+		//transaction->printBlockage();
 		sync.unlock();
 		thread->sleep();
 		}

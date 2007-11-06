@@ -127,6 +127,8 @@ public:
 	void		validateDependencies(bool noDependencies);
 	void		releaseSavePoints(void);
 	void		printBlocking(int level);
+	void		releaseDeferredIndexes(void);
+	void		releaseDeferredIndexes(Table* table);
 
 	inline bool isActive()
 		{
@@ -148,6 +150,7 @@ public:
 	DeferredIndex	*deferredIndexes;
 	Thread			*thread;
 	Record			*blockingRecord;
+	time_t			startTime;
 	int				deferredIndexCount;
 	int				statesAllocated;
 	int				isolationLevel;
@@ -187,6 +190,8 @@ protected:
 	RecordVersion	**recordPtr;
 
 	virtual ~Transaction();
+public:
+	void printBlockage(void);
 };
 
 #endif // !defined(AFX_TRANSACTION_H__02AD6A4D_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

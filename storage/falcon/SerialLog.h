@@ -81,7 +81,7 @@ public:
 	virtual ~SerialLog();
 
 	void			putVersion();
-	void			pageCacheFlushed();
+	void			pageCacheFlushed(int64 flushArg);
 
 	void			releaseBuffer (UCHAR *buffer);
 	UCHAR*			allocBuffer();
@@ -145,7 +145,9 @@ public:
 	void			endRecord(void);
 	Dbb*			getDbb(int tableSpaceId);
 	TableSpaceInfo	*getTableSpaceInfo(int tableSpaceId);
-	void			 preUpdate(void);
+	void			preUpdate(void);
+	Dbb*			findDbb(int tableSpaceId);
+	uint64			getWriteBlockNumber(void);
 	
 	static void		gopherThread(void *arg);
 
@@ -223,8 +225,6 @@ public:
 	
 private:
 	Thread *volatile	writer;
-public:
-	Dbb* findDbb(int tableSpaceId);
 };
 
 #endif // !defined(AFX_SERIALLOG_H__D2A71E6B_A3B0_41C8_9C73_628DA067F722__INCLUDED_)

@@ -36,9 +36,11 @@
 #ifdef STORAGE_ENGINE
 #define CONFIG_FILE	"falcon.conf"
 
-#define PARAMETER(name, text, min, default, max, flags, function) extern uint falcon_##name;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) extern uint falcon_##_name;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) extern char falcon_##_name;
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
 
 extern uint64		falcon_record_memory_max;
 extern uint			falcon_record_scavenge_threshold;
@@ -57,9 +59,11 @@ extern char*		falcon_scavenge_schedule;
 extern char*		falcon_serial_log_dir;
 #else
 #define CONFIG_FILE	"netfraserver.conf"
-#define PARAMETER(name, text, min, default, max, flags, function) uint falcon_##name = default;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) uint falcon_##_name = _default;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) bool falcon_##_name = _default;
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
 
 #endif
 
@@ -98,6 +102,7 @@ Configuration::Configuration(const char *configFile)
 	indexChillThreshold			= falcon_index_chill_threshold * ONE_MB;
 	recordChillThreshold		= falcon_record_chill_threshold * ONE_MB;
 	maxTransactionBacklog		= falcon_max_transaction_backlog;
+	useDeferredIndexHash		= (falcon_use_deferred_index_hash != 0);
 	
 	if (falcon_checkpoint_schedule)
 		checkpointSchedule = falcon_checkpoint_schedule;
@@ -224,6 +229,8 @@ Configuration::Configuration(const char *configFile)
 				Log::scrubWords (value);
 			else if (parameter.equalsNoCase ("scheduler"))
 				schedulerEnabled = enabled(value);
+			else if (parameter.equalsNoCase ("use_deferred_index_hash"))
+				useDeferredIndexHash = (0 != atoi(value));
 			else
 				throw SQLEXCEPTION (DDL_ERROR, "unknown config parameter \"%s\"", 
 									(const char*) parameter);

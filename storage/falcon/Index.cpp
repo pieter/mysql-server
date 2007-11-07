@@ -421,12 +421,13 @@ Bitmap* Index::scanIndex(IndexKey* lowKey, IndexKey* highKey, int searchFlags, T
 
 	// Use the DIHash if we can.
 
-	if ((lowKey) && (lowKey == highKey) && INDEX_IS_UNIQUE(type))
+	if (   (database->configuration->useDeferredIndexHash)
+		&& (lowKey) && (lowKey == highKey) && INDEX_IS_UNIQUE(type))
 		{
 		scanDIHash(lowKey, searchFlags, bitmap);
 		}
 
-	if (deferredIndexes.first)
+	else if (deferredIndexes.first)
 		{
 		Sync sync(&deferredIndexes.syncObject, "Index::scanIndex");
 		sync.lock(Shared);
@@ -801,12 +802,13 @@ void Index::detachDeferredIndex(DeferredIndex *deferredIndex)
 	deferredIndexes.remove(deferredIndex);
 	sync.unlock();
 
-	if (INDEX_IS_UNIQUE(type))
+	if (   (database->configuration->useDeferredIndexHash)
+		&& (INDEX_IS_UNIQUE(type)))
 		{
-		Sync sync1(&deferredIndex->syncObject, "Index::detachDeferredIndex");
-		sync1.lock(Exclusive);
-		Sync sync2(&syncDIHash, "Index::detachDeferredIndex");
-		sync2.lock(Exclusive);
+		Sync syncHash(&syncDIHash, "Index::detachDeferredIndex");
+		syncHash.lock(Exclusive);
+		Sync syncDI(&deferredIndex->syncObject, "Index::detachDeferredIndex");
+		syncDI.lock(Exclusive);
 
 		DeferredIndexWalker walker(deferredIndex, NULL);
 
@@ -982,9 +984,6 @@ uint32 Index::hash(UCHAR *buf, int len)
 
 void Index::addToDIHash(struct DIUniqueNode *uniqueNode)
 {
-	Sync sync(&syncDIHash, "Index::addToDIHash");
-	sync.lock(Exclusive);
-
 //	if (DIHashTables[curHashTable] == NULL)
 	if (DIHashTable == NULL)
 		{

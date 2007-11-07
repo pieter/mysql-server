@@ -28,6 +28,7 @@
 #include "Transaction.h"
 #include "Log.h"
 #include "LogLock.h"
+#include "Configuration.h"
 
 static const uint MIDPOINT = DEFERRED_INDEX_FANOUT / 2;
 static char printable[256];
@@ -101,12 +102,19 @@ void* DeferredIndex::alloc(uint length)
 
 void DeferredIndex::addNode(IndexKey* indexKey, int32 recordNumber)
 {
+	bool doingDIHash = (   (index->database->configuration->useDeferredIndexHash)
+	                    && (INDEX_IS_UNIQUE(index->type)));
+
+	Sync syncHash(&index->syncDIHash, "DeferredIndex::addNode");
+	if (doingDIHash)
+		syncHash.lock(Exclusive);
+
 	Sync sync(&syncObject, "DeferredIndex::addNode");
 	sync.lock(Exclusive);
 	DINode *node;
 	DIUniqueNode *uniqueNode = NULL;
 
-	if (INDEX_IS_UNIQUE(index->type))
+	if (doingDIHash)
 		{
 		int nodeSize = sizeof(DIUniqueNode) + indexKey->keyLength - 1;
 		uniqueNode = (DIUniqueNode*) alloc(nodeSize);
@@ -123,7 +131,7 @@ void DeferredIndex::addNode(IndexKey* indexKey, int32 recordNumber)
 	node->keyLength = indexKey->keyLength;
 	memcpy(node->key, indexKey->key, node->keyLength);
 
-	if (INDEX_IS_UNIQUE(index->type))
+	if (doingDIHash)
 		index->addToDIHash(uniqueNode);
 
 	// Calculate how much space in the serial log this node will take up
@@ -340,6 +348,13 @@ void DeferredIndex::addNode(IndexKey* indexKey, int32 recordNumber)
 
 bool DeferredIndex::deleteNode(IndexKey* key, int32 recordNumber)
 {
+	bool doingDIHash = (   (index->database->configuration->useDeferredIndexHash)
+	                    && (INDEX_IS_UNIQUE(index->type)));
+
+	Sync syncHash(&index->syncDIHash, "DeferredIndex::deleteNode");
+	if (doingDIHash)
+		syncHash.lock(Exclusive);
+
 	Sync sync(&syncObject, "DeferredIndex::deleteNode");
 	sync.lock(Exclusive);
 
@@ -385,16 +400,12 @@ bool DeferredIndex::deleteNode(IndexKey* key, int32 recordNumber)
 			{
 			DINode *node = leaf->nodes[slot];
 
-			if (INDEX_IS_UNIQUE(index->type))
+			if (doingDIHash)
 				{
 				DIUniqueNode *uniqueNode = UNIQUE_NODE(node);
-				Sync sync(&index->syncDIHash, "DeferredIndex::deleteNode");
-				sync.lock(Exclusive);
-
 				index->removeFromDIHash(uniqueNode);
 				}
 
-			
 			if (node == minValue)
 				{
 				if (slot + 1 < leaf->count)

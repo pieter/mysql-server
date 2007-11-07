@@ -61,9 +61,11 @@ static const char *falcon_extensions[] = {
 
 static StorageHandler	*storageHandler;
 
-#define PARAMETER(name, text, min, deflt, max, flags, function) uint falcon_##name;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) uint falcon_##_name;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function)   my_bool falcon_##_name;
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
 
 unsigned long long		falcon_record_memory_max;
 uint					falcon_record_scavenge_threshold;
@@ -2850,20 +2852,19 @@ static MYSQL_SYSVAR_STR(scavenge_schedule, falcon_scavenge_schedule,
   "Falcon record scavenge schedule.",
   NULL, NULL, "15,45 * * * * *");
 
-/***
-static MYSQL_SYSVAR_UINT(debug_mask, falcon_debug_mask,
-  PLUGIN_VAR_RQCMDARG,
-  "Falcon message type mask for logged messages.",
-  NULL, NULL, 0, 0, INT_MAX, 0);
-***/
-
 // #define MYSQL_SYSVAR_UINT(name, varname, opt, comment, check, update, def, min, max, blk)
 
-#define PARAMETER(name, text, min, deflt, max, flags, function) \
-	static MYSQL_SYSVAR_UINT(name, falcon_##name, \
-	PLUGIN_VAR_RQCMDARG | flags, text, function, NULL, deflt, min, max, 0);
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) \
+	static MYSQL_SYSVAR_UINT(_name, falcon_##_name, \
+	PLUGIN_VAR_RQCMDARG | _flags, _text, _function, NULL, _default, _min, _max, 0);
+
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) \
+	static MYSQL_SYSVAR_BOOL(_name, falcon_##_name,\
+	PLUGIN_VAR_RQCMDARG | _flags, _text,  NULL, _function, _default);
+
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
 
 static MYSQL_SYSVAR_ULONGLONG(record_memory_max, falcon_record_memory_max,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
@@ -2928,9 +2929,13 @@ static MYSQL_SYSVAR_BOOL(consistent_read, falcon_consistent_read,
   NULL, StorageInterface::updateConsistentRead, TRUE);
 
 static struct st_mysql_sys_var* falconVariables[]= {
-#define PARAMETER(name, text, min, deflt, max, flags, function) MYSQL_SYSVAR(name),
+
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) MYSQL_SYSVAR(_name),
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) MYSQL_SYSVAR(_name),
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
+
 	MYSQL_SYSVAR(debug_server),
 	MYSQL_SYSVAR(serial_log_dir),
 	MYSQL_SYSVAR(checkpoint_schedule),

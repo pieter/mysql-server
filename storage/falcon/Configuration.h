@@ -63,6 +63,7 @@ public:
 	uint		maxTransactionBacklog;
 	short		serialLogBlockSize;
 	bool		schedulerEnabled;
+	bool		useDeferredIndexHash;
 };
 
 #endif // !defined(AFX_CONFIGURATION_H__FE192389_82EE_4E37_BA07_19A71BCFF487__INCLUDED_)

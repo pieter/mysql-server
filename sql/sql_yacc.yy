@@ -9888,9 +9888,10 @@ literal:
               MYSQL_YYABORT;
             }
           }
-	| DATE_SYM text_literal { $$ = $2; }
-	| TIME_SYM text_literal { $$ = $2; }
-	| TIMESTAMP text_literal { $$ = $2; };
+        | DATE_SYM text_literal { $$ = $2; }
+        | TIME_SYM text_literal { $$ = $2; }
+        | TIMESTAMP text_literal { $$ = $2; }
+        ;
 
 NUM_literal:
           NUM

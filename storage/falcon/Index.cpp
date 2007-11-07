@@ -422,7 +422,9 @@ Bitmap* Index::scanIndex(IndexKey* lowKey, IndexKey* highKey, int searchFlags, T
 	// Use the DIHash if we can.
 
 	if (   (database->configuration->useDeferredIndexHash)
-		&& (lowKey) && (lowKey == highKey) && INDEX_IS_UNIQUE(type))
+		&& (lowKey) && (lowKey == highKey)
+		&& INDEX_IS_UNIQUE(type)
+		&& (DIHashTableCounts))
 		{
 		scanDIHash(lowKey, searchFlags, bitmap);
 		}

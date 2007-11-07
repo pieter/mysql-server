@@ -30,3 +30,4 @@ SELECT @@falcon_serial_log_block_size;
 SELECT @@falcon_serial_log_buffers;
 SELECT @@falcon_serial_log_dir;
 SELECT @@falcon_serial_log_priority;
+SELECT @@falcon_use_deferred_index_hash;

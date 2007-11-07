@@ -25,6 +25,7 @@ FALCON_SERIAL_LOG_BLOCK_SIZE	0
 FALCON_SERIAL_LOG_BUFFERS	10
 FALCON_SERIAL_LOG_DIR	
 FALCON_SERIAL_LOG_PRIORITY	1
+FALCON_USE_DEFERRED_INDEX_HASH	ON
 SELECT @@falcon_checkpoint_schedule;
 @@falcon_checkpoint_schedule
 7 * * * * *
@@ -96,4 +97,7 @@ SELECT @@falcon_serial_log_dir;
 NULL
 SELECT @@falcon_serial_log_priority;
 @@falcon_serial_log_priority
+1
+SELECT @@falcon_use_deferred_index_hash;
+@@falcon_use_deferred_index_hash
 1

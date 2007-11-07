@@ -9524,6 +9524,9 @@ ha_ndbcluster::release_completed_operations(NdbTransaction *trans,
     The implementation is copied from handler::multi_range_read_info_const.
     The only difference is that NDB-MRR cannot handle blob columns or keys
     with NULLs for unique indexes. We disable MRR for those cases.
+
+  NOTES
+    See NOTES for handler::multi_range_read_info_const().
 */
 
 ha_rows 
@@ -9537,10 +9540,14 @@ ha_ndbcluster::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   ha_rows rows, total_rows= 0;
   uint n_ranges=0;
   bool null_ranges= FALSE;
+  THD *thd= current_thd;
 
   seq_it= seq->init(seq_init_param, n_ranges, *flags);
   while (!seq->next(seq_it, &range))
   {
+    if (unlikely(thd->killed != 0))
+      return HA_POS_ERROR;
+    
     n_ranges++;
     key_range *min_endp= range.start_key.length? &range.start_key : NULL;
     key_range *max_endp= range.end_key.length? &range.end_key : NULL;

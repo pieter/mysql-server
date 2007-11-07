@@ -7151,9 +7151,7 @@ bool parse_sql(THD *thd,
 
   /* Check that if MYSQLparse() failed, thd->is_error() is set. */
 
-  DBUG_ASSERT(!mysql_parse_status ||
-              mysql_parse_status && thd->is_error());
-
+  DBUG_ASSERT(!mysql_parse_status || thd->is_error());
 
   /* Reset Lex_input_stream. */
 
@@ -7166,7 +7164,7 @@ bool parse_sql(THD *thd,
 
   /* That's it. */
 
-  return mysql_parse_status || thd->is_error();
+  return mysql_parse_status || thd->is_fatal_error;
 }
 
 /**

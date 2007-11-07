@@ -5322,7 +5322,7 @@ alter:
             lex->alter_info.reset();
             lex->no_write_to_binlog= 0;
             lex->create_info.default_storage_media= HA_SM_DEFAULT;
-            lex->alter_info.build_method= $2;	
+            lex->alter_info.build_method= $2;
           }
           alter_commands
           {}

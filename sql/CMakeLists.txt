@@ -76,10 +76,6 @@ ADD_EXECUTABLE(mysqld
                partition_info.cc rpl_utility.cc rpl_injector.cc sql_locale.cc
                rpl_rli.cc rpl_mi.cc sql_servers.cc
                sql_connect.cc scheduler.cc 
-               backup/stream.cc backup/logger.cc backup/string_pool.cc
-               backup/archive.cc backup/meta_backup.cc backup/data_backup.cc
-               backup/sql_backup.cc backup/be_default.cc backup/buffer_iterator.cc
-               backup/be_snapshot.cc
                ${PROJECT_SOURCE_DIR}/sql/sql_yacc.cc
                ${PROJECT_SOURCE_DIR}/sql/sql_yacc.h
                ${PROJECT_SOURCE_DIR}/include/mysqld_error.h
@@ -92,6 +88,8 @@ ADD_EXECUTABLE(mysqld
 TARGET_LINK_LIBRARIES(mysqld
                       heap myisam myisammrg mysys yassl zlib debug dbug yassl 
                       taocrypt strings vio regex wsock32 ws2_32)
+
+TARGET_LINK_LIBRARIES(mysqld backup)
 
 SET_TARGET_PROPERTIES(mysqld PROPERTIES OUTPUT_NAME mysqld${MYSQLD_EXE_SUFFIX})
 
@@ -177,4 +175,6 @@ SET_DIRECTORY_PROPERTIES(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES
 ADD_LIBRARY(udf_example MODULE udf_example.c udf_example.def)
 ADD_DEPENDENCIES(udf_example strings)
 TARGET_LINK_LIBRARIES(udf_example strings wsock32)
+
+ADD_SUBDIRECTORY(backup)
 

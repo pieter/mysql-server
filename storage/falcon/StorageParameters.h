@@ -9,4 +9,4 @@ PARAMETER_UINT(lock_timeout, "Transaction lock time period (milliseconds)", 0, 0
 PARAMETER_UINT(serial_log_priority, "Whether or not serial log has write priority over other writes.", 0, 1, 1, 0, NULL)
 PARAMETER_UINT(direct_io, "Whether Falcon should use O_DIRECT.", 0, 1, 2, 0, NULL)
 PARAMETER_UINT(serial_log_block_size, "Minimum block size for serial log.", 0, 0, 4096, 0, NULL)
-PARAMETER_BOOL(use_deferred_index_hash, "Use Deferred Index hash lookup", 1, 0, NULL)
+PARAMETER_BOOL(use_deferred_index_hash, "Use Deferred Index hash lookup", 0, 0, NULL)

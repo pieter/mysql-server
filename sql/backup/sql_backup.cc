@@ -75,6 +75,12 @@ execute_backup_command(THD *thd, LEX *lex)
 
   BACKUP_SYNC("backup_command");
 
+  /*
+    Check access for SUPER rights. If user does not have SUPER, fail with error.
+  */
+  if (check_global_access(thd, SUPER_ACL))
+    DBUG_RETURN(ER_SPECIFIC_ACCESS_DENIED_ERROR);
+
   backup::Location *loc= backup::Location::find(lex->backup_dir);
 
   if (!loc)

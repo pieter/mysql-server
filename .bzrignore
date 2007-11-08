@@ -1137,6 +1137,7 @@ libmysqld/rpl_filter.cc
 libmysqld/rpl_injector.cc
 libmysqld/rpl_record.cc
 libmysqld/rpl_record_old.cc
+libmysqld/scheduler.cc
 libmysqld/set_var.cc
 libmysqld/simple-test
 libmysqld/slave.cc
@@ -1153,6 +1154,7 @@ libmysqld/sql_builtin.cc
 libmysqld/sql_cache.cc
 libmysqld/sql_class.cc
 libmysqld/sql_command
+libmysqld/sql_connect.cc
 libmysqld/sql_crypt.cc
 libmysqld/sql_cursor.cc
 libmysqld/sql_cursor.h
@@ -1183,6 +1185,7 @@ libmysqld/sql_show.cc
 libmysqld/sql_state.c
 libmysqld/sql_string.cc
 libmysqld/sql_table.cc
+libmysqld/sql_tablespace.cc
 libmysqld/sql_test.cc
 libmysqld/sql_trigger.cc
 libmysqld/sql_udf.cc
@@ -1366,6 +1369,9 @@ mysql-test/r/udf.log
 mysql-test/rpl.log
 mysql-test/share/mysql
 mysql-test/std_data/*.pem
+mysql-test/suite/funcs_1/r/falcon_subquery2.result
+mysql-test/suite/funcs_1/r/falcon_subquery3.result
+mysql-test/suite/funcs_1/r/falcon_subquery4.result
 mysql-test/suite/funcs_1/r/innodb_trig_03e.warnings
 mysql-test/suite/funcs_1/r/innodb_views.warnings
 mysql-test/suite/funcs_1/r/memory_trig_03e.warnings
@@ -2134,8 +2140,10 @@ storage/archive/.deps/ha_archive_la-azio.Plo
 storage/archive/.deps/ha_archive_la-ha_archive.Plo
 storage/archive/.deps/libarchive_a-azio.Po
 storage/archive/.deps/libarchive_a-ha_archive.Po
+storage/archive/archive_performance
 storage/archive/archive_reader
 storage/archive/archive_test
+storage/archive/concurrency_test
 storage/bdb/*.ds?
 storage/bdb/*.vcproj
 storage/bdb/README
@@ -3007,8 +3015,3 @@ win/vs71cache.txt
 win/vs8cache.txt
 zlib/*.ds?
 zlib/*.vcproj
-storage/archive/archive_performance
-storage/archive/concurrency_test
-libmysqld/scheduler.cc
-libmysqld/sql_connect.cc
-libmysqld/sql_tablespace.cc

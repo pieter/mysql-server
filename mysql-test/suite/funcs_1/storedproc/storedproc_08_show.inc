@@ -9,7 +9,7 @@ let $message= ... now check what is stored:;
 
 #--replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
 
---replace_column 16 <modified> 17 <created>
+--replace_column 23 <create> 24 <modify>
 SELECT * FROM information_schema.routines;
 
 

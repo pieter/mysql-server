@@ -67,6 +67,7 @@
 #include "backup_engine.h"
 #include "be_default.h"
 #include "backup_aux.h"
+#include "rpl_record.h"
 
 namespace default_backup {
 
@@ -200,6 +201,39 @@ int Backup::next_table()
   DBUG_RETURN(0);
 }
 
+/* Potential buffer on the stack for the bitmap */
+#define BITMAP_STACKBUF_SIZE (128/8)
+
+/**
+  * @brief Pack the data for a row in the table.
+  *
+  * This method uses the binary log methods to pack a row from the
+  * internal row format to the binary log format.
+  *
+  * @returns  Size of packed row.
+  */
+uint Backup::pack(byte *rcd, byte *packed_row)
+{
+  uint size= 0;
+  int error= 0;
+
+  DBUG_ENTER("Default_backup::pack_row(byte *rcd, byte *packed_row)");
+  if (cur_table)
+  {
+    MY_BITMAP cols;
+    /* Potential buffer on the stack for the bitmap */
+    uint32 bitbuf[BITMAP_STACKBUF_SIZE/sizeof(uint32)];
+    uint n_fields= cur_table->s->fields;
+    my_bool use_bitbuf= n_fields <= sizeof(bitbuf) * 8;
+    error= bitmap_init(&cols, use_bitbuf ? bitbuf : NULL, (n_fields + 7) & ~7UL, FALSE);
+    bitmap_set_all(&cols);
+    size= pack_row(cur_table, &cols, packed_row, rcd);
+    if (!use_bitbuf)
+      bitmap_free(&cols);
+  }
+  DBUG_RETURN(size);
+}
+
 /**
   * @brief Get the data for a row in the table.
   * This method is the main method used in the backup operation. It is
@@ -316,16 +350,21 @@ result_t Backup::get_data(Buffer &buf)
       if ((size + META_SIZE) <= buf.size)
       {
         *buf.data= RCD_ONCE; //only part 1 of 1
-        memcpy((byte *)buf.data + META_SIZE, cur_table->record[0], size);
-        buf.size = size + META_SIZE;
+        int packed_size= 0;
+        packed_size= pack(cur_table->record[0], buf.data + META_SIZE);
+        buf.size = packed_size + META_SIZE;
         mode= CHECK_BLOBS;
       }
       else
       {
         size_t rec_size= 0;
         byte *rec_ptr= 0;
+        byte *packed_ptr= 0;
+        int packed_size= 0;
 
-        rec_buffer.initialize(cur_table->record[0], size);
+        rec_buffer.initialize(size);
+        packed_ptr= rec_buffer.get_base_ptr();
+        packed_size= pack(cur_table->record[0], packed_ptr);
         rec_size= rec_buffer.get_next((byte **)&rec_ptr, 
           (buf.size - META_SIZE));
         *buf.data= RCD_FIRST; // first part
@@ -570,6 +609,39 @@ int Restore::next_table()
 }
 
 /**
+  * @brief Unpack the data for a row in the table.
+  *
+  * This method uses the binary log methods to unpack a row from the
+  * binary log format to the internal row format.
+  *
+  * @retval 0   no errors.
+  * @retval !0  errors during unpack_row().
+  */
+uint Restore::unpack(byte *packed_row)
+{
+  uint size= 0;
+  int error= 0;
+  const uchar *cur_row_end;
+
+  DBUG_ENTER("Default_backup::unpack(byte *packed_row, byte *rcd)");
+  if (cur_table)
+  {
+    MY_BITMAP cols;
+    /* Potential buffer on the stack for the bitmap */
+    uint32 bitbuf[BITMAP_STACKBUF_SIZE/sizeof(uint32)];
+    uint n_fields= cur_table->s->fields;
+    my_bool use_bitbuf= n_fields <= sizeof(bitbuf) * 8;
+    error= bitmap_init(&cols, use_bitbuf ? bitbuf : NULL, (n_fields + 7) & ~7UL, FALSE);
+    bitmap_set_all(&cols);
+    ulong length;
+    error= unpack_row(NULL, cur_table, n_fields, packed_row, &cols, &cur_row_end, &length);
+    if (!use_bitbuf)
+      bitmap_free(&cols);
+  }
+  DBUG_RETURN(error);
+}
+
+/**
   * @brief Restore the data for a row in the table.
   *
   * This method is the main method used in the restore operation. It is
@@ -692,14 +764,14 @@ result_t Restore::send_data(Buffer &buf)
       */
       case RCD_ONCE:
       {
-        if (size == cur_table->s->reclength)
+        uint error= unpack((byte *)buf.data + META_SIZE);
+        if (error)
+          DBUG_RETURN(ERROR);
+        else 
         {
-          memcpy(cur_table->record[0], (byte *)buf.data + META_SIZE, size);
           mode= CHECK_BLOBS;
           DBUG_RETURN(PROCESSING);
         }
-        else 
-          DBUG_RETURN(ERROR);
       }
 
       /*
@@ -730,7 +802,7 @@ result_t Restore::send_data(Buffer &buf)
       {
         rec_buffer.put_next((byte *)buf.data + META_SIZE, size);
         ptr= (byte *)rec_buffer.get_base_ptr();
-        memcpy(cur_table->record[0], ptr, cur_table->s->reclength);
+        unpack(ptr);
         rec_buffer.reset();
         mode= CHECK_BLOBS;
       }

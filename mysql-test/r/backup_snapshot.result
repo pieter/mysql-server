@@ -22,9 +22,9 @@ BACKUP DATABASE bup_snapshot TO "bup_snapshot.bak";
 Backup Summary
  header     =       22 bytes
  meta-data  =       95 bytes
- data       =      260 bytes
+ data       =      270 bytes
               --------------
- total             377 bytes
+ total             387 bytes
 con2: Inserting new data.
 INSERT INTO bup_snapshot.t1 VALUES("- Dave Mathews");
 INSERT INTO bup_snapshot.t1 VALUES("- Yes");
@@ -46,9 +46,9 @@ RESTORE FROM "bup_snapshot.bak";
 Restore Summary
  header     =       22 bytes
  meta-data  =       95 bytes
- data       =      260 bytes
+ data       =      270 bytes
               --------------
- total             377 bytes
+ total             387 bytes
 con1: Showing the data (no new data should be here).
 SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
 word

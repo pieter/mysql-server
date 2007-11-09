@@ -59,9 +59,9 @@ BACKUP DATABASE db1,db2 TO 'test.ba';
 Backup Summary
  header     =       52 bytes
  meta-data  =      807 bytes
- data       =     1217 bytes
+ data       =      639 bytes
               --------------
- total            2076 bytes
+ total            1498 bytes
 DROP DATABASE db1;
 DROP DATABASE db2;
 USE mysql;
@@ -69,9 +69,9 @@ RESTORE FROM 'test.ba';
 Restore Summary
  header     =       52 bytes
  meta-data  =      807 bytes
- data       =     1217 bytes
+ data       =      639 bytes
               --------------
- total            2076 bytes
+ total            1498 bytes
 USE db1;
 SHOW TABLES;
 Tables_in_db1
@@ -321,17 +321,17 @@ BACKUP DATABASE bup_default TO "bup_default.bak";
 Backup Summary
  header     =       43 bytes
  meta-data  =      890 bytes
- data       =     7411 bytes
+ data       =     7368 bytes
               --------------
- total            8344 bytes
+ total            8301 bytes
 DROP DATABASE bup_default;
 RESTORE FROM "bup_default.bak";
 Restore Summary
  header     =       43 bytes
  meta-data  =      890 bytes
- data       =     7411 bytes
+ data       =     7368 bytes
               --------------
- total            8344 bytes
+ total            8301 bytes
 SELECT * FROM bup_default.t1;
 a
 1

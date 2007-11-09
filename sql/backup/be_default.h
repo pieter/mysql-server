@@ -136,6 +136,8 @@ class Backup: public Backup_driver
     byte *ptr;                     ///< Pointer to blob data from record.
     TABLE_LIST *all_tables;        ///< Reference to list of tables used.
     TABLE_LIST *tables_in_backup;  ///< List of tables used in backup.
+
+    uint pack(byte *rcd, byte *packed_row);
 };
 
 /**
@@ -193,6 +195,8 @@ class Restore: public Restore_driver
     int blob_ptr_index;            ///< Position in blob pointer list
     THD *m_thd;                    ///< Pointer to current thread struct.
     TABLE_LIST *all_tables;        ///< Reference to list of tables used.
+
+    uint unpack(byte *packed_row);
 };
 } // default_backup namespace
 

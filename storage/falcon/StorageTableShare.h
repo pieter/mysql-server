@@ -74,7 +74,8 @@ enum StorageError {
 	StorageWarningReadUncommitted	= -102,
 	StorageErrorTablesSpaceOperationFailed = -103,
 	StorageErrorOutOfMemory			= -104,		// memory pool limit reached or system memory exhausted
-	StorageErrorOutOfRecordMemory	= -105		// memory pool limit reached or system memory exhausted
+	StorageErrorOutOfRecordMemory	= -105,		// memory pool limit reached or system memory exhausted
+	StorageErrorLockTimeout			= -106
 	};
 	
 static const int StoreErrorIndexShift	= 10;
@@ -94,7 +95,6 @@ public:
 	virtual INT64		getSequenceValue(int delta);
 	virtual int			setSequenceValue(INT64 value);
 	virtual int			haveIndexes(void);
-	//virtual const char*	cleanupName(const char* tableName, char* buffer, int bufferLength, char *schema, int schemaLength);
 	virtual void		cleanupFieldName(const char* name, char* buffer, int bufferLength);
 	virtual void		setTablePath(const char* path, bool tempTable);
 	virtual void		registerCollation(const char* collationName, void* arg);
@@ -115,6 +115,7 @@ public:
 	void				setDatabase(StorageDatabase* db);
 	uint64				estimateCardinality(void);
 	bool				tableExists(void);
+	JString				lookupPathName(void);
 
 	static const char*	getDefaultRoot(void);
 	static const char*	cleanupTableName(const char* name, char* buffer, int bufferLength, char *schema, int schemaLength);

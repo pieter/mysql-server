@@ -61,12 +61,18 @@ public:
 	void	validateCache(void);
 	void	syncFile(Dbb *dbb, const char *text);
 	void	ioThread(void);
-
+	void	shutdownThreads(void);
+	bool	continueWrite(Bdb* startingBdb);
+	
 	static void ioThread(void* arg);
 		
-	Bdb*	fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
-	Bdb*	fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
-	Bdb*	trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType);
+	Bdb*		fakePage (Dbb *dbb, int32 pageNumber, PageType type, TransId transId);
+	Bdb*		fetchPage (Dbb *dbb, int32 pageNumber, PageType type, LockType lockType);
+	Bdb*		trialFetch(Dbb* dbb, int32 pageNumber, LockType lockType);
+
+	void		analyzeFlush(void);
+	static void	openTraceFile(void);
+	static void	closeTraceFile(void);
 
 	Cache(Database *db, int pageSize, int hashSize, int numberBuffers);
 	virtual ~Cache();
@@ -75,11 +81,6 @@ public:
 	PageWriter	*pageWriter;
 	Database	*database;
 	int			numberBuffers;
-	int			noBdb;
-	int			notMarked;
-	int			notDirty;
-	int			notFlushed;
-	int			marked;
 	bool		panicShutdown;
 	bool		flushing;
 
@@ -96,10 +97,10 @@ protected:
 	Bdb			*lastDirty;
 	Bitmap		*flushBitmap;
 	char		**bufferHunks;
-	//Thread		*purifierThread;
 	Thread		**ioThreads;
 	SyncObject	syncFlush;
 	SyncObject	syncDirty;
+	SyncObject	syncThreads;
 	PagePrecedence	*freePrecedence;
 	time_t		flushStart;
 	int			flushPages;

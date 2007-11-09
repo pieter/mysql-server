@@ -472,15 +472,7 @@ int StorageHandler::deleteTablespace(const char* tableSpaceName)
 StorageTableShare* StorageHandler::findTable(const char* pathname)
 {
 	char filename [1024];
-	char c, prior = 0;
-	char *q = filename;
-	filename[0] = 0;
-	
-	for (const char *p = pathname; (c = *p++); prior = c)
-		if (c != SEPARATOR || c != prior)
-			*q++ = c;
-
-	*q = 0 ;
+	cleanFileName(pathname, filename, sizeof(filename));
 	Sync sync(&hashSyncObject, "StorageHandler::findTable");
 	int slot = JString::hash(filename, tableHashSize);
 	StorageTableShare *tableShare;
@@ -507,6 +499,36 @@ StorageTableShare* StorageHandler::findTable(const char* pathname)
 	tables[slot] = tableShare;
 	
 	return tableShare;
+}
+
+StorageTableShare* StorageHandler::preDeleteTable(const char* pathname)
+{
+	if (!defaultDatabase)
+		initialize();
+
+	char filename [1024];
+	cleanFileName(pathname, filename, sizeof(filename));
+	int slot = JString::hash(filename, tableHashSize);
+	StorageTableShare *tableShare;
+
+	if (tables[slot])
+		{
+		Sync sync(&hashSyncObject, "StorageHandler::preDeleteTable");
+		sync.lock(Shared);
+		
+		for (tableShare = tables[slot]; tableShare; tableShare = tableShare->collision)
+			if (tableShare->pathName == filename)
+				return tableShare;
+		}
+
+	tableShare = new StorageTableShare(this, filename, NULL, mySqlLockSize, false);
+	JString path = tableShare->lookupPathName();
+	delete tableShare;
+	
+	if (path == pathname)
+		return findTable(pathname);
+	
+	return NULL;
 }
 
 StorageTableShare* StorageHandler::createTable(const char* pathname, const char *tableSpaceName, bool tempTable)
@@ -914,8 +936,40 @@ void StorageHandler::getTablesInfo(InfoTable* infoTable)
 		
 		while (resultSet->next())
 			{
-			for (int n = 0; n < 3; ++n)
-				infoTable->putString(n, resultSet->getString(n + 1));
+
+			// Parse table and partition name
+			
+			const char *pStr = resultSet->getString(2);
+			char *pTable = NULL;
+			char *pPart = NULL;
+			
+			if (pStr)
+				{
+				const int max_buf = 1024;
+				char buffer[max_buf+1];
+				
+				pTable = buffer;
+				*pTable = 0;
+				strncpy(buffer, pStr, (size_t)max_buf);
+				
+				char *pBuf = strchr(buffer, '#');
+				
+				if (pBuf)
+					{
+					*pBuf = 0;
+					if ((pPart = strrchr(++pBuf, '#')) != NULL)
+						pPart++;
+					}
+				}
+					
+			infoTable->putString(0, resultSet->getString(1));	// database
+			infoTable->putString(1, (pTable ? pTable : pStr));	// table
+			infoTable->putString(2, (pPart ? pPart : ""));		// partition
+			infoTable->putString(3, resultSet->getString(3));	// tablespace
+			infoTable->putString(4, resultSet->getString(2));	// internal name
+		
+			//for (int n = 0; n < 3; ++n)
+			//	infoTable->putString(n, resultSet->getString(n + 1));
 			
 			infoTable->putRecord();
 			}
@@ -925,12 +979,6 @@ void StorageHandler::getTablesInfo(InfoTable* infoTable)
 	catch(...)
 		{
 		}
-}
-
-void StorageHandler::setSyncDisable(int value)
-{
-	if (dictionaryConnection)
-		dictionaryConnection->setSyncDisable(value);
 }
 
 void StorageHandler::setRecordMemoryMax(uint64 value)
@@ -949,4 +997,18 @@ void StorageHandler::setRecordScavengeFloor(int value)
 {
 	if (dictionaryConnection)
 		dictionaryConnection->setRecordScavengeFloor(value);
+}
+
+void StorageHandler::cleanFileName(const char* pathname, char* filename, int filenameLength)
+{
+	char c, prior = 0;
+	char *q = filename;
+	char *end = filename + filenameLength - 1;
+	filename[0] = 0;
+	
+	for (const char *p = pathname; q < end && (c = *p++); prior = c)
+		if (c != SEPARATOR || c != prior)
+			*q++ = c;
+
+	*q = 0;
 }

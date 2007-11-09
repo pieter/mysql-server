@@ -35,7 +35,6 @@
 #define O_SYNC				0
 #else
 #include <sys/types.h>
-#include <aio.h>
 #include <unistd.h>
 #include <signal.h>
 
@@ -54,7 +53,7 @@
 #include <sys/file.h>
 #define O_BINARY		0
 #define O_RANDOM		0
-#define MKDIR(dir)			mkdir (dir, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)
+#define MKDIR(dir)			mkdir(dir, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)
 #endif
 
 #ifndef LSEEK
@@ -81,7 +80,9 @@
 #include "Debug.h"
 #include "Synchronize.h"
 
-#define TRACE_FILE	"falcon.trace"
+#define TRACE_FILE	"io.trace"
+
+extern uint		falcon_direct_io;
 
 static const int TRACE_SYNC_START	= -1;
 static const int TRACE_SYNC_END		= -2;
@@ -117,8 +118,11 @@ IO::~IO()
 bool IO::openFile(const char * name, bool readOnly)
 {
 	fileName = name;
-	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : O_SYNC | O_RDWR | O_BINARY);
+	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(0) | O_RDWR | O_BINARY);
 
+	if (fileId < 0)
+		fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(1) | O_RDWR | O_BINARY);
+	
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
 							name, strerror (errno), errno);
@@ -146,9 +150,13 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 
 	fileName = name;
 	fileId = ::open (fileName,
-					O_SYNC | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+					getWriteMode(0) | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
 					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 
+	if (fileId < 0)
+	fileId = ::open (fileName,
+					getWriteMode(1) | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't create file \"%s\", %s (%d)", 
 								name, strerror (errno), errno);
@@ -262,11 +270,16 @@ void IO::writePages(int32 pageNumber, int length, const UCHAR* data, int type)
 
 void IO::readHeader(Hdr * header)
 {
+	static const int sectorSize = 4096;
+	UCHAR temp[sectorSize * 2];
+	UCHAR *buffer = (UCHAR*) (((UIPTR) temp + sectorSize - 1) / sectorSize * sectorSize);
 	int n = lseek (fileId, 0, SEEK_SET);
-	n = ::read (fileId, header, sizeof (Hdr));
+	n = ::read (fileId, buffer, sectorSize);
 
-	if (n != sizeof (Hdr))
+	if (n < (int) sizeof (Hdr))
 		FATAL ("read error on database header");
+	
+	memcpy(header, buffer, sizeof(Hdr));
 }
 
 void IO::closeFile()
@@ -503,38 +516,7 @@ void IO::sync(void)
 		}
 	
 #else
-#ifdef _POSIX_SYNCHRONIZED_IO_XXX
-	aiocb ocb;
-	bzero(&ocb, sizeof(ocb));
-	ocb.aio_fildes = fileId;
-	ocb.aio_sigevent.sigev_notify = SIGEV_NONE;
-	int ret = aio_fsync(O_DSYNC, &ocb);
-
-	if (ret == -1)
-		{
-		declareFatalError();
-		FATAL ("aio_fsync error on \"%s\": %s (%d)",
-				(const char*) fileName, strerror (errno), errno);
-		}
-		
-	int iterations = 0;
-
-	while ( (ret = aio_error(&ocb)) == EINPROGRESS)
-		++iterations;
-
-	if ( (ret = aio_return(&ocb)) )
-		{
-		int error = aio_error(&ocb);
-		declareFatalError();
-		FATAL ("aio_fsync final error on \"%s\": %s (%d)",
-				(const char*) fileName, strerror(error), error);
-		}
-		
-#else
-	//Sync sync (&syncObject, "IO::sync");
-	//sync.lock(Exclusive);
 	fsync(fileId);
-#endif
 #endif
 
 	writesSinceSync = 0;
@@ -594,4 +576,14 @@ void IO::reportWrites(void)
 		writeTypes[WRITE_TYPE_PAGE_WRITER]);
 		
 	memset(writeTypes, 0, sizeof(writeTypes));
+}
+
+int IO::getWriteMode(int attempt)
+{
+#ifdef O_DIRECT
+	if ((attempt == 0 && falcon_direct_io > 0) || falcon_direct_io > 1)
+		return O_DIRECT;
+#endif
+
+	return O_SYNC;
 }

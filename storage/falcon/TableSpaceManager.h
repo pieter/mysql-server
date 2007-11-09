@@ -53,9 +53,11 @@ public:
 	void			reportStatistics(void);
 	void			getIOInfo(InfoTable* infoTable);
 	void			validate(int optionMask);
-	void			sync(uint threshold);
+	void			sync();
 	void			expungeTableSpace(int tableSpaceId);
 	void			reportWrites(void);
+	void			redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName);
+	void			initialize(void);
 
 	Database	*database;
 	TableSpace	*tableSpaces;

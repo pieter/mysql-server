@@ -42,6 +42,8 @@
 #include "Format.h"
 #include "LogLock.h"
 
+extern uint		falcon_lock_timeout;
+
 static const char *stateNames [] = {
 	"Active",
 	"Limbo",
@@ -659,7 +661,7 @@ void Transaction::removeRecord(RecordVersion *record)
 			it is invisible to this transaction.
 ***/
 
-bool Transaction::visible(Transaction * transaction, TransId transId)
+bool Transaction::visible(Transaction * transaction, TransId transId, int forWhat)
 {
 	// If the transaction is NULL, it is long gone and therefore committed
 
@@ -684,10 +686,14 @@ bool Transaction::visible(Transaction * transaction, TransId transId)
 	// The other transaction is committed.  
 	// If this is READ_COMMITTED, it is visible.
 
-	if (isolationLevel == TRANSACTION_READ_COMMITTED)
+	if (   IS_READ_COMMITTED(isolationLevel)
+		|| (   IS_WRITE_COMMITTED(isolationLevel)
+		    && (forWhat == FOR_WRITING)))
 		return true;
 
 	// This is REPEATABLE_READ
+	ASSERT (IS_REPEATABLE_READ(isolationLevel));
+
 	// If the transaction started after we did, consider the transaction active
 
 	if (transId > transactionId)
@@ -764,7 +770,7 @@ void Transaction::commitRecords()
 
 State Transaction::getRelativeState(Record* record, uint32 flags)
 {
-    blockingRecord = record;
+	blockingRecord = record;
 	State state = getRelativeState(record->getTransaction(), record->getTransactionId(), flags);
 	blockingRecord = NULL;
 
@@ -784,16 +790,25 @@ State Transaction::getRelativeState(Transaction *transaction, TransId transId, u
 	
 	if (!transaction)
 		{
-		// If the transaction is no longer around, then this is a previously committed record.
+		// All calls to getRelativeState are for the purpose of writing.
+		// So only ConsistentRead can get CommittedInvisible.
 
-		// For REPEATABLE_READ, if transId was active when this started, the dependency
-		// would have kept the transaction pointer around. 
+		if (IS_CONSISTENT_READ(isolationLevel))
+			{
+			// If the transaction is no longer around, and the record is,
+			// then it must be committed.
 
-		if ((isolationLevel == TRANSACTION_REPEATABLE_READ) &&
-		    (transactionId < transId))
-			return CommittedButYounger;
-		
-		return CommittedAndOlder;
+			if (transactionId < transId)
+				return CommittedInvisible;
+
+			// Be sure it was not active when we started.
+
+			for (int n = 0; n < numberStates; ++n)
+				if (states [n].transactionId == transId)
+					return CommittedInvisible;
+			}
+
+		return CommittedVisible;
 		}
 
 	if (transaction->isActive())
@@ -820,13 +835,13 @@ State Transaction::getRelativeState(Transaction *transaction, TransId transId, u
 
 	if (transaction->state == Committed)
 		{
-		// Return CommittedAndOlder if the other trans has a lower TransId and 
+		// Return CommittedVisible if the other trans has a lower TransId and 
 		// it was committed when we started.
 		
-		if (visible (transaction, transId))
-			return CommittedAndOlder;
+		if (visible (transaction, transId, FOR_WRITING))
+			return CommittedVisible;
 
-		return CommittedButYounger;
+		return CommittedInvisible;
 		}
 
 	return (State) transaction->state;
@@ -928,9 +943,7 @@ void Transaction::waitForTransaction()
 	***/
 	
 	Sync sync(&syncActive, "Transaction::waitForTransaction");
-	sync.lock(Shared);
-	//syncActive.lock(NULL, Shared);
-	//syncActive.unlock();
+	sync.lock(Shared, falcon_lock_timeout);
 }
 
 void Transaction::addRef()

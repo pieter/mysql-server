@@ -36,16 +36,17 @@
 #ifdef STORAGE_ENGINE
 #define CONFIG_FILE	"falcon.conf"
 
-#define PARAMETER(name, text, min, default, max, flags, function) extern uint falcon_##name;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) extern uint falcon_##_name;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) extern char falcon_##_name;
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
 
 extern uint64		falcon_record_memory_max;
 extern uint			falcon_record_scavenge_threshold;
 extern uint			falcon_record_scavenge_floor;
 extern uint64		falcon_initial_allocation;
 extern uint			falcon_allocation_extent;
-extern char			falcon_disable_fsync;
 extern uint			falcon_page_size;
 extern uint64		falcon_page_cache_size;
 //extern uint		falcon_debug_mask;
@@ -58,9 +59,11 @@ extern char*		falcon_scavenge_schedule;
 extern char*		falcon_serial_log_dir;
 #else
 #define CONFIG_FILE	"netfraserver.conf"
-#define PARAMETER(name, text, min, default, max, flags, function) uint falcon_##name = default;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) uint falcon_##_name = _default;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) bool falcon_##_name = _default;
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
 
 #endif
 
@@ -86,6 +89,7 @@ Configuration::Configuration(const char *configFile)
 {
 	checkpointSchedule = "7,37 * * * * *";
 	scavengeSchedule = "15,45 * * * * *";
+	serialLogBlockSize			= falcon_serial_log_block_size;
 
 #ifdef STORAGE_ENGINE
 	recordMemoryMax				= falcon_record_memory_max;
@@ -93,12 +97,12 @@ Configuration::Configuration(const char *configFile)
 	recordScavengeFloorPct		= falcon_record_scavenge_floor;
 	initialAllocation			= falcon_initial_allocation;
 	allocationExtent			= falcon_allocation_extent;
-	disableFsync				= falcon_disable_fsync != 0;
 	serialLogWindows			= falcon_serial_log_buffers;
 	pageCacheSize				= falcon_page_cache_size;
 	indexChillThreshold			= falcon_index_chill_threshold * ONE_MB;
 	recordChillThreshold		= falcon_record_chill_threshold * ONE_MB;
 	maxTransactionBacklog		= falcon_max_transaction_backlog;
+	useDeferredIndexHash		= (falcon_use_deferred_index_hash != 0);
 	
 	if (falcon_checkpoint_schedule)
 		checkpointSchedule = falcon_checkpoint_schedule;
@@ -142,12 +146,10 @@ Configuration::Configuration(const char *configFile)
 	serialLogWindows			= 10;
 	initialAllocation			= 0;
 	allocationExtent			= 10;
-	disableFsync				= false;
 	pageCacheSize				= getMemorySize(PAGE_CACHE_MEMORY);
 	indexChillThreshold			= 4 * ONE_MB;
 	recordChillThreshold		= 5 * ONE_MB;
 	maxTransactionBacklog		= MAX_TRANSACTION_BACKLOG;
-	disableFsync				= false;
 #endif
 
 	javaInitialAllocation = 0;
@@ -221,10 +223,14 @@ Configuration::Configuration(const char *configFile)
 				checkpointSchedule = value;
 			else if (parameter.equalsNoCase ("max_threads"))
 				maxThreads = atoi(value);
+			else if (parameter.equalsNoCase ("serial_log_block_size"))
+				serialLogBlockSize = atoi(value);
 			else if (parameter.equalsNoCase ("scrub"))
 				Log::scrubWords (value);
 			else if (parameter.equalsNoCase ("scheduler"))
 				schedulerEnabled = enabled(value);
+			else if (parameter.equalsNoCase ("use_deferred_index_hash"))
+				useDeferredIndexHash = (0 != atoi(value));
 			else
 				throw SQLEXCEPTION (DDL_ERROR, "unknown config parameter \"%s\"", 
 									(const char*) parameter);
@@ -237,7 +243,6 @@ Configuration::Configuration(const char *configFile)
 	setRecordMemoryMax(recordMemoryMax);
 	
 #ifdef STORAGE_ENGINE
-	falcon_disable_fsync = (char)disableFsync;
 	falcon_page_cache_size = pageCacheSize;
 #endif
 }
@@ -297,9 +302,10 @@ int64 Configuration::getMemorySize(const char *string)
 	return n;
 }
 
-int64 Configuration::getAvailablePhysicalMemory()
+uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
 {
-	int64 availableMemory = 0;
+	uint64 availableMemory = 0;
+	uint64 totalMemory = 0;
 
 #ifdef _WIN32
 	MEMORYSTATUSEX stat;
@@ -309,7 +315,10 @@ int64 Configuration::getAvailablePhysicalMemory()
 	stat.dwLength = sizeof(stat);
 
 	if (GlobalMemoryStatusEx(&stat) != 0)
+		{
 		availableMemory = stat.ullAvailPhys;
+		totalMemory = stat.ullTotalPhys;
+		}
 	else
 		error = GetLastError();
 
@@ -334,15 +343,24 @@ int64 Configuration::getAvailablePhysicalMemory()
 	availableMemory *= ONE_MB;
 	*/
 #else
-	int32 pageSize		= sysconf(_SC_PAGESIZE);
-	//int32 physPages	= sysconf(_SC_PHYS_PAGES);
-	int32 avPhysPages	= sysconf(_SC_AVPHYS_PAGES);
+	int64 pageSize		= (int64)sysconf(_SC_PAGESIZE);
+	int64 physPages		= (int64)sysconf(_SC_PHYS_PAGES);
+	int64 avPhysPages	= (int64)sysconf(_SC_AVPHYS_PAGES);
 
-	if ((pageSize > 0) && (avPhysPages > 0))
-		availableMemory = (pageSize * avPhysPages);
+	if (pageSize > 0 && physPages > 0 && avPhysPages > 0)
+		{
+		availableMemory = (uint64)(pageSize * avPhysPages);
+		totalMemory = (uint64)(pageSize * physPages);
+		}
 #endif
 
-	return availableMemory;
+	if (available)
+		*available = availableMemory;
+	
+	if (total)
+		*total = totalMemory;
+	
+	return totalMemory;
 }
 
 
@@ -395,7 +413,10 @@ void Configuration::setRecordScavengeFloor(int floor)
 
 void Configuration::setRecordMemoryMax(uint64 value)
 {
+	uint64 totalMemory = getPhysicalMemory();
+	
 	recordMemoryMax = MAX(value, MIN_RECORD_MEMORY);
+	recordMemoryMax = MIN(value, totalMemory);
 	
 	setRecordScavengeThreshold(recordScavengeThresholdPct);
 	

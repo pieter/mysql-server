@@ -74,6 +74,7 @@
 #include "RecordScavenge.h"
 #include "LogStream.h"
 #include "SyncTest.h"
+#include "PriorityScheduler.h"
 
 #ifndef STORAGE_ENGINE
 #include "Applications.h"
@@ -107,9 +108,7 @@ static const char THIS_FILE[]=__FILE__;
 #define STATEMENT_RETIREMENT_AGE	60
 #define RECORD_RETIREMENT_AGE		60
 
-#ifdef STORAGE_ENGINE
 extern uint falcon_debug_trace;
-#endif
 
 static const char *createTables = 
 	"create table Tables (\
@@ -407,8 +406,6 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	memset(unTables, 0, sizeof (unTables));
 	memset(schemas, 0, sizeof (schemas));
 	currentGeneration = 1;
-	//overflowSize = 0;
-	//memset((void*) ageGroupSizes, 0, sizeof (ageGroupSizes));
 	tableList = NULL;
 	recordMemoryMax = configuration->recordMemoryMax;
 	recordScavengeFloor = configuration->recordScavengeFloor;
@@ -456,8 +453,10 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	pageWriter = NULL;
 	zombieTables = NULL;
 	updateCardinality = NULL;
+	ioScheduler = new PriorityScheduler;
 	lastScavenge = 0;
 	scavengeCycle = 0;
+	serialLogBlockSize = configuration->serialLogBlockSize;
 	longSync = false;
 	recordDataPool = MemMgrGetFixedPool(MemMgrPoolRecordData);
 	//recordObjectPool = MemMgrGetFixedPool(MemMgrPoolRecordObject);
@@ -599,6 +598,7 @@ Database::~Database()
 	delete filterSetManager;
 	delete repositoryManager;
 	delete transactionManager;
+	delete ioScheduler;
 }
 
 void Database::createDatabase(const char * filename)
@@ -657,7 +657,8 @@ void Database::createDatabase(const char * filename)
 		upgradeSystemTables();
 		scheduler->start();
 		internalScheduler->start();
-
+		serialLogBlockSize = serialLog->getBlockSize();
+		dbb->updateSerialLogBlockSize();
 		commitSystemTransaction();
 		serialLog->checkpoint(true);
 		}
@@ -758,6 +759,7 @@ void Database::openDatabase(const char * filename)
 	statement->close();
 	upgradeSystemTables();
 	Trigger::initialize (this);
+	serialLog->checkpoint(true);
 	//validate(0);
 
 #ifndef STORAGE_ENGINE
@@ -784,6 +786,7 @@ void Database::openDatabase(const char * filename)
 	getApplication ("base");
 #endif
 
+	tableSpaceManager->initialize();
 	internalScheduler->start();
 
 	if (configuration->schedulerEnabled)
@@ -1224,6 +1227,13 @@ void Database::commitSystemTransaction()
 	systemConnection->commit();
 }
 
+void Database::rollbackSystemTransaction(void)
+{
+	Sync sync (&syncSysConnection, "Database::commitSystemTransaction");
+	sync.lock (Exclusive);
+	systemConnection->rollback();
+}
+
 void Database::setDebug()
 {
 	dbb->setDebug();
@@ -1487,8 +1497,8 @@ void Database::shutdown()
 		java->shutdown (false);
 #endif
 
-	cache->shutdown();
 	serialLog->shutdown();
+	cache->shutdown();
 
 	if (threads)
 		{
@@ -2203,9 +2213,10 @@ void Database::getTransactionSummaryInfo(InfoTable* infoTable)
 
 void Database::updateCardinalities(void)
 {
+	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
+	syncSystemTransaction.lock(Shared);
 	Sync sync (&syncTables, "Database::updateCardinalities");
 	sync.lock (Shared);
-	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
 	bool hit = false;
 	
 	for (Table *table = tableList; table; table = table->next)
@@ -2220,7 +2231,6 @@ void Database::updateCardinalities(void)
 					updateCardinality = prepareStatement(
 						"update system.tables set cardinality=? where schema=? and tablename=?");
 						
-				syncSystemTransaction.lock(Shared);
 				hit = true;
 				}
 			
@@ -2232,34 +2242,20 @@ void Database::updateCardinalities(void)
 			}
 		}
 	
-	if (hit)
-		{
-		sync.unlock();
-		syncSystemTransaction.unlock();
-		commitSystemTransaction();
-		}
+	sync.unlock();
+	syncSystemTransaction.unlock();
+	commitSystemTransaction();
 }
 
-void Database::sync(uint threshold)
+void Database::sync()
 {
-	if (!configuration->disableFsync)
-		{
-		if (threshold == 0 || dbb->writesSinceSync > threshold)
-			cache->syncFile(dbb, "sync");
-			
-		tableSpaceManager->sync(threshold);
-		}
+	cache->syncFile(dbb, "sync");
+	tableSpaceManager->sync();
 }
 
 void Database::preUpdate()
 {
 	serialLog->preUpdate();
-}
-
-void Database::setSyncDisable(int value)
-{
-	if (configuration)
-		configuration->disableFsync = value != 0;
 }
 
 void Database::setRecordMemoryMax(uint64 value)

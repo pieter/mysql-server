@@ -49,20 +49,25 @@ UPDATE t1 SET a = 4 where a = 3;
 --echo # Switch to connection default
 connection default;
 SELECT * FROM t1;
---error ER_DUP_ENTRY
-INSERT INTO t1 VALUES (2);
-INSERT INTO t1 VALUES (3);
-SELECT * FROM t1;
-COMMIT;
+--send INSERT INTO t1 VALUES (2)
 
 --echo # Switch to connection conn1
 connection conn1;
+COMMIT;
+
+--echo # Switch to connection default
+connection default;
+--reap
+INSERT INTO t1 VALUES (3);
+SELECT * FROM t1;
 COMMIT;
 DELETE FROM t1;
 
 
 --echo *** Bug #22847 - Test 3 ***
 
+--echo # Switch to connection conn1
+connection conn1;
 SET @@tx_isolation = 'READ-COMMITTED';
 START TRANSACTION;
 INSERT INTO t1 VALUES (1);
@@ -84,6 +89,7 @@ COMMIT;
 --echo # Switch to connection default
 connection default;
 COMMIT;
+SELECT * FROM t1;
 
 # Final cleanup.
 disconnect conn1;

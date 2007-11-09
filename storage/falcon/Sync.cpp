@@ -23,7 +23,6 @@
 #include "SynchronizationObject.h"
 #include "Synchronize.h"
 #include "Log.h"
-#include "LinkedList.h"
 
 #ifndef ASSERT
 #define ASSERT(bool)
@@ -40,33 +39,41 @@ Sync::Sync(SynchronizationObject *obj, const char *fromWhere)
 	syncObject = obj;
 	where = fromWhere;
 	prior = NULL;
+	marked = NULL;
 }
 
 Sync::~Sync()
 {
-	ASSERT (state != Invalid);
-
+	if (marked)
+		Log::log("Sync::~Sync: %s\n", marked);
+		
 	if (syncObject && state != None)
-		{
 		syncObject->unlock(this, state);
-		state = Invalid;
-		}
 }
 
 void Sync::lock(LockType type)
 {
 	ASSERT(state == None);
 	request = type;
-	syncObject->lock(this, type);
+	syncObject->lock(this, type, 0);
 	state = type;
 }
 
+void Sync::lock(LockType type, int timeout)
+{
+	ASSERT(state == None);
+	request = type;
+	syncObject->lock(this, type, timeout);
+	state = type;
+}
+
+/***
 void Sync::lock(LockType type, const char *fromWhere)
 {
 	where = fromWhere;
 	lock(type);
 }
-
+***/
 void Sync::unlock()
 {
 	ASSERT (state != None);
@@ -104,4 +111,11 @@ void Sync::print(const char *label)
 {
 	LOG_DEBUG ("%s %s state %d (%d) syncObject %p\n", 
 			   label, where, state, request, syncObject);
+}
+
+void Sync::mark(const char* text)
+{
+	marked = text;
+	
+	Log::debug("Sync::mark %s\n", marked);
 }

@@ -100,6 +100,7 @@ class InfoTable;
 class TableSpace;
 class MemMgr;
 class RecordScavenge;
+class PriorityScheduler;
 
 struct JavaCallback;
 
@@ -179,6 +180,7 @@ public:
 	void			clearDebug();
 	void			setDebug();
 	void			commitSystemTransaction();
+	void			rollbackSystemTransaction(void);
 	bool			flush(int64 arg);
 	
 	Transaction*	startTransaction(Connection *connection);
@@ -204,8 +206,7 @@ public:
 	void			getIOInfo(InfoTable* infoTable);
 	void			getTransactionInfo(InfoTable* infoTable);
 	void			getSerialLogInfo(InfoTable* infoTable);
-	void 			setSyncDisable(int value);
-	void			sync(uint threshold);
+	void			sync();
 	void			preUpdate();
 	void			setRecordMemoryMax(uint64 value);
 	void			setRecordScavengeThreshold(int value);
@@ -215,48 +216,49 @@ public:
 	void			pageCacheFlushed(int64 flushArg);
 	JString			setLogRoot(const char *defaultPath, bool create);
 
-	Dbb				*dbb;
-	Cache			*cache;
-	JString			name;
-	Database		*next;					// used by Connection
-	Database		*prior;					// used by Connection
-	Schema			*schemas [TABLE_HASH_SIZE];
-	Table			*tables [TABLE_HASH_SIZE];
-	Table			*tablesModId [TABLE_HASH_SIZE];
-	Table			*tableList;
-	Table			*zombieTables;
-	UnTable			*unTables [TABLE_HASH_SIZE];
+	Dbb					*dbb;
+	Cache				*cache;
+	JString				name;
+	Database			*next;					// used by Connection
+	Database			*prior;					// used by Connection
+	Schema				*schemas [TABLE_HASH_SIZE];
+	Table				*tables [TABLE_HASH_SIZE];
+	Table				*tablesModId [TABLE_HASH_SIZE];
+	Table				*tableList;
+	Table				*zombieTables;
+	UnTable				*unTables [TABLE_HASH_SIZE];
 	CompiledStatement	*compiledStatements;
-	Configuration	*configuration;
-	SerialLog		*serialLog;
-	Connection		*systemConnection;
-	int				nextTableId;
-	bool			formatting;
-	bool			licensed;
-	bool			fieldExtensions;
-	bool			utf8;
-	bool			panicShutdown;
-	bool			shuttingDown;
-	bool			longSync;
-	int				useCount;
-	int				sequence;
-	int				stepNumber;
-	int				scavengeCycle;
-	Java			*java;
-	Applications	*applications;
-	SyncObject		syncObject;
-	SyncObject		syncTables;
-	SyncObject		syncStatements;
-	SyncObject		syncAddStatement;
-	SyncObject		syncSysConnection;
-	SyncObject		syncResultSets;
-	SyncObject		syncConnectionStatements;
-	SyncObject		syncScavenge;
-	Threads			*threads;
-	Scheduler		*scheduler;
-	Scheduler		*internalScheduler;
-	Scavenger		*scavenger;
-	Scavenger		*garbageCollector;
+	Configuration		*configuration;
+	SerialLog			*serialLog;
+	Connection			*systemConnection;
+	int					nextTableId;
+	bool				formatting;
+	bool				licensed;
+	bool				fieldExtensions;
+	bool				utf8;
+	bool				panicShutdown;
+	bool				shuttingDown;
+	bool				longSync;
+	int					useCount;
+	int					sequence;
+	int					stepNumber;
+	int					scavengeCycle;
+	Java				*java;
+	Applications		*applications;
+	SyncObject			syncObject;
+	SyncObject			syncTables;
+	SyncObject			syncStatements;
+	SyncObject			syncAddStatement;
+	SyncObject			syncSysConnection;
+	SyncObject			syncResultSets;
+	SyncObject			syncConnectionStatements;
+	SyncObject			syncScavenge;
+	PriorityScheduler	*ioScheduler;
+	Threads				*threads;
+	Scheduler			*scheduler;
+	Scheduler			*internalScheduler;
+	Scavenger			*scavenger;
+	Scavenger			*garbageCollector;
 	TemplateManager		*templateManager;
 	ImageManager		*imageManager;
 	SessionManager		*sessionManager;
@@ -283,10 +285,9 @@ public:
 	volatile int		numberTemplateExpands;
 	int					odsVersion;
 	int					noSchedule;
-
+	uint32				serialLogBlockSize;
+	
 	volatile INTERLOCK_TYPE	currentGeneration;
-	//volatile long	overflowSize;
-	//volatile long 	ageGroupSizes [AGE_GROUPS];
 	uint64				recordMemoryMax;
 	uint64				recordScavengeThreshold;
 	uint64				recordScavengeFloor;

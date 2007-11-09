@@ -183,6 +183,7 @@ public:
 	void	skewHeader(Hdr* header);
 	void	printPage(Bdb* bdb);
 	void	updateBlob(Section *blobSection, int recordNumber, Stream* blob, Transaction* transaction);
+	void	updateSerialLogBlockSize(void);
 	
 	Cache		*cache;
 	Database	*database;

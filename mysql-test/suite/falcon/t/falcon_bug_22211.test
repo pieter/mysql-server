@@ -105,7 +105,7 @@ INSERT INTO t1 VALUES (0);
 
 
 --echo ############################################################
---echo # #3 - make client 2 block on a vestigial record
+--echo # #3 - client 2 (with InnoDB Compatibility) does not block on a vestigial record
 --echo ############################################################
 START TRANSACTION;
 UPDATE t1 SET a = 10;
@@ -120,8 +120,8 @@ COMMIT;
 SELECT * FROM t1;
 --echo # Switch to connection 1 (REPEATABLE READ)
 connection conn1;
---echo # This INSERT should FAIL because the trans still sees the vestigial record 0
---error S23000
+--echo # This trans still sees the vestigial record 0, but it does not
+--echo # block on it with InnoDB Compatibility Mode
 INSERT INTO t1 VALUES(0);
 SELECT * FROM t1;
 ROLLBACK;
@@ -199,10 +199,6 @@ SELECT * FROM t1;
 --echo # Switch to connection 1 (REPEATABLE READ)
 connection conn1;
 SELECT * FROM t1;
---echo # This INSERT should FAIL because 0 is still visible to client #1
---error S23000
-INSERT INTO t1 VALUES(0);
-SELECT * FROM t1;
 --echo # These INSERTs should SUCCEED because 1 & 2 were replaced.
 INSERT INTO t1 VALUES(1);
 SELECT * FROM t1;
@@ -247,9 +243,6 @@ SELECT * FROM t1;
 --echo # Switch to connection 1 (REPEATABLE READ)
 connection conn1;
 SELECT * FROM t1;
---echo # This INSERT should FAIL because client 1 still sees the vestigial record 0
---error S23000
-INSERT INTO t1 VALUES(0);
 --echo # This INSERT should SUCCEED because record value 1 is NOT current.
 INSERT INTO t1 VALUES(1);
 SELECT * FROM t1;

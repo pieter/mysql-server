@@ -61,16 +61,17 @@ static const char *falcon_extensions[] = {
 
 static StorageHandler	*storageHandler;
 
-#define PARAMETER(name, text, min, deflt, max, flags, function) uint falcon_##name;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) uint falcon_##_name;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function)   my_bool falcon_##_name;
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
 
 unsigned long long		falcon_record_memory_max;
 uint					falcon_record_scavenge_threshold;
 uint					falcon_record_scavenge_floor;
 unsigned long long		falcon_initial_allocation;
 uint					falcon_allocation_extent;
-my_bool					falcon_disable_fsync;
 unsigned long long		falcon_page_cache_size;
 uint					falcon_page_size;
 uint					falcon_serial_log_buffers;
@@ -84,7 +85,12 @@ FILE					*falcon_log_file;
 uint					falcon_index_chill_threshold;
 uint					falcon_record_chill_threshold;
 uint					falcon_max_transaction_backlog;
+my_bool					falcon_consistent_read;	// default is yes.
 
+int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
+						                       TRANSACTION_READ_COMMITTED,
+						                       TRANSACTION_WRITE_COMMITTED, // TRANSACTION_CONSISTENT_READ;	// This is repeatable read
+						                       TRANSACTION_SERIALIZABLE};
 
 static struct st_mysql_show_var falconStatus[]=
 {
@@ -614,7 +620,7 @@ const char **StorageInterface::bas_ext(void) const
 ulonglong StorageInterface::table_flags(void) const
 {
 	DBUG_ENTER("StorageInterface::table_flags");
-	DBUG_RETURN(HA_REC_NOT_IN_SEQ | HA_NULL_IN_KEY | HA_AUTO_PART_KEY |
+	DBUG_RETURN(HA_REC_NOT_IN_SEQ | HA_NULL_IN_KEY | // HA_AUTO_PART_KEY |
 	            HA_PARTIAL_COLUMN_READ | HA_CAN_GEOMETRY | HA_BINLOG_ROW_CAPABLE);
 }
 
@@ -822,7 +828,8 @@ int StorageInterface::delete_table(const char *tableName)
 		mySqlThread = current_thd;
 
 	if (!storageShare)
-		storageShare = storageHandler->findTable(tableName);
+		if ( !(storageShare = storageHandler->preDeleteTable(tableName)) )
+			DBUG_RETURN(0);
 
 	if (!storageConnection)
 		if ( !(storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, OpenDatabase)) )
@@ -913,7 +920,7 @@ int StorageInterface::write_row(uchar *buff)
 			case SQLCOM_LOAD:
 			case SQLCOM_ALTER_TABLE:
 				storageHandler->commit(mySqlThread);
-				storageConnection->startTransaction(thd_tx_isolation(mySqlThread));
+				storageConnection->startTransaction(isolation_levels[thd_tx_isolation(mySqlThread)]);
 				storageConnection->markVerb();
 				insertCount = 0;
 				break;
@@ -1087,7 +1094,7 @@ void StorageInterface::startTransaction(void)
 
 	if (!storageConnection->transactionActive)
 		{
-		storageConnection->startTransaction(thd_tx_isolation(mySqlThread));
+		storageConnection->startTransaction(isolation_levels[thd_tx_isolation(mySqlThread)]);
 		trans_register_ha(mySqlThread, true, falcon_hton);
 		}
 
@@ -1309,9 +1316,15 @@ int StorageInterface::rename_table(const char *from, const char *to)
 	int ret = open(from, 0, 0);
 
 	if (ret)
-		DBUG_RETURN(ret);
+		DBUG_RETURN(error(ret));
 
-	DBUG_RETURN(storageShare->renameTable(storageConnection, to));
+	ret = storageShare->renameTable(storageConnection, to);
+	
+	if (ret)
+		DBUG_RETURN(error(ret));
+
+	DBUG_RETURN(ret);
+
 }
 
 
@@ -1344,7 +1357,7 @@ int StorageInterface::read_range_first(const key_range *start_key,
 		int ret = storageTable->setIndexBound((const unsigned char*) start_key->key,
 												start_key->length, LowerBound);
 		if (ret)
-			DBUG_RETURN(ret);
+			DBUG_RETURN(error(ret));
 		}
 
 	if (end_key)
@@ -1355,7 +1368,7 @@ int StorageInterface::read_range_first(const key_range *start_key,
 		int ret = storageTable->setIndexBound((const unsigned char*) end_key->key,
 												end_key->length, UpperBound);
 		if (ret)
-			DBUG_RETURN(ret);
+			DBUG_RETURN(error(ret));
 		}
 
 	storageTable->indexScan();
@@ -1533,7 +1546,10 @@ int StorageInterface::error(int storageError)
 		case StorageErrorDeadlock:
 			DBUG_PRINT("info", ("StorageErrorDeadlock"));
 			DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
-			//DBUG_RETURN(200 - storageError);
+
+		case StorageErrorLockTimeout:
+			DBUG_PRINT("info", ("StorageErrorLockTimeout"));
+			DBUG_RETURN(HA_ERR_LOCK_WAIT_TIMEOUT);
 
 		case StorageErrorRecordNotFound:
 			DBUG_PRINT("info", ("StorageErrorRecordNotFound"));
@@ -1550,10 +1566,6 @@ int StorageInterface::error(int storageError)
 		case StorageErrorBadKey:
 			DBUG_PRINT("info", ("StorageErrorBadKey"));
 			DBUG_RETURN(HA_ERR_WRONG_INDEX);
-
-		case StorageErrorIndexOverflow:
-			DBUG_PRINT("info", ("StorageErrorIndexOverflow"));
-			DBUG_RETURN(HA_WRONG_CREATE_OPTION); // HA_ERR_TOO_LONG_KEY does not exist
 
 		case StorageErrorTableExits:
 			DBUG_PRINT("info", ("StorageErrorTableExits"));
@@ -1670,7 +1682,7 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 
 		if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
 			{
-			if (storageConnection->startTransaction(thd_tx_isolation(thd)))
+			if (storageConnection->startTransaction(isolation_levels[thd_tx_isolation(thd)]))
 				trans_register_ha(thd, true, falcon_hton);
 
 			if (storageConnection->markVerb())
@@ -1678,7 +1690,7 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			}
 		else
 			{
-			if (storageConnection->startImplicitTransaction(thd_tx_isolation(thd)))
+			if (storageConnection->startImplicitTransaction(isolation_levels[thd_tx_isolation(thd)]))
 				trans_register_ha(thd, false, falcon_hton);
 			}
 
@@ -2569,7 +2581,9 @@ ST_FIELD_INFO tablesFieldInfo[]=
 {
 	{"SCHEMA_NAME",	  127, MYSQL_TYPE_STRING,	0, 0, "Schema Name", SKIP_OPEN_TABLE},
 	{"TABLE_NAME",	  127, MYSQL_TYPE_STRING,	0, 0, "Table Name", SKIP_OPEN_TABLE},
+	{"PARTITION",	  127, MYSQL_TYPE_STRING,	0, 0, "Partition Name", SKIP_OPEN_TABLE},
 	{"TABLESPACE",	  127, MYSQL_TYPE_STRING,	0, 0, "Tablespace", SKIP_OPEN_TABLE},
+	{"INTERNAL_NAME", 127, MYSQL_TYPE_STRING,	0, 0, "Internal Name", SKIP_OPEN_TABLE},
 	{0,					0, MYSQL_TYPE_STRING,	0, 0, 0, SKIP_OPEN_TABLE}
 };
 
@@ -2782,13 +2796,15 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 	//uint newFalconRecordChillThreshold = *((uint *) save);
 }
 
-
-void StorageInterface::updateFsyncDisable(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
+void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
 {
-	falcon_disable_fsync = *(my_bool*) save;
+	falcon_consistent_read = *(my_bool*) save;
 
-	if (storageHandler)
-		storageHandler->setSyncDisable(falcon_disable_fsync);
+	int newRepeatableRead = (falcon_consistent_read ? 
+		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
+
+	if (isolation_levels[2] != newRepeatableRead)
+		isolation_levels[2] = newRepeatableRead;
 }
 
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
@@ -2821,11 +2837,6 @@ static MYSQL_SYSVAR_BOOL(debug_server, falcon_debug_server,
   "Enable Falcon debug code.",
   NULL, NULL, FALSE);
 
-static MYSQL_SYSVAR_BOOL(disable_fsync, falcon_disable_fsync,
-  PLUGIN_VAR_NOCMDARG, // | PLUGIN_VAR_READONLY,
-  "Disable periodic fsync().",
-  NULL, StorageInterface::updateFsyncDisable, FALSE);
-
 static MYSQL_SYSVAR_STR(serial_log_dir, falcon_serial_log_dir,
   PLUGIN_VAR_RQCMDARG| PLUGIN_VAR_READONLY | PLUGIN_VAR_MEMALLOC,
   "Falcon serial log file directory.",
@@ -2841,20 +2852,19 @@ static MYSQL_SYSVAR_STR(scavenge_schedule, falcon_scavenge_schedule,
   "Falcon record scavenge schedule.",
   NULL, NULL, "15,45 * * * * *");
 
-/***
-static MYSQL_SYSVAR_UINT(debug_mask, falcon_debug_mask,
-  PLUGIN_VAR_RQCMDARG,
-  "Falcon message type mask for logged messages.",
-  NULL, NULL, 0, 0, INT_MAX, 0);
-***/
-
 // #define MYSQL_SYSVAR_UINT(name, varname, opt, comment, check, update, def, min, max, blk)
 
-#define PARAMETER(name, text, min, deflt, max, flags, function) \
-	static MYSQL_SYSVAR_UINT(name, falcon_##name, \
-	PLUGIN_VAR_RQCMDARG | flags, text, function, NULL, deflt, min, max, 0);
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) \
+	static MYSQL_SYSVAR_UINT(_name, falcon_##_name, \
+	PLUGIN_VAR_RQCMDARG | _flags, _text, _function, NULL, _default, _min, _max, 0);
+
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) \
+	static MYSQL_SYSVAR_BOOL(_name, falcon_##_name,\
+	PLUGIN_VAR_RQCMDARG | _flags, _text,  NULL, _function, _default);
+
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
 
 static MYSQL_SYSVAR_ULONGLONG(record_memory_max, falcon_record_memory_max,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
@@ -2913,12 +2923,20 @@ static MYSQL_SYSVAR_UINT(max_transaction_backlog, falcon_max_transaction_backlog
   "Maximum number of backlogged transactions.",
   NULL, NULL, 150, 1, 1000000, 1);
 
+static MYSQL_SYSVAR_BOOL(consistent_read, falcon_consistent_read,
+  PLUGIN_VAR_RQCMDARG,
+  "Enable ConsistentRead Mode for Repeatable Reads",
+  NULL, StorageInterface::updateConsistentRead, TRUE);
+
 static struct st_mysql_sys_var* falconVariables[]= {
-#define PARAMETER(name, text, min, deflt, max, flags, function) MYSQL_SYSVAR(name),
+
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) MYSQL_SYSVAR(_name),
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) MYSQL_SYSVAR(_name),
 #include "StorageParameters.h"
-#undef PARAMETER
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
+
 	MYSQL_SYSVAR(debug_server),
-	MYSQL_SYSVAR(disable_fsync),
 	MYSQL_SYSVAR(serial_log_dir),
 	MYSQL_SYSVAR(checkpoint_schedule),
 	MYSQL_SYSVAR(scavenge_schedule),
@@ -2934,6 +2952,7 @@ static struct st_mysql_sys_var* falconVariables[]= {
 	MYSQL_SYSVAR(index_chill_threshold),
 	MYSQL_SYSVAR(record_chill_threshold),
 	MYSQL_SYSVAR(max_transaction_backlog),
+	MYSQL_SYSVAR(consistent_read),
 	NULL
 };
 

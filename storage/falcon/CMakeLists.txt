@@ -158,6 +158,8 @@ ADD_LIBRARY(ha_falcon
 		Parameters.cpp 
 		PreparedStatement.cpp
 		PrettyPrint.cpp 
+		Priority.cpp
+		PriorityScheduler.cpp
 		Privilege.cpp 
 		PrivilegeObject.cpp 
 		Protocol.cpp
@@ -248,6 +250,7 @@ ADD_LIBRARY(ha_falcon
 		SRLSectionPromotion.cpp 
 		SRLSequence.cpp 
 		SRLSequencePage.cpp 
+		SRLSession.cpp
 		SRLSwitchLog.cpp 
 		SRLUpdateIndex.cpp
 		SRLUpdateBlob.cpp
@@ -425,6 +428,8 @@ ADD_LIBRARY(ha_falcon
 		Parameters.h 
 		PreparedStatement.h
 		PrettyPrint.h 
+		Priority.h
+		PriorityScheduler.h
 		Privilege.h 
 		PrivilegeObject.h 
 		Protocol.h
@@ -519,6 +524,7 @@ ADD_LIBRARY(ha_falcon
 		SRLSectionPromotion.h 
 		SRLSequence.h 
 		SRLSequencePage.h 
+		SRLSession.h
 		SRLSwitchLog.h 
 		SRLUpdateIndex.h
 		SRLUpdateBlob.h

@@ -84,6 +84,7 @@ public:
 	static const char *baseName(const char *path);
 	static void		expandFileName(const char *fileName, int length, char *buffer, const char **baseFileName = NULL);
 	static void		deleteFile(const char* fileName);
+	static int		getWriteMode(int attempt);
 
 	JString		fileName;
 	SyncObject	syncObject;

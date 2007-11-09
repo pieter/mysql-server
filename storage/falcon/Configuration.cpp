@@ -30,26 +30,43 @@
 #include "MemoryManager.h"
 #include "SQLError.h"
 #include "Log.h"
+#include "IOx.h"
+#include "ScanDir.h"
 
 #ifdef STORAGE_ENGINE
 #define CONFIG_FILE	"falcon.conf"
+
+#define PARAMETER(name, text, min, default, max, flags, function) extern uint falcon_##name;
+#include "StorageParameters.h"
+#undef PARAMETER
+
 extern uint64		falcon_record_memory_max;
-extern int			falcon_record_scavenge_threshold;
-extern int			falcon_record_scavenge_floor;
+extern uint			falcon_record_scavenge_threshold;
+extern uint			falcon_record_scavenge_floor;
 extern uint64		falcon_initial_allocation;
 extern uint			falcon_allocation_extent;
 extern char			falcon_disable_fsync;
 extern uint			falcon_page_size;
 extern uint64		falcon_page_cache_size;
-extern int			falcon_debug_mask;
+//extern uint		falcon_debug_mask;
 extern uint			falcon_serial_log_buffers;
 extern uint			falcon_index_chill_threshold;
 extern uint			falcon_record_chill_threshold;
 extern uint			falcon_max_transaction_backlog;
 extern char*		falcon_checkpoint_schedule;
 extern char*		falcon_scavenge_schedule;
+extern char*		falcon_serial_log_dir;
 #else
 #define CONFIG_FILE	"netfraserver.conf"
+#define PARAMETER(name, text, min, default, max, flags, function) uint falcon_##name = default;
+#include "StorageParameters.h"
+#undef PARAMETER
+
+#endif
+
+#ifdef _DEBUG
+#undef THIS_FILE
+static const char THIS_FILE[]=__FILE__;
 #endif
 
 static const char RECORD_MEMORY_UPPER[]		= "250mb";
@@ -88,6 +105,34 @@ Configuration::Configuration(const char *configFile)
 	
 	if (falcon_scavenge_schedule)
 		scavengeSchedule = falcon_scavenge_schedule;
+		
+	if (falcon_serial_log_dir)
+		{
+		char fullLogPath[PATH_MAX];
+		const char *baseName;
+	
+		// Fully qualify the serial log path using a dummy file name
+		
+		JString tempLogDir(falcon_serial_log_dir);
+		tempLogDir += "/test.fl1";
+		IO io;
+		io.expandFileName(tempLogDir, sizeof(fullLogPath), fullLogPath, &baseName);
+
+		// Set the path, remove the file name
+		
+		serialLogDir = JString(fullLogPath, (int)(baseName - fullLogPath));
+	
+		// Verify that the directory exists
+		
+		ScanDir scanDir(serialLogDir, "*.*");
+		scanDir.next();
+		
+		if (!scanDir.isDirectory())
+			{
+			//throw SQLEXCEPTION (RUNTIME_ERROR, "Invalid serial log directory path \"%s\"", falcon_serial_log_dir);
+			serialLogDir = "";
+			}
+		}
 #else
 	recordMemoryMax				= getMemorySize(RECORD_MEMORY_UPPER);
 	recordScavengeThresholdPct	= 67;

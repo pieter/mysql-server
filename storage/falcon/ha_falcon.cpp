@@ -20,6 +20,11 @@
 #endif
 
 #include "mysql_priv.h"
+
+#ifdef _WIN32
+#pragma pack()
+#endif
+
 #include "ha_falcon.h"
 #include "StorageConnection.h"
 #include "StorageTable.h"
@@ -27,7 +32,7 @@
 #include "StorageHandler.h"
 #include "CmdGen.h"
 #include "InfoTable.h"
-//#include "TimeTest.h"
+
 #ifdef _WIN32
 #define I64FORMAT			"%I64d"
 #else
@@ -56,9 +61,13 @@ static const char *falcon_extensions[] = {
 
 static StorageHandler	*storageHandler;
 
+#define PARAMETER(name, text, min, deflt, max, flags, function) uint falcon_##name;
+#include "StorageParameters.h"
+#undef PARAMETER
+
 unsigned long long		falcon_record_memory_max;
-int						falcon_record_scavenge_threshold;
-int						falcon_record_scavenge_floor;
+uint					falcon_record_scavenge_threshold;
+uint					falcon_record_scavenge_floor;
 unsigned long long		falcon_initial_allocation;
 uint					falcon_allocation_extent;
 my_bool					falcon_disable_fsync;
@@ -68,12 +77,12 @@ uint					falcon_serial_log_buffers;
 char*					falcon_serial_log_dir;
 char*					falcon_checkpoint_schedule;
 char*					falcon_scavenge_schedule;
-int						falcon_debug_mask;
+//uint					falcon_debug_mask;
+//uint					falcon_debug_trace;
 my_bool					falcon_debug_server;
 FILE					*falcon_log_file;
 uint					falcon_index_chill_threshold;
 uint					falcon_record_chill_threshold;
-uint					falcon_tablespace_mode;
 uint					falcon_max_transaction_backlog;
 
 
@@ -389,7 +398,7 @@ int StorageInterface::open(const char *name, int mode, uint test_if_locked)
 	if (!storageTable)
 		{
 		storageShare = storageHandler->findTable(name);
-		storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, OpenDatabase, falcon_tablespace_mode);
+		storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, OpenDatabase);
 
 		if (!storageConnection)
 			DBUG_RETURN(HA_ERR_NO_CONNECTION);
@@ -606,7 +615,7 @@ ulonglong StorageInterface::table_flags(void) const
 {
 	DBUG_ENTER("StorageInterface::table_flags");
 	DBUG_RETURN(HA_REC_NOT_IN_SEQ | HA_NULL_IN_KEY | HA_AUTO_PART_KEY |
-	            HA_PARTIAL_COLUMN_READ | HA_CAN_GEOMETRY);
+	            HA_PARTIAL_COLUMN_READ | HA_CAN_GEOMETRY | HA_BINLOG_ROW_CAPABLE);
 }
 
 
@@ -638,15 +647,15 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 	if (!storageShare)
 		DBUG_RETURN(HA_ERR_TABLE_EXIST);
 
-	storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, openOption, falcon_tablespace_mode);
+	storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, openOption);
 	*((StorageConnection**) thd_ha_data(mySqlThread, falcon_hton)) = storageConnection;
 
 	if (!storageConnection)
 		DBUG_RETURN(HA_ERR_NO_CONNECTION);
 
 	storageTable = storageConnection->getStorageTable(storageShare);
-	storageTable->localTable = this;
-
+	storageTable->setLocalTable(this);
+	
 	int ret;
 	int64 incrementValue = 0;
 	uint n;
@@ -697,15 +706,12 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 	gen.gen (")");
 	const char *tableSpace = NULL;
 
-	if (falcon_tablespace_mode == (uint)TABLESPACE_INTERNAL)
-		{
-		if (tempTable)
-			tableSpace = TEMPORARY_TABLESPACE;
-		else if (info->tablespace)
-			tableSpace = info->tablespace;
-		else
-			tableSpace = DEFAULT_TABLESPACE;
-		}
+	if (tempTable)
+		tableSpace = TEMPORARY_TABLESPACE;
+	else if (info->tablespace)
+		tableSpace = info->tablespace;
+	else
+		tableSpace = DEFAULT_TABLESPACE;
 
 	if (tableSpace)
 		gen.gen(" tablespace %s", tableSpace);
@@ -819,7 +825,7 @@ int StorageInterface::delete_table(const char *tableName)
 		storageShare = storageHandler->findTable(tableName);
 
 	if (!storageConnection)
-		if ( !(storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, OpenDatabase, falcon_tablespace_mode)) )
+		if ( !(storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, OpenDatabase)) )
 			DBUG_RETURN(0);
 
 	if (!storageTable)
@@ -1489,7 +1495,7 @@ bool StorageInterface::threadSwitch(THD* newThread)
 		storageConnection->release();
 		}
 
-	storageConnection = storageHandler->getStorageConnection(storageShare, newThread, newThread->thread_id, OpenDatabase, falcon_tablespace_mode);
+	storageConnection = storageHandler->getStorageConnection(storageShare, newThread, newThread->thread_id, OpenDatabase);
 
 	if (storageTable)
 		storageTable->setConnection(storageConnection);
@@ -1777,7 +1783,7 @@ int StorageInterface::alter_tablespace(handlerton* hton, THD* thd, st_alter_tabl
 	switch (ts_info->ts_cmd_type)
 		{
 		case CREATE_TABLESPACE:
-			ret = storageHandler->createTablespace(ts_info->tablespace_name, ts_info->data_file_name, falcon_tablespace_mode);
+			ret = storageHandler->createTablespace(ts_info->tablespace_name, ts_info->data_file_name);
 			break;
 
 		case DROP_TABLESPACE:
@@ -2228,7 +2234,8 @@ void StorageInterface::decodeRecord(uchar *buf)
 					break;
 
 				case MYSQL_TYPE_DATETIME:
-					field->store(dataStream->getInt64(), false);
+					//field->store(dataStream->getInt64(), false);
+					int8store(field->ptr, dataStream->getInt64());
 					break;
 
 				case MYSQL_TYPE_VARCHAR:
@@ -2521,7 +2528,7 @@ int NfsPluginHandler::call_fillDatabaseIOTable(THD *thd, TABLE_LIST *tables, CON
 
 ST_FIELD_INFO databaseIOFieldInfo[]=
 {
-	{"DATABASE",	  120, MYSQL_TYPE_STRING,	0, 0, "Database", SKIP_OPEN_TABLE},
+	{"TABLESPACE",	  120, MYSQL_TYPE_STRING,	0, 0, "Tablespace", SKIP_OPEN_TABLE},
 	{"PAGE_SIZE",		4, MYSQL_TYPE_LONG,		0, 0, "Page Size", SKIP_OPEN_TABLE},
 	{"BUFFERS",			4, MYSQL_TYPE_LONG,		0, 0, "Buffers", SKIP_OPEN_TABLE},
 	{"PHYSICAL_READS",	4, MYSQL_TYPE_LONG,		0, 0, "Physical Reads", SKIP_OPEN_TABLE},
@@ -2834,22 +2841,32 @@ static MYSQL_SYSVAR_STR(scavenge_schedule, falcon_scavenge_schedule,
   "Falcon record scavenge schedule.",
   NULL, NULL, "15,45 * * * * *");
 
-static MYSQL_SYSVAR_INT(debug_mask, falcon_debug_mask,
+/***
+static MYSQL_SYSVAR_UINT(debug_mask, falcon_debug_mask,
   PLUGIN_VAR_RQCMDARG,
   "Falcon message type mask for logged messages.",
   NULL, NULL, 0, 0, INT_MAX, 0);
+***/
+
+// #define MYSQL_SYSVAR_UINT(name, varname, opt, comment, check, update, def, min, max, blk)
+
+#define PARAMETER(name, text, min, deflt, max, flags, function) \
+	static MYSQL_SYSVAR_UINT(name, falcon_##name, \
+	PLUGIN_VAR_RQCMDARG | flags, text, function, NULL, deflt, min, max, 0);
+#include "StorageParameters.h"
+#undef PARAMETER
 
 static MYSQL_SYSVAR_ULONGLONG(record_memory_max, falcon_record_memory_max,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
   "The maximum size of the record memory cache.",
   NULL, StorageInterface::updateRecordMemoryMax, LL(250)<<20, 0, (ulonglong) ~0, LL(1)<<20);
 
-static MYSQL_SYSVAR_INT(record_scavenge_threshold, falcon_record_scavenge_threshold,
+static MYSQL_SYSVAR_UINT(record_scavenge_threshold, falcon_record_scavenge_threshold,
   PLUGIN_VAR_OPCMDARG, // | PLUGIN_VAR_READONLY,
   "The percentage of falcon_record_memory_max that will cause the scavenger thread to start scavenging records from the record cache.",
   NULL, StorageInterface::updateRecordScavengeThreshold, 67, 10, 100, 1);
 
-static MYSQL_SYSVAR_INT(record_scavenge_floor, falcon_record_scavenge_floor,
+static MYSQL_SYSVAR_UINT(record_scavenge_floor, falcon_record_scavenge_floor,
   PLUGIN_VAR_OPCMDARG, // | PLUGIN_VAR_READONLY,
   "A percentage of falcon_record_memory_threshold that defines the amount of record data that will remain in the record cache after a scavenge run.",
   NULL, StorageInterface::updateRecordScavengeFloor, 50, 10, 90, 1);
@@ -2886,13 +2903,6 @@ static MYSQL_SYSVAR_UINT(index_chill_threshold, falcon_index_chill_threshold,
   "Mbytes of pending index data that is 'frozen' to the Falcon serial log.",
   NULL, &updateIndexChillThreshold, 4, 1, 1024, 1);
 
-/***
-static MYSQL_SYSVAR_UINT(tablespace_mode, falcon_tablespace_mode,
-  PLUGIN_VAR_RQCMDARG,
-  "tablespace mapping mode.",
-  NULL, NULL, 0, 0, 3, 1);
-***/
-
 static MYSQL_SYSVAR_UINT(record_chill_threshold, falcon_record_chill_threshold,
   PLUGIN_VAR_RQCMDARG,
   "Mbytes of pending record data that is 'frozen' to the Falcon serial log.",
@@ -2904,12 +2914,15 @@ static MYSQL_SYSVAR_UINT(max_transaction_backlog, falcon_max_transaction_backlog
   NULL, NULL, 150, 1, 1000000, 1);
 
 static struct st_mysql_sys_var* falconVariables[]= {
+#define PARAMETER(name, text, min, deflt, max, flags, function) MYSQL_SYSVAR(name),
+#include "StorageParameters.h"
+#undef PARAMETER
 	MYSQL_SYSVAR(debug_server),
 	MYSQL_SYSVAR(disable_fsync),
 	MYSQL_SYSVAR(serial_log_dir),
 	MYSQL_SYSVAR(checkpoint_schedule),
 	MYSQL_SYSVAR(scavenge_schedule),
-	MYSQL_SYSVAR(debug_mask),
+	//MYSQL_SYSVAR(debug_mask),
 	MYSQL_SYSVAR(record_memory_max),
 	MYSQL_SYSVAR(record_scavenge_floor),
 	MYSQL_SYSVAR(record_scavenge_threshold),
@@ -2921,7 +2934,6 @@ static struct st_mysql_sys_var* falconVariables[]= {
 	MYSQL_SYSVAR(index_chill_threshold),
 	MYSQL_SYSVAR(record_chill_threshold),
 	MYSQL_SYSVAR(max_transaction_backlog),
-	//MYSQL_SYSVAR(tablespace_mode),
 	NULL
 };
 

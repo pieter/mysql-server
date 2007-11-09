@@ -539,6 +539,9 @@ int Inversion::compare(UCHAR * key1, UCHAR * key2)
 
 void Inversion::flush(TransId transId)
 {
+	if (!records)
+		return;
+		
 	Sync sync (&syncObject, "Inversion::flush");
 	sync.lock (Exclusive);
 

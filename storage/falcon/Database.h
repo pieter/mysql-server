@@ -41,6 +41,12 @@
 #define VERSION_CURRENT					COMBINED_VERSION(ODS_VERSION, ODS_MINOR_VERSION)					
 #define VERSION_SERIAL_LOG				COMBINED_VERSION(ODS_VERSION2, ODS_MINOR_VERSION1)
 
+static const int FALC0N_TRACE_TRANSACTIONS	= 1;
+static const int FALC0N_SYNC_TEST			= 2;
+static const int FALC0N_SYNC_OBJECTS		= 4;
+static const int FALC0N_FREEZE				= 8;
+static const int FALC0N_REPORT_WRITES		= 16;
+
 #define TABLE_HASH_SIZE		101
 
 class Table;
@@ -173,7 +179,7 @@ public:
 	void			clearDebug();
 	void			setDebug();
 	void			commitSystemTransaction();
-	void			flush();
+	bool			flush(int64 arg);
 	
 	Transaction*	startTransaction(Connection *connection);
 	CompiledStatement* getCompiledStatement (Connection *connection, const char *sqlString);
@@ -199,12 +205,15 @@ public:
 	void			getTransactionInfo(InfoTable* infoTable);
 	void			getSerialLogInfo(InfoTable* infoTable);
 	void 			setSyncDisable(int value);
-	void			sync(void);
+	void			sync(uint threshold);
 	void			preUpdate();
 	void			setRecordMemoryMax(uint64 value);
 	void			setRecordScavengeThreshold(int value);
 	void			setRecordScavengeFloor(int value);
 	void			forceRecordScavenge(void);
+	void			debugTrace(void);
+	void			pageCacheFlushed(int64 flushArg);
+	JString			setLogRoot(const char *defaultPath, bool create);
 
 	Dbb				*dbb;
 	Cache			*cache;
@@ -264,24 +273,26 @@ public:
 	PageWriter			*pageWriter;
 	PreparedStatement	*updateCardinality;
 	MemMgr				*recordDataPool;
+	time_t				startTime;
 	
-	volatile time_t	timestamp;
-	volatile int	numberQueries;
-	volatile int	numberRecords;
-	volatile int	numberTemplateEvals;
-	volatile int	numberTemplateExpands;
-	int				odsVersion;
-	int				noSchedule;
+	volatile time_t		deltaTime;
+	volatile time_t		timestamp;
+	volatile int		numberQueries;
+	volatile int		numberRecords;
+	volatile int		numberTemplateEvals;
+	volatile int		numberTemplateExpands;
+	int					odsVersion;
+	int					noSchedule;
 
 	volatile INTERLOCK_TYPE	currentGeneration;
 	//volatile long	overflowSize;
 	//volatile long 	ageGroupSizes [AGE_GROUPS];
-	uint64			recordMemoryMax;
-	uint64			recordScavengeThreshold;
-	uint64			recordScavengeFloor;
-	int64			lastRecordMemory;
-	time_t			creationTime;
-	volatile time_t	lastScavenge;
+	uint64				recordMemoryMax;
+	uint64				recordScavengeThreshold;
+	uint64				recordScavengeFloor;
+	int64				lastRecordMemory;
+	time_t				creationTime;
+	volatile time_t		lastScavenge;
 };
 
 #endif // !defined(AFX_DATABASE_H__5EC961D1_A406_11D2_AB5B_0000C01D2301__INCLUDED_)

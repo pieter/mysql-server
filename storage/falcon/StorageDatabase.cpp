@@ -26,6 +26,7 @@
 #include "StorageHandler.h"
 #include "StorageTable.h"
 #include "StorageTableShare.h"
+#include "TableSpaceManager.h"
 #include "Sync.h"
 #include "Threads.h"
 #include "Configuration.h"
@@ -1065,7 +1066,10 @@ void StorageDatabase::traceTransaction(int transId, int committed, int blockedBy
 void StorageDatabase::getIOInfo(InfoTable* infoTable)
 {
 	if (masterConnection && masterConnection->database)
+		{
 		masterConnection->database->getIOInfo(infoTable);
+		masterConnection->database->tableSpaceManager->getIOInfo(infoTable);
+		}
 }
 
 void StorageDatabase::getTransactionInfo(InfoTable* infoTable)

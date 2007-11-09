@@ -23,15 +23,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <memory.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <io.h>
 #include <direct.h>
-#define LSEEK		_lseeki64
+#define LSEEK				_lseeki64
 #define SEEK_OFFSET	int64
-#define MKDIR(dir)			mkdir (dir)
-
+#define MKDIR(dir)			mkdir(dir)
+#define O_SYNC				0
 #else
 #include <sys/types.h>
 #include <aio.h>
@@ -66,10 +67,6 @@
 #define S_IWGRP		0
 #endif
 
-#ifndef PATH_MAX
-#define PATH_MAX		256
-#endif
-
 #include <fcntl.h>
 #include <sys/stat.h>
 #include "Engine.h"
@@ -82,6 +79,7 @@
 #include "Sync.h"
 #include "Log.h"
 #include "Debug.h"
+#include "Synchronize.h"
 
 #define TRACE_FILE	"falcon.trace"
 
@@ -102,10 +100,12 @@ static const char THIS_FILE[]=__FILE__;
 IO::IO()
 {
 	fileId = -1;
-	reads = writes = fetches = fakes = 0;
-	priorReads = priorWrites = priorFetches = priorFakes = 0;
+	reads = writes = fetches = fakes = flushWrites = 0;
+	priorReads = priorWrites = priorFetches = priorFakes = priorFlushWrites = 0;
+	writesSinceSync = 0;
 	dbb = NULL;
 	fatalError = false;
+	memset(writeTypes, 0, sizeof(writeTypes));
 }
 
 IO::~IO()
@@ -117,7 +117,7 @@ IO::~IO()
 bool IO::openFile(const char * name, bool readOnly)
 {
 	fileName = name;
-	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : O_RDWR | O_BINARY);
+	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : O_SYNC | O_RDWR | O_BINARY);
 
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
@@ -146,7 +146,7 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 
 	fileName = name;
 	fileId = ::open (fileName,
-					O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+					O_SYNC | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
 					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 
 	if (fileId < 0)
@@ -216,13 +216,12 @@ bool IO::trialRead(Bdb *bdb)
 	return true;
 }
 
-void IO::writePage(Bdb * bdb)
+void IO::writePage(Bdb * bdb, int type)
 {
 	if (fatalError)
 		FATAL ("can't continue after fatal error");
 
 	ASSERT(bdb->pageNumber != HEADER_PAGE || ((Page*)(bdb->buffer))->pageType == PAGE_header);
-
 	tracePage(bdb);
 	SEEK_OFFSET offset = (int64) bdb->pageNumber * pageSize;
 	int length = pwrite (offset, pageSize, (UCHAR *)bdb->buffer);
@@ -236,6 +235,29 @@ void IO::writePage(Bdb * bdb)
 		}
 
 	++writes;
+	++writesSinceSync;
+	++writeTypes[type];
+}
+
+void IO::writePages(int32 pageNumber, int length, const UCHAR* data, int type)
+{
+	if (fatalError)
+		FATAL ("can't continue after fatal error");
+
+	SEEK_OFFSET offset = (int64) pageNumber * pageSize;
+	int ret = pwrite (offset, length, data);
+
+	if (ret != length)
+		{
+		declareFatalError();
+		FATAL ("write error on page %d (%d/%d/%d) of \"%s\": %s (%d)",
+				pageNumber, length, pageSize, fileId,
+				(const char*) fileName, strerror (errno), errno);
+		}
+
+	++flushWrites;
+	++writesSinceSync;
+	++writeTypes[type];
 }
 
 void IO::readHeader(Hdr * header)
@@ -303,34 +325,81 @@ void IO::createPath(const char *fileName)
 		}
 }
 
-void IO::expandFileName(const char *fileName, int length, char *buffer)
+const char* IO::baseName(const char *path)
 {
+	const char *ptr = strrchr(path, SEPARATOR);
+	return (ptr ? ptr + 1 : path);
+}
+
+void IO::expandFileName(const char *fileName, int length, char *buffer, const char **baseFileName)
+{
+	char expandedName[PATH_MAX+1];
+	const char *path;
 #ifdef _WIN32
-	char expandedName [PATH_MAX], *baseName;
-	GetFullPathName (fileName, sizeof (expandedName), expandedName, &baseName);
-	const char *path = expandedName;
+	char *base;
+	
+	GetFullPathName(fileName, sizeof (expandedName), expandedName, &base);
+	
+	path = expandedName;
 #else
-	char expandedName [PATH_MAX];
+	const char *base;
+	char tempName[PATH_MAX+1];
 	expandedName [0] = 0;
-	const char *path = realpath (fileName, expandedName);
+	tempName[0] = 0;
+	
+	path = realpath(fileName, tempName);
 
 	if (!path)
-		if (errno == ENOENT && expandedName [0])
+		{
+		// By definition, the contents of tempName is undefined if realPath() fails.
+		// If errno == ENOENT, then tempName will contain the resolved path without
+		// the filename--unless it doesn't. Append the filename if necessary.
+			
+		if (errno == ENOENT)
+			{
+			base = baseName(fileName);
+			
+			if (strcmp(base, baseName(tempName)))
+				snprintf(expandedName, PATH_MAX, "%s/%s", tempName, base);
+			else
+				snprintf(expandedName, PATH_MAX, "%s", tempName);
+		
 			path = expandedName;
+			}
 		else
 			path = fileName;
+		}
+	
 #endif
 	if ((int) strlen (path) >= length)
 		throw SQLError (IO_ERROR, "expanded filename exceeds buffer length\n");
 
 	strcpy (buffer, path);
+	
+	if (baseFileName)
+		*baseFileName = baseName(buffer);
 }
 
-bool IO::doesFileExits(const char *fileName)
+bool IO::doesFileExist(const char *fileName)
 {
 	struct stat stats;
+	int errnum;
+	
+	return fileStat(fileName, &stats, &errnum) == 0;
+}
 
-	return stat(fileName, &stats) == 0;
+int IO::fileStat(const char *fileName, struct stat *fileStats, int *errnum)
+{
+	struct stat stats;
+	int retCode = stat(fileName, &stats);
+	
+	if (fileStats)
+		*fileStats = stats;
+
+	if (errnum)
+		*errnum = (retCode == 0) ? 0 : errno;
+		
+	return(retCode);
 }
 
 void IO::write(uint32 length, const UCHAR *data)
@@ -363,17 +432,18 @@ void IO::deleteFile()
 int IO::pread(int64 offset, int length, UCHAR* buffer)
 {
 	int ret;
-	Sync sync (&syncObject, "IO::pread");
 
 #if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
-	sync.lock (Shared);
 	ret = ::pread (fileId, buffer, length, offset);
 #else
+	Sync sync (&syncObject, "IO::pread");
 	sync.lock (Exclusive);
 
 	longSeek(offset);
 	ret = (int) read(length, buffer);
 #endif
+
+	DEBUG_FREEZE;
 
 	return ret;
 }
@@ -394,17 +464,18 @@ void IO::read(int64 offset, int length, UCHAR* buffer)
 int IO::pwrite(int64 offset, int length, const UCHAR* buffer)
 {
 	int ret;
-	Sync sync (&syncObject, "IO::pwrite");
 	
 #if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
-	sync.lock (Shared);
 	ret = ::pwrite (fileId, buffer, length, offset);
 #else
+	Sync sync (&syncObject, "IO::pwrite");
 	sync.lock (Exclusive);
 
 	longSeek(offset);
 	ret = (int) ::write (fileId, buffer, length);
 #endif
+
+	DEBUG_FREEZE;
 
 	return ret;
 }
@@ -466,6 +537,8 @@ void IO::sync(void)
 #endif
 #endif
 
+	writesSinceSync = 0;
+	
 	if (traceFile)
 		traceOperation(TRACE_SYNC_END);
 }
@@ -508,4 +581,17 @@ void IO::traceClose(void)
 void IO::traceOperation(int operation)
 {
 	trace(fileId, operation, 0, 0);
+}
+
+void IO::reportWrites(void)
+{
+	Log::debug("%s force %d, flush %d, prec %d, reuse %d, pgwrt %d\n",
+		(const char*) fileName,
+		writeTypes[WRITE_TYPE_FORCE],
+		writeTypes[WRITE_TYPE_FLUSH],
+		writeTypes[WRITE_TYPE_PRECEDENCE],
+		writeTypes[WRITE_TYPE_REUSE],
+		writeTypes[WRITE_TYPE_PAGE_WRITER]);
+		
+	memset(writeTypes, 0, sizeof(writeTypes));
 }

@@ -73,7 +73,7 @@ void DatabaseClone::writeHeader(Hdr* header)
 void DatabaseClone::writePage(Bdb* bdb)
 {
 	if (shadow)
-		shadow->writePage(bdb);
+		shadow->writePage(bdb, WRITE_TYPE_CLONE);
 }
 
 void DatabaseClone::clone(void)
@@ -101,7 +101,7 @@ void DatabaseClone::clone(void)
 					sync.unlock();
 					Bdb *bdb = dbb->fetchPage(pageNumber, PAGE_any, Shared);
 					BDB_HISTORY(bdb);
-					shadow->writePage(bdb);
+					shadow->writePage(bdb, WRITE_TYPE_CLONE);
 					bdb->release(REL_HISTORY);
 					sync.lock(Exclusive);
 					}
@@ -136,7 +136,7 @@ void DatabaseClone::clone(void)
 			Bdb *bdb = dbb->fetchPage(n, PAGE_any, Shared);
 			BDB_HISTORY(bdb);
 			highWater = bdb->pageNumber;
-			shadow->writePage(bdb);
+			shadow->writePage(bdb, WRITE_TYPE_CLONE);
 			bdb->release(REL_HISTORY);
 			}
 		

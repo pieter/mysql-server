@@ -147,6 +147,39 @@ void JString::append (const char* stuff)
 		delete [] temp;
 }
 
+void JString::append (const char* stuff, int length)
+{
+/**************************************
+ *
+ *		a p p e n d
+ *
+ **************************************
+ *
+ * Functional description
+ *		Append string of specified length.
+ *
+ **************************************/
+
+	if (!string)
+		{
+		setString (stuff, length);
+		
+		return;
+		}
+
+	char *temp = string;
+	++((int*) temp)[-1];
+	int l1 = (int) strlen (temp);
+	release();
+	alloc (l1 + length);
+	memcpy (string, temp, l1);
+	memcpy (string + l1, stuff, length);
+	temp -= sizeof (int);
+
+	if (--((int*) temp)[0] == 0)
+		delete [] temp;
+}
+
 void JString::setString (const char* stuff)
 {
 /**************************************
@@ -242,6 +275,24 @@ JString& JString::operator+= (const char *stuff)
  **************************************/
 
 	append (stuff);
+
+	return *this;
+}
+
+JString& JString::operator+= (char c)
+{
+/**************************************
+ *
+ *		o p e r a t o r   c h a r + =
+ *
+ **************************************
+ *
+ * Functional description
+ *		Return string as string.
+ *
+ **************************************/
+
+	append ((const char *)&c, sizeof(c));
 
 	return *this;
 }
@@ -425,7 +476,7 @@ void JString::setString(const char * source, int length)
 
 int JString::findSubstring(const char * string, const char * sub)
 {
-    for (const char *p = string; *p; ++p)
+	for (const char *p = string; *p; ++p)
 		{
 		const char *s, *q;
 		
@@ -453,7 +504,6 @@ JString JString::upcase(const char * source)
 
 	return string;
 }
-
 
 JString JString::upcase(const WCString *source)
 {
@@ -535,7 +585,6 @@ char* JString::getBuffer(int length)
 void JString::releaseBuffer()
 {
 }
-
 
 JString::JString(const WCString *source)
 {

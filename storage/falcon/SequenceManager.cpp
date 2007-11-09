@@ -32,7 +32,7 @@
 #define HASH(address,size)				(int)(((UIPTR) address >> 2) % size)
 
 static const char *ddl [] = {
-    "create table system.sequences ("
+	"create table system.sequences ("
 		"schema varchar (128) not null,\n"
 		"sequenceName varchar (128) not null,\n"
 		"id int,\n"

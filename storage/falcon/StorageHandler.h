@@ -68,6 +68,7 @@ public:
 
 	virtual void		shutdownHandler(void);
 	virtual void		databaseDropped(StorageDatabase *storageDatabase, StorageConnection* storageConnection);
+	virtual int			startTransaction(THD* mySqlThread, int isolationLevel);
 	virtual int			commit(THD* mySqlThread);
 	virtual int			rollback(THD* mySqlThread);
 	virtual int			releaseVerb(THD* mySqlThread);

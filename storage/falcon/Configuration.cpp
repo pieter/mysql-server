@@ -36,31 +36,28 @@
 #ifdef STORAGE_ENGINE
 #define CONFIG_FILE	"falcon.conf"
 
-#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) extern uint falcon_##_name;
-#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) extern char falcon_##_name;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) \
+	extern uint falcon_##_name;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _update_function) \
+	extern char falcon_##_name;
 #include "StorageParameters.h"
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
 
 extern uint64		falcon_record_memory_max;
-extern uint			falcon_record_scavenge_threshold;
-extern uint			falcon_record_scavenge_floor;
 extern uint64		falcon_initial_allocation;
 extern uint			falcon_allocation_extent;
-extern uint			falcon_page_size;
 extern uint64		falcon_page_cache_size;
 //extern uint		falcon_debug_mask;
-extern uint			falcon_serial_log_buffers;
-extern uint			falcon_index_chill_threshold;
-extern uint			falcon_record_chill_threshold;
-extern uint			falcon_max_transaction_backlog;
 extern char*		falcon_checkpoint_schedule;
 extern char*		falcon_scavenge_schedule;
 extern char*		falcon_serial_log_dir;
 #else
 #define CONFIG_FILE	"netfraserver.conf"
-#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) uint falcon_##_name = _default;
-#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) bool falcon_##_name = _default;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) \
+	uint falcon_##_name = _default;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _update_function) \
+	bool falcon_##_name = _default;
 #include "StorageParameters.h"
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL

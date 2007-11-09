@@ -21,7 +21,7 @@ falcon_record_scavenge_floor	50
 falcon_record_scavenge_threshold	67
 falcon_scavenge_schedule	15,45 * * * * *
 falcon_serial_log_block_size	0
-falcon_serial_log_buffers	10
+falcon_serial_log_buffers	20
 falcon_serial_log_dir	
 falcon_serial_log_priority	1
 falcon_use_deferred_index_hash	OFF
@@ -47,7 +47,7 @@ SET GLOBAL falcon_page_size = 1K;
 ERROR HY000: Variable 'falcon_page_size' is a read only variable
 SELECT @@GLOBAL.falcon_serial_log_buffers;
 @@GLOBAL.falcon_serial_log_buffers
-10
+20
 SET GLOBAL falcon_serial_log_buffers = 100;
 ERROR HY000: Variable 'falcon_serial_log_buffers' is a read only variable
 SELECT @@GLOBAL.falcon_debug_mask;
@@ -95,7 +95,7 @@ FALCON_RECORD_SCAVENGE_FLOOR	50
 FALCON_RECORD_SCAVENGE_THRESHOLD	67
 FALCON_SCAVENGE_SCHEDULE	15,45 * * * * *
 FALCON_SERIAL_LOG_BLOCK_SIZE	0
-FALCON_SERIAL_LOG_BUFFERS	10
+FALCON_SERIAL_LOG_BUFFERS	20
 FALCON_SERIAL_LOG_DIR	
 FALCON_SERIAL_LOG_PRIORITY	1
 FALCON_USE_DEFERRED_INDEX_HASH	OFF

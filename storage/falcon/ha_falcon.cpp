@@ -61,31 +61,24 @@ static const char *falcon_extensions[] = {
 
 static StorageHandler	*storageHandler;
 
-#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) uint falcon_##_name;
-#define PARAMETER_BOOL(_name, _text, _default, _flags, _function)   my_bool falcon_##_name;
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) \
+	uint falcon_##_name;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _update_function) \
+	my_bool falcon_##_name;
 #include "StorageParameters.h"
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
 
 unsigned long long		falcon_record_memory_max;
-uint					falcon_record_scavenge_threshold;
-uint					falcon_record_scavenge_floor;
 unsigned long long		falcon_initial_allocation;
 uint					falcon_allocation_extent;
 unsigned long long		falcon_page_cache_size;
-uint					falcon_page_size;
-uint					falcon_serial_log_buffers;
 char*					falcon_serial_log_dir;
 char*					falcon_checkpoint_schedule;
 char*					falcon_scavenge_schedule;
 //uint					falcon_debug_mask;
 //uint					falcon_debug_trace;
-my_bool					falcon_debug_server;
 FILE					*falcon_log_file;
-uint					falcon_index_chill_threshold;
-uint					falcon_record_chill_threshold;
-uint					falcon_max_transaction_backlog;
-my_bool					falcon_consistent_read;	// default is yes.
 
 int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
 						                       TRANSACTION_READ_COMMITTED,
@@ -161,6 +154,7 @@ int StorageInterface::falcon_init(void *p)
 
 	falcon_hton->commit_by_xid = StorageInterface::commit_by_xid;
 	falcon_hton->rollback_by_xid = StorageInterface::rollback_by_xid;
+	falcon_hton->start_consistent_snapshot = StorageInterface::start_consistent_snapshot;
 
 	falcon_hton->alter_tablespace = StorageInterface::alter_tablespace;
 	//falcon_hton->show_status  = StorageInterface::show_status;
@@ -1071,6 +1065,14 @@ int StorageInterface::rollback_by_xid(handlerton* hton, XID* xid)
 	DBUG_RETURN(ret);
 }
 
+int StorageInterface::start_consistent_snapshot(handlerton *hton, THD *thd)
+{
+	DBUG_ENTER("StorageInterface::start_consistent_snapshot");
+	int ret = storageHandler->startTransaction(thd, TRANSACTION_READ_COMMITTED);
+	DBUG_RETURN(ret);
+
+}
+
 const COND* StorageInterface::cond_push(const COND* cond)
 {
 #ifdef COND_PUSH_ENABLED
@@ -1109,7 +1111,6 @@ void StorageInterface::startTransaction(void)
 			break;
 		}
 }
-
 
 int StorageInterface::savepointSet(handlerton *hton, THD *thd, void *savePoint)
 {
@@ -2832,11 +2833,6 @@ void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_
 }
 
 
-static MYSQL_SYSVAR_BOOL(debug_server, falcon_debug_server,
-  PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
-  "Enable Falcon debug code.",
-  NULL, NULL, FALSE);
-
 static MYSQL_SYSVAR_STR(serial_log_dir, falcon_serial_log_dir,
   PLUGIN_VAR_RQCMDARG| PLUGIN_VAR_READONLY | PLUGIN_VAR_MEMALLOC,
   "Falcon serial log file directory.",
@@ -2854,13 +2850,13 @@ static MYSQL_SYSVAR_STR(scavenge_schedule, falcon_scavenge_schedule,
 
 // #define MYSQL_SYSVAR_UINT(name, varname, opt, comment, check, update, def, min, max, blk)
 
-#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) \
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) \
 	static MYSQL_SYSVAR_UINT(_name, falcon_##_name, \
-	PLUGIN_VAR_RQCMDARG | _flags, _text, _function, NULL, _default, _min, _max, 0);
+	PLUGIN_VAR_RQCMDARG | _flags, _text, NULL, _update_function, _default, _min, _max, 0);
 
-#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) \
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _update_function) \
 	static MYSQL_SYSVAR_BOOL(_name, falcon_##_name,\
-	PLUGIN_VAR_RQCMDARG | _flags, _text,  NULL, _function, _default);
+	PLUGIN_VAR_RQCMDARG | _flags, _text, NULL, _update_function, _default);
 
 #include "StorageParameters.h"
 #undef PARAMETER_UINT
@@ -2870,16 +2866,6 @@ static MYSQL_SYSVAR_ULONGLONG(record_memory_max, falcon_record_memory_max,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
   "The maximum size of the record memory cache.",
   NULL, StorageInterface::updateRecordMemoryMax, LL(250)<<20, 0, (ulonglong) ~0, LL(1)<<20);
-
-static MYSQL_SYSVAR_UINT(record_scavenge_threshold, falcon_record_scavenge_threshold,
-  PLUGIN_VAR_OPCMDARG, // | PLUGIN_VAR_READONLY,
-  "The percentage of falcon_record_memory_max that will cause the scavenger thread to start scavenging records from the record cache.",
-  NULL, StorageInterface::updateRecordScavengeThreshold, 67, 10, 100, 1);
-
-static MYSQL_SYSVAR_UINT(record_scavenge_floor, falcon_record_scavenge_floor,
-  PLUGIN_VAR_OPCMDARG, // | PLUGIN_VAR_READONLY,
-  "A percentage of falcon_record_memory_threshold that defines the amount of record data that will remain in the record cache after a scavenge run.",
-  NULL, StorageInterface::updateRecordScavengeFloor, 50, 10, 90, 1);
 
 static MYSQL_SYSVAR_ULONGLONG(initial_allocation, falcon_initial_allocation,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
@@ -2898,61 +2884,22 @@ static MYSQL_SYSVAR_ULONGLONG(page_cache_size, falcon_page_cache_size,
   "The amount of memory to be used for the database page cache.",
   NULL, NULL, LL(4)<<20, LL(2)<<20, (ulonglong) ~0, LL(1)<<20);
 
-static MYSQL_SYSVAR_UINT(page_size, falcon_page_size,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "The page size used when creating a Falcon tablespace.",
-  NULL, NULL, 4096, 1024, 32768, 1024);
-
-static MYSQL_SYSVAR_UINT(serial_log_buffers, falcon_serial_log_buffers,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "The number of buffers allocated for Falcon serial log.",
-  NULL, NULL, 10, 10, 32768, 10);
-
-static MYSQL_SYSVAR_UINT(index_chill_threshold, falcon_index_chill_threshold,
-  PLUGIN_VAR_RQCMDARG,
-  "Mbytes of pending index data that is 'frozen' to the Falcon serial log.",
-  NULL, &updateIndexChillThreshold, 4, 1, 1024, 1);
-
-static MYSQL_SYSVAR_UINT(record_chill_threshold, falcon_record_chill_threshold,
-  PLUGIN_VAR_RQCMDARG,
-  "Mbytes of pending record data that is 'frozen' to the Falcon serial log.",
-  NULL, &updateRecordChillThreshold, 5, 1, 1024, 1);
-
-static MYSQL_SYSVAR_UINT(max_transaction_backlog, falcon_max_transaction_backlog,
-  PLUGIN_VAR_RQCMDARG,
-  "Maximum number of backlogged transactions.",
-  NULL, NULL, 150, 1, 1000000, 1);
-
-static MYSQL_SYSVAR_BOOL(consistent_read, falcon_consistent_read,
-  PLUGIN_VAR_RQCMDARG,
-  "Enable ConsistentRead Mode for Repeatable Reads",
-  NULL, StorageInterface::updateConsistentRead, TRUE);
-
 static struct st_mysql_sys_var* falconVariables[]= {
 
-#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _function) MYSQL_SYSVAR(_name),
-#define PARAMETER_BOOL(_name, _text, _default, _flags, _function) MYSQL_SYSVAR(_name),
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) MYSQL_SYSVAR(_name),
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _update_function) MYSQL_SYSVAR(_name),
 #include "StorageParameters.h"
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
 
-	MYSQL_SYSVAR(debug_server),
 	MYSQL_SYSVAR(serial_log_dir),
 	MYSQL_SYSVAR(checkpoint_schedule),
 	MYSQL_SYSVAR(scavenge_schedule),
 	//MYSQL_SYSVAR(debug_mask),
 	MYSQL_SYSVAR(record_memory_max),
-	MYSQL_SYSVAR(record_scavenge_floor),
-	MYSQL_SYSVAR(record_scavenge_threshold),
 	MYSQL_SYSVAR(initial_allocation),
 	//MYSQL_SYSVAR(allocation_extent),
 	MYSQL_SYSVAR(page_cache_size),
-	MYSQL_SYSVAR(page_size),
-	MYSQL_SYSVAR(serial_log_buffers),
-	MYSQL_SYSVAR(index_chill_threshold),
-	MYSQL_SYSVAR(record_chill_threshold),
-	MYSQL_SYSVAR(max_transaction_backlog),
-	MYSQL_SYSVAR(consistent_read),
 	NULL
 };
 

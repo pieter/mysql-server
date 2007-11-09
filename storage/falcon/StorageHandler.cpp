@@ -207,6 +207,22 @@ void StorageHandler::remove(StorageConnection* storageConnection)
 	removeConnection(storageConnection);			
 }
 
+int StorageHandler::startTransaction(THD* mySqlThread, int isolationLevel)
+{
+	Sync sync(&syncObject, "StorageHandler::commit");
+	sync.lock(Shared);
+	int slot = HASH(mySqlThread, connectionHashSize);
+	
+	for (StorageConnection *connection = connections[slot]; connection; connection = connection->collision)
+		if (connection->mySqlThread == mySqlThread)
+			{
+			connection->startTransaction(isolationLevel);
+			return 0;
+			}
+	
+	return 1;
+}
+
 int StorageHandler::commit(THD* mySqlThread)
 {
 	Sync sync(&syncObject, "StorageHandler::commit");

@@ -87,7 +87,8 @@ public:
 	void			*argument;
 	void			(* volatile function)(void*);
 	void*			threadHandle;
-	THREAD_ID  		threadId;
+
+	THREAD_ID		threadId;
 	Threads			*threadBarn;
 	Thread			*next;				// next thread in "thread barn"
 	Thread			*prior;				// next thread in "thread barn"

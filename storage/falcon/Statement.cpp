@@ -470,7 +470,6 @@ void Statement::start(NNode * node)
 		
 	transaction = connection->getTransaction();
 	transaction->addRef();
-
 	int savePoint = transaction->createSavepoint();
 
 	try
@@ -486,7 +485,8 @@ void Statement::start(NNode * node)
 		throw;
 		}
 
-	transaction->releaseSavepoint(savePoint);
+	if (transaction)
+		transaction->releaseSavepoint(savePoint);
 }
 
 Context* Statement::getContext(int contextId)

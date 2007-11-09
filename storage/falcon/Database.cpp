@@ -2295,6 +2295,7 @@ void Database::forceRecordScavenge(void)
 
 void Database::debugTrace(void)
 {
+#ifdef STORAGE_ENGINE
 	if (falcon_debug_trace & FALC0N_TRACE_TRANSACTIONS)
 		transactionManager->printBlockage();
 
@@ -2314,6 +2315,7 @@ void Database::debugTrace(void)
 		Synchronize::freezeSystem();
 	
 	falcon_debug_trace = 0;
+#endif
 }
 
 void Database::pageCacheFlushed(int64 flushArg)

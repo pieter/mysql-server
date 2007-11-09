@@ -44,6 +44,7 @@ static const char *devices [] = {
 	"eth0",
 	"eth1",
 	"eth2",
+	"eth6",
 	"xyzzy",
 	NULL
 	};
@@ -95,9 +96,14 @@ int MACAddress::getAddresses()
 
 	ifreq request;
 
-	for (const char **device = devices; *device; ++device)
+	//for (const char **device = devices; *device; ++device)
+	for (int n = 0; n < 10; ++n)
 		{
-		strncpy (request.ifr_name, *device, IFNAMSIZ);
+		//strncpy (request.ifr_name, *device, IFNAMSIZ);
+		char device[64];
+		sprintf(device, "eth%d", n);
+		strncpy (request.ifr_name, device, IFNAMSIZ);
+
 #ifdef SIOCGIFHWADDR
 		if (ioctl (fd, SIOCGIFHWADDR, &request) == 0)
 			macAddresses [count++] = getAddress (6, (UCHAR*) request.ifr_hwaddr.sa_data);

@@ -73,7 +73,7 @@ execute_backup_command(THD *thd, LEX *lex)
   DBUG_ENTER("execute_backup_command");
   DBUG_ASSERT(thd && lex);
 
-  BACKUP_SYNC("backup_command");
+  BACKUP_BREAKPOINT("backup_command");
 
   /*
     Check access for SUPER rights. If user does not have SUPER, fail with error.
@@ -291,7 +291,7 @@ int mysql_backup(THD *thd,
 
   size_t start_bytes= s.bytes;
 
-  BACKUP_SYNC("backup_meta");
+  BACKUP_BREAKPOINT("backup_meta");
 
   DBUG_PRINT("backup",("Writing image header"));
 
@@ -305,13 +305,13 @@ int mysql_backup(THD *thd,
 
   DBUG_PRINT("backup",("Writing table data"));
 
-  BACKUP_SYNC("backup_data");
+  BACKUP_BREAKPOINT("backup_data");
 
   if (backup::write_table_data(thd,info,s))
     goto error;
 
   DBUG_PRINT("backup",("Backup done."));
-  BACKUP_SYNC("backup_done");
+  BACKUP_BREAKPOINT("backup_done");
 
   info.total_size= s.bytes - start_bytes;
 

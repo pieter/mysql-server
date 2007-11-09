@@ -534,6 +534,24 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
     if (sch.lock())
       goto error;
 
+    /*
+      Save binlog information for point in time recovery on restore.
+    */
+    if (mysql_bin_log.is_open())
+    {
+      LOG_INFO li;
+      mysql_bin_log.get_current_log(&li);
+      info.binlog_information.position= li.pos;
+      memcpy(info.binlog_information.binlog_file_name, 
+             li.log_file_name, strlen(li.log_file_name));
+    }
+
+    /*
+      Save VP creation time.
+    */
+    time_t skr= my_time(0);
+    gmtime_r(&skr, &info.vp_time);
+
     BACKUP_BREAKPOINT("data_unlock");
     if (sch.unlock())
       goto error;

@@ -35,6 +35,15 @@ class Image_info;
 typedef Image_info* Img_list[MAX_IMAGES]; ///< List (vector) of image descriptions.
 
 /**
+  Structure to hold information about binary log.
+*/
+struct st_binlog_info
+{
+  char binlog_file_name[FN_REFLEN];  ///< the file name
+  my_off_t position;                 ///< binlog position
+};
+
+/**
   Describes contents of a backup archive.
 
   This class stores a catalogue of a backup archive, that is, description of
@@ -69,6 +78,11 @@ class Archive_info
    size_t header_size;  ///< size of archive's header (after reading or writing an archive)
    size_t meta_size;    ///< size of archive's meta-data (after reading or writing an archive)
    size_t data_size;    ///< size of archive's table data images (after reading or writing an archive)
+
+   st_binlog_info binlog_information; ///< stores binlog information for PTR
+   struct tm start_time;              ///< the start datetime of the backup
+   struct tm end_time;                ///< the end datetime of the backup
+   struct tm vp_time;                 ///< time of validation point
 
    // Classes representing various types of meta-data items.
 

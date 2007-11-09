@@ -70,6 +70,8 @@ bool test_error_flag= FALSE;
 int
 execute_backup_command(THD *thd, LEX *lex)
 {
+  time_t skr;
+
   DBUG_ENTER("execute_backup_command");
   DBUG_ASSERT(thd && lex);
 
@@ -184,6 +186,12 @@ execute_backup_command(THD *thd, LEX *lex)
 
       // TODO: freeze all DDL operations here
 
+      /*
+        Save starting datetime of backup.
+      */
+      skr= my_time(0);
+      gmtime_r(&skr, &info.start_time);
+
       info.save_errors();
 
       if (lex->db_list.is_empty())
@@ -217,6 +225,12 @@ execute_backup_command(THD *thd, LEX *lex)
         info.report_error(backup::log_level::INFO,ER_BACKUP_BACKUP_DONE);
         send_summary(thd,info);
       }
+
+      /*
+        Save ending datetime of backup.
+      */
+      skr= my_time(0);
+      gmtime_r(&skr, &info.end_time);
 
       // TODO: unfreeze DDL here
     } // if (!stream)

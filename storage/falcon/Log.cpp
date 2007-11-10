@@ -177,20 +177,22 @@ void Log::addListener(int mask, Listener *fn, void *arg)
 void Log::deleteListener(Listener *fn, void *arg)
 {
 	ENTER_CRITICAL_SECTION;
-
-	for (LogListener **ptr = &listeners, *listener; (listener = *ptr); ptr = &listener->next)
+	LogListener **ptr = &listeners, *listener;
+	activeMask = 0;
+	
+	for (; (listener = *ptr); ptr = &listener->next)
 		if (listener->listener == fn && listener->arg == arg)
 			{
 			*ptr = listener->next;
 			delete listener;
 			break;
 			}
-
-	activeMask = 0;
+		else
+			activeMask |= listener->mask;
 	
-	for (LogListener *lissn = listeners; lissn; lissn = lissn->next)
+	for (listener = *ptr; listener; listener = listener->next)
 		activeMask |= listener->mask;
-		
+
 	LEAVE_CRITICAL_SECTION;
 }
 

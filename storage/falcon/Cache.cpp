@@ -872,10 +872,14 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 	int writes = dbb->writesSinceSync;
 	time_t start = database->timestamp;
 	dbb->sync();
-	time_t delta = database->timestamp - start;
 	
-	if (delta > 1)
-		Log::log(LogInfo, "%d: %s %s sync: %d pages in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
+	if (Log::isActive(LogInfo))
+		{
+		time_t delta = database->timestamp - start;
+		
+		if (delta > 1)
+			Log::log(LogInfo, "%d: %s %s sync: %d pages in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
+		}
 }
 
 void Cache::ioThread(void* arg)
@@ -995,7 +999,7 @@ void Cache::ioThread(void)
 				flushing = false;
 				flushLock.unlock();
 				
-				if (writes > 0)
+				if (writes > 0 && Log::isActive(LogInfo))
 					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
 								database->deltaTime, pages, writes, delta, pages / MAX(delta, 1));
 

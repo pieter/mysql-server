@@ -342,7 +342,7 @@ void TransactionManager::reportStatistics(void)
 	priorCommitted = committed;
 	priorRolledBack = rolledBack;
 	
-	if (active || numberCommitted || numberRolledBack)
+	if ((active || numberCommitted || numberRolledBack) && Log::isActive(LogInfo))
 		Log::log (LogInfo, "%d: Transactions: %d committed, %d rolled back, %d active, %d post-commit, oldest %d seconds\n",
 				  database->deltaTime, numberCommitted, numberRolledBack, active, pendingCleanup, maxTime);
 }
@@ -358,10 +358,6 @@ void TransactionManager::removeCommittedTransaction(Transaction* transaction)
 
 void TransactionManager::expungeTransaction(Transaction *transaction)
 {
-	// There is an implicit assumption that the caller has a lock on activeTransactions.sycnObject
-	
-	//Sync syncCommitted(&committedTransactions.syncObject, "TransactionManager::expungeTransaction");
-	//syncCommitted.lock(Shared);
 	Sync sync(&syncInitialize, "TransactionManager::expungeTransaction");
 	sync.lock(Shared);
 

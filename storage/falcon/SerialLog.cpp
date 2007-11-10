@@ -588,7 +588,7 @@ void SerialLog::createNewWindow(void)
 			break;
 			}
 
-	if (fileOffset == 0)
+	if (fileOffset == 0 && Log::isActive(LogInfo))
 		Log::log(LogInfo, "%d: Switching log files (%d used)\n", database->deltaTime, file->highWater);
 
 	writeWindow->deactivateWindow();
@@ -1299,8 +1299,12 @@ void SerialLog::setPhysicalBlock(TransId transId)
 
 void SerialLog::reportStatistics(void)
 {
+	if (!Log::isActive(LogInfo))
+		return;
+		
 	Sync sync(&pending.syncObject, "SerialLog::reportStatistics");
 	sync.lock(Shared);
+	/***
 	int count = 0;
 	uint64 minBlockNumber = writeBlock->blockNumber;
 		
@@ -1311,7 +1315,10 @@ void SerialLog::reportStatistics(void)
 		if (action->minBlockNumber < minBlockNumber)
 			minBlockNumber = action->minBlockNumber;
 		}
+	***/
 	
+	uint64 minBlockNumber = (earliest) ? earliest->minBlockNumber : writeBlock->blockNumber;
+	int count = inactions.count;
 	uint64 delta = writeBlock->blockNumber - minBlockNumber;
 	int reads = windowReads - priorWindowReads;
 	priorWindowReads = windowReads;

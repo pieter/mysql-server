@@ -1110,6 +1110,9 @@ bool Dbb::hasDirtyPages()
 
 void Dbb::reportStatistics()
 {
+	if (!Log::isActive(LogInfo))
+		return;
+		
 	int deltaReads = reads - priorReads;
 	int deltaWrites = writes - priorWrites;
 	int deltaFlushWrites = flushWrites - priorFlushWrites;

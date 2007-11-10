@@ -159,8 +159,7 @@ int StorageInterface::falcon_init(void *p)
 	falcon_hton->alter_tablespace = StorageInterface::alter_tablespace;
 	//falcon_hton->show_status  = StorageInterface::show_status;
 	falcon_hton->flags = HTON_NO_FLAGS;
-
-	storageHandler->addNfsLogger(-1, StorageInterface::logger, NULL);
+	storageHandler->addNfsLogger(falcon_debug_mask, StorageInterface::logger, NULL);
 
 	if (falcon_debug_server)
 		storageHandler->startNfsServer();

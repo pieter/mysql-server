@@ -1323,6 +1323,7 @@ static int init_slave_thread(THD* thd, SLAVE_THD_TYPE thd_type)
     delete thd;
     DBUG_RETURN(-1);
   }
+  lex_start(thd);
 
   if (thd_type == SLAVE_THD_SQL)
     THD_SET_PROC_INFO(thd, "Waiting for the next event in relay log");

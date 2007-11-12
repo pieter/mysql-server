@@ -631,7 +631,6 @@ void MemMgr::releaseBlock(MemBlock *block)
 	sync.lock(Exclusive);
 	//validateFreeList();
 	block->pool = NULL;
-	ASSERT(length <= (int) activeMemory);
 	activeMemory -= length;
 
 	if (freeBlock->next && !freeBlock->next->memHeader.pool)

@@ -544,6 +544,8 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
       info.binlog_information.position= li.pos;
       memcpy(info.binlog_information.binlog_file_name, 
              li.log_file_name, strlen(li.log_file_name));
+      DBUG_PRINT("SYNC PHASE - binlog position : ", ("%d", li.pos));
+      DBUG_PRINT("SYNC PHASE - binlog filename : ", ("%s", li.log_file_name));
     }
 
     /*

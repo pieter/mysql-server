@@ -140,6 +140,7 @@ public:
 	static void		updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 	static void		updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 	static void		updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
+	static void		updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 
 	/* Turn off table cache for now */
 

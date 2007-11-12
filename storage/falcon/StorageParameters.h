@@ -2,7 +2,7 @@
 // #define PARAMETER_BOOL(name, text, default, flags, update_function)
 
 PARAMETER_BOOL(consistent_read, "Enable Consistent Read Mode for Repeatable Reads", 1, 0, StorageInterface::updateConsistentRead)
-PARAMETER_UINT(debug_mask, "Falcon message type mask for logged messages.", 0, 0, INT_MAX, 0, NULL)
+PARAMETER_UINT(debug_mask, "Falcon message type mask for logged messages.", 0, 0, INT_MAX, 0, StorageInterface::updateDebugMask)
 PARAMETER_BOOL(debug_server, "Enable Falcon debug code.", 0, 0x0200, NULL)
 PARAMETER_UINT(debug_trace, "Falcon debug trace trigger.", 0, 0, INT_MAX, 0, NULL)
 PARAMETER_UINT(direct_io, "Whether Falcon should use O_DIRECT.", 0, 1, 2, 0, NULL)

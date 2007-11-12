@@ -65,6 +65,7 @@ public:
 	virtual ~StorageHandler(void);
 	virtual void		startNfsServer(void);
 	virtual void		addNfsLogger(int mask, Logger listener, void* arg);
+	virtual void		deleteNfsLogger(Logger listener, void* arg);
 
 	virtual void		shutdownHandler(void);
 	virtual void		databaseDropped(StorageDatabase *storageDatabase, StorageConnection* storageConnection);

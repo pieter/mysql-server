@@ -931,8 +931,6 @@ int StorageInterface::update_row(const uchar* oldData, uchar* newData)
 	DBUG_ENTER("StorageInterface::update_row");
 	DBUG_ASSERT (lastRecord >= 0);
 
-	ha_statistic_increment(&SSV::ha_update_count);
-
 	/* If we have a timestamp column, update it to the current time */
 
 	if (table->timestamp_field_type & TIMESTAMP_AUTO_SET_ON_UPDATE)
@@ -960,6 +958,8 @@ int StorageInterface::update_row(const uchar* oldData, uchar* newData)
 		indexErrorId = (ret & StoreErrorIndexMask) - 1;
 		DBUG_RETURN(error(code));
 		}
+
+	ha_statistic_increment(&SSV::ha_update_count);
 
 	DBUG_RETURN(0);
 }
@@ -2829,6 +2829,14 @@ void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_
 
 	if (storageHandler)
 		storageHandler->setRecordScavengeFloor(falcon_record_scavenge_floor);
+}
+
+
+void StorageInterface::updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+{
+	falcon_debug_mask = *(UINT*) save;
+	storageHandler->deleteNfsLogger(StorageInterface::logger, NULL);
+	storageHandler->addNfsLogger(falcon_debug_mask, StorageInterface::logger, NULL);
 }
 
 

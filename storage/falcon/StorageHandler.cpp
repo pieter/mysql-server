@@ -137,6 +137,10 @@ void StorageHandler::addNfsLogger(int mask, Logger listener, void* arg)
 	addLogListener(mask, listener, arg);
 }
 
+void StorageHandler::deleteNfsLogger(Logger listener, void* arg)
+{
+	deleteLogListener(listener, arg);
+}
 
 void StorageHandler::shutdownHandler(void)
 {

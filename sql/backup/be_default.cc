@@ -619,7 +619,6 @@ int Restore::next_table()
   */
 uint Restore::unpack(byte *packed_row)
 {
-  uint size= 0;
   int error= 0;
   const uchar *cur_row_end;
 

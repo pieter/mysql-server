@@ -434,6 +434,9 @@ int StorageHandler::createTablespace(const char* tableSpaceName, const char* fil
 	if (!defaultDatabase)
 		initialize();
 
+	if (!dictionaryConnection)
+		return StorageErrorTablesSpaceOperationFailed;
+		
 	//StorageDatabase *storageDatabase = NULL;
 	JString tableSpace = JString::upcase(tableSpaceName);
 	
@@ -460,11 +463,14 @@ int StorageHandler::deleteTablespace(const char* tableSpaceName)
 	if (!defaultDatabase)
 		initialize();
 
+	if (!dictionaryConnection)
+		return StorageErrorTablesSpaceOperationFailed;
+
 	if (   !strcasecmp(tableSpaceName, MASTER_NAME)
 		|| !strcasecmp(tableSpaceName, DEFAULT_TABLESPACE)
 		|| !strcasecmp(tableSpaceName, TEMPORARY_TABLESPACE))
 		{
-			return StorageErrorTablesSpaceOperationFailed;
+		return StorageErrorTablesSpaceOperationFailed;
 		}
 		
 	try
@@ -522,6 +528,9 @@ StorageTableShare* StorageHandler::preDeleteTable(const char* pathname)
 	if (!defaultDatabase)
 		initialize();
 
+	if (!dictionaryConnection)
+		return NULL;
+
 	char filename [1024];
 	cleanFileName(pathname, filename, sizeof(filename));
 	int slot = JString::hash(filename, tableHashSize);
@@ -551,6 +560,9 @@ StorageTableShare* StorageHandler::createTable(const char* pathname, const char 
 {
 	if (!defaultDatabase)
 		initialize();
+
+	if (!dictionaryConnection)
+		return NULL;
 
 	StorageTableShare *tableShare = new StorageTableShare(this, pathname, tableSpaceName, mySqlLockSize, tempTable);
 	
@@ -944,6 +956,9 @@ void StorageHandler::getTablesInfo(InfoTable* infoTable)
 	if (!defaultDatabase)
 		initialize();
 	
+	if (!dictionaryConnection)
+		return;
+		
 	try
 		{
 		PStatement statement = dictionaryConnection->prepareStatement(

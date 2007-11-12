@@ -25,6 +25,7 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/sql 
                     ${CMAKE_SOURCE_DIR}/regex 
                     ${CMAKE_SOURCE_DIR}/zlib
+                    ${CMAKE_SOURCE_DIR}/sql/backup
 )
 
 SET_SOURCE_FILES_PROPERTIES(${CMAKE_SOURCE_DIR}/sql/message.rc 
@@ -87,6 +88,8 @@ ADD_EXECUTABLE(mysqld
 TARGET_LINK_LIBRARIES(mysqld
                       heap myisam myisammrg mysys yassl zlib debug dbug yassl 
                       taocrypt strings vio regex wsock32 ws2_32)
+
+TARGET_LINK_LIBRARIES(mysqld backup)
 
 SET_TARGET_PROPERTIES(mysqld PROPERTIES OUTPUT_NAME mysqld${MYSQLD_EXE_SUFFIX})
 
@@ -172,4 +175,6 @@ SET_DIRECTORY_PROPERTIES(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES
 ADD_LIBRARY(udf_example MODULE udf_example.c udf_example.def)
 ADD_DEPENDENCIES(udf_example strings)
 TARGET_LINK_LIBRARIES(udf_example strings wsock32)
+
+ADD_SUBDIRECTORY(backup)
 

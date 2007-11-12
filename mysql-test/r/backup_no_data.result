@@ -1,0 +1,105 @@
+DROP DATABASE IF EXISTS empty_db;
+CREATE DATABASE empty_db;
+BACKUP DATABASE empty_db TO 'empty_db.bak';
+Backup Summary
+ header     =       11 bytes
+ meta-data  =        2 bytes
+ data       =        0 bytes
+              --------------
+ total              13 bytes
+BACKUP DATABASE * TO 'all.bak';
+Backup Summary
+ header     =       16 bytes
+ meta-data  =        4 bytes
+ data       =        0 bytes
+              --------------
+ total              20 bytes
+DROP DATABASE empty_db;
+DROP DATABASE test;
+SHOW DATABASES;
+Database
+information_schema
+mysql
+SHOW DATABASES;
+Database
+information_schema
+mysql
+RESTORE FROM 'all.bak';
+Restore Summary
+ header     =       16 bytes
+ meta-data  =        4 bytes
+ data       =        0 bytes
+              --------------
+ total              20 bytes
+SHOW DATABASES;
+Database
+information_schema
+empty_db
+mysql
+test
+DROP DATABASE empty_db;
+DROP DATABASE test;
+RESTORE FROM 'empty_db.bak';
+Restore Summary
+ header     =       11 bytes
+ meta-data  =        2 bytes
+ data       =        0 bytes
+              --------------
+ total              13 bytes
+SHOW DATABASES;
+Database
+information_schema
+empty_db
+mysql
+SHOW TABLES IN empty_db;
+Tables_in_empty_db
+RESTORE FROM 'all.bak';
+Restore Summary
+ header     =       16 bytes
+ meta-data  =        4 bytes
+ data       =        0 bytes
+              --------------
+ total              20 bytes
+SHOW DATABASES;
+Database
+information_schema
+empty_db
+mysql
+test
+SHOW TABLES IN empty_db;
+Tables_in_empty_db
+USE test;
+DROP TABLE IF EXISTS t1;
+Warnings:
+Note	1051	Unknown table 't1'
+CREATE TABLE t1 (
+`dir_code` char(4),
+`building` char(6)
+) ENGINE=myisam DEFAULT CHARSET=latin1;
+USE empty_db;
+DROP VIEW IF EXISTS v1;
+CREATE VIEW v1 AS SELECT * FROM test.t1;
+BACKUP DATABASE empty_db TO 'empty_db.bak';
+Backup Summary
+ header     =       11 bytes
+ meta-data  =        2 bytes
+ data       =        0 bytes
+              --------------
+ total              13 bytes
+SHOW DATABASES;
+Database
+information_schema
+empty_db
+mysql
+test
+RESTORE FROM 'empty_db.bak';
+Restore Summary
+ header     =       11 bytes
+ meta-data  =        2 bytes
+ data       =        0 bytes
+              --------------
+ total              13 bytes
+USE empty_db;
+SHOW TABLES;
+Tables_in_empty_db
+DROP DATABASE IF EXISTS empty_db;

@@ -2834,7 +2834,7 @@ void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_
 
 void StorageInterface::updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
-	falcon_debug_mask = *(UINT*) save;
+	falcon_debug_mask = *(uint*) save;
 	storageHandler->deleteNfsLogger(StorageInterface::logger, NULL);
 	storageHandler->addNfsLogger(falcon_debug_mask, StorageInterface::logger, NULL);
 }

@@ -63,7 +63,8 @@ enum SqlCode {
 	DEADLOCK					= -29,
 	OUT_OF_MEMORY_ERROR			= -30,
 	OUT_OF_RECORD_MEMORY_ERROR	= -31,
-	LOCK_TIMEOUT				= -32
+	LOCK_TIMEOUT				= -32,
+	DDL_TABLESPACE_EXIST_ERROR		= -33
 	};
 
 class DllExport SQLException {

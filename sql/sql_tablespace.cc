@@ -43,17 +43,17 @@ int mysql_alter_tablespace(THD *thd, st_alter_tablespace *ts_info)
   {
     if ((error= hton->alter_tablespace(hton, thd, ts_info)))
     {
-      if (error == HA_ADMIN_NOT_IMPLEMENTED)
-      {
-        my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "");
-      }
-      else if (error == 1)
-      {
-        DBUG_RETURN(1);
-      }
-      else
-      {
-        my_error(error, MYF(0));
+      switch (error) {
+        case 1:
+          DBUG_RETURN(1);
+        case HA_ADMIN_NOT_IMPLEMENTED:
+          my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "");
+          break;
+        case HA_ERR_TABLESPACE_EXIST:
+          my_error(ER_TABLESPACE_EXIST, MYF(0), ts_info->tablespace_name);
+          break;
+        default:
+          my_error(error, MYF(0));
       }
       DBUG_RETURN(error);
     }

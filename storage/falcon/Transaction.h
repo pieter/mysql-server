@@ -108,6 +108,7 @@ public:
 	void		waitForTransaction();
 	bool		waitForTransaction (TransId transId);
 	void		dropTable(Table* table);
+	void		truncateTable(Table* table);
 	bool		hasUncommittedRecords(Table* table);
 	void		writeComplete(void);
 	void		releaseDependency(void);

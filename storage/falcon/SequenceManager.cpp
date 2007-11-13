@@ -139,6 +139,15 @@ Sequence* SequenceManager::createSequence(const char *schema, const char *name, 
 	return sequence;
 }
 
+Sequence* SequenceManager::recreateSequence(Sequence *oldSequence)
+{
+	const char *schemaName = database->getSymbol(oldSequence->schemaName);
+	const char *sequenceName = database->getSymbol(oldSequence->name);
+	
+	deleteSequence(schemaName, sequenceName);
+	return createSequence(schemaName, sequenceName, 0);
+}
+
 void SequenceManager::deleteSequence(const char *schema, const char *name)
 {
 	Sync sync (&database->syncSysConnection, "SequenceManager::deleteSequence");

@@ -92,7 +92,7 @@ public:
 	void		insertView(Transaction *transaction, int count, Field **fieldVector, Value **values);
 	void		bind (Table *table);
 	void		clearIndexesRebuild();
-	void		rebuildIndexes (Transaction *transaction);
+	void		rebuildIndexes (Transaction *transaction, bool force = false);
 	void		collationChanged (Field *field);
 	void		validateBlobs (int optionMask);
 	void		cleanupRecords(RecordScavenge *recordScavenge);
@@ -148,6 +148,7 @@ public:
 	void		addField (Field *field);
 	void		checkNullable (Record *record);
 	virtual void	drop(Transaction *transaction);
+	virtual void	truncate(Transaction *transaction);
 	void		updateInversion (Record *record, Transaction *transaction);
 	int			getFieldId (const char *name);
 	ForeignKey* findForeignKey (ForeignKey *key);

@@ -169,6 +169,7 @@ public:
 	void			shutdown();
 	void			execute (const char *sql);
 	void			addTable (Table *table);
+	void			truncateTable(Table *table, Transaction *transaction);
 	void			dropTable (Table *table, Transaction *transaction);
 	void			flushInversion(Transaction *transaction);
 	bool			matches (const char *fileName);

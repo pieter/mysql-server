@@ -58,6 +58,7 @@ public:
 	int					savepointRelease(Connection* connection, int savePoint);
 	int					savepointRollback(Connection* connection, int savePoint);
 	int					deleteTable(StorageConnection* storageConnection,StorageTableShare *tableShare);
+	int					truncateTable(StorageConnection* storageConnection, StorageTableShare *tableShare);
 	int					createIndex(StorageConnection *storageConnection, Table* table, StorageIndexDesc* indexDesc);
 	int					renameTable(StorageConnection* storageConnection, Table* table, const char* newName, const char *schemaName);
 	Bitmap*				indexScan(Index* index, StorageKey *lower, StorageKey *upper, int searchFlags, StorageConnection* storageConnection, Bitmap *bitmap);

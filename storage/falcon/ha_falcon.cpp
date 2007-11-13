@@ -812,7 +812,6 @@ THR_LOCK_DATA **StorageInterface::store_lock(THD *thd, THR_LOCK_DATA **to,
 	DBUG_RETURN(to);
 }
 
-
 int StorageInterface::delete_table(const char *tableName)
 {
 	DBUG_ENTER("StorageInterface::delete_table");
@@ -859,12 +858,41 @@ int StorageInterface::delete_table(const char *tableName)
 	DBUG_RETURN(error(res));
 }
 
+#ifdef TRUNCATE_ENABLED
+int StorageInterface::delete_all_rows()
+{
+	DBUG_ENTER("StorageInterface::delete_all_rows");
+
+	int ret = 0;
+	struct st_table_share *tableShare = table_share;
+	struct st_table *tableObj = table;
+	const char *tableName = tableShare->normalized_path.str;
+	
+	if (!mySqlThread)
+		mySqlThread = current_thd;
+
+	if (!storageShare)
+		if ( !(storageShare = storageHandler->preDeleteTable(tableName)) )
+			DBUG_RETURN(0);
+
+	if (!storageConnection)
+		if ( !(storageConnection = storageHandler->getStorageConnection(storageShare, mySqlThread, mySqlThread->thread_id, OpenDatabase)) )
+			DBUG_RETURN(0);
+
+	if (!storageTable)
+		storageTable = storageConnection->getStorageTable(storageShare);
+		
+	storageTable->truncateTable();
+		
+	DBUG_RETURN(ret);
+}
+#endif
+
 uint StorageInterface::max_supported_keys(void) const
 {
 	DBUG_ENTER("StorageInterface::max_supported_keys");
 	DBUG_RETURN(MAX_KEY);
 }
-
 
 int StorageInterface::write_row(uchar *buff)
 {
@@ -983,7 +1011,6 @@ int StorageInterface::delete_row(const uchar* buf)
 
 	DBUG_RETURN(0);
 }
-
 
 int StorageInterface::commit(handlerton *hton, THD* thd, bool all)
 {

@@ -863,6 +863,22 @@ void Transaction::dropTable(Table* table)
 			ptr = &rec->nextInTrans;
 }
 
+void Transaction::truncateTable(Table* table)
+{
+	Sync sync(&syncIndexes, "Transaction::truncateTable");
+	sync.lock(Exclusive);
+
+	releaseDeferredIndexes(table);
+
+	// Keep exclusive lock to avoid race condition with writeComplete
+	
+	for (RecordVersion **ptr = &firstRecord, *rec; (rec = *ptr);)
+		if (rec->format->table == table)
+			removeRecord(rec);
+		else
+			ptr = &rec->nextInTrans;
+}
+
 bool Transaction::hasUncommittedRecords(Table* table)
 {
 	for (RecordVersion *rec = firstRecord; rec; rec = rec->nextInTrans)

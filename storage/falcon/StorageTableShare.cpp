@@ -142,6 +142,13 @@ int StorageTableShare::deleteTable(StorageConnection *storageConnection)
 	return res;
 }
 
+int StorageTableShare::truncateTable(StorageConnection *storageConnection)
+{
+	int res = storageDatabase->truncateTable(storageConnection, this);
+	
+	return res;
+}
+
 void StorageTableShare::cleanupFieldName(const char* name, char* buffer, int bufferLength)
 {
 	char *q = buffer;

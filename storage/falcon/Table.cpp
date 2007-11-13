@@ -1453,6 +1453,70 @@ void Table::drop(Transaction *transaction)
 	database->commitSystemTransaction();
 }
 
+void Table::truncate(Transaction *transaction)
+{
+	// Absolutely no access until truncate complete
+	
+	Sync syncObj(&syncObject, "Table::truncate");
+	syncObj.lock(Exclusive);
+	
+	// Ensure control of system transaction commit
+	
+	Sync syncConnection(&database->syncSysConnection, "Table::truncate");
+	syncConnection.lock(Shared);
+	
+	// Keep scavenger out of the way
+	
+	Sync syncScavenger(&syncScavenge, "Table::truncate");
+	syncScavenger.lock(Shared);
+	
+	Transaction *sysTransaction = database->getSystemTransaction();
+	
+	// Delete data and blob sections
+	
+	expunge(sysTransaction);
+
+	// Recreate data and blob sections
+	
+	dataSectionId = dbb->createSection(TRANSACTION_ID(sysTransaction));
+	blobSectionId = dbb->createSection(TRANSACTION_ID(sysTransaction));
+
+	// Update system.tables with new section ids
+	
+	PreparedStatement *statement = database->prepareStatement("update Tables set dataSection=?, blobSection=? where tableId=?");
+	statement->setInt(1, dataSectionId);
+	statement->setInt(2, blobSectionId);
+	statement->setInt(3, tableId);
+	statement->executeUpdate();
+	statement->close();
+
+	// Commit the physical and system changes
+
+	syncConnection.unlock();
+	database->commitSystemTransaction();
+	
+	if (records)
+		{
+		delete records;
+		records = NULL;
+		}
+		
+	// Rebuild indexes
+	
+	rebuildIndexes(sysTransaction, true);
+	
+	// Reset select Table attributes
+	
+	priorCardinality = cardinality; // forces update to system tables during scavenge
+	cardinality = 0;
+	ageGroup = database->currentGeneration;
+	emptySections->clear();
+	recordBitmap->clear();
+	debugThawedRecords = 0;
+	debugThawedBytes = 0;
+	alterIsActive = false;
+}
+
 void Table::checkNullable(Record * record)
 {
 	Value value;
@@ -2609,10 +2673,10 @@ void Table::collationChanged(Field *field)
 	END_FOR;
 }
 
-void Table::rebuildIndexes(Transaction *transaction)
+void Table::rebuildIndexes(Transaction *transaction, bool force)
 {
 	FOR_INDEXES(index, this);
-		if (index->rebuild)
+		if (index->rebuild || force)
 			{
 			index->rebuild = false;
 			rebuildIndex(index, transaction);

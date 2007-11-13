@@ -75,6 +75,7 @@
 #include "LogStream.h"
 #include "SyncTest.h"
 #include "PriorityScheduler.h"
+#include "Sequence.h"
 
 #ifndef STORAGE_ENGINE
 #include "Applications.h"
@@ -1359,8 +1360,8 @@ void Database::dropTable(Table * table, Transaction *transaction)
 	// Check for records in active transactions.  If so, barf
 
 	if (hasUncommittedRecords(table, transaction))
-			throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and can't be dropped", 
-						   table->schemaName, table->name);
+		throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and can't be dropped", 
+						table->schemaName, table->name);
 			
 	// OK, now make sure any records are purged out of committed transactions as well
 	
@@ -1406,6 +1407,28 @@ void Database::dropTable(Table * table, Transaction *transaction)
 	delete table;
 }
 
+void Database::truncateTable(Table *table, Transaction *transaction)
+{
+	Sync scavenge(&table->syncScavenge, "Database::truncateTable");
+	
+	table->checkDrop();
+	
+	// Check for records in active transactions
+
+	if (hasUncommittedRecords(table, transaction))
+		throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and cannot be truncated",
+						table->schemaName, table->name);
+						   
+	scavenge.lock(Shared);
+	
+	// Purge records out of committed transactions
+	
+	transactionManager->truncateTable(table, transaction);
+	
+	// Recreate data/blob sections and indexes
+	
+	table->truncate(transaction);
+}
 
 void Database::addTable(Table * table)
 {

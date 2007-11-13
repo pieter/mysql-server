@@ -107,6 +107,7 @@ public:
 	int					getIndexId(const char* schemaName, const char* indexName);
 	int					create(StorageConnection *storageConnection, const char* sql, int64 autoIncrementValue);
 	int					deleteTable(StorageConnection *storageConnection);
+	int					truncateTable(StorageConnection *storageConnection);
 	void				load(void);
 	void				registerTable(void);
 	void				unRegisterTable(void);

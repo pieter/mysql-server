@@ -81,6 +81,13 @@ int StorageTable::deleteTable(void)
 	return ret;
 }
 
+int StorageTable::truncateTable(void)
+{
+	int ret = share->truncateTable(storageConnection);
+	
+	return ret;
+}
+
 int StorageTable::insert(void)
 {
 	try

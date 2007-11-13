@@ -68,6 +68,7 @@ public:
 	virtual int		open(void);
 	virtual int		deleteTable(void);
 	virtual int		deleteRow(int recordNumber);
+	virtual int		truncateTable(void);
 	virtual int		setIndex(int numberIndexes, int indexId, StorageIndexDesc* storageIndex);
 	virtual int		indexScan();
 	virtual int		setIndex(int indexId);

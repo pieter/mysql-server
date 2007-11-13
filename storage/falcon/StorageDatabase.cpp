@@ -520,6 +520,42 @@ int StorageDatabase::deleteTable(StorageConnection* storageConnection, StorageTa
 	return res;
 }
 
+int StorageDatabase::truncateTable(StorageConnection* storageConnection, StorageTableShare *tableShare)
+{
+	Connection *connection = storageConnection->connection;
+	Transaction *transaction = connection->transaction;
+	Database *database = connection->database;
+	Sequence *sequence = tableShare->sequence;
+	
+	int res = 0;
+	
+	try
+		{
+		database->truncateTable(tableShare->table, transaction);
+	
+		if (sequence)
+			sequence = sequence->recreate();
+		}
+	catch (SQLException& exception)
+		{
+		int errorCode = exception.getSqlcode();
+		storageConnection->setErrorText(&exception);
+		
+		switch (errorCode)
+			{
+			case NO_SUCH_TABLE:
+				return StorageErrorTableNotFound;
+				
+			case UNCOMMITTED_UPDATES:
+				return StorageErrorUncommittedUpdates;
+			}
+			
+		res = 200 - exception.getSqlcode();
+		}
+	
+	return res;
+}
+
 int StorageDatabase::deleteRow(StorageConnection *storageConnection, Table* table, int recordNumber)
 {
 	Connection *connection = storageConnection->connection;
@@ -592,7 +628,6 @@ int StorageDatabase::updateRow(StorageConnection* storageConnection, Table* tabl
 	
 	return 0;
 }
-
 
 int StorageDatabase::createIndex(StorageConnection *storageConnection, Table* table, const char* indexName, const char* sql)
 {

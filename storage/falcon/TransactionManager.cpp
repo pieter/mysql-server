@@ -141,6 +141,17 @@ void TransactionManager::dropTable(Table* table, Transaction* transaction)
 	committedTrans.unlock();
 }
 
+void TransactionManager::truncateTable(Table* table, Transaction* transaction)
+{
+	Sync committedTrans (&committedTransactions.syncObject, "TransactionManager::truncateTable");
+	committedTrans.lock (Shared);
+	
+	for (Transaction *trans = committedTransactions.first; trans; trans = trans->next)
+		trans->truncateTable(table);
+	
+	committedTrans.unlock();
+}
+
 bool TransactionManager::hasUncommittedRecords(Table* table, Transaction* transaction)
 {
 	Sync syncTrans (&activeTransactions.syncObject, "TransactionManager::hasUncommittedRecords");

@@ -1,0 +1,7 @@
+--source include/have_falcon.inc
+
+#
+# BUG#31110 - falcon: missing engine check while dropping tablespace
+#
+--error 1477
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=MyISAM;

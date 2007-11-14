@@ -1094,7 +1094,7 @@ int StorageInterface::rollback_by_xid(handlerton* hton, XID* xid)
 int StorageInterface::start_consistent_snapshot(handlerton *hton, THD *thd)
 {
 	DBUG_ENTER("StorageInterface::start_consistent_snapshot");
-	int ret = storageHandler->startTransaction(thd, TRANSACTION_READ_COMMITTED);
+	int ret = storageHandler->startTransaction(thd, TRANSACTION_CONSISTENT_READ);
 	DBUG_RETURN(ret);
 
 }

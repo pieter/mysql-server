@@ -1021,6 +1021,9 @@ void Index::removeFromDIHash(struct DIUniqueNode *uniqueNode)
 {
 	// Assume caller got an exclusive lock on syncDIHash
 
+	if (DIHashTable == NULL)
+		return;
+
 	DINode *node = &uniqueNode->node;
 	
 //*	for (int h = curHashTable; h >= 0; h--)

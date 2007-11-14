@@ -456,7 +456,7 @@ int StorageHandler::createTablespace(const char* tableSpaceName, const char* fil
 		}
 	catch (SQLException& exception)
 		{
-		if (exception.getSqlcode() == DDL_TABLESPACE_EXIST_ERROR)
+                if (exception.getSqlcode() == DDL_TABLESPACE_EXIST_ERROR)
 			return StorageErrorTableSpaceExist;
 		return StorageErrorTablesSpaceOperationFailed;
 		}

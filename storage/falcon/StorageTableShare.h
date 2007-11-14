@@ -76,7 +76,7 @@ enum StorageError {
 	StorageErrorOutOfMemory			= -104,		// memory pool limit reached or system memory exhausted
 	StorageErrorOutOfRecordMemory	= -105,		// memory pool limit reached or system memory exhausted
 	StorageErrorLockTimeout			= -106,
-	StorageErrorTableSpaceExist		= -107
+	StorageErrorTableSpaceExist = -107
 	};
 	
 static const int StoreErrorIndexShift	= 10;

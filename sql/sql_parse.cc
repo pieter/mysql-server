@@ -4856,7 +4856,7 @@ check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
     }
 
     if (tables->derived ||
-        (tables->table && (int)tables->table->s->tmp_table))
+        (tables->table && tables->table->s && (int)tables->table->s->tmp_table))
       continue;
     thd->security_ctx= sctx;
     if ((sctx->master_access & want_access) ==

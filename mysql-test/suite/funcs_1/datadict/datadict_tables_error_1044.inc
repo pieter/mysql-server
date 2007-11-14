@@ -49,3 +49,5 @@ eval $dd_part1 table_constraints                     $dd_part2;
 eval $dd_part1 key_column_usage                      $dd_part2;
 --error 1044
 eval $dd_part1 triggers                              $dd_part2;
+--error 1044
+eval $dd_part1 parameters                            $dd_part2;

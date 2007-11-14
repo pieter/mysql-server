@@ -1158,10 +1158,8 @@ SET @@storage_engine = Falcon;
 DROP VIEW IF EXISTS v5y;
 --enable_warnings
 
+--error 1166
 CREATE VIEW v5y AS SELECT 1 AS ` `;
-
-# Final cleanup.
-DROP VIEW v5y;
 
 #
 # Bug #27696: Tables with non-ASCII names can't be created

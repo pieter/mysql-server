@@ -12959,6 +12959,15 @@ do_select(JOIN *join,List<Item> *fields,TABLE *table,Procedure *procedure)
       error= (*end_select)(join, 0, 0);
       if (error == NESTED_LOOP_OK || error == NESTED_LOOP_QUERY_LIMIT)
 	error= (*end_select)(join, 0, 1);
+
+      /*
+        If we don't go through evaluate_join_record(), do the counting
+        here.  join->send_records is increased on success in end_send(),
+        so we don't touch it here.
+      */
+      join->examined_rows++;
+      join->thd->row_count++;
+      DBUG_ASSERT(join->examined_rows <= 1);
     }
     else if (join->send_row_on_empty_set())
     {
@@ -18964,8 +18973,21 @@ void TABLE_LIST::print(THD *thd, String *str)
     }
     if (my_strcasecmp(table_alias_charset, cmp_name, alias))
     {
+      char t_alias_buff[MAX_ALIAS_NAME];
+      const char *t_alias= alias;
+
       str->append(' ');
-      append_identifier(thd, str, alias, strlen(alias));
+      if (lower_case_table_names== 1)
+      {
+        if (alias && alias[0])
+        {
+          strmov(t_alias_buff, alias);
+          my_casedn_str(files_charset_info, t_alias_buff);
+          t_alias= t_alias_buff;
+        }
+      }
+
+      append_identifier(thd, str, t_alias, strlen(t_alias));
     }
 
     if (index_hints)

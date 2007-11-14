@@ -3098,7 +3098,7 @@ void Table::expunge(Transaction *transaction)
 	if (transaction)
 		transaction->hasUpdates = true;
 
-	if (dataSectionId)
+	if (dataSectionId || blobSectionId)
 		{
 		dbb->deleteSection(dataSectionId, TRANSACTION_ID(transaction));
 		dataSectionId = 0;

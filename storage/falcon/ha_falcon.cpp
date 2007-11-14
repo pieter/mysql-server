@@ -852,6 +852,7 @@ int StorageInterface::delete_table(const char *tableName)
 	//                        to warnings about temp tables
 	// This fix could affect other DROP TABLE scenarios.
 	// if (res == StorageErrorTableNotFound)
+	
 	if (res != StorageErrorUncommittedUpdates)
 		res = 0;
 
@@ -863,14 +864,19 @@ int StorageInterface::delete_all_rows()
 {
 	DBUG_ENTER("StorageInterface::delete_all_rows");
 
+	if (!mySqlThread)
+		mySqlThread = current_thd;
+
+	// If this isn't a truncate, punt!
+	
+	if (thd_sql_command(mySqlThread) != SQLCOM_TRUNCATE)
+		DBUG_RETURN(my_errno=HA_ERR_WRONG_COMMAND);
+
 	int ret = 0;
 	struct st_table_share *tableShare = table_share;
 	struct st_table *tableObj = table;
 	const char *tableName = tableShare->normalized_path.str;
 	
-	if (!mySqlThread)
-		mySqlThread = current_thd;
-
 	if (!storageShare)
 		if ( !(storageShare = storageHandler->preDeleteTable(tableName)) )
 			DBUG_RETURN(0);

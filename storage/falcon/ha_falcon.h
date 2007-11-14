@@ -20,7 +20,9 @@ class CmdGen;
 class THD;
 class my_decimal;
 
+#define TRUNCATE_ENABLED
 //#define XA_ENABLED
+
 static const int TRANSACTION_READ_UNCOMMITTED = 1;	// Dirty reads, non-repeatable reads and phantom reads can occur.
 static const int TRANSACTION_READ_COMMITTED   = 2;	// Dirty reads are prevented; non-repeatable reads and phantom reads can occur.
 static const int TRANSACTION_WRITE_COMMITTED  = 4;	// Dirty reads are prevented; non-repeatable reads happen after writes; phantom reads can occur.

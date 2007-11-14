@@ -83,6 +83,7 @@ int StorageTable::deleteTable(void)
 
 int StorageTable::truncateTable(void)
 {
+	clearRecord();
 	int ret = share->truncateTable(storageConnection);
 	
 	return ret;

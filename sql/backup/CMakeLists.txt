@@ -25,8 +25,11 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
 SET(BACKUP_SOURCES stream.cc logger.cc string_pool.cc
                archive.cc meta_backup.cc data_backup.cc
                sql_backup.cc be_default.cc buffer_iterator.cc
-               be_snapshot.cc)
+               be_snapshot.cc be_thread.cc)
 
 IF(NOT SOURCE_SUBLIBS)
   ADD_LIBRARY(backup ${BACKUP_SOURCES})
 ENDIF(NOT SOURCE_SUBLIBS)
+
+ADD_DEPENDENCIES(backup mysys)
+

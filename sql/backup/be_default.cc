@@ -109,14 +109,14 @@ result_t Engine::get_backup(const uint32, const Table_list &tables,
 }
 
 Backup::Backup(const Table_list &tables, THD *t_thd, thr_lock_type lock_type): 
-               Backup_driver(tables)
+               Backup_thread_driver(tables)
 {
   DBUG_PRINT("default_backup",("Creating backup driver"));
   m_thd= t_thd;         /* save current thread */
   cur_table= NULL;      /* flag current table as null */
   tbl_num= 0;           /* set table number to 0 */
   mode= INITIALIZE;     /* initialize read */
-  lock_called= FALSE;   /* lock has not been called */
+  lock_thd= NULL;       /* set lock thread to 0 */
 
   /*
      Create a TABLE_LIST * list for iterating through the tables.
@@ -124,6 +124,21 @@ Backup::Backup(const Table_list &tables, THD *t_thd, thr_lock_type lock_type):
   */
   tables_in_backup= build_table_list(tables, lock_type);
   all_tables= tables_in_backup;
+  init_phase_complete= FALSE;
+  locks_acquired= FALSE;
+}
+
+/**
+  * @brief Prelock call to setup locking.
+  *
+  * Launches a separate thread ("locking thread") which will lock
+  * tables. Locking in a separate thread is needed to have a non-blocking
+  * prelock() (given that thr_lock() is blocking).
+  */
+result_t Backup::prelock()
+{
+  DBUG_ENTER("Default_backup::prelock()");
+  DBUG_RETURN(start_locking_thread());
 }
 
 /**
@@ -266,14 +281,33 @@ result_t Backup::get_data(Buffer &buf)
   DBUG_ENTER("Default_backup::get_data(Buffer &buf)");
 
   /*
-    If locks have not been obtained, wait until they have.
+    Check the lock state. Take action based on the availability of the lock.
+
+    @todo Refactor the following code to make this a new mode for the driver,
+          e.g. INIT_PHASE, SYNCH_PHASE, ACQUIRING_LOCKS, etc.
   */
-  if (!lock_called)
+  if (!locks_acquired)
   {
     buf.size= 0;
     buf.table_no= 0; 
     buf.last= TRUE;
-    DBUG_RETURN(READY);
+    switch (lock_state) {
+    case LOCK_ERROR:             // Something ugly happened in locking
+      DBUG_RETURN(ERROR);
+    case LOCK_ACQUIRED:          // First time lock ready for validity point
+    {
+      locks_acquired= TRUE;
+      DBUG_RETURN(READY);
+    }
+    default:                     // If first call, signal end of init phase
+      if (init_phase_complete)
+        DBUG_RETURN(OK);
+      else
+      {
+        init_phase_complete= TRUE;
+        DBUG_RETURN(READY);
+      }
+    }
   }
 
   buf.table_no= tbl_num;
@@ -338,6 +372,13 @@ result_t Backup::get_data(Buffer &buf)
       buf.size= 0;
       buf.last= TRUE;
       mode= GET_NEXT_TABLE;
+
+      /*
+        Optimization: If this is the last table to read, close the tables and
+        kill the lock thread. This only applies iff we are using the thread.
+      */
+      if (tables_in_backup->next_global == NULL)
+        kill_locking_thread();
     }
     else if (last_read_res != 0)
       DBUG_RETURN(ERROR);

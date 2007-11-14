@@ -42,6 +42,7 @@ SRLDropTableSpace::~SRLDropTableSpace()
 void SRLDropTableSpace::append(TableSpace *tableSpace, Transaction *transaction)
 {
 	START_RECORD(srlDropTableSpace, "SRLDropTableSpace::append");
+	log->getTransaction(transaction->transactionId);
 	putInt(tableSpace->tableSpaceId);
 	putInt(transaction->transactionId);
 }

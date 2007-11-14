@@ -2924,7 +2924,7 @@ void Statement::createTableSpace(Syntax *syntax)
 	if (tableSpace)
 		{
 		if (syntax->type == nod_create_tablespace)
-			throw SQLError(DDL_ERROR, "tablespace \"%s\" already exists", name);
+			throw SQLError(DDL_TABLESPACE_EXIST_ERROR, "tablespace \"%s\" already exists", name);
 		
 		if (syntax->type == nod_upgrade_tablespace)
 			{

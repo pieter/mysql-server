@@ -703,11 +703,12 @@ JOIN::prepare(Item ***rref_pointer_array,
   
 
   /*
-    Check if one one uses a not constant column with group functions
-    and no GROUP BY.
+    Check if there are references to un-aggregated columns when computing 
+    aggregate functions with implicit grouping (there is no GROUP BY).
     TODO:  Add check of calculation of GROUP functions and fields:
 	   SELECT COUNT(*)+table.col1 from table1;
   */
+  if (thd->variables.sql_mode & MODE_ONLY_FULL_GROUP_BY)
   {
     if (!group_list)
     {
@@ -720,6 +721,13 @@ JOIN::prepare(Item ***rref_pointer_array,
 	  flag|=1;
 	else if (!(flag & 2) && !item->const_during_execution())
 	  flag|=2;
+      }
+      if (having)
+      {
+        if (having->with_sum_func)
+          flag |= 1;
+        else if (!having->const_during_execution())
+          flag |= 2;
       }
       if (flag == 3)
       {
@@ -1621,10 +1629,19 @@ JOIN::optimize()
         We have found that grouping can be removed since groups correspond to
         only one row anyway, but we still have to guarantee correct result
         order. The line below effectively rewrites the query from GROUP BY
-        <fields> to ORDER BY <fields>. One exception is if skip_sort_order is
-        set (see above), then we can simply skip GROUP BY.
-      */
-      order= skip_sort_order ? 0 : group_list;
+        <fields> to ORDER BY <fields>. There are two exceptions:
+        - if skip_sort_order is set (see above), then we can simply skip
+          GROUP BY;
+        - we can only rewrite ORDER BY if the ORDER BY fields are 'compatible'
+          with the GROUP BY ones, i.e. either one is a prefix of another.
+          We only check if the ORDER BY is a prefix of GROUP BY. In this case
+          test_if_subpart() copies the ASC/DESC attributes from the original
+          ORDER BY fields.
+          If GROUP BY is a prefix of ORDER BY, then it is safe to leave
+          'order' as is.
+       */
+      if (!order || test_if_subpart(group_list, order))
+          order= skip_sort_order ? 0 : group_list;
       /*
         If we have an IGNORE INDEX FOR GROUP BY(fields) clause, this must be 
         rewritten to IGNORE INDEX FOR ORDER BY(fields).
@@ -18495,6 +18512,10 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
       /* Add "rows" field to item_list. */
       if (table_list->schema_table)
       {
+        /* in_rows */
+        if (join->thd->lex->describe & DESCRIBE_EXTENDED)
+          item_list.push_back(item_null);
+        /* rows */
         item_list.push_back(item_null);
       }
       else

@@ -2827,6 +2827,14 @@ FFFFFFFFFFFFFFFF	7FFFFFFFFFFFFFFF
 FFFFFFFFFFFFFFFF	7FFFFFFFFFFFFFFF
 8FFFFFFFFFFFFFFF	7FFFFFFFFFFFFFFF
 drop table t1;
+CREATE TABLE t1 (c0 int);
+CREATE TABLE t2 (c0 int);
+INSERT INTO t1 VALUES(@@connect_timeout);
+INSERT INTO t2 VALUES(@@connect_timeout);
+SELECT * FROM t1 JOIN t2 ON t1.c0 = t2.c0 WHERE (t1.c0 <=> @@connect_timeout);
+c0	c0
+X	X
+DROP TABLE t1, t2;
 End of 4.1 tests
 CREATE TABLE t1 ( 
 K2C4 varchar(4) character set latin1 collate latin1_bin NOT NULL default '', 
@@ -4062,25 +4070,62 @@ x
 1
 Warnings:
 Warning	1466	Leading spaces are removed from name ' x'
+CREATE VIEW v1 AS SELECT 1 AS ``;
+ERROR 42000: Incorrect column name ''
 CREATE VIEW v1 AS SELECT 1 AS ` `;
-Warnings:
-Warning	1474	Name ' ' has become ''
-SELECT `` FROM v1;
-
-1
-CREATE VIEW v2 AS SELECT 1 AS `  `;
-Warnings:
-Warning	1474	Name '  ' has become ''
-SELECT `` FROM v2;
-
-1
-CREATE VIEW v3 AS SELECT 1 AS ` x`;
+ERROR 42000: Incorrect column name ' '
+CREATE VIEW v1 AS SELECT 1 AS `  `;
+ERROR 42000: Incorrect column name '  '
+CREATE VIEW v1 AS SELECT (SELECT 1 AS `  `);
+ERROR 42000: Incorrect column name '  '
+CREATE VIEW v1 AS SELECT 1 AS ` x`;
 Warnings:
 Warning	1466	Leading spaces are removed from name ' x'
-SELECT `x` FROM v3;
+SELECT `x` FROM v1;
 x
 1
-DROP VIEW v1, v2, v3;
+ALTER VIEW v1 AS SELECT 1 AS ` `;
+ERROR 42000: Incorrect column name ' '
+DROP VIEW v1;
+CREATE TABLE t1 (c11 INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY);
+CREATE TABLE t2 (c21 INT UNSIGNED NOT NULL, 
+c22 INT DEFAULT NULL, 
+KEY(c21, c22));
+CREATE TABLE t3 (c31 INT UNSIGNED NOT NULL DEFAULT 0, 
+c32 INT DEFAULT NULL, 
+c33 INT NOT NULL, 
+c34 INT UNSIGNED DEFAULT 0,
+KEY (c33, c34, c32));
+INSERT INTO t1 values (),(),(),(),();
+INSERT INTO t2 SELECT a.c11, b.c11 FROM t1 a, t1 b;
+INSERT INTO t3 VALUES (1, 1, 1, 0), 
+(2, 2, 0, 0), 
+(3, 3, 1, 0), 
+(4, 4, 0, 0), 
+(5, 5, 1, 0);
+SELECT c32 FROM t1, t2, t3 WHERE t1.c11 IN (1, 3, 5) AND 
+t3.c31 = t1.c11 AND t2.c21 = t1.c11 AND 
+t3.c33 = 1 AND t2.c22 in (1, 3) 
+ORDER BY c32;
+c32
+1
+1
+3
+3
+5
+5
+SELECT c32 FROM t1, t2, t3 WHERE t1.c11 IN (1, 3, 5) AND 
+t3.c31 = t1.c11 AND t2.c21 = t1.c11 AND 
+t3.c33 = 1 AND t2.c22 in (1, 3) 
+ORDER BY c32 DESC;
+c32
+5
+5
+3
+3
+1
+1
+DROP TABLE t1, t2, t3;
 
 #
 # Bug#30736: Row Size Too Large Error Creating a Table and

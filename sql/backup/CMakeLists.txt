@@ -29,4 +29,5 @@ SET(BACKUP_SOURCES stream.cc logger.cc string_pool.cc
 
 IF(NOT SOURCE_SUBLIBS)
   ADD_LIBRARY(backup ${BACKUP_SOURCES})
+  ADD_LIBRARY(backupstream stream_v1.c stream_v1_transport.c)
 ENDIF(NOT SOURCE_SUBLIBS)

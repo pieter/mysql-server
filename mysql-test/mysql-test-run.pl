@@ -2091,6 +2091,22 @@ sub environment_setup () {
     ($lib_example_plugin ? "--plugin_dir=" . dirname($lib_example_plugin) : "");
 
   # ----------------------------------------------------
+  # Setup env so childs can execute myisampack and myisamchk
+  # ----------------------------------------------------
+  $ENV{'MYISAMCHK'}= mtr_native_path(mtr_exe_exists(
+                       vs_config_dirs('storage/myisam', 'myisamchk'),
+                       vs_config_dirs('myisam', 'myisamchk'),
+                       "$path_client_bindir/myisamchk",
+                       "$glob_basedir/storage/myisam/myisamchk",
+                       "$glob_basedir/myisam/myisamchk"));
+  $ENV{'MYISAMPACK'}= mtr_native_path(mtr_exe_exists(
+                        vs_config_dirs('storage/myisam', 'myisampack'),
+                        vs_config_dirs('myisam', 'myisampack'),
+                        "$path_client_bindir/myisampack",
+                        "$glob_basedir/storage/myisam/myisampack",
+                        "$glob_basedir/myisam/myisampack"));
+
+  # ----------------------------------------------------
   # We are nice and report a bit about our settings
   # ----------------------------------------------------
   if (!$opt_extern)
@@ -3752,7 +3768,9 @@ sub mysqld_arguments ($$$$) {
   # When mysqld is run by a root user(euid is 0), it will fail
   # to start unless we specify what user to run as. If not running
   # as root it will be ignored, see BUG#30630
-  if (!(grep(/^--user/, @$extra_opt, @opt_extra_mysqld_opt))) {
+  my $euid= $>;
+  if (!$glob_win32 and $euid == 0 and
+      grep(/^--user/, @$extra_opt, @opt_extra_mysqld_opt) == 0) {
     mtr_add_arg($args, "%s--user=root");
   }
 

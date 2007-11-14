@@ -2733,34 +2733,13 @@ bool check_db_name(LEX_STRING *org_name)
   char *name= org_name->str;
   uint name_length= org_name->length;
 
-  if (!name_length || name_length > NAME_LEN)
+  if (!name_length || name_length > NAME_LEN || name[name_length - 1] == ' ')
     return 1;
 
   if (lower_case_table_names && name != any_db)
     my_casedn_str(files_charset_info, name);
 
-#if defined(USE_MB) && defined(USE_MB_IDENT)
-  if (use_mb(system_charset_info))
-  {
-    name_length= 0;
-    bool last_char_is_space= TRUE;
-    char *end= name + org_name->length;
-    while (name < end)
-    {
-      int len;
-      last_char_is_space= my_isspace(system_charset_info, *name);
-      len= my_ismbchar(system_charset_info, name, end);
-      if (!len)
-        len= 1;
-      name+= len;
-      name_length++;
-    }
-    return (last_char_is_space || name_length > NAME_CHAR_LEN);
-  }
-  else
-#endif
-    return ((org_name->str[org_name->length - 1] != ' ') ||
-            (name_length > NAME_CHAR_LEN)); /* purecov: inspected */
+  return check_identifier_name(org_name);
 }
 
 
@@ -2773,43 +2752,20 @@ bool check_db_name(LEX_STRING *org_name)
 
 bool check_table_name(const char *name, uint length)
 {
-  uint name_length= 0;  // name length in symbols
-  const char *end= name+length;
-  if (!length || length > NAME_LEN)
+  if (!length || length > NAME_LEN || name[length - 1] == ' ')
     return 1;
-#if defined(USE_MB) && defined(USE_MB_IDENT)
-  bool last_char_is_space= FALSE;
-#else
-  if (name[length-1]==' ')
-    return 1;
-#endif
-
-  while (name != end)
-  {
-#if defined(USE_MB) && defined(USE_MB_IDENT)
-    last_char_is_space= my_isspace(system_charset_info, *name);
-    if (use_mb(system_charset_info))
-    {
-      int len=my_ismbchar(system_charset_info, name, end);
-      if (len)
-      {
-        name += len;
-        name_length++;
-        continue;
-      }
-    }
-#endif
-    name++;
-    name_length++;
-  }
-#if defined(USE_MB) && defined(USE_MB_IDENT)
-  return (last_char_is_space || name_length > NAME_CHAR_LEN) ;
-#else
-  return 0;
-#endif
+  LEX_STRING ident;
+  ident.str= (char*) name;
+  ident.length= length;
+  return check_identifier_name(&ident);
 }
 
 
+/*
+  Eventually, a "length" argument should be added
+  to this function, and the inner loop changed to
+  check_identifier_name() call.
+*/
 bool check_column_name(const char *name)
 {
   uint name_length= 0;  // name length in symbols
@@ -2825,6 +2781,8 @@ bool check_column_name(const char *name)
                           name+system_charset_info->mbmaxlen);
       if (len)
       {
+        if (len > 3) /* Disallow non-BMP characters */
+          return 1;
         name += len;
         name_length++;
         continue;
@@ -2833,8 +2791,13 @@ bool check_column_name(const char *name)
 #else
     last_char_is_space= *name==' ';
 #endif
-    if (*name == NAMES_SEP_CHAR)
-      return 1;
+    /*
+      NAMES_SEP_CHAR is used in FRM format to separate SET and ENUM values.
+      It is defined as 0xFF, which is a not valid byte in utf8.
+      This assert is to catch use of this byte if we decide to
+      use non-utf8 as system_character_set.
+    */
+    DBUG_ASSERT(*name != NAMES_SEP_CHAR);
     name++;
     name_length++;
   }

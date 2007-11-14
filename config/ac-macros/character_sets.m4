@@ -10,11 +10,11 @@ define(CHARSETS_AVAILABLE1,armscii8 ascii big5 cp1250 cp1251 cp1256 cp1257)
 define(CHARSETS_AVAILABLE2,cp850 cp852 cp866 cp932 dec8 eucjpms euckr gb2312 gbk geostd8)
 define(CHARSETS_AVAILABLE3,greek hebrew hp8 keybcs2 koi8r koi8u)
 define(CHARSETS_AVAILABLE4,latin1 latin2 latin5 latin7 macce macroman)
-define(CHARSETS_AVAILABLE5,sjis swe7 tis620 ucs2 ujis utf8)
+define(CHARSETS_AVAILABLE5,sjis swe7 tis620 ucs2 ujis utf8 utf8mb3 utf16 utf32)
 
 DEFAULT_CHARSET=latin1
 CHARSETS_AVAILABLE="CHARSETS_AVAILABLE0 CHARSETS_AVAILABLE1 CHARSETS_AVAILABLE2 CHARSETS_AVAILABLE3 CHARSETS_AVAILABLE4 CHARSETS_AVAILABLE5"
-CHARSETS_COMPLEX="big5 cp1250 cp932 eucjpms euckr gb2312 gbk latin1 latin2 sjis tis620 ucs2 ujis utf8"
+CHARSETS_COMPLEX="big5 cp1250 cp932 eucjpms euckr gb2312 gbk latin1 latin2 sjis tis620 ucs2 ujis utf8 utf8mb3 utf16 utf32"
 
 AC_DIVERT_POP
 
@@ -47,7 +47,7 @@ AC_ARG_WITH(extra-charsets,
 
 AC_MSG_CHECKING("character sets")
 
-CHARSETS="$default_charset latin1 utf8"
+CHARSETS="$default_charset latin1 utf8 utf8mb3"
 
 if test "$extra_charsets" = no; then
   CHARSETS="$CHARSETS"
@@ -193,7 +193,22 @@ do
       AC_DEFINE(USE_MB_IDENT, 1)
       ;;
     utf8)
-      AC_DEFINE(HAVE_CHARSET_utf8, 1, [Define to enable ut8])
+      AC_DEFINE(HAVE_CHARSET_utf8mb4, 1, [Define to enable ut8])
+      AC_DEFINE([USE_MB], 1, [Use multi-byte character routines])
+      AC_DEFINE(USE_MB_IDENT, 1)
+      ;;
+    utf8mb3)
+      AC_DEFINE(HAVE_CHARSET_utf8mb3, 1, [Define to enable ut8])
+      AC_DEFINE([USE_MB], 1, [Use multi-byte character routines])
+      AC_DEFINE(USE_MB_IDENT, 1)
+      ;;
+    utf16)
+      AC_DEFINE(HAVE_CHARSET_utf16, 1, [Define to enable utf16])
+      AC_DEFINE([USE_MB], 1, [Use multi-byte character routines])
+      AC_DEFINE(USE_MB_IDENT, 1)
+      ;;
+    utf32)
+      AC_DEFINE(HAVE_CHARSET_utf32, 1, [Define to enable utf32])
       AC_DEFINE([USE_MB], 1, [Use multi-byte character routines])
       AC_DEFINE(USE_MB_IDENT, 1)
       ;;
@@ -359,23 +374,65 @@ case $default_charset in
       ;;
     utf8)
       default_charset_default_collation="utf8_general_ci"
-      if test "$default_collation" = "utf8_general_cs"; then
-        # For those who explicitly desire "utf8_general_cs", support it,
+      define(UTFC1, utf8_general_ci utf8_bin)
+      define(UTFC2, utf8_czech_ci utf8_danish_ci)
+      define(UTFC3, utf8_esperanto_ci utf8_estonian_ci utf8_icelandic_ci)
+      define(UTFC4, utf8_latvian_ci utf8_lithuanian_ci)
+      define(UTFC5, utf8_persian_ci utf8_polish_ci utf8_romanian_ci)
+      define(UTFC6, utf8_sinhala_ci utf8_slovak_ci utf8_slovenian_ci)
+      define(UTFC7, utf8_spanish2_ci utf8_spanish_ci)
+      define(UTFC8, utf8_swedish_ci utf8_turkish_ci)
+      define(UTFC9, utf8_unicode_ci)
+      UTFC="UTFC1 UTFC2 UTFC3 UTFC4 UTFC5 UTFC6 UTFC7 UTFC8 UTFC9"
+      default_charset_collations="$UTFC"
+      ;;
+    utf8mb3)
+      default_charset_default_collation="utf8mb3_general_ci"
+      if test "$default_collation" = "utf8mb3_general_cs"; then
+        # For those who explicitly desire "utf8mb3_general_cs", support it,
         # and then also set the CPP switch enabling that code.
-        UTFC="utf8_general_cs"
+        UTFC="utf8mb3_general_cs"
         AC_DEFINE([HAVE_UTF8_GENERAL_CS], [1], [certain Japanese customer])
       else
-        define(UTFC1, utf8_general_ci utf8_bin)
-        define(UTFC2, utf8_czech_ci utf8_danish_ci)
-        define(UTFC3, utf8_esperanto_ci utf8_estonian_ci utf8_icelandic_ci)
-        define(UTFC4, utf8_latvian_ci utf8_lithuanian_ci)
-        define(UTFC5, utf8_persian_ci utf8_polish_ci utf8_romanian_ci)
-        define(UTFC6, utf8_sinhala_ci utf8_slovak_ci utf8_slovenian_ci)
-        define(UTFC7, utf8_spanish2_ci utf8_spanish_ci)
-        define(UTFC8, utf8_swedish_ci utf8_turkish_ci)
-        define(UTFC9, utf8_unicode_ci)
+        define(UTFC1, utf8mb3_general_ci utf8mb3_bin)
+        define(UTFC2, utf8mb3_czech_ci utf8mb3_danish_ci)
+        define(UTFC3, utf8mb3_esperanto_ci utf8mb3_estonian_ci utf8mb3_icelandic_ci)
+        define(UTFC4, utf8mb3_latvian_ci utf8mb3_lithuanian_ci)
+        define(UTFC5, utf8mb3_persian_ci utf8mb3_polish_ci utf8mb3_romanian_ci)
+        define(UTFC6, utf8mb3_sinhala_ci utf8mb3_slovak_ci utf8mb3_slovenian_ci)
+        define(UTFC7, utf8mb3_spanish2_ci utf8mb3_spanish_ci)
+        define(UTFC8, utf8mb3_swedish_ci utf8mb3_turkish_ci)
+        define(UTFC9, utf8mb3_unicode_ci)
         UTFC="UTFC1 UTFC2 UTFC3 UTFC4 UTFC5 UTFC6 UTFC7 UTFC8 UTFC9"
       fi
+      default_charset_collations="$UTFC"
+      ;;
+    utf16)
+      default_charset_default_collation="utf16_general_ci"
+      define(UTFC1, utf16_general_ci utf16_bin)
+      define(UTFC2, utf16_czech_ci utf16_danish_ci)
+      define(UTFC3, utf16_esperanto_ci utf16_estonian_ci utf16_icelandic_ci)
+      define(UTFC4, utf16_latvian_ci utf16_lithuanian_ci)
+      define(UTFC5, utf16_persian_ci utf16_polish_ci utf16_romanian_ci)
+      define(UTFC6, utf16_sinhala_ci utf16_slovak_ci utf16_slovenian_ci)
+      define(UTFC7, utf16_spanish2_ci utf16_spanish_ci)
+      define(UTFC8, utf16_swedish_ci utf16_turkish_ci)
+      define(UTFC9, utf16_unicode_ci)
+      UTFC="UTFC1 UTFC2 UTFC3 UTFC4 UTFC5 UTFC6 UTFC7 UTFC8 UTFC9"
+      default_charset_collations="$UTFC"
+      ;;
+    utf32)
+      default_charset_default_collation="utf32_general_ci"
+      define(UTFC1, utf32_general_ci utf32_bin)
+      define(UTFC2, utf32_czech_ci utf32_danish_ci)
+      define(UTFC3, utf32_esperanto_ci utf32_estonian_ci utf32_icelandic_ci)
+      define(UTFC4, utf32_latvian_ci utf32_lithuanian_ci)
+      define(UTFC5, utf32_persian_ci utf32_polish_ci utf32_romanian_ci)
+      define(UTFC6, utf32_sinhala_ci utf32_slovak_ci utf32_slovenian_ci)
+      define(UTFC7, utf32_spanish2_ci utf32_spanish_ci)
+      define(UTFC8, utf32_swedish_ci utf32_turkish_ci)
+      define(UTFC9, utf32_unicode_ci)
+      UTFC="UTFC1 UTFC2 UTFC3 UTFC4 UTFC5 UTFC6 UTFC7 UTFC8 UTFC9"
       default_charset_collations="$UTFC"
       ;;
     *)

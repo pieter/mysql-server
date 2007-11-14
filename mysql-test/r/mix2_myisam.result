@@ -1979,7 +1979,7 @@ a	b
 drop table t1;
 create table t1 (v varchar(65530), key(v));
 Warnings:
-Warning	1071	Specified key was too long; max key length is 1000 bytes
+Warning	1071	Specified key was too long; max key length is 1332 bytes
 drop table t1;
 create table t1 (v varchar(65536));
 Warnings:

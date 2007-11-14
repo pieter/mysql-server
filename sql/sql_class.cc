@@ -1189,8 +1189,11 @@ int THD::send_explain_fields(select_result *result)
   item->maybe_null=1;
   field_list.push_back(item=new Item_empty_string("key", NAME_CHAR_LEN, cs));
   item->maybe_null=1;
-  field_list.push_back(item=new Item_empty_string("key_len",
-						  NAME_CHAR_LEN*MAX_KEY));
+  field_list.push_back(item=
+    new Item_empty_string("key_len",
+                          MAX_KEY *
+                          (MAX_KEY_LENGTH_DECIMAL_WIDTH + 1 /* for comma */),
+                          cs));
   item->maybe_null=1;
   field_list.push_back(item=new Item_empty_string("ref",
                                                   NAME_CHAR_LEN*MAX_REF_PARTS,

@@ -141,6 +141,10 @@ class ha_myisam: public handler
                                      *engine_callback,
                                      ulonglong *engine_data);
 #endif
+  MI_INFO *file_ptr(void)
+  {
+    return file;
+  }
   int read_range_first(const key_range *start_key, const key_range *end_key,
                        bool eq_range_arg, bool sorted);
   int read_range_next();

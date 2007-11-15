@@ -2296,7 +2296,7 @@ NULL	information_schema	COLUMNS	CHARACTER_SET_NAME	13	NULL	YES	varchar	64	192	NU
 NULL	information_schema	COLUMNS	COLLATION_NAME	14	NULL	YES	varchar	64	192	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_TYPE	15	NULL	NO	longtext	4294967295	4294967295	NULL	NULL	utf8	utf8_general_ci	longtext			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_KEY	16		NO	varchar	3	9	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select		Default	Default
-NULL	information_schema	COLUMNS	EXTRA	17		NO	varchar	20	60	NULL	NULL	utf8	utf8_general_ci	varchar(20)			select		Default	Default
+NULL	information_schema	COLUMNS	EXTRA	17		NO	varchar	27	81	NULL	NULL	utf8	utf8_general_ci	varchar(27)			select		Default	Default
 NULL	information_schema	COLUMNS	PRIVILEGES	18		NO	varchar	80	240	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_COMMENT	19		NO	varchar	1024	3072	NULL	NULL	utf8	utf8_general_ci	varchar(1024)			select		Default	Default
 NULL	information_schema	COLUMNS	STORAGE	20		NO	varchar	8	24	NULL	NULL	utf8	utf8_general_ci	varchar(8)			select		Default	Default
@@ -8824,7 +8824,7 @@ COLUMNS	CHARACTER_SET_NAME	varchar(64)
 COLUMNS	COLLATION_NAME	varchar(64)
 COLUMNS	COLUMN_TYPE	longtext
 COLUMNS	COLUMN_KEY	varchar(3)
-COLUMNS	EXTRA	varchar(20)
+COLUMNS	EXTRA	varchar(27)
 COLUMNS	PRIVILEGES	varchar(80)
 COLUMNS	COLUMN_COMMENT	varchar(1024)
 COLUMNS	STORAGE	varchar(8)
@@ -10272,7 +10272,7 @@ CHARACTER_SET_NAME	varchar(64)	YES		NULL
 COLLATION_NAME	varchar(64)	YES		NULL	
 COLUMN_TYPE	longtext	NO		NULL	
 COLUMN_KEY	varchar(3)	NO			
-EXTRA	varchar(20)	NO			
+EXTRA	varchar(27)	NO			
 PRIVILEGES	varchar(80)	NO			
 COLUMN_COMMENT	varchar(1024)	NO			
 STORAGE	varchar(8)	NO			
@@ -10296,7 +10296,7 @@ COLUMNS	CREATE TEMPORARY TABLE `COLUMNS` (
   `COLLATION_NAME` varchar(64) DEFAULT NULL,
   `COLUMN_TYPE` longtext NOT NULL,
   `COLUMN_KEY` varchar(3) NOT NULL DEFAULT '',
-  `EXTRA` varchar(20) NOT NULL DEFAULT '',
+  `EXTRA` varchar(27) NOT NULL DEFAULT '',
   `PRIVILEGES` varchar(80) NOT NULL DEFAULT '',
   `COLUMN_COMMENT` varchar(1024) NOT NULL DEFAULT '',
   `STORAGE` varchar(8) NOT NULL DEFAULT '',
@@ -10329,7 +10329,7 @@ NULL	information_schema	columns	CHARACTER_SET_NAME	13	NULL	YES	varchar	64	192	NU
 NULL	information_schema	columns	COLLATION_NAME	14	NULL	YES	varchar	64	192	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select		Default	Default
 NULL	information_schema	columns	COLUMN_TYPE	15	NULL	NO	longtext	4294967295	4294967295	NULL	NULL	utf8	utf8_general_ci	longtext			select		Default	Default
 NULL	information_schema	columns	COLUMN_KEY	16		NO	varchar	3	9	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select		Default	Default
-NULL	information_schema	columns	EXTRA	17		NO	varchar	20	60	NULL	NULL	utf8	utf8_general_ci	varchar(20)			select		Default	Default
+NULL	information_schema	columns	EXTRA	17		NO	varchar	27	81	NULL	NULL	utf8	utf8_general_ci	varchar(27)			select		Default	Default
 NULL	information_schema	columns	PRIVILEGES	18		NO	varchar	80	240	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select		Default	Default
 NULL	information_schema	columns	COLUMN_COMMENT	19		NO	varchar	1024	3072	NULL	NULL	utf8	utf8_general_ci	varchar(1024)			select		Default	Default
 NULL	information_schema	columns	STORAGE	20		NO	varchar	8	24	NULL	NULL	utf8	utf8_general_ci	varchar(8)			select		Default	Default
@@ -10386,7 +10386,7 @@ NULL	information_schema	COLUMNS	CHARACTER_SET_NAME	13	NULL	YES	varchar	64	192	NU
 NULL	information_schema	COLUMNS	COLLATION_NAME	14	NULL	YES	varchar	64	192	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_TYPE	15	NULL	NO	longtext	4294967295	4294967295	NULL	NULL	utf8	utf8_general_ci	longtext			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_KEY	16		NO	varchar	3	9	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select		Default	Default
-NULL	information_schema	COLUMNS	EXTRA	17		NO	varchar	20	60	NULL	NULL	utf8	utf8_general_ci	varchar(20)			select		Default	Default
+NULL	information_schema	COLUMNS	EXTRA	17		NO	varchar	27	81	NULL	NULL	utf8	utf8_general_ci	varchar(27)			select		Default	Default
 NULL	information_schema	COLUMNS	PRIVILEGES	18		NO	varchar	80	240	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_COMMENT	19		NO	varchar	1024	3072	NULL	NULL	utf8	utf8_general_ci	varchar(1024)			select		Default	Default
 NULL	information_schema	COLUMNS	STORAGE	20		NO	varchar	8	24	NULL	NULL	utf8	utf8_general_ci	varchar(8)			select		Default	Default
@@ -11255,7 +11255,7 @@ NULL	information_schema	COLUMNS	CHARACTER_SET_NAME	13	NULL	YES	varchar	64	192	NU
 NULL	information_schema	COLUMNS	COLLATION_NAME	14	NULL	YES	varchar	64	192	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_TYPE	15	NULL	NO	longtext	4294967295	4294967295	NULL	NULL	utf8	utf8_general_ci	longtext			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_KEY	16		NO	varchar	3	9	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select		Default	Default
-NULL	information_schema	COLUMNS	EXTRA	17		NO	varchar	20	60	NULL	NULL	utf8	utf8_general_ci	varchar(20)			select		Default	Default
+NULL	information_schema	COLUMNS	EXTRA	17		NO	varchar	27	81	NULL	NULL	utf8	utf8_general_ci	varchar(27)			select		Default	Default
 NULL	information_schema	COLUMNS	PRIVILEGES	18		NO	varchar	80	240	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_COMMENT	19		NO	varchar	1024	3072	NULL	NULL	utf8	utf8_general_ci	varchar(1024)			select		Default	Default
 NULL	information_schema	COLUMNS	STORAGE	20		NO	varchar	8	24	NULL	NULL	utf8	utf8_general_ci	varchar(8)			select		Default	Default
@@ -11851,7 +11851,7 @@ NULL	information_schema	COLUMNS	CHARACTER_SET_NAME	13	NULL	YES	varchar	64	192	NU
 NULL	information_schema	COLUMNS	COLLATION_NAME	14	NULL	YES	varchar	64	192	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_TYPE	15	NULL	NO	longtext	4294967295	4294967295	NULL	NULL	utf8	utf8_general_ci	longtext			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_KEY	16		NO	varchar	3	9	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select		Default	Default
-NULL	information_schema	COLUMNS	EXTRA	17		NO	varchar	20	60	NULL	NULL	utf8	utf8_general_ci	varchar(20)			select		Default	Default
+NULL	information_schema	COLUMNS	EXTRA	17		NO	varchar	27	81	NULL	NULL	utf8	utf8_general_ci	varchar(27)			select		Default	Default
 NULL	information_schema	COLUMNS	PRIVILEGES	18		NO	varchar	80	240	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select		Default	Default
 NULL	information_schema	COLUMNS	COLUMN_COMMENT	19		NO	varchar	1024	3072	NULL	NULL	utf8	utf8_general_ci	varchar(1024)			select		Default	Default
 NULL	information_schema	COLUMNS	STORAGE	20		NO	varchar	8	24	NULL	NULL	utf8	utf8_general_ci	varchar(8)			select		Default	Default
@@ -12545,7 +12545,7 @@ NULL	information_schema	COLUMNS	NUMERIC_SCALE	bigint	NULL	NULL	NULL	NULL	bigint(
 3.0000	information_schema	COLUMNS	COLLATION_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 1.0000	information_schema	COLUMNS	COLUMN_TYPE	longtext	4294967295	4294967295	utf8	utf8_general_ci	longtext
 3.0000	information_schema	COLUMNS	COLUMN_KEY	varchar	3	9	utf8	utf8_general_ci	varchar(3)
-3.0000	information_schema	COLUMNS	EXTRA	varchar	20	60	utf8	utf8_general_ci	varchar(20)
+3.0000	information_schema	COLUMNS	EXTRA	varchar	27	81	utf8	utf8_general_ci	varchar(27)
 3.0000	information_schema	COLUMNS	PRIVILEGES	varchar	80	240	utf8	utf8_general_ci	varchar(80)
 3.0000	information_schema	COLUMNS	COLUMN_COMMENT	varchar	1024	3072	utf8	utf8_general_ci	varchar(1024)
 3.0000	information_schema	COLUMNS	STORAGE	varchar	8	24	utf8	utf8_general_ci	varchar(8)

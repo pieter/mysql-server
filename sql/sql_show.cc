@@ -3903,7 +3903,7 @@ static int get_schema_column_record(THD *thd, TABLE_LIST *tables,
     end= tmp;
     if (field->unireg_check == Field::NEXT_NUMBER)
       table->field[16]->store(STRING_WITH_LEN("auto_increment"), cs);
-    if (show_table->timestamp_field == field &&
+    if (timestamp_field == field &&
         field->unireg_check != Field::TIMESTAMP_DN_FIELD)
       table->field[16]->store(STRING_WITH_LEN("on update CURRENT_TIMESTAMP"),
                               cs);

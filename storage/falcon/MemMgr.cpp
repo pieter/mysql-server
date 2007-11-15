@@ -236,8 +236,7 @@ void MemMgrSetMaxRecordMember (long long size)
 		memControl.addPool(&recordManager);
 		//memControl.addPool(&recordObjectManager);
 		}
-		
-		memControl.setMaxSize(size);
+	memControl.setMaxSize(size);
 	}
 
 MemMgr*	MemMgrGetFixedPool (int id)

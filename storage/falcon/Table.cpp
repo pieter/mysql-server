@@ -640,6 +640,13 @@ Record* Table::databaseFetch(int32 recordNumber)
 						recordNumber, (const char*) schemaName, (const char*) name,
 						exception.getText());
 
+		switch (exception.getSqlcode())
+			{
+			case OUT_OF_MEMORY_ERROR:
+			case OUT_OF_RECORD_MEMORY_ERROR:
+				throw;
+			}
+		
 		return NULL;
 		}
 

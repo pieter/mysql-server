@@ -30,6 +30,8 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_POLL
+
 #include <sys/types.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -389,3 +391,5 @@ poll_dealloc(struct event_base *base, void *arg)
 	memset(pop, 0, sizeof(struct pollop));
 	free(pop);
 }
+
+#endif /* HAVE_POLL */

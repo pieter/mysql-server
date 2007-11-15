@@ -12,7 +12,7 @@ AC_DEFUN([MYSQL_USE_BUNDLED_LIBEVENT], [
   libevent_dir="libevent"
   AC_SUBST([libevent_dir])
 
-  libevent_libs="\$(top_builddir)/extra/libevent/libevent.la"
+  libevent_libs="\$(top_builddir)/extra/libevent/libevent.a"
   libevent_includes="-I\$(top_builddir)/extra/libevent"
   AC_SUBST(libevent_libs)
   AC_SUBST(libevent_includes)

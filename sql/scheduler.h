@@ -48,11 +48,6 @@ enum scheduler_types
 void one_thread_per_connection_scheduler(scheduler_functions* func);
 void one_thread_scheduler(scheduler_functions* func);
 
-enum pool_command_op
-{
-  NOT_IN_USE_OP= 0, NORMAL_OP= 1, CONNECT_OP, KILL_OP, DIE_OP
-};
-
 #if defined(HAVE_LIBEVENT) && !defined(EMBEDDED_LIBRARY)
 
 #define HAVE_POOL_OF_THREADS 1
@@ -64,13 +59,19 @@ class thd_scheduler
 public:
   bool logged_in;
   struct event* io_event;
-  struct event* kill_event;
-  int kill_pipe[2];
-  LIST list_need_processing;
+  LIST list;
+  bool thread_attached;  /* Indicates if THD is attached to the OS thread */
+  
+#ifndef DBUG_OFF
+  char dbug_explain_buf[256];
+  void swap_dbug_explain();
+#endif
 
   thd_scheduler();
   ~thd_scheduler();
   bool init(THD* parent_thd);
+  bool thread_attach();
+  void thread_detach();
 };
 
 void pool_of_threads_scheduler(scheduler_functions* func);

@@ -3,7 +3,7 @@
 #
 # BUG#31110 - falcon: missing engine check while dropping tablespace
 #
---error 1477
+--error 1478
 CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=MyISAM;
 
 #
@@ -11,7 +11,7 @@ CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=MyISAM;
 #             Unknown error -103
 #
 CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
---error 1655
+--error 1656
 CREATE TABLESPACE ts1 ADD DATAFILE 'ts2.fts' ENGINE=falcon;
 DROP TABLESPACE ts1 ENGINE=falcon;
 

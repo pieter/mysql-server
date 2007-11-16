@@ -874,7 +874,6 @@ int StorageInterface::delete_all_rows()
 
 	int ret = 0;
 	struct st_table_share *tableShare = table_share;
-	struct st_table *tableObj = table;
 	const char *tableName = tableShare->normalized_path.str;
 	
 	if (!storageShare)

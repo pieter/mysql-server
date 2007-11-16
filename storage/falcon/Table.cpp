@@ -1490,7 +1490,7 @@ void Table::truncate(Transaction *transaction)
 
 	// Update system.tables with new section ids
 	
-	PreparedStatement *statement = database->prepareStatement("update Tables set dataSection=?, blobSection=? where tableId=?");
+	PreparedStatement *statement = database->prepareStatement("update system.tables set dataSection=?, blobSection=? where tableId=?");
 	statement->setInt(1, dataSectionId);
 	statement->setInt(2, blobSectionId);
 	statement->setInt(3, tableId);
@@ -1684,6 +1684,9 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 	Sync sync(&syncObject, "Table::retireRecords");
 	sync.lock(Shared);
 
+	if (!records)
+		return 0;
+	
 	activeVersions = false;
 	emptySections->clear();
 	int count = records->retireRecords(this, 0, recordScavenge);

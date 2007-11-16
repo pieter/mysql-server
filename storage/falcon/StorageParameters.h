@@ -1,6 +1,17 @@
 // #define PARAMETER_UINT(name, text, min, default, max, flags, update_function)
 // #define PARAMETER_BOOL(name, text, default, flags, update_function)
 
+// These flags are defined in include/mysql/plugin.h 
+// 0x0000 = Argument required for cmd line
+// 0x0100 = Variable is per-connection
+// 0x0200 = Server variable is read only
+// 0x0400 = Not a server variable
+// 0x0800 = Not a command line option
+// 0x1000 = No argument for cmd line
+// 0x2000 = Argument optional for cmd line
+// 0x8000 = String needs memory allocated
+
+
 PARAMETER_BOOL(consistent_read, "Enable Consistent Read Mode for Repeatable Reads", 1, 0, StorageInterface::updateConsistentRead)
 PARAMETER_UINT(debug_mask, "Falcon message type mask for logged messages.", 0, 0, INT_MAX, 0, StorageInterface::updateDebugMask)
 PARAMETER_BOOL(debug_server, "Enable Falcon debug code.", 0, 0x0200, NULL)

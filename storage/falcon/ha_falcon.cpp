@@ -82,7 +82,7 @@ FILE					*falcon_log_file;
 
 int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
 						                       TRANSACTION_READ_COMMITTED,
-						                       TRANSACTION_WRITE_COMMITTED, // TRANSACTION_CONSISTENT_READ;	// This is repeatable read
+						                       TRANSACTION_CONSISTENT_READ, // TRANSACTION_WRITE_COMMITTED, // This is repeatable read
 						                       TRANSACTION_SERIALIZABLE};
 
 static struct st_mysql_show_var falconStatus[]=

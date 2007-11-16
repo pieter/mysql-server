@@ -217,13 +217,17 @@ int StorageHandler::startTransaction(THD* mySqlThread, int isolationLevel)
 	sync.lock(Shared);
 	int slot = HASH(mySqlThread, connectionHashSize);
 	
-	for (StorageConnection *connection = connections[slot]; connection; connection = connection->collision)
-		if (connection->mySqlThread == mySqlThread)
+	for (StorageConnection *storageConnection = connections[slot]; 
+		 storageConnection; storageConnection = storageConnection->collision)
+		{
+		if (storageConnection->mySqlThread == mySqlThread)
 			{
-			connection->startTransaction(isolationLevel);
+			storageConnection->startTransaction(isolationLevel);
+			if (storageConnection->connection)
+				storageConnection->connection->getTransaction();
 			return 0;
 			}
-	
+		}
 	return 1;
 }
 
@@ -456,7 +460,7 @@ int StorageHandler::createTablespace(const char* tableSpaceName, const char* fil
 		}
 	catch (SQLException& exception)
 		{
-                if (exception.getSqlcode() == DDL_TABLESPACE_EXIST_ERROR)
+		if (exception.getSqlcode() == DDL_TABLESPACE_EXIST_ERROR)
 			return StorageErrorTableSpaceExist;
 		return StorageErrorTablesSpaceOperationFailed;
 		}

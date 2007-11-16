@@ -186,12 +186,12 @@ int StorageConnection::rollback(void)
 
 int StorageConnection::startTransaction(int isolationLevel)
 {
-	if (connection)
-		connection->setTransactionIsolation(isolationLevel);
-
 	if (transactionActive)
 		return false;
 	
+	if (connection)
+		connection->setTransactionIsolation(isolationLevel);
+
 	transactionActive = true;
 	prepared = false;
 	

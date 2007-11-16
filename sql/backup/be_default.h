@@ -6,6 +6,8 @@
 #include "archive.h"
 #include "buffer_iterator.h"
 #include "backup_aux.h"
+#include "mysql_priv.h"
+#include "be_thread.h"
 
 namespace default_backup {
 
@@ -78,9 +80,9 @@ class Engine: public Backup_engine
  * a table scan on each table reading the rows and saving the data to the
  * buffer from the backup algorithm.
  *
- * @see <backup driver>
+ * @see <backup driver> and <backup thread driver>
  */
-class Backup: public Backup_driver
+class Backup: public Backup_thread_driver
 {
   public:
     enum has_data_info { YES, WAIT, EOD };
@@ -91,19 +93,17 @@ class Backup: public Backup_driver
     result_t  begin(const size_t) { return backup::OK; };
     result_t end() { return backup::OK; };
     result_t get_data(Buffer &buf);
-    result_t lock() 
-    {
-      lock_called= TRUE;
-      return backup::OK; 
-    };
+    result_t lock() { return backup::OK; };
     result_t unlock() { return backup::OK; };
     result_t cancel() { return backup::OK; };
     TABLE_LIST *get_table_list() { return all_tables; }
     void free() { delete this; };
+    result_t prelock(); 
 
  protected:
-    my_bool lock_called;           ///< Checks to see if locks have been reached.
-    THD *m_thd;                    ///< Pointer to current thread struct.
+    TABLE *cur_table;              ///< The table currently being read.
+    my_bool init_phase_complete;   ///< Used to identify end of init phase.
+    my_bool locks_acquired;        ///< Used to help kernel synchronize drivers.
 
   private:
     /*
@@ -126,7 +126,6 @@ class Backup: public Backup_driver
     int next_table();
     BACKUP_MODE mode;              ///< Indicates which mode the code is in
     int tbl_num;                   ///< The index of the current table.
-    TABLE *cur_table;              ///< The table currently being read.
     handler *hdl;                  ///< Pointer to table handler.
     uint *cur_blob;                ///< The current blob field.
     uint *last_blob_ptr;           ///< Position of last blob field.
@@ -135,7 +134,6 @@ class Backup: public Backup_driver
     Buffer_iterator blob_buffer;   ///< Buffer iterator for windowing BLOB fields
     byte *ptr;                     ///< Pointer to blob data from record.
     TABLE_LIST *all_tables;        ///< Reference to list of tables used.
-    TABLE_LIST *tables_in_backup;  ///< List of tables used in backup.
 
     uint pack(byte *rcd, byte *packed_row);
 };

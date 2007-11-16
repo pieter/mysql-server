@@ -15,7 +15,9 @@
 
 ## Process this file with automake to create Makefile.in
 
-noinst_LTLIBRARIES = libbackup.la
+# TODO: check how to correctly specify libraries (pkglib_LIBRARIES?)
+
+noinst_LTLIBRARIES = libbackup.la libbackupstream.la
 
 INCLUDES = \
 	-I$(top_builddir)/include \
@@ -33,7 +35,12 @@ libbackup_la_SOURCES = \
 	sql_backup.cc \
       be_default.cc \
       be_snapshot.cc \
-      buffer_iterator.cc
+      buffer_iterator.cc \
+      be_thread.cc
+
+libbackupstream_la_SOURCES= \
+  stream_v1_transport.c \
+  stream_v1.c
 
 noinst_HEADERS = \
 	api_types.h \
@@ -50,7 +57,10 @@ noinst_HEADERS = \
     meta_backup.h \
       be_default.h \
       be_snapshot.h \
-      buffer_iterator.h
+      buffer_iterator.h \
+      be_thread.h \
+	stream_v1.h \
+	stream_v1_services.h
 
 DEFS = \
 	-DMYSQL_SERVER \

@@ -3,9 +3,19 @@
 # The test is designed to show that a consistent snapshot
 # backup can be taken while data is being inserted and deleted.
 #
-# TODO
-#  - Make the test run the insert statements in parallel with the backup
-#    command using --send and --reap and signals from backup code.
+# The test is testing the driver to ensure it is entering a 
+# consistent read state during the backup. There are several
+# breakpoints in the code that can be used. The two most 
+# useful ones are:
+#
+#   backup_cs_unlock - occurs after consistent read 
+#     transaction has been started and before the open and
+#     lock tables.
+#
+#   backup_cs_reading - occurs after the open and lock
+#     tables during the read tables portion.
+#
+# The following tests test these conditions.
 #
 
 --source include/have_innodb.inc
@@ -22,8 +32,11 @@ connect (con2,localhost,root,,);
 
 connection con1;
 
-# Create a table and load it with lots of data.
+#
+# Setup for tests.
+#
 
+# Create a table and load it with lots of data.
 CREATE TABLE bup_snapshot.t1 (word CHAR(20)) ENGINE=INNODB;
 
 INSERT INTO bup_snapshot.t1 VALUES ("01 Some data to test");
@@ -37,19 +50,42 @@ INSERT INTO bup_snapshot.t1 VALUES ("08 Some data to test");
 INSERT INTO bup_snapshot.t1 VALUES ("09 Some data to test");
 INSERT INTO bup_snapshot.t1 VALUES ("10 Some data to test");
 
+# Use a non-CS supported table to show driver can coexist with default driver
+CREATE TABLE bup_snapshot.t2 (a int) ENGINE=MEMORY;
+INSERT INTO bup_snapshot.t2 VALUES (1), (2), (3), (4), (5);
+
 --echo con1: Show that the new data doesn't exist before backup.
 SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
 SELECT COUNT(*) FROM bup_snapshot.t1;
+SELECT COUNT(*) FROM bup_snapshot.t2;
+
+connection con2;
+
+#
+# Test 1: Check for consistent read prior to open and lock tables
+#
+
+--echo con2: Getting lock on driver.
+SELECT get_lock("backup_cs_locked", 100);
 
 # While a consistent snapshot backup is executed,
 # no external inserts should be visible to the transaction.
 
---echo con1: Backing up database.
-BACKUP DATABASE bup_snapshot TO "bup_snapshot.bak";
+connection con1;
+
+--echo con1: Backing up database. Spawn this and continue...
+send BACKUP DATABASE bup_snapshot TO "bup_snapshot.bak";
 
 connection con2;
 
---echo con2: Inserting new data.
+--echo con2: Wait until backup pauses then insert new data.
+
+# Must wait to know when backup has entered lock.
+let $wait_condition = SELECT state = "debug_sync_point: backup_cs_locked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "backup database %";
+--source include/wait_condition.inc
+
 INSERT INTO bup_snapshot.t1 VALUES("- Dave Mathews");
 INSERT INTO bup_snapshot.t1 VALUES("- Yes");
 INSERT INTO bup_snapshot.t1 VALUES("- Jethro Tull");
@@ -59,7 +95,12 @@ DELETE FROM bup_snapshot.t1 WHERE word LIKE '10%';
 SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
 SELECT COUNT(*) FROM bup_snapshot.t1;
 
+--echo con2: Release lock on driver.
+SELECT release_lock("backup_cs_locked");
+
 connection con1;
+
+reap;
 
 # Now restore the database and then check to make sure the new rows
 # were not backed up.
@@ -73,9 +114,68 @@ RESTORE FROM "bup_snapshot.bak";
 --echo con1: Showing the data (no new data should be here).
 SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
 SELECT COUNT(*) FROM bup_snapshot.t1;
+SELECT COUNT(*) FROM bup_snapshot.t2;
+
+remove_file $MYSQLTEST_VARDIR/master-data/bup_snapshot.bak;
+
+#
+# Test 2: Check for consistent read after open and lock tables
+#
+
+connection con2;
+
+--echo con2: Getting lock on driver.
+SELECT get_lock("backup_cs_reading", 100);
+
+# While a consistent snapshot backup is executed,
+# no external inserts should be visible to the transaction.
+
+connection con1;
+
+--echo con1: Backing up database. Spawn this and continue...
+send BACKUP DATABASE bup_snapshot TO "bup_snapshot.bak";
+
+connection con2;
+
+--echo con2: Wait until backup pauses then insert new data.
+
+# Must wait to know when backup has entered lock.
+let $wait_condition = SELECT state = "debug_sync_point: backup_cs_reading"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "backup database %";
+--source include/wait_condition.inc
+
+INSERT INTO bup_snapshot.t1 VALUES("- Dave Mathews");
+INSERT INTO bup_snapshot.t1 VALUES("- Yes");
+INSERT INTO bup_snapshot.t1 VALUES("- Jethro Tull");
+DELETE FROM bup_snapshot.t1 WHERE word LIKE '10%';
+
+--echo con2: Showing the data after inserts.
+SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
+SELECT COUNT(*) FROM bup_snapshot.t1;
+
+--echo con2: Release lock on driver.
+SELECT release_lock("backup_cs_reading");
+
+connection con1;
+
+reap;
+
+# Now restore the database and then check to make sure the new rows
+# were not backed up.
+
+--echo con1: Dropping the database
+DROP TABLE bup_snapshot.t1;
+
+--echo con1: Restoring the database
+RESTORE FROM "bup_snapshot.bak";
+
+--echo con1: Showing the data (no new data should be here).
+SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
+SELECT COUNT(*) FROM bup_snapshot.t1;
+SELECT COUNT(*) FROM bup_snapshot.t2;
 
 DROP DATABASE bup_snapshot;
 
---exec rm $MYSQLTEST_VARDIR/master-data/bup_snapshot.bak
-
+remove_file $MYSQLTEST_VARDIR/master-data/bup_snapshot.bak;
 

@@ -77,20 +77,6 @@ result_t Engine::get_backup(const uint32, const Table_list &tables, Backup_drive
   DBUG_RETURN(OK);
 }
 
-/**
- * @brief End backup process.
- *
- * This method unlocks all of the tables.
- *
- * @retval backup::OK    all tables unlocked.
- */
-result_t Backup::end()
-{
-  DBUG_ENTER("Snapshot_backup::end");
-  end_active_trans(m_thd);
-  DBUG_RETURN(OK);
-}
-
 result_t Backup::lock()
 {
   DBUG_ENTER("Snapshot_backup::lock()");
@@ -104,14 +90,39 @@ result_t Backup::lock()
   int res= begin_trans(m_thd);
   if (res)
     DBUG_RETURN(ERROR);
-  lock_called= TRUE;
+  lock_state= LOCK_ACQUIRED;
+  BACKUP_BREAKPOINT("backup_cs_locked");
   DBUG_RETURN(OK);
 }
 
-result_t Backup::unlock()
+result_t Backup::get_data(Buffer &buf)
 {
-  DBUG_ENTER("Snapshot_backup::unlock()");
-  DBUG_RETURN(OK);
+  result_t res;
+
+  if (!tables_open && (lock_state == LOCK_ACQUIRED))
+  {
+    BACKUP_BREAKPOINT("backup_cs_open_tables");
+    open_and_lock_tables(m_thd, tables_in_backup);
+    tables_open= TRUE;
+  }
+  if (lock_state == LOCK_ACQUIRED)
+    BACKUP_BREAKPOINT("backup_cs_reading");
+
+  res= default_backup::Backup::get_data(buf);
+
+  /*
+    If this is the last table to be read, close the transaction
+    and unlock the tables. This is indicated by the lock state
+    being set to LOCK_SIGNAL from parent::get_data(). This is set
+    after the last table is finished reading.
+  */
+  if (lock_state == LOCK_SIGNAL)
+  {
+    lock_state= LOCK_DONE;     // set lock done so destructor won't wait
+    end_active_trans(m_thd);
+    close_thread_tables(m_thd);
+  }
+  return(res);
 }
 
 /**

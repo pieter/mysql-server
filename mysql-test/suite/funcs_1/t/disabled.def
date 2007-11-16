@@ -13,8 +13,4 @@
 innodb_storedproc: (changes of WL#2984, using storeproc_nn instead)
 memory_storedproc: (changes of WL#2984, using storeproc_nn instead)
 myisam_storedproc: (changes of WL#2984, using storeproc_nn instead)
-innodb__datadict: 2007-10-10 mleich Bug#31509 funcs_1: <engine>__datadict tests broken, adjustment to 5.2 properties missing
-memory__datadict: 2007-10-10 mleich Bug#31509 funcs_1: <engine>__datadict tests broken, adjustment to 5.2 properties missing
-myisam__datadict: 2007-10-10 mleich Bug#31509 funcs_1: <engine>__datadict tests broken, adjustment to 5.2 properties missing
-ndb__datadict: 2007-10-10 mleich Bug#31509 funcs_1: <engine>__datadict tests broken, adjustment to 5.2 properties missing
 ndb__datadict: 2007-10-08 mleich Bug#31421 funcs_1: ndb__datadict fails, discrepancy between scripts and expected results

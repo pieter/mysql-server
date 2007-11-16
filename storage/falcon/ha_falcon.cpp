@@ -2168,7 +2168,11 @@ void StorageInterface::decodeRecord(uchar *buf)
 			field->move_field_offset(ptrDiff);
 
 		if (dataStream->type == edsTypeNull || !bitmap_is_set(table->read_set, field->field_index))
+			{
 			field->set_null();
+                        if (field->real_type() == MYSQL_TYPE_BLOB)
+				field->reset();
+			}
 		else
 			{
 			field->set_notnull();

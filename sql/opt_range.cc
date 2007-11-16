@@ -7248,7 +7248,8 @@ uint sel_arg_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range)
   */
 walk_right_n_up:
   while (key_tree->next_key_part && key_tree->next_key_part != &null_element && 
-         key_tree->next_key_part->part == key_tree->part + 1)
+         key_tree->next_key_part->part == key_tree->part + 1 &&
+         key_tree->next_key_part->type == SEL_ARG::KEY_RANGE)
   {
     {
       RANGE_SEQ_ENTRY *cur= &seq->stack[seq->i];
@@ -7391,6 +7392,8 @@ ha_rows check_quick_select(PARAM *param, uint idx, bool index_only,
   DBUG_ENTER("check_quick_select");
   
   /* Handle cases when we don't have a valid non-empty list of range */
+  if (!tree)
+    DBUG_RETURN(HA_POS_ERROR);
   if (tree->type == SEL_ARG::IMPOSSIBLE)
     DBUG_RETURN(0L);
   if (tree->type != SEL_ARG::KEY_RANGE || tree->part != 0)

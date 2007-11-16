@@ -777,9 +777,7 @@ DROP TABLE t1;
 SET @@storage_engine = Falcon;
 DROP VIEW IF EXISTS v5y;
 CREATE VIEW v5y AS SELECT 1 AS ` `;
-Warnings:
-Warning	1474	Name ' ' has become ''
-DROP VIEW v5y;
+ERROR 42000: Incorrect column name ' '
 *** Bug #27696 ***
 SET @@storage_engine = Falcon;
 SET names utf8;

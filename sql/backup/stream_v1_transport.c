@@ -354,10 +354,10 @@ int write_buffer(backup_stream *s)
 static
 int append_to_buffer(backup_stream *s, blob *b)
 {
-  if (b->begin >= b->end) // no data to append
+  if (b->begin >= b->end) /* no data to append */
     return BSTREAM_OK;
 
-  if(s->buf.pos == s->buf.header) // current fragment empty
+  if(s->buf.pos == s->buf.header) /* current fragment empty */
     s->buf.pos++;
 
   while (s->buf.pos < s->buf.end && b->begin < b->end)

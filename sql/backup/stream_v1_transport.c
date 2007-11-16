@@ -672,6 +672,9 @@ int bstream_open_rd(backup_stream *s, unsigned long int block_size)
   return BSTREAM_OK;
 }
 
+int bstream_end_chunk(backup_stream *s);
+int bstream_flush(backup_stream *s);
+
 /**
   Close backup stream.
 

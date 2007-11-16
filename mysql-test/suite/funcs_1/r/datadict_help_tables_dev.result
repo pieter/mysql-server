@@ -7,12 +7,12 @@ NULL	mysql	help_relation	BASE TABLE	MyISAM	10	Fixed	0	#ARL#	#DL#	#MDL#	#IL#	#DF#
 NULL	mysql	help_topic	BASE TABLE	MyISAM	10	Dynamic	0	#ARL#	#DL#	#MDL#	#IL#	#DF#	NULL	YYYY-MM-DD hh:mm:ss	YYYY-MM-DD hh:mm:ss	YYYY-MM-DD hh:mm:ss	utf8_general_ci	NULL		help topics
 SELECT * FROM INFORMATION_SCHEMA.STATISTICS
 WHERE TABLE_SCHEMA = 'mysql' AND TABLE_NAME LIKE 'help_%';
-TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	NON_UNIQUE	INDEX_SCHEMA	INDEX_NAME	SEQ_IN_INDEX	COLUMN_NAME	COLLATION	CARDINALITY	SUB_PART	PACKED	NULLABLE	INDEX_TYPE	COMMENT
-NULL	mysql	help_category	0	mysql	PRIMARY	1	help_category_id	A	0	NULL	NULL		BTREE	
-NULL	mysql	help_category	0	mysql	name	1	name	A	0	NULL	NULL		BTREE	
-NULL	mysql	help_keyword	0	mysql	PRIMARY	1	help_keyword_id	A	0	NULL	NULL		BTREE	
-NULL	mysql	help_keyword	0	mysql	name	1	name	A	0	NULL	NULL		BTREE	
-NULL	mysql	help_relation	0	mysql	PRIMARY	1	help_keyword_id	A	NULL	NULL	NULL		BTREE	
-NULL	mysql	help_relation	0	mysql	PRIMARY	2	help_topic_id	A	0	NULL	NULL		BTREE	
-NULL	mysql	help_topic	0	mysql	PRIMARY	1	help_topic_id	A	0	NULL	NULL		BTREE	
-NULL	mysql	help_topic	0	mysql	name	1	name	A	0	NULL	NULL		BTREE	
+TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	NON_UNIQUE	INDEX_SCHEMA	INDEX_NAME	SEQ_IN_INDEX	COLUMN_NAME	COLLATION	CARDINALITY	SUB_PART	PACKED	NULLABLE	INDEX_TYPE	COMMENT	INDEX_COMMENT
+NULL	mysql	help_category	0	mysql	PRIMARY	1	help_category_id	A	0	NULL	NULL		BTREE		
+NULL	mysql	help_category	0	mysql	name	1	name	A	0	NULL	NULL		BTREE		
+NULL	mysql	help_keyword	0	mysql	PRIMARY	1	help_keyword_id	A	0	NULL	NULL		BTREE		
+NULL	mysql	help_keyword	0	mysql	name	1	name	A	0	NULL	NULL		BTREE		
+NULL	mysql	help_relation	0	mysql	PRIMARY	1	help_keyword_id	A	NULL	NULL	NULL		BTREE		
+NULL	mysql	help_relation	0	mysql	PRIMARY	2	help_topic_id	A	0	NULL	NULL		BTREE		
+NULL	mysql	help_topic	0	mysql	PRIMARY	1	help_topic_id	A	0	NULL	NULL		BTREE		
+NULL	mysql	help_topic	0	mysql	name	1	name	A	0	NULL	NULL		BTREE		

@@ -384,9 +384,6 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
   DBUG_PRINT("backup/data",("initializing scheduler"));
 
-  TABLE_LIST *table_list= 0;
-  TABLE_LIST *table_list_last= 0;
-
   // add unknown "at end" drivers to scheduler, rest to inactive list
 
   for (uint no=0; no < info.img_count; ++no)
@@ -418,12 +415,6 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
       inactive.push_back(p);
     }
-    if (!def_or_snap_used)
-      def_or_snap_used=  ((i->type() == Image_info::DEFAULT_IMAGE) ||
-                          (i->type() == Image_info::SNAPSHOT_IMAGE));
-    if (def_or_snap_used)
-      get_default_snapshot_tables(&p->drv(), NULL, 
-                                  &table_list, &table_list_last);
   }
 
   /*
@@ -508,22 +499,6 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
     if (sch.prepare())
       goto error;
 
-    /*
-      Open tables for default and snapshot drivers.
-    */
-    if (table_list)
-    {
-      if (open_and_lock_tables(::current_thd, table_list))
-      {
-        DBUG_PRINT("backup", 
-          ( "error on open tables for default and snapshot drivers!" ));
-        info.report_error(ER_BACKUP_OPEN_TABLES, "backup");
-        DBUG_RETURN(ERROR);
-      }
-      if (table_list_last)
-        table_list_last->next_global= NULL; // break lists
-    }
-
     while (sch.prepare_count > 0)
     if (sch.step())
       goto error;
@@ -568,12 +543,6 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
     DBUG_PRINT("backup/data",("-- DONE --"));
   }
-
-  /*
-    If the default or snapshot drivers are used, close the tables.
-  */
-  if (def_or_snap_used)
-    close_thread_tables(::current_thd);
 
   info.data_size= s.bytes - start_bytes;
 

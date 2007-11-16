@@ -35,7 +35,8 @@ libbackup_la_SOURCES = \
 	sql_backup.cc \
       be_default.cc \
       be_snapshot.cc \
-      buffer_iterator.cc
+      buffer_iterator.cc \
+      be_thread.cc
 
 libbackupstream_la_SOURCES= \
   stream_v1_transport.c \
@@ -57,6 +58,7 @@ noinst_HEADERS = \
       be_default.h \
       be_snapshot.h \
       buffer_iterator.h \
+      be_thread.h \
 	stream_v1.h \
 	stream_v1_services.h
 

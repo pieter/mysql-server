@@ -4061,7 +4061,7 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
 
   bzero((char*) &tbl, sizeof(TABLE));
   (void) build_table_filename(path, sizeof(path), "", "", "", 0);
-  init_tmp_table_share(&share, "", 0, "", path);
+  init_tmp_table_share(thd, &share, "", 0, "", path);
 
   get_field(thd->mem_root, proc_table->field[MYSQL_PROC_FIELD_DB], &sp_db);
   get_field(thd->mem_root, proc_table->field[MYSQL_PROC_FIELD_NAME], &sp_name);
@@ -4242,7 +4242,7 @@ bool store_schema_proc(THD *thd, TABLE *table, TABLE *proc_table,
 
           bzero((char*) &tbl, sizeof(TABLE));
           (void) build_table_filename(path, sizeof(path), "", "", "", 0);
-          init_tmp_table_share(&share, "", 0, "", path);
+          init_tmp_table_share(thd, &share, "", 0, "", path);
           field= make_field(&share, (uchar*) 0, field_def->length,
                             (uchar*) "", 0, field_def->pack_flag,
                             field_def->sql_type, field_def->charset,

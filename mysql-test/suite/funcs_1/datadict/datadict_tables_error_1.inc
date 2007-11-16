@@ -78,3 +78,7 @@ eval $dd_part1 key_column_usage                      $dd_part2;
 --replace_result '\\' '/'
 --error 1
 eval $dd_part1 triggers                              $dd_part2;
+
+--replace_result '\\' '/'
+--error 1
+eval $dd_part1 parameters                            $dd_part2;

@@ -1278,6 +1278,7 @@ mysql-5.0.2-alpha.tar.gz
 mysql-max-4.0.2-alpha-pc-linux-gnu-i686.tar.gz
 mysql-test/*.ds?
 mysql-test/*.vcproj
+mysql-test/dump.txt
 mysql-test/gmon.out
 mysql-test/install_test_db
 mysql-test/lib/init_db.sql

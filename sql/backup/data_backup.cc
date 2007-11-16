@@ -358,6 +358,124 @@ int get_default_snapshot_tables(backup::Backup_driver *backup_drv,
 }
 
 /**
+   Commit Blocker
+
+   The commit blocker ensures storage engines can't commit while in the 
+   synchronization phase of Online Backup algorithm. This is needed to
+   make sure that: 
+
+     1) backups are consistent between engines, and
+     2) that the binlog position is consistent with the engine images.
+
+   REQUREMENTS  
+     A transactional engine needs to block commits during the locking phase
+   of backup kernel.  It can not block DDL for long time.
+
+   ALGORITHM
+     The algortihm is implemented using five steps.
+
+     1) Preventing new write locks on tables -- lock_global_read_lock()
+
+        The idea is that non-transactional tables should not be modified.
+        It is also a prerequisite of step 3.
+
+     2) Wait for existing locks to unlock -- close_cached_tables()
+
+        Ensures that no non-transactional table has any write lock. And thus
+        no non-transactional engine can change any data (Note that the global
+        read lock from step 1 is still in effect).
+
+     3) Prevents new commits and waits for running commits to finish --
+        make_global_read_lock_block_commit()
+
+        This will make it impossible to enter commit phase in any transaction. 
+        This will also wait for any ongoing commit to finish.
+        When the function returns, no transaction is in its commit phase.
+
+     4) Read binlog position & do lock calls to all backup drivers
+
+        This step will read the binlog position and save it in the backup_info
+        structure. This will occur between the lock() and unlock() calls in 
+        the kernel.
+
+     5) unlock_global_read_lock()
+
+        This step unlocks the global read lock and thereby terminating the
+        commit blocker.
+  */
+
+
+/**
+   Block commits
+  
+   This method is used to initiate the first three steps of the commit blocker
+   algorithm (global read lock, close cached tables, make global read lock
+   block commits).
+  
+   @param  thd    (in) the current thread structure.
+   @param  tables (in) list of tables to be backed-up.
+  
+   @returns 0 on success.
+  */
+int block_commits(THD *thd, TABLE_LIST *tables)
+{
+  DBUG_ENTER("block_commits()");
+
+  /*
+    Step 1 - global read lock.
+  */
+  BACKUP_BREAKPOINT("commit_blocker_step_1");
+  if (lock_global_read_lock(thd))
+    DBUG_RETURN(1);                            
+
+  /*
+    Step 2 - close cached tables.
+
+    Notice to Online Backup developers.
+
+    The method "close_cached_tables" as originally included in the commit
+    blocker algorithm (see above) was omitted because there are no non-
+    transactional tables that are not included in the existing default,
+    consistent snapshot, and myisam drivers. This is only needed for engines
+    that do not take lock tables. Thus, it should apply to write locked
+    tables only and only to non-transactional engines.
+
+    BACKUP_BREAKPOINT("commit_blocker_step_2");
+    result= close_cached_tables(thd, 0, tables); 
+  */
+
+  /*
+    Step 3 - make the global read lock to block commits.
+  */
+  BACKUP_BREAKPOINT("commit_blocker_step_3");
+  if (make_global_read_lock_block_commit(thd)) 
+  {
+    /* Don't leave things in a half-locked state */
+    unlock_global_read_lock(thd);
+    DBUG_RETURN(1);
+  }
+  DBUG_RETURN(0);
+}
+
+/**
+   Unblock commits
+  
+   This method is used to terminate the commit blocker. It calls the last 
+   step of the algorithm (unlock global read lock).
+  
+   @param  thd    (in) the current thread structure. 
+
+   @returns 0
+  */
+int unblock_commits(THD *thd)
+{
+  DBUG_ENTER("unblock_commits()");
+  BACKUP_BREAKPOINT("commit_blocker_step_5");
+  unlock_global_read_lock(thd);
+  DBUG_RETURN(0);
+}
+
+/**
   Save data from tables being backed up.
 
   Function initializes and controls backup drivers which create the image
@@ -366,8 +484,9 @@ int get_default_snapshot_tables(backup::Backup_driver *backup_drv,
 
   @returns 0 on success.
  */
-int write_table_data(THD*, Backup_info &info, OStream &s)
+int write_table_data(THD* thd, Backup_info &info, OStream &s)
 {
+  int error= 0;
   my_bool def_or_snap_used= FALSE;  // Are default or snapshot used?
   DBUG_ENTER("backup::write_table_data");
 
@@ -505,6 +624,19 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
     // VP creation
     DBUG_PRINT("backup/data",("-- SYNC PHASE --"));
+
+    /*
+      Block commits.
+
+      TODO: Step 2 of the commit blocker has been skipped for this release.
+      When it is included, developer needs to build a list of all of the 
+      non-transactional tables and pass that to block_commits().
+    */
+    int error= 0;
+    error= block_commits(thd, NULL);
+    if (error)
+      goto error;
+
     BACKUP_BREAKPOINT("data_lock");
     if (sch.lock())
       goto error;
@@ -529,6 +661,7 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
     time_t skr= my_time(0);
     gmtime_r(&skr, &info.vp_time);
 
+    BACKUP_BREAKPOINT("commit_blocker_step_4");
     BACKUP_BREAKPOINT("data_unlock");
     if (sch.unlock())
       goto error;
@@ -539,6 +672,14 @@ int write_table_data(THD*, Backup_info &info, OStream &s)
 
     while (sch.finish_count > 0)
     if (sch.step())
+      goto error;
+
+    /*
+      Unblock commits.
+    */
+    BACKUP_BREAKPOINT("backup_commit_blocker");
+    error= unblock_commits(thd);
+    if (error)
       goto error;
 
     DBUG_PRINT("backup/data",("-- DONE --"));

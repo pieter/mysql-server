@@ -194,9 +194,10 @@ int bstream_rd_preamble(backup_stream *s, struct st_bstream_image_header *hdr)
 /** Save binlog position. */
 int bstream_wr_binlog_pos(backup_stream *s, struct st_bstream_binlog_pos pos)
 {
-  blob name= {pos.file, NULL};
+  blob name;
   int ret= BSTREAM_OK;
 
+  name.begin= (byte *)pos.file;
   name.end= name.begin + (pos.file ? strlen(pos.file) : 0);
   CHECK_WR_RES(bstream_wr_int4(s,pos.pos));
   CHECK_WR_RES(bstream_wr_string(s,name));
@@ -223,7 +224,7 @@ int bstream_rd_binlog_pos(backup_stream *s, struct st_bstream_binlog_pos *pos)
   CHECK_RD_RES(bstream_rd_string(s,&name));
 
   if (ret != BSTREAM_ERROR)
-    pos->file= name.begin;
+    pos->file= (char*)name.begin;
 
   rd_error:
 
@@ -606,7 +607,7 @@ int bstream_wr_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   while ((db_info= (struct st_bstream_db_info*) bcat_iterator_next(cat,it)))
   {
     CHECK_WR_RES(bstream_wr_string(s,db_info->base.name));
-    CHECK_WR_RES(bstream_wr_byte(s,0x00)); // flags
+    CHECK_WR_RES(bstream_wr_byte(s,0x00)); /* flags */
   }
 
   bcat_iterator_free(cat,it);
@@ -1077,7 +1078,7 @@ int bstream_wr_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
       item_written= TRUE;
     }
 
-    // mark empty list
+    /* mark empty list */
     if (!item_written)
       bstream_wr_byte(s,0x00);
 
@@ -1545,7 +1546,7 @@ int bstream_wr_data_chunk(backup_stream *s,
   ASSERT(chunk);
 
   CHECK_WR_RES(bstream_wr_byte(s,chunk->snap_no + 1));
-  CHECK_WR_RES(bstream_wr_int2(s,0)); // sequence number - FIXME
+  CHECK_WR_RES(bstream_wr_int2(s,0)); /* sequence number - not used now */
   CHECK_WR_RES(bstream_wr_byte(s,chunk->flags));
   CHECK_WR_RES(bstream_wr_num(s,chunk->table_no));
   CHECK_WR_RES(bstream_write_blob(s,chunk->data));

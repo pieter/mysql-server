@@ -565,13 +565,14 @@ static
 int load_next_fragment(backup_stream *s)
 {
   byte *saved_header= s->buf.header;
+  int ret;
 
   ASSERT(s->buf.pos > s->buf.header);
   ASSERT(s->buf.begin == s->buf.header);
 
   s->reading_last_fragment= 0;
 
-  int ret= read_fragment_header(&s->buf.header);
+  ret= read_fragment_header(&s->buf.header);
 
   /*
     If buf.header was not moved, it means that the fragment extends to

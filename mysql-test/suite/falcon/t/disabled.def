@@ -35,6 +35,7 @@ falcon_bug_30282    : Bug#30282 2007-08-21 hakank Currently failing
 falcon_bug_30878    : Bug#30878 2007-09-06 cpowers Currently failing (server bug)
 falcon_bug_30480_A  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_bug_30480_B  : Bug#30282 2007-09-07 klewis Currently failing
+falcon_bug_32413    : Bug#32413 2007-11-15 cpowers Does not play nicely with other tests
 falcon_page_size_1  : Bug#23220 2007-02-19 hakank Currently failing
 falcon_page_size_2  : Bug#23220 2007-02-19 hakank Currently failing
 read_many_rows_falcon : Bug#23783 2006-10-30 ML Get pushbuild green

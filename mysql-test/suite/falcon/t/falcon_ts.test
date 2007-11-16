@@ -1,0 +1,38 @@
+--source include/have_falcon.inc
+
+#
+# BUG#31110 - falcon: missing engine check while dropping tablespace
+#
+--error 1478
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=MyISAM;
+
+#
+# BUG#31114 - falcon : creating tablespace with same name twice returns
+#             Unknown error -103
+#
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
+--error 1656
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts2.fts' ENGINE=falcon;
+DROP TABLESPACE ts1 ENGINE=falcon;
+
+#
+# BUG#31296 - falcon does not remove associated tablespace file.
+#
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
+DROP TABLESPACE ts1 ENGINE=falcon;
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
+DROP TABLESPACE ts1 ENGINE=falcon;
+
+#
+# BUG#31295 - NULL alter table operation causes falcon table to lose it's
+#             tablespace assoc.
+#
+CREATE TABLESPACE ts1 ADD DATAFILE 'ts1.fts' ENGINE=falcon;
+CREATE TABLE t1(a INT) ENGINE=falcon;
+SELECT TABLESPACE FROM information_schema.falcon_tables WHERE TABLE_NAME='t1';
+ALTER TABLE t1 TABLESPACE ts1 ENGINE=falcon;
+SELECT TABLESPACE FROM information_schema.falcon_tables WHERE TABLE_NAME='t1';
+ALTER TABLE t1 ENGINE=falcon;
+SELECT TABLESPACE FROM information_schema.falcon_tables WHERE TABLE_NAME='t1';
+DROP TABLE t1;
+DROP TABLESPACE ts1 ENGINE=falcon;

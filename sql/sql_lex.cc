@@ -363,6 +363,7 @@ void lex_start(THD *thd)
   lex->server_options.owner= 0;
   lex->server_options.port= -1;
 
+  lex->is_lex_started= TRUE;
   DBUG_VOID_RETURN;
 }
 
@@ -2008,16 +2009,28 @@ void st_select_lex::print_limit(THD *thd, String *str)
 {
   SELECT_LEX_UNIT *unit= master_unit();
   Item_subselect *item= unit->item;
-  if (item && unit->global_parameters == this &&
-      (item->substype() == Item_subselect::EXISTS_SUBS ||
-       item->substype() == Item_subselect::IN_SUBS ||
-       item->substype() == Item_subselect::ALL_SUBS))
-  {
-    DBUG_ASSERT(!item->fixed ||
-                select_limit->val_int() == LL(1) && offset_limit == 0);
-    return;
-  }
 
+  if (item && unit->global_parameters == this)
+  {
+    Item_subselect::subs_type subs_type= item->substype();
+    if (subs_type == Item_subselect::EXISTS_SUBS ||
+        subs_type == Item_subselect::IN_SUBS ||
+        subs_type == Item_subselect::ALL_SUBS)
+    {
+      DBUG_ASSERT(!item->fixed ||
+                  /*
+                    If not using materialization both:
+                    select_limit == 1, and there should be no offset_limit.
+                  */
+                  (((subs_type == Item_subselect::IN_SUBS) &&
+                    ((Item_in_subselect*)item)->exec_method ==
+                    Item_in_subselect::MATERIALIZATION) ?
+                   TRUE :
+                   (select_limit->val_int() == LL(1)) &&
+                   offset_limit == 0));
+      return;
+    }
+  }
   if (explicit_limit)
   {
     str->append(STRING_WITH_LEN(" limit "));
@@ -2144,7 +2157,7 @@ void Query_tables_list::destroy_query_tables_list()
 
 st_lex::st_lex()
   :result(0), yacc_yyss(0), yacc_yyvs(0),
-   sql_command(SQLCOM_END), option_type(OPT_DEFAULT)
+   sql_command(SQLCOM_END), option_type(OPT_DEFAULT), is_lex_started(0)
 {
 
   my_init_dynamic_array2(&plugins, sizeof(plugin_ref),

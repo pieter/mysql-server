@@ -204,7 +204,7 @@ select collation_name, character_set_name into @x,@y
   from collation_character_set_applicability limit 1;
   select @x, @y;
 
---replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
+--replace_column 23 "YYYY-MM-DD hh:mm:ss" 24 "YYYY-MM-DD hh:mm:ss"
 select * from routines;
 
 select count(*) from routines;
@@ -367,7 +367,7 @@ select * from information_schema.columns limit 0, 5;
 select * from information_schema.character_sets limit 0, 5;
 select * from information_schema.collations limit 0, 5;
 select * from information_schema.collation_character_set_applicability limit 0, 5;
---replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
+--replace_column 23 "YYYY-MM-DD hh:mm:ss" 24 "YYYY-MM-DD hh:mm:ss"
 select * from information_schema.routines limit 0, 5;
 select * from information_schema.statistics limit 0, 5;
 select * from information_schema.views limit 0, 5;
@@ -716,14 +716,14 @@ end//
 delimiter ;//
 
 #FIXME: check for the diffs Win ./. Linux
---replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
+--replace_column 23 "YYYY-MM-DD hh:mm:ss" 24 "YYYY-MM-DD hh:mm:ss"
 select * from information_schema.routines;
 
 --error ER_DBACCESS_DENIED_ERROR
 call db_datadict.sp_4_1_4();
 
 #FIXME: check for the diffs Win ./. Linux
---replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
+--replace_column 23 "YYYY-MM-DD hh:mm:ss" 24 "YYYY-MM-DD hh:mm:ss"
 select * from information_schema.routines;
 
 # cleanup
@@ -2499,21 +2499,21 @@ FLUSH PRIVILEGES;
 --replace_result $MASTER_MYPORT MYSQL_PORT $MASTER_MYSOCK MYSQL_SOCK
 connect (user_8_1, localhost, user_1, , db_datadict);
 
---replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
+--replace_column 23 "YYYY-MM-DD hh:mm:ss" 24 "YYYY-MM-DD hh:mm:ss"
 SELECT * FROM information_schema.routines;
 disconnect user_8_1;
 
 --replace_result $MASTER_MYPORT MYSQL_PORT $MASTER_MYSOCK MYSQL_SOCK
 connect (user_8_2, localhost, user_2, , db_datadict);
 
---replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
+--replace_column 23 "YYYY-MM-DD hh:mm:ss" 24 "YYYY-MM-DD hh:mm:ss"
 SELECT * FROM information_schema.routines;
 disconnect user_8_2;
 
 --replace_result $MASTER_MYPORT MYSQL_PORT $MASTER_MYSOCK MYSQL_SOCK
 connect (user_8_3, localhost, user_3, , test);
 
---replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
+--replace_column 23 "YYYY-MM-DD hh:mm:ss" 24 "YYYY-MM-DD hh:mm:ss"
 SELECT * FROM information_schema.routines;
 disconnect user_8_3;
 
@@ -2654,7 +2654,7 @@ call sp_6_408004 ();
 select * from res_6_408004_2;
 
 --vertical_results
---replace_column 16 "YYYY-MM-DD hh:mm:ss" 17 "YYYY-MM-DD hh:mm:ss"
+--replace_column 23 "YYYY-MM-DD hh:mm:ss" 24 "YYYY-MM-DD hh:mm:ss"
 SELECT *, LENGTH(routine_definition)
   FROM information_schema.routines
  WHERE routine_schema = 'db_datadict';
@@ -3900,17 +3900,26 @@ let $message= Testcase 3.2.19.1:;
 ################################################################################
 # Testcase 3.2.19.1: Ensure that the INFORMATION_SCHEMA.PARAMETERS
 #                    table has the following columns, in the following order:
+#                      
+#                    SPECIFIC_CATALOG           NULL    
+#                    SPECIFIC_SCHEMA                    
+#                    SPECIFIC_NAME                      
+#                    ORDINAL_POSITION           0       
+#                    PARAMETER_MODE             NULL    
+#                    PARAMETER_NAME             NULL    
+#                    DATA_TYPE                          
+#                    CHARACTER_MAXIMUM_LENGTH   NULL    
+#                    CHARACTER_OCTET_LENGTH     NULL    
+#                    NUMERIC_PRECISION          NULL    
+#                    NUMERIC_SCALE              NULL    
+#                    CHARACTER_SET_NAME         NULL    
+#                    COLLATION_NAME             NULL    
+#                    DTD_IDENTIFIER             NULL     
 #
 ################################################################################
 
 let $is_table= parameters;
-# when table is implemented remove this and the next 4 lines and "enable" 5th line:
-# and don't forget to add the test description to QATestPlanV50func
-let $message= checking a table that will be implemented later;
---source include/show_msg.inc
---error ER_UNKNOWN_TABLE
-eval DESC $is_table;
-#--source suite/funcs_1/datadict/datadict_show_table_design.inc
+--source suite/funcs_1/datadict/datadict_show_table_design.inc
 # -------------------------------------------------------------------------------------------------------
 
 let $message= Testcase 3.2.20.1:;

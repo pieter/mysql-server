@@ -3393,17 +3393,15 @@ static bool create_partition_index_description(PART_PRUNE_PARAM *ppar)
   {
     key_part->key=          0;
     key_part->part=	    part;
-    key_part->length=       (uint16) (*field)->pack_length_in_rec();
-    /* 
-      sergefp-todo: check yet again if this is correct for tricky field types,
-      e.g. see "Fix a fatal error in decimal key handling" in open_binary_frm()
-    */
-    key_part->store_length= (uint16) (*field)->pack_length();
+    key_part->store_length= key_part->length= (uint16) (*field)->key_length();
     if ((*field)->real_maybe_null())
       key_part->store_length+= HA_KEY_NULL_LENGTH;
     if ((*field)->type() == MYSQL_TYPE_BLOB || 
         (*field)->real_type() == MYSQL_TYPE_VARCHAR)
       key_part->store_length+= HA_KEY_BLOB_LENGTH;
+
+    DBUG_PRINT("info", ("part %u length %u store_length %u", part,
+                         key_part->length, key_part->store_length));
 
     key_part->field=        (*field);
     key_part->image_type =  Field::itRAW;
@@ -7250,7 +7248,8 @@ uint sel_arg_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range)
   */
 walk_right_n_up:
   while (key_tree->next_key_part && key_tree->next_key_part != &null_element && 
-         key_tree->next_key_part->part == key_tree->part + 1)
+         key_tree->next_key_part->part == key_tree->part + 1 &&
+         key_tree->next_key_part->type == SEL_ARG::KEY_RANGE)
   {
     {
       RANGE_SEQ_ENTRY *cur= &seq->stack[seq->i];
@@ -7393,6 +7392,8 @@ ha_rows check_quick_select(PARAM *param, uint idx, bool index_only,
   DBUG_ENTER("check_quick_select");
   
   /* Handle cases when we don't have a valid non-empty list of range */
+  if (!tree)
+    DBUG_RETURN(HA_POS_ERROR);
   if (tree->type == SEL_ARG::IMPOSSIBLE)
     DBUG_RETURN(0L);
   if (tree->type != SEL_ARG::KEY_RANGE || tree->part != 0)

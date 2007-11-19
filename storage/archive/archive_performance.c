@@ -46,7 +46,7 @@ int read_test(azio_stream *reader_handle, unsigned long long rows_to_test_for);
 
 int main(int argc, char *argv[])
 {
-  unsigned int x;
+  unsigned int method;
   struct timeval start_time, end_time;
   long int timing;
 
@@ -59,24 +59,22 @@ int main(int argc, char *argv[])
   printf("Performing write() test\n");
   generate_data(ROWS_TO_TEST);
 
-  for (x= 0; x < 2; x++)
+  for (method= AZ_METHOD_BLOCK; method < AZ_METHOD_MAX; method++)
   {
     unsigned int ret;
     azio_stream reader_handle;
 
-    if (x)
+    if (method)
       printf("Performing aio_read() test\n");
     else
       printf("Performing read() test\n");
 
-    if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY)))
+    if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY,
+                    method)))
     {
       printf("Could not open test file\n");
       return 0;
     }
-
-    if (x)
-      azio_enable_aio(&reader_handle);
 
     gettimeofday(&start_time, NULL);
     read_test(&reader_handle, 1044496L);
@@ -107,7 +105,8 @@ int generate_data(unsigned long long rows_to_test)
     return 0;
   }
 
-  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY)))
+  if (!(ret= azopen(&writer_handle, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY,
+                    AZ_METHOD_BLOCK)))
   {
     printf("Could not create test file\n");
     exit(1);
@@ -149,6 +148,7 @@ int read_test(azio_stream *reader_handle, unsigned long long rows_to_test_for)
   unsigned int ret;
   int error;
 
+  azread_init(reader_handle);
   while ((ret= azread_row(reader_handle, &error)))
   {
     if (error)

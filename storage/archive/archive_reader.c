@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  if (!(ret= azopen(&reader_handle, argv[0], O_RDONLY|O_BINARY)))
+  if (!(ret= azopen(&reader_handle, argv[0], O_RDONLY|O_BINARY, AZ_METHOD_BLOCK)))
   {
     printf("Could not open Archive file\n");
     return 0;
@@ -62,7 +62,8 @@ int main(int argc, char *argv[])
       new_auto_increment_value= reader_handle.auto_increment + 1;
     }
 
-    if (!(ret= azopen(&writer_handle, argv[0], O_CREAT|O_RDWR|O_BINARY)))
+    if (!(ret= azopen(&writer_handle, argv[0], O_CREAT|O_RDWR|O_BINARY, 
+                      AZ_METHOD_BLOCK)))
     {
       printf("Could not open file for update: %s\n", argv[0]);
       goto end;
@@ -152,7 +153,8 @@ int main(int argc, char *argv[])
     }
 
 
-    if (!(ret= azopen(&writer_handle, argv[1], O_CREAT|O_RDWR|O_BINARY)))
+    if (!(ret= azopen(&writer_handle, argv[1], O_CREAT|O_RDWR|O_BINARY,
+                      AZ_METHOD_BLOCK)))
     {
       printf("Could not open file for backup: %s\n", argv[1]);
       goto end;

@@ -666,20 +666,20 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
     if (sch.unlock())
       goto error;
 
-    // get final data from drivers
-    DBUG_PRINT("backup/data",("-- FINISH PHASE --"));
-    BACKUP_BREAKPOINT("data_finish");
-
-    while (sch.finish_count > 0)
-    if (sch.step())
-      goto error;
-
     /*
       Unblock commits.
     */
     BACKUP_BREAKPOINT("backup_commit_blocker");
     error= unblock_commits(thd);
     if (error)
+      goto error;
+
+    // get final data from drivers
+    DBUG_PRINT("backup/data",("-- FINISH PHASE --"));
+    BACKUP_BREAKPOINT("data_finish");
+
+    while (sch.finish_count > 0)
+    if (sch.step())
       goto error;
 
     DBUG_PRINT("backup/data",("-- DONE --"));

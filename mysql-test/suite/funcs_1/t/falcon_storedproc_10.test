@@ -2,7 +2,7 @@
 # created: 2007-11-02 by hhunger
 #
 # 1. Check if Falcon is available
---source include/have_innodb.inc
+--source include/have_falcon.inc
 
 # 2. Set $engine_type
 let $engine_type= falcon;

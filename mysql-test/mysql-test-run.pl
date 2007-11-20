@@ -75,7 +75,6 @@ our $glob_win32=       ($glob_win32_perl or $glob_cygwin_perl);
 our $glob_netware=     ($^O eq "NetWare"); # NetWare
 
 require "lib/mtr_cases.pl";
-require "lib/mtr_im.pl";
 require "lib/mtr_process.pl";
 require "lib/mtr_timer.pl";
 require "lib/mtr_io.pl";
@@ -153,7 +152,6 @@ our $exe_mysqltest;
 our $exe_ndbd;
 our $exe_ndb_mgmd;
 our $exe_slave_mysqld;
-our $exe_im;
 our $exe_my_print_defaults;
 our $exe_perror;
 our $lib_udf_example;
@@ -214,13 +212,8 @@ our $master;
 our $slave;
 our $clusters;
 
-our $instance_manager;
-
 our $opt_master_myport;
 our $opt_slave_myport;
-our $im_port;
-our $im_mysqld1_port;
-our $im_mysqld2_port;
 our $opt_ndbcluster_port;
 our $opt_ndbconnectstring;
 our $opt_ndbcluster_port_slave;
@@ -236,7 +229,6 @@ our $max_slave_num= 0;
 our $max_master_num= 1;
 our $use_innodb;
 our $opt_skip_test;
-our $opt_skip_im;
 
 our $opt_sleep;
 
@@ -398,7 +390,7 @@ sub main () {
     my $tests= collect_test_cases($opt_suites);
 
     # Turn off NDB and other similar options if no tests use it
-    my ($need_ndbcluster,$need_im);
+    my ($need_ndbcluster);
     foreach my $test (@$tests)
     {
       next if $test->{skip};
@@ -406,7 +398,6 @@ sub main () {
       if (!$opt_extern)
       {
 	$need_ndbcluster||= $test->{ndb_test};
-	$need_im||= $test->{component_id} eq 'im';
 
 	# Count max number of slaves used by a test case
 	if ( $test->{slave_num} > $max_slave_num) {
@@ -437,12 +428,6 @@ sub main () {
       $opt_skip_ndbcluster_slave= 1;
     }
 
-    # Check if im can be skipped
-    if ( ! $need_im )
-    {
-     $opt_skip_im= 1;
-    }
-
     initialize_servers();
 
     if ( $opt_report_features ) {
@@ -471,9 +456,6 @@ sub command_line_setup () {
   $opt_slave_myport=           9308;
   $opt_ndbcluster_port=        9310;
   $opt_ndbcluster_port_slave=  9311;
-  $im_port=                    9312;
-  $im_mysqld1_port=            9313;
-  $im_mysqld2_port=            9314;
   
   # If so requested, we try to avail ourselves of a unique build thread number.
   if ( $ENV{'MTR_BUILD_THREAD'} ) {
@@ -526,7 +508,6 @@ sub command_line_setup () {
              'start-from=s'             => \$opt_start_from,
              'suite|suites=s'           => \$opt_suites,
              'skip-rpl'                 => \$opt_skip_rpl,
-             'skip-im'                  => \$opt_skip_im,
              'skip-test=s'              => \$opt_skip_test,
              'big-test'                 => \$opt_big_test,
 
@@ -535,9 +516,6 @@ sub command_line_setup () {
              'slave_port=i'             => \$opt_slave_myport,
              'ndbcluster-port|ndbcluster_port=i' => \$opt_ndbcluster_port,
              'ndbcluster-port-slave=i'  => \$opt_ndbcluster_port_slave,
-             'im-port=i'                => \$im_port, # Instance Manager port.
-             'im-mysqld1-port=i'        => \$im_mysqld1_port, # Port of mysqld, controlled by IM
-             'im-mysqld2-port=i'        => \$im_mysqld2_port, # Port of mysqld, controlled by IM
 	     'mtr-build-thread=i'       => \$opt_mtr_build_thread,
 
              # Test case authoring
@@ -892,28 +870,9 @@ sub command_line_setup () {
   $opt_tmpdir=       "$opt_vardir/tmp" unless $opt_tmpdir;
   $opt_tmpdir =~ s,/+$,,;       # Remove ending slash if any
 
-  # --------------------------------------------------------------------------
-  # Check im suport
-  # --------------------------------------------------------------------------
-  if ($opt_extern)
-  {
-    mtr_report("Disable instance manager when running with extern mysqld");
-    $opt_skip_im= 1;
-  }
-  elsif ( $mysql_version_id < 50000 )
-  {
-      # Instance manager is not supported until 5.0
-      $opt_skip_im= 1;
-    }
-  elsif ( $glob_win32 )
-  {
-    mtr_report("Disable Instance manager - testing not supported on Windows");
-      $opt_skip_im= 1;
-    }
-
-  # --------------------------------------------------------------------------
-  # Record flag
-  # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Record flag
+# --------------------------------------------------------------------------
   if ( $opt_record and ! @opt_cases )
   {
     mtr_error("Will not run in record mode without a specific test case");
@@ -1127,44 +1086,6 @@ sub command_line_setup () {
    start_opts    => [],
   };
 
-  $instance_manager=
-  {
-   path_err =>        "$opt_vardir/log/im.err",
-   path_log =>        "$opt_vardir/log/im.log",
-   path_pid =>        "$opt_vardir/run/im.pid",
-   path_angel_pid =>  "$opt_vardir/run/im.angel.pid",
-   path_sock =>       "$sockdir/im.sock",
-   port =>             $im_port,
-   start_timeout =>    $master->[0]->{'start_timeout'},
-   admin_login =>     'im_admin',
-   admin_password =>  'im_admin_secret',
-   admin_sha1 =>      '*598D51AD2DFF7792045D6DF3DDF9AA1AF737B295',
-   password_file =>   "$opt_vardir/im.passwd",
-   defaults_file =>   "$opt_vardir/im.cnf",
-  };
-
-  $instance_manager->{'instances'}->[0]=
-  {
-   server_id    => 1,
-   port         => $im_mysqld1_port,
-   path_datadir => "$opt_vardir/im_mysqld_1.data",
-   path_sock    => "$sockdir/mysqld_1.sock",
-   path_pid     => "$opt_vardir/run/mysqld_1.pid",
-   start_timeout  => 400, # enough time create innodb tables
-   old_log_format => 1
-  };
-
-  $instance_manager->{'instances'}->[1]=
-  {
-   server_id    => 2,
-   port         => $im_mysqld2_port,
-   path_datadir => "$opt_vardir/im_mysqld_2.data",
-   path_sock    => "$sockdir/mysqld_2.sock",
-   path_pid     => "$opt_vardir/run/mysqld_2.pid",
-   nonguarded   => 1,
-   start_timeout  => 400, # enough time create innodb tables
-   old_log_format => 1
-  };
 
   my $data_dir= "$opt_vardir/ndbcluster-$opt_ndbcluster_port";
   $clusters->[0]=
@@ -1310,9 +1231,6 @@ sub set_mtr_build_thread_ports($) {
   $opt_slave_myport=          $opt_master_myport + 2;  # and 3 4
   $opt_ndbcluster_port=       $opt_master_myport + 5;
   $opt_ndbcluster_port_slave= $opt_master_myport + 6;
-  $im_port=                   $opt_master_myport + 7;
-  $im_mysqld1_port=           $opt_master_myport + 8;
-  $im_mysqld2_port=           $opt_master_myport + 9;
 
   if ( $opt_master_myport < 5001 or $opt_master_myport + 10 >= 32767 )
   {
@@ -1334,14 +1252,6 @@ sub datadir_list_setup () {
   for (my $idx= 0; $idx < $max_slave_num; $idx++)
   {
     push(@data_dir_lst, $slave->[$idx]->{'path_myddir'});
-  }
-
-  unless ($opt_skip_im)
-  {
-    foreach my $instance (@{$instance_manager->{'instances'}})
-    {
-      push(@data_dir_lst, $instance->{'path_datadir'});
-    }
   }
 }
 
@@ -1462,18 +1372,6 @@ sub collect_mysqld_features_from_running_server ()
   }
 }
 
-sub executable_setup_im () {
-
-  # Look for instance manager binary - mysqlmanager
-  $exe_im=
-    mtr_exe_maybe_exists(
-      "$glob_basedir/server-tools/instance-manager/mysqlmanager",
-      "$glob_basedir/libexec/mysqlmanager",
-      "$glob_basedir/bin/mysqlmanager",
-      "$glob_basedir/sbin/mysqlmanager");
-
-  return ($exe_im eq "");
-}
 
 sub executable_setup_ndb () {
 
@@ -1601,13 +1499,6 @@ sub executable_setup () {
       }
     }
 
-    if ( ! $opt_skip_im and executable_setup_im())
-    {
-      mtr_warning("Could not find all required instance manager binaries, " .
-  		"all im tests will fail, use --skip-im to " .
-  		"continue without instance manager");
-      $instance_manager->{"executable_setup_failed"}= 1;
-    }
 
     # Look for the udf_example library
     $lib_udf_example=
@@ -1851,9 +1742,6 @@ sub environment_setup () {
   $ENV{'SLAVE_MYPORT2'}=      $slave->[2]->{'port'};
   $ENV{'MYSQL_TCP_PORT'}=     $mysqld_variables{'port'};
 
-  $ENV{'IM_PATH_SOCK'}=       $instance_manager->{path_sock};
-  $ENV{'IM_USERNAME'}=        $instance_manager->{admin_login};
-  $ENV{'IM_PASSWORD'}=        $instance_manager->{admin_password};
   $ENV{MTR_BUILD_THREAD}=      $opt_mtr_build_thread;
 
   $ENV{'EXE_MYSQL'}=          $exe_mysql;
@@ -1882,32 +1770,6 @@ sub environment_setup () {
       $ENV{'MY_NDB_EXAMPLES_BINARY'}=   $exe_ndb_example;
     }
     $ENV{'NDB_EXAMPLES_OUTPUT'}=      $path_ndb_testrun_log;
-  }
-
-  # ----------------------------------------------------
-  # Setup env for IM
-  # ----------------------------------------------------
-  if ( ! $opt_skip_im )
-  {
-    $ENV{'IM_EXE'}=             $exe_im;
-    $ENV{'IM_PATH_PID'}=        $instance_manager->{path_pid};
-    $ENV{'IM_PATH_ANGEL_PID'}=  $instance_manager->{path_angel_pid};
-    $ENV{'IM_PORT'}=            $instance_manager->{port};
-    $ENV{'IM_DEFAULTS_PATH'}=   $instance_manager->{defaults_file};
-    $ENV{'IM_PASSWORD_PATH'}=   $instance_manager->{password_file};
-
-    $ENV{'IM_MYSQLD1_SOCK'}=
-      $instance_manager->{instances}->[0]->{path_sock};
-    $ENV{'IM_MYSQLD1_PORT'}=
-      $instance_manager->{instances}->[0]->{port};
-    $ENV{'IM_MYSQLD1_PATH_PID'}=
-      $instance_manager->{instances}->[0]->{path_pid};
-    $ENV{'IM_MYSQLD2_SOCK'}=
-      $instance_manager->{instances}->[1]->{path_sock};
-    $ENV{'IM_MYSQLD2_PORT'}=
-      $instance_manager->{instances}->[1]->{port};
-    $ENV{'IM_MYSQLD2_PATH_PID'}=
-      $instance_manager->{instances}->[1]->{path_pid};
   }
 
   # ----------------------------------------------------
@@ -2108,12 +1970,6 @@ sub environment_setup () {
       {
 	print "Using NDBCLUSTER_PORT_SLAVE = $ENV{NDBCLUSTER_PORT_SLAVE}\n";
       }
-    }
-    if ( ! $opt_skip_im )
-    {
-      print "Using IM_PORT               = $ENV{IM_PORT}\n";
-      print "Using IM_MYSQLD1_PORT       = $ENV{IM_MYSQLD1_PORT}\n";
-      print "Using IM_MYSQLD2_PORT       = $ENV{IM_MYSQLD2_PORT}\n";
     }
   }
 
@@ -2932,11 +2788,6 @@ sub mysql_install_db () {
     copy_install_db("slave".($idx+1), $slave->[$idx]->{'path_myddir'});
   }
 
-  if ( ! $opt_skip_im )
-  {
-    im_prepare_env($instance_manager);
-  }
-
   my $cluster_started_ok= 1; # Assume it can be started
 
   my $cluster= $clusters->[0]; # Master cluster
@@ -3105,105 +2956,6 @@ sub install_db ($$) {
 }
 
 
-sub im_prepare_env($) {
-  my $instance_manager = shift;
-
-  im_create_passwd_file($instance_manager);
-  im_prepare_data_dir($instance_manager);
-}
-
-
-sub im_create_passwd_file($) {
-  my $instance_manager = shift;
-
-  my $pwd_file_path = $instance_manager->{'password_file'};
-
-  mtr_report("Creating IM password file ($pwd_file_path)");
-
-  open(OUT, ">", $pwd_file_path)
-    or mtr_error("Can't write to $pwd_file_path: $!");
-
-  print OUT $instance_manager->{'admin_login'}, ":",
-        $instance_manager->{'admin_sha1'}, "\n";
-
-  close(OUT);
-}
-
-
-sub im_create_defaults_file($) {
-  my $instance_manager = shift;
-
-  my $defaults_file = $instance_manager->{'defaults_file'};
-
-  open(OUT, ">", $defaults_file)
-    or mtr_error("Can't write to $defaults_file: $!");
-
-  print OUT <<EOF
-[mysql]
-
-[manager]
-pid-file            = $instance_manager->{path_pid}
-angel-pid-file      = $instance_manager->{path_angel_pid}
-socket              = $instance_manager->{path_sock}
-port                = $instance_manager->{port}
-password-file       = $instance_manager->{password_file}
-default-mysqld-path = $exe_mysqld
-
-EOF
-;
-
-  foreach my $instance (@{$instance_manager->{'instances'}})
-  {
-    my $server_id = $instance->{'server_id'};
-
-    print OUT <<EOF
-[mysqld$server_id]
-socket              = $instance->{path_sock}
-pid-file            = $instance->{path_pid}
-port                = $instance->{port}
-datadir             = $instance->{path_datadir}
-log                 = $instance->{path_datadir}/mysqld$server_id.log
-log-error           = $instance->{path_datadir}/mysqld$server_id.err.log
-log-slow-queries    = $instance->{path_datadir}/mysqld$server_id.slow.log
-language            = $path_language
-character-sets-dir  = $path_charsetsdir
-basedir             = $path_my_basedir
-server_id           = $server_id
-shutdown-delay      = 10
-skip-stack-trace
-loose-skip-innodb
-loose-skip-ndbcluster
-EOF
-;
-    if ( $mysql_version_id < 50100 )
-    {
-      print OUT "skip-bdb\n";
-    }
-    print OUT "nonguarded\n" if $instance->{'nonguarded'};
-    if ( $mysql_version_id >= 50100 )
-    {
-      print OUT "log-output=FILE\n" if $instance->{'old_log_format'};
-    }
-    print OUT "\n";
-  }
-
-  close(OUT);
-}
-
-
-sub im_prepare_data_dir($) {
-  my $instance_manager = shift;
-
-  foreach my $instance (@{$instance_manager->{'instances'}})
-  {
-    copy_install_db(
-      'im_mysqld_' . $instance->{'server_id'},
-      $instance->{'path_datadir'});
-  }
-}
-
-
-
 #
 # Restore snapshot of the installed slave databases
 # if the snapshot exists
@@ -3279,19 +3031,6 @@ sub run_testcase_check_skip_test($)
     }
   }
 
-  if ( $tinfo->{'component_id'} eq 'im' )
-  {
-      # If test needs im, check binaries was found ok
-    if ( $instance_manager->{'executable_setup_failed'} )
-    {
-      mtr_report_test_name($tinfo);
-      $tinfo->{comment}=
-	"Failed to find MySQL manager binaries";
-      mtr_report_test_failed($tinfo);
-      return 1;
-    }
-  }
-
   return 0;
 }
 
@@ -3347,12 +3086,6 @@ sub run_testcase_mark_logs($$)
   foreach my $mysqld (@{$master}, @{$slave})
   {
     mtr_tofile($mysqld->{path_myerr}, $log_msg);
-  }
-
-  if ( $tinfo->{'component_id'} eq 'im')
-  {
-    mtr_tofile($instance_manager->{path_err}, $log_msg);
-    mtr_tofile($instance_manager->{path_log}, $log_msg);
   }
 
   # ndbcluster log file
@@ -3507,11 +3240,6 @@ sub run_testcase ($) {
   # ----------------------------------------------------------------------
   # Stop Instance Manager if we are processing an IM-test case.
   # ----------------------------------------------------------------------
-  if ( $tinfo->{'component_id'} eq 'im' and
-       !mtr_im_stop($instance_manager, $tinfo->{'name'}))
-  {
-    mtr_error("Failed to stop Instance Manager.")
-  }
 }
 
 
@@ -4083,15 +3811,6 @@ sub stop_all_servers () {
 
   mtr_report("Stopping All Servers");
 
-  if ( ! $opt_skip_im )
-  {
-    mtr_report("Shutting-down Instance Manager");
-    unless (mtr_im_stop($instance_manager, "stop_all_servers"))
-    {
-      mtr_error("Failed to stop Instance Manager.")
-    }
-  }
-
   my %admin_pids; # hash of admin processes that requests shutdown
   my @kill_pids;  # list of processes to shutdown/kill
   my $pid;
@@ -4487,21 +4206,6 @@ sub run_testcase_start_servers($) {
     # Save this test case information, so next can examine it
     $master->[0]->{'running_master_options'}= $tinfo;
   }
-  elsif ( ! $opt_skip_im and $tinfo->{'component_id'} eq 'im' )
-  {
-    # We have to create defaults file every time, in order to ensure that it
-    # will be the same for each test. The problem is that test can change the
-    # file (by SET/UNSET commands), so w/o recreating the file, execution of
-    # one test can affect the other.
-
-    im_create_defaults_file($instance_manager);
-
-    if  ( ! mtr_im_start($instance_manager, $tinfo->{im_opts}) )
-    {
-      $tinfo->{'comment'}= "Failed to start Instance Manager. ";
-      return 1;
-    }
-  }
 
   # ----------------------------------------------------------------------
   # Start slaves - if needed
@@ -4678,14 +4382,6 @@ sub run_mysqltest ($) {
   mtr_add_arg($args, "--mark-progress")
     if $opt_mark_progress;
 
-  if ($tinfo->{'component_id'} eq 'im')
-  {
-    mtr_add_arg($args, "--socket=%s", $instance_manager->{'path_sock'});
-    mtr_add_arg($args, "--port=%d", $instance_manager->{'port'});
-    mtr_add_arg($args, "--user=%s", $instance_manager->{'admin_login'});
-    mtr_add_arg($args, "--password=%s", $instance_manager->{'admin_password'});
-  }
-  else # component_id == mysqld
   {
     mtr_add_arg($args, "--socket=%s", $master->[0]->{'path_sock'});
     mtr_add_arg($args, "--port=%d", $master->[0]->{'port'});

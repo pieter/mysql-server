@@ -1728,7 +1728,7 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
 2	DEPENDENT SUBQUERY	t1	unique_subquery	PRIMARY	PRIMARY	4	func	1	100.00	Using index; Using where
 Warnings:
-Note	1003	select `test`.`t1`.`id` AS `id`,`test`.`t1`.`text` AS `text` from `test`.`t1` where (not(<in_optimizer>(`test`.`t1`.`id`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`id`) in t1 on PRIMARY where (`test`.`t1`.`id` < 8))))))
+Note	1003	select `test`.`t1`.`id` AS `id`,`test`.`t1`.`text` AS `text` from `test`.`t1` where (not(<in_optimizer>(`test`.`t1`.`id`,<exists>(<primary_index_lookup>(<cache>(`test`.`t1`.`id`) in t1 on PRIMARY where ((`test`.`t1`.`id` < 8) and (<cache>(`test`.`t1`.`id`) = `test`.`t1`.`id`)))))))
 explain extended select * from t1 as tt where not exists (select id from t1 where id < 8 and (id = tt.id or id is null) having id is not null);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	PRIMARY	tt	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -4190,6 +4190,37 @@ LEFT(t1.a1,1)
 SELECT a2 FROM t2 WHERE t2.a2 IN (SELECT t1.a1 FROM t1,t3 WHERE t1.b1=t3.a3);
 a2
 DROP TABLE t1, t2, t3;
+CREATE TABLE t1 (a CHAR(1), b VARCHAR(10));
+INSERT INTO t1 VALUES ('a', 'aa');
+INSERT INTO t1 VALUES ('a', 'aaa');
+SELECT a,b FROM t1 WHERE b IN (SELECT a FROM t1);
+a	b
+CREATE INDEX I1 ON t1 (a);
+CREATE INDEX I2 ON t1 (b);
+EXPLAIN SELECT a,b FROM t1 WHERE b IN (SELECT a FROM t1);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	2	Using where
+2	DEPENDENT SUBQUERY	t1	index_subquery	I1	I1	2	func	2	Using index; Using where
+SELECT a,b FROM t1 WHERE b IN (SELECT a FROM t1);
+a	b
+CREATE TABLE t2 (a VARCHAR(1), b VARCHAR(10));
+INSERT INTO t2 SELECT * FROM t1;
+CREATE INDEX I1 ON t2 (a);
+CREATE INDEX I2 ON t2 (b);
+EXPLAIN SELECT a,b FROM t2 WHERE b IN (SELECT a FROM t2);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	PRIMARY	t2	ALL	NULL	NULL	NULL	NULL	2	Using where
+2	DEPENDENT SUBQUERY	t2	index_subquery	I1	I1	4	func	2	Using index; Using where
+SELECT a,b FROM t2 WHERE b IN (SELECT a FROM t2);
+a	b
+EXPLAIN
+SELECT a,b FROM t1 WHERE b IN (SELECT a FROM t1 WHERE LENGTH(a)<500);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	2	Using where
+2	DEPENDENT SUBQUERY	t1	index_subquery	I1	I1	2	func	2	Using index; Using where
+SELECT a,b FROM t1 WHERE b IN (SELECT a FROM t1 WHERE LENGTH(a)<500);
+a	b
+DROP TABLE t1,t2;
 End of 5.0 tests.
 create table t_out (subcase char(3),
 a1 char(2), b1 char(2), c1 char(2));

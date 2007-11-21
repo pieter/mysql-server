@@ -1184,6 +1184,8 @@ void clean_up(bool print_message)
   if (cleanup_done++)
     return; /* purecov: inspected */
 
+  release_ddl_log();
+
   /*
     make sure that handlers finish up
     what they have that is dependent on the binlog
@@ -4009,7 +4011,6 @@ int main(int argc, char **argv)
     pthread_cond_wait(&COND_thread_count,&LOCK_thread_count);
   (void) pthread_mutex_unlock(&LOCK_thread_count);
 
-  release_ddl_log();
 #if defined(__WIN__) && !defined(EMBEDDED_LIBRARY)
   if (Service.IsNT() && start_mode)
     Service.Stop();

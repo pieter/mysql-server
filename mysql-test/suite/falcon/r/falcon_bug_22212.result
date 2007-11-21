@@ -1,4 +1,7 @@
 #---- Bug #22212 (Mantis #264) ----
+SET @@storage_engine = Falcon;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
 # Initialization
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (id INTEGER, x CHAR(20)) ENGINE=Falcon;
@@ -25,9 +28,10 @@ COMMIT;
 # UPDATE t1 SET x = 'Update by con2' WHERE id = 0;
 # If there is nothing printed before the next statement (COMMIT)
 # appears the outcome was success.
+ERROR HY000: Record has changed since last read in table 't1'
 COMMIT;
 SELECT * FROM t1;
 id	x
-0	Update by con2
+0	Update by con1
 COMMIT;
 DROP TABLE t1;

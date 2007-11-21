@@ -1017,18 +1017,23 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
       next_chunk+= 2 + share->comment.length;
     }
     DBUG_ASSERT (next_chunk <= buff_end);
-    if (share->mysql_version >= MYSQL_VERSION_TABLESPACE_IN_FRM)
+    if (share->mysql_version >= MYSQL_VERSION_TABLESPACE_IN_FRM_CGE)
     {
       /*
-       New frm format in mysql_version 5.2.5
+       New frm format in mysql_version 5.2.5 (originally in
+       mysql-5.1.22-ndb-6.2.5)
        New column properties added:
        COLUMN_FORMAT DYNAMIC|FIXED and STORAGE DISK|MEMORY
        TABLESPACE name is now stored in frm
       */
       if (next_chunk >= buff_end)
       {
-        DBUG_PRINT("error", ("Found no field extra info"));
-        goto err;
+        if (share->mysql_version >= MYSQL_VERSION_TABLESPACE_IN_FRM)
+        {
+          DBUG_PRINT("error", ("Found no field extra info"));
+          goto err;
+        }
+        DBUG_PRINT("info", ("Found no field extra info"));
       }
       else
       {

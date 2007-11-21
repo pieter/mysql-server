@@ -1060,6 +1060,29 @@ int restore_table_data(THD*, Restore_info&, IStream&);
 
 } // backup namespace
 
+/**
+   Toggle foreign key constraints on and off.
+
+   @param THD thd          Current thread structure.
+   @param my_bool turn_on  TRUE = turn on, FALSE = turn off.
+
+   @returns TRUE if foreign key contraints are turned on already
+   @returns FALSE if foreign key contraints are turned off
+  */
+my_bool fkey_constr(THD *thd, my_bool turn_on)
+{
+  my_bool fk_status= FALSE;
+
+  DBUG_ENTER("mysql_restore");
+  if (turn_on)
+    thd->options&= ~OPTION_NO_FOREIGN_KEY_CHECKS;
+  else
+  {
+    fk_status= (thd->options & OPTION_NO_FOREIGN_KEY_CHECKS)? FALSE : TRUE;
+    thd->options|= OPTION_NO_FOREIGN_KEY_CHECKS;
+  }
+  DBUG_RETURN(fk_status);
+}
 
 /**
   Restore items saved in backup archive.
@@ -1069,19 +1092,37 @@ int restore_table_data(THD*, Restore_info&, IStream&);
 */
 int mysql_restore(THD *thd, backup::Restore_info &info, backup::IStream &s)
 {
+  my_bool using_fkey_constr= FALSE;
+
   DBUG_ENTER("mysql_restore");
 
   size_t start_bytes= s.bytes;
 
   DBUG_PRINT("restore",("Restoring meta-data"));
 
+  /*
+    Turn off foreign key constraints (if turned on)
+  */
+  using_fkey_constr= fkey_constr(thd, FALSE);
+
   if (backup::restore_meta_data(thd, info, s))
+  {
+    fkey_constr(thd, using_fkey_constr);
     DBUG_RETURN(backup::ERROR);
+  }
 
   DBUG_PRINT("restore",("Restoring table data"));
 
   if (backup::restore_table_data(thd,info,s))
+  {
+    fkey_constr(thd, using_fkey_constr);
     DBUG_RETURN(backup::ERROR);
+  }
+
+  /*
+    Turn on foreign key constraints (if previously turned on)
+  */
+  fkey_constr(thd, using_fkey_constr);
 
   DBUG_PRINT("restore",("Done."));
 

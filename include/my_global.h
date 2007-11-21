@@ -1463,7 +1463,7 @@ do { doubleget_union _tmp; \
 #define statistic_sub(V,C,L)       (V)-=(C)
 #endif
 
-#ifdef HAVE_CHARSET_utf8
+#if defined(HAVE_CHARSET_utf8mb3) || defined(HAVE_CHARSET_utf8mb4)
 #define MYSQL_UNIVERSAL_CLIENT_CHARSET "utf8"
 #else
 #define MYSQL_UNIVERSAL_CLIENT_CHARSET MYSQL_DEFAULT_CHARSET_NAME

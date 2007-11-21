@@ -325,10 +325,12 @@ extern CHARSET_INFO my_charset_big5_chinese_ci;
 extern CHARSET_INFO my_charset_big5_bin;
 extern CHARSET_INFO my_charset_cp932_japanese_ci;
 extern CHARSET_INFO my_charset_cp932_bin;
+extern CHARSET_INFO my_charset_cp1250_czech_ci;
 extern CHARSET_INFO my_charset_eucjpms_japanese_ci;
 extern CHARSET_INFO my_charset_eucjpms_bin;
 extern CHARSET_INFO my_charset_euckr_korean_ci;
 extern CHARSET_INFO my_charset_euckr_bin;
+extern CHARSET_INFO my_charset_filename;
 extern CHARSET_INFO my_charset_gb2312_chinese_ci;
 extern CHARSET_INFO my_charset_gb2312_bin;
 extern CHARSET_INFO my_charset_gbk_chinese_ci;
@@ -346,11 +348,24 @@ extern CHARSET_INFO my_charset_ucs2_bin;
 extern CHARSET_INFO my_charset_ucs2_unicode_ci;
 extern CHARSET_INFO my_charset_ujis_japanese_ci;
 extern CHARSET_INFO my_charset_ujis_bin;
-extern CHARSET_INFO my_charset_utf8_general_ci;
-extern CHARSET_INFO my_charset_utf8_unicode_ci;
-extern CHARSET_INFO my_charset_utf8_bin;
-extern CHARSET_INFO my_charset_cp1250_czech_ci;
-extern CHARSET_INFO my_charset_filename;
+extern CHARSET_INFO my_charset_utf16_bin;
+extern CHARSET_INFO my_charset_utf16_general_ci;
+extern CHARSET_INFO my_charset_utf16_unicode_ci;
+extern CHARSET_INFO my_charset_utf32_bin;
+extern CHARSET_INFO my_charset_utf32_general_ci;
+extern CHARSET_INFO my_charset_utf32_unicode_ci;
+extern CHARSET_INFO my_charset_utf8mb3_bin;
+extern CHARSET_INFO my_charset_utf8mb3_general_ci;
+extern CHARSET_INFO my_charset_utf8mb3_unicode_ci;
+extern CHARSET_INFO my_charset_utf8mb4_bin;
+extern CHARSET_INFO my_charset_utf8mb4_general_ci;
+extern CHARSET_INFO my_charset_utf8mb4_unicode_ci;
+
+#define MY_UTF8MB3                 "utf8mb3"
+#define MY_UTF8MB4                 "utf8"
+#define my_charset_utf8_general_ci my_charset_utf8mb4_general_ci
+#define my_charset_utf8_bin        my_charset_utf8mb4_bin
+
 
 /* declarations for simple charsets */
 extern size_t my_strnxfrm_simple(CHARSET_INFO *,
@@ -447,6 +462,20 @@ my_bool  my_like_range_ucs2(CHARSET_INFO *cs,
 			    size_t res_length,
 			    char *min_str, char *max_str,
 			    size_t *min_length, size_t *max_length);
+
+my_bool  my_like_range_utf16(CHARSET_INFO *cs,
+			     const char *ptr, size_t ptr_length,
+			     pbool escape, pbool w_one, pbool w_many,
+			     size_t res_length,
+			     char *min_str, char *max_str,
+			     size_t *min_length, size_t *max_length);
+
+my_bool  my_like_range_utf32(CHARSET_INFO *cs,
+			     const char *ptr, size_t ptr_length,
+			     pbool escape, pbool w_one, pbool w_many,
+			     size_t res_length,
+			     char *min_str, char *max_str,
+			     size_t *min_length, size_t *max_length);
 
 
 int my_wildcmp_8bit(CHARSET_INFO *,

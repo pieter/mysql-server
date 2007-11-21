@@ -30,6 +30,8 @@
 #include "event_data_objects.h"
 #include <my_dir.h>
 
+#define STR_OR_NIL(S) ((S) ? (S) : "<nil>")
+
 #ifdef WITH_PARTITION_STORAGE_ENGINE
 #include "ha_partition.h"
 #endif
@@ -3203,8 +3205,8 @@ int get_all_tables(THD *thd, TABLE_LIST *tables, COND *cond)
     goto err;
   }
   DBUG_PRINT("INDEX VALUES",("db_name='%s', table_name='%s'",
-                             lookup_field_vals.db_value.str,
-                             lookup_field_vals.table_value.str));
+                             STR_OR_NIL(lookup_field_vals.db_value.str),
+                             STR_OR_NIL(lookup_field_vals.table_value.str)));
 
   if (!lookup_field_vals.wild_db_value && !lookup_field_vals.wild_table_value)
   {
@@ -6710,7 +6712,7 @@ ST_FIELD_INFO variables_fields_info[]=
 {
   {"VARIABLE_NAME", 64, MYSQL_TYPE_STRING, 0, 0, "Variable_name",
    SKIP_OPEN_TABLE},
-  {"VARIABLE_VALUE", 20480, MYSQL_TYPE_STRING, 0, 1, "Value", SKIP_OPEN_TABLE},
+  {"VARIABLE_VALUE", 16300, MYSQL_TYPE_STRING, 0, 1, "Value", SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 

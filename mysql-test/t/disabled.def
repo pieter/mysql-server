@@ -9,6 +9,7 @@
 #  Do not use any TAB characters for whitespace.
 #
 ##############################################################################
+innodb          : WL#1213: Waiting for InnoDB team to add support for 4-byte character sets.
 user_limits     : Bug#23921 random failure of user_limits.test
 
 concurrent_innodb        : BUG#21579 2006-08-11 mleich innodb_concurrent random failures with varying differences

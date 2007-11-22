@@ -7267,7 +7267,8 @@ uint sel_arg_range_seq_next(range_seq_t rseq, KEY_MULTI_RANGE *range)
   */
 walk_right_n_up:
   while (key_tree->next_key_part && key_tree->next_key_part != &null_element && 
-         key_tree->next_key_part->part == key_tree->part + 1)
+         key_tree->next_key_part->part == key_tree->part + 1 &&
+         key_tree->next_key_part->type == SEL_ARG::KEY_RANGE)
   {
     {
       RANGE_SEQ_ENTRY *cur= &seq->stack[seq->i];

@@ -2357,19 +2357,6 @@ then
             [Access checks in embedded library])
 fi
 
-tools_dirs=""
-
-AC_ARG_WITH([mysqlmanager],
-  AC_HELP_STRING([--with-mysqlmanager], [Build the mysqlmanager binary: yes/no (default: build if server is built.)]),,)
-
-if test "$with_mysqlmanager" = "yes" -o \
-        '(' "$with_mysqlmanager:$with_server" = ":yes" -a \
-            -d "$srcdir/server-tools" ')' ; then
-  tools_dirs="server-tools"
-fi
-
-AC_SUBST(tools_dirs)
-
 #MYSQL_CHECK_CPU
 
 libmysqld_dirs=
@@ -2694,7 +2681,6 @@ AC_CONFIG_FILES(Makefile extra/Makefile mysys/Makefile dnl
  dbug/Makefile scripts/Makefile include/Makefile dnl
  tests/Makefile Docs/Makefile support-files/Makefile dnl
  support-files/MacOSX/Makefile support-files/RHEL4-SElinux/Makefile dnl
- server-tools/Makefile server-tools/instance-manager/Makefile dnl
  cmd-line-utils/Makefile cmd-line-utils/libedit/Makefile dnl
  libmysqld/Makefile libmysqld/examples/Makefile dnl
  mysql-test/Makefile dnl

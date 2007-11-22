@@ -6888,6 +6888,7 @@ function_call_keyword:
         | CURRENT_USER optional_braces
           {
             $$= new (YYTHD->mem_root) Item_func_current_user(Lex->current_context());
+            Lex->set_stmt_unsafe();
             Lex->safe_to_cache_query= 0;
           }
         | DATE_SYM '(' expr ')'
@@ -6933,6 +6934,7 @@ function_call_keyword:
         | USER '(' ')'
           {
             $$= new (YYTHD->mem_root) Item_func_user();
+            Lex->set_stmt_unsafe();
             Lex->safe_to_cache_query=0;
           }
         | YEAR_SYM '(' expr ')'
@@ -10273,9 +10275,8 @@ user:
             $$->host.str= (char *) "%";
             $$->host.length= 1;
 
-            if (check_string_char_length(&$$->user, ER(ER_USERNAME),
-                                         USERNAME_CHAR_LENGTH,
-                                         system_charset_info, 0))
+            if (check_identifier_name(&$$->user, USERNAME_CHAR_LENGTH,
+                                      ER_WRONG_STRING_LENGTH, ER(ER_USERNAME)))
               MYSQL_YYABORT;
           }
         | ident_or_text '@' ident_or_text
@@ -10285,9 +10286,9 @@ user:
               MYSQL_YYABORT;
             $$->user = $1; $$->host=$3;
 
-            if (check_string_char_length(&$$->user, ER(ER_USERNAME),
-                                         USERNAME_CHAR_LENGTH,
-                                         system_charset_info, 0) ||
+            if (check_identifier_name(&$$->user, USERNAME_CHAR_LENGTH,
+                                      ER_WRONG_STRING_LENGTH,
+                                      ER(ER_USERNAME)) ||
                 check_string_byte_length(&$$->host, ER(ER_HOSTNAME),
                                          HOSTNAME_LENGTH))
               MYSQL_YYABORT;

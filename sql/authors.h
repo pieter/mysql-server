@@ -145,6 +145,7 @@ struct show_table_authors_st show_table_authors[]= {
   { "Gianmassimo Vigazzola", "", "Initial Windows port" },
   { "Sergey Vojtovich", "Izhevsk, Russia", "Plugins infrastructure (5.1)" },
   { "Matt Wagner", "Northfield, MN, USA", "Bug fixing" },
+  { "Erik Wetterberg", "Lund, Sweden", "LOAD XML command"},
   { "Jim Winstead Jr.", "Los Angeles, CA, USA", "Bug fixing" },
   { "Michael (Monty) Widenius", "Tusby, Finland",
     "Lead developer and main author" },

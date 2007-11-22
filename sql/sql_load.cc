@@ -117,7 +117,8 @@ static int read_xml_field(THD *thd, COPY_INFO &info, TABLE_LIST *table_list,
 #ifndef EMBEDDED_LIBRARY
 static bool write_execute_load_query_log_event(THD *thd,
 					       bool duplicates, bool ignore,
-					       bool transactional_table);
+					       bool transactional_table,
+                                               THD::killed_state killed_status);
 #endif /* EMBEDDED_LIBRARY */
 
 /*
@@ -166,6 +167,7 @@ bool mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
   char *tdb= thd->db ? thd->db : db;		// Result is never null
   ulong skip_lines= ex->skip_lines;
   bool transactional_table;
+  THD::killed_state killed_status= THD::NOT_KILLED;
   DBUG_ENTER("mysql_load");
 
 #ifdef EMBEDDED_LIBRARY
@@ -439,7 +441,16 @@ bool mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
   free_blobs(table);				/* if pack_blob was used */
   table->copy_blobs=0;
   thd->count_cuted_fields= CHECK_FIELD_IGNORE;
-
+  /* 
+     simulated killing in the middle of per-row loop
+     must be effective for binlogging
+  */
+  DBUG_EXECUTE_IF("simulate_kill_bug27571",
+                  {
+                    error=1;
+                    thd->killed= THD::KILL_QUERY;
+                  };);
+  killed_status= (error == 0)? THD::NOT_KILLED : thd->killed;
   /*
     We must invalidate the table in query cache before binlog writing and
     ha_autocommit_...
@@ -481,9 +492,10 @@ bool mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
 	/* If the file was not empty, wrote_create_file is true */
 	if (lf_info.wrote_create_file)
 	{
-	  if ((info.copied || info.deleted) && !transactional_table)
+	  if (thd->transaction.stmt.modified_non_trans_table)
 	    write_execute_load_query_log_event(thd, handle_duplicates,
-					       ignore, transactional_table);
+					       ignore, transactional_table,
+                                               killed_status);
 	  else
 	  {
 	    Delete_file_log_event d(thd, db, transactional_table);
@@ -528,8 +540,8 @@ bool mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
       read_info.end_io_cache();
       if (lf_info.wrote_create_file)
       {
-        write_execute_load_query_log_event(thd, handle_duplicates,
-                                           ignore, transactional_table);
+        write_execute_load_query_log_event(thd, handle_duplicates, ignore,
+                                           transactional_table,killed_status);
       }
     }
   }
@@ -559,7 +571,8 @@ err:
 /* Not a very useful function; just to avoid duplication of code */
 static bool write_execute_load_query_log_event(THD *thd,
 					       bool duplicates, bool ignore,
-					       bool transactional_table)
+					       bool transactional_table,
+                                               THD::killed_state killed_err_arg)
 {
   Execute_load_query_log_event
     e(thd, thd->query, thd->query_length,
@@ -567,7 +580,7 @@ static bool write_execute_load_query_log_event(THD *thd,
       (char*)thd->lex->fname_end - (char*)thd->query,
       (duplicates == DUP_REPLACE) ? LOAD_DUP_REPLACE :
       (ignore ? LOAD_DUP_IGNORE : LOAD_DUP_ERROR),
-      transactional_table, FALSE);
+      transactional_table, FALSE, killed_err_arg);
   e.flags|= LOG_EVENT_UPDATE_TABLE_MAP_VERSION_F;
   return mysql_bin_log.write(&e);
 }
@@ -1546,6 +1559,23 @@ my_xml_entity_to_char(const char *name, uint length)
 }
 
 
+/**
+  @brief Convert newline, linefeed, tab to space
+  
+  @param chr    character
+  
+  @details According to the "XML 1.0" standard,
+           only space (#x20) characters, carriage returns,
+           line feeds or tabs are considered as spaces.
+           Convert all of them to space (#x20) for parsing simplicity.
+*/
+static int
+my_tospace(int chr)
+{
+  return (chr == '\t' || chr == '\r' || chr == '\n') ? ' ' : chr;
+}
+
+
 /*
   Read an xml value: handle multibyte and xml escape
 */
@@ -1554,7 +1584,7 @@ int READ_INFO::read_value(int delim, String *val)
   int chr;
   String tmp;
 
-  for (chr= GET; chr != delim && chr != my_b_EOF; )
+  for (chr= my_tospace(GET); chr != delim && chr != my_b_EOF; )
   {
 #ifdef USE_MB
     if (my_mbcharlen(read_charset, chr) > 1)
@@ -1564,18 +1594,20 @@ int READ_INFO::read_value(int delim, String *val)
       for (i= 1; i < ml; i++) 
       {
         val->append(chr);
-        chr= GET;
+        /*
+          Don't use my_tospace() in the middle of a multi-byte character
+          TODO: check that the multi-byte sequence is valid.
+        */
+        chr= GET; 
         if (chr == my_b_EOF)
           return chr;
       }
     }
 #endif
-    if(my_isspace(read_charset, chr)) /* convert newline, tab etc to space */
-      val->append(' ');
-    else if(chr == '&')
+    if(chr == '&')
     {
       tmp.length(0);
-      for (chr= GET ; chr != ';' ; chr= GET)
+      for (chr= my_tospace(GET) ; chr != ';' ; chr= my_tospace(GET))
       {
         if (chr == my_b_EOF)
           return chr;
@@ -1592,7 +1624,7 @@ int READ_INFO::read_value(int delim, String *val)
     }
     else
       val->append(chr);
-    chr= GET; 
+    chr= my_tospace(GET);
   }            
   return chr;
 }
@@ -1615,12 +1647,12 @@ int READ_INFO::read_xml()
   attribute.length(0);
   value.length(0);
   
-  for (chr= GET; chr != my_b_EOF ; )
+  for (chr= my_tospace(GET); chr != my_b_EOF ; )
   {
     switch(chr){
     case '<':  /* read tag */
         /* TODO: check if this is a comment <!-- comment -->  */
-      chr= GET;
+      chr= my_tospace(GET);
       if(chr == '!')
       {
         chr2= GET;
@@ -1630,7 +1662,7 @@ int READ_INFO::read_xml()
         {
           chr2= 0;
           chr3= 0;
-          chr= GET;
+          chr= my_tospace(GET);
           
           while(chr != '>' || chr2 != '-' || chr3 != '-')
           {
@@ -1644,7 +1676,7 @@ int READ_INFO::read_xml()
               chr2= 0;
               chr3= 0;
             }
-            chr= GET;
+            chr= my_tospace(GET);
             if (chr == my_b_EOF)
               goto found_eof;
           }
@@ -1657,7 +1689,7 @@ int READ_INFO::read_xml()
       {
         if(chr != delim) /* fix for the '<field name =' format */
           tag.append(chr);
-        chr= GET;
+        chr= my_tospace(GET);
       }
       
       // row tag should be in ROWS IDENTIFIED BY '<row>' - stored in line_term 
@@ -1682,7 +1714,7 @@ int READ_INFO::read_xml()
       
     case ' ': /* read attribute */
       while(chr == ' ')  /* skip blanks */
-        chr= GET;
+        chr= my_tospace(GET);
       
       if(!in_tag)
         break;
@@ -1690,7 +1722,7 @@ int READ_INFO::read_xml()
       while(chr != '=' && chr != '/' && chr != '>' && chr != my_b_EOF)
       {
         attribute.append(chr);
-        chr= GET;
+        chr= my_tospace(GET);
       }
       break;
       
@@ -1714,13 +1746,13 @@ int READ_INFO::read_xml()
       
     case '/': /* close tag */
       level--;
-      chr= GET;
+      chr= my_tospace(GET);
       if(chr != '>')   /* if this is an empty tag <tag   /> */
         tag.length(0); /* we should keep tag value          */
       while(chr != '>' && chr != my_b_EOF)
       {
         tag.append(chr);
-        chr= GET;
+        chr= my_tospace(GET);
       }
       
       if((tag.length() == line_term_length -2) &&
@@ -1730,7 +1762,7 @@ int READ_INFO::read_xml()
                                  level, tag.c_ptr_safe()));
          DBUG_RETURN(0); //normal return
       }
-      chr= GET;
+      chr= my_tospace(GET);
       break;   
       
     case '=': /* attribute name end - read the value */
@@ -1742,7 +1774,7 @@ int READ_INFO::read_xml()
           this is format <field name="xx">xx</field>
           where actual fieldname is in attribute
         */
-        delim= GET;
+        delim= my_tospace(GET);
         tag.length(0);
         attribute.length(0);
         chr= '<'; /* we pretend that it is a tag */
@@ -1776,11 +1808,11 @@ int READ_INFO::read_xml()
       attribute.length(0);
       value.length(0);
       if (chr != ' ')
-        chr= GET;
+        chr= my_tospace(GET);
       break;
     
     default:
-      chr= GET;  
+      chr= my_tospace(GET);
     } /* end switch */
   } /* end while */
   

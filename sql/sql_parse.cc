@@ -1955,7 +1955,16 @@ mysql_execute_command(THD *thd)
     if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL))
       goto error;
     pthread_mutex_lock(&LOCK_active_mi);
-    res = show_master_info(thd,active_mi);
+    if (active_mi != NULL)
+    {
+      res = show_master_info(thd, active_mi);
+    }
+    else
+    {
+      push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN, 0,
+                   "the master info structure does not exist");
+      send_ok(thd);
+    }
     pthread_mutex_unlock(&LOCK_active_mi);
     break;
   }
@@ -2775,6 +2784,13 @@ end_with_restore_list:
 			SELECT_NO_JOIN_CACHE | SELECT_NO_UNLOCK |
                         OPTION_SETUP_TABLES_DONE,
 			del_result, unit, select_lex);
+      res|= thd->net.report_error;
+      if (unlikely(res))
+      {
+        /* If we had a another error reported earlier then this will be ignored */
+        del_result->send_error(ER_UNKNOWN_ERROR, "Execution of the query failed");
+        del_result->abort();
+      }
       delete del_result;
     }
     else
@@ -5448,12 +5464,9 @@ bool add_field_to_list(THD *thd, LEX_STRING *field_name, enum_field_types type,
   LEX  *lex= thd->lex;
   DBUG_ENTER("add_field_to_list");
 
-  if (check_string_char_length(field_name, "", NAME_CHAR_LEN,
-                               system_charset_info, 1))
-  {
-    my_error(ER_TOO_LONG_IDENT, MYF(0), field_name->str); /* purecov: inspected */
+  if (check_identifier_name(field_name, ER_TOO_LONG_IDENT))
     DBUG_RETURN(1);				/* purecov: inspected */
-  }
+
   if (type_modifier & PRI_KEY_FLAG)
   {
     Key *key;
@@ -7106,6 +7119,50 @@ bool check_string_char_length(LEX_STRING *str, const char *err_msg,
 
   if (!no_error)
     my_error(ER_WRONG_STRING_LENGTH, MYF(0), str->str, err_msg, max_char_length);
+  return TRUE;
+}
+
+
+bool check_identifier_name(LEX_STRING *str, uint max_char_length,
+                           uint err_code, const char *param_for_err_msg)
+{
+#ifdef HAVE_CHARSET_utf8mb3
+  /*
+    We don't support non-BMP characters in identifiers at the moment,
+    so they should be prohibited until such support is done.
+    This is why we use the 3-byte utf8 to check well-formedness here.
+  */
+  CHARSET_INFO *cs= &my_charset_utf8mb3_general_ci;
+#else
+  CHARSET_INFO *cs= system_charset_info;
+#endif
+  int well_formed_error;
+  uint res= cs->cset->well_formed_len(cs, str->str, str->str + str->length,
+                                      max_char_length, &well_formed_error);
+
+  if (well_formed_error)
+  {
+    my_error(ER_INVALID_CHARACTER_STRING, MYF(0), "identifier", str->str);
+    return TRUE;
+  }
+  
+  if (str->length == res)
+    return FALSE;
+
+  switch (err_code)
+  {
+  case 0:
+    break;
+  case ER_WRONG_STRING_LENGTH:
+    my_error(err_code, MYF(0), str->str, param_for_err_msg, max_char_length);
+    break;
+  case ER_TOO_LONG_IDENT:
+    my_error(err_code, MYF(0), str->str);
+    break;
+  default:
+    DBUG_ASSERT(0);
+    break;
+  }
   return TRUE;
 }
 

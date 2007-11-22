@@ -902,6 +902,7 @@ libmysql_r/.libs/libmysqlclient_r.so.15.0.0
 libmysql_r/acconfig.h
 libmysql_r/client_settings.h
 libmysql_r/conf_to_src
+libmysql_r/link_sources
 libmysql_r/my_static.h
 libmysql_r/mysys_priv.h
 libmysql_r/vio_priv.h
@@ -2090,6 +2091,7 @@ sql/gen_lex_hash
 sql/gmon.out
 sql/handlerton.cc
 sql/lex_hash.h
+sql/link_sources
 sql/max/*
 sql/message.h
 sql/message.mc

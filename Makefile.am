@@ -91,7 +91,7 @@ test-nr:
 
 test-pr:
 	cd mysql-test ; \
-	@PERL@ ./mysql-test-run.pl $(force) $(mem) --ps-protocol --mysqld=--binlog-format=row
+	@PERL@ ./mysql-test-run.pl $(force) $(mem) --ps-protocol --mysqld=--binlog-format=row @libevent_test_option@
 
 test-ns:
 	cd mysql-test ; \
@@ -135,8 +135,8 @@ test-bt:
 	@PERL@ ./mysql-test-run.pl --comment=normal+rowrepl --force --timer \
 	--skip-ndbcluster --mysqld=--binlog-format=row
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	@PERL@ ./mysql-test-run.pl --comment=ps+rowrepl+NDB --force --timer \
-	--ps-protocol --mysqld=--binlog-format=row
+	@PERL@ ./mysql-test-run.pl --comment=ps+rowrepl+NDB+libevent --force --timer \
+	--ps-protocol --mysqld=--binlog-format=row @libevent_test_option@
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
 	@PERL@ ./mysql-test-run.pl --comment=NDB            --force --timer \
 	--with-ndbcluster-only

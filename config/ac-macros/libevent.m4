@@ -14,8 +14,10 @@ AC_DEFUN([MYSQL_USE_BUNDLED_LIBEVENT], [
 
   libevent_libs="\$(top_builddir)/extra/libevent/libevent.a"
   libevent_includes="-I\$(top_builddir)/extra/libevent"
+  libevent_test_option="--mysqld=--thread-handling=pool-of-threads"
   AC_SUBST(libevent_libs)
   AC_SUBST(libevent_includes)
+  AC_SUBST(libevent_test_option)
 
   AC_DEFINE([HAVE_LIBEVENT], [1], [If we want to use libevent and have connection pooling])
   AC_MSG_RESULT([using bundled libevent])

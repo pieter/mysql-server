@@ -30,6 +30,7 @@
 #include "debug.h"
 #include "be_default.h"
 #include "be_snapshot.h"
+#include "ddl_blocker.h"
 
 namespace backup {
 
@@ -58,6 +59,10 @@ static bool send_summary(THD*,const Restore_info&);
 bool test_error_flag= FALSE;
 #endif
 }
+
+extern pthread_mutex_t THR_LOCK_DDL_blocker;
+extern pthread_cond_t COND_backup_blocked;
+extern pthread_cond_t COND_DDL_blocker;
 
 /**
   Call backup kernel API to execute backup related SQL statement.
@@ -126,7 +131,11 @@ execute_backup_command(THD *thd, LEX *lex)
       {
         info.report_error(backup::log_level::INFO,ER_BACKUP_RESTORE_START);
 
-        // TODO: freeze all DDL operations here
+        /*
+          Freeze all DDL operations by turning on DDL blocker.
+        */
+        if (!block_DDL(thd))
+          DBUG_RETURN(backup::ERROR);
 
         info.save_errors();
         info.restore_all_dbs();
@@ -148,13 +157,24 @@ execute_backup_command(THD *thd, LEX *lex)
           send_summary(thd,info);
         }
 
-        // TODO: unfreeze DDL here
+        /*
+          Unfreeze all DDL operations by turning off DDL blocker.
+        */
+        unblock_DDL();
+        BACKUP_BREAKPOINT("DDL_unblocked");
+
       }
     } // if (!stream)
 
     goto finish_restore;
     
    restore_error:
+
+    /*
+      Unfreeze all DDL operations by turning off DDL blocker.
+    */
+    unblock_DDL();
+    BACKUP_BREAKPOINT("DDL_unblocked");
 
     res= res ? res : backup::ERROR;
     
@@ -177,14 +197,23 @@ execute_backup_command(THD *thd, LEX *lex)
     }
     else
     {
+      /*
+        Freeze all DDL operations by turning on DDL blocker.
+
+        Note: The block_ddl() call must occur before the information_schema
+              is read so that any new tables (e.g. CREATE in progress) can
+              be counted. Waiting until after this step caused backup to
+              skip new or dropped tables.
+      */
+      if (!block_DDL(thd))
+        goto backup_error;
+
       backup::Backup_info info(thd);
 
       if (check_info(thd,info))
         goto backup_error;
 
       info.report_error(backup::log_level::INFO,ER_BACKUP_BACKUP_START);
-
-      // TODO: freeze all DDL operations here
 
       /*
         Save starting datetime of backup.
@@ -232,13 +261,22 @@ execute_backup_command(THD *thd, LEX *lex)
       skr= my_time(0);
       gmtime_r(&skr, &info.end_time);
 
-      // TODO: unfreeze DDL here
+      /*
+        Unfreeze all DDL operations by turning off DDL blocker.
+      */
+      unblock_DDL();
+      BACKUP_BREAKPOINT("DDL_unblocked");
+
     } // if (!stream)
 
     goto finish_backup;
    
    backup_error:
    
+    /*
+      Unfreeze all DDL operations by turning off DDL blocker.
+    */
+    unblock_DDL();
     res= res ? res : backup::ERROR;
    
    finish_backup:
@@ -333,6 +371,7 @@ int mysql_backup(THD *thd,
 
  error:
 
+  unblock_DDL();
   DBUG_RETURN(backup::ERROR);
 }
 

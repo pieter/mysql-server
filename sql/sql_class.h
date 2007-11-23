@@ -1513,6 +1513,14 @@ public:
   bool       derived_tables_processing;
   my_bool    tablespace_op;	/* This is TRUE in DISCARD/IMPORT TABLESPACE */
 
+  /*
+    @todo The following is a work around for online backup and the DDL blocker.
+          It should be removed when the generalized solution is in place.
+          This is needed to ensure the restore (which uses DDL) is not blocked
+          when the DDL blocker is engaged.
+  */
+  my_bool DDL_exception; // Allow some DDL if there is an exception
+
   sp_rcontext *spcont;		// SP runtime context
   sp_cache   *sp_proc_cache;
   sp_cache   *sp_func_cache;

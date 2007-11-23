@@ -352,6 +352,14 @@ int silent_exec_query(THD *thd, String &query)
   thd->net.vio= 0;
   thd->net.no_send_error= 0;
 
+  /*
+    @todo The following is a work around for online backup and the DDL blocker.
+          It should be removed when the generalized solution is in place.
+          This is needed to ensure the restore (which uses DDL) is not blocked
+          when the DDL blocker is engaged.
+  */
+  thd->DDL_exception= TRUE;
+
   thd->query=         query.c_ptr();
   thd->query_length=  query.length();
 
@@ -362,6 +370,14 @@ int silent_exec_query(THD *thd, String &query)
 
   const char *ptr;
   ::mysql_parse(thd,thd->query,thd->query_length,&ptr);
+
+  /*
+    @todo The following is a work around for online backup and the DDL blocker.
+          It should be removed when the generalized solution is in place.
+          This is needed to ensure the restore (which uses DDL) is not blocked
+          when the DDL blocker is engaged.
+  */
+  thd->DDL_exception= FALSE;
 
   thd->net.vio= save_vio;
 

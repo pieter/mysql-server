@@ -1007,7 +1007,7 @@ int StorageInterface::prepare(handlerton* hton, THD* thd, bool all)
 	DBUG_ENTER("StorageInterface::prepare");
 
 	if (all || !thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
-		storageHandler->prepare(thd, sizeof(thd->transaction.xid), (const unsigned char*) &thd->transaction.xid);
+		storageHandler->prepare(thd, sizeof(thd->transaction.xid_state.xid), (const unsigned char*) &thd->transaction.xid_state.xid);
 	else
 		{
 		StorageConnection *storageConnection = getStorageConnection(thd);

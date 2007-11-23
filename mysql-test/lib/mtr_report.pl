@@ -352,7 +352,10 @@ sub mtr_report_stats ($) {
                 #             from the internal data dictiona
                 /Cannot find table test\/BUG29839 from the internal data dictionary/ or
                 # rpl_ndb_basic expects this error
-                /Slave: Got error 146 during COMMIT Error_code: 1180/
+                /Slave: Got error 146 during COMMIT Error_code: 1180/ or
+                # BUG#32080 - Excessive warnings on Solaris: setrlimit could not
+                #             change the size of core files
+                /setrlimit could not change the size of core files to 'infinity'/
 	       )
             {
               next;                       # Skip these lines

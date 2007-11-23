@@ -197,6 +197,7 @@ void SerialLogControl::setWindow(SerialLogWindow *window, SerialLogBlock *block,
 	inputBlock = block;
 	input = inputBlock->data;
 	inputEnd = (const UCHAR*) inputBlock + block->length;
+	version = inputBlock->version;
 	singleBlock = false;
 	
 	if (inputBlock == log->writeBlock && log->recordIncomplete)
@@ -313,7 +314,7 @@ SerialLogRecord* SerialLogControl::nextRecord()
 	recordStart = input;
 	UCHAR type = getInt();
 
-	while ((type == srlEnd) || (type == srlVersion))
+	while ((type == srlEnd))
 		{
 		if (debug)
 			Log::debug("Recovery %s\n", (type == srlEnd) ? "end" : "version");
@@ -400,10 +401,12 @@ void SerialLogControl::validate(SerialLogWindow *window, SerialLogBlock *block)
 		}
 }
 
+/***
 void SerialLogControl::setVersion(int newVersion)
 {
 	version = newVersion;
 }
+***/
 
 void SerialLogControl::fini(void)
 {

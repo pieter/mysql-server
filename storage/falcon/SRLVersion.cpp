@@ -38,6 +38,6 @@ SRLVersion::~SRLVersion()
 void SRLVersion::read()
 {
 	version = getInt();
-	control->setVersion(version);
+	//control->setVersion(version);
 }
 

@@ -71,7 +71,7 @@ public:
 	SerialLogControl(SerialLog *serialLog);
 	virtual ~SerialLogControl();
 
-	void		setVersion (int newVersion);
+	//void		setVersion (int newVersion);
 	void		validate(SerialLogWindow *window, SerialLogBlock *block);
 	uint64		getBlockNumber();
 	int			getOffset();

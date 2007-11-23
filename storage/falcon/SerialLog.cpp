@@ -967,6 +967,7 @@ void SerialLog::initializeWriteBlock(SerialLogBlock *block)
 	writePtr = writeBlock->data;
 	writeBlock->blockNumber = nextBlockNumber++;
 	writeBlock->creationTime = (uint32) creationTime;
+	writeBlock->version = srlCurrentVersion;
 	writeBlock->length = (int) (writePtr - (UCHAR*) writeBlock);
 	writeWindow->setLastBlock(writeBlock);
 	writeWarningTrack = writeWindow->warningTrack;

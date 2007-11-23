@@ -47,6 +47,7 @@ struct SerialLogBlock
 	uint64	readBlockNumber;
 	uint32	length;
 	uint32	creationTime;
+	uint16	version;
 	UCHAR	data[1];
 };
 

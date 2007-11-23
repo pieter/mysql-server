@@ -265,7 +265,9 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 			priority.schedule(PRIORITY_MEDIUM);	
 			dbb->readPage(bdb);
 			priority.finished();
-			
+#ifdef HAVE_PAGE_NUMBER
+			ASSERT(bdb->buffer->pageNumber == pageNumber);
+#endif			
 			if (actual != lockType)
 				bdb->downGrade(lockType);
 			}

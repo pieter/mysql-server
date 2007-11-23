@@ -1,0 +1,1736 @@
+#
+# This test is for the DDL blocker
+# The goals of the test should be to ensure the following assumptions for
+# the behaviour of the DDL blocker hold true.
+#
+# a) DDL that are running are allowed to complete and backup blocks
+# b) backup blocks all DDL even if not part of backup
+# c) DDL operations do not block each other
+#
+# The results of the backup should show (based on statements above):
+#
+# a) Test result for this assumption: Included in backup
+# b) Test result for this assumption: Not included in backup
+#
+# The test shall run two sets of data definition statements. 
+#
+# 1) test DDL in progress that block backup and while the backup in progress
+#    check that DDLs that start after the backup are blocked
+# 2) DDL do not block each other
+#
+# These set of DDL statements to test include the following. The DDL 
+# statements shall be run in sets with each set a separate test. These tests
+# will show the assumptions above to be true.
+#
+# Test  DDL Tested
+# ----  ------------------
+#  1    CREATE TABLE
+#  1    ALTER TABLE
+#  2    RENAME TABLE
+#  2    REPAIR TABLE
+#  3    OPTIMIZE TABLE
+#  3    DROP TABLE
+#  4    CREATE DATABASE
+#  4    DROP DATABASE
+#  5    ALTER DATABASE
+#  5    TRUNCATE TABLE
+#  6    DDL statements do not block each other
+#
+# The tests shall be run once for backup and again for restore.
+#
+# TODO : Add a native driver to the test when one becomes available
+#
+
+--source include/have_innodb.inc
+--source include/have_debug.inc
+
+#
+# Connections used in this test
+#
+# con1       used to create data, load data, and run the backup 
+# con2-con5  used for DDL statements: 2 before backup and 2 during backup
+# con6       used for setting and releasing breakpoints
+#
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+connect (con3,localhost,root,,);
+connect (con4,localhost,root,,);
+connect (con5,localhost,root,,);
+connect (con6,localhost,root,,);
+
+connection con1;
+
+#
+# Backup test sequence diagram (not UML)
+#
+# The included test files follow this pattern of execution
+# for backup or restore operations.
+#
+# Four DDL statements and a backup command are specified.
+# The first two DDL statements are run as "in progress" when
+# the backup starts. The other two DDL statements are run
+# when the backup or restore is already running. Tests results
+# show the realization of the assumptions above.
+#
+#     con1      con2     con3     con4     con6
+#    (setup)     |        |        |        |        |
+#       |        |        |        |        |        |
+#       |        |        |        |        | lock("DDL_in_progress");
+#       |   statememt 1   |        |        |        |
+#       |        |   statement 2   |        |        |
+#       |        |        |        |        |  <wait for locks>
+# BACKUP/RESTORE |        |        |        |        |
+#       |        |        |        |        | lock("DDL_blocked");
+#       |        |        |        |        | <wait for locks>
+#       |      <...>    <...>      |        |        |
+#       |        |        |   statement 3   |        |
+#       |        |        |        |   statement 4   |
+#       |        |        |        |        | <wait for DDL blocker>
+#       |        |        |        |        |  <release locks>
+#     <...>      |        |      <...>    <...>      |
+#   (results)    |        |        |        |        |
+#
+# Note: The resume of the commands is indicated with <...> and
+#       may occur in any order.
+#
+
+
+##############################################################
+--echo 
+--echo Starting Test 1 - Backup
+--echo 
+##############################################################
+
+# Create data for this test and tailor it to the test.
+--source include/backup_ddl_create_data.inc
+DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t3;
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send ALTER TABLE bup_ddl_blocker.t2 ADD COLUMN col_b int;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Backing up database -- will block with lock
+send BACKUP DATABASE bup_ddl_blocker TO "bup_ddl_blocker.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send ALTER TABLE bup_ddl_blocker.t4 ADD COLUMN col_b int;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t3%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 1 results for backup.
+--echo
+##############################################################
+
+# Show that all changes got applied.
+--echo con1: Showing columns after updates and backup
+DESCRIBE bup_ddl_blocker.t1;
+DESCRIBE bup_ddl_blocker.t2;
+DESCRIBE bup_ddl_blocker.t3;
+DESCRIBE bup_ddl_blocker.t4;
+
+--echo con1: Dropping the database tables
+DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t2,
+           bup_ddl_blocker.t3, bup_ddl_blocker.t4;
+
+--echo con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+
+--echo con1: Showing columns that were backed up
+
+--echo con1: Table t3 should not be in restored data.
+--echo con1: Table t4 should not have new column in restored data.
+DESCRIBE bup_ddl_blocker.t1;
+DESCRIBE bup_ddl_blocker.t2;
+--error 1146
+DESCRIBE bup_ddl_blocker.t3;
+DESCRIBE bup_ddl_blocker.t4;
+
+
+
+##############################################################
+--echo 
+--echo Starting Test 1 - Restore
+--echo 
+##############################################################
+
+# Create data for this test and tailor it to the test.
+--source include/backup_ddl_create_data.inc
+DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t3;
+
+# Get a backup to work with.
+BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send ALTER TABLE bup_ddl_blocker.t2 ADD COLUMN col_b int;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Restoring database -- will block with lock
+send RESTORE FROM "bup_ddl_blocker_orig.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send ALTER TABLE bup_ddl_blocker.t4 ADD COLUMN col_b int;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t3%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+--echo
+--echo Verifying Test 1 results for restore.
+--echo
+
+--echo con1: Table t1 should not be in restored data.
+--echo con1: Table t2 should not have new column in restored data.
+--echo con1: Table t3 should be in restored data.
+--echo con1: Table t4 should have new column in restored data.
+--error 1146
+DESCRIBE bup_ddl_blocker.t1;
+DESCRIBE bup_ddl_blocker.t2;
+DESCRIBE bup_ddl_blocker.t3;
+DESCRIBE bup_ddl_blocker.t4;
+
+
+
+##############################################################
+--echo 
+--echo Starting Test 2 - Backup
+--echo 
+##############################################################
+
+# Create data for this test and tailor it to the test.
+--source include/backup_ddl_create_data.inc
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send RENAME TABLE bup_ddl_blocker.t1 TO bup_ddl_blocker.t01;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send REPAIR TABLE bup_ddl_blocker.t2;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Backing up database -- will block with lock
+send BACKUP DATABASE bup_ddl_blocker TO "bup_ddl_blocker.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send RENAME TABLE bup_ddl_blocker.t3 TO bup_ddl_blocker.t03;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send REPAIR TABLE bup_ddl_blocker.t4;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t3%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 2 results for backup.
+--echo
+##############################################################
+
+# Show that all changes got applied.
+--echo con1: Showing columns after updates and backup
+use bup_ddl_blocker;
+SHOW TABLES;
+
+--echo con1: Dropping the database tables
+DROP TABLE bup_ddl_blocker.t01, bup_ddl_blocker.t2,
+           bup_ddl_blocker.t03, bup_ddl_blocker.t4;
+
+--echo con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+
+--echo con1: Showing columns that were backed up
+--echo con1: Table t01 should be in restore
+--echo con1: Table t03 should not be in restore
+use bup_ddl_blocker;
+SHOW TABLES;
+
+
+
+##############################################################
+--echo 
+--echo Starting Test 2 - Restore
+--echo 
+##############################################################
+
+# Create data for this test and tailor it to the test.
+--source include/backup_ddl_create_data.inc
+
+# Get a backup to work with.
+BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send RENAME TABLE bup_ddl_blocker.t1 TO bup_ddl_blocker.t01;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send REPAIR TABLE bup_ddl_blocker.t2;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Restoring database -- will block with lock
+send RESTORE FROM "bup_ddl_blocker_orig.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send RENAME TABLE bup_ddl_blocker.t3 TO bup_ddl_blocker.t03;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send REPAIR TABLE bup_ddl_blocker.t4;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t3%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 2 results for restore.
+--echo
+##############################################################
+
+--echo con1: Table t01 should not be in restored data.
+use bup_ddl_blocker;
+SHOW TABLES;
+
+
+
+
+
+##############################################################
+--echo 
+--echo Starting Test 3 - Backup
+--echo 
+##############################################################
+
+# Create data for this test and tailor it to the test.
+--source include/backup_ddl_create_data.inc
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send OPTIMIZE TABLE bup_ddl_blocker.t1;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send DROP TABLE bup_ddl_blocker.t2;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Backing up database -- will block with lock
+send BACKUP DATABASE bup_ddl_blocker TO "bup_ddl_blocker.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DROP TABLE bup_ddl_blocker.t2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send OPTIMIZE TABLE bup_ddl_blocker.t3;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send DROP TABLE bup_ddl_blocker.t4;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t3%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DROP TABLE bup_ddl_blocker.t4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 3 results for backup.
+--echo
+##############################################################
+
+# Show that all changes got applied.
+--echo con1: Showing columns after updates and backup
+use bup_ddl_blocker;
+SHOW TABLES;
+
+--echo con1: Dropping the database tables
+DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t3;
+
+--echo con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+
+--echo con1: Showing columns that were backed up
+--echo con1: Table t2 should not be in restore
+use bup_ddl_blocker;
+SHOW TABLES;
+
+
+
+##############################################################
+--echo 
+--echo Starting Test 3 - Restore
+--echo 
+##############################################################
+
+# Create data for this test and tailor it to the test.
+--source include/backup_ddl_create_data.inc
+
+# Get a backup to work with.
+BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send OPTIMIZE TABLE bup_ddl_blocker.t1;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send DROP TABLE bup_ddl_blocker.t2;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Restoring database -- will block with lock
+send RESTORE FROM "bup_ddl_blocker_orig.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DROP TABLE bup_ddl_blocker.t2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send OPTIMIZE TABLE bup_ddl_blocker.t3;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send DROP TABLE bup_ddl_blocker.t4;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t3%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DROP TABLE bup_ddl_blocker.t4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 3 results for restore.
+--echo
+##############################################################
+
+--echo con1: Table t4 should not be in restored data.
+use bup_ddl_blocker;
+SHOW TABLES;
+
+
+
+
+
+##############################################################
+--echo 
+--echo Starting Test 4 - Backup
+--echo 
+##############################################################
+
+--disable_warnings
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+--enable_warnings
+
+# Create databases.
+--echo con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_2;
+CREATE DATABASE bup_ddl_blocker_4;
+
+# Create transaction tables and load them with data.
+--echo con1: Creating tables
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+
+--echo con1: Loading data
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test");
+
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
+
+--echo con1: Show that the new data doesn't exist before backup.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send CREATE DATABASE bup_ddl_blocker_1;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send DROP DATABASE bup_ddl_blocker_2;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Backing up database -- will block with lock
+send BACKUP DATABASE * TO "bup_ddl_blocker.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DROP DATABASE bup_ddl_blocker_2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send CREATE DATABASE bup_ddl_blocker_3;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send DROP DATABASE bup_ddl_blocker_4;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_3%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DROP DATABASE bup_ddl_blocker_4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 4 results for backup.
+--echo
+##############################################################
+
+# Show that all changes got applied.
+--echo con1: Showing databases after updates and backup
+--echo con1: bup_ddl_blocker_2 and bup_ddl_blocker_4 are not present
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+
+--echo con1: Dropping the database tables
+DROP DATABASE bup_ddl_blocker_1;
+DROP DATABASE bup_ddl_blocker_3;
+
+--echo con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+
+--echo con1: Showing databases that were backed up
+--echo con1: bup_ddl_blocker_2 and bup_ddl_blocker_3 are not present
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+
+--echo con1: Cleanup
+DROP DATABASE bup_ddl_blocker_1;
+DROP DATABASE bup_ddl_blocker_4;
+
+
+##############################################################
+--echo 
+--echo Starting Test 4 - Restore
+--echo 
+##############################################################
+--disable_warnings
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+--enable_warnings
+
+# Create databases.
+--echo con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_2;
+CREATE DATABASE bup_ddl_blocker_4;
+
+# Create transaction tables and load them with data.
+--echo con1: Creating tables
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+
+--echo con1: Loading data
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test");
+
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
+
+--echo con1: Show that the new data doesn't exist before backup.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+
+# Get a backup to work with.
+BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4 to 'bup_ddl_blocker_orig.bak';
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send CREATE DATABASE bup_ddl_blocker_1;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send DROP DATABASE bup_ddl_blocker_2;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Restoring database -- will block with lock
+send RESTORE FROM "bup_ddl_blocker_orig.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DROP DATABASE bup_ddl_blocker_2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send CREATE DATABASE bup_ddl_blocker_3;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send DROP DATABASE bup_ddl_blocker_4;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_3%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DROP DATABASE bup_ddl_blocker_4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 4 results for restore.
+--echo
+##############################################################
+
+--echo con1: Database bup_ddl_blocker_4 should not be in restored data.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+
+
+
+
+
+##############################################################
+--echo 
+--echo Starting Test 5 - Backup
+--echo 
+##############################################################
+
+--disable_warnings
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+--enable_warnings
+
+# Create databases.
+--echo con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_2 CHARACTER SET latin1;
+CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
+
+# Create transaction tables and load them with data.
+--echo con1: Creating tables
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+
+--echo con1: Loading data
+
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test");
+
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
+
+--echo con1: Show that the new data doesn't exist before backup.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send TRUNCATE TABLE bup_ddl_blocker_2.t1;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send ALTER DATABASE bup_ddl_blocker_2 CHARACTER SET latin2;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Backing up database -- will block with lock
+send BACKUP DATABASE * TO "bup_ddl_blocker.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_2%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send TRUNCATE TABLE bup_ddl_blocker_4.t1;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send ALTER DATABASE bup_ddl_blocker_4 CHARACTER SET latin2;
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_4%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 5 results for backup.
+--echo
+##############################################################
+
+# Show that all changes got applied.
+--echo con1: Showing databases after updates and backup
+--echo con1: bup_ddl_blocker_2.t1 has been truncated.
+--echo con1: bup_ddl_blocker_1 and bup_ddl_blocker_3 are renamed 
+--echo con1: bup_ddl_blocker_4.t1 has been truncated.
+--echo con1: bup_ddl_blocker_2 and bup_ddl_blocker_4 have had their charset changed. 
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+SHOW CREATE DATABASE bup_ddl_blocker_2;
+SHOW CREATE DATABASE bup_ddl_blocker_4;
+SELECT * FROM bup_ddl_blocker_2.t1;
+SELECT * FROM bup_ddl_blocker_4.t1;
+
+--echo con1: Dropping the database tables
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_4;
+
+--echo con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+
+--echo con1: Showing databases that were backed up
+--echo con1: bup_ddl_blocker_1 has been renamed and
+
+#
+# NOTE: The online backup does not preserve character set information as 
+# it should. Thus, the results of this test will not show the changes
+# made with the alter database command to bup_ddl_blocker_2. This has
+# been reported as BUG#32190. 
+#
+
+--echo con1: bup_ddl_blocker_2.t1 has been truncated.
+--echo con1: bup_ddl_blocker_4 has not had its character set changed. 
+--echo con1: bup_ddl_blocker_4.t1 has not been truncated.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+SHOW CREATE DATABASE bup_ddl_blocker_2;
+SHOW CREATE DATABASE bup_ddl_blocker_4;
+SELECT * FROM bup_ddl_blocker_2.t1;
+SELECT * FROM bup_ddl_blocker_4.t1;
+
+--echo con1: Cleanup
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_4;
+
+
+##############################################################
+--echo 
+--echo Starting Test 5 - Restore
+--echo 
+##############################################################
+
+--disable_warnings
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+--enable_warnings
+
+# Create databases.
+--echo con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_2 CHARACTER SET latin1;
+CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
+
+# Create transaction tables and load them with data.
+--echo con1: Creating tables
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+
+--echo con1: Loading data
+
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test");
+
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
+
+--echo con1: Show that the new data doesn't exist before backup.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+
+# Get a backup to work with.
+BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4
+                to 'bup_ddl_blocker_orig.bak';
+
+connection con6;
+
+# Set the breakpoint for DDL in progress.
+--echo con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send TRUNCATE TABLE bup_ddl_blocker_2.t1;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send ALTER DATABASE bup_ddl_blocker_2 CHARACTER SET latin2;
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+--echo con1: Restoring database -- will block with lock
+send RESTORE FROM "bup_ddl_blocker_orig.bak";
+
+connection con6;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_2%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_2%";
+--source include/wait_condition.inc
+
+# Now set the breakpoint for DDL blocker.
+# This releases lock on DDL_in_progress stopping all DDLs.
+--echo con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+
+connection con6;
+
+--echo con6: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
+
+connection con4;
+
+--echo con4: Try a DDL but it is blocked by backup -- will not be in backup
+send TRUNCATE TABLE bup_ddl_blocker_4.t1;
+
+connection con5;
+
+--echo con5: Try a DDL but it is blocked by backup -- will not be in backup
+send ALTER DATABASE bup_ddl_blocker_4 CHARACTER SET latin2;
+
+connection con6;
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_4%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_4%";
+--source include/wait_condition.inc
+
+--echo con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+
+# Reconnect to connections and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+connection con5;
+--echo con5: Completing DDL
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+reap;
+
+##############################################################
+--echo
+--echo Verifying Test 5 results for restore.
+--echo
+##############################################################
+
+#
+# NOTE: The online backup does not preserve character set information as 
+# it should. Thus, the results of this test will not show the changes
+# made with the alter database command to bup_ddl_blocker_2. This has
+# been reported as BUG#32190. 
+#
+
+--echo con1: bup_ddl_blocker_4 has had its character set changed. 
+--echo con1: bup_ddl_blocker_2.t1 has not been truncated.
+--echo con1: bup_ddl_blocker_4.t1 has been truncated.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+SHOW CREATE DATABASE bup_ddl_blocker_2;
+SHOW CREATE DATABASE bup_ddl_blocker_4;
+SELECT * FROM bup_ddl_blocker_2.t1;
+SELECT * FROM bup_ddl_blocker_4.t1;
+
+--echo con1: Cleanup
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_4;
+
+
+
+
+
+##############################################################
+--echo 
+--echo Starting Test 6
+--echo 
+##############################################################
+
+#
+# Test 6 sequence diagram (not UML)
+#
+#   con1     con2     con3     con4       con5
+#  (setup)    |        |        |          |
+#     |       |        |        |          |
+#     |   ALTER a.t1   |        |          |
+#     |       |   ALTER b.t2    |          |
+#     |       |        |    ALTER a.t3     |
+#     |       |        |        | lock("DDL_in_progress");
+#     |       |        |        |    <wait for locks>
+#     |       |        |        |    <release locks>
+#     |     <...>    <...>    <...>        |
+# (results)   |        |        |          | 
+#
+# Note: The resume of the commands is indicated with <...> and
+#       may occur in any order.
+#
+
+--disable_warnings
+DROP TABLE IF EXISTS test.t2;
+DROP TABLE IF EXISTS bup_ddl_blocker.t1, bup_ddl_blocker.t3;
+--enable_warnings
+
+# Create transaction tables and load them with data.
+--echo con1: Creating tables
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE test.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=MEMORY;
+
+--echo con1: Loading data
+INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("03 Some data to test");
+
+INSERT INTO test.t2 VALUES ("01 Some data to test");
+INSERT INTO test.t2 VALUES ("02 Some data to test");
+INSERT INTO test.t2 VALUES ("03 Some data to test");
+
+INSERT INTO bup_ddl_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("03 Some data to test");
+
+--echo con1: Show that the new data doesn't exist before backup.
+SELECT * FROM bup_ddl_blocker.t1;
+SELECT * FROM test.t2;
+SELECT * FROM bup_ddl_blocker.t3;
+
+connection con5;
+
+# Set the breakpoint for DDL in progress.
+--echo con5: Getting lock on DDL in progress.
+SELECT get_lock("DDL_not_blocked", 0);
+
+connection con2;
+
+--echo con2: Get a DDL going and stop in the middle
+send ALTER TABLE bup_ddl_blocker.t1 ADD COLUMN col_b int;
+
+connection con3;
+
+--echo con3: Get a DDL going and stop in the middle
+send ALTER TABLE test.t2 ADD COLUMN col_b int;
+
+connection con4;
+
+--echo con4: Get a DDL going and stop in the middle
+send ALTER TABLE bup_ddl_blocker.t3 ADD COLUMN col_b int;
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking locks
+let $wait_condition = SELECT state = "debug_sync_point: DDL_not_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t1%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_not_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER TABLE test.t2%";
+--source include/wait_condition.inc
+
+let $wait_condition = SELECT state = "debug_sync_point: DDL_not_blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t3%";
+--source include/wait_condition.inc
+
+--echo con5: Releasing lock
+SELECT release_lock("DDL_not_blocked");
+
+# Reconnect to con2, con3, and con4 and allow them to finish.
+
+connection con2;
+--echo con2: Completing DDL
+reap;
+
+connection con3;
+--echo con3: Completing DDL
+reap;
+
+connection con4;
+--echo con4: Completing DDL
+reap;
+
+# Reconnect to con1 and show results
+
+connection con1;
+
+# Do selects to show that all changes got applied.
+--echo con1: Showing columns after updates and backup
+DESCRIBE bup_ddl_blocker.t1;
+DESCRIBE test.t2;
+DESCRIBE bup_ddl_blocker.t3;
+
+##############################################################
+--echo
+--echo Verifying Test 6 results:
+--echo
+##############################################################
+
+--echo T1 should have the changes after backup - count(*) = 2
+SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 't1' AND TABLE_SCHEMA = 'bup_ddl_blocker';
+
+--echo T2 should the changes after backup - count(*) = 2
+SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 't2' AND TABLE_SCHEMA = 'test';
+
+--echo T3 should not have the changes after backup - count(*) = 2
+SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 't3' AND TABLE_SCHEMA = 'bup_ddl_blocker';
+
+DROP TABLE test.t2;
+
+
+--echo con1: Cleanup
+DROP DATABASE bup_ddl_blocker;
+
+remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak;
+remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak;
+
+
+
+

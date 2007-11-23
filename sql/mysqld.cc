@@ -579,6 +579,16 @@ pthread_mutex_t LOCK_mysql_create_db, LOCK_Acl, LOCK_open, LOCK_thread_count,
 		LOCK_crypt, LOCK_bytes_sent, LOCK_bytes_received,
 	        LOCK_global_system_variables,
 		LOCK_user_conn, LOCK_slave_list, LOCK_active_mi;
+
+/*
+  These variables are used to implement the metadata freeze "DDL blocker"
+  for online backup.
+*/
+pthread_mutex_t THR_LOCK_DDL_blocker; 
+pthread_mutex_t THR_LOCK_DDL_is_blocked; 
+pthread_cond_t COND_DDL_blocker;
+pthread_cond_t COND_process_blocked;
+
 /*
   The below lock protects access to two global server variables:
   max_prepared_stmt_count and prepared_stmt_count. These variables
@@ -1337,6 +1347,10 @@ static void clean_up_mutexes()
   (void) pthread_mutex_destroy(&LOCK_bytes_sent);
   (void) pthread_mutex_destroy(&LOCK_bytes_received);
   (void) pthread_mutex_destroy(&LOCK_user_conn);
+  (void) pthread_mutex_destroy(&THR_LOCK_DDL_blocker);
+  (void) pthread_mutex_destroy(&THR_LOCK_DDL_is_blocked);
+  (void) pthread_cond_destroy(&COND_DDL_blocker);
+  (void) pthread_cond_destroy(&COND_process_blocked);
   Events::destroy_mutexes();
 #ifdef HAVE_OPENSSL
   (void) pthread_mutex_destroy(&LOCK_des_key_file);
@@ -3089,6 +3103,10 @@ static int init_thread_environment()
   (void) pthread_mutex_init(&LOCK_global_read_lock, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_prepared_stmt_count, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_uuid_generator, MY_MUTEX_INIT_FAST);
+  (void) pthread_mutex_init(&THR_LOCK_DDL_blocker, MY_MUTEX_INIT_FAST);
+  (void) pthread_mutex_init(&THR_LOCK_DDL_is_blocked, MY_MUTEX_INIT_FAST);
+  (void) pthread_cond_init(&COND_DDL_blocker, NULL);
+  (void) pthread_cond_init(&COND_process_blocked, NULL);
 #ifdef HAVE_OPENSSL
   (void) pthread_mutex_init(&LOCK_des_key_file,MY_MUTEX_INIT_FAST);
 #ifndef HAVE_YASSL
@@ -6806,6 +6824,7 @@ SHOW_VAR status_vars[]= {
   {"Com_replace",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REPLACE]), SHOW_LONG_STATUS},
   {"Com_replace_select",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REPLACE_SELECT]), SHOW_LONG_STATUS},
   {"Com_reset",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_RESET]), SHOW_LONG_STATUS},
+  {"Com_restore",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_RESTORE]), SHOW_LONG_STATUS},
   {"Com_revoke",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REVOKE]), SHOW_LONG_STATUS},
   {"Com_revoke_all",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REVOKE_ALL]), SHOW_LONG_STATUS},
   {"Com_rollback",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ROLLBACK]), SHOW_LONG_STATUS},

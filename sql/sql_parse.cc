@@ -2099,6 +2099,7 @@ mysql_execute_command(THD *thd)
       TABLE in the same way. That way we avoid that a new table is
       created during a gobal read lock.
     */
+    check_DDL_blocker(thd);
     if (!thd->locked_tables &&
         !(need_start_waiting= !wait_if_global_read_lock(thd, 0, 1)))
     {
@@ -2164,7 +2165,6 @@ mysql_execute_command(THD *thd)
           }
         }
 
-        check_DDL_blocker(thd);
         /*
           select_create is currently not re-execution friendly and
           needs to be created for every execution of a PS/SP.
@@ -2192,7 +2192,6 @@ mysql_execute_command(THD *thd)
     }
     else
     {
-      check_DDL_blocker(thd);
       /* So that CREATE TEMPORARY TABLE gets to binlog at commit/rollback */
       if (create_info.options & HA_LEX_CREATE_TMP_TABLE)
         thd->options|= OPTION_KEEP_LOG;
@@ -2206,13 +2205,13 @@ mysql_execute_command(THD *thd)
                                 create_table->table_name, &create_info,
                                 &alter_info, 0, 0);
       }
-      end_DDL();
       if (!res)
 	send_ok(thd);
     }
 
     /* put tables back for PS rexecuting */
 end_with_restore_list:
+    end_DDL();
     lex->link_first_table_back(create_table, link_to_local);
     break;
   }
@@ -2296,6 +2295,7 @@ end_with_restore_list:
   case SQLCOM_ALTER_TABLE:
     DBUG_ASSERT(first_table == all_tables && first_table != 0);
     {
+      check_DDL_blocker(thd);
       ulong priv=0;
       ulong priv_needed= ALTER_ACL;
       /*
@@ -2308,7 +2308,10 @@ end_with_restore_list:
       Alter_info alter_info(lex->alter_info, thd->mem_root);
 
       if (thd->is_fatal_error) /* out of memory creating a copy of alter_info */
+      {
+        end_DDL();
         goto error;
+      }
       /*
         We also require DROP priv for ALTER TABLE ... DROP PARTITION, as well
         as for RENAME TO, as being done by SQLCOM_RENAME_TABLE
@@ -2326,7 +2329,10 @@ end_with_restore_list:
 	  check_merge_table_access(thd, first_table->db,
 				   (TABLE_LIST *)
 				   create_info.merge_list.first))
+      {
+        end_DDL();
 	goto error;				/* purecov: inspected */
+      }
       if (check_grant(thd, priv_needed, all_tables, 0, UINT_MAX, 0))
         goto error;
       if (lex->name.str && !test_all_bits(priv,INSERT_ACL | CREATE_ACL))
@@ -2338,7 +2344,10 @@ end_with_restore_list:
           tmp_table.grant.privilege=priv;
           if (check_grant(thd, INSERT_ACL | CREATE_ACL, &tmp_table, 0,
               UINT_MAX, 0))
+          {
+            end_DDL();
             goto error;
+          }
       }
 
       /* Don't yet allow changing of symlinks with ALTER TABLE */
@@ -2357,11 +2366,11 @@ end_with_restore_list:
           !(need_start_waiting= !wait_if_global_read_lock(thd, 0, 1)))
       {
         res= 1;
+        end_DDL();
         break;
       }
 
       thd->enable_slow_log= opt_log_slow_admin_statements;
-      check_DDL_blocker(thd);
       res= mysql_alter_table(thd, select_lex->db, lex->name.str,
                              &create_info,
                              first_table,

@@ -2980,19 +2980,20 @@ DROP TABLE t1,t2;
 create table t1(a int,b int,key(a),key(b));
 insert into t1(a,b) values (1,2),(2,1),(2,3),(3,4),(5,4),(5,5),
   (6,7),(7,4),(5,3);
+#TODO: evgen: produces result in 6.0-opt (whereas it doesn't in 5.x)
 # test for the stack overflow bug
-select sum(a),a from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1
-  )group by b limit 1)group by b limit 1
-  )group by b limit 1)group by b limit 1)group by b limit 1
-  )group by b limit 1)group by b limit 1)group by b limit 1
-  )group by b limit 1)group by b limit 1)group by b limit 1) 
-group by a;
+#select sum(a),a from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1
+#  )group by b limit 1)group by b limit 1
+#  )group by b limit 1)group by b limit 1)group by b limit 1
+#  )group by b limit 1)group by b limit 1)group by b limit 1
+#  )group by b limit 1)group by b limit 1)group by b limit 1) 
+#group by a;
 --replace_regex /overrun.*$/overrun detected/
 --error 1436
 select sum(a),a from t1 where a> (

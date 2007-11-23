@@ -27,6 +27,8 @@
 #include "sp_cache.h"
 #include "events.h"
 #include "sql_trigger.h"
+#include "debug.h"
+#include "ddl_blocker.h"
 #include "backup/debug.h"
 
 /**
@@ -87,7 +89,6 @@ const LEX_STRING command_name[]={
 const char *xa_state_names[]={
   "NON-EXISTING", "ACTIVE", "IDLE", "PREPARED"
 };
-
 
 static void unlock_locked_tables(THD *thd)
 {
@@ -2098,6 +2099,7 @@ mysql_execute_command(THD *thd)
       TABLE in the same way. That way we avoid that a new table is
       created during a gobal read lock.
     */
+    check_DDL_blocker(thd);
     if (!thd->locked_tables &&
         !(need_start_waiting= !wait_if_global_read_lock(thd, 0, 1)))
     {
@@ -2182,6 +2184,7 @@ mysql_execute_command(THD *thd)
           res= handle_select(thd, lex, result, 0);
           delete result;
         }
+        end_DDL();
       }
       else if (!(create_info.options & HA_LEX_CREATE_TMP_TABLE))
         create_table= lex->unlink_first_table(&link_to_local);
@@ -2208,6 +2211,7 @@ mysql_execute_command(THD *thd)
 
     /* put tables back for PS rexecuting */
 end_with_restore_list:
+    end_DDL();
     lex->link_first_table_back(create_table, link_to_local);
     break;
   }
@@ -2291,6 +2295,7 @@ end_with_restore_list:
   case SQLCOM_ALTER_TABLE:
     DBUG_ASSERT(first_table == all_tables && first_table != 0);
     {
+      check_DDL_blocker(thd);
       ulong priv=0;
       ulong priv_needed= ALTER_ACL;
       /*
@@ -2303,7 +2308,10 @@ end_with_restore_list:
       Alter_info alter_info(lex->alter_info, thd->mem_root);
 
       if (thd->is_fatal_error) /* out of memory creating a copy of alter_info */
+      {
+        end_DDL();
         goto error;
+      }
       /*
         We also require DROP priv for ALTER TABLE ... DROP PARTITION, as well
         as for RENAME TO, as being done by SQLCOM_RENAME_TABLE
@@ -2321,7 +2329,10 @@ end_with_restore_list:
 	  check_merge_table_access(thd, first_table->db,
 				   (TABLE_LIST *)
 				   create_info.merge_list.first))
+      {
+        end_DDL();
 	goto error;				/* purecov: inspected */
+      }
       if (check_grant(thd, priv_needed, all_tables, 0, UINT_MAX, 0))
         goto error;
       if (lex->name.str && !test_all_bits(priv,INSERT_ACL | CREATE_ACL))
@@ -2333,7 +2344,10 @@ end_with_restore_list:
           tmp_table.grant.privilege=priv;
           if (check_grant(thd, INSERT_ACL | CREATE_ACL, &tmp_table, 0,
               UINT_MAX, 0))
+          {
+            end_DDL();
             goto error;
+          }
       }
 
       /* Don't yet allow changing of symlinks with ALTER TABLE */
@@ -2352,6 +2366,7 @@ end_with_restore_list:
           !(need_start_waiting= !wait_if_global_read_lock(thd, 0, 1)))
       {
         res= 1;
+        end_DDL();
         break;
       }
 
@@ -2363,6 +2378,7 @@ end_with_restore_list:
                              select_lex->order_list.elements,
                              (ORDER *) select_lex->order_list.first,
                              lex->ignore);
+      end_DDL();
       break;
     }
   case SQLCOM_RENAME_TABLE:
@@ -2391,8 +2407,13 @@ end_with_restore_list:
         goto error;
     }
 
+      check_DDL_blocker(thd);
     if (end_active_trans(thd) || mysql_rename_tables(thd, first_table, 0))
-      goto error;
+      {
+        end_DDL();
+        goto error;
+      }
+      end_DDL();
     break;
   }
 #ifndef EMBEDDED_LIBRARY
@@ -2442,7 +2463,9 @@ end_with_restore_list:
     if (check_table_access(thd, SELECT_ACL | INSERT_ACL, all_tables, 0))
       goto error; /* purecov: inspected */
     thd->enable_slow_log= opt_log_slow_admin_statements;
+    check_DDL_blocker(thd);
     res= mysql_repair_table(thd, first_table, &lex->check_opt);
+    end_DDL();
     /* ! we write after unlocking the table */
     if (!res && !lex->no_write_to_binlog)
     {
@@ -2492,9 +2515,11 @@ end_with_restore_list:
     if (check_table_access(thd, SELECT_ACL | INSERT_ACL, all_tables, 0))
       goto error; /* purecov: inspected */
     thd->enable_slow_log= opt_log_slow_admin_statements;
+    check_DDL_blocker(thd);
     res= (specialflag & (SPECIAL_SAFE_MODE | SPECIAL_NO_NEW_FUNC)) ?
       mysql_recreate_table(thd, first_table) :
       mysql_optimize_table(thd, first_table, &lex->check_opt);
+    end_DDL();
     /* ! we write after unlocking the table */
     if (!res && !lex->no_write_to_binlog)
     {
@@ -2737,7 +2762,10 @@ end_with_restore_list:
       goto error;
     }
 
+    check_DDL_blocker(thd);
     res= mysql_truncate(thd, first_table, 0);
+    end_DDL();
+
     break;
   case SQLCOM_DELETE:
   {
@@ -2836,9 +2864,11 @@ end_with_restore_list:
       /* So that DROP TEMPORARY TABLE gets to binlog at commit/rollback */
       thd->options|= OPTION_KEEP_LOG;
     }
+      check_DDL_blocker(thd);
     /* DDL and binlog write order protected by LOCK_open */
     res= mysql_rm_table(thd, first_table, lex->drop_if_exists,
 			lex->drop_temporary);
+      end_DDL();
   }
   break;
   case SQLCOM_SHOW_PROCESSLIST:
@@ -3069,8 +3099,10 @@ end_with_restore_list:
     if (check_access(thd,CREATE_ACL,lex->name.str, 0, 1, 0,
                      is_schema_db(lex->name.str)))
       break;
+    check_DDL_blocker(thd);
     res= mysql_create_db(thd,(lower_case_table_names == 2 ? alias :
                               lex->name.str), &create_info, 0);
+    end_DDL();
     break;
   }
   case SQLCOM_DROP_DB:
@@ -3110,7 +3142,9 @@ end_with_restore_list:
                  ER(ER_LOCK_OR_ACTIVE_TRANSACTION), MYF(0));
       goto error;
     }
+    check_DDL_blocker(thd);
     res= mysql_rm_db(thd, lex->name.str, lex->drop_if_exists, 0);
+    end_DDL();
     break;
   }
   case SQLCOM_ALTER_DB_UPGRADE:
@@ -3151,7 +3185,9 @@ end_with_restore_list:
       goto error;
     }
 
+    check_DDL_blocker(thd);
     res= mysql_upgrade_db(thd, db);
+    end_DDL();
     if (!res)
       send_ok(thd);
     break;
@@ -3189,7 +3225,9 @@ end_with_restore_list:
                  ER(ER_LOCK_OR_ACTIVE_TRANSACTION), MYF(0));
       goto error;
     }
+    check_DDL_blocker(thd);
     res= mysql_alter_db(thd, db->str, &create_info);
+    end_DDL();
     break;
   }
   case SQLCOM_SHOW_CREATE_DB:

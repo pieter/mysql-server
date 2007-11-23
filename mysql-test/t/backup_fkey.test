@@ -1,0 +1,138 @@
+#
+# This test includes tests for disabling foreign key constraints during backup.
+#
+# There are two scenarios that should be tested:
+#
+# 1) Test to ensure a restore can successfully restore tables that have
+#    foreign key constraint.
+# 2) Test to ensure that the status of the foreign key constraints system
+#    variable "foreign_key_checks" is not affected by the restore.
+#
+
+--source include/have_innodb.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS backup_fkey;
+--enable_warnings
+
+CREATE DATABASE backup_fkey;
+
+#
+# Test 1 - Test restore of database with foreign key constraints.
+#
+--echo Test 1:
+--echo Create tables and add data.
+CREATE TABLE backup_fkey.parent (id INT NOT NULL, PRIMARY KEY (id)) ENGINE=INNODB;
+CREATE TABLE backup_fkey.child (id INT, parent_id INT, INDEX par_ind (parent_id),
+                                FOREIGN KEY (parent_id) REFERENCES parent(id)
+                                ON DELETE CASCADE) ENGINE=INNODB;
+
+# Create some data.
+--echo Turn on foreign key constraints.
+SET foreign_key_checks = 1;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+
+INSERT INTO backup_fkey.parent VALUES (1);
+INSERT INTO backup_fkey.parent VALUES (2);
+INSERT INTO backup_fkey.parent VALUES (3);
+INSERT INTO backup_fkey.parent VALUES (4);
+INSERT INTO backup_fkey.parent VALUES (5);
+
+INSERT INTO backup_fkey.child VALUES (1, 1);
+INSERT INTO backup_fkey.child VALUES (2, 5);
+INSERT INTO backup_fkey.child VALUES (2, 4);
+INSERT INTO backup_fkey.child VALUES (3, 2);
+
+# Show that foreign key constraints are enforced.
+--error 1452
+INSERT INTO backup_fkey.child VALUES (4, 6);
+
+# Backup the database with fkey constraints preserved.
+--echo Backup the database originally.
+BACKUP DATABASE backup_fkey TO 'backup_fkey_orig.bak';
+
+# Turn off foreign key constraints to create a backup that has
+# fkey violations (for testing of course).
+--echo Turn off foreign key constraints.
+SET foreign_key_checks = 0;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+
+# Drop the parent table
+--echo Drop the parent table.
+DROP TABLE backup_fkey.parent;
+
+# Backup only the child table.
+--echo Backup the database without the parent table.
+BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
+
+--echo Turn on foreign key constraints.
+SET foreign_key_checks = 1;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+
+# Restore the database and ensure there are no errors.
+--echo Now restore the database.
+RESTORE FROM 'backup_fkey.bak';
+
+# Now restore the original files to show there are no problems
+# restoring valid fkey relationships.
+RESTORE FROM 'backup_fkey_orig.bak';
+
+--echo Show data
+SELECT * FROM backup_fkey.parent;
+SELECT * FROM backup_fkey.child;
+
+DROP TABLE backup_fkey.child, backup_fkey.parent;
+
+#
+# Test 2 - Test restore of database to ensure foreign key constraints
+#          variable is not changed.
+#
+--echo Test 2:
+--echo Create table and add data.
+CREATE TABLE backup_fkey.t1 (a char(40));
+
+INSERT INTO backup_fkey.t1 VALUES ("01 Test #2 - foreign key constraints"); 
+INSERT INTO backup_fkey.t1 VALUES ("02 Test #2 - foreign key constraints"); 
+INSERT INTO backup_fkey.t1 VALUES ("03 Test #2 - foreign key constraints"); 
+INSERT INTO backup_fkey.t1 VALUES ("04 Test #2 - foreign key constraints"); 
+INSERT INTO backup_fkey.t1 VALUES ("05 Test #2 - foreign key constraints"); 
+INSERT INTO backup_fkey.t1 VALUES ("06 Test #2 - foreign key constraints"); 
+INSERT INTO backup_fkey.t1 VALUES ("07 Test #2 - foreign key constraints"); 
+
+--echo Backup the data
+BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
+
+# Turn ON foreign key constraints and do restore then check result.
+--echo Turn on foreign key constraints.
+SET foreign_key_checks = 1;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+
+--echo Restoring data
+RESTORE FROM 'backup_fkey.bak';
+
+--echo Verify foreign_key_checks = ON
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+
+--echo Turn off foreign key constraints.
+SET foreign_key_checks = 0;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+
+--echo Restoring data
+RESTORE FROM 'backup_fkey.bak';
+
+--echo Verify foreign_key_checks = OFF
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+
+SELECT * FROM backup_fkey.t1;
+
+--echo Turn on foreign key constraints.
+SET foreign_key_checks = 1;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+
+--echo Cleanup
+
+DROP DATABASE backup_fkey;
+
+remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey.bak;
+remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey_orig.bak;
+

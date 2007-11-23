@@ -86,12 +86,12 @@ Synchronize::~Synchronize()
 
 void Synchronize::sleep()
 {
-	sleeping = true;
 #ifdef _WIN32
 #ifdef _DEBUG
 
 	for (;;)
 		{
+		sleeping = true;
 		int n = WaitForSingleObject (event, 10000);
 		sleeping = false;
 		

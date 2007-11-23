@@ -460,8 +460,12 @@ int StorageHandler::createTablespace(const char* tableSpaceName, const char* fil
 		}
 	catch (SQLException& exception)
 		{
-		if (exception.getSqlcode() == DDL_TABLESPACE_EXIST_ERROR)
+		if (exception.getSqlcode() == TABLESPACE_EXIST_ERROR)
 			return StorageErrorTableSpaceExist;
+			
+		if (exception.getSqlcode() == TABLESPACE_NOT_EXIST_ERROR)
+			return StorageErrorTableSpaceNotExist;
+			
 		return StorageErrorTablesSpaceOperationFailed;
 		}
 	
@@ -493,8 +497,16 @@ int StorageHandler::deleteTablespace(const char* tableSpaceName)
 		statement->executeUpdate(gen.getString());
 		statement->close();
 		}
-	catch (SQLException&)
+	catch (SQLException& exception)
 		{
+		int sqlCode = exception.getSqlcode();
+		
+		if (sqlCode == TABLESPACE_NOT_EXIST_ERROR)
+			return StorageErrorTableSpaceNotExist;
+			
+		if (sqlCode == TABLESPACE_NOT_EMPTY)
+			return StorageErrorTableNotEmpty;
+			
 		return StorageErrorTablesSpaceOperationFailed;
 		}
 	

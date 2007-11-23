@@ -51,6 +51,7 @@ public:
 
 #ifdef HAVE_PAGE_NUMBER
 	int32	pageNumber;
+	int32	pageUnused;
 #endif
 
 };

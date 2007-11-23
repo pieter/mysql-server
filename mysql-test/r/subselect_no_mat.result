@@ -4264,6 +4264,7 @@ subcase	pred_in	pred_not_in
 B.4	0	1
 
 Test IN as top-level predicate, and
+as non-top level for cases A.3, B.3 (the only cases with NULL result).
 
 case A.1
 select case when count(*) > 0 then 'T' else 'F' end as pred_in from t_out

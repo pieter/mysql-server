@@ -43,3 +43,5 @@ falcon_bug_30480_B  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_page_size_1  : Bug#23220 2007-02-19 hakank Currently failing
 falcon_page_size_2  : Bug#23220 2007-02-19 hakank Currently failing
 read_many_rows_falcon : Bug#23783 2006-10-30 ML Get pushbuild green
+ps_8falcon	    : Bug #32683  	Test ps_8falcon fails in 6.0
+

@@ -21,3 +21,4 @@ rpl_locktrans_innodb : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock t
 ndb_dd_restore_compat : Bug#29940 2007-07-20 ndb_dd_restore_compat fails on 5.2
 subselect2 : BUG#31464 SergeyP will fix
 log_tables : BUG#31580 1007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
+rpl_row_sp002_innodb  : Bug#32673 rpl_row_sp002_innodb.test fails randomly

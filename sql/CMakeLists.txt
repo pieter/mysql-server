@@ -76,6 +76,7 @@ ADD_EXECUTABLE(mysqld
                partition_info.cc rpl_utility.cc rpl_injector.cc sql_locale.cc
                rpl_rli.cc rpl_mi.cc sql_servers.cc
                sql_connect.cc scheduler.cc 
+               ddl_blocker.cc
                ${PROJECT_SOURCE_DIR}/sql/sql_yacc.cc
                ${PROJECT_SOURCE_DIR}/sql/sql_yacc.h
                ${PROJECT_SOURCE_DIR}/include/mysqld_error.h

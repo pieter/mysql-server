@@ -36,12 +36,3 @@ Page::~Page()
 }
 ***/
 
-
-void Page::setType(short type, int32 page)
-{
-	pageType = type;
-
-#ifdef HAVE_PAGE_NUMBER
-	pageNumber = page;
-#endif
-}

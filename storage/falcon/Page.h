@@ -44,8 +44,6 @@ class Dbb;
 class Page  
 {
 public:
-	void setType(short pageType, int32 pageNumber);
-
 	short	pageType;
 	short	checksum;
 

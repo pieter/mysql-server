@@ -344,7 +344,7 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 	bdb->mark(transId);
 	memset(bdb->buffer, 0, pageSize);
 	Page *page = bdb->buffer;
-	page->setType(type, pageNumber);
+	bdb->setPageHeader(type);
 	moveToHead(bdb);
 
 	return bdb;

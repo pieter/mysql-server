@@ -570,7 +570,7 @@ void Dbb::freePage(Bdb * bdb, TransId transId)
 #endif
 
 	//bdb->buffer->pageType = PAGE_free;
-	bdb->buffer->setType(PAGE_free, pageNumber);
+	bdb->setPageHeader(PAGE_free);
 	cache->markClean(bdb);
 	bdb->release(REL_HISTORY);
 
@@ -829,7 +829,7 @@ int64 Dbb::updateSequence(int sequenceId, int64 delta, TransId transId)
 		
 		if (page->pageType == PAGE_sections)
 			//page->pageType = PAGE_sequences;
-			page->setType(PAGE_sequences, bdb->pageNumber);
+			bdb->setPageHeader(PAGE_sequences);
 			
 		value = page->sequences [slot] += delta;
 		}
@@ -1310,7 +1310,7 @@ void Dbb::upgradeSequenceSection(void)
 		memcpy(sequenceBdb->buffer, bdb->buffer, pageSize);
 		memset(sectionPage, 0, pageSize);
 		//sectionPage->pageType = PAGE_sections;
-		sectionPage->setType(PAGE_sections, sequenceBdb->pageNumber);
+		sequenceBdb->setPageHeader(PAGE_sections);
 		sectionPage->section = sequenceSectionId;
 		sectionPage->pages[0] = sequenceBdb->pageNumber;
 		sequenceBdb->release(REL_HISTORY);

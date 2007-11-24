@@ -4,7 +4,7 @@
   Header file for DDL blocker code.
  */
 #include "mysql_priv.h"
-#include "debug.h"
+#include "backup/debug.h"
 
 /*
   Mutexes and condition variables -- see mysqld.cc.

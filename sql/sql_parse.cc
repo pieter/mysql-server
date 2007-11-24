@@ -27,8 +27,7 @@
 #include "sp_cache.h"
 #include "events.h"
 #include "sql_trigger.h"
-#include "debug.h"
-#include "ddl_blocker.h"
+#include <ddl_blocker.h>
 #include "backup/debug.h"
 
 /**

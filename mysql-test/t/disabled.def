@@ -23,3 +23,4 @@ subselect2 : BUG#31464 SergeyP will fix
 log_tables : BUG#31580 1007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
 rpl_row_sp002_innodb  : Bug#32673 rpl_row_sp002_innodb.test fails randomly
 index_merge_falcon    : Bug#32696 index_merge_falcon.test fails
+falcon_bug_26433      : Bug#32697 falcon_bug_26433.test fails randomly

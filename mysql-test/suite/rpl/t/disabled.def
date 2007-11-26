@@ -16,3 +16,5 @@ rpl_auto_increment_11932   : Bug#29809 2007-07-16 ingo Slave SQL errors in warni
                              file
 rpl_extraColmaster_innodb  : BUG#30854 : Tables name show as binary in slave err msg on                             vm-win2003-64-b and Solaris
 rpl_extraColmaster_myisam  : BUG#30854
+rpl_view                   : Bug#32654: rpl_view.test fails randomly
+rpl_ndb_multi              : Bug#30751: rpl_ndb_multi missing row in output

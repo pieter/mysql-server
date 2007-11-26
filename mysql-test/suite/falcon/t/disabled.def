@@ -45,3 +45,4 @@ falcon_page_size_2  : Bug#23220 2007-02-19 hakank Currently failing
 read_many_rows_falcon : Bug#23783 2006-10-30 ML Get pushbuild green
 index_merge_falcon    : Bug#32696 index_merge_falcon.test fails
 falcon_bug_26433      : Bug#32697 falcon_bug_26433.test fails randomly
+falcon_ts             : Bug#32621 falcon_ts.test fails

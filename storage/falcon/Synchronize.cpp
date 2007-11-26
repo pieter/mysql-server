@@ -107,17 +107,18 @@ void Synchronize::sleep()
 #endif
 
 #ifdef _PTHREADS
+	sleeping = true;
 	int ret = pthread_mutex_lock (&mutex);
 	CHECK_RET ("pthread_mutex_lock failed, errno %d", errno);
 
 	while (!wakeup)
 		pthread_cond_wait (&condition, &mutex);
 
+	sleeping = false;
 	wakeup = false;
 	ret = pthread_mutex_unlock (&mutex);
 	CHECK_RET ("pthread_mutex_unlock failed, errno %d", errno);
 #endif
-	sleeping = false;
 
 	DEBUG_FREEZE;
 }

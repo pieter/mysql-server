@@ -129,7 +129,9 @@ public:
 	static int		closeConnection(handlerton *, THD *thd);
 	static void		logger(int mask, const char *text, void *arg);
 	static int		panic(handlerton* hton, ha_panic_function flag);
-	//static bool		show_status(handlerton* hton, THD* thd, stat_print_fn* print, enum ha_stat_type stat);
+	//static bool	show_status(handlerton* hton, THD* thd, stat_print_fn* print, enum ha_stat_type stat);
+	static int		getMySqlError(int storageError);
+	
 #if 0
 	static uint		alter_table_flags(uint flags);
 #endif

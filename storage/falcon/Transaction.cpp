@@ -527,12 +527,10 @@ void Transaction::chillRecords()
 
 int Transaction::thaw(RecordVersion * record)
 {
-	int bytesRestored;
-
 	// Nothing to do if record is no longer chilled
 	
 	if (record->state != recChilled)
-		return(record->size);
+		return record->size;
 		
 	// Get pointer to record data in serial log
 
@@ -541,9 +539,10 @@ int Transaction::thaw(RecordVersion * record)
 	// Thaw the record then update the total record data bytes for this transaction
 	
 	ASSERT(record->transactionId == transactionId);
-	bytesRestored = control.updateRecords.thaw(record);
+	bool thawed;
+	int bytesRestored = control.updateRecords.thaw(record, &thawed);
 	
-	if (bytesRestored > 0)
+	if (bytesRestored > 0 && thawed)
 		{
 		totalRecordData += bytesRestored;
 		thawedRecords++;
@@ -561,7 +560,7 @@ int Transaction::thaw(RecordVersion * record)
 		debugThawedBytes = 0;
 		}
 	
-	return (bytesRestored);
+	return bytesRestored;
 }
 
 void Transaction::thaw(DeferredIndex * deferredIndex)

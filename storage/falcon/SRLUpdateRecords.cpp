@@ -54,8 +54,10 @@ void SRLUpdateRecords::chill(Transaction *transaction, RecordVersion *record, ui
 		transaction->totalRecordData -= dataLength;
 }
 
-int SRLUpdateRecords::thaw(RecordVersion *record)
+int SRLUpdateRecords::thaw(RecordVersion *record, bool *thawed)
 {
+	*thawed = false;
+	
 	// Nothing to do if record is no longer chilled
 	
 	if (record->state != recChilled)
@@ -104,6 +106,8 @@ int SRLUpdateRecords::thaw(RecordVersion *record)
 		log->chilledBytes -= bytesReallocated;
 	else
 		log->chilledBytes = 0;
+	
+	*thawed = true;
 	
 	return bytesReallocated;
 }

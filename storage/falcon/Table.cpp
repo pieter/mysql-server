@@ -640,6 +640,13 @@ Record* Table::databaseFetch(int32 recordNumber)
 						recordNumber, (const char*) schemaName, (const char*) name,
 						exception.getText());
 
+		switch (exception.getSqlcode())
+			{
+			case OUT_OF_MEMORY_ERROR:
+			case OUT_OF_RECORD_MEMORY_ERROR:
+				throw;
+			}
+		
 		return NULL;
 		}
 
@@ -1483,7 +1490,7 @@ void Table::truncate(Transaction *transaction)
 
 	// Update system.tables with new section ids
 	
-	PreparedStatement *statement = database->prepareStatement("update Tables set dataSection=?, blobSection=? where tableId=?");
+	PreparedStatement *statement = database->prepareStatement("update system.tables set dataSection=?, blobSection=? where tableId=?");
 	statement->setInt(1, dataSectionId);
 	statement->setInt(2, blobSectionId);
 	statement->setInt(3, tableId);
@@ -1677,6 +1684,9 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 	Sync sync(&syncObject, "Table::retireRecords");
 	sync.lock(Shared);
 
+	if (!records)
+		return 0;
+	
 	activeVersions = false;
 	emptySections->clear();
 	int count = records->retireRecords(this, 0, recordScavenge);

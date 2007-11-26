@@ -754,7 +754,7 @@ void Index2RootPage::redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPage,
 		 indexPage->level == level)
 		{
 		memset(indexPage, 0, dbb->pageSize);
-		indexPage->setType(PAGE_btree, bdb->pageNumber);
+		bdb->setPageHeader(PAGE_btree);
 		//indexPage->pageType = PAGE_btree;
 		}
 

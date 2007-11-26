@@ -526,6 +526,7 @@ bool IndexRootPage::splitIndexPage(Dbb * dbb, int32 indexId, Bdb * bdb, TransId 
 		BDB_HISTORY(leftBdb);
 		IndexPage *leftPage = (IndexPage*) leftBdb->buffer;
 		memcpy(leftPage, page, page->length);
+		leftBdb->setPageHeader(leftPage->pageType);
 //		leftPage->pageNumber = leftBdb->pageNumber;
 		splitPage->priorPage = leftBdb->pageNumber;
 		
@@ -796,7 +797,7 @@ void IndexRootPage::redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPage, 
 		{
 		memset(indexPage, 0, dbb->pageSize);
 		//indexPage->pageType = PAGE_btree;
-		indexPage->setType(PAGE_btree, bdb->pageNumber);
+		bdb->setPageHeader(PAGE_btree);
 		}
 
 	indexPage->level = level;

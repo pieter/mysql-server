@@ -233,10 +233,10 @@ void MemMgrSetMaxRecordMember (long long size)
 	{
 	if (!recordManager.memControl)
 		{
-		memControl.setMaxSize(size);
 		memControl.addPool(&recordManager);
 		//memControl.addPool(&recordObjectManager);
 		}
+	memControl.setMaxSize(size);
 	}
 
 MemMgr*	MemMgrGetFixedPool (int id)

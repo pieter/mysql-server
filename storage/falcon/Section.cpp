@@ -221,9 +221,10 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 
 			SectionPage *newPage = (SectionPage*) newBdb->buffer;
 			memcpy(newPage, page, dbb->pageSize);
+			newBdb->setPageHeader(newPage->pageType);
 			memset(page, 0, dbb->pageSize);
 			//page->pageType = PAGE_sections;
-			page->setType(PAGE_sections, newBdb->pageNumber);
+			bdb->setPageHeader(PAGE_sections);
 			page->section = newPage->section;
 			page->level = newPage->level + 1;
 			page->pages[0] = newBdb->pageNumber;
@@ -1210,7 +1211,7 @@ void Section::redoSectionPage(Dbb *dbb, int32 parentPage, int32 pageNumber, int 
 			{
 			memset(sectionPage, 0, dbb->pageSize);
 			//sectionPage->pageType = PAGE_sections;
-			sectionPage->setType(PAGE_sections, sectionBdb->pageNumber);
+			sectionBdb->setPageHeader(PAGE_sections);
 			sectionPage->section = sectionId;
 			sectionPage->sequence = sequence;
 			sectionPage->level = level;
@@ -1278,7 +1279,7 @@ void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostF
 			BDB_HISTORY(locatorBdb);
 			RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
 			//locatorPage->pageType = PAGE_record_locator;
-			locatorPage->setType(PAGE_record_locator, locatorBdb->pageNumber);
+			locatorBdb->setPageHeader(PAGE_record_locator);
 			locatorPage->section = sectionId;
 			locatorPage->sequence = sequence;
 			locatorPage->maxLine = 0;
@@ -1318,7 +1319,7 @@ void Section::redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber
 	rootBdb->mark(NO_TRANSACTION);
 	memset(page, 0, dbb->pageSize);
 	//page->pageType = PAGE_sections;
-	page->setType(PAGE_sections, rootBdb->pageNumber);
+	rootBdb->setPageHeader(PAGE_sections);
 	page->section = newPage->section;
 	page->level = newPage->level + 1;
 	page->pages[0] = newPageNumber;

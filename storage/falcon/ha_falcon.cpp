@@ -82,7 +82,7 @@ FILE					*falcon_log_file;
 
 int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
 						                       TRANSACTION_READ_COMMITTED,
-						                       TRANSACTION_WRITE_COMMITTED, // TRANSACTION_CONSISTENT_READ;	// This is repeatable read
+						                       TRANSACTION_CONSISTENT_READ, // TRANSACTION_WRITE_COMMITTED, // This is repeatable read
 						                       TRANSACTION_SERIALIZABLE};
 
 static struct st_mysql_show_var falconStatus[]=
@@ -874,7 +874,6 @@ int StorageInterface::delete_all_rows()
 
 	int ret = 0;
 	struct st_table_share *tableShare = table_share;
-	struct st_table *tableObj = table;
 	const char *tableName = tableShare->normalized_path.str;
 	
 	if (!storageShare)
@@ -1570,90 +1569,118 @@ int StorageInterface::error(int storageError)
 		DBUG_RETURN(0);
 		}
 
+	int mySqlError = getMySqlError(storageError);
+	
 	switch (storageError)
 		{
-		case StorageErrorDupKey:
-			DBUG_PRINT("info", ("StorageErrorDupKey"));
-			DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
-
-		case StorageErrorDeadlock:
-			DBUG_PRINT("info", ("StorageErrorDeadlock"));
-			DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
-
-		case StorageErrorLockTimeout:
-			DBUG_PRINT("info", ("StorageErrorLockTimeout"));
-			DBUG_RETURN(HA_ERR_LOCK_WAIT_TIMEOUT);
-
-		case StorageErrorRecordNotFound:
-			DBUG_PRINT("info", ("StorageErrorRecordNotFound"));
-			DBUG_RETURN(HA_ERR_KEY_NOT_FOUND);
-
-		case StorageErrorTableNotFound:
-			DBUG_PRINT("info", ("StorageErrorTableNotFound"));
-			DBUG_RETURN(HA_ERR_NO_SUCH_TABLE);
-
-		case StorageErrorNoIndex:
-			DBUG_PRINT("info", ("StorageErrorNoIndex"));
-			DBUG_RETURN(HA_ERR_WRONG_INDEX);
-
-		case StorageErrorBadKey:
-			DBUG_PRINT("info", ("StorageErrorBadKey"));
-			DBUG_RETURN(HA_ERR_WRONG_INDEX);
-
-		case StorageErrorTableExits:
-			DBUG_PRINT("info", ("StorageErrorTableExits"));
-			DBUG_RETURN(HA_ERR_TABLE_EXIST);
-
-		case StorageErrorUpdateConflict:
-			DBUG_PRINT("info", ("StorageErrorUpdateConflict"));
-			DBUG_RETURN(HA_ERR_RECORD_CHANGED);
-
-		case StorageErrorUncommittedUpdates:
-			DBUG_PRINT("info", ("StorageErrorUncommittedUpdates"));
-			DBUG_RETURN(HA_ERR_TABLE_EXIST);
-
-		case StorageErrorUncommittedRecords:
-			DBUG_PRINT("info", ("StorageErrorUncommittedRecords"));
-			DBUG_RETURN(200 - storageError);
-
 		case StorageErrorNoSequence:
-			DBUG_PRINT("info", ("StorageErrorNoSequence"));
-
 			if (storageConnection)
 				storageConnection->setErrorText("no sequenced defined for autoincrement operation");
 
-			DBUG_RETURN(200 - storageError);
-
-		case StorageErrorTruncation:
-			DBUG_PRINT("info", ("StorageErrorTruncation"));
-			DBUG_RETURN(HA_ERR_TO_BIG_ROW);
+			break;
 
 		case StorageWarningSerializable:
 			push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_WARN,
 			                    ER_CANT_CHANGE_TX_ISOLATION,
 			                    "Falcon does not support SERIALIZABLE ISOLATION, using REPEATABLE READ instead.");
-			DBUG_RETURN(0);
+			break;
 
 		case StorageWarningReadUncommitted:
 			push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_WARN,
 			                    ER_CANT_CHANGE_TX_ISOLATION,
 			                    "Falcon does not support READ UNCOMMITTED ISOLATION, using REPEATABLE READ instead.");
-			DBUG_RETURN(0);
+			break;
+
+		default:
+			;
+		}
+
+	DBUG_RETURN(mySqlError);
+}
+
+
+int StorageInterface::getMySqlError(int storageError)
+{
+	switch (storageError)
+		{
+		case 0:
+			return 0;
+			
+		case StorageErrorDupKey:
+			DBUG_PRINT("info", ("StorageErrorDupKey"));
+			return (HA_ERR_FOUND_DUPP_KEY);
+
+		case StorageErrorDeadlock:
+			DBUG_PRINT("info", ("StorageErrorDeadlock"));
+			return (HA_ERR_LOCK_DEADLOCK);
+
+		case StorageErrorLockTimeout:
+			DBUG_PRINT("info", ("StorageErrorLockTimeout"));
+			return (HA_ERR_LOCK_WAIT_TIMEOUT);
+
+		case StorageErrorRecordNotFound:
+			DBUG_PRINT("info", ("StorageErrorRecordNotFound"));
+			return (HA_ERR_KEY_NOT_FOUND);
+
+		case StorageErrorTableNotFound:
+			DBUG_PRINT("info", ("StorageErrorTableNotFound"));
+			return (HA_ERR_NO_SUCH_TABLE);
+
+		case StorageErrorNoIndex:
+			DBUG_PRINT("info", ("StorageErrorNoIndex"));
+			return (HA_ERR_WRONG_INDEX);
+
+		case StorageErrorBadKey:
+			DBUG_PRINT("info", ("StorageErrorBadKey"));
+			return (HA_ERR_WRONG_INDEX);
+
+		case StorageErrorTableExits:
+			DBUG_PRINT("info", ("StorageErrorTableExits"));
+			return (HA_ERR_TABLE_EXIST);
+
+		case StorageErrorUpdateConflict:
+			DBUG_PRINT("info", ("StorageErrorUpdateConflict"));
+			return (HA_ERR_RECORD_CHANGED);
+
+		case StorageErrorUncommittedUpdates:
+			DBUG_PRINT("info", ("StorageErrorUncommittedUpdates"));
+			return (HA_ERR_TABLE_EXIST);
+
+		case StorageErrorUncommittedRecords:
+			DBUG_PRINT("info", ("StorageErrorUncommittedRecords"));
+			return (200 - storageError);
+
+		case StorageErrorNoSequence:
+			DBUG_PRINT("info", ("StorageErrorNoSequence"));
+			return (200 - storageError);
+
+		case StorageErrorTruncation:
+			DBUG_PRINT("info", ("StorageErrorTruncation"));
+			return (HA_ERR_TO_BIG_ROW);
+			
+		case StorageErrorTableSpaceNotExist:
+		case StorageErrorTableSpaceExist:
+			DBUG_PRINT("info", ("StorageErrorTableSpaceExist"));
+			return (HA_ERR_TABLESPACE_EXIST);
+
+		case StorageWarningSerializable:
+			return (0);
+
+		case StorageWarningReadUncommitted:
+			return (0);
 
 		case StorageErrorOutOfMemory:
 			DBUG_PRINT("info", ("StorageErrorOutOfMemory"));
-			DBUG_RETURN(HA_ERR_OUT_OF_MEM);
+			return (HA_ERR_OUT_OF_MEM);
 
 		case StorageErrorOutOfRecordMemory:
 			DBUG_PRINT("info", ("StorageErrorOutOfRecordMemory"));
-			DBUG_RETURN(200 - storageError);
+			return (200 - storageError);
 
 		default:
 			DBUG_PRINT("info", ("Unknown Falcon Error"));
-			DBUG_RETURN(200 - storageError);
+			return (200 - storageError);
 		}
-
-	DBUG_RETURN(storageError);
 }
 
 int StorageInterface::start_stmt(THD *thd, thr_lock_type lock_type)
@@ -1829,19 +1856,20 @@ int StorageInterface::alter_tablespace(handlerton* hton, THD* thd, st_alter_tabl
 		{
 		case CREATE_TABLESPACE:
 			ret = storageHandler->createTablespace(ts_info->tablespace_name, ts_info->data_file_name);
-			if (ret == StorageErrorTableSpaceExist)
-				ret = HA_ERR_TABLESPACE_EXIST;
 			break;
 
 		case DROP_TABLESPACE:
 			ret = storageHandler->deleteTablespace(ts_info->tablespace_name);
+			
+			if (ret == StorageErrorTableSpaceNotExist)
+				ret = 0;
 			break;
 
 		default:
 			DBUG_RETURN(HA_ADMIN_NOT_IMPLEMENTED);
 		}
 
-	DBUG_RETURN(ret);
+	DBUG_RETURN(getMySqlError(ret));
 }
 
 uint StorageInterface::max_supported_key_length(void) const

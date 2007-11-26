@@ -260,6 +260,16 @@ void TableSpaceManager::dropTableSpace(TableSpace* tableSpace)
 	database->serialLog->logControl->dropTableSpace.append(tableSpace, transaction);
 	syncSystem.unlock();
 	database->commitSystemTransaction();
+	int slot = tableSpace->name.hash(TS_HASH_SIZE);
+
+	for (TableSpace **ptr = nameHash + slot; *ptr; ptr = &(*ptr)->nameCollision)
+		if (*ptr == tableSpace)
+			{
+			*ptr = tableSpace->nameCollision;
+			
+			break;
+			}
+			
 	sync.unlock();
 	tableSpace->active = false;
 }

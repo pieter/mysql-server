@@ -75,6 +75,7 @@ public:
 	void	addRef(LockType lType);
 	void	release();
 	void	mark(TransId transId);
+	void	setPageHeader(short type);
 	Bdb();
 	~Bdb();
 #ifdef COLLECT_BDB_HISTORY

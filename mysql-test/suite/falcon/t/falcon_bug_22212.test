@@ -1,3 +1,8 @@
+--source include/have_falcon.inc
+# Can't test this with embedded server
+--source include/not_embedded.inc
+#--disable_abort_on_error
+
 # Concurrent UPDATE test
 #
 # Note: 1. The "--real_sleep 1" are not needed for the test logics itself.
@@ -12,23 +17,23 @@
 
 --echo #---- Bug #22212 (Mantis #264) ----
 
---source include/have_falcon.inc
-let $engine = Falcon;
-
-# Can't test this with embedded server
---source include/not_embedded.inc
+SET @@storage_engine = Falcon;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
 
 --echo # Initialization
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 --enable_warnings
-eval CREATE TABLE t1 (id INTEGER, x CHAR(20)) ENGINE=$engine;
+
+eval CREATE TABLE t1 (id INTEGER, x CHAR(20)) ENGINE=Falcon;
 INSERT INTO t1 VALUES(0, 'Initialized');
 COMMIT;
 
 --echo # Establish connection con1 (user=root)
 connect (con1,localhost,root,,);
 SET AUTOCOMMIT = 0;
+
 --echo # Establish connection con2 (user=root)
 connect (con2,localhost,root,,);
 SET AUTOCOMMIT = 0;
@@ -64,6 +69,7 @@ connection con2;
 --echo # If there is nothing printed before the next statement (COMMIT)
 --echo # appears the outcome was success.
 --disable_abort_on_error
+--error 1020
 reap;
 --enable_abort_on_error
 COMMIT;

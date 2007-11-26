@@ -21,3 +21,4 @@ ndb_single_user           : Bug#29824 2007-07-16 ingo Can't create table 'test.t
 ndb_backup_print          : Bug#32357: ndb_backup_print test fails sometimes in pushbuild
 ndb_dd_backuprestore      : Bug#32659 ndb_dd_backuprestore.test fails randomly
 ndb_dd_restore_compat     : Bug#29940 2007-07-20 ndb_dd_restore_compat fails on 5.2
+ndb_binlog_format         : Bug#32733 ndb_binlog_format.test fails randomly

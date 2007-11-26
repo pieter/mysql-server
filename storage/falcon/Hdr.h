@@ -62,6 +62,7 @@ public:
 	UCHAR		defaultIndexVersionNumber;
 	UCHAR		sequenceSectionFixed;
 	int32		tableSpaceSectionId;
+	uint32		serialLogBlockSize;
 };
 
 class HdrV2 : public Page  

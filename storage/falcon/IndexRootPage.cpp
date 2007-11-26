@@ -19,6 +19,7 @@
 
 #include <memory.h>
 #include <stdio.h>
+#include <string.h>
 #include "Engine.h"
 #include "IndexRootPage.h"
 #include "IndexPage.h"
@@ -794,7 +795,8 @@ void IndexRootPage::redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPage, 
 		 indexPage->level == level)
 		{
 		memset(indexPage, 0, dbb->pageSize);
-		indexPage->pageType = PAGE_btree;
+		//indexPage->pageType = PAGE_btree;
+		indexPage->setType(PAGE_btree, bdb->pageNumber);
 		}
 
 	indexPage->level = level;
@@ -1110,7 +1112,6 @@ void IndexRootPage::redoCreateIndex(Dbb* dbb, int indexId)
 Bdb* IndexRootPage::createIndexRoot(Dbb* dbb, TransId transId)
 {
 	Bdb *bdb = IndexPage::createNewLevel(dbb, 0, INDEX_CURRENT_VERSION, transId);
-	//BDB_HISTORY(bdb);
 
 	return bdb;
 }

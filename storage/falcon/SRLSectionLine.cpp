@@ -47,20 +47,22 @@ void SRLSectionLine::read(void)
 	
 	pageNumber = getInt();
 	dataPageNumber = getInt();
-	
-	if (pageNumber == log->tracePage || dataPageNumber == log->tracePage)
-		print();
 }
 
 void SRLSectionLine::pass1(void)
 {
+	if (pageNumber == log->tracePage || dataPageNumber == log->tracePage)
+		print();
+		
 	log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
 	log->bumpPageIncarnation(dataPageNumber, tableSpaceId, objInUse);
 }
 
 void SRLSectionLine::pass2(void)
 {
-	// bool dataPageActive =
+	if (pageNumber == log->tracePage || dataPageNumber == log->tracePage)
+		print();
+		
 	log->bumpPageIncarnation(dataPageNumber, tableSpaceId, objInUse);
 
 	if (log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse))
@@ -70,6 +72,9 @@ void SRLSectionLine::pass2(void)
 
 void SRLSectionLine::redo(void)
 {
+	if (pageNumber == log->tracePage || dataPageNumber == log->tracePage)
+		print();
+		
 	log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
 	log->bumpPageIncarnation(dataPageNumber, tableSpaceId, objInUse);
 }

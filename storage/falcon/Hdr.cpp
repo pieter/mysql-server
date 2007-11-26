@@ -18,6 +18,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include <memory.h>
+#include <string.h>
 #include "Engine.h"
 #include "Hdr.h"
 #include "BDB.h"

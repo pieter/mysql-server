@@ -94,8 +94,8 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 		case srlCheckpoint:
 			return &checkpoint;
 
-		case srlBlobUpdate:
-			return &blobUpdate;
+		case srlLargBlob:
+			return &largeBlob;
 
 		case srlDropTable:
 			return &dropTable;
@@ -109,7 +109,7 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 		case srlFreePage:
 			return &freePage;
 
-		case srlSectionIndex:
+		case srlRecordLocator:
 			return &recordLocator;
 
 		case srlDataPage:
@@ -162,6 +162,12 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 			
 		case srlBlobDelete:
 			return &blobDelete;
+			
+		case srlSession:
+			return &session;
+			
+		case srlSmallBlob:
+			return &smallBlob;
 			
 		default:
 			ASSERT(false);

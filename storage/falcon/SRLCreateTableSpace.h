@@ -34,20 +34,19 @@ public:
 	SRLCreateTableSpace();
 	virtual ~SRLCreateTableSpace();
 
-	virtual void redo();
-	virtual void commit();
-	virtual void pass2();
-	virtual void pass1();
-	virtual void read();
-	void append (TableSpace *tableSpace);
+	virtual void	redo();
+	virtual void	commit();
+	virtual void	pass2();
+	virtual void	pass1();
+	virtual void	read();
+	virtual void	print(void);
+	void			append (TableSpace *tableSpace);
 
 	const char	*name;
 	const char	*filename;
 	int			tableSpaceId;
 	int			nameLength;
 	int			filenameLength;
-
 };
-
 
 #endif // !defined(AFX_SRLCREATETABLESPACE_H__1D7C8978_EEA6_49B0_9A65_0BEFDDB9ABA8__INCLUDED_)

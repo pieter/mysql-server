@@ -81,6 +81,14 @@ int StorageTable::deleteTable(void)
 	return ret;
 }
 
+int StorageTable::truncateTable(void)
+{
+	clearRecord();
+	int ret = share->truncateTable(storageConnection);
+	
+	return ret;
+}
+
 int StorageTable::insert(void)
 {
 	try
@@ -123,63 +131,29 @@ int StorageTable::updateRow(int recordNumber)
 int StorageTable::next(int recordNumber, bool lockForUpdate)
 {
 	recordLocked = false;
+
 	int ret = storageDatabase->nextRow(this, recordNumber, lockForUpdate);
-	
-	/***
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-		
+
 	return ret;
 }
 
 int StorageTable::nextIndexed(int recordNumber, bool lockForUpdate)
 {
 	recordLocked = false;
+
 	int ret = storageDatabase->nextIndexed(this, bitmap, recordNumber, lockForUpdate);
 
-	/***	
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-	
 	return ret;
 }
 
 int StorageTable::fetch(int recordNumber, bool lockForUpdate)
 {
 	recordLocked = false;
+
 	int ret = storageDatabase->fetch(storageConnection, this, recordNumber, lockForUpdate);
 
-	/***	
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-		
 	return ret;
 }
-
-/***
-int StorageTable::lockRecord(void)
-{
-	try
-		{
-		if (storageDatabase->lockRecord(this, record))
-			recordLocked = true;
-		}
-	catch (SQLException& exception)
-		{
-		storageConnection->setErrorText(&exception);
-		
-		return StorageErrorUpdateConflict;
-		}
-	
-	return 0;
-}
-***/
 
 void StorageTable::transactionEnded(void)
 {
@@ -503,6 +477,10 @@ int StorageTable::translateError(SQLException *exception, int defaultStorageErro
 				errorCode = StorageErrorOutOfRecordMemory;
 				break;
 
+			case LOCK_TIMEOUT:
+				errorCode = StorageErrorLockTimeout;
+				break;
+
 			default:
 				errorCode = defaultStorageError;
 			}
@@ -567,4 +545,9 @@ int StorageTable::optimize(void)
 	share->table->optimize(storageConnection->connection);
 	
 	return 0;
+}
+
+void StorageTable::setLocalTable(StorageInterface* handler)
+{
+	localTable = handler;
 }

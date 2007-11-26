@@ -245,7 +245,7 @@ Thread* Thread::getThread(const char *desc)
 
 #ifdef _PTHREADS
 	if (!thread->threadId)
-		thread->threadId = (unsigned long) pthread_self();
+		thread->threadId = pthread_self();
 #endif
 
 	return thread;
@@ -336,7 +336,7 @@ void Thread::createThread(void (*fn)(void *), void *arg)
 	pthread_attr_t attributes;
 	pthread_attr_init(&attributes);
 	pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
-	int ret = pthread_create ((pthread_t *) &threadId, &attributes, thread, this);
+	int ret = pthread_create (&threadId, &attributes, thread, this);
 	pthread_attr_destroy(&attributes);
 	
 	if (ret)

@@ -1,11 +1,17 @@
 SHOW VARIABLES LIKE 'falcon_%';
 Variable_name	Value
 falcon_checkpoint_schedule	7 * * * * *
+falcon_consistent_read	ON
 falcon_debug_mask	0
 falcon_debug_server	OFF
-falcon_disable_fsync	OFF
+falcon_debug_trace	0
+falcon_direct_io	1
+falcon_gopher_threads	5
 falcon_index_chill_threshold	4
 falcon_initial_allocation	0
+falcon_io_threads	2
+falcon_large_blob_threshold	160000
+falcon_lock_timeout	0
 falcon_max_transaction_backlog	150
 falcon_page_cache_size	4194304
 falcon_page_size	4096
@@ -14,8 +20,11 @@ falcon_record_memory_max	262144000
 falcon_record_scavenge_floor	50
 falcon_record_scavenge_threshold	67
 falcon_scavenge_schedule	15,45 * * * * *
-falcon_serial_log_buffers	10
+falcon_serial_log_block_size	0
+falcon_serial_log_buffers	20
 falcon_serial_log_dir	
+falcon_serial_log_priority	1
+falcon_use_deferred_index_hash	OFF
 SELECT @@GLOBAL.falcon_debug_server;
 @@GLOBAL.falcon_debug_server
 0
@@ -38,7 +47,7 @@ SET GLOBAL falcon_page_size = 1K;
 ERROR HY000: Variable 'falcon_page_size' is a read only variable
 SELECT @@GLOBAL.falcon_serial_log_buffers;
 @@GLOBAL.falcon_serial_log_buffers
-10
+20
 SET GLOBAL falcon_serial_log_buffers = 100;
 ERROR HY000: Variable 'falcon_serial_log_buffers' is a read only variable
 SELECT @@GLOBAL.falcon_debug_mask;
@@ -66,11 +75,17 @@ SELECT * FROM INFORMATION_SCHEMA.global_variables
 WHERE variable_name LIKE 'falcon%';
 VARIABLE_NAME	VARIABLE_VALUE
 FALCON_CHECKPOINT_SCHEDULE	7 * * * * *
+FALCON_CONSISTENT_READ	ON
 FALCON_DEBUG_MASK	4096
 FALCON_DEBUG_SERVER	OFF
-FALCON_DISABLE_FSYNC	OFF
+FALCON_DEBUG_TRACE	0
+FALCON_DIRECT_IO	1
+FALCON_GOPHER_THREADS	5
 FALCON_INDEX_CHILL_THRESHOLD	4
 FALCON_INITIAL_ALLOCATION	0
+FALCON_IO_THREADS	2
+FALCON_LARGE_BLOB_THRESHOLD	160000
+FALCON_LOCK_TIMEOUT	0
 FALCON_MAX_TRANSACTION_BACKLOG	10001
 FALCON_PAGE_CACHE_SIZE	4194304
 FALCON_PAGE_SIZE	4096
@@ -79,5 +94,8 @@ FALCON_RECORD_MEMORY_MAX	1073741824
 FALCON_RECORD_SCAVENGE_FLOOR	50
 FALCON_RECORD_SCAVENGE_THRESHOLD	67
 FALCON_SCAVENGE_SCHEDULE	15,45 * * * * *
-FALCON_SERIAL_LOG_BUFFERS	10
+FALCON_SERIAL_LOG_BLOCK_SIZE	0
+FALCON_SERIAL_LOG_BUFFERS	20
 FALCON_SERIAL_LOG_DIR	
+FALCON_SERIAL_LOG_PRIORITY	1
+FALCON_USE_DEFERRED_INDEX_HASH	OFF

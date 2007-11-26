@@ -41,8 +41,26 @@ static const int TRANSACTION_NONE			  = 0;	// Transactions are not supported.
 static const int TRANSACTION_READ_UNCOMMITTED = 1;	// Dirty reads, non-repeatable reads and phantom reads can occur.
 static const int TRANSACTION_READ_COMMITTED   = 2;	// Dirty reads are prevented; non-repeatable reads and phantom reads can occur.
 static const int TRANSACTION_WRITE_COMMITTED  = 4;	// Dirty reads are prevented; non-repeatable reads happen after writes; phantom reads can occur.
-static const int TRANSACTION_REPEATABLE_READ  = 8;	// Dirty reads and non-repeatable reads are prevented; phantom reads can occur.   
+static const int TRANSACTION_CONSISTENT_READ  = 8;	// Dirty reads and non-repeatable reads are prevented; phantom reads can occur.   
 static const int TRANSACTION_SERIALIZABLE     = 16;	// Dirty reads, non-repeatable reads and phantom reads are prevented.
+
+#define IS_READ_UNCOMMITTED (_level) (_level == TRANSACTION_READ_UNCOMMITTED)
+#define IS_READ_COMMITTED(_level) (_level == TRANSACTION_READ_COMMITTED)
+#define IS_WRITE_COMMITTED(_level) (_level == TRANSACTION_WRITE_COMMITTED)
+#define IS_CONSISTENT_READ(_level) (_level == TRANSACTION_CONSISTENT_READ)
+#define IS_REPEATABLE_READ(_level) (_level == TRANSACTION_WRITE_COMMITTED || _level == TRANSACTION_CONSISTENT_READ)
+#define IS_SERIALIZABLE(_level) (_level == TRANSACTION_SERIALIZABLE)
+
+// TRANSACTION_WRITE_COMMITTED is a Falcon name for InnoDB's version of
+//   'repeatable read' which is not a consistent read.  Changes are allowed
+//   any time within a transaction to newly committed records.  And these 
+//   transactions will wait upon pending transactions if those pending changes 
+//   may be needed.  But reads alone are repeatable.  A 'write committed'
+//   transaction does not read newer records unless those newer records were 
+//   changed by itself.
+// TRANSACTION_CONSISTENT_READ is truly a consistent read.  Newer changes are
+//   never read or written to.  They only affect a transaction by preventing
+//   duplicates.
 
 const int analyzeMemory		= 1;
 const int analyzeClasses	= 2;
@@ -149,7 +167,6 @@ public:
 	virtual void		dropDatabase();
 	virtual int			getTransactionIsolation();
 	virtual void		setTransactionIsolation  (int level);
-	virtual void		setSyncDisable(int value);
 	virtual void		setRecordMemoryMax(uint64 maxMemory);
 	virtual void		setRecordScavengeThreshold(int value);
 	virtual void		setRecordScavengeFloor(int value);

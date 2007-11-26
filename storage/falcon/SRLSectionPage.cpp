@@ -113,6 +113,6 @@ void SRLSectionPage::redo()
 
 void SRLSectionPage::print()
 {
-	logPrint("Section Page parent %d/%d, page %d, slot %d, sectionId %d, sequence %d, level %d\n",
-			parentPage, tableSpaceId, pageNumber, sectionSlot, sectionId, sequence, level);
+	logPrint("SectionPage section %d/%d, parent %d, page %d, slot %d, sequence %d, level %d\n",
+			 sectionId, tableSpaceId, parentPage, pageNumber, sectionSlot, sequence, level);
 }

@@ -40,6 +40,9 @@
 #include "InfoTable.h"
 #include "Thread.h"
 #include "Format.h"
+#include "LogLock.h"
+
+extern uint		falcon_lock_timeout;
 
 static const char *stateNames [] = {
 	"Active",
@@ -135,6 +138,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 		freeSavePoints = localSavePoints + n;
 		}
 	
+	startTime = database->deltaTime;
 	blockingRecord = NULL;
 	thread = Thread::getThread("Transaction::init");
 	syncActive.lock(NULL, Exclusive);
@@ -215,12 +219,7 @@ Transaction::~Transaction()
 		Sync sync(&syncIndexes, "Transaction::~Transaction");
 		sync.lock(Exclusive);
 
-		for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
-			{
-			deferredIndexes = deferredIndex->nextInTransaction;
-			deferredIndex->detachTransaction();
-			--deferredIndexCount;
-			}
+		releaseDeferredIndexes();
 		}
 }
 
@@ -257,7 +256,7 @@ void Transaction::commit()
 	database->dbb->logUpdatedRecords(this, firstRecord);
 	
 	if (pendingPageWrites)
-		database->pageWriter->waitForWrites(transactionId);
+		database->pageWriter->waitForWrites(this);
 //#endif
 	
 	if (hasLocks)
@@ -319,6 +318,13 @@ void Transaction::commitNoUpdates(void)
 	ASSERT(!deferredIndexes);
 	++transactionManager->committed;
 	
+	if (deferredIndexes)
+		{
+		Sync sync(&syncIndexes, "Transaction::commitNoUpdates");
+		sync.lock(Exclusive);
+		releaseDeferredIndexes();
+		}
+
 	if (hasLocks)
 		releaseRecordLocks();
 
@@ -390,6 +396,12 @@ void Transaction::rollback()
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
+	if (deferredIndexes)
+		{
+		Sync sync(&syncIndexes, "Transaction::rollback");
+		sync.lock(Exclusive);
+		releaseDeferredIndexes();
+		}
 	releaseSavePoints();
 	TransactionManager *transactionManager = database->transactionManager;
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
@@ -410,6 +422,7 @@ void Transaction::rollback()
 		record->nextInTrans = stack;
 		stack = record;
 		}
+		
 	lastRecord = NULL;
 
 	while (stack)
@@ -479,7 +492,7 @@ void Transaction::prepare(int xidLen, const UCHAR *xidPtr)
 		memcpy(xid, xidPtr, xidLength);
 		}
 		
-	database->pageWriter->waitForWrites(transactionId);
+	database->pageWriter->waitForWrites(this);
 	state = Limbo;
 	database->dbb->prepareTransaction(transactionId, xidLength, xid);
 
@@ -648,7 +661,7 @@ void Transaction::removeRecord(RecordVersion *record)
 			it is invisible to this transaction.
 ***/
 
-bool Transaction::visible(Transaction * transaction, TransId transId)
+bool Transaction::visible(Transaction * transaction, TransId transId, int forWhat)
 {
 	// If the transaction is NULL, it is long gone and therefore committed
 
@@ -673,10 +686,14 @@ bool Transaction::visible(Transaction * transaction, TransId transId)
 	// The other transaction is committed.  
 	// If this is READ_COMMITTED, it is visible.
 
-	if (isolationLevel == TRANSACTION_READ_COMMITTED)
+	if (   IS_READ_COMMITTED(isolationLevel)
+		|| (   IS_WRITE_COMMITTED(isolationLevel)
+		    && (forWhat == FOR_WRITING)))
 		return true;
 
 	// This is REPEATABLE_READ
+	ASSERT (IS_REPEATABLE_READ(isolationLevel));
+
 	// If the transaction started after we did, consider the transaction active
 
 	if (transId > transactionId)
@@ -753,7 +770,7 @@ void Transaction::commitRecords()
 
 State Transaction::getRelativeState(Record* record, uint32 flags)
 {
-    blockingRecord = record;
+	blockingRecord = record;
 	State state = getRelativeState(record->getTransaction(), record->getTransactionId(), flags);
 	blockingRecord = NULL;
 
@@ -773,16 +790,25 @@ State Transaction::getRelativeState(Transaction *transaction, TransId transId, u
 	
 	if (!transaction)
 		{
-		// If the transaction is no longer around, then this is a previously committed record.
+		// All calls to getRelativeState are for the purpose of writing.
+		// So only ConsistentRead can get CommittedInvisible.
 
-		// For REPEATABLE_READ, if transId was active when this started, the dependency
-		// would have kept the transaction pointer around. 
+		if (IS_CONSISTENT_READ(isolationLevel))
+			{
+			// If the transaction is no longer around, and the record is,
+			// then it must be committed.
 
-		if ((isolationLevel == TRANSACTION_REPEATABLE_READ) &&
-		    (transactionId < transId))
-			return CommittedButYounger;
-		
-		return CommittedAndOlder;
+			if (transactionId < transId)
+				return CommittedInvisible;
+
+			// Be sure it was not active when we started.
+
+			for (int n = 0; n < numberStates; ++n)
+				if (states [n].transactionId == transId)
+					return CommittedInvisible;
+			}
+
+		return CommittedVisible;
 		}
 
 	if (transaction->isActive())
@@ -809,13 +835,13 @@ State Transaction::getRelativeState(Transaction *transaction, TransId transId, u
 
 	if (transaction->state == Committed)
 		{
-		// Return CommittedAndOlder if the other trans has a lower TransId and 
+		// Return CommittedVisible if the other trans has a lower TransId and 
 		// it was committed when we started.
 		
-		if (visible (transaction, transId))
-			return CommittedAndOlder;
+		if (visible (transaction, transId, FOR_WRITING))
+			return CommittedVisible;
 
-		return CommittedButYounger;
+		return CommittedInvisible;
 		}
 
 	return (State) transaction->state;
@@ -826,20 +852,24 @@ void Transaction::dropTable(Table* table)
 	Sync sync(&syncIndexes, "Transaction::dropTable");
 	sync.lock(Exclusive);
 
-	if (deferredIndexes)
-		{
-		
-		for (DeferredIndex **ptr = &deferredIndexes, *deferredIndex; (deferredIndex = *ptr);)
-			if (deferredIndex->index && (deferredIndex->index->table == table))
-				{
-				*ptr = deferredIndex->nextInTransaction;
-				deferredIndex->detachTransaction();
-				--deferredIndexCount;
-				}
-			else
-				ptr = &deferredIndex->next;
-		}
+	releaseDeferredIndexes(table);
+
+	// Keep exclusive lock to avoid race condition with writeComplete
 	
+	for (RecordVersion **ptr = &firstRecord, *rec; (rec = *ptr);)
+		if (rec->format->table == table)
+			removeRecord(rec);
+		else
+			ptr = &rec->nextInTrans;
+}
+
+void Transaction::truncateTable(Table* table)
+{
+	Sync sync(&syncIndexes, "Transaction::truncateTable");
+	sync.lock(Exclusive);
+
+	releaseDeferredIndexes(table);
+
 	// Keep exclusive lock to avoid race condition with writeComplete
 	
 	for (RecordVersion **ptr = &firstRecord, *rec; (rec = *ptr);)
@@ -865,13 +895,7 @@ void Transaction::writeComplete(void)
 	Sync sync(&syncIndexes, "Transaction::writeComplete");
 	sync.lock(Exclusive);
 	
-	for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
-		{
-		ASSERT(deferredIndex->transaction == this);
-		deferredIndexes = deferredIndex->nextInTransaction;
-		deferredIndex->detachTransaction();
-		deferredIndexCount--;
-		}
+	releaseDeferredIndexes();
 
 	// Keep the synIndexes lock to avoid a race condition with dropTable
 	
@@ -935,9 +959,7 @@ void Transaction::waitForTransaction()
 	***/
 	
 	Sync sync(&syncActive, "Transaction::waitForTransaction");
-	sync.lock(Shared);
-	//syncActive.lock(NULL, Shared);
-	//syncActive.unlock();
+	sync.lock(Shared, falcon_lock_timeout);
 }
 
 void Transaction::addRef()
@@ -1139,13 +1161,14 @@ void Transaction::printBlocking(int level)
 
 	++level;
 
-	Table *table = blockingRecord->format->table;
-	
 	if (blockingRecord)
+		{
+		Table *table = blockingRecord->format->table;
 		Log::debug("%*s Blocking on %s.%s record %d\n",
 				   level * INDENT, "",
-				   table->name, table->schemaName,
+				   table->schemaName, table->name, 
 				   blockingRecord->recordNumber);
+		}
 
 	for (record = firstRecord; record; record = record->nextInTrans)
 		{
@@ -1164,8 +1187,8 @@ void Transaction::printBlocking(int level)
 		
 		Log::debug("%*s Record %s.%s number %d %s\n",
 				   level * INDENT, "",
-				   table->name, 
 				   table->schemaName,
+				   table->name, 
 				   record->recordNumber,
 				   what);
 		}
@@ -1260,5 +1283,40 @@ void Transaction::releaseSavePoints(void)
 		
 		if (savePoint < localSavePoints || savePoint >= localSavePoints + LOCAL_SAVE_POINTS)
 			delete savePoint;
+		}
+}
+
+void Transaction::printBlockage(void)
+{
+	TransactionManager *transactionManager = database->transactionManager;
+	LogLock logLock;
+	Sync sync (&transactionManager->activeTransactions.syncObject, "Transaction::printBlockage");
+	sync.lock (Shared);
+	printBlocking(0);
+}
+
+void Transaction::releaseDeferredIndexes(void)
+{
+	for (DeferredIndex *deferredIndex; (deferredIndex = deferredIndexes);)
+		{
+		ASSERT(deferredIndex->transaction == this);
+		deferredIndexes = deferredIndex->nextInTransaction;
+		deferredIndex->detachTransaction();
+		deferredIndexCount--;
+		}
+}
+
+void Transaction::releaseDeferredIndexes(Table* table)
+{
+	for (DeferredIndex **ptr = &deferredIndexes, *deferredIndex; (deferredIndex = *ptr);)
+		{
+		if (deferredIndex->index && (deferredIndex->index->table == table))
+			{
+			*ptr = deferredIndex->nextInTransaction;
+			deferredIndex->detachTransaction();
+			--deferredIndexCount;
+			}
+		else
+			ptr = &deferredIndex->next;
 		}
 }

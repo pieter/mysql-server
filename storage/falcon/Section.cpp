@@ -42,6 +42,17 @@
 #include "PageInventoryPage.h"
 
 //#define STOP_PAGE	114
+//#define STOP_SECTION	40
+
+#ifdef STOP_SECTION
+static int stopSection = 40;
+#endif
+
+//#define VALIDATE_SPACE_SLOTS(page)		page->validateSpaceSlots();
+
+#ifndef VALIDATE_SPACE_SLOTS
+#define VALIDATE_SPACE_SLOTS(page)
+#endif
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -64,6 +75,8 @@ Section::Section(Dbb *pDbb, int32 id, TransId transId)
 	level = -1;
 	reservedRecordNumbers = NULL;
 	freeLines = NULL;
+	syncObject.setName("Section::syncObject");
+	syncInsert.setName("Section::syncInsert");
 }
 
 Section::~Section()
@@ -94,14 +107,14 @@ int32 Section::createSection(Dbb * dbb, TransId transId)
 			if (sectionsBdb)
 				sectionsBdb->release(REL_HISTORY);
 
-			sectionsBdb = getSectionPage (dbb, SECTION_ROOT, n, Exclusive, transId);
+			sectionsBdb = getSectionPage(dbb, SECTION_ROOT, n, Exclusive, transId);
 			BDB_HISTORY(sectionsBdb);
 			sections = (SectionPage*) sectionsBdb->buffer;
 			}
 
 		int slot = id % dbb->pagesPerSection;
 
-		if (sections->pages [slot] == 0)
+		if (sections->pages[slot] == 0)
 			{
 			if (dbb->sectionInUse(id))
 				{
@@ -110,7 +123,7 @@ int32 Section::createSection(Dbb * dbb, TransId transId)
 				}
 			else
 				{
-				Bdb *sectionBdb = dbb->allocPage (PAGE_sections, transId);
+				Bdb *sectionBdb = dbb->allocPage(PAGE_sections, transId);
 				BDB_HISTORY(sectionBdb);
 				int32 sectionPageNumber = sectionBdb->pageNumber;
 				page = (SectionPage*) sectionBdb->buffer;
@@ -147,7 +160,7 @@ void Section::createSection(Dbb *dbb, int32 sectionId, TransId transId)
 	if (sections->pages [slot] == 0)
 		{
 		sectionsBdb->mark(transId);
-		Bdb *sectionBdb = dbb->allocPage (PAGE_sections, transId);
+		Bdb *sectionBdb = dbb->allocPage(PAGE_sections, transId);
 		BDB_HISTORY(sectionBdb);
 		Log::debug("Section::createSection: recreating section %d, root %d\n", 
 					sectionId, sectionBdb->pageNumber);
@@ -209,7 +222,8 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 			SectionPage *newPage = (SectionPage*) newBdb->buffer;
 			memcpy(newPage, page, dbb->pageSize);
 			memset(page, 0, dbb->pageSize);
-			page->pageType = PAGE_sections;
+			//page->pageType = PAGE_sections;
+			page->setType(PAGE_sections, newBdb->pageNumber);
 			page->section = newPage->section;
 			page->level = newPage->level + 1;
 			page->pages[0] = newBdb->pageNumber;
@@ -228,13 +242,14 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 				{
 				if (page->level == 1)
 					{
-					bdb = dbb->handoffPage (bdb, pageNumber, PAGE_sections, requestedLockType);
+					bdb = dbb->handoffPage(bdb, pageNumber, PAGE_sections, requestedLockType);
 					BDB_HISTORY(bdb);
+					
 					return bdb;
 					}
 
 				lockType = lockTypes [page->level - 1];
-				bdb = dbb->handoffPage (bdb, pageNumber, PAGE_sections, lockType);
+				bdb = dbb->handoffPage(bdb, pageNumber, PAGE_sections, lockType);
 				BDB_HISTORY(bdb);
 				page = (SectionPage*) bdb->buffer;
 				}
@@ -249,7 +264,7 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 					break;
 					}
 
-				Bdb *newBdb = dbb->allocPage (PAGE_sections, transId);
+				Bdb *newBdb = dbb->allocPage(PAGE_sections, transId);
 				BDB_HISTORY(newBdb);
 				SectionPage *newPage = (SectionPage*) newBdb->buffer;
 				int32 newPageNumber = newBdb->pageNumber;
@@ -289,6 +304,8 @@ int32 Section::insertStub(TransId transId)
 
 	for (int32 line = (freeLines) ? 0 : nextLine;; ++line)
 		{
+		ASSERT(sync.state == Exclusive);
+		
 		// If there are some recently released free record numbers, use them first
 
 		if (freeLines)
@@ -310,13 +327,14 @@ int32 Section::insertStub(TransId transId)
 		if (reservedRecordNumbers && reservedRecordNumbers->isSet(line))
 			continue;
 
+		sync.unlock();
 		int32 indexSequence = line / linesPerPage;
 		RecordLocatorPage *page;
 
 		// OK, go see if there's space there.  If the whole section page is
 		// full, don't bother
 
-		if (indexSequence != segment)
+		if (bdb == NULL || indexSequence != segment)
 			{
 			int sequence = indexSequence / dbb->pagesPerSection;
 
@@ -332,6 +350,7 @@ int32 Section::insertStub(TransId transId)
 				bdb->release(REL_HISTORY);
 				bdb = NULL;
 				line = (line + linesPerSection) / linesPerSection * linesPerSection - 1;
+				sync.lock(Exclusive);
 				
 				continue;
 				}
@@ -366,6 +385,7 @@ int32 Section::insertStub(TransId transId)
 			}
 
 		page = (RecordLocatorPage*) bdb->buffer;
+		VALIDATE_SPACE_SLOTS(page);
 		int slot = line % linesPerPage;
 		RecordIndex *index = page->elements + slot;
 
@@ -375,8 +395,13 @@ int32 Section::insertStub(TransId transId)
 			
 			bdb->mark(transId);
 			index->line = 1;
-			page->maxLine = MAX (page->maxLine, slot + 1);
-			ASSERT (page->maxLine <= dbb->pagesPerSection);
+
+			for (int n = page->maxLine; n <= slot; ++n)
+				page->elements[n].spaceAvailable = 0;
+
+			page->maxLine = MAX(page->maxLine, slot + 1);
+			ASSERT(page->maxLine <= dbb->pagesPerSection);
+			VALIDATE_SPACE_SLOTS(page);
 			bdb->release(REL_HISTORY);
 
 			// We have our line.  Find the next potential line, and if it isn't in this
@@ -386,27 +411,30 @@ int32 Section::insertStub(TransId transId)
 
 			if (reservedRecordNumbers || freeLines)
 				{
+				sync.lock(Shared);
 				int next = nextLine;
 
 				if (reservedRecordNumbers)
 					{
-					int n = reservedRecordNumbers->nextSet (line + 1);
+					int n = reservedRecordNumbers->nextSet(line + 1);
+					
 					if (n >= 0 && n < next)
 						next = n;
 					}
 
 				if (freeLines)
 					{
-					int n = freeLines->nextSet (line + 1);
+					int n = freeLines->nextSet(line + 1);
 					
 					if (n >= 0 && n < next)
 						next = n;
 					}
 
 				int nextSequence = next / linesPerSection;
-
+				sync.unlock();
+				
 				if (nextSequence > sequence)
-					markFull (true, sequence, transId);
+					markFull(true, sequence, transId);
 
 				if (!freeLines)
 					nextLine = line + 1;
@@ -416,7 +444,7 @@ int32 Section::insertStub(TransId transId)
 				nextLine = line + 1;
 
 				if (nextLine % linesPerSection == 0)
-					markFull (true, sequence, transId);
+					markFull(true, sequence, transId);
 				}
 				
 			return line;
@@ -424,14 +452,20 @@ int32 Section::insertStub(TransId transId)
 
 		if (line % linesPerSection == linesPerSection - 1 &&
 			(!reservedRecordNumbers || reservedRecordNumbers->nextSet(0) > line))
-			markFull (true, indexSequence / dbb->pagesPerSection, transId);
+			{
+			bdb->release(REL_HISTORY);
+			bdb = NULL;
+			markFull(true, indexSequence / dbb->pagesPerSection, transId);
+			}
+			
+		sync.lock(Exclusive);
 		}
 }
 
 
 void Section::reInsertStub(int32 recordNumber, TransId transId)
 {
-	Bdb *bdb = fetchIndexPage (root, recordNumber, Exclusive, transId);
+	Bdb *bdb = fetchLocatorPage (root, recordNumber, Exclusive, transId);
 	BDB_HISTORY(bdb);
 	if (!bdb)
 		//NOT_YET_IMPLEMENTED;
@@ -454,9 +488,13 @@ void Section::reInsertStub(int32 recordNumber, TransId transId)
 
 void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, bool earlyWrite)
 {
+#ifdef STOP_SECTION
+	if (sectionId == stopSection)
+		Log::debug("UpdateRecord %d in section %d/%d\n", recordNumber, sectionId, dbb->tableSpaceId);
+#endif
+
 	// Do some fancy accounting to avoid premature use of record number.
 	// If the record number has been reserved, don't bother to delete it.
-
 
 	if (!stream)
 		{
@@ -486,6 +524,8 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 
 	bdb->mark(transId);
 	RecordLocatorPage *locatorPage = (RecordLocatorPage*) bdb->buffer;
+	ASSERT(locatorPage->section == sectionId || locatorPage->section == 0);
+	VALIDATE_SPACE_SLOTS(locatorPage);
 	int line = recordNumber % dbb->linesPerPage;
 	RecordIndex *index = locatorPage->elements + line;
 
@@ -507,7 +547,7 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 			int spaceAvailable = deleteLine(dataBdb, index->line, bdb->pageNumber, transId, locatorPage, line);
 			locatorPage->deleteLine(line, spaceAvailable);
 			ASSERT(index->page == 0 && index->line == 0);
-			//locatorPage->validateSpaceSlots();
+			VALIDATE_SPACE_SLOTS(locatorPage);
 			bdb->release(REL_HISTORY);
 
 			if (flags & SECTION_FULL)
@@ -521,6 +561,7 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 		if (spaceAvailable)
 			{
 			locatorPage->setIndexSlot(line, index->page, index->line, spaceAvailable);
+			VALIDATE_SPACE_SLOTS(locatorPage);
 			dataBdb->release(REL_HISTORY);
 			dbb->setPrecedence(bdb, index->page);
 			bdb->release(REL_HISTORY);
@@ -531,7 +572,10 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 		deleteLine(dataBdb, index->line, bdb->pageNumber, transId, locatorPage, line);
 		}
 	else if (!stream)
+		{
 		locatorPage->deleteLine(line, false);		// deleting unfulfilled stub
+		VALIDATE_SPACE_SLOTS(locatorPage);
+		}
 
 	if (stream)
 		{
@@ -542,7 +586,7 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 	bdb->release(REL_HISTORY);
 }
 
-Bdb* Section::fetchIndexPage(int32 root, int32 recordNumber, LockType lockType, TransId transId)
+Bdb* Section::fetchLocatorPage(int32 root, int32 recordNumber, LockType lockType, TransId transId)
 {
 	int32 n = recordNumber / dbb->linesPerPage;
 	Bdb *bdb = getSectionPage (n / dbb->pagesPerSection, Shared, transId);
@@ -558,7 +602,10 @@ Bdb* Section::fetchIndexPage(int32 root, int32 recordNumber, LockType lockType, 
 		}
 
 	bdb = dbb->handoffPage (bdb, pageNumber, PAGE_record_locator, lockType);
+	RecordLocatorPage *locatorPage = (RecordLocatorPage*) bdb->buffer;
+	ASSERT(locatorPage->section == sectionId || locatorPage->section == 0);
 	BDB_HISTORY(bdb);
+	
 	return bdb;
 }
 
@@ -607,6 +654,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 	int effectiveLength = length;
 	int maxRecord = OVERFLOW_RECORD_SIZE;
 	int32 overflowPageNumber = 0;
+	VALIDATE_SPACE_SLOTS(recordLocatorPage);
 
 	if (length > maxRecord)
 		{
@@ -626,16 +674,18 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 
 			RecordIndex temp;
 			int spaceAvailable = page->storeRecord(dbb, bdb, &temp, length, stream, overflowPageNumber, transId, earlyWrite);
+			VALIDATE_SPACE_SLOTS(recordLocatorPage);
 			
 			if (spaceAvailable > 0)
 				{
 				recordLocatorPage->setIndexSlot(indexSlot, temp.page, temp.line, spaceAvailable);
+				VALIDATE_SPACE_SLOTS(recordLocatorPage);
 
 				if (!dbb->serialLog->recovering)
 					{
 					if (earlyWrite)
 						{
-						dbb->serialLog->logControl->blobUpdate.append(dbb, transId, indexPageNumber, indexSlot, temp.page, temp.line);
+						dbb->serialLog->logControl->largeBlob.append(dbb, transId, indexPageNumber, indexSlot, temp.page, temp.line);
 						bdb->setWriter();
 						}
 					else
@@ -648,17 +698,17 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 				}
 
 			bdb->release(REL_HISTORY);
-			//recordLocatorPage->validateSpaceSlots();
+			VALIDATE_SPACE_SLOTS(recordLocatorPage);
 			}
 		}
 		
 	/* Record doesn't fit on last used data page, make another */
 
-	Bdb *bdb = dbb->allocPage (PAGE_data, transId);
+	Bdb *bdb = dbb->allocPage(PAGE_data, transId);
 	BDB_HISTORY(bdb);
 	DataPage *page = (DataPage*) bdb->buffer;
 	page->maxLine = 0;
-	//recordLocatorPage->validateSpaceSlots();
+	VALIDATE_SPACE_SLOTS(recordLocatorPage);
 	RecordIndex temp;
 	int spaceAvailable = page->storeRecord(dbb, bdb, &temp, length, stream, overflowPageNumber, transId, earlyWrite);
 	
@@ -674,7 +724,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 		{
 		if (earlyWrite)
 			{
-			dbb->serialLog->logControl->blobUpdate.append(dbb, transId, indexPageNumber, indexSlot, temp.page, temp.line);
+			dbb->serialLog->logControl->largeBlob.append(dbb, transId, indexPageNumber, indexSlot, temp.page, temp.line);
 			bdb->setWriter();
 			}
 		else
@@ -699,7 +749,7 @@ int Section::storeTail(Stream * stream, int maxRecord, int *pLength, TransId tra
 	
 	while (length + (int) sizeof (int32) > maxRecord)
 		{
-		Bdb *bdb = dbb->allocPage (PAGE_data_overflow, transId);
+		Bdb *bdb = dbb->allocPage(PAGE_data_overflow, transId);
 		BDB_HISTORY(bdb);
 		pageNumbers.set(bdb->pageNumber);
 		
@@ -728,7 +778,7 @@ int Section::storeTail(Stream * stream, int maxRecord, int *pLength, TransId tra
 
 bool Section::fetchRecord(int32 recordNumber, Stream *stream, TransId transId)
 {
-	Bdb *bdb = fetchIndexPage(root, recordNumber, Shared, transId);
+	Bdb *bdb = fetchLocatorPage(root, recordNumber, Shared, transId);
 	BDB_HISTORY(bdb);
 	if (!bdb)
 		return false;
@@ -783,6 +833,8 @@ int32 Section::findNextRecord(int32 pageNumber, int32 startingRecord, Stream *st
 
 	if (locatorPage->pageType == PAGE_record_locator)
 		{
+		ASSERT(locatorPage->section == sectionId || locatorPage->section == 0);
+		
 		for (int slot = startingRecord % dbb->linesPerPage; slot < locatorPage->maxLine; ++slot)
 			if (locatorPage->elements [slot].page)
 				{
@@ -1157,7 +1209,8 @@ void Section::redoSectionPage(Dbb *dbb, int32 parentPage, int32 pageNumber, int 
 			sectionPage->level != level)
 			{
 			memset(sectionPage, 0, dbb->pageSize);
-			sectionPage->pageType = PAGE_sections;
+			//sectionPage->pageType = PAGE_sections;
+			sectionPage->setType(PAGE_sections, sectionBdb->pageNumber);
 			sectionPage->section = sectionId;
 			sectionPage->sequence = sequence;
 			sectionPage->level = level;
@@ -1202,17 +1255,18 @@ void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostF
 		
 		if (!isPostFlush)
 			{
-			Bdb *indexBdb = dbb->trialFetch(pageNumber, PAGE_record_locator, Shared);
-			BDB_HISTORY(indexBdb);
+			Bdb *locatorBdb = dbb->trialFetch(pageNumber, PAGE_record_locator, Shared);
+			BDB_HISTORY(locatorBdb);
 			
-			if (indexBdb)
+			if (locatorBdb)
 				{
-				RecordLocatorPage *locatorPage = (RecordLocatorPage*) indexBdb->buffer;
+				RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
+				ASSERT(locatorPage->section == sectionId || locatorPage->section == 0);
 				
 				if (locatorPage->section != sectionId || locatorPage->sequence != sequence)
 					rebuild = true;
 
-				indexBdb->release(REL_HISTORY);
+				locatorBdb->release(REL_HISTORY);
 				}
 			else
 				rebuild = true;
@@ -1220,15 +1274,16 @@ void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostF
 				
 		if (rebuild)
 			{
-			Bdb *indexBdb = dbb->fakePage(pageNumber, PAGE_record_locator, 0);
-			BDB_HISTORY(indexBdb);
-			RecordLocatorPage *locatorPage = (RecordLocatorPage*) indexBdb->buffer;
-			locatorPage->pageType = PAGE_record_locator;
+			Bdb *locatorBdb = dbb->fakePage(pageNumber, PAGE_record_locator, 0);
+			BDB_HISTORY(locatorBdb);
+			RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
+			//locatorPage->pageType = PAGE_record_locator;
+			locatorPage->setType(PAGE_record_locator, locatorBdb->pageNumber);
 			locatorPage->section = sectionId;
 			locatorPage->sequence = sequence;
 			locatorPage->maxLine = 0;
 
-			indexBdb->release(REL_HISTORY);
+			locatorBdb->release(REL_HISTORY);
 			}
 		}
 
@@ -1262,7 +1317,8 @@ void Section::redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber
 	
 	rootBdb->mark(NO_TRANSACTION);
 	memset(page, 0, dbb->pageSize);
-	page->pageType = PAGE_sections;
+	//page->pageType = PAGE_sections;
+	page->setType(PAGE_sections, rootBdb->pageNumber);
 	page->section = newPage->section;
 	page->level = newPage->level + 1;
 	page->pages[0] = newPageNumber;
@@ -1272,16 +1328,23 @@ void Section::redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber
 
 void Section::redoDataPage(int32 pageNumber, int32 locatorPageNumber)
 {
+#ifdef STOP_SECTION
+	if (sectionId == stopSection)
+		Log::debug("Redo data page %d, locator page %d in section %d/%d\n", pageNumber, locatorPageNumber, sectionId, dbb->tableSpaceId);
+#endif
+
 	Bdb *bdb = dbb->fakePage(pageNumber, PAGE_data, NO_TRANSACTION);
 	BDB_HISTORY(bdb);
 	DataPage *dataPage = (DataPage*) bdb->buffer;
-	memset (dataPage, 0, dbb->pageSize);			// page may have been dirtied by partial read
-	dataPage->pageType = PAGE_data;
+	//memset(dataPage, 0, dbb->pageSize);			// page may have been dirtied by partial read
+	//dataPage->pageType = PAGE_data;
+	memset(&dataPage->maxLine, 0, dbb->pageSize - OFFSET(DataPage*, maxLine));
 	
 	Bdb *locatorBdb = dbb->fetchPage(locatorPageNumber, PAGE_record_locator, Shared);
 	BDB_HISTORY(locatorBdb);
 	RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
-
+	VALIDATE_SPACE_SLOTS(locatorPage);
+	
 	for (int n = 0; n < locatorPage->maxLine; ++n)
 		if (locatorPage->elements[n].page == pageNumber)
 			{
@@ -1290,10 +1353,11 @@ void Section::redoDataPage(int32 pageNumber, int32 locatorPageNumber)
 			if (line >= dataPage->maxLine)
 				dataPage->maxLine = line + 1;
 			
-			dataPage->lineIndex[line].offset = dbb->pageSize;
+			dataPage->lineIndex[line].offset = dbb->pageSize - 1;
 			dataPage->lineIndex[line].length = 0;
 			}
 	
+	VALIDATE_SPACE_SLOTS(locatorPage);
 	locatorBdb->release(REL_HISTORY);
 	bdb->release(REL_HISTORY);
 }
@@ -1303,6 +1367,7 @@ Bdb* Section::getSectionPage(int sequence, LockType lockType, TransId transId)
 	Sync sync(&syncObject, "Section::getSectionPage");
 	sync.lock(Shared);
 	int pageNumber = sectionPages.get(sequence);
+	sync.unlock();
 	
 	if (pageNumber)
 		{
@@ -1318,7 +1383,6 @@ Bdb* Section::getSectionPage(int sequence, LockType lockType, TransId transId)
 		bdb->release(REL_HISTORY);
 		}
 	
-	sync.unlock();
 	sync.lock(Exclusive);
 	Bdb *bdb = getSectionPage(dbb, root, sequence, lockType, transId);
 	BDB_HISTORY(bdb);
@@ -1333,6 +1397,7 @@ void Section::redoSectionLine(Dbb* dbb, int32 pageNumber, int32 dataPageNumber)
 	BDB_HISTORY(bdb);
 	bdb->mark(NO_TRANSACTION);
 	RecordLocatorPage *page = (RecordLocatorPage*) bdb->buffer;
+	VALIDATE_SPACE_SLOTS(page);
 	page->expungeDataPage(dataPageNumber);
 	bdb->release(REL_HISTORY);
 }

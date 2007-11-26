@@ -40,7 +40,9 @@ static const char THIS_FILE[]=__FILE__;
 
 RecordLeaf::RecordLeaf()
 {
+	base = 0;
 	memset (records, 0, sizeof (records));
+	syncObject.setName("RecordLeaf::syncObject");
 }
 
 RecordLeaf::~RecordLeaf()
@@ -116,8 +118,6 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 {
 	int count = 0;
 	Record **ptr, **end;
-
-#ifdef NON_BLOCKING_SCAVENGING
 	Sync sync(&syncObject, "RecordLeaf::retireRecords");
 	sync.lock(Shared);
 	
@@ -152,7 +152,6 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 	sync.unlock();
 	sync.lock(Exclusive);
 	count = 0;
-#endif
 	
 	for (ptr = records; ptr < end; ++ptr)
 		{
@@ -205,13 +204,11 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 			}
 		}
 		
-#ifdef NON_BLOCKING_SCAVENGING
 	// If this node is empty, store the base record number for use as an
 	// identifier when the leaf node is scavenged later.
 	
 	if (!count && table->emptySections)
 		table->emptySections->set(base * RECORD_SLOTS);
-#endif
 
 	return count;
 }

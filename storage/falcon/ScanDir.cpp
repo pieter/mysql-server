@@ -41,6 +41,7 @@ ScanDir::ScanDir(const char *direct, const char *pat)
 	handle = NULL;
 #else
 	dir = opendir (direct);
+	data = NULL;
 #endif
 }
 
@@ -128,12 +129,17 @@ bool ScanDir::isDirectory()
 #ifdef _WIN32
 	return (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 #else
-	if ( data->d_type == DT_DIR)
+	if (!data)
+		return false;
+
+#ifdef DT_DIR
+	if (data->d_type == DT_DIR)
 		return true;
+#endif
 	
 	struct stat buf;
 
-    if (stat (getFilePath(), &buf))
+	if (stat (getFilePath(), &buf))
 		return false;
 
 	return S_ISDIR (buf.st_mode);

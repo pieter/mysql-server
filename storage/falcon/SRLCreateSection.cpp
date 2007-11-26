@@ -89,5 +89,5 @@ void SRLCreateSection::redo()
 
 void SRLCreateSection::print(void)
 {
-	Log::debug("Serial Log Create Section %d\n", sectionId);
+	logPrint("Create Section %d/%d\n", sectionId, tableSpaceId);
 }

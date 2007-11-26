@@ -49,7 +49,7 @@
 //#define STALL_THRESHOLD	1000
 
 #define BACKOFF	\
-		if (thread)\
+		if (false)\
 			thread->sleep(1);\
 		else\
 			thread = Thread::getThread("SyncObject::lock")
@@ -59,7 +59,7 @@
 #define BUMP(counter)							++counter
 #define BUMP_INTERLOCKED(counter)				INTERLOCKED_INCREMENT(counter)
 
-static const int				MAX_SYNC_OBJECTS = 2000;
+static const int				MAX_SYNC_OBJECTS = 300000;
 static volatile INTERLOCK_TYPE	nextSyncObjectId;
 static SyncObject				*syncObjects[MAX_SYNC_OBJECTS];
 
@@ -112,6 +112,7 @@ SyncObject::SyncObject()
 	waitCount = 0;
 	queueLength = 0;
 	where = NULL;
+	name = NULL;
 	objectId = INTERLOCKED_INCREMENT(nextSyncObjectId);
 	
 	if (objectId < MAX_SYNC_OBJECTS)
@@ -129,7 +130,7 @@ SyncObject::~SyncObject()
 #endif
 }
 
-void SyncObject::lock(Sync *sync, LockType type)
+void SyncObject::lock(Sync *sync, LockType type, int timeout)
 {
 	Thread *thread;
 
@@ -153,8 +154,11 @@ void SyncObject::lock(Sync *sync, LockType type)
 			INTERLOCK_TYPE newState = oldState + 1;
 
 			if (COMPARE_EXCHANGE(&lockState, oldState, newState))
+				{
+				DEBUG_FREEZE;
 				return;
-			
+				}
+				
 			BACKOFF;
 			}
 
@@ -174,6 +178,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				{
 				bumpWaiters(-1);
 				mutex.release();
+				DEBUG_FREEZE;
 				
 				return;
 				}
@@ -188,6 +193,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 			++monitorCount;
 			bumpWaiters(-1);
 			mutex.release();
+			DEBUG_FREEZE;
 			
 			return;
 			}
@@ -201,6 +207,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 			{
 			++monitorCount;
 			BUMP(exclusiveCount);
+			DEBUG_FREEZE;
 			
 			return;
 			}
@@ -216,6 +223,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				{
 				exclusiveThread = thread;
 				BUMP(exclusiveCount);
+				DEBUG_FREEZE;
 				
 				return; 
 				}
@@ -239,6 +247,7 @@ void SyncObject::lock(Sync *sync, LockType type)
 				exclusiveThread = thread;
 				bumpWaiters(-1);
 				mutex.release();
+				DEBUG_FREEZE;
 				
 				return;
 				}
@@ -247,17 +256,19 @@ void SyncObject::lock(Sync *sync, LockType type)
 			}
 		}
 
-	wait (type, thread, sync);
+	wait(type, thread, sync, timeout);
+	DEBUG_FREEZE;
 }
 
 void SyncObject::unlock(Sync *sync, LockType type)
 {
-	ASSERT(lockState != 0);
+	//ASSERT(lockState != 0);
 	
 	if (monitorCount)
 		{
-		ASSERT (monitorCount > 0);
+		//ASSERT (monitorCount > 0);
 		--monitorCount;
+		DEBUG_FREEZE;
 
 		return;
 		}
@@ -266,42 +277,25 @@ void SyncObject::unlock(Sync *sync, LockType type)
 	
 	for (;;)
 		{
-		ASSERT ((type == Shared && lockState > 0) || (type == Exclusive && lockState == -1));
+		//ASSERT ((type == Shared && lockState > 0) || (type == Exclusive && lockState == -1));
 		long oldState = lockState;
 		long newState = (type == Shared) ? oldState - 1 : 0;
 		exclusiveThread = NULL;
 		
 		if (COMPARE_EXCHANGE(&lockState, oldState, newState))
 			{
+			DEBUG_FREEZE;
+
 			if (waiters)
 				grantLocks();
 				
 			return;
 			}
 			
-		if (thread)
-			thread->sleep(1);
-		else
-			thread = Thread::getThread("SyncObject::lock");
+		BACKOFF;
 		}
 
-	/*** this should be faster, but doesn't seem to be
-	exclusiveThread = NULL;
-	
-	if (type == Shared)
-		{
-		ASSERT(lockState > 0);
-		INTERLOCKED_DECREMENT(lockState);
-		}
-	else
-		{
-		ASSERT(lockState == -1);
-		INTERLOCKED_INCREMENT(lockState);
-		}
-	
-	if (waiters)
-		grantLocks();
-	***/
+	DEBUG_FREEZE;
 }
 
 void SyncObject::downGrade(LockType type)
@@ -314,15 +308,16 @@ void SyncObject::downGrade(LockType type)
 		if (COMPARE_EXCHANGE(&lockState, -1, 1))
 			{
 			exclusiveThread = NULL;
+			DEBUG_FREEZE;
 			
 			if (waiters)
 				grantLocks();
-				
+
 			return;
 			}
 }
 
-void SyncObject::wait(LockType type, Thread *thread, Sync *sync)
+void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 {
 	++stalls;
 	BUMP(waitCount);
@@ -358,6 +353,37 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync)
 	++thread->activeLocks;
 	mutex.release();
 
+	if (timeout)
+		for (;;)
+			{
+			thread->sleep (timeout);
+			
+			if (thread->lockGranted)
+				return;
+			
+			mutex.lock();
+			
+			if (thread->lockGranted)
+				{
+				mutex.unlock();
+				
+				return;
+				}
+			
+			for (ptr = &que; *ptr; ptr = &(*ptr)->que)
+				if (*ptr == thread)
+					{
+					*ptr = thread->que;
+					--waiters;
+					break;
+					}
+			
+			mutex.unlock();
+			
+			throw SQLError(LOCK_TIMEOUT, "lock timed out after %d milliseconds\n", timeout);
+			}
+		
+		
 	while (!thread->lockGranted)
 		{
 		bool wakeup = thread->sleep (10000);
@@ -595,14 +621,6 @@ void SyncObject::frequentStaller(Thread *thread, Sync *sync)
 	thread->lockGranted = lockGranted;
 	thread->lockPending = lockPending;
 }
-
-void SyncObject::setWhere(const char* string)
-{
-#ifdef TRACE_SYNC_OBJECTS
-	where = string;
-#endif
-}
-
 void SyncObject::analyze(Stream* stream)
 {
 #ifdef TRACE_SYNC_OBJECTS
@@ -617,6 +635,40 @@ void SyncObject::analyze(Stream* stream)
 					syncObject->exclusiveCount,
 					syncObject->waitCount,
 					(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+#endif
+}
+
+void SyncObject::dump(void)
+{
+#ifdef TRACE_SYNC_OBJECTS
+	FILE *out = fopen("SyncObject.dat", "w");
+	
+	if (!out)
+		return;
+		
+	fprintf(out, "Where\tShares\tExclusives\tWaits\tAverage Queue\n");
+	SyncObject *syncObject;
+	
+	for (int n = 1; n < MAX_SYNC_OBJECTS; ++n)
+		if ( (syncObject = syncObjects[n]) )
+			{
+			const char *name = (syncObject->name) ? syncObject->name : syncObject->where;
+			
+			if (name)
+				fprintf(out, "%s\t%d\t%d\t%d\t%d\t\n",
+						name,
+						syncObject->sharedCount,
+						syncObject->exclusiveCount,
+						syncObject->waitCount,
+						(syncObject->waitCount) ? syncObject->queueLength / syncObject->waitCount : 0);
+
+			syncObject->sharedCount = 0;
+			syncObject->exclusiveCount = 0;
+			syncObject->waitCount = 0;
+			syncObject->queueLength = 0;
+			}
+	
+	fclose(out);
 #endif
 }
 
@@ -636,4 +688,11 @@ void SyncObject::getSyncInfo(InfoTable* infoTable)
 			infoTable->putInt(n++, queueLength);
 			infoTable->putRecord();
 			}
+}
+
+void SyncObject::setName(const char* string)
+{
+#ifdef TRACE_SYNC_OBJECTS
+	name = string;
+#endif
 }

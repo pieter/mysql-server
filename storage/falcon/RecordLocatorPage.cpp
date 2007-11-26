@@ -387,7 +387,15 @@ void RecordLocatorPage::unlinkSpaceSlot(int slot)
 	
 	for (priorSlot = -1; (nextSlot = nextSpaceSlot(priorSlot)) >= 0 && nextSlot < slot; priorSlot = nextSlot)
 		;
-	
+
+	if (slot < nextSlot)
+		{
+		Log::log("RecordLocatorPage: transient corruption corrected\n");
+		elements[slot].spaceAvailable = 0;
+		
+		return;
+		}
+
 	VALIDIF(nextSlot == slot);
 	nextSlot = nextSpaceSlot(slot);
 	elements[slot].spaceAvailable = 0;
@@ -416,23 +424,6 @@ void RecordLocatorPage::expungeDataPage(int32 pageNumber)
 
 void RecordLocatorPage::deleteDataPages(Dbb* dbb, TransId transId)
 {
-	/***
-	for (int slot = -1; (slot = nextSpaceSlot(slot)) >= 0;)
-		{
-		int32 pageNumber = elements[slot].page;
-		
-		if (pageNumber == 149)
-			printf("page %d\n", pageNumber);
-			
-		Bdb *bdb = dbb->fetchPage(pageNumber, PAGE_data, Exclusive);
-		BDB_HISTORY(bdb);
-		bdb->mark(transId);
-		DataPage *dataPage = (DataPage*) bdb->buffer;
-		dataPage->deletePage(dbb, transId);
-		dbb->freePage(bdb, transId);
-		}
-	***/
-	
 	for (int slot; (slot = nextSpaceSlot(-1)) >= 0;)
 		{
 		int pageNumber = elements[slot].page;

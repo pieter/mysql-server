@@ -39,6 +39,7 @@
 #include "SRLCreateTableSpace.h"
 #include "SRLDropTableSpace.h"
 #include "Log.h"
+#include "InfoTable.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -143,15 +144,13 @@ TableSpace* TableSpaceManager::getTableSpace(const char *name)
 
 TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fileName, uint64 initialAllocation)
 {
-	//char expandedFileName[1024];
-	//IO::expandFileName(fileName, sizeof(expandedFileName), expandedFileName);
 	Sync syncSystem(&database->syncSysConnection, "TableSpaceManager::createTableSpace");
 	syncSystem.lock(Shared);
 	Sequence *sequence = database->sequenceManager->getSequence(database->getSymbol("SYSTEM"), database->getSymbol("TABLESPACE_IDS"));
 	int id = (int) sequence->update(1, database->getSystemTransaction());
 	TableSpace *tableSpace = new TableSpace(database, name, id, fileName, initialAllocation);
 	
-	if (tableSpace->dbb->doesFileExits(fileName))
+	if (tableSpace->dbb->doesFileExist(fileName))
 		{
 		delete tableSpace;
 		throw SQLError(DDL_ERROR, "table space file name \"%s\" already exists\n", fileName);
@@ -159,13 +158,7 @@ TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fi
 		
 	try
 		{
-		PStatement statement = database->prepareStatement(
-			"insert into system.tablespaces (tablespace,tablespace_id,filename) values (?,?,?)");
-		int n = 1;
-		statement->setString(n++, name);
-		statement->setInt(n++, id);
-		statement->setString(n++, fileName);
-		statement->executeUpdate();
+		tableSpace->save();
 		tableSpace->create();
 		syncSystem.unlock();
 		database->commitSystemTransaction();
@@ -280,6 +273,15 @@ void TableSpaceManager::reportStatistics(void)
 		tableSpace->dbb->reportStatistics();
 }
 
+void TableSpaceManager::getIOInfo(InfoTable* infoTable)
+{
+	Sync sync(&syncObject, "TableSpaceManager::getIOInfo");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		tableSpace->getIOInfo(infoTable);
+}
+
 void TableSpaceManager::validate(int optionMask)
 {
 	Sync sync(&syncObject, "TableSpaceManager::validate");
@@ -289,13 +291,13 @@ void TableSpaceManager::validate(int optionMask)
 		tableSpace->dbb->validate(optionMask);
 }
 
-void TableSpaceManager::sync(void)
+void TableSpaceManager::sync()
 {
 	Sync sync(&syncObject, "TableSpaceManager::sync");
 	sync.lock(Shared);
 
 	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
-		tableSpace->dbb->sync();
+		tableSpace->sync();
 }
 
 void TableSpaceManager::expungeTableSpace(int tableSpaceId)
@@ -336,4 +338,60 @@ void TableSpaceManager::expungeTableSpace(int tableSpaceId)
 	sync.unlock();
 	tableSpace->dropTableSpace();
 	delete tableSpace;
+}
+
+void TableSpaceManager::reportWrites(void)
+{
+	Sync sync(&syncObject, "TableSpaceManager::reportWrites");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		tableSpace->dbb->reportWrites();
+}
+
+void TableSpaceManager::redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName)
+{
+	Sync sync(&syncObject, "TableSpaceManager::redoCreateTableSpace");
+	sync.lock(Exclusive);
+	TableSpace *tableSpace;
+
+	for (tableSpace = idHash[id % TS_HASH_SIZE]; tableSpace; tableSpace = tableSpace->idCollision)
+		if (tableSpace->tableSpaceId == id)
+			return;
+
+	char buffer[1024];
+	memcpy(buffer, name, nameLength);
+	buffer[nameLength] = 0;
+	char *file = buffer + nameLength + 1;
+	memcpy(file, fileName, fileNameLength);
+	file[fileNameLength] = 0;
+	tableSpace = new TableSpace(database, buffer, id, file, 0);
+	tableSpace->needSave = true;
+	add(tableSpace);	
+
+	try
+		{
+		tableSpace->open();
+		}
+	catch(SQLException& exception)
+		{
+		Log::log("Couldn't open table space file \"%s\" for tablespace \"%s\": %s\n", 
+					file, buffer, exception.getText());
+		}
+}
+
+void TableSpaceManager::initialize(void)
+{
+	Sync sync(&syncObject, "TableSpaceManager::initialize");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		if (tableSpace->needSave)
+			{
+			Sync syncSystem(&database->syncSysConnection, "TableSpaceManager::dropTableSpace");
+			syncSystem.lock(Shared);
+			tableSpace->save();
+			syncSystem.unlock();
+			database->commitSystemTransaction();
+			}
 }

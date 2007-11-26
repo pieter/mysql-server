@@ -19,6 +19,7 @@
 #endif
 
 #include <stdio.h>
+#include <string.h>
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #include <stdlib.h>
 #else
@@ -49,12 +50,6 @@
 #include "LogStream.h"
 #endif
 
-#ifdef _WIN32
-#define SEPARATOR	'\\'
-#else
-#define SEPARATOR	'/'
-#endif
-
 static const int guardBytes = sizeof(long); // * 2048;
 
 #ifndef ASSERT
@@ -78,7 +73,7 @@ const int validateMinutia	= 16;
 
 // Nominal memory limits at startup--final values set during initialization
 
-static MemMgr		memoryManager(defaultRounding, FREE_OBJECTS_SIZE, HEAP_SIZE); //cwp
+static MemMgr		memoryManager(defaultRounding, FREE_OBJECTS_SIZE, HEAP_SIZE);
 static MemMgr		recordManager(defaultRounding, 2, HEAP_SIZE);
 //static MemMgr		recordObjectManager (defaultRounding, sizeof(RecordVersion) + 100, HEAP_SIZE);
 static MemControl	memControl;
@@ -636,7 +631,6 @@ void MemMgr::releaseBlock(MemBlock *block)
 	sync.lock(Exclusive);
 	//validateFreeList();
 	block->pool = NULL;
-	ASSERT(length <= (int) activeMemory);
 	activeMemory -= length;
 
 	if (freeBlock->next && !freeBlock->next->memHeader.pool)

@@ -45,6 +45,7 @@ public:
 	Schema		*schema;
 	Database	*database;
 	void rename(const char* newName);
+	Sequence	*recreate(void);
 };
 
 #endif // !defined(AFX_SEQUENCE_H__52A2DA15_7937_11D4_98F0_0000C01D2301__INCLUDED_)

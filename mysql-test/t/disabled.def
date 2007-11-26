@@ -18,13 +18,8 @@ order_by             : WL#2475: spetrunia producing ordered streams is not handl
 federated_transactions   : Bug#29523 Transactions do not work
 locktrans_innodb     : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock tables used in triggers
 rpl_locktrans_innodb : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock tables used in triggers
-ndb_dd_restore_compat : Bug#29940 2007-07-20 ndb_dd_restore_compat fails on 5.2
 subselect2 : BUG#31464 SergeyP will fix
 log_tables : BUG#31580 1007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
-rpl_row_sp002_innodb  : Bug#32673 rpl_row_sp002_innodb.test fails randomly
-index_merge_falcon    : Bug#32696 index_merge_falcon.test fails
-falcon_bug_26433      : Bug#32697 falcon_bug_26433.test fails randomly
-rpl_ndb_blob          : Bug#31284 rpl_ndb_blob fails on powermacg5: incorrect BLOB contents
 events                   : Bug#32664 events.test fails randomly
 events_scheduling        : Bug#29830 Test case 'events_scheduling' fails on Mac OS X and Windows
 lowercase_table3         : Bug#32667 lowercase_table3.test reports to error log

@@ -18,3 +18,4 @@ rpl_extraColmaster_innodb  : BUG#30854 : Tables name show as binary in slave err
 rpl_extraColmaster_myisam  : BUG#30854
 rpl_view                   : Bug#32654: rpl_view.test fails randomly
 rpl_ndb_multi              : Bug#30751: rpl_ndb_multi missing row in output
+rpl_row_sp002_innodb       : Bug#32673 rpl_row_sp002_innodb.test fails randomly

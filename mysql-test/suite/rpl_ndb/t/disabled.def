@@ -27,3 +27,4 @@ rpl_ndb_extraColMaster   : BUG#30854 : Tables name show as binary in slave err m
 
 #rpl_ndb_dd_advance	 : Bug#25913 rpl_ndb_dd_advance fails randomly
 rpl_ndb_basic              : Bug#29827 2007-07-16 ingo reports to error log
+rpl_ndb_blob          : Bug#31284 rpl_ndb_blob fails on powermacg5: incorrect BLOB contents

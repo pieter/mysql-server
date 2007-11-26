@@ -1,5 +1,4 @@
 --source include/have_falcon.inc
---disable_abort_on_error
 #
 # Bug #32194:  	Falcon: incorrect count of changed rows
 #

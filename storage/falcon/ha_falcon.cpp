@@ -940,11 +940,12 @@ int StorageInterface::write_row(uchar *buff)
 		DBUG_RETURN(error(code));
 		}
 
-	if (++insertCount > LOAD_AUTOCOMMIT_RECORDS)
+	if ((++insertCount % LOAD_AUTOCOMMIT_RECORDS) == 0)
 		switch (thd_sql_command(mySqlThread))
 			{
 			case SQLCOM_LOAD:
 			case SQLCOM_ALTER_TABLE:
+			case SQLCOM_CREATE_TABLE:
 				storageHandler->commit(mySqlThread);
 				storageConnection->startTransaction(isolation_levels[thd_tx_isolation(mySqlThread)]);
 				storageConnection->markVerb();

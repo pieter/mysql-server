@@ -13,15 +13,13 @@
 DROP TABLESPACE tablespace1 Engine Falcon;
 --enable_warnings
 
-CREATE TABLESPACE tablespace1
-  ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
+CREATE TABLESPACE tablespace1 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
 
 # ----------------------------------------------------- #
 # --- Test                                          --- #
 # ----------------------------------------------------- #
---error 65433
-CREATE TABLESPACE tablespace2
-  ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
+--error 1655
+CREATE TABLESPACE tablespace2 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
 
 # ----------------------------------------------------- #
 # --- Check                                         --- #

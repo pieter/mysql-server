@@ -24,4 +24,5 @@ rpl_ndb_mix_innodb       : Bug #32720 2007-11-27 mats Test rpl_ndb_mix_innodb fa
 
 #rpl_ndb_dd_advance	 : Bug#25913 rpl_ndb_dd_advance fails randomly
 rpl_ndb_basic              : Bug#29827 2007-07-16 ingo reports to error log
-rpl_ndb_blob		 : Bug #31284  	rpl_ndb_blob fails on powermacg5: incorrect BLOB contents
+rpl_ndb_blob             : Bug#31284 rpl_ndb_blob fails on powermacg5: incorrect BLOB contents
+rpl_ndb_multi            : Bug#30751 rpl_ndb_multi missing row in output

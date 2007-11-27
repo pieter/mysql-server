@@ -107,7 +107,7 @@ struct Client {
 
 #ifdef _DEBUG
 	void* MemMgrPoolAllocateDebug (MemMgr *pool, unsigned int s, const char *file, int line)
-		{
+	{
 		void *object = pool->allocateDebug(s, file, line);
 
 		if (object == stopAddress)
@@ -117,10 +117,10 @@ struct Client {
 			fprintf(traceFile, "a %d %p\n", s, object);
 
 		return object;
-		}
+	}
 
 	void* MemMgrAllocateDebug (unsigned int s, const char *file, int line)
-		{
+	{
 		void *object = memoryManager.allocateDebug(s, file, line);
 
 		if (object == stopAddress)
@@ -130,10 +130,10 @@ struct Client {
 			fprintf(traceFile, "a %d %p\n", s, object);
 
 		return object;
-		}
+	}
 
 	void MemMgrRelease (void *object)
-		{
+	{
 		/***
 		if (object == stopAddress)
 			printf ("MemMgrRelease at %p\n", stopAddress);
@@ -143,70 +143,70 @@ struct Client {
 			fprintf (traceFile, "r %p\n", object);
 
 		memoryManager.releaseDebug (object);
-		}
+	}
 
 	void* MemMgrRecordAllocate (int size, const char *file, int line)
-		{
+	{
 		return recordManager.allocateDebug (size, file, line);
-		}
+	}
 
 	void MemMgrRecordDelete (char *record)
-		{
+	{
 		recordManager.releaseDebug (record);
-		}
+	}
 #else
 	void* MemMgrPoolAllocate (MemMgr *pool, unsigned int s)
-		{
+	{
 		return pool->allocate (s);
-		}
+	}
 
 	void* MemMgrAllocate (unsigned int s)
-		{
+	{
 		return memoryManager.allocate (s);
-		}
+	}
 
 	void MemMgrRelease (void *object)
-		{
+	{
 		memoryManager.release (object);
-		}
+	}
 
 	void* MemMgrRecordAllocate (int size, const char *file, int line)
-		{
+	{
 		return recordManager.allocate (size);
-		}
+	}
 
 	void MemMgrRecordDelete (char *record)
-		{
+	{
 		recordManager.release (record);
-		}
+	}
 
 #endif
 
 void MemMgrValidate ()
-	{
+{
 	memoryManager.validate();
 	recordManager.validate();
 	//recordObjectManager.validate();
-	}
+}
 
 void MemMgrValidate (void *object)
-	{
+{
 	if (object)
 		MemMgr::validate(object);
-	}
+}
 
 void MemMgrAnalyze(int mask, Stream *stream)
-	{
+{
 	//ENTER_CRITICAL_SECTION;
 	stream->putSegment ("Memory\n");
 	memoryManager.analyze (mask, stream, NULL, NULL);
 	stream->putSegment ("Records\n");
 	recordManager.analyze (mask, stream, NULL, NULL);
 	//LEAVE_CRITICAL_SECTION;
-	}
+}
 
 void MemMgrAnalyze(MemMgrWhat what, InfoTable *infoTable)
-	{
+{
 	switch (what)
 		{
 		case MemMgrSystemSummary:
@@ -227,20 +227,20 @@ void MemMgrAnalyze(MemMgrWhat what, InfoTable *infoTable)
 			//recordObjectManager.analyze(0, NULL, NULL, infoTable);
 			break;
 		}
-	}
+}
 
 void MemMgrSetMaxRecordMember (long long size)
-	{
+{
 	if (!recordManager.memControl)
 		{
 		memControl.setMaxSize(size);
 		memControl.addPool(&recordManager);
 		//memControl.addPool(&recordObjectManager);
 		}
-	}
+}
 
 MemMgr*	MemMgrGetFixedPool (int id)
-	{
+{
 	switch (id)
 		{
 		case MemMgrPoolGeneral:
@@ -257,16 +257,16 @@ MemMgr*	MemMgrGetFixedPool (int id)
 		default:
 			return NULL;
 		}
-	}
+}
 
 
 void MemMgrLogDump()
-	{
+{
 #ifdef ENGINE
 	LogStream stream;
 	MemMgrAnalyze (0, &stream);
 #endif
-	}
+}
 
 
 MemMgr::MemMgr(int rounding, int cutoff, int minAlloc)
@@ -311,7 +311,7 @@ MemMgr::~MemMgr(void)
 		smallHunks = hunk->nextHunk;
 		releaseRaw (hunk);
 		}
-		
+
 	for (MemBigHunk *bigHunk; (bigHunk = bigHunks);)
 		{
 		bigHunks = bigHunk->nextHunk;
@@ -323,29 +323,29 @@ MemBlock* MemMgr::alloc(int length)
 {
 	if (length <= 0)
 		throw SQLError (RUNTIME_ERROR, "illegal memory allocate for %d bytes", length);
-		
+
 	Sync sync (&mutex, "MemMgr::alloc");
 	sync.lock(Exclusive);
 
 	// If this is a small block, look for it there
-	
+
 	if (length <= threshold)
 		{
 		int slot = length / roundingSize;
 		MemBlock *block;
-		
+
 		while ( (block = freeObjects [slot]) )
 			{
 			void *next = block->pool;
-			
+
 			if (COMPARE_EXCHANGE_POINTER(freeObjects + slot, block, next))
 				return block;
 			}
-		
+
 		// See if some other hunk has unallocated space to use
-		
+
 		MemSmallHunk *hunk;
-		
+
 		for (hunk = smallHunks; hunk; hunk = hunk->nextHunk)
 			if (length <= hunk->spaceRemaining)
 				{
@@ -353,17 +353,17 @@ MemBlock* MemMgr::alloc(int length)
 				hunk->memory += length;
 				hunk->spaceRemaining -= length;
 				block->length = -length;
-				
+
 				return block;
 				}
-		
+
 		// No good so far.  Time for a new hunk
-		
+
 		hunk = (MemSmallHunk*) allocRaw (minAllocation);
 		hunk->length = minAllocation;
 		hunk->nextHunk = smallHunks;
 		smallHunks = hunk;
-		
+
 		int l = ROUNDUP(sizeof (MemSmallHunk), sizeof (double));
 		block = (MemBlock*) ((UCHAR*) hunk + l);
 		hunk->spaceRemaining = minAllocation - length - l;
@@ -371,97 +371,95 @@ MemBlock* MemMgr::alloc(int length)
 		block->length = -length;
 		++numberSmallHunks;
 
-		return block;		
+		return block;
 		}
-	
+
 	/*
 	 *  OK, we've got a "big block" on on hands.  To maximize confusing, the indicated
 	 *  length of a free big block is the length of MemHeader plus body, explicitly
 	 *  excluding the MemFreeBlock and MemBigHeader fields.
-	
-                         [MemHeader::length]	
-                        	                                  
+
+                         [MemHeader::length]
+
 		                <---- MemBlock ---->
-		                
+
 		*--------------*----------*---------*
 		| MemBigHeader | MemHeader |  Body  |
 		*--------------*----------*---------*
-		
+
 		 <---- MemBigObject ----->
-		
+
 		*--------------*----------*---------------*
 		| MemBigHeader | MemHeader | MemFreeBlock |
 		*--------------*----------*---------------*
-		
+
 		 <--------------- MemFreeBlock ---------->
 	 */
-	
-	
 
 	if (length < (int) (OFFSET(MemBlock*, body) + sizeof (MemFreeBlock) - sizeof (MemBigObject)))
-		length = (int) (OFFSET(MemBlock*, body) + sizeof (MemFreeBlock) - sizeof (MemBigObject));	
-	
+		length = (int) (OFFSET(MemBlock*, body) + sizeof (MemFreeBlock) - sizeof (MemBigObject));
+
 	MemFreeBlock *freeBlock = freeBlockTree.findNextLargest(length);
-	
+
 	if (!freeBlock && freeBlockTree.larger)
-		freeBlock = freeBlockTree.findNextLargest(length);	
-			
+		freeBlock = freeBlockTree.findNextLargest(length);
+
 	if (freeBlock)
 		{
 		//freeBlockTree.validate();
 		MemBlock *block = (MemBlock*) &freeBlock->memHeader;
-		
+
 		// Compute length (MemHeader + body) for new free block
-		
+
 		int tail = block->length - length;
-		
+
 		// If there isn't room to split off a new free block, allocate the whole thing
-		
+
 		if (tail < (int) sizeof (MemFreeBlock))
 			{
 			block->pool = this;
 			activeMemory += block->length;
-			
+
 			return block;
 			}
-		
+
 		// Otherwise, chop up the block
-		
+
 		MemBigObject *newBlock = freeBlock;
 		freeBlock = (MemFreeBlock*) ((UCHAR*) block + length);
-		freeBlock->memHeader.length = tail - sizeof (MemBigHeader); 
+		freeBlock->memHeader.length = tail - sizeof (MemBigHeader);
 		block->length = length;
 		block->pool = this;
 		activeMemory += length;
-		
+
 		if ( (freeBlock->next = newBlock->next) )
 			freeBlock->next->prior = freeBlock;
-		
+
 		newBlock->next = freeBlock;
 		freeBlock->prior = newBlock;
 		freeBlock->memHeader.pool = NULL;		// indicate block is free
 		insert (freeBlock);
 		//validateFreeList();
-		
+
 		return block;
 		}
 
-			 
+
 	// Didn't find existing space -- allocate new hunk
-	
+
 	int hunkLength = sizeof (MemBigHunk) + sizeof(MemBigHeader) + length;
 	int freeSpace = 0;
-	
+
 	// If the hunk size is sufficient below minAllocation, allocate extra space
-	
+
 	if (hunkLength + (int) sizeof(MemBigObject) + threshold < minAllocation)
 		{
 		hunkLength = minAllocation;
 		freeSpace = hunkLength - sizeof(MemBigHunk) - 2 * sizeof(MemBigHeader) - length;
 		}
-	
+
 	// Allocate the new hunk
-	
+
 	MemBigHunk *hunk = (MemBigHunk*) allocRaw(hunkLength);
 	hunk->nextHunk = bigHunks;
 	bigHunks = hunk;
@@ -469,18 +467,18 @@ MemBlock* MemMgr::alloc(int length)
 	++numberBigHunks;
 
 	// Create the new block
-	
+
 	MemBigObject *newBlock = (MemBigObject*) &hunk->blocks;
 	newBlock->prior = NULL;
 	newBlock->next = NULL;
-	
+
 	MemBlock *block = (MemBlock*) &newBlock->memHeader;
 	block->pool = this;
 	block->length = length;
 	activeMemory += length;
-	
+
 	// If there is space left over, create a free block
-	
+
 	if (freeSpace)
 		{
 		freeBlock = (MemFreeBlock*) ((UCHAR*) block + length);
@@ -491,17 +489,17 @@ MemBlock* MemMgr::alloc(int length)
 		newBlock->next = freeBlock;
 		insert (freeBlock);
 		}
-	
+
 	//validateFreeList();
 
-	return block;		
+	return block;
 }
 
 void* MemMgr::allocate(int size)
 {
 	int length = ROUNDUP(size, roundingSize) + OFFSET(MemBlock*, body) + guardBytes;
 	MemBlock *memory;
-	
+
 	if (signature)
 		{
 		memory = alloc (length);
@@ -514,7 +512,7 @@ void* MemMgr::allocate(int size)
 		memory->pool = NULL;
 		memory->length = length;
 		}
-	
+
 #ifdef MEM_DEBUG
 	memset (&memory->body, INIT_BYTE, size);
 	memset (&memory->body + size, GUARD_BYTE, ABS(memory->length) - size - OFFSET(MemBlock*,body));
@@ -525,7 +523,7 @@ void* MemMgr::allocate(int size)
 	++blocksAllocated;
 	++blocksActive;
 	VALGRIND_MAKE_MEM_UNDEFINED(&memory->body, size);
-	
+
 	return &memory->body;
 }
 
@@ -545,7 +543,7 @@ void* MemMgr::allocateDebug(int size, const char* fileName, int line)
 		memory = (MemBlock*) allocRaw(length);
 		memory->pool = NULL;
 		}
-	
+
 #ifdef MEM_DEBUG
 	memory->fileName = fileName;
 	memory->lineNumber = line;
@@ -700,36 +698,36 @@ void MemMgr::remove(MemFreeBlock* block)
 {
 	//freeBlockTree.validate();
 	//int count = freeBlockTree.count();
-	
+
 	block->remove();
-	
+
 	/***
 	freeBlockTree.validate();
 	int count2 = freeBlockTree.count();
-	
+
 	if (count - 1 != count2)
 		corrupt("bad count");
 	***/
-	
+
 	/***
 	// If this is junk, chop it out and be done with it
-	
+
 	if (block->memHeader.length < threshold)
 		return;
-		
+
 	// If we're a twin, take out of the twin list
-	
+
 	if (!block->nextLarger)
 		{
 		block->nextTwin->priorTwin = block->priorTwin;
 		block->priorTwin->nextTwin = block->nextTwin;
 		//validateFreeList();
-		
+
 		return;
 		}
-	
+
 	// We're in the primary list.  If we have twin, move him in
-	
+
 	MemFreeBlock *twin = block->nextTwin;
 
 	if (twin != block)
@@ -741,12 +739,12 @@ void MemMgr::remove(MemFreeBlock* block)
 		twin->priorSmaller->nextLarger = twin;
 		twin->nextLarger->priorSmaller = twin;
 		//validateFreeList();
-		
+
 		return;
 		}
-	
+
 	// No twins.  Just take the guy out of the list
-	
+
 	block->priorSmaller->nextLarger = block->nextLarger;
 	block->nextLarger->priorSmaller = block->priorSmaller;
 	//validateFreeList();
@@ -757,28 +755,28 @@ void MemMgr::insert(MemFreeBlock* freeBlock)
 {
 	//freeBlockTree.validate();
 	//int count = freeBlockTree.count();
-	
+
 	freeBlockTree.insert(freeBlock);
-	
+
 	/***
 	freeBlockTree.validate();
 	int count2 = freeBlockTree.count();
-	
+
 	if (count + 1 != count2)
 		corrupt("bad count");
 	***/
-	
+
 	/***
 	// If this is junk (too small for pool), stick it in junk
-	
+
 	if (freeBlock->memHeader.length < threshold)
 		return;
-		
+
 	// Start by finding insertion point
 
 	MemFreeBlock *block;
-	
-	for (block = freeBlocks.nextLarger; 
+
+	for (block = freeBlocks.nextLarger;
 		 block != &freeBlocks && freeBlock->memHeader.length >= block->memHeader.length;
 		 block = block->nextLarger)
 		if (block->memHeader.length == freeBlock->memHeader.length)
@@ -792,14 +790,14 @@ void MemMgr::insert(MemFreeBlock* freeBlock)
 			//validateFreeList();
 			return;
 			}
-	
+
 	// OK, then, link in after insertion point
-	
+
 	freeBlock->nextLarger = block;
 	freeBlock->priorSmaller = block->priorSmaller;
 	block->priorSmaller->nextLarger = freeBlock;
 	block->priorSmaller = freeBlock;
-	
+
 	freeBlock->nextTwin = freeBlock->priorTwin = freeBlock;
 	//validateFreeList();
 	***/
@@ -811,12 +809,12 @@ void* MemMgr::allocRaw(int length)
 		throw SQLError(OUT_OF_RECORD_MEMORY_ERROR, "record memory is exhausted");
 
 	void *memory = malloc(length);
-	
+
 	if (memory)
 		currentMemory += length;
 	else
 		memoryIsExhausted();
-	
+
 	return memory;
 }
 
@@ -829,40 +827,40 @@ void MemMgr::validateFreeList(void)
 	int len = 0;
 	int count = 0;
 	MemFreeBlock *block;
-	
+
 	for (block = freeBlockTree.getFirst(); block; block = block->getNext())
 		{
 		if (block->memHeader.length <= len)
 			corrupt ("bad free list\n");
-			
+
 		len = block->memHeader.length;
 		++count;
 		int twins = 0;
 		MemFreeBlock *twin;
 		MemFreeBlock *priorTwin = block;
-		
+
 		for (twin = block->nextTwin; twin != block; priorTwin = twin, twin = twin->nextTwin)
 			{
 			if (twin->priorTwin != priorTwin)
 				corrupt("bad priorTwin pointer");
-				
+
 			++twins;
 			}
-			
+
 		for (twin = block->priorTwin; twin != block; twin = twin->priorTwin)
 			--twins;
-			
+
 		if (twins)
 			corrupt("bad twin list");
 		}
-	
+
 	len += 1;
-	
+
 	for (block = freeBlockTree.getFirst(); block; block = block->getNext())
 		{
 		if (block->memHeader.length >= len)
 			corrupt ("bad free list\n");
-			
+
 		len = block->memHeader.length;
 		}
 
@@ -871,11 +869,11 @@ void MemMgr::validateFreeList(void)
 void MemMgr::validateBigBlock(MemBigObject* block)
 {
 	MemBigObject *neighbor;
-	
+
 	if ( (neighbor = block->prior) )
 		if ((UCHAR*) &neighbor->memHeader + neighbor->memHeader.length != (UCHAR*) block)
 			corrupt ("bad neighbors");
-	
+
 	if ( (neighbor = block->next) )
 		if ((UCHAR*) &block->memHeader + block->memHeader.length != (UCHAR*) neighbor)
 			corrupt ("bad neighbors");
@@ -887,7 +885,7 @@ void MemMgr::releaseRaw(MemBlock **block) // tbd: clean these up
 		{
 		if (*block)
 			currentMemory -= (*block)->length;
-			
+
 		free (block);
 		}
 }
@@ -924,10 +922,10 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 {
 #ifdef MEM_DEBUG
 	Sync sync (&mutex, "MemMgr::analyze");
-	
+
 	if (summaryTable || detailTable)
 		sync.lock(Exclusive);
-		
+
 	Client *hashTable [CLIENT_HASH_SIZE];
 	memset (hashTable, 0, sizeof (hashTable));
 	UCHAR *memory = (UCHAR*) malloc (sizeof(Client) * MAX_CLIENTS);
@@ -1060,7 +1058,7 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 		{
 		stream->putSegment ("\nModule\tLine\tIn Use\tSpace in Use\tDeleted\tSpace deleted\n");
 		memset (&totals, 0, sizeof(totals));
-		
+
 		for (client = (Client*) memory; client < clients; ++client)
 			{
 			stream->format ("%s\t%d\t%d\t%d\t%d\t%d\n", client->fileName, client->line,
@@ -1072,7 +1070,7 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 			totals.spaceDeleted += client->spaceDeleted;
 			}
 
-		stream->format ("Total\t\t%d\t%d\t%d\t%d\n", 
+		stream->format ("Total\t\t%d\t%d\t%d\t%d\n",
 						totals.objectsInUse, totals.spaceInUse,
 						totals.objectsDeleted, totals.spaceDeleted);
 		stream->format ("Number small hunks:\t%d\n", numberSmallHunks);
@@ -1084,7 +1082,7 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 		int batch = 0;
 		int64 orderedSpace = 0;
 		int sizes = 0;
-		
+
 		//for (MemFreeBlock *blk = freeBlocks.nextLarger; blk != &freeBlocks; blk = blk->nextLarger)
 		for (MemFreeBlock *blk = freeBlockTree.getFirst(); blk; blk = blk->getNext())
 			{
@@ -1111,7 +1109,7 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 
 		if (batch)
 			stream->putCharacter ('\n');
-		
+
 		stream->format ("Unique sizes: %d\n", sizes);
 		stream->format ("Free segments:\t%d\n", numberFree);
 		stream->format ("Free space:\t" I64FORMAT "\n", freeSpace);
@@ -1119,12 +1117,12 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 		if (orderedSpace != freeSpace)
 			stream->format ("Memory leak: " I64FORMAT "\n", freeSpace - orderedSpace);
 		}
-	
+
 	if (summaryTable)
 		{
 		int sizes = 0;
 
-		
+
 		for (MemFreeBlock *blk = freeBlockTree.getFirst(); blk; blk = blk->getNext())
 		//for (MemFreeBlock *blk = freeBlocks.nextLarger; blk != &freeBlocks; blk = blk->nextLarger)
 			{
@@ -1134,7 +1132,7 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 			for (MemFreeBlock *twin = blk->nextTwin; twin != blk; twin = twin->nextTwin)
 				++count;
 			}
-		
+
 		int n = 0;
 		summaryTable->putInt64(n++, currentMemory);
 		summaryTable->putInt64(n++, freeSpace);
@@ -1144,7 +1142,7 @@ void MemMgr::analyze(int mask, Stream *stream, InfoTable *summaryTable, InfoTabl
 		summaryTable->putInt(n++, sizes);
 		summaryTable->putRecord();
 		}
-	
+
 	if (detailTable)
 		{
 		for (client = (Client*) memory; client < clients; ++client)
@@ -1189,7 +1187,7 @@ void MemMgr::validateBlock(MemBlock *block)
 {
 	if (block->pool->signature != defaultSignature)
 		corrupt("bad block released");
-		
+
 #ifdef MEM_DEBUG
 	for (const UCHAR *end = (UCHAR*) block + ABS(block->length), *p = end - guardBytes; p < end;)
 		if (*p++ != GUARD_BYTE)

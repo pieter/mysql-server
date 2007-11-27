@@ -1949,6 +1949,7 @@ void Table::garbageCollect(Record * leaving, Record * staying, Transaction *tran
 
 	FOR_FIELDS(field, this)
 		if (field->type == Asciiblob || field->type == Binaryblob)
+			/***
 			for (Record *next, *record = leaving; record && record != staying; record = next)
 				{
 				next = record->getPriorVersion();
@@ -1964,6 +1965,38 @@ void Table::garbageCollect(Record * leaving, Record * staying, Transaction *tran
 						expungeBlob(&value);
 					}
 				}
+			***/
+			{
+			Bitmap blobs;
+			Record *record;
+			Value value;
+			
+			for (record = leaving; record && record != staying; record = record->getPriorVersion())
+				if (record->hasRecord())
+					{
+					record->getRawValue(field->id, &value);
+					
+					if ((value.getType() == Asciiblob || value.getType() == Binaryblob))
+						blobs.set(value.getBlobId());
+					}
+					
+			for (record = staying; record; record = record->getPriorVersion())
+				if (record->hasRecord())
+					{
+					record->getRawValue(field->id, &value);
+					
+					if ((value.getType() == Asciiblob || value.getType() == Binaryblob))
+						blobs.clear(value.getBlobId());
+					}
+			
+			for (int blobId = 0; (blobId = blobs.nextSet(blobId)) >= 0; ++blobId)
+				{		
+				BinaryBlob *blob = getBinaryBlob(blobId);
+				value.setValue (blob);
+				blob->release();
+				expungeBlob(&value);
+				}	
+			}
 	END_FOR
 }
 

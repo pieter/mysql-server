@@ -486,8 +486,6 @@ int unblock_commits(THD *thd)
  */
 int write_table_data(THD* thd, Backup_info &info, OStream &s)
 {
-  int error= 0;
-  my_bool def_or_snap_used= FALSE;  // Are default or snapshot used?
   DBUG_ENTER("backup::write_table_data");
 
   info.data_size= 0;
@@ -651,7 +649,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
       info.binlog_information.position= li.pos;
       memcpy(info.binlog_information.binlog_file_name, 
              li.log_file_name, strlen(li.log_file_name));
-      DBUG_PRINT("SYNC PHASE - binlog position : ", ("%d", li.pos));
+      DBUG_PRINT("SYNC PHASE - binlog position : ", ("%d", (int) li.pos));
       DBUG_PRINT("SYNC PHASE - binlog filename : ", ("%s", li.log_file_name));
     }
 

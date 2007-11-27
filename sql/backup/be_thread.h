@@ -10,7 +10,6 @@
    Macro for error handling.
 */
 #define SET_STATE_TO_ERROR_AND_DBUG_RETURN {                                 \
-    int state= backup::ERROR;                                                \
     DBUG_PRINT("error",("driver got an error at %s:%d",__FILE__,__LINE__)); \
     DBUG_RETURN(backup::ERROR); }
 

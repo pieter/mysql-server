@@ -181,12 +181,12 @@ int StorageInterface::falcon_deinit(void *p)
 }
 
 int falcon_strnxfrm (void *cs,
-                     const char *dst, uint dstlen,
+                     const char *dst, uint dstlen, int nweights,
                      const char *src, uint srclen)
 {
 	CHARSET_INFO *charset = (CHARSET_INFO*) cs;
 
-	return charset->coll->strnxfrm(charset, (uchar *) dst, dstlen, MAX_INDEX_KEY_LENGTH,
+	return charset->coll->strnxfrm(charset, (uchar *) dst, dstlen, nweights,
 	                              (uchar *) src, srclen, 0);
 }
 

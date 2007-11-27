@@ -32,7 +32,7 @@ public:
 	virtual bool		like(const char * string, const char * pattern);
 	virtual bool		starting (const char *string1, const char *string2);
 	virtual const char	*getName();
-	virtual int			makeKey (Value *value, IndexKey *key, int partialKey);
+	virtual int			makeKey (Value *value, IndexKey *key, int partialKey, int maxKeyLength);
 	virtual int			compare (Value *value1, Value *value2);
 	virtual char		getPadChar(void);
 	virtual int			truncate(Value *value, int partialLength);

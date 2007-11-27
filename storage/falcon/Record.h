@@ -84,6 +84,7 @@ public:
 	const UCHAR*	getEncoding (int index);
 	int				setEncodedRecord(Stream *stream, bool interlocked);
 	void			getValue (int fieldId, Value* value);
+	void			getRawValue (int fieldId, Value* value);
 	int				getFormatVersion();
 	void			setValue (Transaction *transaction, int id, Value *value, bool cloneFlag, bool copyFlag);
 	void			poke ();

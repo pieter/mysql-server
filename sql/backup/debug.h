@@ -250,7 +250,7 @@ namespace backup {
 #define BACKUP_BREAKPOINT(S) \
  do { \
   DBUG_PRINT("backup",("== breakpoint on '%s' ==",(S))); \
-  DBUG_SYNC_POINT((S),BACKUP_BREAKPOINT_TIMEOUT); \
+  DBUG_EXECUTE_IF("backup_debug", DBUG_SYNC_POINT((S),BACKUP_BREAKPOINT_TIMEOUT);); \
  } while (0)
 
 #else

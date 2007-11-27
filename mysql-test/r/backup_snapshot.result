@@ -1,5 +1,6 @@
 DROP DATABASE IF EXISTS bup_snapshot;
 CREATE DATABASE bup_snapshot;
+SET GLOBAL debug="d,backup_debug";
 CREATE TABLE bup_snapshot.t1 (word CHAR(20)) ENGINE=INNODB;
 INSERT INTO bup_snapshot.t1 VALUES ("01 Some data to test");
 INSERT INTO bup_snapshot.t1 VALUES ("02 Some data to test");

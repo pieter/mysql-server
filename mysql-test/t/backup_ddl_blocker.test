@@ -61,6 +61,9 @@ connect (con6,localhost,root,,);
 
 connection con1;
 
+# Setup the server to use the backup breakpoints
+SET GLOBAL debug="d,backup_debug";
+
 #
 # Backup test sequence diagram (not UML)
 #

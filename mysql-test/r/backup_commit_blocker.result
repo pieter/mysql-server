@@ -1,5 +1,6 @@
 DROP DATABASE IF EXISTS bup_commit_blocker;
 CREATE DATABASE bup_commit_blocker;
+SET GLOBAL debug="d,backup_debug";
 
 Starting Test 1
 

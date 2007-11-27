@@ -33,6 +33,9 @@ connect (con3,localhost,root,,);
 
 connection con1;
 
+# Setup the server to use the backup breakpoints
+SET GLOBAL debug="d,backup_debug";
+
 #
 # Setup for tests.
 #

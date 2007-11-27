@@ -936,7 +936,8 @@ enum enum_thread_type
   SYSTEM_THREAD_SLAVE_SQL= 4,
   SYSTEM_THREAD_NDBCLUSTER_BINLOG= 8,
   SYSTEM_THREAD_EVENT_SCHEDULER= 16,
-  SYSTEM_THREAD_EVENT_WORKER= 32
+  SYSTEM_THREAD_EVENT_WORKER= 32,
+  SYSTEM_THREAD_BACKUP= 64
 };
 
 
@@ -1528,6 +1529,14 @@ public:
   /* set during loop of derived table processing */
   bool       derived_tables_processing;
   my_bool    tablespace_op;	/* This is TRUE in DISCARD/IMPORT TABLESPACE */
+
+  /*
+    @todo The following is a work around for online backup and the DDL blocker.
+          It should be removed when the generalized solution is in place.
+          This is needed to ensure the restore (which uses DDL) is not blocked
+          when the DDL blocker is engaged.
+  */
+  my_bool DDL_exception; // Allow some DDL if there is an exception
 
   sp_rcontext *spcont;		// SP runtime context
   sp_cache   *sp_proc_cache;

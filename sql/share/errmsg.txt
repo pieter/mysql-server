@@ -6197,6 +6197,9 @@ ER_BACKUP_SEND_DATA_RETRY
 ER_BACKUP_OPEN_TABLES
         eng "Open and lock tables failed in %-.64s"
 
+ER_BACKUP_THREAD_INIT
+        eng "Backup driver's table locking thread can not be initialized."
+
 ER_VIEW_NO_CREATION_CTX
   eng "View `%-.64s`.`%-.64s` has no creation context"
 ER_VIEW_INVALID_CREATION_CTX

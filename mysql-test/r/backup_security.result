@@ -1,0 +1,95 @@
+DROP DATABASE IF EXISTS backup_test;
+CREATE DATABASE backup_test;
+default: Create table and new users.
+CREATE TABLE backup_test.t1 (a char(30));
+INSERT INTO backup_test.t1 VALUES ("01 Test #1 - super privilege");
+INSERT INTO backup_test.t1 VALUES ("02 Test #1 - super privilege");
+INSERT INTO backup_test.t1 VALUES ("03 Test #1 - super privilege");
+INSERT INTO backup_test.t1 VALUES ("04 Test #1 - super privilege");
+INSERT INTO backup_test.t1 VALUES ("05 Test #1 - super privilege");
+INSERT INTO backup_test.t1 VALUES ("06 Test #1 - super privilege");
+INSERT INTO backup_test.t1 VALUES ("07 Test #1 - super privilege");
+CREATE USER bup_no_rights;
+CREATE USER bup_with_rights;
+default: Grant user rights to run backup. Revoke SUPER from one user.
+GRANT ALL ON *.* TO 'bup_no_rights'@'%';
+GRANT ALL ON *.* TO 'bup_with_rights'@'%';
+REVOKE SUPER ON *.* FROM 'bup_no_rights'@'%';
+GRANT SUPER ON *.* TO 'bup_with_rights'@'%';
+default: Do backup of database with default test user for later tests.
+BACKUP DATABASE backup_test to 'backup_test_orig.bak';
+Backup Summary
+ header     =       21 bytes
+ meta-data  =       92 bytes
+ data       =      245 bytes
+              --------------
+ total             358 bytes
+default: Connect as user with no rights and attempt backup and restore.
+no_rights: Attempting backup. Should fail with error 1227
+BACKUP DATABASE backup_test to 'bup_no_rights.bak';
+ERROR 42000: Access denied; you need the SUPER privilege for this operation
+SHOW ERRORS;
+Level	Code	Message
+Error	1227	Access denied; you need the SUPER privilege for this operation
+no_rights: Attempting restore. Should fail with error 1227
+RESTORE FROM 'bup_no_rights.bak';
+ERROR 42000: Access denied; you need the SUPER privilege for this operation
+SHOW ERRORS;
+Level	Code	Message
+Error	1227	Access denied; you need the SUPER privilege for this operation
+SELECT * FROM t1;
+a
+01 Test #1 - super privilege
+02 Test #1 - super privilege
+03 Test #1 - super privilege
+04 Test #1 - super privilege
+05 Test #1 - super privilege
+06 Test #1 - super privilege
+07 Test #1 - super privilege
+Connect as user with rights and attempt backup and restore.
+no_rights: Attempting backup. Should succeed
+BACKUP DATABASE backup_test to 'bup_with_rights.bak';
+Backup Summary
+ header     =       21 bytes
+ meta-data  =       92 bytes
+ data       =      245 bytes
+              --------------
+ total             358 bytes
+no_rights: Attempting restore. Should succeed
+RESTORE FROM 'bup_with_rights.bak';
+Restore Summary
+ header     =       21 bytes
+ meta-data  =       92 bytes
+ data       =      245 bytes
+              --------------
+ total             358 bytes
+SELECT * FROM t1;
+a
+01 Test #1 - super privilege
+02 Test #1 - super privilege
+03 Test #1 - super privilege
+04 Test #1 - super privilege
+05 Test #1 - super privilege
+06 Test #1 - super privilege
+07 Test #1 - super privilege
+default: Do restore to ensure it still works with default test user.
+RESTORE FROM 'backup_test_orig.bak';
+Restore Summary
+ header     =       21 bytes
+ meta-data  =       92 bytes
+ data       =      245 bytes
+              --------------
+ total             358 bytes
+SELECT * FROM t1;
+a
+01 Test #1 - super privilege
+02 Test #1 - super privilege
+03 Test #1 - super privilege
+04 Test #1 - super privilege
+05 Test #1 - super privilege
+06 Test #1 - super privilege
+07 Test #1 - super privilege
+Cleanup
+DROP USER bup_no_rights;
+DROP USER bup_with_rights;
+DROP DATABASE backup_test;

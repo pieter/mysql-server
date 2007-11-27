@@ -1,0 +1,89 @@
+#
+# This test includes tests for all of the security-related tasks in 
+# Online Backup. These include tests for:
+#
+# 1) Only users with super privilege can run backup or restore.
+#
+
+--disable_warnings
+DROP DATABASE IF EXISTS backup_test;
+--enable_warnings
+
+#
+# Test 1 - Only users with super privilege can run backup and restore.
+#
+
+CREATE DATABASE backup_test;
+
+--echo default: Create table and new users.
+
+CREATE TABLE backup_test.t1 (a char(30));
+
+INSERT INTO backup_test.t1 VALUES ("01 Test #1 - super privilege"); 
+INSERT INTO backup_test.t1 VALUES ("02 Test #1 - super privilege"); 
+INSERT INTO backup_test.t1 VALUES ("03 Test #1 - super privilege"); 
+INSERT INTO backup_test.t1 VALUES ("04 Test #1 - super privilege"); 
+INSERT INTO backup_test.t1 VALUES ("05 Test #1 - super privilege"); 
+INSERT INTO backup_test.t1 VALUES ("06 Test #1 - super privilege"); 
+INSERT INTO backup_test.t1 VALUES ("07 Test #1 - super privilege"); 
+
+CREATE USER bup_no_rights;
+CREATE USER bup_with_rights;
+
+--echo default: Grant user rights to run backup. Revoke SUPER from one user.
+GRANT ALL ON *.* TO 'bup_no_rights'@'%';
+GRANT ALL ON *.* TO 'bup_with_rights'@'%';
+REVOKE SUPER ON *.* FROM 'bup_no_rights'@'%';
+GRANT SUPER ON *.* TO 'bup_with_rights'@'%';
+
+--echo default: Do backup of database with default test user for later tests.
+
+BACKUP DATABASE backup_test to 'backup_test_orig.bak';
+
+--echo default: Connect as user with no rights and attempt backup and restore.
+
+connect (no_rights,localhost,bup_no_rights,,backup_test);
+connection no_rights;
+
+--echo no_rights: Attempting backup. Should fail with error 1227
+--error 1227
+BACKUP DATABASE backup_test to 'bup_no_rights.bak';
+SHOW ERRORS;
+
+--echo no_rights: Attempting restore. Should fail with error 1227
+--error 1227
+RESTORE FROM 'bup_no_rights.bak';
+SHOW ERRORS;
+
+SELECT * FROM t1;
+
+--echo Connect as user with rights and attempt backup and restore.
+
+connect (with_rights,localhost,bup_with_rights,,backup_test);
+connection with_rights;
+
+--echo no_rights: Attempting backup. Should succeed
+BACKUP DATABASE backup_test to 'bup_with_rights.bak';
+
+--echo no_rights: Attempting restore. Should succeed
+RESTORE FROM 'bup_with_rights.bak';
+
+SELECT * FROM t1;
+
+connection default;
+
+--echo default: Do restore to ensure it still works with default test user.
+
+RESTORE FROM 'backup_test_orig.bak';
+
+SELECT * FROM t1;
+
+--echo Cleanup
+
+DROP USER bup_no_rights;
+DROP USER bup_with_rights;
+DROP DATABASE backup_test;
+
+remove_file $MYSQLTEST_VARDIR/master-data/bup_with_rights.bak;
+remove_file $MYSQLTEST_VARDIR/master-data/backup_test_orig.bak;
+

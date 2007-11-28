@@ -1409,8 +1409,6 @@ void Database::dropTable(Table * table, Transaction *transaction)
 
 void Database::truncateTable(Table *table, Transaction *transaction)
 {
-	Sync scavenge(&table->syncScavenge, "Database::truncateTable");
-	
 	table->checkDrop();
 	
 	// Check for records in active transactions
@@ -1419,7 +1417,18 @@ void Database::truncateTable(Table *table, Transaction *transaction)
 		throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and cannot be truncated",
 						table->schemaName, table->name);
 						   
-	scavenge.lock(Shared);
+	Sync sync(&syncTables, "Database::truncateTable");
+	sync.lock(Exclusive);
+	
+	// No access until truncate complete
+	
+	Sync syncObj(&table->syncObject, "Database::truncateTable");
+	syncObj.lock(Exclusive);
+	
+	// Keep scavenger out of the way
+	
+	Sync scavenge(&table->syncScavenge, "Database::truncateTable");
+	scavenge.lock(Exclusive);
 	
 	// Purge records out of committed transactions
 	
@@ -1427,7 +1436,12 @@ void Database::truncateTable(Table *table, Transaction *transaction)
 	
 	// Recreate data/blob sections and indexes
 	
+	Sync syncConnection(&syncSysConnection, "Table::truncate");
+	syncConnection.lock(Exclusive);
+	
 	table->truncate(transaction);
+	
+	commitSystemTransaction();
 }
 
 void Database::addTable(Table * table)

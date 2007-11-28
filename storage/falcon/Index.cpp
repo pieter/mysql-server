@@ -696,6 +696,8 @@ void Index::rebuildIndex(Transaction *transaction)
 	int oldId = indexId;
 	indexId = dbb->createIndex(TRANSACTION_ID(transaction));
 
+	getRootPage();
+
 	PreparedStatement *statement = database->prepareStatement (
 		"update system.indexes set indexId=? where indexName=? and schema=? and tableName=?");
 	int n = 1;

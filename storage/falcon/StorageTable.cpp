@@ -18,6 +18,7 @@
 #include "StorageTableShare.h"
 #include "StorageConnection.h"
 #include "StorageDatabase.h"
+#include "Sync.h"
 #include "Bitmap.h"
 #include "Index.h"
 #include "SQLException.h"
@@ -48,6 +49,7 @@ StorageTable::StorageTable(StorageConnection *connection, StorageTableShare *tab
 	upperBound = lowerBound = NULL;
 	record = NULL;
 	recordLocked = false;
+	syncTruncate.setName("StorageTable::syncTruncate");
 }
 
 StorageTable::~StorageTable(void)
@@ -83,10 +85,24 @@ int StorageTable::deleteTable(void)
 
 int StorageTable::truncateTable(void)
 {
+	Sync sync(&syncTruncate, "StorageTable::truncateTable");
+	sync.lock(Exclusive);
+	
 	clearRecord();
 	int ret = share->truncateTable(storageConnection);
 	
 	return ret;
+}
+
+void StorageTable::clearTruncate(void)
+{
+	if (syncTruncate.isLocked())
+		syncTruncate.unlock();
+}
+
+void StorageTable::setTruncate(LockType lockType)
+{
+	syncTruncate.lock(NULL, lockType);
 }
 
 int StorageTable::insert(void)

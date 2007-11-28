@@ -19,6 +19,7 @@
 #include "EncodedDataStream.h"
 #include "Stream.h"
 #include "IndexKey.h"
+#include "SyncObject.h"
 #include "SQLException.h"
 
 static const int UpperBound	= 1;
@@ -60,6 +61,9 @@ public:
 	void			clearAlter(void);
 	bool			setAlter(void);
 	
+	void			clearTruncate(void);
+	void			setTruncate(LockType lockType = Shared);
+	
 	virtual void	setConnection(StorageConnection* connection);
 	virtual void	clearIndexBounds(void);
 	virtual void	clearRecord(void);
@@ -100,6 +104,7 @@ public:
 	virtual int		optimize(void);
 	virtual void	setLocalTable(StorageInterface* handler);
 
+	SyncObject			syncTruncate;
 	JString				name;
 	StorageTable		*collision;
 	StorageConnection	*storageConnection;

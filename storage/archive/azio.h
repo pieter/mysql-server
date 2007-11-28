@@ -57,7 +57,7 @@ extern "C" {
 /* Some personal debugging functions */
 #define WATCHPOINT fprintf(stderr, "\nWATCHPOINT %s:%d (%s)\n", __FILE__, __LINE__,__func__);fflush(stderr);
 #define WATCHPOINT_STRING(A) fprintf(stderr, "\nWATCHPOINT %s:%d (%s) %s\n", __FILE__, __LINE__,__func__,A);fflush(stderr);
-#define WATCHPOINT_NUMBER(A) fprintf(stderr, "\nWATCHPOINT %s:%d (%s) %d\n", __FILE__, __LINE__,__func__,A);fflush(stderr);
+#define WATCHPOINT_NUMBER(A) fprintf(stderr, "\nWATCHPOINT %s:%d (%s) %d\n", __FILE__, __LINE__,__func__,(int)(A));fflush(stderr);
 #define WATCHPOINT_ERRNO(A) fprintf(stderr, "\nWATCHPOINT %s:%d (%s) %s\n", __FILE__, __LINE__,__func__, strerror(A));A= 0;fflush(stderr);
 
 /*
@@ -222,6 +222,13 @@ typedef enum {
   AZ_THREAD_DEAD
 } az_thread_type;
 
+typedef enum {
+  AZ_METHOD_BLOCK,
+  AZ_METHOD_AIO,
+//  AZ_METHOD_THREAD, 
+  AZ_METHOD_MAX,
+} az_method;
+
 typedef struct azio_container_st azio_container_st;
 
 struct azio_container_st {
@@ -273,13 +280,13 @@ typedef struct azio_stream {
 #ifdef AZIO_AIO
   azio_container_st container;
 #endif
-  int aio;
+  az_method method;
   char *row_ptr;
 } azio_stream;
 
                         /* basic functions */
 
-extern int azopen(azio_stream *s, const char *path, int Flags);
+int azopen(azio_stream *s, const char *path, int Flags, az_method method);
 /*
      Opens a gzip (.gz) file for reading or writing. The mode parameter
    is as in fopen ("rb" or "wb") but can also include a compression level
@@ -348,13 +355,6 @@ extern size_t azseek (azio_stream *file,
    would be before the current position.
 */
 
-extern int azrewind(azio_stream *file);
-/*
-     Rewinds the given file. This function is supported only for reading.
-
-   gzrewind(file) is equivalent to (int)gzseek(file, 0L, SEEK_SET)
-*/
-
 extern size_t aztell(azio_stream *file);
 /*
      Returns the starting position for the next gzread or gzwrite on the
@@ -371,10 +371,10 @@ extern int azclose(azio_stream *file);
    error number (see function gzerror below).
 */
 
+int azread_init(azio_stream *s);
 size_t azwrite_row(azio_stream *s, void *buf, unsigned int len);
 size_t azread_row(azio_stream *s, int *error);
 
-unsigned int azio_enable_aio(azio_stream *s);
 extern int azwrite_frm (azio_stream *s, char *blob, unsigned int length);
 extern int azread_frm (azio_stream *s, char *blob);
 extern int azwrite_comment (azio_stream *s, char *blob, unsigned int length);

@@ -592,7 +592,46 @@ void Cache::writePage(Bdb *bdb, int type)
 	// time_t start = database->timestamp;
 	Priority priority(database->ioScheduler);
 	priority.schedule(PRIORITY_MEDIUM);	
-	dbb->writePage(bdb, type);
+	
+	try
+		{
+		dbb->writePage(bdb, type);
+		}
+	catch (SQLException& exception)
+		{
+		priority.finished();
+		
+		if (exception.getSqlcode() != DEVICE_FULL)
+			throw;
+		
+		database->setIOError(&exception);
+		Thread *thread = Thread::getThread("Cache::writePage");
+		
+		for (bool error = true; error;)
+			{
+			if (thread->shutdownInProgress)
+				return;
+			
+			thread->sleep(1000);
+			
+			try
+				{
+				priority.schedule(PRIORITY_MEDIUM);
+				dbb->writePage(bdb, type);
+				error = false;
+				database->clearIOError();
+				}
+			catch (SQLException& exception2)
+				{
+				priority.finished();
+				
+				if (exception2.getSqlcode() != DEVICE_FULL)
+					throw;
+				}
+			}
+		}
+
+		
 	priority.finished();
 	
 	/***
@@ -966,7 +1005,57 @@ void Cache::ioThread(void)
 					//Log::debug(" %d Writing %s %d pages: %d - %d\n", thread->threadId, (const char*) dbb->fileName, count, pageNumber, pageNumber + count - 1);
 					int length = p - buffer;
 					priority.schedule(PRIORITY_LOW);
-					dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
+					
+					try
+						{
+						priority.schedule(PRIORITY_LOW);
+						dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
+						}
+					catch (SQLException& exception)
+						{
+						priority.finished();
+						
+						if (exception.getSqlcode() != DEVICE_FULL)
+							throw;
+						
+						database->setIOError(&exception);
+						
+						for (bool error = true; error;)
+							{
+							if (thread->shutdownInProgress)
+								{
+								Bdb *next;
+
+								for (bdb = bdbList; bdb; bdb = next)
+									{
+									bdb->flags &= ~BDB_write_pending;
+									next = bdb->ioThreadNext;
+									bdb->syncWrite.unlock();
+									bdb->decrementUseCount(REL_HISTORY);
+									}
+									
+								return;
+								}
+							
+							thread->sleep(1000);
+							
+							try
+								{
+								priority.schedule(PRIORITY_LOW);
+								dbb->writePages(pageNumber, length, buffer, WRITE_TYPE_FLUSH);
+								error = false;
+								database->clearIOError();
+								}
+							catch (SQLException& exception2)
+								{
+								priority.finished();
+								
+								if (exception2.getSqlcode() != DEVICE_FULL)
+									throw;
+								}
+							}
+						}
+
 					priority.finished();
 					Bdb *next;
 

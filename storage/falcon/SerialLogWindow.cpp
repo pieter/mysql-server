@@ -26,6 +26,8 @@
 #include "SQLError.h"
 #include "Log.h"
 #include "Sync.h"
+#include "Database.h"
+#include "Thread.h"
 
 #define NEXT_BLOCK(prior)	(SerialLogBlock*) ((UCHAR*) prior + ROUNDUP(prior->length, sectorSize))
 
@@ -115,7 +117,40 @@ void SerialLogWindow::write(SerialLogBlock *block)
 	uint32 length = ROUNDUP(block->length, sectorSize);
 	uint32 offset = (int) (origin + ((UCHAR*) block - buffer));
 	ASSERT(length <= bufferLength);
-	file->write(offset, length, block);
+	
+	try
+		{
+		file->write(offset, length, block);
+		}
+	catch (SQLException& exception)
+		{
+		if (exception.getSqlcode() != DEVICE_FULL)
+			throw;
+		
+		log->database->setIOError(&exception);
+		Thread *thread = Thread::getThread("Cache::writePage");
+		
+		for (bool error = true; error;)
+			{
+			if (thread->shutdownInProgress)
+				return;
+			
+			thread->sleep(1000);
+			
+			try
+				{
+				file->write(offset, length, block);
+				error = false;
+				log->database->clearIOError();
+				}
+			catch (SQLException& exception2)
+				{
+				if (exception2.getSqlcode() != DEVICE_FULL)
+					throw;
+				}
+			}
+		}
+		
 	++log->windowWrites;
 }
 

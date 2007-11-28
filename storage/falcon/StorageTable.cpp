@@ -481,6 +481,10 @@ int StorageTable::translateError(SQLException *exception, int defaultStorageErro
 				errorCode = StorageErrorLockTimeout;
 				break;
 
+			case DEVICE_FULL:
+				errorCode = StorageErrorDeviceFull;
+				break;
+
 			default:
 				errorCode = defaultStorageError;
 			}

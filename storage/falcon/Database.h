@@ -101,6 +101,7 @@ class TableSpace;
 class MemMgr;
 class RecordScavenge;
 class PriorityScheduler;
+class SQLException;
 
 struct JavaCallback;
 
@@ -220,6 +221,7 @@ public:
 	Dbb					*dbb;
 	Cache				*cache;
 	JString				name;
+	JString				ioError;
 	Database			*next;					// used by Connection
 	Database			*prior;					// used by Connection
 	Schema				*schemas [TABLE_HASH_SIZE];
@@ -284,8 +286,10 @@ public:
 	volatile int		numberRecords;
 	volatile int		numberTemplateEvals;
 	volatile int		numberTemplateExpands;
+	volatile int		pendingIOErrors;
 	int					odsVersion;
 	int					noSchedule;
+	int					pendingIOErrorCode;
 	uint32				serialLogBlockSize;
 	
 	volatile INTERLOCK_TYPE	currentGeneration;
@@ -295,6 +299,8 @@ public:
 	int64				lastRecordMemory;
 	time_t				creationTime;
 	volatile time_t		lastScavenge;
+	void setIOError(SQLException* exception);
+	void clearIOError(void);
 };
 
 #endif // !defined(AFX_DATABASE_H__5EC961D1_A406_11D2_AB5B_0000C01D2301__INCLUDED_)

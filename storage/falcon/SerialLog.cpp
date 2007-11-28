@@ -694,14 +694,9 @@ void SerialLog::endRecord(void)
 }
 
 void SerialLog::wakeup()
-{
-	/***
-	if (workerThread)
-		workerThread->wake();
-	***/
-	
+{	
 	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
-		if (gopher->workerThread->sleeping)
+		if ((gopher->workerThread) && gopher->workerThread->sleeping)
 			{
 			gopher->wakeup();
 			break;

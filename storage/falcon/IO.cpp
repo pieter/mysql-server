@@ -80,13 +80,18 @@
 #include "Debug.h"
 #include "Synchronize.h"
 
-#define TRACE_FILE	"io.trace"
+#define TRACE_FILE							"io.trace"
+//#define SIMULATE_DISK_FULL					1000000;
 
 extern uint		falcon_direct_io;
 
 static const int TRACE_SYNC_START	= -1;
 static const int TRACE_SYNC_END		= -2;
 
+#ifdef SIMULATE_DISK_FULL
+static int simulateDiskFull = SIMULATE_DISK_FULL;
+#endif
+	
 static FILE	*traceFile;
 
 #ifdef _DEBUG
@@ -236,6 +241,9 @@ void IO::writePage(Bdb * bdb, int type)
 
 	if (length != pageSize)
 		{
+		if (errno == ENOSPC)
+			throw SQLError(DEVICE_FULL, "device full error on %s, page %d\n", (const char*) fileName, bdb->pageNumber);
+
 		declareFatalError();
 		FATAL ("write error on page %d (%d/%d/%d) of \"%s\": %s (%d)",
 				bdb->pageNumber, length, pageSize, fileId,
@@ -253,11 +261,21 @@ void IO::writePages(int32 pageNumber, int length, const UCHAR* data, int type)
 		FATAL ("can't continue after fatal error");
 
 	SEEK_OFFSET offset = (int64) pageNumber * pageSize;
+
+#ifdef SIMULATE_DISK_FULL
+	if (simulateDiskFull && offset + length > simulateDiskFull)
+		throw SQLError(DEVICE_FULL, "device full error on %s, page %d\n", (const char*) fileName, pageNumber);
+#endif
+	
 	int ret = pwrite (offset, length, data);
 
 	if (ret != length)
 		{
+		if (errno == ENOSPC)
+			throw SQLError(DEVICE_FULL, "device full error on %s, page %d\n", (const char*) fileName, pageNumber);
+			
 		declareFatalError();
+		
 		FATAL ("write error on page %d (%d/%d/%d) of \"%s\": %s (%d)",
 				pageNumber, length, pageSize, fileId,
 				(const char*) fileName, strerror (errno), errno);

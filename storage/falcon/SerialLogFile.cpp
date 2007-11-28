@@ -166,14 +166,12 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 {
 	uint32 effectiveLength = ROUNDUP(length, sectorSize);
     time_t start = database->timestamp;
-	//Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::write");
 	Priority priority(database->ioScheduler);
 	
 	if (!(position == writePoint || position == 0 || writePoint == 0))
 		throw SQLError(IO_ERROR, "serial log left in inconsistent state");
 	
 	if (falcon_serial_log_priority)
-		//syncIO.lock(Exclusive);
 		priority.schedule(PRIORITY_HIGH);
 		
 #ifdef _WIN32
@@ -193,7 +191,14 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 	DWORD ret;
 	
 	if (!WriteFile(handle, data, effectiveLength, &ret, NULL))
-		throw SQLError(IO_ERROR, "serial log WriteFile failed with %d", GetLastError());
+		{
+		int lastError = GetLastError();
+		
+		if (lastError == ERROR_HANDLE_DISK_FULL)
+			throw SQLError(DEVICE_FULL, "device full error on serial log file %s\n", (const char*) fileName);
+
+		throw SQLError(IO_ERROR, "serial log WriteFile failed with %d", lastError);
+		}
 
 #else
 
@@ -217,8 +222,13 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 #endif
 
 	if (n != effectiveLength)
+		{
+		if (errno == ENOSPC)
+			throw SQLError(DEVICE_FULL, "device full error on serial log file %s\n", (const char*) fileName);
+
 		throw SQLEXCEPTION (IO_ERROR, "serial write error on \"%s\": %s (%d)", 
 							(const char*) fileName, strerror (errno), errno);
+		}
 #endif
 
 	time_t delta = database->timestamp - start;

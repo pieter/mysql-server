@@ -78,7 +78,8 @@ enum StorageError {
 	StorageErrorLockTimeout			= -106,
 	StorageErrorTableSpaceExist		= -107,
 	StorageErrorTableNotEmpty		= -108,
-	StorageErrorTableSpaceNotExist	= -109
+	StorageErrorTableSpaceNotExist	= -109,
+	StorageErrorDeviceFull			= -110
 	};
 	
 static const int StoreErrorIndexShift	= 10;

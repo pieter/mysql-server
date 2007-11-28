@@ -3042,7 +3042,7 @@ create table t_out (subcase char(3),
 create table t_in  (a2 char(2), b2 char(2), c2 char(2));
 
 insert into t_out values ('A.1','2a', NULL, '2a');
--------------------------- A.2 - impossible
+#------------------------- A.2 - impossible
 insert into t_out values ('A.3', '2a', NULL, '2a');
 insert into t_out values ('A.4', '2a', NULL, 'xx');
 insert into t_out values ('B.1', '2a', '2a', '2a');
@@ -3103,7 +3103,7 @@ from t_out where subcase = 'B.4';
 
 -- echo 
 -- echo Test IN as top-level predicate, and
--- as non-top level for cases A.3, B.3 (the only cases with NULL result).
+-- echo as non-top level for cases A.3, B.3 (the only cases with NULL result).
 -- echo 
 -- echo case A.1
 select case when count(*) > 0 then 'T' else 'F' end as pred_in from t_out
@@ -3130,7 +3130,7 @@ where subcase = 'A.3' and
 select case when count(*) > 0 then 'T' else 'F' end as not_pred_in from t_out
 where subcase = 'A.3' and
       NOT((a1, b1, c1) IN (select * from t_in));
--- test non-top level result indirectly
+# test non-top level result indirectly
 select case when count(*) > 0 then 'N' else 'wrong result' end as pred_in from t_out
 where subcase = 'A.3' and
       ((a1, b1, c1) IN (select * from t_in)) is NULL and
@@ -3187,7 +3187,7 @@ where subcase = 'B.3' and
 select case when count(*) > 0 then 'T' else 'F' end as not_pred_in from t_out
 where subcase = 'B.3' and
       NOT((a1, b1, c1) IN (select * from t_in));
--- test non-top level result indirectly
+# test non-top level result indirectly
 select case when count(*) > 0 then 'N' else 'wrong result' end as pred_in from t_out
 where subcase = 'B.3' and
       ((a1, b1, c1) IN (select * from t_in)) is NULL and

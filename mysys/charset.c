@@ -254,9 +254,30 @@ static int add_collation(CHARSET_INFO *cs)
       }
       else if (!strcmp(cs->csname, "utf8"))
       {
-#if defined (HAVE_CHARSET_utf8) && defined(HAVE_UCA_COLLATIONS)
-        copy_uca_collation(newcs, &my_charset_utf8_unicode_ci);
+#if defined (HAVE_CHARSET_utf8mb3) && defined(HAVE_UCA_COLLATIONS)
+        copy_uca_collation(newcs, &my_charset_utf8mb4_unicode_ci);
         newcs->state|= MY_CS_AVAILABLE | MY_CS_LOADED;
+#endif
+      }
+      else if (!strcmp(cs->csname, "utf8mb3"))
+      {
+#if defined (HAVE_CHARSET_utf8mb3) && defined(HAVE_UCA_COLLATIONS)
+        copy_uca_collation(newcs, &my_charset_utf8mb3_unicode_ci);
+        newcs->state|= MY_CS_AVAILABLE | MY_CS_LOADED;
+#endif
+      }
+      else if (!strcmp(cs->csname, "utf16"))
+      {
+#if defined (HAVE_CHARSET_utf16) && defined(HAVE_UCA_COLLATIONS)
+        copy_uca_collation(newcs, &my_charset_utf16_unicode_ci);
+        newcs->state|= MY_CS_AVAILABLE | MY_CS_LOADED | MY_CS_NONASCII;
+#endif
+      }
+      else if (!strcmp(cs->csname, "utf32"))
+      {
+#if defined (HAVE_CHARSET_utf32) && defined(HAVE_UCA_COLLATIONS)
+        copy_uca_collation(newcs, &my_charset_utf32_unicode_ci);
+        newcs->state|= MY_CS_AVAILABLE | MY_CS_LOADED | MY_CS_NONASCII;
 #endif
       }
       else
@@ -303,10 +324,10 @@ static int add_collation(CHARSET_INFO *cs)
       if (cs->comment)
 	if (!(dst->comment= my_once_strdup(cs->comment,MYF(MY_WME))))
 	  return MY_XML_ERROR;
-      if (cs->csname)
+      if (cs->csname && !dst->csname)
         if (!(dst->csname= my_once_strdup(cs->csname,MYF(MY_WME))))
 	  return MY_XML_ERROR;
-      if (cs->name)
+      if (cs->name && !dst->name)
 	if (!(dst->name= my_once_strdup(cs->name,MYF(MY_WME))))
 	  return MY_XML_ERROR;
     }

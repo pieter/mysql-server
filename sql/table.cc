@@ -331,6 +331,7 @@ TABLE_SHARE *alloc_table_share(TABLE_LIST *table_list, char *key,
 
   SYNOPSIS
     init_tmp_table_share()
+    thd         thread handle
     share	Share to fill
     key		Table_cache_key, as generated from create_table_def_key.
 		must start with db name.    
@@ -348,7 +349,7 @@ TABLE_SHARE *alloc_table_share(TABLE_LIST *table_list, char *key,
     use key_length= 0 as neither table_cache_key or key_length will be used).
 */
 
-void init_tmp_table_share(TABLE_SHARE *share, const char *key,
+void init_tmp_table_share(THD *thd, TABLE_SHARE *share, const char *key,
                           uint key_length, const char *table_name,
                           const char *path)
 {
@@ -375,8 +376,13 @@ void init_tmp_table_share(TABLE_SHARE *share, const char *key,
     anyway to be able to catch errors.
    */
   share->table_map_version= ~(ulonglong)0;
-  share->table_map_id= ~0UL;
   share->cached_row_logging_check= -1;
+
+  /*
+    table_map_id is also used for MERGE tables to suppress repeated
+    compatibility checks.
+  */
+  share->table_map_id= (ulong) thd->query_id;
 
   DBUG_VOID_RETURN;
 }
@@ -2733,34 +2739,13 @@ bool check_db_name(LEX_STRING *org_name)
   char *name= org_name->str;
   uint name_length= org_name->length;
 
-  if (!name_length || name_length > NAME_LEN)
+  if (!name_length || name_length > NAME_LEN || name[name_length - 1] == ' ')
     return 1;
 
   if (lower_case_table_names && name != any_db)
     my_casedn_str(files_charset_info, name);
 
-#if defined(USE_MB) && defined(USE_MB_IDENT)
-  if (use_mb(system_charset_info))
-  {
-    name_length= 0;
-    bool last_char_is_space= TRUE;
-    char *end= name + org_name->length;
-    while (name < end)
-    {
-      int len;
-      last_char_is_space= my_isspace(system_charset_info, *name);
-      len= my_ismbchar(system_charset_info, name, end);
-      if (!len)
-        len= 1;
-      name+= len;
-      name_length++;
-    }
-    return (last_char_is_space || name_length > NAME_CHAR_LEN);
-  }
-  else
-#endif
-    return ((org_name->str[org_name->length - 1] != ' ') ||
-            (name_length > NAME_CHAR_LEN)); /* purecov: inspected */
+  return check_identifier_name(org_name);
 }
 
 
@@ -2773,43 +2758,20 @@ bool check_db_name(LEX_STRING *org_name)
 
 bool check_table_name(const char *name, uint length)
 {
-  uint name_length= 0;  // name length in symbols
-  const char *end= name+length;
-  if (!length || length > NAME_LEN)
+  if (!length || length > NAME_LEN || name[length - 1] == ' ')
     return 1;
-#if defined(USE_MB) && defined(USE_MB_IDENT)
-  bool last_char_is_space= FALSE;
-#else
-  if (name[length-1]==' ')
-    return 1;
-#endif
-
-  while (name != end)
-  {
-#if defined(USE_MB) && defined(USE_MB_IDENT)
-    last_char_is_space= my_isspace(system_charset_info, *name);
-    if (use_mb(system_charset_info))
-    {
-      int len=my_ismbchar(system_charset_info, name, end);
-      if (len)
-      {
-        name += len;
-        name_length++;
-        continue;
-      }
-    }
-#endif
-    name++;
-    name_length++;
-  }
-#if defined(USE_MB) && defined(USE_MB_IDENT)
-  return (last_char_is_space || name_length > NAME_CHAR_LEN) ;
-#else
-  return 0;
-#endif
+  LEX_STRING ident;
+  ident.str= (char*) name;
+  ident.length= length;
+  return check_identifier_name(&ident);
 }
 
 
+/*
+  Eventually, a "length" argument should be added
+  to this function, and the inner loop changed to
+  check_identifier_name() call.
+*/
 bool check_column_name(const char *name)
 {
   uint name_length= 0;  // name length in symbols
@@ -2825,6 +2787,8 @@ bool check_column_name(const char *name)
                           name+system_charset_info->mbmaxlen);
       if (len)
       {
+        if (len > 3) /* Disallow non-BMP characters */
+          return 1;
         name += len;
         name_length++;
         continue;
@@ -2833,8 +2797,13 @@ bool check_column_name(const char *name)
 #else
     last_char_is_space= *name==' ';
 #endif
-    if (*name == NAMES_SEP_CHAR)
-      return 1;
+    /*
+      NAMES_SEP_CHAR is used in FRM format to separate SET and ENUM values.
+      It is defined as 0xFF, which is a not valid byte in utf8.
+      This assert is to catch use of this byte if we decide to
+      use non-utf8 as system_character_set.
+    */
+    DBUG_ASSERT(*name != NAMES_SEP_CHAR);
     name++;
     name_length++;
   }
@@ -4592,6 +4561,25 @@ void st_table::mark_columns_needed_for_insert()
   }
   if (found_next_number_field)
     mark_auto_increment_column();
+}
+
+
+/**
+  @brief Check if this is part of a MERGE table with attached children.
+
+  @return       status
+    @retval     TRUE            children are attached
+    @retval     FALSE           no MERGE part or children not attached
+
+  @detail
+    A MERGE table consists of a parent TABLE and zero or more child
+    TABLEs. Each of these TABLEs is called a part of a MERGE table.
+*/
+
+bool st_table::is_children_attached(void)
+{
+  return((child_l && children_attached) ||
+         (parent && parent->children_attached));
 }
 
 /*

@@ -1462,21 +1462,6 @@ void Table::drop(Transaction *transaction)
 
 void Table::truncate(Transaction *transaction)
 {
-	// Absolutely no access until truncate complete
-	
-	Sync syncObj(&syncObject, "Table::truncate");
-	syncObj.lock(Exclusive);
-	
-	// Ensure control of system transaction commit
-	
-	Sync syncConnection(&database->syncSysConnection, "Table::truncate");
-	syncConnection.lock(Shared);
-	
-	// Keep scavenger out of the way
-	
-	Sync syncScavenger(&syncScavenge, "Table::truncate");
-	syncScavenger.lock(Shared);
-	
 	Transaction *sysTransaction = database->getSystemTransaction();
 	
 	// Delete data and blob sections
@@ -1488,6 +1473,12 @@ void Table::truncate(Transaction *transaction)
 	dataSectionId = dbb->createSection(TRANSACTION_ID(sysTransaction));
 	blobSectionId = dbb->createSection(TRANSACTION_ID(sysTransaction));
 
+	dataSection = dbb->findSection(dataSectionId);
+	blobSection = dbb->findSection(dataSectionId);
+
+	emptySections->clear();
+	recordBitmap->clear();
+	
 	// Update system.tables with new section ids
 	
 	PreparedStatement *statement = database->prepareStatement("update system.tables set dataSection=?, blobSection=? where tableId=?");
@@ -1497,28 +1488,19 @@ void Table::truncate(Transaction *transaction)
 	statement->executeUpdate();
 	statement->close();
 
-	// Commit the physical and system changes
-
-	syncConnection.unlock();
-	database->commitSystemTransaction();
-	
 	if (records)
 		{
 		delete records;
 		records = NULL;
 		}
 		
-	// Rebuild indexes
-	
 	rebuildIndexes(sysTransaction, true);
-	
+
 	// Reset select Table attributes
 	
 	priorCardinality = cardinality; // forces update to system tables during scavenge
 	cardinality = 0;
 	ageGroup = database->currentGeneration;
-	emptySections->clear();
-	recordBitmap->clear();
 	debugThawedRecords = 0;
 	debugThawedBytes = 0;
 	alterIsActive = false;

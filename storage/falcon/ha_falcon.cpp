@@ -869,7 +869,8 @@ int StorageInterface::delete_all_rows()
 
 	// If this isn't a truncate, punt!
 	
-	if (thd_sql_command(mySqlThread) != SQLCOM_TRUNCATE)
+//	if (thd_sql_command(mySqlThread) != SQLCOM_TRUNCATE)
+	if (current_thd->transaction.on)
 		DBUG_RETURN(my_errno=HA_ERR_WRONG_COMMAND);
 
 	int ret = 0;
@@ -1728,6 +1729,9 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 
 		insertCount = 0;
 
+		if (storageTable)
+			storageTable->setTruncate();
+		
 		switch (thd_sql_command(thd))
 			{
 			case SQLCOM_ALTER_TABLE:
@@ -1737,7 +1741,12 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 				int ret = storageTable->alterCheck();
 
 				if (ret)
+					{
+					if (storageTable)
+						storageTable->clearTruncate();
+						
 					DBUG_RETURN(error(ret));
+					}
 				}
 				break;
 
@@ -1769,6 +1778,9 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 				error(StorageWarningSerializable);
 				break;
 			}
+			
+		if (storageTable)
+			storageTable->clearTruncate();
 		}
 
 	DBUG_RETURN(0);

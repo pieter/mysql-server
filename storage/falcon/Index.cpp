@@ -301,7 +301,7 @@ void Index::makeKey(Field *field, Value *value, int segment, IndexKey *indexKey)
 
 			if (field->collation)
 				{
-				field->collation->makeKey(value, indexKey, partialLength);
+				field->collation->makeKey(value, indexKey, partialLength, database->getMaxKeyLength());
 				
 				return;
 				}
@@ -381,7 +381,7 @@ void Index::makeKey(int count, Value **values, IndexKey *indexKey)
 		else
 			q = (length * RUN / (RUN - 1)) + (length % (RUN -1));
 		
-		if (p + q > MAX_INDEX_KEY_RUN_LENGTH)
+		if (p + q > maxIndexKeyRunLength(database->getMaxKeyLength()))
 			throw SQLError (INDEX_OVERFLOW, "maximum index key length exceeded");
 			
 		for (int i = 0; i < length; ++i)
@@ -772,8 +772,8 @@ int Index::getPartialLength(int segment)
 
 void Index::setPartialLength(int segment, uint partialLength)
 {
-	if (partialLength > MAX_INDEX_KEY_LENGTH)
-		partialLength = MAX_INDEX_KEY_LENGTH;
+	if (partialLength > (uint) database->getMaxKeyLength())
+		partialLength = database->getMaxKeyLength();
 
 	if (!partialLengths)
 		{

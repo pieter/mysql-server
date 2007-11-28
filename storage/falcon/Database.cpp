@@ -1365,7 +1365,7 @@ void Database::dropTable(Table * table, Transaction *transaction)
 			
 	// OK, now make sure any records are purged out of committed transactions as well
 	
-	transactionManager->dropTable(table, transaction);		
+	transactionManager->dropTable(table, transaction);
 	Sync sync (&syncTables, "Database::dropTable");
 	sync.lock (Exclusive);
 

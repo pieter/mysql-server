@@ -28,7 +28,7 @@ public:
 	virtual ~CollationUnknown(void);
 	
 	virtual int			compare (Value *value1, Value *value2);
-	virtual int			makeKey (Value *value, IndexKey *key, int partialKey);
+	virtual int			makeKey (Value *value, IndexKey *key, int partialKey, int maxKeyLength);
 	virtual const char	*getName ();
 	virtual bool		starting (const char *string1, const char *string2);
 	virtual bool		like (const char *string, const char *pattern);

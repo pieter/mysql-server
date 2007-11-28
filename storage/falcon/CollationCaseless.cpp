@@ -88,7 +88,7 @@ int CollationCaseless::compare(Value *value1, Value *value2)
 	return 0;
 }
 
-int CollationCaseless::makeKey(Value *value, IndexKey *key, int partialKey)
+int CollationCaseless::makeKey(Value *value, IndexKey *key, int partialKey, int maxKeyLength)
 {
 	int l = value->getString (sizeof(key->key), (char*) key->key);
 	

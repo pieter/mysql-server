@@ -33,7 +33,7 @@ public:
 	Collation();
 
 	virtual int		compare (Value *value1, Value *value2) = 0;
-	virtual int		makeKey (Value *value, IndexKey *key, int partialKey) = 0;
+	virtual int		makeKey (Value *value, IndexKey *key, int partialKey, int maxKeyLength) = 0;
 	virtual bool	starting (const char *string1, const char *string2) = 0;
 	virtual bool	like (const char *string, const char *pattern) = 0;
 	virtual char	getPadChar(void) = 0;

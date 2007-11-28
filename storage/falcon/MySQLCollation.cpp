@@ -50,10 +50,12 @@ int MySQLCollation::compare (Value *value1, Value *value2)
 	return falcon_strnncoll(charset, string1, len1, string2, len2, false);
 }
 
-int MySQLCollation::makeKey (Value *value, IndexKey *key, int partialKey)
+int MySQLCollation::makeKey (Value *value, IndexKey *key, int partialKey, int maxKeyLength)
 {
-	ASSERT(partialKey <= (int) MAX_INDEX_KEY_LENGTH);
-	char temp[MAX_INDEX_KEY_LENGTH];
+	if (partialKey > maxKeyLength )
+		partialKey = maxKeyLength;
+
+	char temp[MAX_PHYSICAL_KEY_LENGTH];
 	int srcLen;
 
 	if (partialKey)
@@ -69,8 +71,8 @@ int MySQLCollation::makeKey (Value *value, IndexKey *key, int partialKey)
 
 	// Since some collations make dstLen > srcLen, be sure dstLen is < partialKey.
 
-	int dstLen = falcon_strnxfrmlen(charset, temp, srcLen, partialKey, MAX_INDEX_KEY_LENGTH);
-	int len = falcon_strnxfrm(charset, (char*) key->key, dstLen, temp, srcLen);
+	int dstLen = falcon_strnxfrmlen(charset, temp, srcLen, partialKey, MAX_PHYSICAL_KEY_LENGTH);
+	int len = falcon_strnxfrm(charset, (char*) key->key, dstLen, maxKeyLength, temp, srcLen);
 	key->keyLength = len;
 	
 	return len;

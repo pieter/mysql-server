@@ -288,6 +288,33 @@ Record* Record::fetchVersion(Transaction * transaction)
 
 void Record::getValue(int fieldId, Value * value)
 {
+	getRawValue(fieldId, value);
+
+	switch (value->getType())
+		{
+		case Asciiblob:
+			{
+			AsciiBlob *blob = format->table->getAsciiBlob(value->getBlobId());
+			value->setValue (blob);
+			blob->release();
+			}
+			break;
+
+		case Binaryblob:
+			{
+			BinaryBlob *blob = format->table->getBinaryBlob(value->getBlobId());
+			value->setValue (blob);
+			blob->release();
+			}
+			break;
+
+		default:
+			break;
+		}
+}
+
+void Record::getRawValue(int fieldId, Value * value)
+{
 	//ASSERT (table);
 	ASSERT (format);
 	value->clear();
@@ -313,30 +340,6 @@ void Record::getValue(int fieldId, Value * value)
 		case shortVector:
 		case longVector:
 			getEncodedValue(fieldId, value);
-
-			switch (value->getType())
-				{
-				case Asciiblob:
-					{
-					AsciiBlob *blob = format->table->getAsciiBlob(value->getBlobId());
-					value->setValue (blob);
-					blob->release();
-					}
-					break;
-
-				case Binaryblob:
-					{
-					BinaryBlob *blob = format->table->getBinaryBlob(value->getBlobId());
-					value->setValue (blob);
-					blob->release();
-					}
-					break;
-
-
-				default:
-					break;
-				}
-
 			return;
 
 		case valueVector:
@@ -439,17 +442,19 @@ void Record::getValue(int fieldId, Value * value)
 
 		case Asciiblob:
 			{
-			AsciiBlob *blob = format->table->getAsciiBlob (*(int32*) ptr);
-			value->setValue (blob);
-			blob->release();
+			//AsciiBlob *blob = format->table->getAsciiBlob (*(int32*) ptr);
+			//value->setValue (blob);
+			//blob->release();
+			value->setAsciiBlob(*(int32*) ptr);
 			}
 			break;
 
 		case Binaryblob:
 			{
-			BinaryBlob *blob = format->table->getBinaryBlob (*(int32*) ptr);
-			value->setValue (blob);
-			blob->release();
+			//BinaryBlob *blob = format->table->getBinaryBlob (*(int32*) ptr);
+			//value->setValue (blob);
+			//blob->release();
+			value->setBinaryBlob(*(int32*) ptr);
 			}
 			break;
 

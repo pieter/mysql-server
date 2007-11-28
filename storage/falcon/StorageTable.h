@@ -61,8 +61,8 @@ public:
 	void			clearAlter(void);
 	bool			setAlter(void);
 	
-	void			clearTruncate(void);
-	void			setTruncate(LockType lockType = Shared);
+	void			clearTruncateLock(void);
+	void			setTruncateLock();
 	
 	virtual void	setConnection(StorageConnection* connection);
 	virtual void	clearIndexBounds(void);
@@ -122,6 +122,7 @@ public:
 	Stream				insertStream;
 	int					searchFlags;
 	bool				recordLocked;
+	bool				haveTruncateLock;
 };
 
 #endif

@@ -1130,6 +1130,10 @@ void StorageInterface::startTransaction(void)
 	if (!storageConnection->transactionActive)
 		{
 		storageConnection->startTransaction(isolation_levels[thd_tx_isolation(mySqlThread)]);
+		
+		if (storageTable)
+			storageTable->setTruncateLock();
+				
 		trans_register_ha(mySqlThread, true, falcon_hton);
 		}
 
@@ -1711,7 +1715,12 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 		storageConnection->setCurrentStatement(NULL);
 
 		if (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
+			{
+			if (storageTable)
+				storageTable->clearTruncateLock();
+		
 			storageConnection->endImplicitTransaction();
+			}
 		else
 			storageConnection->releaseVerb();
 
@@ -1729,9 +1738,6 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 
 		insertCount = 0;
 
-		if (storageTable)
-			storageTable->setTruncate();
-		
 		switch (thd_sql_command(thd))
 			{
 			case SQLCOM_ALTER_TABLE:
@@ -1743,7 +1749,7 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 				if (ret)
 					{
 					if (storageTable)
-						storageTable->clearTruncate();
+						storageTable->clearTruncateLock();
 						
 					DBUG_RETURN(error(ret));
 					}
@@ -1757,7 +1763,12 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 		if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
 			{
 			if (storageConnection->startTransaction(isolation_levels[thd_tx_isolation(thd)]))
+				{
+				if (storageTable)
+					storageTable->setTruncateLock();
+				
 				trans_register_ha(thd, true, falcon_hton);
+				}
 
 			if (storageConnection->markVerb())
 				trans_register_ha(thd, false, falcon_hton);
@@ -1765,7 +1776,12 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 		else
 			{
 			if (storageConnection->startImplicitTransaction(isolation_levels[thd_tx_isolation(thd)]))
+				{
+				if (storageTable)
+					storageTable->setTruncateLock();
+				
 				trans_register_ha(thd, false, falcon_hton);
+				}
 			}
 
 		switch (thd_tx_isolation(mySqlThread))
@@ -1779,8 +1795,6 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 				break;
 			}
 			
-		if (storageTable)
-			storageTable->clearTruncate();
 		}
 
 	DBUG_RETURN(0);

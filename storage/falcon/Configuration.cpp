@@ -25,6 +25,14 @@
 #include <unistd.h>
 #endif
 
+#if defined(__FreeBSD__)
+#include <sys/types.h>
+#endif
+
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#include <sys/sysctl.h>
+#endif
+
 #include "Engine.h"
 #include "Configuration.h"
 #include "MemoryManager.h"
@@ -320,25 +328,19 @@ uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
 		error = GetLastError();
 
 #elif defined(__APPLE__) || defined(__FreeBSD__)
+    size_t availableMem = 0;
+    size_t len = sizeof availableMem;
+    static int mib[2] = {CTL_HW, HW_USERMEM};
+    sysctl(mib, 2, &availableMem, &len, NULL, 0);
+    
+    size_t physMem = 0;
+    len = sizeof physMem;
+    mib[1] = HW_PHYSMEM;
+    sysctl(mib, 2, &physMem, &len, NULL, 0);
 
-	// TBD: Hardcode availableMemory until fixed for MAC OS.
-    // Todo: Also find a fix for FreeBSD.
-
-	availableMemory = MIN_RECORD_MEMORY * 10;
-
-	// On Mac OS X, sysctl with selectors CTL_HW, HW_PHYSMEM returns only a 
-	// 4-byte value, even if passed an 8-byte buffer, and limits the returned 
-	// value to 2GB when the actual RAM size is > 2GB.  The Gestalt selector 
-	// gestaltPhysicalRAMSizeInMegabytes is available starting with OS 10.3.0.
-
-	/*
-	if (Gestalt(gestaltPhysicalRAMSizeInMegabytes, &availableMemory))
-		{
-		etc.
-		)
-
-	availableMemory *= ONE_MB;
-	*/
+	availableMemory = (uint64) availableMem;
+	totalMemory = (uint64) physMem;
+	
 #else
 	int64 pageSize		= (int64)sysconf(_SC_PAGESIZE);
 	int64 physPages		= (int64)sysconf(_SC_PHYS_PAGES);

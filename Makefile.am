@@ -142,6 +142,8 @@ test-bt:
 	--with-ndbcluster-only
 	-$(MAKE) test-embedded
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
+	@PERL@ ./mysql-test-run.pl --force --comment=falcon --suite=falcon
+	-cd mysql-test ; MTR_BUILD_THREAD=auto \
 	@PERL@ ./mysql-test-run.pl --force --comment=funcs1_ps --ps-protocol --suite=funcs_1
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
 	@PERL@ ./mysql-test-run.pl --force --comment=funcs2 --suite=funcs_2

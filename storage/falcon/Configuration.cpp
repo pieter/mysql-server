@@ -25,7 +25,7 @@
 #include <unistd.h>
 #endif
 
-#if defined(__FreeBSD__)
+#ifdef __FreeBSD__
 #include <sys/types.h>
 #endif
 
@@ -328,29 +328,30 @@ uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
 		error = GetLastError();
 
 #elif defined(__APPLE__) || defined(__FreeBSD__)
-    size_t availableMem = 0;
-    size_t len = sizeof availableMem;
-    static int mib[2] = {CTL_HW, HW_USERMEM};
-    sysctl(mib, 2, &availableMem, &len, NULL, 0);
+	size_t availableMem = 0;
+	size_t len = sizeof availableMem;
+	static int mib[2] = {CTL_HW, HW_USERMEM};
+	sysctl(mib, 2, &availableMem, &len, NULL, 0);
 
-    // For physical RAM size on Apple we are using HW_MEMSIZE key,
-    // because HW_PHYSMEM does not report correct RAM sizes above 2GB.
-#if defined(__APPLE__)
-    uint64_t physMem = 0;
-    mib[1] = HW_MEMSIZE;
+	// For physical RAM size on Apple we are using HW_MEMSIZE key,
+	// because HW_PHYSMEM does not report correct RAM sizes above 2GB.
+
+#ifdef __APPLE__
+	uint64_t physMem = 0;
+	mib[1] = HW_MEMSIZE;
 #endif
 
-#if defined(__FreeBSD__)
-    size_t physMem = 0;
-    mib[1] = HW_PHYSMEM
+#ifdef __FreeBSD__
+	size_t physMem = 0;
+	mib[1] = HW_PHYSMEM
 #endif
     
-    len = sizeof physMem;
-    sysctl(mib, 2, &physMem, &len, NULL, 0);
-    
+	len = sizeof physMem;
+	sysctl(mib, 2, &physMem, &len, NULL, 0);
+ 
 	availableMemory = (uint64) availableMem;
 	totalMemory = (uint64) physMem;
-	
+
 #else
 	int64 pageSize		= (int64)sysconf(_SC_PAGESIZE);
 	int64 physPages		= (int64)sysconf(_SC_PHYS_PAGES);
@@ -365,10 +366,10 @@ uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
 
 	if (available)
 		*available = availableMemory;
-	
+
 	if (total)
 		*total = totalMemory;
-	
+
 	return totalMemory;
 }
 

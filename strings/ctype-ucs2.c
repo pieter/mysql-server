@@ -1368,6 +1368,7 @@ my_strnxfrm_utf16(CHARSET_INFO *cs,
   const uchar *se= src + srclen;
   MY_UNICASE_INFO **uni_plane= (cs->state & MY_CS_BINSORT) ?
                                NULL : cs->caseinfo;
+  LINT_INIT(wc);
 
   for (; src < se && dst < de && nweights; nweights--)
   {

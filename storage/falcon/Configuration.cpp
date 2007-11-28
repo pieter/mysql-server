@@ -332,12 +332,22 @@ uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
     size_t len = sizeof availableMem;
     static int mib[2] = {CTL_HW, HW_USERMEM};
     sysctl(mib, 2, &availableMem, &len, NULL, 0);
-    
-    size_t physMem = 0;
-    len = sizeof physMem;
-    mib[1] = HW_PHYSMEM;
-    sysctl(mib, 2, &physMem, &len, NULL, 0);
 
+    // For physical RAM size on Apple we are using HW_MEMSIZE key,
+    // because HW_PHYSMEM does not report correct RAM sizes above 2GB.
+#if defined(__APPLE__)
+    uint64_t physMem = 0;
+    mib[1] = HW_MEMSIZE;
+#endif
+
+#if defined(__FreeBSD__)
+    size_t physMem = 0;
+    mib[1] = HW_PHYSMEM
+#endif
+    
+    len = sizeof physMem;
+    sysctl(mib, 2, &physMem, &len, NULL, 0);
+    
 	availableMemory = (uint64) availableMem;
 	totalMemory = (uint64) physMem;
 	

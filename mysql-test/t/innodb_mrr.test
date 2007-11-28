@@ -43,5 +43,6 @@ insert into t2 select A.a, B.a, B.a, A.a, 'filler' from t1 A, t1 B;
 explain select * from t2 force index (d) where d < 10;
 drop table t2;
 
+drop table t1;
 set @@read_rnd_buffer_size= @read_rnd_buffer_size_save;
 

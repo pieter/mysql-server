@@ -19,7 +19,16 @@ order_by             : WL#2475: spetrunia producing ordered streams is not handl
 federated_transactions   : Bug#29523 Transactions do not work
 locktrans_innodb     : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock tables used in triggers
 rpl_locktrans_innodb : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock tables used in triggers
-ndb_dd_restore_compat : Bug#29940 2007-07-20 ndb_dd_restore_compat fails on 5.2
 subselect2 : BUG#31464 SergeyP will fix
 log_tables : BUG#31580 1007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
 show_check	: Bug #32682  	Test show_check fails in 6.0
+events                   : Bug#32664 events.test fails randomly
+events_scheduling        : Bug#29830 Test case 'events_scheduling' fails on Mac OS X and Windows
+lowercase_table3         : Bug#32667 lowercase_table3.test reports to error log
+kill                 : Bug#29149: Test "kill" fails on Windows
+grant3               : Bug#32723: grant3.test fails
+innodb_mysql         : Bug#32724: innodb_mysql.test fails randomly
+events_bugs          : Bug#32771 events_bugs.test fails randomly
+rpl_log_pos          : Bug#8693 Test 'rpl_log_pos' fails sometimes
+wait_timeout         : Bug#32801 wait_timeout.test fails randomly
+kill                 : Bug#29149 Test "kill" fails on Windows

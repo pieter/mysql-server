@@ -415,7 +415,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	utf8 = false;
 	stepNumber = 0;
 	shuttingDown = false;
-
+	pendingIOErrors = 0;
 	noSchedule = 0;
 	//noSchedule = 1;
 
@@ -2242,27 +2242,33 @@ void Database::updateCardinalities(void)
 	sync.lock (Shared);
 	bool hit = false;
 	
-	for (Table *table = tableList; table; table = table->next)
+	try
 		{
-		uint64 cardinality = table->cardinality;
-		
-		if (cardinality != table->priorCardinality)
+		for (Table *table = tableList; table; table = table->next)
 			{
-			if (!hit)
-				{
-				if (!updateCardinality)
-					updateCardinality = prepareStatement(
-						"update system.tables set cardinality=? where schema=? and tablename=?");
-						
-				hit = true;
-				}
+			uint64 cardinality = table->cardinality;
 			
-			updateCardinality->setLong(1, cardinality);
-			updateCardinality->setString(2, table->schemaName);
-			updateCardinality->setString(3, table->name);
-			updateCardinality->executeUpdate();
-			table->priorCardinality = cardinality;
+			if (cardinality != table->priorCardinality)
+				{
+				if (!hit)
+					{
+					if (!updateCardinality)
+						updateCardinality = prepareStatement(
+							"update system.tables set cardinality=? where schema=? and tablename=?");
+							
+					hit = true;
+					}
+				
+				updateCardinality->setLong(1, cardinality);
+				updateCardinality->setString(2, table->schemaName);
+				updateCardinality->setString(3, table->name);
+				updateCardinality->executeUpdate();
+				table->priorCardinality = cardinality;
+				}
 			}
+		}
+	catch (...)
+		{
 		}
 	
 	sync.unlock();
@@ -2276,8 +2282,27 @@ void Database::sync()
 	tableSpaceManager->sync();
 }
 
+void Database::setIOError(SQLException* exception)
+{
+	Sync sync(&syncObject, "Database::setIOError");
+	sync.lock(Exclusive);
+	++pendingIOErrors;
+	ioError = exception->getText();
+	pendingIOErrorCode = exception->getSqlcode();
+}
+
+void Database::clearIOError(void)
+{
+	Sync sync(&syncObject, "Database::clearIOError");
+	sync.lock(Exclusive);
+	--pendingIOErrors;
+}
+
 void Database::preUpdate()
 {
+	if (pendingIOErrors)
+		throw SQLError(pendingIOErrorCode, "Pending I/O error: %s", (const char*) ioError);
+		
 	serialLog->preUpdate();
 }
 

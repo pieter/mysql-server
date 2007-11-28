@@ -1664,6 +1664,10 @@ int StorageInterface::getMySqlError(int storageError)
 			DBUG_PRINT("info", ("StorageErrorTableSpaceExist"));
 			return (HA_ERR_TABLESPACE_EXIST);
 
+		case StorageErrorDeviceFull:
+			DBUG_PRINT("info", ("StorageErrorDeviceFull"));
+			return (HA_ERR_RECORD_FILE_FULL);
+			
 		case StorageWarningSerializable:
 			return (0);
 

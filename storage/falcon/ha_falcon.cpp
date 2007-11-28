@@ -1737,7 +1737,8 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			storageConnection->setCurrentStatement(thd->query);
 
 		insertCount = 0;
-
+		bool isTruncate = false;
+		
 		switch (thd_sql_command(thd))
 			{
 			case SQLCOM_ALTER_TABLE:
@@ -1756,6 +1757,10 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 				}
 				break;
 
+			case SQLCOM_TRUNCATE:
+				isTruncate = true;
+				break;
+				
 			default:
 				break;
 			}
@@ -1764,7 +1769,7 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			{
 			if (storageConnection->startTransaction(isolation_levels[thd_tx_isolation(thd)]))
 				{
-				if (storageTable)
+				if (!isTruncate && storageTable)
 					storageTable->setTruncateLock();
 				
 				trans_register_ha(thd, true, falcon_hton);
@@ -1777,7 +1782,7 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			{
 			if (storageConnection->startImplicitTransaction(isolation_levels[thd_tx_isolation(thd)]))
 				{
-				if (storageTable)
+				if (!isTruncate && storageTable)
 					storageTable->setTruncateLock();
 				
 				trans_register_ha(thd, false, falcon_hton);

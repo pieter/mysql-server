@@ -1,9 +1,14 @@
 --source include/have_falcon.inc
+#--disable_abort_on_error
 SET @@storage_engine = Falcon;
 #
 # Bug #22160: REPLACE crash with two interleaving transactions
 #
 --echo *** Bug #22160 ***
+
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+
 --disable_warnings
 DROP DATABASE IF EXISTS db64;
 --enable_warnings
@@ -28,6 +33,7 @@ COMMIT;
 
 connection conn1;
 --real_sleep 1
+--error 1020
 REPLACE INTO t1 VALUES (1);
 SELECT * FROM t1;
 COMMIT;

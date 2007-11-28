@@ -71,20 +71,21 @@ public:
 	void		unlock(void);
 	bool		ourExclusiveLock(void);
 	void		frequentStaller(Thread *thread, Sync *sync);
-	void		setWhere(const char* string);
+	void		setName(const char* name);
 
 	virtual void	unlock (Sync *sync, LockType type);
-	virtual void	lock (Sync *sync, LockType type);
+	virtual void	lock (Sync *sync, LockType type, int timeout = 0);
 	virtual void	findLocks (LinkedList &threads, LinkedList& syncObjects);
 
 	static void		analyze(Stream* stream);
 	static void		getSyncInfo(InfoTable* infoTable);
+	static void		dump(void);
 
 	inline Thread* getExclusiveThread()
 		{ return exclusiveThread; };
 
 protected:
-	void wait(LockType type, Thread *thread, Sync *sync);
+	void wait(LockType type, Thread *thread, Sync *sync, int timeout);
 
 	int32				monitorCount;
 	Mutex				mutex;
@@ -101,6 +102,7 @@ protected:
 	int					waitCount;
 	int					queueLength;
 	const char*			where;
+	const char*			name;
 #endif
 };
 

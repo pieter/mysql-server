@@ -62,6 +62,7 @@ static pthread_mutex_t	mutex;
 
 static LogListener		*listeners;
 static SymbolManager	*symbols;
+static int				activeMask;
 volatile int			Log::exclusive;
 volatile Thread*		Log::exclusiveThread;
 
@@ -94,6 +95,9 @@ bool initialize()
 
 void Log::log(const char *txt, ...)
 {
+	if (!(activeMask & LogLog))
+		return;
+		
 	va_list		args;
 	va_start	(args, txt);
 	log (LogLog, txt, args);
@@ -101,6 +105,9 @@ void Log::log(const char *txt, ...)
 
 void Log::logBreak(const char *txt, ...)
 {
+	if (!(activeMask & LogLog))
+		return;
+
 	va_list		args;
 	va_start	(args, txt);
 	log (LogLog, txt, args);
@@ -108,6 +115,9 @@ void Log::logBreak(const char *txt, ...)
 
 void Log::debug(const char *txt, ...)
 {
+	if (!(activeMask & LogDebug))
+		return;
+
 	va_list		args;
 	va_start	(args, txt);
 	log (LogDebug, txt, args);
@@ -115,6 +125,9 @@ void Log::debug(const char *txt, ...)
 
 void Log::debugBreak(const char *txt, ...)
 {
+	if (!(activeMask & LogDebug))
+		return;
+
 	va_list		args;
 	va_start	(args, txt);
 	log (LogDebug, txt, args);
@@ -122,6 +135,9 @@ void Log::debugBreak(const char *txt, ...)
 
 void Log::log(int mask, const char *txt, ...)
 {
+	if (!(activeMask & mask))
+		return;
+
 	va_list		args;
 	va_start	(args, txt);
 	log (mask, txt, args);
@@ -136,7 +152,8 @@ void Log::addListener(int mask, Listener *fn, void *arg)
 {
 	ENTER_CRITICAL_SECTION;
 	LogListener *listener;
-
+	activeMask |= mask;
+	
 	for (listener = listeners; listener; listener = listener->next)
 		if (listener->listener == fn && listener->arg == arg)
 			{
@@ -160,14 +177,21 @@ void Log::addListener(int mask, Listener *fn, void *arg)
 void Log::deleteListener(Listener *fn, void *arg)
 {
 	ENTER_CRITICAL_SECTION;
-
-	for (LogListener **ptr = &listeners, *listener; (listener = *ptr); ptr = &listener->next)
+	LogListener **ptr = &listeners, *listener;
+	activeMask = 0;
+	
+	for (; (listener = *ptr); ptr = &listener->next)
 		if (listener->listener == fn && listener->arg == arg)
 			{
 			*ptr = listener->next;
 			delete listener;
 			break;
 			}
+		else
+			activeMask |= listener->mask;
+	
+	for (listener = *ptr; listener; listener = listener->next)
+		activeMask |= listener->mask;
 
 	LEAVE_CRITICAL_SECTION;
 }
@@ -181,6 +205,9 @@ int Log::init()
 
 void Log::log(int mask, const char *text, va_list args)
 {
+	if (!(activeMask & mask))
+		return;
+
 	char		temp [1024];
 
 	if (vsnprintf (temp, sizeof (temp) - 1, text, args) < 0)
@@ -191,9 +218,9 @@ void Log::log(int mask, const char *text, va_list args)
 
 void Log::logMessage(int mask, const char *text)
 {
-	//Thread *thread = Thread::getThread("Log::logMessage");
-	//Sync sync(&syncObject, "Log::logMessage");
-	//sync.lock(Exclusive);
+	if (!(activeMask & mask))
+		return;
+
 	char temp [1024], *scrubbed = temp;
 	bool inCS = false;
 
@@ -356,4 +383,9 @@ void Log::releaseExclusive(void)
 		exclusiveThread = NULL;
 		LEAVE_CRITICAL_SECTION;
 		}
+}
+
+bool Log::isActive(int mask)
+{
+	return (mask & activeMask) != 0;
 }

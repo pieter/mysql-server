@@ -6,7 +6,7 @@ SET @@storage_engine = Falcon;
 #
 --echo *** Bug #23220_1 ***
 --disable_warnings
-DROP SCHEMA IF EXISTS page_1
+DROP SCHEMA IF EXISTS page_1;
 --enable_warnings
 
 SHOW VARIABLES LIKE 'falcon_page_size';

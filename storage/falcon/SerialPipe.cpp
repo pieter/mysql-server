@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <string.h>
 #include <memory.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -491,18 +492,18 @@ bool SerialPipe::readWait()
 
 uint32 SerialPipe::crc32(uint32 crc, UCHAR *buf, int len)
 {
-    crc = crc ^ 0xffffffffL;
+	crc = crc ^ 0xffffffffL;
 
-    while (len >= 8)
+	while (len >= 8)
 		{
 		DO8(buf);
 		len -= 8;
 		}
 
-    if (len) 
+	if (len) 
 		do { DO1(buf); } while (--len);
 
-    return crc ^ 0xffffffffL;
+	return crc ^ 0xffffffffL;
 }
 
 uint32 SerialPipe::computeCrc(SerialHeader *message)

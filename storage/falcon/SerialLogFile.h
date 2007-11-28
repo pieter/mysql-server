@@ -26,6 +26,7 @@
 
 #include "Mutex.h"
 
+class Database;
 struct SerialLogBlock;
 
 class SerialLogFile  
@@ -37,7 +38,7 @@ public:
 	void write(int64 position, uint32 length, const SerialLogBlock *data);
 	void close();
 	void open (JString filename, bool creat);
-	SerialLogFile();
+	SerialLogFile(Database *db);
 	virtual ~SerialLogFile();
 
 	int64		offset;
@@ -46,6 +47,7 @@ public:
 	JString		fileName;
 	uint32		sectorSize;
 	Mutex		syncObject;
+	Database	*database;
 
 #ifdef _WIN32
 	void	*handle;

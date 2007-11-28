@@ -40,13 +40,6 @@ extern Server*	startServer(int port, const char *configFile);
 enum enum_tx_isolation { ISO_READ_UNCOMMITTED, ISO_READ_COMMITTED,
 			 ISO_REPEATABLE_READ, ISO_SERIALIZABLE};
 
-static int isolationLevels [4] = {
-	TRANSACTION_READ_UNCOMMITTED,
-	TRANSACTION_READ_COMMITTED,
-	TRANSACTION_REPEATABLE_READ,
-	TRANSACTION_SERIALIZABLE
-	};
-	
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;
@@ -193,12 +186,12 @@ int StorageConnection::rollback(void)
 
 int StorageConnection::startTransaction(int isolationLevel)
 {
-	if (connection)
-		connection->setTransactionIsolation(isolationLevels[isolationLevel]);
-		
 	if (transactionActive)
 		return false;
 	
+	if (connection)
+		connection->setTransactionIsolation(isolationLevel);
+
 	transactionActive = true;
 	prepared = false;
 	

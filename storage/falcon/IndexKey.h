@@ -76,6 +76,7 @@ public:
 		}
 	
 	int compareValues(IndexKey* indexKey);
+	int compareValues(unsigned char *key2, uint len2, bool isPartial);
 	int compare(IndexKey* indexKey);
 };
 

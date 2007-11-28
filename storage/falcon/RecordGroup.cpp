@@ -44,8 +44,7 @@ RecordGroup::RecordGroup(int32 recordBase)
 RecordGroup::~RecordGroup()
 {
 	for (int n = 0; n < RECORD_SLOTS; ++n)
-		if (records [n])
-			delete records [n];
+		delete records[n];
 }
 
 RecordGroup::RecordGroup(int32 recordBase, int32 id, RecordSection * section)
@@ -120,16 +119,17 @@ int RecordGroup::retireRecords(Table *table, int base, RecordScavenge *recordSca
 		if (section)
 			{
 			int n = section->retireRecords(table, recordNumber, recordScavenge);
+			count += n;
 			
+			/***
 			if (n)
 				count += n;
-#ifndef NON_BLOCKING_SCAVENGING
 			else
 				{
 				delete section;
 				*ptr = NULL;
 				}
-#endif				
+			***/
 			}
 		}
 

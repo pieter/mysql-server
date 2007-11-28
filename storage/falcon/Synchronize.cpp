@@ -33,12 +33,17 @@
 
 #include "Engine.h"
 #include "Synchronize.h"
+#include "Interlock.h"
 
 #ifdef ENGINE
 #include "Log.h"
 #define CHECK_RET(text,code)	if (ret) Error::error (text,code)
 #else
 #define CHECK_RET(text,code)	
+#endif
+
+#ifdef SYNCHRONIZE_FREEZE
+INTERLOCK_TYPE synchronizeFreeze;
 #endif
 
 #define NANO		1000000000
@@ -81,15 +86,20 @@ Synchronize::~Synchronize()
 
 void Synchronize::sleep()
 {
-	sleeping = true;
 #ifdef _WIN32
 #ifdef _DEBUG
+
 	for (;;)
 		{
+		sleeping = true;
 		int n = WaitForSingleObject (event, 10000);
 		sleeping = false;
+		
 		if (n != WAIT_TIMEOUT)
+			{
+			DEBUG_FREEZE;
 			return;
+			}
 		}
 #else
 	sleep (INFINITE);
@@ -97,17 +107,20 @@ void Synchronize::sleep()
 #endif
 
 #ifdef _PTHREADS
+	sleeping = true;
 	int ret = pthread_mutex_lock (&mutex);
 	CHECK_RET ("pthread_mutex_lock failed, errno %d", errno);
 
 	while (!wakeup)
 		pthread_cond_wait (&condition, &mutex);
 
+	sleeping = false;
 	wakeup = false;
 	ret = pthread_mutex_unlock (&mutex);
 	CHECK_RET ("pthread_mutex_unlock failed, errno %d", errno);
 #endif
-	sleeping = false;
+
+	DEBUG_FREEZE;
 }
 
 bool Synchronize::sleep(int milliseconds)
@@ -117,6 +130,7 @@ bool Synchronize::sleep(int milliseconds)
 #ifdef _WIN32
 	int n = WaitForSingleObject(event, milliseconds);
 	sleeping = false;
+	DEBUG_FREEZE;
 
 	return n != WAIT_TIMEOUT;
 #endif
@@ -137,15 +151,7 @@ bool Synchronize::sleep(int milliseconds)
 		ret = pthread_cond_timedwait(&condition, &mutex, &nanoTime);
 		
 		if (ret == ETIMEDOUT)
-			{
-			/***
-			struct timeval endTime;
-			gettimeofday (&endTime, NULL);
-			waitTime = ((int64) endTime.tv_sec * MICRO + endTime.tv_usec) -
-					   ((int64) microTime.tv_sec * MICRO + microTime.tv_usec);
-			***/
 			break;
-			}
 			
 		if (!wakeup)
 #ifdef ENGINE
@@ -159,6 +165,7 @@ bool Synchronize::sleep(int milliseconds)
 	sleeping = false;
 	wakeup = false;
 	pthread_mutex_unlock(&mutex);
+	DEBUG_FREEZE;
 
 	return ret != ETIMEDOUT;
 #endif
@@ -184,4 +191,19 @@ void Synchronize::shutdown()
 {
 	shutdownInProgress = true;
 	wake();
+}
+
+void Synchronize::freeze(void)
+{
+#ifdef SYNCHRONIZE_FREEZE
+	COMPARE_EXCHANGE(&synchronizeFreeze, synchronizeFreeze, 0);
+#endif
+}
+
+void Synchronize::freezeSystem(void)
+{
+#ifdef SYNCHRONIZE_FREEZE
+	COMPARE_EXCHANGE(&synchronizeFreeze, synchronizeFreeze, true);
+	freeze();
+#endif
 }

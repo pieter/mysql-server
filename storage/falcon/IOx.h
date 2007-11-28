@@ -27,6 +27,18 @@
 #include "JString.h"
 #include "SyncObject.h"
 
+#ifndef PATH_MAX
+#define PATH_MAX		256
+#endif
+
+static const int WRITE_TYPE_FORCE		= 0;
+static const int WRITE_TYPE_PRECEDENCE	= 1;
+static const int WRITE_TYPE_REUSE		= 2;
+static const int WRITE_TYPE_SHUTDOWN	= 3;
+static const int WRITE_TYPE_PAGE_WRITER	= 4;
+static const int WRITE_TYPE_CLONE		= 5;
+static const int WRITE_TYPE_FLUSH		= 6;
+static const int WRITE_TYPE_MAX			= 7;
 
 class Bdb;
 class Hdr;
@@ -43,12 +55,14 @@ public:
 	void	writeHeader (Hdr *header);
 	int		read(int length, UCHAR *buffer);
 	void	write(uint32 length, const UCHAR *data);
-	bool	doesFileExits (const char *fileName);
+	bool	doesFileExist(const char *fileName);
+	int		fileStat(const char *fileName, struct stat *stats = NULL, int *errnum = NULL);
 	void	declareFatalError();
 	void	seek (int pageNumber);
 	void	closeFile();
 	void	readHeader (Hdr *header);
-	void	writePage (Bdb *buffer);
+	void	writePage (Bdb *buffer, int type);
+	void	writePages(int32 pageNumber, int length, const UCHAR* data, int type);
 	void	readPage (Bdb *page);
 	bool	createFile (const char *name, uint64 initialAllocation);
 	bool	openFile (const char *name, bool readOnly);
@@ -58,6 +72,7 @@ public:
 	int		pread(int64 offset, int length, UCHAR* buffer);
 	int		pwrite(int64 offset, int length, const UCHAR* buffer);
 	void	sync(void);
+	void	reportWrites(void);
 
 	void			tracePage(Bdb* bdb);
 	void			traceOperation(int operation);
@@ -66,21 +81,27 @@ public:
 	static void		traceClose(void);
 	
 	static void		createPath (const char *fileName);
-	static void		expandFileName (const char *fileName, int length, char *buffer);
+	static const char *baseName(const char *path);
+	static void		expandFileName(const char *fileName, int length, char *buffer, const char **baseFileName = NULL);
 	static void		deleteFile(const char* fileName);
+	static int		getWriteMode(int attempt);
 
 	JString		fileName;
 	SyncObject	syncObject;
 	int			fileId;
 	int			pageSize;
-	int32		reads;
-	int32		writes;
-	int32		fetches;
-	int32		fakes;
-	int32		priorReads;
-	int32		priorWrites;
-	int32		priorFetches;
-	int32		priorFakes;
+	uint		reads;
+	uint		writes;
+	uint		flushWrites;
+	uint		writesSinceSync;
+	uint		fetches;
+	uint		fakes;
+	uint		priorReads;
+	uint		priorWrites;
+	uint		priorFlushWrites;
+	uint		priorFetches;
+	uint		priorFakes;
+	uint		writeTypes[WRITE_TYPE_MAX];
 	bool		fatalError;
 
 //private:

@@ -34,17 +34,19 @@ SELECT * FROM t1;
 a
 1
 INSERT INTO t1 VALUES (2);
-ERROR 23000: Duplicate entry '2' for key 'a'
+# Switch to connection conn1
+COMMIT;
+# Switch to connection default
 INSERT INTO t1 VALUES (3);
 SELECT * FROM t1;
 a
 1
+2
 3
-COMMIT;
-# Switch to connection conn1
 COMMIT;
 DELETE FROM t1;
 *** Bug #22847 - Test 3 ***
+# Switch to connection conn1
 SET @@tx_isolation = 'READ-COMMITTED';
 START TRANSACTION;
 INSERT INTO t1 VALUES (1);
@@ -67,4 +69,9 @@ a
 COMMIT;
 # Switch to connection default
 COMMIT;
+SELECT * FROM t1;
+a
+1
+4
+3
 DROP TABLE t1;

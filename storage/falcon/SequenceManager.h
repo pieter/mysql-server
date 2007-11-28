@@ -48,6 +48,7 @@ protected:
 	SyncObject	syncObject;
 public:
 	void renameSequence(Sequence* sequence, const char* newName);
+	Sequence *recreateSequence(Sequence *oldSequence);
 };
 
 #endif // !defined(AFX_SEQUENCEMANAGER_H__52A2DA14_7937_11D4_98F0_0000C01D2301__INCLUDED_)

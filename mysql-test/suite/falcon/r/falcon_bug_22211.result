@@ -1,5 +1,6 @@
-SET storage_engine = Falcon;
 *** Bug #263 ***
+SET storage_engine = Falcon;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
 DROP TABLE IF EXISTS t1;
 # Establish connection 1 (REPEATABLE READ)
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
@@ -112,8 +113,9 @@ a
 DELETE FROM t1;
 INSERT INTO t1 VALUES (0);
 ############################################################
-# #3 - make client 2 block on a vestigial record
+# #3 - client 2 (with InnoDB Compatibility) does not block on a vestigial record
 ############################################################
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
 START TRANSACTION;
 UPDATE t1 SET a = 10;
 SELECT * FROM t1;
@@ -130,11 +132,12 @@ SELECT * FROM t1;
 a
 10
 # Switch to connection 1 (REPEATABLE READ)
-# This INSERT should FAIL because the trans still sees the vestigial record 0
+# This trans still sees the vestigial record 0, but it does not
+# block on it with InnoDB Compatibility Mode
 INSERT INTO t1 VALUES(0);
-ERROR 23000: Duplicate entry '0' for key 'PRIMARY'
 SELECT * FROM t1;
 a
+0
 0
 ROLLBACK;
 SELECT * FROM t1;
@@ -143,6 +146,7 @@ a
 # Switch to connection default (REPEATABLE READ)
 DELETE FROM t1;
 INSERT INTO t1 VALUES (0);
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
 ############################################################
 # #4 - make sure client 2 does not block on a vestigial records 
 # that were never committed.
@@ -241,12 +245,6 @@ a
 SELECT * FROM t1;
 a
 0
-# This INSERT should FAIL because 0 is still visible to client #1
-INSERT INTO t1 VALUES(0);
-ERROR 23000: Duplicate entry '0' for key 'PRIMARY'
-SELECT * FROM t1;
-a
-0
 # These INSERTs should SUCCEED because 1 & 2 were replaced.
 INSERT INTO t1 VALUES(1);
 SELECT * FROM t1;
@@ -311,9 +309,6 @@ a
 SELECT * FROM t1;
 a
 0
-# This INSERT should FAIL because client 1 still sees the vestigial record 0
-INSERT INTO t1 VALUES(0);
-ERROR 23000: Duplicate entry '0' for key 'PRIMARY'
 # This INSERT should SUCCEED because record value 1 is NOT current.
 INSERT INTO t1 VALUES(1);
 SELECT * FROM t1;

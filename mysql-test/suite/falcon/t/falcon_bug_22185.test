@@ -1,9 +1,14 @@
 --source include/have_falcon.inc
-SET @@storage_engine = Falcon;
+#--disable_abort_on_error
 #
 # Bug #22185: AUTO_INC Error in two concurrent transactions 
 #
 --echo *** Bug #22185 ***
+
+SET @@storage_engine = Falcon;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+
 --disable_warnings
 DROP TABLE IF EXISTS sbtest;
 --enable_warnings
@@ -29,6 +34,7 @@ INSERT INTO sbtest VALUES (10002, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
 # SELECT * FROM sbtest WHERE id = 10000 FOR UPDATE;
 BEGIN;
 UPDATE sbtest SET pad = 'qq' WHERE id = 10000;
+SELECT * FROM sbtest;
 
 --echo # Switch to connection conn1
 connection conn1;
@@ -38,11 +44,13 @@ connection conn1;
 connection default;
 --real_sleep 1
 COMMIT;
+SELECT * FROM sbtest;
 
 --echo # Switch to connection conn1
 connection conn1;
+--error 1020
 --reap
-SELECT count(*) FROM sbtest;
+SELECT * FROM sbtest;
 
 --echo # Switch to connection default
 connection default;

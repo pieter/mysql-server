@@ -158,6 +158,8 @@ ADD_LIBRARY(ha_falcon
 		Parameters.cpp 
 		PreparedStatement.cpp
 		PrettyPrint.cpp 
+		Priority.cpp
+		PriorityScheduler.cpp
 		Privilege.cpp 
 		PrivilegeObject.cpp 
 		Protocol.cpp
@@ -248,8 +250,10 @@ ADD_LIBRARY(ha_falcon
 		SRLSectionPromotion.cpp 
 		SRLSequence.cpp 
 		SRLSequencePage.cpp 
+		SRLSession.cpp
 		SRLSwitchLog.cpp 
 		SRLUpdateIndex.cpp
+		SRLUpdateBlob.cpp
 		SRLUpdateRecords.cpp
 		SRLVersion.cpp 
 		SRLWordUpdate.cpp 
@@ -267,6 +271,7 @@ ADD_LIBRARY(ha_falcon
 		SyncWait.cpp 
 		Synchronize.cpp
 		SyncObject.cpp 
+		SyncTest.cpp 
 		SyncWait.cpp 
 		Syntax.cpp 
 		TableAttachment.cpp
@@ -423,6 +428,8 @@ ADD_LIBRARY(ha_falcon
 		Parameters.h 
 		PreparedStatement.h
 		PrettyPrint.h 
+		Priority.h
+		PriorityScheduler.h
 		Privilege.h 
 		PrivilegeObject.h 
 		Protocol.h
@@ -517,8 +524,10 @@ ADD_LIBRARY(ha_falcon
 		SRLSectionPromotion.h 
 		SRLSequence.h 
 		SRLSequencePage.h 
+		SRLSession.h
 		SRLSwitchLog.h 
 		SRLUpdateIndex.h
+		SRLUpdateBlob.h
 		SRLUpdateRecords.h
 		SRLVersion.h
 		SRLWordUpdate.h 
@@ -528,14 +537,16 @@ ADD_LIBRARY(ha_falcon
 		StorageDatabase.h
 		StorageHandler.h
 		StorageTable.h 
+		StorageParameters.h 
 		StorageTableShare.h 
 		Stream.h
 		StreamSegment.h 
 		SymbolManager.h 
 		Sync.h 
-		SyncWait.h 
 		Synchronize.h
 		SyncObject.h 
+		SyncTest.h 
+		SyncWait.h 
 		SynchronizationObject.h
 		SyncWait.h 
 		Syntax.h 

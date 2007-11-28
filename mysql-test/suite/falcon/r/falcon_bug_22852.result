@@ -1,11 +1,14 @@
-SET storage_engine = Falcon;
 *** Bug #22852 ***
+SET storage_engine = Falcon;
+SET @@autocommit = 0;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
 DROP TABLE IF EXISTS t1;
 DROP PROCEDURE IF EXISTS p1;
 # Establish connection conn1 (user = root)
 SET storage_engine = Falcon;
-# Switch to connection default
 SET @@autocommit = 0;
+# Switch to connection default
 CREATE TABLE t1 (
 a binary(1) NOT NULL,
 b varbinary(3) NOT NULL,
@@ -38,3 +41,4 @@ count(*)
 COMMIT;
 DROP TABLE t1;
 DROP PROCEDURE p1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

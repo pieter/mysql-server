@@ -47,7 +47,7 @@ void SRLDeleteIndex::append(Dbb *dbb, TransId transId, int id, int idxVersion)
 	Sync syncIndexes(&log->syncIndexes, "SRLDeleteIndex::append");
 	syncIndexes.lock(Exclusive);
 
-	START_RECORD(srlDeleteIndex, "SRLCreateIndex::append");
+	START_RECORD(srlDeleteIndex, "SRLDeleteIndex::append");
 	putInt(dbb->tableSpaceId);
 	log->getTransaction(transId);
 	log->setIndexInactive(id, dbb->tableSpaceId);

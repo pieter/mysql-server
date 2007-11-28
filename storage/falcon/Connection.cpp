@@ -166,7 +166,7 @@ void Connection::init(Configuration *config)
 	recordCount = 0;
 	registeredStatements = NULL;
 	nextHandle = 0;
-	isolationLevel = TRANSACTION_SERIALIZABLE;
+	isolationLevel = TRANSACTION_CONSISTENT_READ;
 	mySqlThreadId = 0;
 	currentStatement = NULL;
 }
@@ -1838,12 +1838,6 @@ char* Connection::getCurrentStatement(char* buffer, uint bufferLength)
 	*q = 0;
 	
 	return buffer;
-}
-
-void Connection::setSyncDisable(int value)
-{
-	if (database)
-		database->setSyncDisable(value);
 }
 
 void Connection::setRecordMemoryMax(uint64 value)

@@ -54,8 +54,10 @@ void SRLUpdateRecords::chill(Transaction *transaction, RecordVersion *record, ui
 		transaction->totalRecordData -= dataLength;
 }
 
-int SRLUpdateRecords::thaw(RecordVersion *record)
+int SRLUpdateRecords::thaw(RecordVersion *record, bool *thawed)
 {
+	*thawed = false;
+	
 	// Nothing to do if record is no longer chilled
 	
 	if (record->state != recChilled)
@@ -104,6 +106,8 @@ int SRLUpdateRecords::thaw(RecordVersion *record)
 		log->chilledBytes -= bytesReallocated;
 	else
 		log->chilledBytes = 0;
+	
+	*thawed = true;
 	
 	return bytesReallocated;
 }
@@ -352,12 +356,13 @@ void SRLUpdateRecords::print(void)
 		else
 			tableSpaceId = 0;
 
-		uint sectionId = getInt(&p);
+		int id = getInt(&p);
+		uint sectionId = (id >= 0) ? id : -id - 1;
 		int recordNumber = getInt(&p);
 		int length = getInt(&p);
 		char temp[40];
-		Log::debug("   rec %d, len %d to section %d %s\n", 
-				recordNumber, length, sectionId, format(length, p, sizeof(temp), temp));
+		Log::debug("   rec %d, len %d to section %d/%d %s\n", 
+					recordNumber, length, sectionId, tableSpaceId, format(length, p, sizeof(temp), temp));
 		p += length;
 		}
 }

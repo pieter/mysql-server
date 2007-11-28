@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <memory.h>
+#include <errno.h>
 #include "Engine.h"
 #include "Database.h"
 #include "Dbb.h"
@@ -72,6 +73,9 @@
 #include "MemMgr.h"
 #include "RecordScavenge.h"
 #include "LogStream.h"
+#include "SyncTest.h"
+#include "PriorityScheduler.h"
+#include "Sequence.h"
 
 #ifndef STORAGE_ENGINE
 #include "Applications.h"
@@ -104,6 +108,8 @@ static const char THIS_FILE[]=__FILE__;
 
 #define STATEMENT_RETIREMENT_AGE	60
 #define RECORD_RETIREMENT_AGE		60
+
+extern uint falcon_debug_trace;
 
 static const char *createTables = 
 	"create table Tables (\
@@ -401,8 +407,6 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	memset(unTables, 0, sizeof (unTables));
 	memset(schemas, 0, sizeof (schemas));
 	currentGeneration = 1;
-	//overflowSize = 0;
-	//memset((void*) ageGroupSizes, 0, sizeof (ageGroupSizes));
 	tableList = NULL;
 	recordMemoryMax = configuration->recordMemoryMax;
 	recordScavengeFloor = configuration->recordScavengeFloor;
@@ -423,6 +427,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	numberTemplateEvals = 0;
 	numberTemplateExpands = 0;
 	threads = new Threads (parent);
+	startTime = time (NULL);
 
 	symbolManager = NULL;
 	templateManager = NULL;
@@ -449,11 +454,21 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	pageWriter = NULL;
 	zombieTables = NULL;
 	updateCardinality = NULL;
+	ioScheduler = new PriorityScheduler;
 	lastScavenge = 0;
 	scavengeCycle = 0;
+	serialLogBlockSize = configuration->serialLogBlockSize;
 	longSync = false;
 	recordDataPool = MemMgrGetFixedPool(MemMgrPoolRecordData);
 	//recordObjectPool = MemMgrGetFixedPool(MemMgrPoolRecordObject);
+	syncObject.setName("Database::syncObject");
+	syncTables.setName("Database::syncTables");
+	syncStatements.setName("Database::syncStatements");
+	syncAddStatement.setName("Database::syncAddStatement");
+	syncSysConnection.setName("Database::syncSysConnection");
+	syncResultSets.setName("Database::syncResultSets");
+	syncConnectionStatements.setName("Database::syncConnectionStatements");
+	syncScavenge.setName("Database::syncScavenge");
 }
 
 
@@ -584,12 +599,16 @@ Database::~Database()
 	delete filterSetManager;
 	delete repositoryManager;
 	delete transactionManager;
+	delete ioScheduler;
 }
 
 void Database::createDatabase(const char * filename)
 {
-	const char *p = strrchr(filename, '.');
-	JString logRoot = (p) ? JString(filename, (int) (p - filename)) : name;
+	// If valid, use the user-defined serial log path, otherwise use the default.
+	
+	JString logRoot = setLogRoot(filename, true);
+	
+	//TBD: Return error to server.
 	
 #ifdef STORAGE_ENGINE
 	int page_size = falcon_page_size;
@@ -639,7 +658,8 @@ void Database::createDatabase(const char * filename)
 		upgradeSystemTables();
 		scheduler->start();
 		internalScheduler->start();
-
+		serialLogBlockSize = serialLog->getBlockSize();
+		dbb->updateSerialLogBlockSize();
 		commitSystemTransaction();
 		serialLog->checkpoint(true);
 		}
@@ -657,10 +677,12 @@ void Database::openDatabase(const char * filename)
 	cache = dbb->open (filename, configuration->pageCacheSize, 0);
 	start();
 
-	if (dbb->logRoot.IsEmpty())
+	if (   dbb->logRoot.IsEmpty()
+	    || (!configuration->serialLogDir.IsEmpty() && dbb->logRoot != configuration->serialLogDir))
 		{
-		const char *p = strrchr(filename, '.');
-		dbb->logRoot = (p) ? JString(filename, (int) (p - filename)) : name;
+		// If valid, use the user-defined serial log path, otherwise use the default.
+		
+		dbb->logRoot = setLogRoot(filename, true);
 		}
 		
 	if (serialLog)
@@ -738,6 +760,7 @@ void Database::openDatabase(const char * filename)
 	statement->close();
 	upgradeSystemTables();
 	Trigger::initialize (this);
+	serialLog->checkpoint(true);
 	//validate(0);
 
 #ifndef STORAGE_ENGINE
@@ -764,6 +787,7 @@ void Database::openDatabase(const char * filename)
 	getApplication ("base");
 #endif
 
+	tableSpaceManager->initialize();
 	internalScheduler->start();
 
 	if (configuration->schedulerEnabled)
@@ -1186,9 +1210,15 @@ Transaction* Database::startTransaction(Connection *connection)
 }
 
 
-void Database::flush()
+bool Database::flush(int64 arg)
 {
-	dbb->flush();
+	if (cache->flushing)
+		return false;
+			
+	serialLog->preFlush();
+	cache->flush(arg);
+	
+	return true;
 }
 
 void Database::commitSystemTransaction()
@@ -1196,6 +1226,13 @@ void Database::commitSystemTransaction()
 	Sync sync (&syncSysConnection, "Database::commitSystemTransaction");
 	sync.lock (Exclusive);
 	systemConnection->commit();
+}
+
+void Database::rollbackSystemTransaction(void)
+{
+	Sync sync (&syncSysConnection, "Database::commitSystemTransaction");
+	sync.lock (Exclusive);
+	systemConnection->rollback();
 }
 
 void Database::setDebug()
@@ -1323,8 +1360,8 @@ void Database::dropTable(Table * table, Transaction *transaction)
 	// Check for records in active transactions.  If so, barf
 
 	if (hasUncommittedRecords(table, transaction))
-			throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and can't be dropped", 
-						   table->schemaName, table->name);
+		throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and can't be dropped", 
+						table->schemaName, table->name);
 			
 	// OK, now make sure any records are purged out of committed transactions as well
 	
@@ -1370,6 +1407,28 @@ void Database::dropTable(Table * table, Transaction *transaction)
 	delete table;
 }
 
+void Database::truncateTable(Table *table, Transaction *transaction)
+{
+	Sync scavenge(&table->syncScavenge, "Database::truncateTable");
+	
+	table->checkDrop();
+	
+	// Check for records in active transactions
+
+	if (hasUncommittedRecords(table, transaction))
+		throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and cannot be truncated",
+						table->schemaName, table->name);
+						   
+	scavenge.lock(Shared);
+	
+	// Purge records out of committed transactions
+	
+	transactionManager->truncateTable(table, transaction);
+	
+	// Recreate data/blob sections and indexes
+	
+	table->truncate(transaction);
+}
 
 void Database::addTable(Table * table)
 {
@@ -1424,6 +1483,8 @@ void Database::execute(const char * sql)
 
 void Database::shutdown()
 {
+	Log::log("%d: Falcon shutdown\n", deltaTime);
+
 	if (shuttingDown)
 		return;
 	
@@ -1443,7 +1504,7 @@ void Database::shutdown()
 	if (repositoryManager)
 		repositoryManager->close();
 
-	flush();
+	//flush(0);
 
 	if (scheduler)
 		scheduler->shutdown(false);
@@ -1459,14 +1520,14 @@ void Database::shutdown()
 		java->shutdown (false);
 #endif
 
+	serialLog->shutdown();
+	cache->shutdown();
+
 	if (threads)
 		{
 		threads->shutdownAll();
 		threads->waitForAll();
 		}
-
-	if (serialLog)
-		serialLog->shutdown();
 
 	tableSpaceManager->shutdown(0);
 	dbb->shutdown(0);
@@ -1610,7 +1671,6 @@ void Database::scavenge()
 
 void Database::retireRecords(bool forced)
 {
-	//transactionManager->printBlockage();
 	int cycle = scavengeCycle;
 	Sync lock(&syncScavenge, "Database::retireRecords");
 	lock.lock(Exclusive);
@@ -1638,11 +1698,12 @@ void Database::retireRecords(bool forced)
 
 	if (forced || total >  recordScavengeThreshold)
 		{
-		LogStream stream;
-		recordDataPool->analyze(0, &stream, NULL, NULL);
+		//LogStream stream;
+		//recordDataPool->analyze(0, &stream, NULL, NULL);
 		Sync syncTbl (&syncTables, "Database::retireRecords");
 		syncTbl.lock (Shared);
 		Table *table;
+		time_t scavengeStart = deltaTime;
 		
 		for (table = tableList; table; table = table->next)
 			table->inventoryRecords(&recordScavenge);
@@ -1672,8 +1733,8 @@ void Database::retireRecords(bool forced)
 			}
 
 		syncTbl.unlock();
-		Log::log(LogScavenge, " %d records, " I64FORMAT " bytes reclaimed\n", 
-					recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed);
+		Log::log(LogScavenge, "%d: Scavenged %d records, " I64FORMAT " bytes in %d seconds\n", 
+					deltaTime, recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed, deltaTime - scavengeStart);
 			
 		total = recordScavenge.spaceRemaining;
 		}
@@ -1705,8 +1766,14 @@ void Database::ticker()
 
 	while (!thread->shutdownInProgress)
 		{
-		timestamp = time (NULL);
-		thread->sleep (1000);
+		timestamp = time(NULL);
+		deltaTime = timestamp - startTime;
+		thread->sleep(1000);
+
+#ifdef STORAGE_ENGINE
+		if (falcon_debug_trace)
+			debugTrace();
+#endif
 		}
 }
 
@@ -1886,7 +1953,7 @@ JString Database::analyze(int mask)
 		{
 		syncSystemTransaction.lock(Shared);
 		PreparedStatement *statement = prepareStatement (
-			"select schema,tableName,dataSection,blobSection from tables order by schema, tableName");
+			"select schema,tableName,dataSection,blobSection,tablespace from tables order by schema, tableName");
 		PreparedStatement *indexQuery = prepareStatement(
 			"select indexName, indexId from system.indexes where schema = ? and tableName = ?");
 		ResultSet *resultSet = statement->executeQuery();
@@ -1898,9 +1965,16 @@ JString Database::analyze(int mask)
 			const char *tableName = resultSet->getString (n++);
 			int dataSection = resultSet->getInt (n++);
 			int blobSection = resultSet->getInt (n++);
+			const char *tableSpaceName = resultSet->getString (n++);
+			TableSpace *tableSpace = NULL;
+
+			if (tableSpaceName[0])
+				tableSpace = tableSpaceManager->findTableSpace(tableSpaceName);
+			
+			Dbb *tableDbb = (tableSpace) ? tableSpace->dbb : dbb;
 			stream.format ("Table %s.%s\n", schema, tableName);
-			dbb->analyzeSection (dataSection, "Data section", 3, &stream);
-			dbb->analyzeSection (blobSection, "Blob section", 3, &stream);
+			tableDbb->analyzeSection (dataSection, "Data section", 3, &stream);
+			tableDbb->analyzeSection (blobSection, "Blob section", 3, &stream);
 			
 			indexQuery->setString(1, schema);
 			indexQuery->setString(2, tableName);
@@ -1912,7 +1986,7 @@ JString Database::analyze(int mask)
 				int combinedId = indexes->getInt(2);
 				int indexId = INDEX_ID(combinedId);
 				int indexVersion = INDEX_VERSION(combinedId);
-				dbb->analyseIndex(indexId, indexVersion, indexName, 3, &stream);
+				tableDbb->analyseIndex(indexId, indexVersion, indexName, 3, &stream);
 				}
 			
 			indexes->close();
@@ -2162,9 +2236,10 @@ void Database::getTransactionSummaryInfo(InfoTable* infoTable)
 
 void Database::updateCardinalities(void)
 {
+	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
+	syncSystemTransaction.lock(Shared);
 	Sync sync (&syncTables, "Database::updateCardinalities");
 	sync.lock (Shared);
-	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
 	bool hit = false;
 	
 	for (Table *table = tableList; table; table = table->next)
@@ -2179,7 +2254,6 @@ void Database::updateCardinalities(void)
 					updateCardinality = prepareStatement(
 						"update system.tables set cardinality=? where schema=? and tablename=?");
 						
-				syncSystemTransaction.lock(Shared);
 				hit = true;
 				}
 			
@@ -2191,42 +2265,20 @@ void Database::updateCardinalities(void)
 			}
 		}
 	
-	if (hit)
-		{
-		sync.unlock();
-		syncSystemTransaction.unlock();
-		commitSystemTransaction();
-		}
+	sync.unlock();
+	syncSystemTransaction.unlock();
+	commitSystemTransaction();
 }
 
-void Database::sync(void)
+void Database::sync()
 {
-	if (!configuration->disableFsync)
-		{
-		if (longSync)
-			Log::debug("Starting disk sync...\n");
-
-		time_t before = DateTime::getNow();
-		dbb->sync();
-		tableSpaceManager->sync();
-		time_t delta = DateTime::getNow() - before;
-
-		if (delta || longSync)
-			Log::debug("Disk sync time: %d seconds\n", delta);
-
-		longSync = delta > 0;
-		}
+	cache->syncFile(dbb, "sync");
+	tableSpaceManager->sync();
 }
 
 void Database::preUpdate()
 {
 	serialLog->preUpdate();
-}
-
-void Database::setSyncDisable(int value)
-{
-	if (configuration)
-		configuration->disableFsync = value != 0;
 }
 
 void Database::setRecordMemoryMax(uint64 value)
@@ -2262,4 +2314,81 @@ void Database::setRecordScavengeFloor(int value)
 void Database::forceRecordScavenge(void)
 {
 	retireRecords(true);
+}
+
+void Database::debugTrace(void)
+{
+#ifdef STORAGE_ENGINE
+	if (falcon_debug_trace & FALC0N_TRACE_TRANSACTIONS)
+		transactionManager->printBlockage();
+
+	if (falcon_debug_trace & FALC0N_SYNC_TEST)
+		{
+		SyncTest syncTest;
+		syncTest.test();
+		}
+	
+	if (falcon_debug_trace & FALC0N_SYNC_OBJECTS)
+		SyncObject::dump();
+	
+	if (falcon_debug_trace & FALC0N_REPORT_WRITES)
+		tableSpaceManager->reportWrites();
+	
+	if (falcon_debug_trace & FALC0N_FREEZE)
+		Synchronize::freezeSystem();
+	
+	falcon_debug_trace = 0;
+#endif
+}
+
+void Database::pageCacheFlushed(int64 flushArg)
+{
+	serialLog->pageCacheFlushed(flushArg);
+}
+
+JString Database::setLogRoot(const char *defaultPath, bool create)
+{
+	bool error = false;
+	char fullDefaultPath[PATH_MAX];
+	const char *baseName;
+	JString userRoot;
+
+	// Construct a fully qualified path for the default serial log location.
+	
+	const char *p = strrchr(defaultPath, '.');
+	JString  defaultRoot = (p) ? JString(defaultPath, (int)(p - defaultPath)) : name;
+
+	dbb->expandFileName((const char*)defaultRoot, sizeof(fullDefaultPath), fullDefaultPath, &baseName); 
+	
+	// If defined, serialLogDir is a valid, fully qualified path. Verify that
+	// it is also a valid location for the serial log. Otherwise, use the default.
+	
+	if (!configuration->serialLogDir.IsEmpty())
+		{
+		int errnum;
+		
+		userRoot = configuration->serialLogDir + baseName;
+
+		if (dbb->fileStat(JString(userRoot+".fl1"), NULL, &errnum) != 0)
+			{		
+			switch (errnum)
+				{
+				case 0:		 // file exists, don't care if create == true
+					break;
+				
+				case ENOENT: // no file, but !create means file expected
+					error = !create;
+					break;
+					
+				default:	 // invalid path or other error
+					error = true;
+					break;
+				}
+			}
+		}
+		
+	if (!userRoot.IsEmpty() && !error)
+		return userRoot.getString();
+	else
+		return defaultRoot.getString();
 }

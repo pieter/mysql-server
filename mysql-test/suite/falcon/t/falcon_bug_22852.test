@@ -1,9 +1,15 @@
 --source include/have_falcon.inc
-SET storage_engine = Falcon;
+#--disable_abort_on_error
 #
 # Bug #22852: Falcon: Packets out of order after handled error
 #
 --echo *** Bug #22852 ***
+
+SET storage_engine = Falcon;
+SET @@autocommit = 0;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 DROP PROCEDURE IF EXISTS p1;
@@ -12,10 +18,10 @@ DROP PROCEDURE IF EXISTS p1;
 --echo # Establish connection conn1 (user = root)
 connect (conn1,localhost,root,,);
 SET storage_engine = Falcon;
+SET @@autocommit = 0;
 
 --echo # Switch to connection default
 connection default;
-SET @@autocommit = 0;
 CREATE TABLE t1 (
   a binary(1) NOT NULL,
   b varbinary(3) NOT NULL,
@@ -63,3 +69,4 @@ COMMIT;
 disconnect conn1;
 DROP TABLE t1;
 DROP PROCEDURE p1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

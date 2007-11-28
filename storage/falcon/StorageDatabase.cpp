@@ -26,6 +26,7 @@
 #include "StorageHandler.h"
 #include "StorageTable.h"
 #include "StorageTableShare.h"
+#include "TableSpaceManager.h"
 #include "Sync.h"
 #include "Threads.h"
 #include "Configuration.h"
@@ -246,7 +247,7 @@ int StorageDatabase::nextRow(StorageTable* storageTable, int recordNumber, bool 
 				return StorageErrorRecordNotFound;
 
 			record = (lockForUpdate)
-			               ? table->fetchForUpdate(transaction, candidate)
+			               ? table->fetchForUpdate(transaction, candidate, false)
 			               : candidate->fetchVersion(transaction);
 			
 			if (!record)
@@ -310,7 +311,7 @@ int StorageDatabase::fetch(StorageConnection *storageConnection, StorageTable* s
 			return StorageErrorRecordNotFound;
 
 		Record *record = (lockForUpdate)
-		               ? table->fetchForUpdate(transaction, candidate)
+		               ? table->fetchForUpdate(transaction, candidate, false)
 		               : candidate->fetchVersion(transaction);
 		
 		if (!record)
@@ -383,7 +384,7 @@ int StorageDatabase::nextIndexed(StorageTable *storageTable, void* recordBitmap,
 			if (candidate)
 				{
 				Record *record = (lockForUpdate) 
-				               ? table->fetchForUpdate(transaction, candidate)
+				               ? table->fetchForUpdate(transaction, candidate, true)
 				               : candidate->fetchVersion(transaction);
 				
 				if (record)
@@ -519,6 +520,42 @@ int StorageDatabase::deleteTable(StorageConnection* storageConnection, StorageTa
 	return res;
 }
 
+int StorageDatabase::truncateTable(StorageConnection* storageConnection, StorageTableShare *tableShare)
+{
+	Connection *connection = storageConnection->connection;
+	Transaction *transaction = connection->transaction;
+	Database *database = connection->database;
+	Sequence *sequence = tableShare->sequence;
+	
+	int res = 0;
+	
+	try
+		{
+		database->truncateTable(tableShare->table, transaction);
+	
+		if (sequence)
+			sequence = sequence->recreate();
+		}
+	catch (SQLException& exception)
+		{
+		int errorCode = exception.getSqlcode();
+		storageConnection->setErrorText(&exception);
+		
+		switch (errorCode)
+			{
+			case NO_SUCH_TABLE:
+				return StorageErrorTableNotFound;
+				
+			case UNCOMMITTED_UPDATES:
+				return StorageErrorUncommittedUpdates;
+			}
+			
+		res = 200 - exception.getSqlcode();
+		}
+	
+	return res;
+}
+
 int StorageDatabase::deleteRow(StorageConnection *storageConnection, Table* table, int recordNumber)
 {
 	Connection *connection = storageConnection->connection;
@@ -592,7 +629,6 @@ int StorageDatabase::updateRow(StorageConnection* storageConnection, Table* tabl
 	return 0;
 }
 
-
 int StorageDatabase::createIndex(StorageConnection *storageConnection, Table* table, const char* indexName, const char* sql)
 {
 	Connection *connection = storageConnection->connection;
@@ -639,7 +675,7 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 			}
 
 		Sync sync(&database->syncSysConnection, "StorageDatabase::renameTable");
-		sync.lock(Shared);
+		sync.lock(Exclusive);
 
 		for (int n = firstIndex; n < numberIndexes; ++n)
 			{
@@ -667,7 +703,8 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 	catch (SQLException& exception)
 		{
 		storageConnection->setErrorText(&exception);
-		return -2;
+		
+		return StorageErrorDupKey;
 		}
 }
 
@@ -1065,7 +1102,10 @@ void StorageDatabase::traceTransaction(int transId, int committed, int blockedBy
 void StorageDatabase::getIOInfo(InfoTable* infoTable)
 {
 	if (masterConnection && masterConnection->database)
+		{
 		masterConnection->database->getIOInfo(infoTable);
+		masterConnection->database->tableSpaceManager->getIOInfo(infoTable);
+		}
 }
 
 void StorageDatabase::getTransactionInfo(InfoTable* infoTable)

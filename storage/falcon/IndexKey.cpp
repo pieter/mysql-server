@@ -179,31 +179,27 @@ void IndexKey::setKey(int offset, int length, const UCHAR *data)
 
 int IndexKey::compareValues(IndexKey* indexKey)
 {
-	// First, compare value length
-	int len1 = keyLength;
-	if (recordNumber)
-		len1 -= getAppendedRecordNumberLength();
-
+	bool isPartial = false;
 	int len2 = indexKey->keyLength;
 	if (indexKey->recordNumber)
 		len2 -= indexKey->getAppendedRecordNumberLength();
+	return compareValues(indexKey->key, len2, isPartial);
+}
 
-	int len = MIN(len1, len2);
+int IndexKey::compareValues(UCHAR *key2, uint len2, bool isPartial)
+{
+	// First, compare value length
+	uint len1 = keyLength;
+	if (recordNumber)
+		len1 -= getAppendedRecordNumberLength();
 
-	int newret = memcmp(indexKey->key, key, len);
-	if (newret == 0)
-		newret = len2 - len1;
+	uint len = MIN(len1, len2);
 
-#ifdef DEBUG_EXTRA_INDEXES
-	len = MIN(keyLength, indexKey->keyLength);
-	int oldret = memcmp(indexKey->key, key, len);
-	if (oldret == 0)
-		oldret = indexKey->keyLength - keyLength;
+	int ret = memcmp(key2, key, len);
+	if (ret == 0 && !isPartial)
+		ret = len2 - len1;
 
-	if (oldret == newret)
-		return oldret;
-#endif
-	return newret;
+	return ret;
 
 }
 

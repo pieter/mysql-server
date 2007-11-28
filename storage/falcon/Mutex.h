@@ -66,7 +66,7 @@ public:
 #endif
 
 	virtual void unlock(Sync* sync, LockType type);
-	virtual void lock(Sync* sync, LockType type);
+	virtual void lock(Sync* sync, LockType type, int timeout);
 	virtual void findLocks(LinkedList& threads, LinkedList& syncObjects);
 };
 

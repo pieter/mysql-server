@@ -39,7 +39,10 @@ static const int PostDelete = 32;
 static const int PreCommit	= 64;
 static const int PostCommit	= 128;
 
-#define NON_BLOCKING_SCAVENGING
+static const int checkUniqueWaited	= 0;
+static const int checkUniqueIsDone	= 1;
+static const int checkUniqueNext	= 2;
+
 #define FORMAT_HASH_SIZE		20
 #define FOR_FIELDS(field,table)	{for (Field *field=table->fields; field; field = field->next){
 #define FOR_INDEXES(index,table)	{for (Index *index=table->indexes; index; index = index->next){
@@ -89,7 +92,7 @@ public:
 	void		insertView(Transaction *transaction, int count, Field **fieldVector, Value **values);
 	void		bind (Table *table);
 	void		clearIndexesRebuild();
-	void		rebuildIndexes (Transaction *transaction);
+	void		rebuildIndexes (Transaction *transaction, bool force = false);
 	void		collationChanged (Field *field);
 	void		validateBlobs (int optionMask);
 	void		cleanupRecords(RecordScavenge *recordScavenge);
@@ -99,7 +102,9 @@ public:
 	bool		foreignKeyMember (ForeignKey *key);
 	void		makeNotSearchable (Field *field, Transaction *transaction);
 	bool		dropForeignKey (int fieldCount, Field **fields, Table *references);
-	void		checkUniqueIndexes (Transaction *transaction, RecordVersion *record);
+	bool		checkUniqueIndexes (Transaction *transaction, RecordVersion *record, Sync *sync);
+	bool		checkUniqueIndex(Index *index, Transaction *transaction, RecordVersion *record, Sync *sync);
+	int			checkUniqueRecordVersion(int32 recordNumber, Index *index, Transaction *transaction, RecordVersion *record, Sync *sync);
 	bool		isDuplicate (Index *index, Record *record1, Record *record2);
 	void		checkDrop();
 	Field*		findField (const WCString *fieldName);
@@ -143,6 +148,7 @@ public:
 	void		addField (Field *field);
 	void		checkNullable (Record *record);
 	virtual void	drop(Transaction *transaction);
+	virtual void	truncate(Transaction *transaction);
 	void		updateInversion (Record *record, Transaction *transaction);
 	int			getFieldId (const char *name);
 	ForeignKey* findForeignKey (ForeignKey *key);
@@ -182,7 +188,7 @@ public:
 	int64		estimateCardinality(void);
 	void		optimize(Connection *connection);
 	
-	Record*			fetchForUpdate(Transaction* transaction, Record* record);
+	Record*			fetchForUpdate(Transaction* transaction, Record* record, bool usingIndex);
 	RecordVersion*	lockRecord(Record* record, Transaction* transaction);
 	void			unlockRecord(int recordNumber);
 	void			unlockRecord(RecordVersion* record, bool remove);
@@ -202,6 +208,7 @@ public:
 	SyncObject		syncObject;
 	SyncObject		syncTriggers;
 	SyncObject		syncScavenge;
+	SyncObject		syncUpdate;
 	SyncObject		syncAlter;				// prevent concurrent Alter statements.
 	Table			*collision;				// Hash collision in database
 	Table			*idCollision;			// mod(id) collision in database
@@ -218,7 +225,7 @@ public:
 	View			*view;
 	Trigger			*triggers;
 	Bitmap			*recordBitmap;
-	Bitmap			*emptySections; //cwp
+	Bitmap			*emptySections;
 	Section			*dataSection;
 	Section			*blobSection;
 	TableSpace		*tableSpace;

@@ -24,6 +24,8 @@
 static const int UpperBound	= 1;
 static const int LowerBound = 2;
 
+static const int MaxRetryAferWait = 5;
+
 struct StorageKey {
 	int			numberSegments;
 	IndexKey	indexKey;
@@ -66,6 +68,7 @@ public:
 	virtual int		open(void);
 	virtual int		deleteTable(void);
 	virtual int		deleteRow(int recordNumber);
+	virtual int		truncateTable(void);
 	virtual int		setIndex(int numberIndexes, int indexId, StorageIndexDesc* storageIndex);
 	virtual int		indexScan();
 	virtual int		setIndex(int indexId);
@@ -95,6 +98,7 @@ public:
 	virtual void	setReadAfterKey(void);
 	virtual void	unlockRow(void);
 	virtual int		optimize(void);
+	virtual void	setLocalTable(StorageInterface* handler);
 
 	JString				name;
 	StorageTable		*collision;

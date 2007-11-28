@@ -38,7 +38,7 @@ public:
 	virtual ~SynchronizationObject(void) {}
 	
 	virtual void unlock (Sync *sync, LockType type) = 0;
-	virtual void lock (Sync *sync, LockType type) = 0;
+	virtual void lock (Sync *sync, LockType type, int timeout) = 0;
 	virtual void findLocks (LinkedList &threads, LinkedList& syncObjects) = 0;
 };
 

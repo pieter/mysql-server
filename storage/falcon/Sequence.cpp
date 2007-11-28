@@ -60,3 +60,8 @@ void Sequence::rename(const char* newName)
 {
 	database->sequenceManager->renameSequence(this, newName);
 }
+
+Sequence* Sequence::recreate(void)
+{
+	return database->sequenceManager->recreateSequence(this);
+}

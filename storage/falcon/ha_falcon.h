@@ -20,7 +20,14 @@ class CmdGen;
 class THD;
 class my_decimal;
 
+#define TRUNCATE_ENABLED
 //#define XA_ENABLED
+
+static const int TRANSACTION_READ_UNCOMMITTED = 1;	// Dirty reads, non-repeatable reads and phantom reads can occur.
+static const int TRANSACTION_READ_COMMITTED   = 2;	// Dirty reads are prevented; non-repeatable reads and phantom reads can occur.
+static const int TRANSACTION_WRITE_COMMITTED  = 4;	// Dirty reads are prevented; non-repeatable reads happen after writes; phantom reads can occur.
+static const int TRANSACTION_CONSISTENT_READ  = 8;	// Dirty reads and non-repeatable reads are prevented; phantom reads can occur.   
+static const int TRANSACTION_SERIALIZABLE     = 16;	// Dirty reads, non-repeatable reads and phantom reads are prevented.
 
 struct st_table_share;
 struct StorageIndexDesc;
@@ -29,8 +36,8 @@ struct StorageBlob;
 class StorageInterface : public handler
 {
 public:
-  StorageInterface(handlerton *, st_table_share *table_arg);
-  ~StorageInterface(void);
+	StorageInterface(handlerton *, st_table_share *table_arg);
+	~StorageInterface(void);
 
 	virtual int		open(const char *name, int mode, uint test_if_locked);
 	virtual const char *table_type(void) const;
@@ -63,7 +70,7 @@ public:
 	virtual int		index_init(uint idx, bool sorted);
 	virtual int		index_end(void);
 	virtual int		index_next(uchar *buf);
-	virtual int	index_next_same(uchar *buf, const uchar *key, uint key_len);
+	virtual int		index_next_same(uchar *buf, const uchar *key, uint key_len);
 
 	virtual ha_rows	records_in_range(uint index,
 	                                 key_range *lower, key_range *upper);
@@ -88,7 +95,9 @@ public:
 	virtual int		reset_auto_increment(ulonglong value);
 	virtual const COND* cond_push(const COND* cond);
 	virtual int		optimize(THD* thd, HA_CHECK_OPT* check_opt);
-
+#ifdef TRUNCATE_ENABLED
+	virtual int		delete_all_rows(void);
+#endif
 	void			getDemographics(void);
 	int				createIndex(const char *schemaName, const char *tableName,
 					            KEY *key, int indexNumber);
@@ -120,7 +129,9 @@ public:
 	static int		closeConnection(handlerton *, THD *thd);
 	static void		logger(int mask, const char *text, void *arg);
 	static int		panic(handlerton* hton, ha_panic_function flag);
-	//static bool		show_status(handlerton* hton, THD* thd, stat_print_fn* print, enum ha_stat_type stat);
+	//static bool	show_status(handlerton* hton, THD* thd, stat_print_fn* print, enum ha_stat_type stat);
+	static int		getMySqlError(int storageError);
+	
 #if 0
 	static uint		alter_table_flags(uint flags);
 #endif
@@ -128,11 +139,14 @@ public:
 
 	static int		commit_by_xid(handlerton* hton, XID* xid);
 	static int		rollback_by_xid(handlerton* hton, XID* xid);
+	static int		start_consistent_snapshot(handlerton *, THD *thd);
 
 	static void		updateFsyncDisable(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save);
+	static void		updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save);
 	static void		updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 	static void		updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 	static void		updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
+	static void		updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save);
 
 	/* Turn off table cache for now */
 

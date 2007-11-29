@@ -55,6 +55,8 @@ StorageTable::StorageTable(StorageConnection *connection, StorageTableShare *tab
 
 StorageTable::~StorageTable(void)
 {
+	clearTruncateLock();
+	
 	if (bitmap)
 		((Bitmap*) bitmap)->release();
 
@@ -76,6 +78,8 @@ int StorageTable::open(void)
 
 int StorageTable::deleteTable(void)
 {
+	clearTruncateLock();
+	
 	int ret = share->deleteTable(storageConnection);
 	
 	if (ret == 0)

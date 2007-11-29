@@ -21,7 +21,6 @@ class THD;
 class my_decimal;
 
 #define TRUNCATE_ENABLED
-//#define XA_ENABLED
 
 static const int TRANSACTION_READ_UNCOMMITTED = 1;	// Dirty reads, non-repeatable reads and phantom reads can occur.
 static const int TRANSACTION_READ_COMMITTED   = 2;	// Dirty reads are prevented; non-repeatable reads and phantom reads can occur.
@@ -121,6 +120,7 @@ public:
 	static int		commit(handlerton *, THD *thd, bool all);
 	static int		prepare(handlerton* hton, THD* thd, bool all);
 	static int		rollback(handlerton *, THD *thd, bool all);
+	static int		recover (handlerton * hton, XID *xids, uint length);
 	static int		savepointSet(handlerton *, THD *thd, void *savePoint);
 	static int		savepointRollback(handlerton *, THD *thd, void *savePoint);
 	static int		savepointRelease(handlerton *, THD *thd, void *savePoint);

@@ -1857,3 +1857,11 @@ void Connection::setRecordScavengeFloor(int value)
 	if (database)
 		database->setRecordScavengeFloor(value);
 }
+
+int Connection::recoverGetNextLimbo(int xidSize, unsigned char *xid)
+{
+	if (database)
+		return database->recoverGetNextLimbo(xidSize, xid);
+	else
+		return 0;
+}

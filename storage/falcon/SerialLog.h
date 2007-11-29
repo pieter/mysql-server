@@ -116,6 +116,8 @@ public:
 	void			open(JString fileRoot, bool createFlag);
 	void			copyClone(JString fileRoot, int logOffset, int logLength);
 	int				recoverLimboTransactions(void);
+	int				recoverGetNextLimbo(int xidSize, unsigned char *xid);
+
 	void			preFlush(void);
 	void			wakeupFlushQueue(Thread *ourThread);
 	
@@ -161,6 +163,7 @@ public:
 	SerialLogWindow		*freeWindows;
 	SerialLogWindow		*writeWindow;
 	SerialLogTransaction	*transactions[SLT_HASH_SIZE];
+	SerialLogTransaction	*nextLimboTransaction;
 	Database			*database;
 	RecoveryObjects		*recoveryPages;
 	RecoveryObjects		*recoverySections;

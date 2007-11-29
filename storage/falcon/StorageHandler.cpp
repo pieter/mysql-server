@@ -1074,3 +1074,14 @@ void StorageHandler::getFalconVersionInfo(InfoTable* infoTable)
 	infoTable->putString(n++, FALCON_DATE);
 	infoTable->putRecord();
 }
+
+int StorageHandler::recoverGetNextLimbo(int xidLength, unsigned char* xid)
+	{
+	if (!defaultDatabase)	
+		initialize();
+
+	if (Connection* connection = dictionaryConnection)
+		return connection->recoverGetNextLimbo(xidLength, xid);
+
+	return 0;
+	}

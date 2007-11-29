@@ -201,6 +201,7 @@ public:
 	void			renameTable(Table* table, const char* newSchema, const char* newName);
 	bool			hasUncommittedRecords(Table* table, Transaction *transaction);
 	void			validateCache(void);
+	int				recoverGetNextLimbo(int xidSize, unsigned char *xid);
 	void			commitByXid(int xidLength, const UCHAR* xid);
 	void			rollbackByXid(int xidLength, const UCHAR* xid);
 	void			getTransactionSummaryInfo(InfoTable* infoTable);
@@ -217,6 +218,7 @@ public:
 	void			debugTrace(void);
 	void			pageCacheFlushed(int64 flushArg);
 	JString			setLogRoot(const char *defaultPath, bool create);
+
 
 	Dbb					*dbb;
 	Cache				*cache;

@@ -36,3 +36,12 @@ ALTER TABLE t1 ENGINE=falcon;
 SELECT TABLESPACE FROM information_schema.falcon_tables WHERE TABLE_NAME='t1';
 DROP TABLE t1;
 DROP TABLESPACE ts1 ENGINE=falcon;
+
+#
+# BUG#31311 - TABLESPACE identifiers do not support special characters
+#
+CREATE TABLESPACE `ts 1` ADD DATAFILE 'ts2.fts' ENGINE=falcon;
+CREATE TABLE t1(a INT) ENGINE=falcon TABLESPACE `ts 1`;
+SHOW CREATE TABLE t1;
+DROP TABLE t1;
+DROP TABLESPACE `ts 1` ENGINE=falcon;

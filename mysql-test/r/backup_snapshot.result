@@ -22,14 +22,25 @@ COUNT(*)
 SELECT COUNT(*) FROM bup_snapshot.t2;
 COUNT(*)
 5
-con2: Getting lock on driver.
+con3: Getting lock on driver.
 SELECT get_lock("backup_cs_locked", 100);
 get_lock("backup_cs_locked", 100)
 1
 con1: Backing up database. Spawn this and continue...
 BACKUP DATABASE bup_snapshot TO "bup_snapshot.bak";
-con2: Wait until backup pauses then insert new data.
+con3: Checking locks.
 INSERT INTO bup_snapshot.t1 VALUES("- Dave Mathews");
+con3: Checking locks.
+con3: Release lock on driver.
+SELECT release_lock("backup_cs_locked");
+release_lock("backup_cs_locked")
+1
+Backup Summary
+ header     =       29 bytes
+ meta-data  =      184 bytes
+ data       =      320 bytes
+              --------------
+ total             533 bytes
 INSERT INTO bup_snapshot.t1 VALUES("- Yes");
 INSERT INTO bup_snapshot.t1 VALUES("- Jethro Tull");
 DELETE FROM bup_snapshot.t1 WHERE word LIKE '10%';
@@ -42,16 +53,6 @@ word
 SELECT COUNT(*) FROM bup_snapshot.t1;
 COUNT(*)
 12
-con2: Release lock on driver.
-SELECT release_lock("backup_cs_locked");
-release_lock("backup_cs_locked")
-1
-Backup Summary
- header     =       29 bytes
- meta-data  =      184 bytes
- data       =      320 bytes
-              --------------
- total             533 bytes
 con1: Dropping the database
 DROP TABLE bup_snapshot.t1;
 con1: Restoring the database
@@ -71,14 +72,19 @@ COUNT(*)
 SELECT COUNT(*) FROM bup_snapshot.t2;
 COUNT(*)
 5
-con2: Getting lock on driver.
+con3: Getting lock on driver.
 SELECT get_lock("backup_cs_reading", 100);
 get_lock("backup_cs_reading", 100)
 1
 con1: Backing up database. Spawn this and continue...
 BACKUP DATABASE bup_snapshot TO "bup_snapshot.bak";
-con2: Wait until backup pauses then insert new data.
+con3: Checking locks.
 INSERT INTO bup_snapshot.t1 VALUES("- Dave Mathews");
+con3: Checking locks.
+con3: Release lock on driver.
+SELECT release_lock("backup_cs_reading");
+release_lock("backup_cs_reading")
+1
 INSERT INTO bup_snapshot.t1 VALUES("- Yes");
 INSERT INTO bup_snapshot.t1 VALUES("- Jethro Tull");
 DELETE FROM bup_snapshot.t1 WHERE word LIKE '10%';
@@ -91,10 +97,6 @@ word
 SELECT COUNT(*) FROM bup_snapshot.t1;
 COUNT(*)
 12
-con2: Release lock on driver.
-SELECT release_lock("backup_cs_reading");
-release_lock("backup_cs_reading")
-1
 Backup Summary
  header     =       29 bytes
  meta-data  =      184 bytes

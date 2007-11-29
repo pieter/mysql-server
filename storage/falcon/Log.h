@@ -37,6 +37,7 @@ static const int	LogPanic		= 64;
 static const int	LogScrub		= 128;
 static const int	LogException	= 256;
 static const int	LogScavenge		= 512;
+static const int	LogXARecovery	= 1024;
 
 typedef void (Listener) (int, const char*, void *arg);
 

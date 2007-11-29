@@ -148,12 +148,21 @@ int StorageInterface::falcon_init(void *p)
 	falcon_hton->alter_table_flags  = StorageInterface::alter_table_flags;
 #endif
 
-#ifdef XA_ENABLED
-	falcon_hton->prepare = StorageInterface::prepare;
-#endif
+	if (falcon_two_phase_commit)
+		{
+		falcon_hton->prepare = StorageInterface::prepare;
+		falcon_hton->recover = StorageInterface::recover;
+		falcon_hton->commit_by_xid = StorageInterface::commit_by_xid;
+		falcon_hton->rollback_by_xid = StorageInterface::rollback_by_xid;
+		}
+	else
+		{
+		falcon_hton->prepare = NULL;
+		falcon_hton->recover = NULL;
+		falcon_hton->commit_by_xid = NULL;
+		falcon_hton->rollback_by_xid = NULL;
+		}
 
-	falcon_hton->commit_by_xid = StorageInterface::commit_by_xid;
-	falcon_hton->rollback_by_xid = StorageInterface::rollback_by_xid;
 	falcon_hton->start_consistent_snapshot = StorageInterface::start_consistent_snapshot;
 
 	falcon_hton->alter_tablespace = StorageInterface::alter_tablespace;
@@ -2941,6 +2950,25 @@ void StorageInterface::updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* v
 	storageHandler->addNfsLogger(falcon_debug_mask, StorageInterface::logger, NULL);
 }
 
+int StorageInterface::recover (handlerton * hton, XID *xids, uint length)
+{
+	DBUG_ENTER("StorageInterface::recover");
+
+	uint count = 0;
+	unsigned char xid[sizeof(XID)];
+
+	memset (xid, 0, sizeof(XID));
+
+	while (storageHandler->recoverGetNextLimbo(sizeof(XID), xid))
+		{
+		count++;
+		memcpy(xids++, xid, sizeof(XID));
+		if (count >= length)
+			break;
+		}
+
+	DBUG_RETURN(count);
+}
 
 static MYSQL_SYSVAR_STR(serial_log_dir, falcon_serial_log_dir,
   PLUGIN_VAR_RQCMDARG| PLUGIN_VAR_READONLY | PLUGIN_VAR_MEMALLOC,

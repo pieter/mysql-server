@@ -226,7 +226,7 @@ Transaction::~Transaction()
 void Transaction::commit()
 {
 	ASSERT((firstRecord != NULL) || (chillPoint == &firstRecord));
-	
+
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
@@ -242,23 +242,27 @@ void Transaction::commit()
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 
-//#ifndef XA_ENABLED
-	Sync sync(&syncIndexes, "Transaction::commit");
-	sync.lock(Shared);
+	Log::log(LogXARecovery, "Commit transaction %d\n", transactionId);
+
+	if (state == Active)
+		{
+		Sync sync(&syncIndexes, "Transaction::commit");
+		sync.lock(Shared);
+		
+		for (DeferredIndex *deferredIndex= deferredIndexes; deferredIndex;  
+			deferredIndex = deferredIndex->nextInTransaction)
+			if (deferredIndex->index)
+				database->dbb->logIndexUpdates(deferredIndex);
+		
+		sync.unlock();
+		database->dbb->logUpdatedRecords(this, firstRecord);
+
+		if (pendingPageWrites)
+			database->pageWriter->waitForWrites(this);
+		}
+			
 	++transactionManager->committed;
-	
-	for (DeferredIndex *deferredIndex= deferredIndexes; deferredIndex;  
-		 deferredIndex = deferredIndex->nextInTransaction)
-		if (deferredIndex->index)
-			database->dbb->logIndexUpdates(deferredIndex);
-	
-	sync.unlock();
-	database->dbb->logUpdatedRecords(this, firstRecord);
-	
-	if (pendingPageWrites)
-		database->pageWriter->waitForWrites(this);
-//#endif
-	
+
 	if (hasLocks)
 		releaseRecordLocks();
 
@@ -484,9 +488,12 @@ void Transaction::prepare(int xidLen, const UCHAR *xidPtr)
 	if (state != Active)
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
+	Log::log(LogXARecovery, "Prepare transaction %d: xidLen = %d\n", transactionId, xidLen);
 	releaseSavePoints();
 
-	if ( (xidLength = xidLen) )
+	xidLength = xidLen;
+
+	if (xidLength)
 		{
 		xid = new UCHAR[xidLength];
 		memcpy(xid, xidPtr, xidLength);
@@ -496,16 +503,22 @@ void Transaction::prepare(int xidLen, const UCHAR *xidPtr)
 	state = Limbo;
 	database->dbb->prepareTransaction(transactionId, xidLength, xid);
 
-#ifdef XA_ENABLED
-	for (DeferredIndex *deferredIndex= deferredIndexes; deferredIndex;
-		 deferredIndex = deferredIndex->nextInTransaction)
-		{
-			if (deferredIndex->index)
-				database->dbb->logIndexUpdates(deferredIndex);
-		}
-	database->dbb->logUpdatedRecords(this, *chillPoint);
-	database->pageWriter->waitForWrites(transactionId);
-#endif
+	Sync sync(&syncIndexes, "Transaction::prepare");
+	sync.lock(Shared);
+	
+	for (DeferredIndex *deferredIndex= deferredIndexes; deferredIndex;  
+		deferredIndex = deferredIndex->nextInTransaction)
+		if (deferredIndex->index)
+			database->dbb->logIndexUpdates(deferredIndex);
+	
+	sync.unlock();
+	database->dbb->logUpdatedRecords(this, firstRecord);
+
+	if (pendingPageWrites)
+		database->pageWriter->waitForWrites(this);
+
+	if (hasLocks)
+		releaseRecordLocks();
 }
 
 void Transaction::chillRecords()

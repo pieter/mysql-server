@@ -2431,3 +2431,12 @@ JString Database::setLogRoot(const char *defaultPath, bool create)
 	else
 		return defaultRoot.getString();
 }
+
+int	Database::recoverGetNextLimbo(int xidSize, unsigned char *xid)
+	{
+	if (serialLog)
+		return (serialLog->recoverGetNextLimbo(xidSize, xid));
+
+	return 0;
+	}
+

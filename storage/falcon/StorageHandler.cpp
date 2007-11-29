@@ -1065,3 +1065,14 @@ void StorageHandler::cleanFileName(const char* pathname, char* filename, int fil
 
 	*q = 0;
 }
+
+int StorageHandler::recoverGetNextLimbo(int xidLength, unsigned char* xid)
+	{
+	if (!defaultDatabase)	
+		initialize();
+
+	if (Connection* connection = dictionaryConnection)
+		return connection->recoverGetNextLimbo(xidLength, xid);
+
+	return 0;
+	}

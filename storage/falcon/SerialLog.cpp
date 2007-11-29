@@ -89,6 +89,7 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	logicalFlushes = 0;
 	physicalFlushes = 0;
 	highWaterBlock = 0;
+	nextLimboTransaction = 0;
 	bufferSpace = NULL;
 	recoveryPages = NULL;
 	recoveryIndexes = NULL;
@@ -1537,3 +1538,22 @@ int SerialLog::getBlockSize(void)
 {
 	return file1->sectorSize;
 }
+
+int	SerialLog::recoverGetNextLimbo(int xidSize, unsigned char *xid)
+	{
+	SerialLogTransaction *transaction = nextLimboTransaction;
+
+	if (!transaction)
+		return 0;
+
+	if (transaction->xidLength == xidSize)
+		memcpy(xid, transaction->xid, xidSize);
+
+	for (transaction = transaction->next; transaction; transaction = transaction->next)
+		if (transaction->state == sltPrepared)
+			break;
+
+	nextLimboTransaction = transaction;
+	return 1;
+}
+

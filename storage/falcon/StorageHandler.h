@@ -74,12 +74,16 @@ public:
 	virtual int			rollback(THD* mySqlThread);
 	virtual int			releaseVerb(THD* mySqlThread);
 	virtual int			rollbackVerb(THD* mySqlThread);
+
 	virtual int			savepointSet(THD* mySqlThread, void* savePoint);
 	virtual int			savepointRelease(THD* mySqlThread, void* savePoint);
 	virtual int			savepointRollback(THD* mySqlThread, void* savePoint);
 	virtual void		releaseText(const char* text);
+
+	virtual int			recoverGetNextLimbo(int xidSize, unsigned char *xid);
 	virtual int			commitByXID(int xidLength, const unsigned char* xid);
 	virtual int			rollbackByXID(int xidLength, const unsigned char* xis);
+
 	virtual Connection*	getDictionaryConnection(void);
 	virtual int			createTablespace(const char* tableSpaceName, const char* filename);
 	virtual int			deleteTablespace(const char* tableSpaceName);

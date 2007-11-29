@@ -244,6 +244,7 @@ public:
 	void			disableFilterSet(FilterSet *filterSet);
 	void			disableFilterSet (const WCString *schemaName, const WCString *filterSetName);
 
+	int				recoverGetNextLimbo(int xidSize, UCHAR* xid);
 	void			commitByXid(int xidLength, const UCHAR* xid);
 	void			rollbackByXid(int xidLength, const UCHAR* xid);
 	void			shutdownDatabase(void);

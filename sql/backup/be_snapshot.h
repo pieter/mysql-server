@@ -62,10 +62,10 @@ class Backup: public default_backup::Backup
       default_backup::Backup(tables, t_thd, TL_READ) { tables_open= FALSE; };
     virtual ~Backup()
     {
-      if (lock_state == LOCK_ACQUIRED)
+      if (locking_thd->lock_state == LOCK_ACQUIRED)
       {
-        end_active_trans(m_thd);
-        close_thread_tables(m_thd);
+        end_active_trans(locking_thd->m_thd);
+        close_thread_tables(locking_thd->m_thd);
       }
     };
     result_t begin(const size_t) { return backup::OK; };

@@ -96,14 +96,14 @@ THD *create_new_thd()
   */
 pthread_handler_t backup_thread_for_locking(void *arg)
 {
-  Backup_thread_driver *drv= static_cast<Backup_thread_driver *>(arg);
+  Locking_thread_st *locking_thd= static_cast<Locking_thread_st *>(arg);
 
   DBUG_PRINT("info", ("Default_backup - lock_tables_in_separate_thread"));
 
   /*
     Turn off condition variable check for lock.
   */
-  drv->lock_state= LOCK_NOT_STARTED;
+  locking_thd->lock_state= LOCK_NOT_STARTED;
 
 #if !defined( __WIN__) /* Win32 calls this in pthread_create */
   my_thread_init();
@@ -116,16 +116,16 @@ pthread_handler_t backup_thread_for_locking(void *arg)
   */
   DBUG_PRINT("info",("Online backup creating THD struct for thread"));
   THD *thd= create_new_thd();
-  drv->lock_thd= thd;
+  locking_thd->lock_thd= thd;
   if (thd == 0)
   {
-    drv->lock_state= LOCK_ERROR;
+    locking_thd->lock_state= LOCK_ERROR;
     goto end2;
   }
 
   if (thd->killed)
   {
-    drv->lock_state= LOCK_ERROR;
+    locking_thd->lock_state= LOCK_ERROR;
     goto end2;
   }
 
@@ -133,10 +133,10 @@ pthread_handler_t backup_thread_for_locking(void *arg)
     Now open and lock the tables.
   */
   DBUG_PRINT("info",("Online backup open tables in thread"));
-  if (!drv->tables_in_backup)
+  if (!locking_thd->tables_in_backup)
   {
     DBUG_PRINT("info",("Online backup locking error no tables to lock"));
-    drv->lock_state= LOCK_ERROR;
+    locking_thd->lock_state= LOCK_ERROR;
     goto end2;
   }
 
@@ -145,16 +145,16 @@ pthread_handler_t backup_thread_for_locking(void *arg)
     killing the thread. In this case, we need to close the tables 
     and exit.
   */
-  if (!thd->killed && open_and_lock_tables(thd, drv->tables_in_backup))
+  if (!thd->killed && open_and_lock_tables(thd, locking_thd->tables_in_backup))
   {
     DBUG_PRINT("info",("Online backup locking thread dying"));
-    drv->lock_state= LOCK_ERROR;
+    locking_thd->lock_state= LOCK_ERROR;
     goto end;
   }
 
   if (thd->killed)
   {
-    drv->lock_state= LOCK_ERROR;
+    locking_thd->lock_state= LOCK_ERROR;
     goto end;
   }
 
@@ -162,15 +162,17 @@ pthread_handler_t backup_thread_for_locking(void *arg)
     Part of work is done. Rest until woken up.
     We wait if the thread is not killed and the driver has not signaled us.
   */
-  pthread_mutex_lock(&drv->THR_LOCK_driver_thread);
-  drv->lock_state= LOCK_ACQUIRED;
-  thd->enter_cond(&drv->COND_driver_thread_wait, &drv->THR_LOCK_driver_thread,
-                  "Online backup driver thread: holding table locks");
-  while (!thd->killed && (drv->lock_state != LOCK_SIGNAL))
-    pthread_cond_wait(&drv->COND_driver_thread_wait, &drv->THR_LOCK_driver_thread);
-  thd->exit_cond("Online backup driver thread: terminating");
+  pthread_mutex_lock(&locking_thd->THR_LOCK_thread);
+  locking_thd->lock_state= LOCK_ACQUIRED;
+  thd->enter_cond(&locking_thd->COND_thread_wait,
+                  &locking_thd->THR_LOCK_thread,
+                  "Locking thread: holding table locks");
+  while (!thd->killed && (locking_thd->lock_state != LOCK_SIGNAL))
+    pthread_cond_wait(&locking_thd->COND_thread_wait,
+                      &locking_thd->THR_LOCK_thread);
+  thd->exit_cond("Locking thread: terminating");
 
-  DBUG_PRINT("info",("Online backup driver thread locking thread terminating"));
+  DBUG_PRINT("info",("Locking thread locking thread terminating"));
 
   /*
     Cleanup and return.
@@ -179,44 +181,43 @@ end:
   close_thread_tables(thd);
 
 end2:
-  pthread_mutex_lock(&drv->THR_LOCK_driver);
+  pthread_mutex_lock(&locking_thd->THR_LOCK_caller);
   net_end(&thd->net);
   my_thread_end();
   delete thd;
-  drv->lock_thd= NULL;
-  if (drv->lock_state != LOCK_ERROR)
-    drv->lock_state= LOCK_DONE;
+  locking_thd->lock_thd= NULL;
+  if (locking_thd->lock_state != LOCK_ERROR)
+    locking_thd->lock_state= LOCK_DONE;
 
   /*
     Signal the driver thread that it's ok to proceed with destructor.
   */
-  pthread_cond_signal(&drv->COND_driver_wait);
-  pthread_mutex_unlock(&drv->THR_LOCK_driver);
+  pthread_cond_signal(&locking_thd->COND_caller_wait);
+  pthread_mutex_unlock(&locking_thd->THR_LOCK_caller);
   pthread_exit(0);
   return (0);
 }
 
 /*
-  Constructor for backup_thread_driver class.
+  Constructor for Locking_thread_st structure.
 */
-Backup_thread_driver::Backup_thread_driver(const Table_list &tables):
-                                           Backup_driver(tables)
+Locking_thread_st::Locking_thread_st()
 {
   /*
     Initialize the thread mutex and cond variable.
   */
-  pthread_mutex_init(&THR_LOCK_driver_thread, MY_MUTEX_INIT_FAST);
-  pthread_cond_init(&COND_driver_thread_wait, NULL);
-  pthread_mutex_init(&THR_LOCK_driver, MY_MUTEX_INIT_FAST);
-  pthread_cond_init(&COND_driver_wait, NULL);
+  pthread_mutex_init(&THR_LOCK_thread, MY_MUTEX_INIT_FAST);
+  pthread_cond_init(&COND_thread_wait, NULL);
+  pthread_mutex_init(&THR_LOCK_caller, MY_MUTEX_INIT_FAST);
+  pthread_cond_init(&COND_caller_wait, NULL);
   lock_state= LOCK_NOT_STARTED;
   lock_thd= NULL; // set to 0 as precaution for get_data being called too soon
 };
 
 /*
-  Destructor for backup_thread_driver class.
+  Destructor for Locking_thread_st structure.
 */
-Backup_thread_driver::~Backup_thread_driver()
+Locking_thread_st::~Locking_thread_st()
 {
   /*
     If the locking thread is not finished, we need to wait until
@@ -226,23 +227,23 @@ Backup_thread_driver::~Backup_thread_driver()
   if (lock_state != LOCK_DONE)
   {
     kill_locking_thread();
-    pthread_mutex_lock(&THR_LOCK_driver);
-    m_thd->enter_cond(&COND_driver_wait, &THR_LOCK_driver,
-                    "Online backup driver: waiting until locking thread is done");
+    pthread_mutex_lock(&THR_LOCK_caller);
+    m_thd->enter_cond(&COND_caller_wait, &THR_LOCK_caller,
+                    "Locking thread: waiting until locking thread is done");
     while (lock_state != LOCK_DONE)
-      pthread_cond_wait(&COND_driver_wait, &THR_LOCK_driver);
-    m_thd->exit_cond("Online backup driver: terminating");
+      pthread_cond_wait(&COND_caller_wait, &THR_LOCK_caller);
+    m_thd->exit_cond("Locking thread: terminating");
 
-    DBUG_PRINT("info",("Online backup driver's locking thread terminated"));
+    DBUG_PRINT("info",("Locking thread's locking thread terminated"));
   }
 
   /*
     Destroy the thread mutexes and cond variables.
   */
-  pthread_mutex_destroy(&THR_LOCK_driver_thread);
-  pthread_cond_destroy(&COND_driver_thread_wait);
-  pthread_mutex_destroy(&THR_LOCK_driver);
-  pthread_cond_destroy(&COND_driver_wait);
+  pthread_mutex_destroy(&THR_LOCK_thread);
+  pthread_cond_destroy(&COND_thread_wait);
+  pthread_mutex_destroy(&THR_LOCK_caller);
+  pthread_cond_destroy(&COND_caller_wait);
 }
 
 /**
@@ -251,9 +252,9 @@ Backup_thread_driver::~Backup_thread_driver()
    Launches a separate thread ("locking thread") which will lock
    tables.
  */
-result_t Backup_thread_driver::start_locking_thread()
+result_t Locking_thread_st::start_locking_thread()
 {
-  DBUG_ENTER("Backup_thread_driver::start_locking_thread");
+  DBUG_ENTER("Locking_thread_st::start_locking_thread");
   pthread_t th;
   if (pthread_create(&th, &connection_attrib,
                      backup_thread_for_locking, this))
@@ -268,19 +269,19 @@ result_t Backup_thread_driver::start_locking_thread()
    A mutex is used to prevent the locking thread from deleting the THD
    structure until this operation is complete.
  */
-void Backup_thread_driver::kill_locking_thread()
+void Locking_thread_st::kill_locking_thread()
 {
-  DBUG_ENTER("Backup_thread_driver::kill_locking_thread");
-  pthread_mutex_lock(&THR_LOCK_driver);
+  DBUG_ENTER("Locking_thread_st::kill_locking_thread");
+  pthread_mutex_lock(&THR_LOCK_caller);
   if (lock_thd && (lock_state != LOCK_DONE) && (lock_state != LOCK_SIGNAL))
   {
     lock_state= LOCK_SIGNAL;
     pthread_mutex_lock(&lock_thd->LOCK_delete);
     lock_thd->awake(THD::KILL_CONNECTION);
     pthread_mutex_unlock(&lock_thd->LOCK_delete);
-    pthread_cond_signal(&COND_driver_thread_wait);
+    pthread_cond_signal(&COND_thread_wait);
   }
-  pthread_mutex_unlock(&THR_LOCK_driver);
+  pthread_mutex_unlock(&THR_LOCK_caller);
 
   /*
     This tells the CS driver that we're finished with the tables.

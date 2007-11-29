@@ -112,20 +112,21 @@ Backup::Backup(const Table_list &tables, THD *t_thd, thr_lock_type lock_type):
                Backup_thread_driver(tables)
 {
   DBUG_PRINT("default_backup",("Creating backup driver"));
-  m_thd= t_thd;         /* save current thread */
+  locking_thd->m_thd= t_thd;  /* save current thread */
   cur_table= NULL;      /* flag current table as null */
   tbl_num= 0;           /* set table number to 0 */
   mode= INITIALIZE;     /* initialize read */
-  lock_thd= NULL;       /* set lock thread to 0 */
+  locking_thd->lock_thd= NULL;  /* set lock thread to 0 */
 
   /*
      Create a TABLE_LIST * list for iterating through the tables.
      Initialize the list for opening the tables in read mode.
   */
-  tables_in_backup= build_table_list(tables, lock_type);
-  all_tables= tables_in_backup;
+  locking_thd->tables_in_backup= build_table_list(tables, lock_type);
+  all_tables= locking_thd->tables_in_backup;
   init_phase_complete= FALSE;
   locks_acquired= FALSE;
+  backup_prog_id= 0;
 }
 
 /**
@@ -138,7 +139,7 @@ Backup::Backup(const Table_list &tables, THD *t_thd, thr_lock_type lock_type):
 result_t Backup::prelock()
 {
   DBUG_ENTER("Default_backup::prelock()");
-  DBUG_RETURN(start_locking_thread());
+  DBUG_RETURN(locking_thd->start_locking_thread());
 }
 
 /**
@@ -173,7 +174,7 @@ result_t Backup::start_tbl_read(TABLE *tbl)
   */
 result_t Backup::end_tbl_read()
 {
-  int last_read_res;  
+  int last_read_res;
 
   DBUG_ENTER("Default_backup::end_tbl_read)");
   last_read_res= hdl->ha_rnd_end();
@@ -196,15 +197,15 @@ int Backup::next_table()
   DBUG_ENTER("Backup::next_table()");
   if (cur_table == NULL)
   {
-    cur_table= tables_in_backup->table;
+    cur_table= locking_thd->tables_in_backup->table;
     read_set= cur_table->read_set;
   }
   else
   {
-    tables_in_backup= tables_in_backup->next_global;
-    if (tables_in_backup != NULL)
+    locking_thd->tables_in_backup= locking_thd->tables_in_backup->next_global;
+    if (locking_thd->tables_in_backup != NULL)
     {
-      cur_table= tables_in_backup->table;
+      cur_table= locking_thd->tables_in_backup->table;
       read_set= cur_table->read_set;
     }
     else
@@ -291,7 +292,7 @@ result_t Backup::get_data(Buffer &buf)
     buf.size= 0;
     buf.table_no= 0; 
     buf.last= TRUE;
-    switch (lock_state) {
+    switch (locking_thd->lock_state) {
     case LOCK_ERROR:             // Something ugly happened in locking
       DBUG_RETURN(ERROR);
     case LOCK_ACQUIRED:          // First time lock ready for validity point
@@ -377,8 +378,8 @@ result_t Backup::get_data(Buffer &buf)
         Optimization: If this is the last table to read, close the tables and
         kill the lock thread. This only applies iff we are using the thread.
       */
-      if (tables_in_backup->next_global == NULL)
-        kill_locking_thread();
+      if (locking_thd->tables_in_backup->next_global == NULL)
+        locking_thd->kill_locking_thread();
     }
     else if (last_read_res != 0)
       DBUG_RETURN(ERROR);
@@ -601,6 +602,8 @@ result_t Restore::truncate_table(TABLE *tbl)
   */
   if ((last_write_res != 0) && (last_write_res != HA_ERR_WRONG_COMMAND))
     DBUG_RETURN(ERROR);
+  table_access_start= (my_time_t)my_time(0);
+  num_rows= 0;
   DBUG_RETURN(OK);
 }
 
@@ -677,6 +680,7 @@ uint Restore::unpack(byte *packed_row)
     error= unpack_row(NULL, cur_table, n_fields, packed_row, &cols, &cur_row_end, &length);
     if (!use_bitbuf)
       bitmap_free(&cols);
+    num_rows++;
   }
   DBUG_RETURN(error);
 }

@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include "stream_v1.h"
 #include "stream_v1_services.h"
@@ -16,6 +15,13 @@
   @todo use data chunk sequence numbers to detect discontinuities in backup stream.
 */
 
+#ifdef DBUG_OFF
+# define ASSERT(X)
+#else
+# include <assert.h>
+# define ASSERT(X) assert(X)
+#endif
+
 /**
  @page streamlib Backup Stream Library
 
@@ -26,14 +32,15 @@
 
 /* local types */
 
-#define ASSERT(X) assert(X)
-
 typedef unsigned char bool;
 #define TRUE    1
 #define FALSE   0
 
 typedef bstream_byte byte;
 typedef bstream_blob blob;
+
+/* this is needed for seamless compilation on windows */
+#define bzero(A,B)  memset((A),0,(B))
 
 
 /*
@@ -578,6 +585,9 @@ int bstream_wr_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
 
   it= bcat_iterator_get(cat,BSTREAM_IT_CHARSET);
 
+  if (!it)
+    return BSTREAM_ERROR;
+
   while ((name= (blob*) bcat_iterator_next(cat,it)))
   {
     CHECK_WR_RES(bstream_wr_string(s,*name));
@@ -590,6 +600,9 @@ int bstream_wr_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   /* list of users */
 
   it= bcat_iterator_get(cat,BSTREAM_IT_USER);
+
+  if (!it)
+    return BSTREAM_ERROR;
 
   while ((name= (blob*) bcat_iterator_next(cat,it)))
   {
@@ -604,6 +617,9 @@ int bstream_wr_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
 
   it= bcat_iterator_get(cat,BSTREAM_IT_DB);
 
+  if (!it)
+    return BSTREAM_ERROR;
+
   while ((db_info= (struct st_bstream_db_info*) bcat_iterator_next(cat,it)))
   {
     CHECK_WR_RES(bstream_wr_string(s,db_info->base.name));
@@ -615,6 +631,9 @@ int bstream_wr_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   /* db catalogues */
 
   it= bcat_iterator_get(cat,BSTREAM_IT_DB);
+
+  if (!it)
+    return BSTREAM_ERROR;
 
   while ((db_info= (struct st_bstream_db_info*) bcat_iterator_next(cat,it)))
   {
@@ -651,7 +670,9 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   struct st_bstream_item_info item;
   struct st_bstream_db_info *db_info;
 
-  bcat_reset(cat);
+  ret= bcat_reset(cat);
+  if (ret != BSTREAM_OK)
+    return BSTREAM_ERROR;
 
   /* charset list */
 
@@ -666,7 +687,9 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
     if (item.name.begin == NULL)
       break;
 
-    bcat_add_item(cat,&item);
+    if (bcat_add_item(cat,&item) != BSTREAM_OK)
+      return BSTREAM_ERROR;
+
     item.pos++;
 
   } while (ret == BSTREAM_OK);
@@ -683,7 +706,9 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
     if (item.name.begin == NULL)
       break;
 
-    bcat_add_item(cat,&item);
+    if (bcat_add_item(cat,&item) != BSTREAM_OK)
+      return BSTREAM_ERROR;
+
     item.pos++;
 
   } while (ret == BSTREAM_OK);
@@ -705,7 +730,9 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
 
     CHECK_RD_OK(bstream_rd_string(s,&item.name));
 
-    bcat_add_item(cat,&item);
+    if (bcat_add_item(cat,&item) != BSTREAM_OK)
+      return BSTREAM_ERROR;
+
     item.pos++;
 
     CHECK_RD_RES(bstream_rd_byte(s,&flags));
@@ -726,6 +753,9 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
 
   iter= bcat_iterator_get(cat,BSTREAM_IT_DB);
 
+  if (!iter)
+    return BSTREAM_ERROR;
+
   while ((db_info= (struct st_bstream_db_info*) bcat_iterator_next(cat,iter)))
   {
     if (ret != BSTREAM_EOC)
@@ -736,7 +766,9 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   }
 
   bcat_iterator_free(cat,iter);
-  bcat_close(cat);
+
+  if (bcat_close(cat) != BSTREAM_OK)
+    return BSTREAM_ERROR;
 
   rd_error:
 
@@ -755,7 +787,7 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   - 5 = table,
   - 6 = view.
 
-  Value 0 doesn't encode a valid item type and is used for other purposes.
+  Value 0 doesn't encode a valid item type and is used as item list separator.
  */
 
 /**
@@ -843,10 +875,10 @@ int bstream_rd_item_type(backup_stream *s, enum enum_bstream_item_type *type)
   [optional extra data]= [ data_len:1 ! extra data:(data_len) ]
   @endverbatim
 
-  If database is empty, it stores single 0x00 byte.
+  If database is empty, it stores two 0x00 bytes.
   @verbatim
 
-  [db catalogue (empty)] = [ 0x00 ]
+  [db catalogue (empty)] = [ 0x00 0x00 ]
   @endverbatim
 */
 
@@ -862,6 +894,9 @@ int bstream_wr_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
 
   iter= bcat_db_iterator_get(cat, db_info);
 
+  if (!iter)
+    return BSTREAM_ERROR;
+
   while ((item= bcat_db_iterator_next(cat, db_info, iter)))
   {
     catalogue_empty= FALSE;
@@ -873,13 +908,14 @@ int bstream_wr_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
     {
       CHECK_WR_RES(bstream_wr_byte(s,0x00)); /* flags: we don't use extra data */
       CHECK_WR_RES(bstream_wr_byte(s,((struct st_bstream_table_info*)item)->snap_no));
+      CHECK_WR_RES(bstream_wr_num(s,item->base.pos));
     }
   }
 
   bcat_db_iterator_free(cat, db_info, iter);
 
   if (catalogue_empty)
-    CHECK_WR_RES(bstream_wr_byte(s,0x00));
+    CHECK_WR_RES(bstream_wr_item_type(s,BSTREAM_IT_LAST));
 
   wr_error:
 
@@ -929,7 +965,8 @@ int bstream_rd_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
         return BSTREAM_ERROR;
 
       CHECK_RD_OK(bstream_rd_byte(s,&flags)); /* flags are ignored currently */
-      CHECK_RD_RES(bstream_rd_byte(s,&ti.snap_no));
+      CHECK_RD_OK(bstream_rd_byte(s,&ti.snap_no));
+      CHECK_RD_RES(bstream_rd_num(s,&ti.base.base.pos));
     }
 
     if (bcat_add_item(cat, &ti.base.base) != BSTREAM_OK)
@@ -978,7 +1015,7 @@ int bstream_rd_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
   all per-table items.
   @verbatim
 
-  [other items]= [ per-db items ! 0x00 ! per-table items ]
+  [other items]= [ per-db items ! 0x00 0x00 ! per-table items ]
   @endverbatim
 
   The per-database items other than tables can not be grouped by database
@@ -993,12 +1030,12 @@ int bstream_rd_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
   @endverbatim
 
   Meta data item lists can be empty or consist of several item entries. Empty
-  item list consist of a single byte 0x00 which can not start any valid
+  item list consist of two 0x00 bytes which can not start any valid
   [item entry].
   @verbatim
 
   [item list] = [ item entry ! ... ! item entry ]
-  [item list (empty)]= [ 0x00 ]
+  [item list (empty)]= [ 0x00 0x00 ]
   @endverbatim
 */
 
@@ -1017,17 +1054,16 @@ enum enum_bstream_meta_item_kind {
 int bstream_wr_meta_item(backup_stream*, enum enum_bstream_meta_item_kind,
                          unsigned short int, struct st_bstream_item_info*);
 
-int bstream_rd_meta_item(backup_stream*, struct st_bstream_image_header*,
-                         struct st_bstream_db_info*,
-                         enum enum_bstream_meta_item_kind, unsigned short int*,
-                         struct st_bstream_item_info**);
+int bstream_rd_meta_item(backup_stream *s,
+                         enum enum_bstream_meta_item_kind kind,
+                         unsigned short int *flags,
+                         struct st_bstream_item_info **item);
 
 int bstream_wr_item_def(backup_stream*, struct st_bstream_image_header*,
                         enum enum_bstream_meta_item_kind,
                         struct st_bstream_item_info*);
 
 int read_and_create_items(backup_stream *s, struct st_bstream_image_header *cat,
-                          struct st_bstream_db_info *db,
                           enum enum_bstream_meta_item_kind kind);
 
 /** Write meta-data section of a backup image */
@@ -1044,6 +1080,9 @@ int bstream_wr_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
   iter= bcat_iterator_get(cat,BSTREAM_IT_GLOBAL);
 
+  if (!iter)
+    return BSTREAM_ERROR;
+
   while ((item= bcat_iterator_next(cat,iter)))
   {
     item_written= TRUE;
@@ -1052,7 +1091,7 @@ int bstream_wr_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
   /* mark empty list if no items were written */
   if (!item_written)
-    bstream_wr_byte(s,0x00);
+    CHECK_WR_RES(bstream_wr_item_type(s,BSTREAM_IT_LAST));
 
   bcat_iterator_free(cat,iter);
 
@@ -1060,12 +1099,18 @@ int bstream_wr_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
   iter= bcat_iterator_get(cat,BSTREAM_IT_DB);
 
+  if (!iter)
+    return BSTREAM_ERROR;
+
   while ((db_info= (struct st_bstream_db_info*)bcat_iterator_next(cat,iter)))
   {
     has_db= TRUE;
     CHECK_WR_RES(bstream_end_chunk(s));
 
     titer= bcat_db_iterator_get(cat,db_info);
+
+    if (!titer)
+      return BSTREAM_ERROR;
 
     item_written= FALSE;
     while ((item= (struct st_bstream_item_info*)
@@ -1080,7 +1125,7 @@ int bstream_wr_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
     /* mark empty list */
     if (!item_written)
-      bstream_wr_byte(s,0x00);
+      CHECK_WR_RES(bstream_wr_item_type(s,BSTREAM_IT_LAST));
 
     bcat_db_iterator_free(cat,db_info,titer);
   }
@@ -1097,6 +1142,9 @@ int bstream_wr_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
   iter= bcat_iterator_get(cat,BSTREAM_IT_PERDB);
 
+  if (!iter)
+    return BSTREAM_ERROR;
+
   while ((item= bcat_iterator_next(cat,iter)))
   {
     if (item->type == BSTREAM_IT_TABLE)
@@ -1109,9 +1157,12 @@ int bstream_wr_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
   /* per-table items */
 
-  CHECK_WR_RES(bstream_wr_byte(s,0x00));
+  CHECK_WR_RES(bstream_wr_item_type(s,BSTREAM_IT_LAST));
 
   iter= bcat_iterator_get(cat,BSTREAM_IT_PERTABLE);
+
+  if (!iter)
+    return BSTREAM_ERROR;
 
   while ((item= bcat_iterator_next(cat,iter)))
   {
@@ -1147,11 +1198,14 @@ int bstream_rd_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
   /* global items */
 
-  CHECK_RD_RES(read_and_create_items(s,cat,NULL,GLOBAL_ITEM));
+  CHECK_RD_RES(read_and_create_items(s,cat,GLOBAL_ITEM));
 
   /* tables */
 
   iter= bcat_iterator_get(cat,BSTREAM_IT_DB);
+
+  if (!iter)
+    return BSTREAM_ERROR;
 
   while ((db_info= (struct st_bstream_db_info*)bcat_iterator_next(cat,iter)))
   {
@@ -1161,7 +1215,7 @@ int bstream_rd_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
       return BSTREAM_ERROR;
 
     CHECK_RD_OK(bstream_next_chunk(s));
-    CHECK_RD_RES(read_and_create_items(s,cat,db_info,TABLE_ITEM));
+    CHECK_RD_RES(read_and_create_items(s,cat,TABLE_ITEM));
   }
 
   bcat_iterator_free(cat,iter);
@@ -1177,7 +1231,7 @@ int bstream_rd_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
     return BSTREAM_ERROR;
 
   CHECK_RD_OK(bstream_next_chunk(s));
-  CHECK_RD_RES(read_and_create_items(s,cat,NULL,PER_DB_ITEM));
+  CHECK_RD_RES(read_and_create_items(s,cat,PER_DB_ITEM));
 
   /*
     If we hit end of chunk/stream, there is nothing more to read
@@ -1189,7 +1243,7 @@ int bstream_rd_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
   /* per-table items */
 
-  CHECK_RD_RES(read_and_create_items(s,cat,NULL,PER_TABLE_ITEM));
+  CHECK_RD_RES(read_and_create_items(s,cat,PER_TABLE_ITEM));
 
   rd_error:
 
@@ -1202,8 +1256,8 @@ int bstream_rd_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
 
   @subsection item_entry Single item entry
 
-  If list starts with byte different than 0x00, then it is a sequence of
-  meta data item entries, each having the following format:
+  Item list is a sequence of meta data item entries, each having the
+  following format:
   @verbatim
 
   [item entry]= [ type:2 ! flags:1 ! position in the catalogue !
@@ -1223,13 +1277,13 @@ int bstream_rd_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
   @verbatim
 
   [item position (global)]= [db no]
-  [item position (table)]= [pos in db item list]
+  [item position (table)]= [ snap no ! pos in snapshot's table list ]
   [item position (other per-db item)]= [ pos in db item list ! db no ]
   [item position (per-table item)] = [ pos in table's item list ! db no ! table pos ]
   @endverbatim
 
-  Note that for tables, the database to which it belongs is implicit, as tables
-  are grouped by database.
+  Note that table is identified by its position inside the snapshot to which it
+  belongs.
   @verbatim
 
   [optional extra data]= [ data_len:2 ! extra data:(data_len) ]
@@ -1258,7 +1312,13 @@ int bstream_wr_meta_item(backup_stream *s,
 
   CHECK_WR_RES(bstream_wr_num(s,item->pos));
 
-  if (kind == PER_TABLE_ITEM || kind == PER_DB_ITEM)
+  if (kind == TABLE_ITEM)
+  {
+    CHECK_WR_RES(bstream_wr_byte(s,((struct st_bstream_table_info*)item)->snap_no));
+    return ret;
+  }
+
+  if ((kind == PER_TABLE_ITEM) || (kind == PER_DB_ITEM))
     CHECK_WR_RES(bstream_wr_num(s,((struct st_bstream_dbitem_info*)item)->db->base.pos));
 
   if (kind == PER_TABLE_ITEM)
@@ -1294,30 +1354,28 @@ int bstream_wr_meta_item(backup_stream *s,
   are looking at an empty item list.
 */
 int bstream_rd_meta_item(backup_stream *s,
-                         struct st_bstream_image_header *cat,
-                         struct st_bstream_db_info *db,
                          enum enum_bstream_meta_item_kind kind,
                          unsigned short int *flags,
                          struct st_bstream_item_info **item)
 {
-  enum enum_bstream_item_type type;
-  unsigned long int pos, pos1;
-  struct st_bstream_table_info *table= NULL;
+  static struct st_bstream_db_info db;
+  static struct st_bstream_table_info table;
 
   static union
   {
+    struct st_bstream_item_info   any;
+    struct st_bstream_db_info     db;
+    struct st_bstream_table_info  table;
     struct st_bstream_dbitem_info per_db;
     struct st_bstream_titem_info  per_table;
-  } privilege;
+  } item_buf;
 
   int ret= BSTREAM_OK;
 
-  ASSERT( db != NULL || kind != TABLE_ITEM );
-
-  CHECK_RD_RES(bstream_rd_item_type(s,&type));
+  CHECK_RD_RES(bstream_rd_item_type(s,&item_buf.any.type));
 
   /* type == BSTREAM_IT_LAST means that we hit a no-item marker (0x00) */
-  if (type == BSTREAM_IT_LAST)
+  if (item_buf.any.type == BSTREAM_IT_LAST)
   {
     *item= NULL;
     return ret;
@@ -1327,26 +1385,34 @@ int bstream_rd_meta_item(backup_stream *s,
     return BSTREAM_ERROR;
 
   ASSERT(item);
+  *item= &item_buf.any;
 
   CHECK_RD_OK(bstream_rd_byte(s,flags));
 
   /* read item's position */
 
-  CHECK_RD_RES(bstream_rd_num(s,&pos));
+  CHECK_RD_RES(bstream_rd_num(s,&item_buf.any.pos));
 
-  /* read db pos if present */
-
-  if (kind == PER_TABLE_ITEM || (kind == PER_DB_ITEM && db == NULL))
+  if (kind == TABLE_ITEM)
   {
     if (ret != BSTREAM_OK)
       return BSTREAM_ERROR;
 
-    CHECK_RD_RES(bstream_rd_num(s,&pos1));
+    CHECK_RD_RES(bstream_rd_byte(s,&item_buf.table.snap_no));
+      return ret;
+  }
 
-    db= (struct st_bstream_db_info*)bcat_get_item(cat,pos1);
+  /* read db pos if present */
 
-    ASSERT(db != NULL);
-    ASSERT(db->base.type == BSTREAM_IT_DB);
+  if ((kind == PER_TABLE_ITEM) || (kind == PER_DB_ITEM))
+  {
+    if (ret != BSTREAM_OK)
+      return BSTREAM_ERROR;
+
+    db.base.type= BSTREAM_IT_DB;
+    CHECK_RD_RES(bstream_rd_num(s,&db.base.pos));
+
+    item_buf.per_db.db= &db;
   }
 
   /* read table pos if present */
@@ -1356,53 +1422,12 @@ int bstream_rd_meta_item(backup_stream *s,
     if (ret != BSTREAM_OK)
       return BSTREAM_ERROR;
 
-    ASSERT(db != NULL);
+    table.base.base.type= BSTREAM_IT_TABLE;
+    table.base.db= &db;
+    CHECK_RD_RES(bstream_rd_num(s,&table.base.base.pos));
 
-    CHECK_RD_RES(bstream_rd_num(s,&pos1));
-
-    table= (struct st_bstream_table_info*)bcat_get_db_item(cat,db,pos1);
-
-    ASSERT(table != NULL);
-    ASSERT(table->base.base.type == BSTREAM_IT_TABLE);
+    item_buf.per_table.table= &table;
   }
-
-  /*
-    special case: privileges are not stored in the catalogue and thus we
-    store privilege description in a static structure and return pointer
-    to it. Warning: not thread safe!
-  */
-  if (type == BSTREAM_IT_PRIVILEGE)
-  {
-    if (table)
-    {
-      *item= &privilege.per_table.base;
-      privilege.per_table.table= table;
-    }
-    else
-    {
-      *item= &privilege.per_db.base;
-      privilege.per_db.db= db;
-    }
-
-    (*item)->type= BSTREAM_IT_PRIVILEGE;
-    (*item)->pos= pos;
-    return ret;
-  }
-
-  /* locate item in the catalogue */
-
-  if (table)
-    *item= (struct st_bstream_item_info*)bcat_get_table_item(cat,table,pos);
-  else if (db)
-    *item= (struct st_bstream_item_info*)bcat_get_db_item(cat,db,pos);
-  else
-    *item= bcat_get_item(cat,pos);
-
-  /* signal error if we couldn't locate the item */
-  if (*item == NULL)
-   return BSTREAM_ERROR;
-
-  (*item)->type= type;
 
   rd_error:
 
@@ -1461,7 +1486,6 @@ int bstream_wr_item_def(backup_stream *s,
                         stream has been reached
 */
 int read_and_create_items(backup_stream *s, struct st_bstream_image_header *cat,
-                          struct st_bstream_db_info *db,
                           enum enum_bstream_meta_item_kind kind)
 {
   unsigned short int flags;
@@ -1471,7 +1495,7 @@ int read_and_create_items(backup_stream *s, struct st_bstream_image_header *cat,
 
   do {
 
-    CHECK_RD_RES(bstream_rd_meta_item(s,cat,db,kind,&flags,&item));
+    CHECK_RD_RES(bstream_rd_meta_item(s,kind,&flags,&item));
 
     /* if 0x00 marker was read, item == NULL */
     if (item == NULL)
@@ -1494,7 +1518,8 @@ int read_and_create_items(backup_stream *s, struct st_bstream_image_header *cat,
       CHECK_RD_RES(bstream_rd_string(s,&query));
     }
 
-    bcat_create_item(cat,item,query,data);
+    if (bcat_create_item(cat,item,query,data) != BSTREAM_OK)
+      return BSTREAM_ERROR;
 
     bstream_free(query.begin);
     bstream_free(data.begin);
@@ -1632,7 +1657,7 @@ int bstream_rd_data_chunk(backup_stream *s,
     /*
       Read bytes until current buffer is full or end of chunk is reached.
      */
-    while (ret == BSTREAM_OK && to_read.end > to_read.begin)
+    while (ret == BSTREAM_OK && (to_read.end > to_read.begin))
       ret= bstream_read_part(s,&to_read,*envelope);
 
     if (ret == BSTREAM_OK)
@@ -1644,7 +1669,7 @@ int bstream_rd_data_chunk(backup_stream *s,
       /*
         If there is not enough space in the internal buffer, enlarge it.
       */
-      if ( buf->begin + howmuch >= buf->end )
+      if ( (buf->begin + howmuch) >= buf->end )
       {
         new_buf= bstream_alloc(howmuch + DATA_BUF_STEP);
 
@@ -1652,7 +1677,8 @@ int bstream_rd_data_chunk(backup_stream *s,
           return BSTREAM_ERROR;
 
         /* copy data from old buffer to the new one */
-        memmove(new_buf, buf->begin, buf->end - buf->begin);
+        if (buf->begin && (buf->end > buf->begin))
+          memmove(new_buf, buf->begin, buf->end - buf->begin);
         bstream_free(buf->begin);
 
         buf->begin= new_buf;
@@ -1852,7 +1878,7 @@ int bstream_rd_num(backup_stream *s, unsigned long int *x)
 
     *x += (b & 0x7F) << (7*(i++));
 
-  } while ((b & 0x80) && i < sizeof(unsigned long int));
+  } while ((b & 0x80) && (i < sizeof(unsigned long int)));
 
   return (b & 0x80) ? BSTREAM_ERROR : ret;
 }

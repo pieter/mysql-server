@@ -54,28 +54,6 @@ int bcat_close(struct st_bstream_image_header *catalogue);
 int bcat_add_item(struct st_bstream_image_header *catalogue,
                   struct st_bstream_item_info *item);
 
-/**
-  Get global item stored in the catalogue at given position.
-*/
-struct st_bstream_item_info*
-bcat_get_item(struct st_bstream_image_header *catalogue,
-              unsigned long int pos);
-
-/**
-  Get per-database item stored in the catalogue at given position.
-*/
-struct st_bstream_dbitem_info*
-bcat_get_db_item(struct st_bstream_image_header *catalogue,
-                 struct st_bstream_db_info *db,
-                 unsigned long int pos);
-/**
-  Get per-table item stored in the catalogue at given position.
-*/
-struct st_bstream_titem_info*
-bcat_get_table_item(struct st_bstream_image_header *catalogue,
-                    struct st_bstream_table_info *table,
-                    unsigned long int pos);
-
 /*
  Iterators are used to iterate over items inside backup catalogue.
 

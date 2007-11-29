@@ -313,6 +313,8 @@ int bstream_wr_data_chunk(backup_stream*,
                           struct st_bstream_data_chunk*);
 int bstream_wr_summary(backup_stream *s, struct st_bstream_image_header *hdr);
 
+int bstream_flush(backup_stream*);
+
 /*********************************************************************
  *
  *   FUNCTIONS FOR READING BACKUP IMAGE
@@ -381,15 +383,21 @@ struct st_bstream_buffer
 struct st_backup_stream
 {
   struct st_abstract_stream stream;
-  size_t  block_size;
-  enum { CLOSED, READING, WRITING, EOS, ERROR } state;
+  unsigned long int block_size;
+  short int init_block_count;
+  enum { CLOSED,         /* stream has been closed */
+         FIRST_BLOCK,    /* reading/writing the first block of a stream */
+         NORMAL,         /* normal operation */
+         LAST_FRAGMENT,  /* reading last fragment of a chunk */
+         EOS,            /* end of stream detected */
+         ERROR } state;
+  enum { READING, WRITING } mode;
   struct st_bstream_buffer buf;
-  int  reading_last_fragment;
   bstream_blob mem;
   bstream_blob data_buf;
 };
 
-int bstream_open_wr(backup_stream*, unsigned long int);
+int bstream_open_wr(backup_stream*, unsigned long int, unsigned long int);
 int bstream_open_rd(backup_stream*, unsigned long int);
 int bstream_close(backup_stream*);
 

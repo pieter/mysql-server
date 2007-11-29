@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include "stream_v1.h"
 #include "stream_v1_services.h"
@@ -13,12 +12,23 @@
 
   These functions form the transport layer of the 1st version of backup stream
   format. They split stream into a sequence of data chunks.
+
+  @todo free internal buffer memory in case of errors.
 */
+
+#ifdef DBUG_OFF
+# define ASSERT(X)
+#else
+# include <assert.h>
+# define ASSERT(X) assert(X)
+#endif
 
 /**
   @brief Default size of a stream block.
 
   When opening stream for writing a different size can be specified.
+
+  @note Block size should be >= 8 bytes.
 */
 #define DEFAULT_BLOCK_SIZE  (32*1024)
 
@@ -54,12 +64,13 @@
 
 #define TRUE    1
 #define FALSE   0
-#define ASSERT(X) assert(X)
 
 typedef unsigned char bool;
 typedef bstream_byte byte;
 typedef bstream_blob blob;
 
+/* this is needed for seamless compilation on windows */
+#define bzero(A,B)  memset((A),0,(B))
 
 /*
  Carrier format
@@ -265,7 +276,7 @@ int as_write_all(struct st_abstract_stream *s, bstream_blob b, bstream_blob env)
 {
   int ret= BSTREAM_OK;
 
-  while (ret == BSTREAM_OK && b.begin < b.end)
+  while ((ret == BSTREAM_OK) && (b.begin < b.end))
    ret= as_write(s,&b,env);
 
   return ret;
@@ -276,7 +287,7 @@ int as_read_all(struct st_abstract_stream *s, bstream_blob b, bstream_blob env)
 {
   int ret= BSTREAM_OK;
 
-  while (ret == BSTREAM_OK && b.begin < b.end)
+  while ((ret == BSTREAM_OK) && (b.begin < b.end))
    ret= as_read(s,&b,env);
 
   return ret;
@@ -312,8 +323,43 @@ int as_read_all(struct st_abstract_stream *s, bstream_blob b, bstream_blob env)
 static
 void reset_output_buffer(backup_stream *s)
 {
-  s->buf.pos= s->buf.header= s->buf.begin= s->mem.begin;
+  unsigned long int block_size= s->block_size;
+  int i;
+
+  s->buf.pos= s->buf.begin= s->mem.begin;
   s->buf.end= s->buf.begin + s->block_size;
+
+  /*
+    special case: if we are in an initial block, we store block
+    size in its first 4 bytes.
+  */
+
+  if ((s->state == FIRST_BLOCK) || (s->init_block_count > 0))
+  {
+    for(i=0; i<4; ++i)
+    {
+      *(s->buf.pos++)= block_size & 0xFF;
+      block_size >>= 8;
+    }
+
+    if (s->state != FIRST_BLOCK)
+      s->init_block_count--;
+
+    ASSERT(block_size == 0);
+  }
+
+  /*
+    Special case: if this is the first block, we also store the number
+    of inital blocks (currently none are used)
+  */
+
+  if (s->state == FIRST_BLOCK)
+  {
+    *(s->buf.pos++)= s->init_block_count;
+  }
+
+  s->buf.header= s->buf.pos;
+  s->state= NORMAL;
 }
 
 /**
@@ -360,7 +406,7 @@ int append_to_buffer(backup_stream *s, blob *b)
   if(s->buf.pos == s->buf.header) /* current fragment empty */
     s->buf.pos++;
 
-  while (s->buf.pos < s->buf.end && b->begin < b->end)
+  while ((s->buf.pos < s->buf.end) && (b->begin < b->end))
    *(s->buf.pos++)= *(b->begin++);
 
   return BSTREAM_OK;
@@ -375,6 +421,8 @@ int append_to_buffer(backup_stream *s, blob *b)
   more fragments. When splitting is done, the last of the resulting fragments
   becomes the current fragment in the buffer (with header correctly set)
   while all other data from the buffer is send to the output stream.
+
+  If the current fragment is empty, nothing is done.
 
   @return Error code if there was an error while writing output stream.
 */
@@ -400,8 +448,8 @@ int close_current_fragment(backup_stream *s)
     do any splitting since we can create fragment which spans to the end of the
     block.
    */
-  while (current_fragment.begin < current_fragment.end &&
-         current_fragment.end < buf->end)
+  while ((current_fragment.begin < current_fragment.end)
+         && (current_fragment.end < buf->end))
   {
     /*
       Determine longest prefix of the current fragments which can be described
@@ -473,76 +521,207 @@ int close_current_fragment(backup_stream *s)
   begin        pos          header                  end
 
  In each case header points at the position where the header should be if
- the data were present in the buffer.
-
- Invariant:
-
-    (end - pos) is the number of bytes left in the input block
-    header <= end and header points at the first byte of next fragment
+ the data were present in the buffer. End points one byte after the end of
+ current input block. As with header, this can be inside the buffer (end <= pos)
+ or still in the stream.
 
  *************************************************************************/
 
+#define IBUF_INV(B) \
+  ASSERT((B).begin <= (B).pos); \
+  ASSERT((B).begin <= (B).header); \
+  ASSERT((B).header <= (B).end)
+
+
 /**
-  Prepare stream`s input buffer for reading next block from input stream.
+  Move input buffer to the beginning of available buffer memory.
+
+  This is to make space for more data.
 */
 static
 void reset_input_buffer(backup_stream *s)
 {
-  s->buf.header -= (s->buf.pos - s->mem.begin);
-  s->buf.pos= s->buf.begin= s->mem.begin;
-  s->buf.end= s->buf.begin + s->block_size;
+  unsigned long int data_len= s->buf.pos - s->buf.begin;
+
+  ASSERT(s->buf.begin >= s->mem.begin);
+  ASSERT(s->buf.pos >= s->buf.begin);
+
+  if (data_len > 0)
+    memmove(s->mem.begin, s->buf.begin, data_len);
+
+  s->buf.header -= (s->buf.begin - s->mem.begin);
+  s->buf.end    -= (s->buf.begin - s->mem.begin);
+  s->buf.begin= s->mem.begin;
+  s->buf.pos= s->buf.begin + data_len;
+
+  IBUF_INV(s->buf);
 }
 
 /**
-  Read few more bytes into the stream`s input buffer if it is empty.
+  Ensure that there are non-zero bytes in the input buffer.
 
-  Normally INPUT_BUF_SIZE bytes is read, unless current input block doesn't
-  contain that many bytes in which case the rest of the input block is read.
+  Normally the bytes are read from the stream. However, if we move to the next
+  input block, the bytes can be already stored in the buffer and the function
+  only updates buffer pointers to reflect new situation and maintain
+  invariants.
+
+  @post <code>buf.begin < buf.pos && buf.begin < buf.end</code>
+
+  Normally we read INPUT_BUF_SIZE bytes. But if there is not that many bytes
+  left in the input block, only the remaining bytes of the block are read. This
+  is to ensure that reads are aligned at block boundaries (i.e. we read at most
+  a single input block at a time).
+
+  An exception is when we start reading the stream and don't know the block
+  size yet. In this case we always read INPUT_BUF_SIZE bytes which means that
+  we can also load bytes from the following blocks.
 
   @retval BSTREAM_OK   input buffer was filled with data
-  @retval BSTREAM_EOS  end of stream was hit, all remaining bytes from the stream
-                  are in the buffer
+  @retval BSTREAM_EOS  buffer is empty and there are no more bytes in the stream
   @retval BSTREAM_ERROR  error when reading from the stream
 */
 static
 int load_buffer(backup_stream *s)
 {
   int ret= BSTREAM_OK;
-  byte  *saved_begin;
-  size_t howmuch= s->buf.end - s->buf.pos;
+  blob data;
+  unsigned long int howmuch= 0;
+  unsigned long int data_len= s->buf.pos - s->buf.begin;
+  unsigned long int block_size= s->block_size;
+  unsigned short int i;
 
-  /* do nothing if there already is some data in the buffer */
-  if (s->buf.pos > s->buf.begin)
-    return BSTREAM_OK;
-
-  /*
-    Call reset_input_buffer() to move buffer head to the beginning of
-    available memory
-   */
-  reset_input_buffer(s);
+  IBUF_INV(s->buf);
 
   /*
-    If howmuch > 0 the current input block has not been completely read yet.
-    In that case we restore input buffer's invariant by setting end pointer
-    accordingly.
+    If all bytes of the current input block are read, we move to the next block
+    (by updating the buf.end pointer).
    */
-  if (howmuch > 0)
-    s->buf.end= s->buf.pos + howmuch;
-  else
+  if (s->buf.begin == s->buf.end)
+  {
+    s->buf.end += block_size;
+    block_size= 0; /* to mark that we are reading new input block */
+  }
+
+  /*
+    Determine how many bytes to read:
+
+    - we try to read INPUT_BUF_SIZE bytes if we are at the beginning of a block
+    which can store block size
+
+    - otherwise, if the buffer is empty, we read as many bytes as is left to
+      the end of the current input block.
+
+    - if the buffer is non-empty, we don't try to read any bytes.
+  */
+  if ((s->state == FIRST_BLOCK)
+      || ((block_size == 0) && (s->init_block_count > 0)))
+    howmuch= INPUT_BUF_SIZE;
+  else if (data_len == 0 && s->buf.pos < s->buf.end)
     howmuch= s->buf.end - s->buf.pos;
 
   /* don't read more than INPUT_BUF_SIZE */
   if (howmuch > INPUT_BUF_SIZE)
     howmuch= INPUT_BUF_SIZE;
 
-  /* read into the buffer howmuch bytes from the input stream */
-  s->buf.pos += howmuch;
-  saved_begin= s->buf.begin;
+  /*
+    We want to have at least 8 bytes in the buffer since we might need
+    to skip first 4-5 bytes storing block size. If there is not that much
+    space left, we move the buffer to the beginning of available memory.
+  */
+  if ((s->buf.begin + 8) > s->mem.end)
+    reset_input_buffer(s);
 
-  ret= as_read(&s->stream,(bstream_blob*)&s->buf,s->mem);
+  /* we should not load more data than available space */
+  if ((s->buf.pos + howmuch) > s->mem.end)
+    howmuch= s->mem.end - s->buf.pos;
 
-  s->buf.pos= s->buf.begin;
-  s->buf.begin= saved_begin;
+  /* buffer is ready for loading howmuch bytes */
+  ASSERT((s->buf.pos + howmuch) <= s->mem.end);
+
+  /* read howmuch bytes from the input stream and append them to the buffer */
+  if (howmuch > 0)
+  {
+    data.begin= s->buf.pos;
+    data.end= s->buf.pos + howmuch;
+
+    ret= as_read(&s->stream,&data,s->mem);
+
+    s->buf.pos= data.begin;
+
+    /*
+      if as_read() reports EOS, there is no more bytes in the input stream, but
+      there still might be some bytes in the input buffer. Only if the input
+      buffer is empty we report EOS of the backup stream.
+
+      TODO: think how it will work if we are reading from an asynchronous stream
+      like a socket.
+    */
+    if (ret == BSTREAM_EOS)
+    {
+      if (s->buf.pos == s->buf.begin)
+      {
+        s->state= EOS;
+        return BSTREAM_EOS;
+      }
+      else
+        ret= BSTREAM_OK;
+    }
+  }
+
+  /* now we should have some data in the buffer */
+  ASSERT(s->buf.pos > s->buf.begin);
+
+  /*
+    If we are reading beginning of an initial block, read the block size
+    stored in first 4 bytes and skip them.
+  */
+  if ( s->state == FIRST_BLOCK
+       || ((s->init_block_count > 0) && (block_size == 0)) )
+  {
+    /* check that all 4 bytes are in the buffer */
+    ASSERT(s->buf.pos >= s->buf.begin+4);
+
+    data.begin= s->buf.begin; /* save buf.begin position */
+
+    for (i= 0; i<4; ++i)
+    {
+      block_size >>= 8;
+      block_size |= (*(s->buf.begin++)) << 3*8;
+    }
+
+    /*
+      If this is the first block, save block size and read the number of
+      initial blocks.
+    */
+    if (s->state == FIRST_BLOCK)
+    {
+      ASSERT(s->buf.pos > s->buf.begin);
+      s->block_size= block_size;
+      s->init_block_count = *(s->buf.begin++);
+      /* now, when we know the block size we can setup buf.end pointer */
+      s->buf.end= data.begin + s->block_size;
+    }
+    else if (block_size != s->block_size)
+    {
+      s->state= ERROR;
+      return BSTREAM_ERROR;
+    }
+    else
+      s->init_block_count--;
+
+    /* this is where we can find header of the first fragment */
+    s->buf.header= s->buf.begin;
+    s->state= NORMAL;
+
+    ASSERT(s->buf.begin <= s->buf.pos);
+    /*
+      As we are at the beginning of an input block, check that the buf.end
+      pointer is setup correctly.
+    */
+    ASSERT(s->buf.end == (data.begin + s->block_size));
+  }
+
+  IBUF_INV(s->buf);
 
   return ret;
 }
@@ -554,8 +733,8 @@ int load_buffer(backup_stream *s)
   following the fragment which is entered now. buf.begin will point at the
   first byte of the entered fragment.
 
-  @pre All bytes from previous fragment have been consumed (buf.begin ==
-  buf.header) and header of next fragment is loaded into the buffer.
+  @pre All bytes from previous fragment have been consumed and header of
+  the next fragment is loaded into the buffer.
 
   @retval BSTREAM_OK   next fragment has been entered
   @retval BSTREAM_EOC  the entered fragment is the last fragment of a chunk
@@ -565,12 +744,15 @@ static
 int load_next_fragment(backup_stream *s)
 {
   byte *saved_header= s->buf.header;
-  int ret;
+  int ret= BSTREAM_OK;
 
+  IBUF_INV(s->buf);
+
+  /* check that the header byte is in the buffer */
   ASSERT(s->buf.pos > s->buf.header);
-  ASSERT(s->buf.begin == s->buf.header);
+  ASSERT(s->buf.begin <= s->buf.header);
 
-  s->reading_last_fragment= 0;
+  s->state= NORMAL; /* default, unless changed below */
 
   ret= read_fragment_header(&s->buf.header);
 
@@ -582,11 +764,17 @@ int load_next_fragment(backup_stream *s)
     s->buf.header= s->buf.end;
 
   /* move buf.begin to point at the first byte of the fragment */
-  s->buf.begin++;
+  if (s->buf.begin < s->buf.end)
+    s->buf.begin++;
+
+  ASSERT(s->buf.begin <= s->buf.end);
 
   /*
-    It can happen that fragment header was the last byte in
-    the block. In that case we reload input buffer and start over.
+    If we are at the end of input block now, it means that the fragment
+    lies in the next block. Thus we reload input buffer and start over.
+
+    Note: This includes the case when fragment header was the last byte of
+    the block and thus should be ignored.
 
     TODO: remove recursion
    */
@@ -596,13 +784,15 @@ int load_next_fragment(backup_stream *s)
     return ret == BSTREAM_OK ? load_next_fragment(s) : ret;
   }
 
+  IBUF_INV(s->buf);
+
   switch (ret) {
 
   case BSTREAM_EOS: s->state= EOS; return BSTREAM_EOS;
 
-  case BSTREAM_EOC: s->reading_last_fragment= 1; return BSTREAM_EOC;
+  case BSTREAM_EOC: s->state= LAST_FRAGMENT; return BSTREAM_EOC;
 
-  case FR_LAST: s->reading_last_fragment= 1;
+  case FR_LAST: s->state= LAST_FRAGMENT;
 
   default: return BSTREAM_OK;
   }
@@ -618,15 +808,21 @@ int load_next_fragment(backup_stream *s)
 /**
   Open backup stream for writing.
 
+  @param block_size   size of output stream blocks
+  @param offset       current position of the output stream inside the
+                      current stream block
+
   @pre The abstract stream methods in @c s should be setup and ready for
   writing.
 
   @note Output buffer is allocated.
 */
-int bstream_open_wr(backup_stream *s, unsigned long int block_size)
+int bstream_open_wr(backup_stream *s,
+                    unsigned long int block_size,
+                    unsigned long int offset)
 {
   s->state= ERROR;
-  s->block_size= block_size > 0 ? block_size : DEFAULT_BLOCK_SIZE;
+  s->block_size= block_size >= 8 ? block_size : DEFAULT_BLOCK_SIZE;
 
   s->mem.begin= bstream_alloc(s->block_size);
 
@@ -634,11 +830,16 @@ int bstream_open_wr(backup_stream *s, unsigned long int block_size)
     return BSTREAM_ERROR;
 
   s->mem.end= s->mem.begin + s->block_size;
+  s->mode= WRITING;
+  s->state= FIRST_BLOCK;
+  s->init_block_count= 2; /* number of initial blocks storing block size */
 
   reset_output_buffer(s);
 
+  /* adjust buf.end to reflect the position where the stream starts */
+  s->buf.end -= offset; /* now the invariant should hold */
+
   s->data_buf.begin= s->data_buf.end= NULL;
-  s->state= WRITING;
 
   return BSTREAM_OK;
 }
@@ -646,29 +847,41 @@ int bstream_open_wr(backup_stream *s, unsigned long int block_size)
 /**
   Open backup stream for reading.
 
+  @param offset    current position of the input stream inside the
+                   current stream block
+
   @pre The abstract stream methods in @c s should be setup and ready for
   reading.
 
   @note Input buffer is allocated.
 */
-int bstream_open_rd(backup_stream *s, unsigned long int block_size)
+int bstream_open_rd(backup_stream *s, unsigned long int offset)
 {
   s->state= ERROR;
-  s->block_size= block_size;
+  s->block_size= 0;
 
   s->mem.begin= bstream_alloc(INPUT_BUF_SIZE);
 
   if (!s->mem.begin)
     return BSTREAM_ERROR;
 
+  s->data_buf.begin= s->data_buf.end= NULL;
+  s->mode= READING;
+  s->state= FIRST_BLOCK;
   s->mem.end= s->mem.begin + INPUT_BUF_SIZE;
 
   /* initialize input buffer */
-  reset_input_buffer(s);
-  s->buf.header= s->buf.begin;
+  s->buf.header= s->buf.pos= s->buf.end= s->buf.begin= s->mem.begin;
 
-  s->data_buf.begin= s->data_buf.end= NULL;
-  s->state= READING;
+  /* load beginning of the first input block - this setups block_size */
+  if (load_buffer(s) != BSTREAM_OK)
+    return BSTREAM_ERROR;
+
+  ASSERT(s->block_size > 0);
+
+  s->buf.end -= offset;
+
+  IBUF_INV(s->buf);
 
   return BSTREAM_OK;
 }
@@ -689,12 +902,13 @@ int bstream_close(backup_stream *s)
   if (s->state == CLOSED)
     return BSTREAM_OK;
 
-  if (s->state == WRITING)
+  if (s->mode == WRITING)
   {
     bstream_end_chunk(s);
     bstream_flush(s);
     /* write EOS marker */
-    reset_output_buffer(s);
+    s->buf.pos= s->buf.begin= s->mem.begin;
+    s->buf.end= s->buf.begin + s->block_size;
     *(s->buf.pos++)= FR_EOS;
     ret= write_buffer(s);
   }
@@ -758,12 +972,17 @@ int bstream_write_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
   blob fragment;
   byte *saved_end;
 
-  if (s->state != WRITING)
+  if (s->mode != WRITING)
     return BSTREAM_ERROR;
 
+  /* return if there is nothing to write */
   if (data->begin >= data->end)
     return BSTREAM_OK;
 
+  /*
+    If a complete output block is filled, we flush the stream. Output buffer
+    becomes empty and ready to accept new data.
+   */
   if (s->buf.pos == s->buf.end)
   {
     ret= bstream_flush(s);
@@ -778,7 +997,7 @@ int bstream_write_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
     s->buf.pos++;
 
   /*
-    Setup fragment to describe all the data available in the current fragment
+    Setup fragment to describe all the data available in the last fragment
     of the stream`s output buffer together with the data to be written
 
        output buffer
@@ -834,6 +1053,9 @@ int bstream_write_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
    To avoid copying bytes to the internal output buffer we try to cut a prefix
    of the data to be written which forms a valid fragment and write this
    fragment to output stream.
+
+   Note: after call to biggest_fragment_prefix() blob fragment contains the
+   bytes which didn't fit into the prefix.
   */
   *(s->buf.header)= biggest_fragment_prefix(&fragment);
 
@@ -842,7 +1064,7 @@ int bstream_write_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
     to be written - if it is only few bytes we save them into the output
     buffer anyway.
    */
-  if (fragment.end > s->buf.pos + MIN_WRITE_SIZE)
+  if (fragment.end > (s->buf.pos + MIN_WRITE_SIZE))
   {
     /* write contents of the output buffer */
     ret= write_buffer(s);
@@ -851,19 +1073,27 @@ int bstream_write_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
 
     /* write remainder of the fragment from data blob */
     saved_end= data->end;
-    data->end= data->begin + (fragment.end - s->buf.pos);
+    data->end= data->begin + (fragment.begin - s->buf.pos);
 
     ret= as_write_all(&s->stream,*data,*data);
 
     data->begin= data->end;
     data->end= saved_end;
 
-    /* move buffer beginning to keep the invariant */
+    /*
+      Move buffer beginning so that invariant is keept.
+    */
+    s->buf.header= s->buf.begin = fragment.begin;
+    s->buf.pos= s->buf.header;
 
-    s->buf.begin = fragment.end;
-    s->buf.pos= s->buf.header= s->buf.begin;
+    ASSERT(s->buf.begin <= s->buf.end);
 
-    return ret;
+    /*
+      Write remainder of the data.
+
+      TODO: avoid recursion
+    */
+    return bstream_write_part(s,data,buf);
   }
 
   /*
@@ -907,7 +1137,7 @@ int bstream_write_blob(backup_stream *s, bstream_blob buf)
   blob envelope= buf;
   int ret= BSTREAM_OK;
 
-  while (ret == BSTREAM_OK && buf.begin < buf.end)
+  while ((ret == BSTREAM_OK) && (buf.begin < buf.end))
     ret= bstream_write_part(s,&buf,envelope);
 
   return ret;
@@ -927,23 +1157,54 @@ int bstream_end_chunk(backup_stream *s)
 {
   int ret= BSTREAM_OK;
 
-  if (s->state != WRITING)
+  if (s->mode != WRITING)
     return BSTREAM_ERROR;
 
-
-  ret= close_current_fragment(s);
-
   /*
-    If buffer is empty, store EOC marker in it otherwise mark the last
-    fragment of the chunk.
+    If current fragment is empty we have to save explicit EOC marker. Otherwise
+    we close the fragment and mark end of chunk accordingly.
    */
-  if (s->buf.pos == s->buf.begin)
+  if (s->buf.pos == s->buf.header)
   {
+    ASSERT(s->buf.pos < s->buf.end);
     *(s->buf.header++)= FR_EOC;
     s->buf.pos= s->buf.header;
   }
   else
-    *s->buf.header |= FR_LAST;
+  {
+    ret= close_current_fragment(s);
+
+    /*
+      If the last fragment in the buffer is a small fragment, we can mark it as
+      the last fragment of a chunk by setting FR_LAST flag in the header.
+      Otherwise setting a flag is not possible and we must store explicit EOC
+      marker.
+    */
+    if (!(*(s->buf.header) & 0x80))
+    {
+      *s->buf.header |= FR_LAST;
+    }
+    else
+    {
+      /*
+        Write EOC marker only if there is space for it. If not, then the current
+        fragment extends to the end of the output block and thus will be
+        correctly marked below.
+      */
+      if (s->buf.pos < s->buf.end)
+      {
+        *(s->buf.pos++)= FR_EOC;
+        s->buf.header= s->buf.pos;
+      }
+    }
+  }
+
+  /*
+   If last fragment extends to the end of an output block, then we can
+   always mark it as such.
+  */
+  if ((s->buf.pos == s->buf.end) && (s->buf.header < s->buf.pos))
+    *(s->buf.header)= FR_LAST;
 
   /*
     Start new fragment. Note that if the current fragment is empty, these
@@ -951,24 +1212,33 @@ int bstream_end_chunk(backup_stream *s)
   */
   s->buf.header= s->buf.pos;
 
-  if (s->buf.pos == s->buf.end-1)
-  {
+  /*
+    If there is only one byte left in the current output block we fill it
+    with FR_MORE so that the next fragment will start in the next block.
+  */
+  if (s->buf.pos == (s->buf.end-1))
     *(s->buf.pos++)= FR_MORE;
+
+  /*
+    If we have a complete output block filled, we flush the stream.
+  */
+  if (s->buf.pos == s->buf.end)
     ret= bstream_flush(s);
-  }
 
   return ret;
 }
 
 /**
  Flush backup stream`s output buffer to the output stream.
+
+ This empties the output buffer.
 */
 int bstream_flush(backup_stream *s)
 {
   struct st_bstream_buffer *buf= &s->buf;
   int ret;
 
-  if (s->state != WRITING)
+  if (s->mode != WRITING)
     return BSTREAM_ERROR;
 
   /* if buffer is empty, do nothing */
@@ -994,7 +1264,7 @@ int bstream_flush(backup_stream *s)
     If there is only one byte left to the end of block, we fill this byte with
     a header of a fragment which will effectively be empty.
    */
-  if (buf->pos == buf->end-1)
+  if (buf->pos == (buf->end-1))
     *(buf->pos++)= FR_MORE;
 
   if (buf->pos > buf->begin)
@@ -1013,6 +1283,83 @@ int bstream_flush(backup_stream *s)
  *   READING
  *
  *********************************************************************/
+
+/**
+  Check if stream has more data and if it is at the end of a chunk.
+
+  @retval BSTREAM_EOS   no more data in the stream
+  @retval BSTREAM_EOC   stream is at end of chunk and more data follow
+  @retval BSTREAM_OK    stream is inside a chunk (more chunk data follow)
+  @retval BSTREAM_ERROR error was detected
+*/
+static
+int check_end(backup_stream *s)
+{
+  int ret;
+
+  if (s->state == ERROR)
+    return BSTREAM_ERROR;
+
+  if (s->state == EOS)
+    return BSTREAM_EOS;
+
+  /* if we are inside a fragment we must be inside a chunk */
+  if (s->buf.begin < s->buf.header)
+    return BSTREAM_OK;
+
+  /*
+    Look at the following fragments and skip empty ones to see if
+    there is more data in the stream or not. If any of the empty fragmends
+    signals end of a chunk, record this information.
+
+    Note: in each iteration of this loop one byte of the stream is consumed,
+    hence it must terminate eventually.
+  */
+
+  bool eoc_seen= FALSE;
+
+  while(TRUE)
+  {
+    /* if buffer is empty we must load few bytes */
+    if (s->buf.begin == s->buf.pos)
+    {
+      ret= load_buffer(s);
+
+      if (ret != BSTREAM_OK)
+        return ret;
+    }
+
+    ASSERT(s->buf.begin < s->buf.pos);
+
+    if (*(s->buf.begin) == FR_EOS)
+    {
+      s->state= EOS;
+      return BSTREAM_EOS;
+    }
+
+    if (*(s->buf.begin) == FR_EOC)
+    {
+      eoc_seen= TRUE;
+      s->buf.begin++;
+      s->buf.header++;
+    }
+    else
+      /*
+        If we are here, the next fragment is non-empty and we can end the loop.
+      */
+      break;
+  }
+
+  IBUF_INV(s->buf);
+  ASSERT(s->buf.begin == s->buf.header);
+  ASSERT(*(s->buf.begin) != FR_EOS);
+  ASSERT(*(s->buf.begin) != FR_EOC);
+
+  if (eoc_seen || (s->state == LAST_FRAGMENT))
+    return BSTREAM_EOC;
+
+  return BSTREAM_OK;
+}
 
 /**
   Read data from the stream to the indicated part of a buffer.
@@ -1048,30 +1395,42 @@ int bstream_flush(backup_stream *s)
 int bstream_read_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
 {
   int ret= BSTREAM_OK;
-  size_t howmuch;
+  unsigned long int howmuch;
   blob saved;
 
-  if (s->state != READING)
-    return s->state == EOS ? BSTREAM_EOS : BSTREAM_ERROR;
+  ASSERT(s->mode == READING);
 
-  /* fill input buffer if it is empty */
-  if (s->buf.pos == s->buf.begin)
+  if ((s->state == ERROR) || (s->state == CLOSED))
+    return BSTREAM_ERROR;
+
+  if (s->state == EOS)
+    return BSTREAM_EOS;
+
+  IBUF_INV(s->buf);
+
+  /* fill input buffer if we reached end of fragment or of the input block */
+  if ((s->buf.begin == s->buf.end) || (s->buf.begin == s->buf.header))
   {
     ret= load_buffer(s);
+
     if (ret != BSTREAM_OK)
       return ret;
   }
 
-  ASSERT(s->buf.pos > s->buf.begin);
+  /* check that we are inside input block and reading current fragment */
+  ASSERT(s->buf.end > s->buf.begin);
+  ASSERT(s->buf.header >= s->buf.begin);
 
   /*
     If we finished reading a fragment, we should load next one
     or signal EOC if it was the last fragment of a chunk.
-   */
+  */
   if (s->buf.header == s->buf.begin)
   {
-    if (s->reading_last_fragment)
+    if (s->state == LAST_FRAGMENT)
       return BSTREAM_EOC;
+
+    ASSERT(s->buf.pos > s->buf.header);
 
     ret= load_next_fragment(s);
     if (ret != BSTREAM_OK)
@@ -1093,13 +1452,12 @@ int bstream_read_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
    */
   if (howmuch > 0)
   {
-    if (howmuch > (size_t)(data->end - data->begin))
+    if ((data->begin + howmuch) > data->end)
       howmuch= data->end - data->begin;
 
     memmove(data->begin, s->buf.begin, howmuch);
     data->begin  += howmuch;
     s->buf.begin += howmuch;
-
   }
   else
   {
@@ -1107,7 +1465,7 @@ int bstream_read_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
     ASSERT(s->buf.header > s->buf.pos);
 
     howmuch= data->end - data->begin;
-    if (howmuch > (size_t)(s->buf.header - s->buf.pos))
+    if ((s->buf.pos + howmuch) > s->buf.header)
       howmuch= s->buf.header - s->buf.pos;
 
     saved= *data;
@@ -1122,8 +1480,9 @@ int bstream_read_part(backup_stream *s, bstream_blob *data, bstream_blob buf)
     data->end= saved.end;
   }
 
-  return s->buf.begin == s->buf.header && s->reading_last_fragment ?
-         BSTREAM_EOC: BSTREAM_OK;
+  IBUF_INV(s->buf);
+
+  return check_end(s);
 }
 
 
@@ -1159,7 +1518,7 @@ int bstream_read_blob(backup_stream *s, bstream_blob buf)
   blob envelope= buf;
   int ret= BSTREAM_OK;
 
-  while (ret == BSTREAM_OK && buf.begin < buf.end)
+  while ((ret == BSTREAM_OK) && (buf.begin < buf.end))
     ret= bstream_read_part(s,&buf,envelope);
 
   return buf.begin == buf.end ? ret : BSTREAM_ERROR;
@@ -1181,11 +1540,31 @@ int bstream_next_chunk(backup_stream *s)
   int ret;
   unsigned long int howmuch;
 
-  if (s->state != READING)
-    return s->state == EOS ? BSTREAM_EOS : BSTREAM_ERROR;
+  ASSERT(s->mode == READING);
+
+  if ((s->state == ERROR) || (s->state == CLOSED))
+    return BSTREAM_ERROR;
+
+  if (s->state == EOS)
+    return BSTREAM_EOS;
+
+  IBUF_INV(s->buf);
+
+  /*
+    If we are at the end of input block, load next one.
+  */
+  if (s->buf.begin == s->buf.end)
+  {
+    ret= load_buffer(s);
+
+    if (ret != BSTREAM_OK)
+      return ret;
+  }
+
+  /* now we should be inside the current input block */
+  ASSERT(s->buf.begin < s->buf.end);
 
   /* if we are not at the beginning of next fragment, move there */
-
   if (s->buf.begin < s->buf.header)
   {
     /*
@@ -1205,13 +1584,25 @@ int bstream_next_chunk(backup_stream *s)
   }
 
   /*
+    Check that we are still inside the current input block ans at the beginnig
+    of the fragment
+  */
+  ASSERT(s->buf.begin <= s->buf.end);
+  ASSERT(s->buf.begin == s->buf.header);
+
+  /*
     If buffer is empty, we load few bytes into it to have access to
     the fragment header.
    */
   if (s->buf.pos == s->buf.begin)
-    load_buffer(s);
+  {
+    ret= load_buffer(s);
 
-  ASSERT(s->buf.begin == s->buf.header);
+    if (ret != BSTREAM_OK)
+      return ret;
+  }
+
+  /* now we should have some bytes in the buffer */
   ASSERT(s->buf.pos > s->buf.header);
 
   ret= load_next_fragment(s);
@@ -1219,6 +1610,8 @@ int bstream_next_chunk(backup_stream *s)
   /* if we hit EOC marker here, we treat it as empty chunk */
   if (ret == BSTREAM_EOC)
     ret= BSTREAM_OK;
+
+  IBUF_INV(s->buf);
 
   return ret;
 }

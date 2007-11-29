@@ -134,7 +134,7 @@ inline Btn* IndexNode::getNext(void *end)
 
 inline int IndexNode::expandKey(UCHAR *keyPtr)
 {
-	ASSERT (offset + length <= MAX_INDEX_KEY_RUN_LENGTH);
+	ASSERT (offset + length <= MAX_PHYSICAL_KEY_LENGTH);
 
 	if (length)
 		memcpy (keyPtr + offset, key, length);
@@ -145,7 +145,7 @@ inline int IndexNode::expandKey(UCHAR *keyPtr)
 
 inline void IndexNode::expandKey(IndexKey *indexKey)
 {
-	ASSERT (offset + length <= MAX_INDEX_KEY_RUN_LENGTH);
+	ASSERT (offset + length <= MAX_PHYSICAL_KEY_LENGTH);
 
 	if (length)
 		memcpy (indexKey->key + offset, key, length);

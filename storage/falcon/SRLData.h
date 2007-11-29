@@ -32,21 +32,23 @@ class Transaction;
 class SRLData : public SerialLogRecord  
 {
 public:
-	virtual void commit();
-	virtual void redo();
-	virtual void pass1();
-	void print();
-	virtual void read();
-	void append(Dbb *dbb, Transaction *transaction, int32 sectionId, int32 recordId, Stream *stream);
 	SRLData();
 	virtual ~SRLData();
+
+	virtual void	commit();
+	virtual void	redo();
+	virtual void	pass1();
+	virtual void	print();
+	virtual void	read();
+	virtual void	recoverLimbo(void);
+	
+	void			append(Dbb *dbb, Transaction *transaction, int32 sectionId, int32 recordId, Stream *stream);
 
 	int			tableSpaceId;
 	int32		sectionId;
 	int32		recordId;
 	int32		length;
 	const UCHAR	*data;
-	virtual void recoverLimbo(void);
 };
 
 #endif // !defined(AFX_SRLDATA_H__112218C9_BFAE_4147_8093_5C1AFE9902D9__INCLUDED_)

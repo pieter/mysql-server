@@ -25,31 +25,56 @@
 #include <unistd.h>
 #endif
 
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#endif
+
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#include <sys/sysctl.h>
+#endif
+
 #include "Engine.h"
 #include "Configuration.h"
 #include "MemoryManager.h"
 #include "SQLError.h"
 #include "Log.h"
+#include "IOx.h"
+#include "ScanDir.h"
 
 #ifdef STORAGE_ENGINE
 #define CONFIG_FILE	"falcon.conf"
+
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) \
+	extern uint falcon_##_name;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _update_function) \
+	extern char falcon_##_name;
+#include "StorageParameters.h"
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
+
 extern uint64		falcon_record_memory_max;
-extern int			falcon_record_scavenge_threshold;
-extern int			falcon_record_scavenge_floor;
 extern uint64		falcon_initial_allocation;
 extern uint			falcon_allocation_extent;
-extern char			falcon_disable_fsync;
-extern uint			falcon_page_size;
 extern uint64		falcon_page_cache_size;
-extern int			falcon_debug_mask;
-extern uint			falcon_serial_log_buffers;
-extern uint			falcon_index_chill_threshold;
-extern uint			falcon_record_chill_threshold;
-extern uint			falcon_max_transaction_backlog;
+//extern uint		falcon_debug_mask;
 extern char*		falcon_checkpoint_schedule;
 extern char*		falcon_scavenge_schedule;
+extern char*		falcon_serial_log_dir;
 #else
 #define CONFIG_FILE	"netfraserver.conf"
+#define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) \
+	uint falcon_##_name = _default;
+#define PARAMETER_BOOL(_name, _text, _default, _flags, _update_function) \
+	bool falcon_##_name = _default;
+#include "StorageParameters.h"
+#undef PARAMETER_UINT
+#undef PARAMETER_BOOL
+
+#endif
+
+#ifdef _DEBUG
+#undef THIS_FILE
+static const char THIS_FILE[]=__FILE__;
 #endif
 
 static const char RECORD_MEMORY_UPPER[]		= "250mb";
@@ -69,6 +94,7 @@ Configuration::Configuration(const char *configFile)
 {
 	checkpointSchedule = "7,37 * * * * *";
 	scavengeSchedule = "15,45 * * * * *";
+	serialLogBlockSize			= falcon_serial_log_block_size;
 
 #ifdef STORAGE_ENGINE
 	recordMemoryMax				= falcon_record_memory_max;
@@ -76,18 +102,46 @@ Configuration::Configuration(const char *configFile)
 	recordScavengeFloorPct		= falcon_record_scavenge_floor;
 	initialAllocation			= falcon_initial_allocation;
 	allocationExtent			= falcon_allocation_extent;
-	disableFsync				= falcon_disable_fsync != 0;
 	serialLogWindows			= falcon_serial_log_buffers;
 	pageCacheSize				= falcon_page_cache_size;
 	indexChillThreshold			= falcon_index_chill_threshold * ONE_MB;
 	recordChillThreshold		= falcon_record_chill_threshold * ONE_MB;
 	maxTransactionBacklog		= falcon_max_transaction_backlog;
+	useDeferredIndexHash		= (falcon_use_deferred_index_hash != 0);
 	
 	if (falcon_checkpoint_schedule)
 		checkpointSchedule = falcon_checkpoint_schedule;
 	
 	if (falcon_scavenge_schedule)
 		scavengeSchedule = falcon_scavenge_schedule;
+		
+	if (falcon_serial_log_dir)
+		{
+		char fullLogPath[PATH_MAX];
+		const char *baseName;
+	
+		// Fully qualify the serial log path using a dummy file name
+		
+		JString tempLogDir(falcon_serial_log_dir);
+		tempLogDir += "/test.fl1";
+		IO io;
+		io.expandFileName(tempLogDir, sizeof(fullLogPath), fullLogPath, &baseName);
+
+		// Set the path, remove the file name
+		
+		serialLogDir = JString(fullLogPath, (int)(baseName - fullLogPath));
+	
+		// Verify that the directory exists
+		
+		ScanDir scanDir(serialLogDir, "*.*");
+		scanDir.next();
+		
+		if (!scanDir.isDirectory())
+			{
+			//throw SQLEXCEPTION (RUNTIME_ERROR, "Invalid serial log directory path \"%s\"", falcon_serial_log_dir);
+			serialLogDir = "";
+			}
+		}
 #else
 	recordMemoryMax				= getMemorySize(RECORD_MEMORY_UPPER);
 	recordScavengeThresholdPct	= 67;
@@ -97,12 +151,10 @@ Configuration::Configuration(const char *configFile)
 	serialLogWindows			= 10;
 	initialAllocation			= 0;
 	allocationExtent			= 10;
-	disableFsync				= false;
 	pageCacheSize				= getMemorySize(PAGE_CACHE_MEMORY);
 	indexChillThreshold			= 4 * ONE_MB;
 	recordChillThreshold		= 5 * ONE_MB;
 	maxTransactionBacklog		= MAX_TRANSACTION_BACKLOG;
-	disableFsync				= false;
 #endif
 
 	javaInitialAllocation = 0;
@@ -176,10 +228,14 @@ Configuration::Configuration(const char *configFile)
 				checkpointSchedule = value;
 			else if (parameter.equalsNoCase ("max_threads"))
 				maxThreads = atoi(value);
+			else if (parameter.equalsNoCase ("serial_log_block_size"))
+				serialLogBlockSize = atoi(value);
 			else if (parameter.equalsNoCase ("scrub"))
 				Log::scrubWords (value);
 			else if (parameter.equalsNoCase ("scheduler"))
 				schedulerEnabled = enabled(value);
+			else if (parameter.equalsNoCase ("use_deferred_index_hash"))
+				useDeferredIndexHash = (0 != atoi(value));
 			else
 				throw SQLEXCEPTION (DDL_ERROR, "unknown config parameter \"%s\"", 
 									(const char*) parameter);
@@ -192,7 +248,6 @@ Configuration::Configuration(const char *configFile)
 	setRecordMemoryMax(recordMemoryMax);
 	
 #ifdef STORAGE_ENGINE
-	falcon_disable_fsync = (char)disableFsync;
 	falcon_page_cache_size = pageCacheSize;
 #endif
 }
@@ -252,9 +307,10 @@ int64 Configuration::getMemorySize(const char *string)
 	return n;
 }
 
-int64 Configuration::getAvailablePhysicalMemory()
+uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
 {
-	int64 availableMemory = 0;
+	uint64 availableMemory = 0;
+	uint64 totalMemory = 0;
 
 #ifdef _WIN32
 	MEMORYSTATUSEX stat;
@@ -264,40 +320,57 @@ int64 Configuration::getAvailablePhysicalMemory()
 	stat.dwLength = sizeof(stat);
 
 	if (GlobalMemoryStatusEx(&stat) != 0)
+		{
 		availableMemory = stat.ullAvailPhys;
+		totalMemory = stat.ullTotalPhys;
+		}
 	else
 		error = GetLastError();
 
 #elif defined(__APPLE__) || defined(__FreeBSD__)
+	size_t availableMem = 0;
+	size_t len = sizeof availableMem;
+	static int mib[2] = {CTL_HW, HW_USERMEM};
+	sysctl(mib, 2, &availableMem, &len, NULL, 0);
 
-	// TBD: Hardcode availableMemory until fixed for MAC OS.
-    // Todo: Also find a fix for FreeBSD.
+	// For physical RAM size on Apple we are using HW_MEMSIZE key,
+	// because HW_PHYSMEM does not report correct RAM sizes above 2GB.
 
-	availableMemory = MIN_RECORD_MEMORY * 10;
-
-	// On Mac OS X, sysctl with selectors CTL_HW, HW_PHYSMEM returns only a 
-	// 4-byte value, even if passed an 8-byte buffer, and limits the returned 
-	// value to 2GB when the actual RAM size is > 2GB.  The Gestalt selector 
-	// gestaltPhysicalRAMSizeInMegabytes is available starting with OS 10.3.0.
-
-	/*
-	if (Gestalt(gestaltPhysicalRAMSizeInMegabytes, &availableMemory))
-		{
-		etc.
-		)
-
-	availableMemory *= ONE_MB;
-	*/
-#else
-	int32 pageSize		= sysconf(_SC_PAGESIZE);
-	//int32 physPages	= sysconf(_SC_PHYS_PAGES);
-	int32 avPhysPages	= sysconf(_SC_AVPHYS_PAGES);
-
-	if ((pageSize > 0) && (avPhysPages > 0))
-		availableMemory = (pageSize * avPhysPages);
+#ifdef __APPLE__
+	uint64_t physMem = 0;
+	mib[1] = HW_MEMSIZE;
 #endif
 
-	return availableMemory;
+#ifdef __FreeBSD__
+	size_t physMem = 0;
+	mib[1] = HW_PHYSMEM
+#endif
+    
+	len = sizeof physMem;
+	sysctl(mib, 2, &physMem, &len, NULL, 0);
+ 
+	availableMemory = (uint64) availableMem;
+	totalMemory = (uint64) physMem;
+
+#else
+	int64 pageSize		= (int64)sysconf(_SC_PAGESIZE);
+	int64 physPages		= (int64)sysconf(_SC_PHYS_PAGES);
+	int64 avPhysPages	= (int64)sysconf(_SC_AVPHYS_PAGES);
+
+	if (pageSize > 0 && physPages > 0 && avPhysPages > 0)
+		{
+		availableMemory = (uint64)(pageSize * avPhysPages);
+		totalMemory = (uint64)(pageSize * physPages);
+		}
+#endif
+
+	if (available)
+		*available = availableMemory;
+
+	if (total)
+		*total = totalMemory;
+
+	return totalMemory;
 }
 
 
@@ -350,7 +423,10 @@ void Configuration::setRecordScavengeFloor(int floor)
 
 void Configuration::setRecordMemoryMax(uint64 value)
 {
+	uint64 totalMemory = getPhysicalMemory();
+	
 	recordMemoryMax = MAX(value, MIN_RECORD_MEMORY);
+	recordMemoryMax = MIN(value, totalMemory);
 	
 	setRecordScavengeThreshold(recordScavengeThresholdPct);
 	

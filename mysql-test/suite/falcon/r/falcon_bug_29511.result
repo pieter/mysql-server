@@ -1,8 +1,6 @@
 *** Bug #29511 ***
 DROP TABLESPACE tablespace1 Engine Falcon;
-CREATE TABLESPACE tablespace1
-ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
-CREATE TABLESPACE tablespace2
-ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
-ERROR HY000: Unknown error -103
+CREATE TABLESPACE tablespace1 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
+CREATE TABLESPACE tablespace2 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
+ERROR HY000: Tablespace 'tablespace2' already exists
 DROP TABLESPACE tablespace1 Engine Falcon;

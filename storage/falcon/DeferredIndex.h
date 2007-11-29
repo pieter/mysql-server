@@ -31,7 +31,14 @@ struct DINode {
 	int32	recordNumber;
 	uint16	keyLength;
 	UCHAR	key[1];
-	};	
+	};
+
+struct DIUniqueNode {
+	DIUniqueNode	*collision;
+	DINode			node;
+	};
+
+#define UNIQUE_NODE(node) ((DIUniqueNode*) (((char*) node) - OFFSET(DIUniqueNode*, node)))
 
 struct DILeaf {
 	uint	count;

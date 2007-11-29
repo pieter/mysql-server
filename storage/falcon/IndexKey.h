@@ -33,12 +33,13 @@ static const uint MAX_INDEX_KEY_LENGTH_4K	= 1100;  // actually 1109, round off;
 static const uint MAX_INDEX_KEY_LENGTH_8K	= 2200;  // actually 2246, round off;
 static const uint MAX_INDEX_KEY_LENGTH_16K	= 4500;  // actually 4522, round off;
 static const uint MAX_INDEX_KEY_LENGTH_32K	= 9000;  // actually 9073, round off;
-static const uint MAX_INDEX_KEY_LENGTH		= MAX_INDEX_KEY_LENGTH_4K;
 static const uint RUN						= 6;
-static const uint MAX_INDEX_KEY_RUN_LENGTH	= (MAX_INDEX_KEY_LENGTH * RUN / (RUN - 1));
-static const uint MAX_PHYSICAL_KEY_LENGTH	= MAX_INDEX_KEY_RUN_LENGTH + sizeof(int64) + 1;
+static const uint MAX_PHYSICAL_KEY_LENGTH	= (MAX_INDEX_KEY_LENGTH_32K * RUN / (RUN - 1)) + sizeof(int64) + 1;
 static const uint MAX_KEY_SEGMENTS			= 32;
 
+inline uint maxIndexKeyRunLength(int max_key_length) {
+	return (max_key_length * RUN / (RUN - 1));
+	}
 
 class Index;
 
@@ -76,6 +77,7 @@ public:
 		}
 	
 	int compareValues(IndexKey* indexKey);
+	int compareValues(unsigned char *key2, uint len2, bool isPartial);
 	int compare(IndexKey* indexKey);
 };
 

@@ -23,6 +23,11 @@
 #include <windows.h>
 #include <io.h>
 #else
+
+#ifdef STORAGE_ENGINE
+#include "config.h"
+#endif
+
 #include <unistd.h>
 #endif
 
@@ -30,6 +35,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <string.h>
 #include <memory.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -39,15 +45,18 @@
 #include "SerialLog.h"
 #include "Sync.h"
 #include "SQLError.h"
+#include "Database.h"
+#include "Log.h"
+#include "IOx.h"
+#include "Priority.h"
 
-#ifndef O_SYNC
-#define O_SYNC		0
-#endif
 
 #ifndef O_BINARY
 #define O_BINARY	0
 #endif
 
+
+extern uint	falcon_serial_log_priority;
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -59,12 +68,14 @@ static const char THIS_FILE[]=__FILE__;
 //////////////////////////////////////////////////////////////////////
 
 
-SerialLogFile::SerialLogFile()
+SerialLogFile::SerialLogFile(Database *db)
 {
+	database = db;
 	handle = 0;
 	offset = 0;
 	highWater = 0;
 	writePoint = 0;
+	sectorSize = database->serialLogBlockSize;
 }
 
 SerialLogFile::~SerialLogFile()
@@ -85,7 +96,7 @@ void SerialLogFile::open(JString filename, bool create)
 						0,							// share mode
 						NULL,						// security attributes
 						(create) ? CREATE_ALWAYS : OPEN_ALWAYS,
-						FILE_FLAG_NO_BUFFERING | FILE_FLAG_RANDOM_ACCESS,
+						FILE_FLAG_NO_BUFFERING | FILE_FLAG_RANDOM_ACCESS | FILE_FLAG_WRITE_THROUGH,
 						0);
 
 	if (handle == INVALID_HANDLE_VALUE)
@@ -105,21 +116,29 @@ void SerialLogFile::open(JString filename, bool create)
 	if (!GetDiskFreeSpace(pathName, &sectorsPerCluster, &bytesPerSector, &numberFreeClusters, &numberClusters))
 		throw SQLError(IO_ERROR, "GetDiskFreeSpace failed for \"%s\"", (const char*) pathName);
 
-	sectorSize = bytesPerSector;
-	//fileLength = ROUNDUP(fileLength, sectorSize);
+	sectorSize = MAX(bytesPerSector, database->serialLogBlockSize);
 #else
 
-	if (create)
-		handle = ::open(filename,  O_SYNC | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-	else
-		handle = ::open(filename, O_SYNC | O_RDWR | O_BINARY);
+	for (int attempt = 0; attempt < 2; ++attempt)
+		{
+		if (create)
+			handle = ::open(filename,  IO::getWriteMode(attempt) | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+		else
+			handle = ::open(filename, IO::getWriteMode(attempt) | O_RDWR | O_BINARY);
+
+		if (handle > 0)
+			break;
+		}
 
 	if (handle <= 0)		
 		throw SQLEXCEPTION (IO_ERROR, "can't open file \"%s\": %s (%d)", 
 							(const char*) filename, strerror (errno), errno);
 
 	fileName = filename;
-	sectorSize = 512;
+	struct stat statBuffer;
+	fstat(handle, &statBuffer);
+	//sectorSize = MAX(statBuffer.st_blksize, database->serialLogBlockSize);
+	sectorSize = MAX(512, database->serialLogBlockSize);
 #endif
 
 	if (create)
@@ -145,16 +164,20 @@ void SerialLogFile::close()
 
 void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *data)
 {
-	Sync sync(&syncObject, "SerialLogFile::write");
-	sync.lock(Exclusive);
-	//ASSERT(position == writePoint || position == 0 || writePoint == 0);
+	uint32 effectiveLength = ROUNDUP(length, sectorSize);
+    time_t start = database->timestamp;
+	Priority priority(database->ioScheduler);
 	
 	if (!(position == writePoint || position == 0 || writePoint == 0))
 		throw SQLError(IO_ERROR, "serial log left in inconsistent state");
+	
+	if (falcon_serial_log_priority)
+		priority.schedule(PRIORITY_HIGH);
 		
-	uint32 effectiveLength = ROUNDUP(length, sectorSize);
-
 #ifdef _WIN32
+	
+	Sync sync(&syncObject, "SerialLogFile::write");
+	sync.lock(Exclusive);
 	
 	if (position != offset)
 		{
@@ -168,9 +191,22 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 	DWORD ret;
 	
 	if (!WriteFile(handle, data, effectiveLength, &ret, NULL))
-		throw SQLError(IO_ERROR, "serial log WriteFile failed with %d", GetLastError());
+		{
+		int lastError = GetLastError();
+		
+		if (lastError == ERROR_HANDLE_DISK_FULL)
+			throw SQLError(DEVICE_FULL, "device full error on serial log file %s\n", (const char*) fileName);
+
+		throw SQLError(IO_ERROR, "serial log WriteFile failed with %d", lastError);
+		}
 
 #else
+
+#if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
+	uint32 n = ::pwrite (handle, data, effectiveLength, position);
+#else
+	Sync sync (&syncObject, "IO::pwrite");
+	sync.lock (Exclusive);
 
 	if (position != offset)
 		{
@@ -183,11 +219,22 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 		}
 
 	uint32 n = ::write(handle, data, effectiveLength);
+#endif
 
 	if (n != effectiveLength)
+		{
+		if (errno == ENOSPC)
+			throw SQLError(DEVICE_FULL, "device full error on serial log file %s\n", (const char*) fileName);
+
 		throw SQLEXCEPTION (IO_ERROR, "serial write error on \"%s\": %s (%d)", 
 							(const char*) fileName, strerror (errno), errno);
+		}
 #endif
+
+	time_t delta = database->timestamp - start;
+
+	if (delta > 1)
+		Log::debug("Serial log write took %d seconds\n", delta);
 
 	offset = position + effectiveLength;
 	writePoint = offset;
@@ -196,13 +243,18 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 
 uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 {
+	uint32 effectiveLength = ROUNDUP(length, sectorSize);
+	//Sync syncIO(&database->syncSerialLogIO, "SerialLogFile::read");
+	Priority priority(database->ioScheduler);
+
+	if (falcon_serial_log_priority)
+		//syncIO.lock(Exclusive);
+		priority.schedule(PRIORITY_HIGH);
+
+#ifdef _WIN32
 	Sync sync(&syncObject, "SerialLogFile::read");
 	sync.lock(Exclusive);
 	ASSERT(position < writePoint || writePoint == 0);
-	uint32 effectiveLength = ROUNDUP(length, sectorSize);
-
-#ifdef _WIN32
-
 	LARGE_INTEGER pos;
 	pos.QuadPart = position;
 	
@@ -220,6 +272,12 @@ uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 	return ret;
 #else
 
+#if defined(HAVE_PREAD) && !defined(HAVE_BROKEN_PREAD)
+	int n = ::pread (handle, data, effectiveLength, position);
+#else
+	Sync sync(&syncObject, "SerialLogFile::read");
+	sync.lock(Exclusive);
+	ASSERT(position < writePoint || writePoint == 0);
 	off_t loc = lseek(handle, position, SEEK_SET);
 
 	if (loc != position)
@@ -227,6 +285,7 @@ uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 							(const char*) fileName, strerror (errno), errno);
 		
 	int n = ::read(handle, data, effectiveLength);
+#endif
 
 	if (n < 0)
 		throw SQLEXCEPTION (IO_ERROR, "serial read error on \"%s\": %s (%d)", 
@@ -242,9 +301,11 @@ uint32 SerialLogFile::read(int64 position, uint32 length, UCHAR *data)
 
 void SerialLogFile::zap()
 {
-	UCHAR *junk = new UCHAR[sectorSize];
-	memset(junk, 0, sectorSize);
-	write(0, sectorSize, (SerialLogBlock*) junk);
+	UCHAR *junk = new UCHAR[sectorSize * 2];
+	//UCHAR *buffer = (UCHAR*) (((UIPTR) junk + sectorSize - 1) / sectorSize * sectorSize);
+	UCHAR *buffer = ALIGN(junk, sectorSize);
+	memset(buffer, 0, sectorSize);
+	write(0, sectorSize, (SerialLogBlock*) buffer);
 	delete junk;
 }
 

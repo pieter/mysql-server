@@ -34,7 +34,7 @@ public:
 	virtual void	pass2(void);
 	void			append(Transaction *transaction, RecordVersion *records, bool chillRecords = false);
 	void			chill(Transaction *transaction, RecordVersion *record, uint dataLength);
-	int				thaw(RecordVersion *record);
+	int				thaw(RecordVersion *record, bool *thawed);
 	
 	const UCHAR		*data;
 	int				tableSpaceId;

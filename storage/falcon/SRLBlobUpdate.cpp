@@ -41,7 +41,7 @@ SRLBlobUpdate::~SRLBlobUpdate()
 
 void SRLBlobUpdate::append(Dbb *dbb, TransId transId, int32 locPage, int locLine, int32 blobPage, int blobLine)
 {
-	START_RECORD(srlBlobUpdate, "SRLBlobUpdate::append");
+	START_RECORD(srlLargBlob, "SRLBlobUpdate::append");
 	getTransaction(transId);
 	putInt(dbb->tableSpaceId);
 	putInt(transId);

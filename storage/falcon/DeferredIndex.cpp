@@ -14,6 +14,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #include <stdio.h>
+#include <string.h>
 #include <memory.h>
 #include "Engine.h"
 #include "Dbb.h"
@@ -28,6 +29,7 @@
 #include "Transaction.h"
 #include "Log.h"
 #include "LogLock.h"
+#include "Configuration.h"
 
 static const uint MIDPOINT = DEFERRED_INDEX_FANOUT / 2;
 static char printable[256];
@@ -101,13 +103,37 @@ void* DeferredIndex::alloc(uint length)
 
 void DeferredIndex::addNode(IndexKey* indexKey, int32 recordNumber)
 {
+	bool doingDIHash = (   (index->database->configuration->useDeferredIndexHash)
+	                    && (INDEX_IS_UNIQUE(index->type)));
+
+	Sync syncHash(&index->syncDIHash, "DeferredIndex::addNode");
+	if (doingDIHash)
+		syncHash.lock(Exclusive);
+
 	Sync sync(&syncObject, "DeferredIndex::addNode");
 	sync.lock(Exclusive);
+	DINode *node;
+	DIUniqueNode *uniqueNode = NULL;
 
-	DINode *node = (DINode*) alloc(sizeof(DINode) + indexKey->keyLength - 1);
+	if (doingDIHash)
+		{
+		int nodeSize = sizeof(DIUniqueNode) + indexKey->keyLength - 1;
+		uniqueNode = (DIUniqueNode*) alloc(nodeSize);
+		uniqueNode->collision = NULL;
+		node = &uniqueNode->node;
+		}
+	else
+		{
+		int nodeSize = sizeof(DINode) + indexKey->keyLength - 1;
+		node = (DINode*) alloc(nodeSize);;
+		}
+
 	node->recordNumber = recordNumber;
 	node->keyLength = indexKey->keyLength;
 	memcpy(node->key, indexKey->key, node->keyLength);
+
+	if (doingDIHash)
+		index->addToDIHash(uniqueNode);
 
 	// Calculate how much space in the serial log this node will take up
 	
@@ -323,6 +349,13 @@ void DeferredIndex::addNode(IndexKey* indexKey, int32 recordNumber)
 
 bool DeferredIndex::deleteNode(IndexKey* key, int32 recordNumber)
 {
+	bool doingDIHash = (   (index->database->configuration->useDeferredIndexHash)
+	                    && (INDEX_IS_UNIQUE(index->type)));
+
+	Sync syncHash(&index->syncDIHash, "DeferredIndex::deleteNode");
+	if (doingDIHash)
+		syncHash.lock(Exclusive);
+
 	Sync sync(&syncObject, "DeferredIndex::deleteNode");
 	sync.lock(Exclusive);
 
@@ -367,7 +400,13 @@ bool DeferredIndex::deleteNode(IndexKey* key, int32 recordNumber)
 		if (n == 0)
 			{
 			DINode *node = leaf->nodes[slot];
-			
+
+			if (doingDIHash)
+				{
+				DIUniqueNode *uniqueNode = UNIQUE_NODE(node);
+				index->removeFromDIHash(uniqueNode);
+				}
+
 			if (node == minValue)
 				{
 				if (slot + 1 < leaf->count)
@@ -549,7 +588,7 @@ int DeferredIndex::checkTail(uint position, DINode* node)
 				return n;
 			}
 	
-	return 0;		
+	return 0;
 }
 
 int DeferredIndex::checkTail(uint position, IndexKey *indexKey)

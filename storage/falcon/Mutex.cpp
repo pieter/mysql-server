@@ -114,7 +114,7 @@ void Mutex::unlock()
 	release();
 }
 
-void Mutex::lock(Sync* sync, LockType type)
+void Mutex::lock(Sync* sync, LockType type, int timeout)
 {
 	lock();
 	holder = sync;

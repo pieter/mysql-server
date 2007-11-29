@@ -1,0 +1,27 @@
+--source include/have_falcon.inc
+#
+# Bug #32194:  	Falcon: incorrect count of changed rows
+#
+--echo *** Bug #32194 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+SET @@storage_engine = Falcon;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (s1 INT) engine=falcon;
+INSERT INTO t1 VALUES (null),(null),(9);
+SELECT * FROM t1;
+--enable_info
+UPDATE t1 SET s1 = s1 + 1;
+--disable_info
+SELECT * FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

@@ -18,6 +18,7 @@
 #include "StorageTableShare.h"
 #include "StorageConnection.h"
 #include "StorageDatabase.h"
+#include "Sync.h"
 #include "Bitmap.h"
 #include "Index.h"
 #include "SQLException.h"
@@ -48,6 +49,7 @@ StorageTable::StorageTable(StorageConnection *connection, StorageTableShare *tab
 	upperBound = lowerBound = NULL;
 	record = NULL;
 	recordLocked = false;
+	syncTruncate.setName("StorageTable::syncTruncate");
 }
 
 StorageTable::~StorageTable(void)
@@ -79,6 +81,28 @@ int StorageTable::deleteTable(void)
 		share = NULL;
 		
 	return ret;
+}
+
+int StorageTable::truncateTable(void)
+{
+	Sync sync(&syncTruncate, "StorageTable::truncateTable");
+	sync.lock(Exclusive);
+	
+	clearRecord();
+	int ret = share->truncateTable(storageConnection);
+	
+	return ret;
+}
+
+void StorageTable::clearTruncate(void)
+{
+	if (syncTruncate.isLocked())
+		syncTruncate.unlock();
+}
+
+void StorageTable::setTruncate(LockType lockType)
+{
+	syncTruncate.lock(NULL, lockType);
 }
 
 int StorageTable::insert(void)
@@ -123,63 +147,29 @@ int StorageTable::updateRow(int recordNumber)
 int StorageTable::next(int recordNumber, bool lockForUpdate)
 {
 	recordLocked = false;
+
 	int ret = storageDatabase->nextRow(this, recordNumber, lockForUpdate);
-	
-	/***
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-		
+
 	return ret;
 }
 
 int StorageTable::nextIndexed(int recordNumber, bool lockForUpdate)
 {
 	recordLocked = false;
+
 	int ret = storageDatabase->nextIndexed(this, bitmap, recordNumber, lockForUpdate);
 
-	/***	
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-	
 	return ret;
 }
 
 int StorageTable::fetch(int recordNumber, bool lockForUpdate)
 {
 	recordLocked = false;
+
 	int ret = storageDatabase->fetch(storageConnection, this, recordNumber, lockForUpdate);
 
-	/***	
-	if (ret >= 0 && lockForUpdate)
-		if (lockRecord())
-			return StorageErrorUpdateConflict;
-	***/
-		
 	return ret;
 }
-
-/***
-int StorageTable::lockRecord(void)
-{
-	try
-		{
-		if (storageDatabase->lockRecord(this, record))
-			recordLocked = true;
-		}
-	catch (SQLException& exception)
-		{
-		storageConnection->setErrorText(&exception);
-		
-		return StorageErrorUpdateConflict;
-		}
-	
-	return 0;
-}
-***/
 
 void StorageTable::transactionEnded(void)
 {
@@ -503,6 +493,14 @@ int StorageTable::translateError(SQLException *exception, int defaultStorageErro
 				errorCode = StorageErrorOutOfRecordMemory;
 				break;
 
+			case LOCK_TIMEOUT:
+				errorCode = StorageErrorLockTimeout;
+				break;
+
+			case DEVICE_FULL:
+				errorCode = StorageErrorDeviceFull;
+				break;
+
 			default:
 				errorCode = defaultStorageError;
 			}
@@ -567,4 +565,9 @@ int StorageTable::optimize(void)
 	share->table->optimize(storageConnection->connection);
 	
 	return 0;
+}
+
+void StorageTable::setLocalTable(StorageInterface* handler)
+{
+	localTable = handler;
 }

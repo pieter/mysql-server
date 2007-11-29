@@ -68,7 +68,7 @@ void PageInventoryPage::create(Dbb * dbb, TransId transId)
 
 Bdb* PageInventoryPage::createInventoryPage(Dbb * dbb, int32 pageNumber, TransId transId)
 {
-	Bdb *bdb = dbb->fakePage (pageNumber, PAGE_inventory, transId);
+	Bdb *bdb = dbb->fakePage(pageNumber, PAGE_inventory, transId);
 	BDB_HISTORY(bdb);
 	PageInventoryPage *page = (PageInventoryPage*) bdb->buffer;
 
@@ -219,6 +219,7 @@ void PageInventoryPage::validateInventory(Dbb *dbb, Validation *validation)
 	int lastSlot = lastPage / PIP_BITS;
 	int lastBit = MASK (lastPage % PIP_BITS);
 	Bitmap *usedPages = &validation->pages;
+	int tableSpaceId = dbb->tableSpaceId;
 
 	for (int32 pageNumber = PIP_PAGE, sequence = 0; pageNumber; ++sequence)
 		{
@@ -262,8 +263,8 @@ void PageInventoryPage::validateInventory(Dbb *dbb, Validation *validation)
 							switch (page->pageType)
 								{
 								case PAGE_record_locator:
-									validation->error ("orphan section index page %d, section %d, seq %d", 
-													pageNumber, 
+									validation->error ("orphan section index page %d/%d, section %d, seq %d", 
+													pageNumber, tableSpaceId,
 													((RecordLocatorPage*) page)->section,
 													((RecordLocatorPage*) page)->sequence);
 									break;
@@ -271,8 +272,8 @@ void PageInventoryPage::validateInventory(Dbb *dbb, Validation *validation)
 								case PAGE_btree:
 									{
 									IndexPage *ipg = (IndexPage*) page;
-									validation->error ("orphan index page %d, level %d, parent %d, prior %d, next %d", 
-													pageNumber, 
+									validation->error ("orphan index page %d/%d, level %d, parent %d, prior %d, next %d", 
+													pageNumber,  tableSpaceId,
 													ipg->level, 
 													ipg->parentPage, 
 													ipg->priorPage, 
@@ -283,22 +284,22 @@ void PageInventoryPage::validateInventory(Dbb *dbb, Validation *validation)
 								case PAGE_data:
 									{
 									DataPage *pg = (DataPage*) page;
-									validation->error ("orphan data page %d, maxLine %d", pageNumber, pg->maxLine);
+									validation->error ("orphan data page %d/%d, maxLine %d", pageNumber,  tableSpaceId, pg->maxLine);
 									}
 									break;
 
 								case PAGE_data_overflow:
 									{
 									DataOverflowPage *pg = (DataOverflowPage*) page;
-									validation->error ("orphan data overflow page %d, section=%d, next=%d", pageNumber, pg->section, pg->nextPage);
+									validation->error ("orphan data overflow page %d/%d, section=%d, next=%d", pageNumber,  tableSpaceId, pg->section, pg->nextPage);
 									}
 									break;
 
 								case PAGE_sections:
 									{
 									SectionPage *pg = (SectionPage*) page;
-									validation->error ("orphan section page %d, section=%d, seq=%d, level=%d, flgs=%d", 
-														pageNumber, pg->section, pg->level, pg->flags);
+									validation->error ("orphan section page %d/%d, section=%d, seq=%d, level=%d, flgs=%d", 
+														pageNumber, tableSpaceId, pg->section, pg->level, pg->flags);
 									}
 									break;
 
@@ -307,12 +308,12 @@ void PageInventoryPage::validateInventory(Dbb *dbb, Validation *validation)
 									break;
 
 								default:
-									validation->error ("orphan page %d, type %d", 
-													pageNumber, page->pageType);
+									validation->error ("orphan page %d/%d, type %d", 
+													pageNumber, tableSpaceId, page->pageType);
 								}
 							}
 						else
-							validation->error("possible unwritten orphan page %d", pageNumber);
+							validation->error("possible unwritten orphan page %d/%d", pageNumber, tableSpaceId);
 							
 						if (validation->isRepair())
 							{

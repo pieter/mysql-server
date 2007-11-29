@@ -21,6 +21,7 @@
 #define MASTER_NAME				"FALCON_MASTER"
 #define MASTER_PATH				"falcon_master.fts"
 #define DEFAULT_TABLESPACE		"FALCON_USER"
+#define DEFAULT_TABLESPACE_PATH "falcon_user.fts"
 #define TEMPORARY_TABLESPACE	"FALCON_TEMPORARY"
 #define TEMPORARY_PATH			"falcon_temporary.fts"
 
@@ -64,9 +65,11 @@ public:
 	virtual ~StorageHandler(void);
 	virtual void		startNfsServer(void);
 	virtual void		addNfsLogger(int mask, Logger listener, void* arg);
+	virtual void		deleteNfsLogger(Logger listener, void* arg);
 
 	virtual void		shutdownHandler(void);
 	virtual void		databaseDropped(StorageDatabase *storageDatabase, StorageConnection* storageConnection);
+	virtual int			startTransaction(THD* mySqlThread, int isolationLevel);
 	virtual int			commit(THD* mySqlThread);
 	virtual int			rollback(THD* mySqlThread);
 	virtual int			releaseVerb(THD* mySqlThread);
@@ -78,12 +81,12 @@ public:
 	virtual int			commitByXID(int xidLength, const unsigned char* xid);
 	virtual int			rollbackByXID(int xidLength, const unsigned char* xis);
 	virtual Connection*	getDictionaryConnection(void);
-	virtual int			createTablespace(const char* tableSpaceName, const char* filename, int tableSpaceMode);
+	virtual int			createTablespace(const char* tableSpaceName, const char* filename);
 	virtual int			deleteTablespace(const char* tableSpaceName);
 
 	virtual StorageTableShare* findTable(const char* pathname);
 	virtual StorageTableShare* createTable(const char* pathname, const char *tableSpaceName, bool tempTable);
-	virtual StorageConnection* getStorageConnection(StorageTableShare* tableShare, THD* mySqlThread, int mySqlThdId, OpenOption createFlag, int tableSpaceMode);
+	virtual StorageConnection* getStorageConnection(StorageTableShare* tableShare, THD* mySqlThread, int mySqlThdId, OpenOption createFlag);
 
 	virtual void		getIOInfo(InfoTable* infoTable);
 	virtual void		getMemoryDetailInfo(InfoTable* infoTable);
@@ -96,10 +99,10 @@ public:
 	virtual void		getTransactionSummaryInfo(InfoTable* infoTable);
 	virtual void		getTablesInfo(InfoTable* infoTable);
 
-	virtual void		setSyncDisable(int value);
 	virtual void		setRecordMemoryMax(uint64 size);
 	virtual void		setRecordScavengeThreshold(int value);
 	virtual void		setRecordScavengeFloor(int value);
+	virtual	StorageTableShare* preDeleteTable(const char* pathname);
 
 	StorageDatabase*	getStorageDatabase(const char* dbName, const char* path);
 	void				remove(StorageConnection* storageConnection);
@@ -113,9 +116,9 @@ public:
 	void				removeConnection(StorageConnection* storageConnection);
 	int					closeConnections(THD* thd);
 	int					dropDatabase(const char* path);
-	//void				copyOldDictionary(void);
 	void				initialize(void);
 	void				dropTempTables(void);
+	void				cleanFileName(const char* pathname, char* filename, int filenameLength);
 	
 	StorageConnection	*connections[connectionHashSize];
 	StorageDatabase		*defaultDatabase;
@@ -125,9 +128,8 @@ public:
 	StorageDatabase		*storageDatabases[databaseHashSize];
 	StorageDatabase		*databaseList;
 	StorageTableShare	*tables[tableHashSize];
-	Connection		*dictionaryConnection;
+	Connection			*dictionaryConnection;
 	int					mySqlLockSize;
-	bool				globalTableSpace;
 };
 
 #endif

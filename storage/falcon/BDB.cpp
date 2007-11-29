@@ -27,7 +27,10 @@
 #include "SQLError.h"
 #include "Dbb.h"
 #include "Log.h"
+#include "Database.h"
 #include "Sync.h"
+#include "Page.h"
+
 //#define TRACE_PAGE 130049
 
 #ifdef _DEBUG
@@ -83,6 +86,7 @@ void Bdb::mark(TransId transId)
 	ASSERT (lockType == Exclusive);
 	transactionId = transId;
 	//cache->validateCache();
+	lastMark = cache->database->timestamp;
 
 #ifdef TRACE_PAGE
 	if (pageNumber == TRACE_PAGE)
@@ -111,6 +115,10 @@ void Bdb::addRef(LockType lType)
 
 void Bdb::release()
 {
+#ifdef HAVE_PAGE_NUMBER
+	ASSERT(buffer->pageNumber == pageNumber);
+#endif
+
 	ASSERT (useCount > 0);
 	decrementUseCount();
 
@@ -137,6 +145,15 @@ void Bdb::release()
 			throw SQLError(RUNTIME_ERROR, "Emergency shut is underway");
 		}
 
+}
+
+void Bdb::setPageHeader(short type)
+{
+	buffer->pageType = type;
+
+#ifdef HAVE_PAGE_NUMBER
+	buffer->pageNumber = pageNumber;
+#endif
 }
 
 void Bdb::downGrade(LockType lType)

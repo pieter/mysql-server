@@ -59,14 +59,15 @@ public:
 	static void logMessage (int mask, const char *text);
 	static void log (int mask, const char *text, va_list args);
 	static void log (int mask, const char *txt, ...);
-	static int init();
-	static void deleteListener(Listener *fn, void *arg);
+	static int	init();
+	static void	deleteListener(Listener *fn, void *arg);
 	static void addListener (int mask, Listener *fn, void *arg);
 	static void print (int mask, const char *text, void *arg);
 	static void debug (const char *txt, ...);
 	static void log (const char *txt, ...);
 	static void setExclusive(void);
 	static void releaseExclusive(void);
+	static bool isActive(int mask);
 
 	static volatile int		exclusive;
 	static volatile Thread	*exclusiveThread;

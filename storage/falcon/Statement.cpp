@@ -470,7 +470,6 @@ void Statement::start(NNode * node)
 		
 	transaction = connection->getTransaction();
 	transaction->addRef();
-
 	int savePoint = transaction->createSavepoint();
 
 	try
@@ -486,7 +485,8 @@ void Statement::start(NNode * node)
 		throw;
 		}
 
-	transaction->releaseSavepoint(savePoint);
+	if (transaction)
+		transaction->releaseSavepoint(savePoint);
 }
 
 Context* Statement::getContext(int contextId)
@@ -2898,13 +2898,8 @@ void Statement::renameTables(Syntax *syntax)
 		if (statement->findTable(to, false))
 			throw SQLError(DDL_ERROR, "rename table target \"%s.%s\" already exists", name, schema);
 
-		Sync sync(&database->syncSysConnection, "Statement::renameTables");
-		sync.lock(Shared);
-
 		Table *table = statement->getTable(from);
 		table->rename(schema, name);
-
-		sync.unlock();
 		database->commitSystemTransaction();
 		}
 }
@@ -2929,7 +2924,7 @@ void Statement::createTableSpace(Syntax *syntax)
 	if (tableSpace)
 		{
 		if (syntax->type == nod_create_tablespace)
-			throw SQLError(DDL_TABLESPACE_EXIST_ERROR, "tablespace \"%s\" already exists", name);
+			throw SQLError(TABLESPACE_EXIST_ERROR, "tablespace \"%s\" already exists", name);
 		
 		if (syntax->type == nod_upgrade_tablespace)
 			{
@@ -2959,7 +2954,7 @@ void Statement::dropTableSpace(Syntax* syntax)
 	TableSpace *tableSpace = tableSpaceManager->findTableSpace(name);
 	
 	if (!tableSpace)
-		throw SQLError(DDL_ERROR, "table space \"%s\" is not defined", name);
+		throw SQLError(TABLESPACE_NOT_EXIST_ERROR, "table space \"%s\" is not defined", name);
 
 	Sync sync (&database->syncSysConnection, "Statement::createIndex");
 	sync.lock (Shared);
@@ -2970,7 +2965,7 @@ void Statement::dropTableSpace(Syntax* syntax)
 	RSet resultSet = statement->executeQuery();
 	
 	if (resultSet->next())
-		throw SQLError(DDL_ERROR, "table space \"%s\" is not empty", name);
+		throw SQLError(TABLESPACE_NOT_EMPTY, "table space \"%s\" is not empty", name);
 	
 	resultSet.close();
 	statement.close();

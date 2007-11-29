@@ -26,6 +26,10 @@
 
 #include "PageType.h"
 
+#ifdef STORAGE_ENGINE
+#define HAVE_PAGE_NUMBER
+#endif
+
 // Hardwired page numbers
 
 #define HEADER_PAGE		0
@@ -40,15 +44,14 @@ class Dbb;
 class Page  
 {
 public:
-	//Page();
-	//~Page();
-
 	short	pageType;
 	short	checksum;
 
-#ifdef DEBUG_INDEX_PAGE
+#ifdef HAVE_PAGE_NUMBER
 	int32	pageNumber;
+	int32	pageUnused;
 #endif
+
 };
 
 #endif // !defined(AFX_PAGE_H__6A019C1D_A340_11D2_AB5A_0000C01D2301__INCLUDED_)

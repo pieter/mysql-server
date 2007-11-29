@@ -41,6 +41,12 @@
 #define VERSION_CURRENT					COMBINED_VERSION(ODS_VERSION, ODS_MINOR_VERSION)					
 #define VERSION_SERIAL_LOG				COMBINED_VERSION(ODS_VERSION2, ODS_MINOR_VERSION1)
 
+static const int FALC0N_TRACE_TRANSACTIONS	= 1;
+static const int FALC0N_SYNC_TEST			= 2;
+static const int FALC0N_SYNC_OBJECTS		= 4;
+static const int FALC0N_FREEZE				= 8;
+static const int FALC0N_REPORT_WRITES		= 16;
+
 #define TABLE_HASH_SIZE		101
 
 class Table;
@@ -94,6 +100,8 @@ class InfoTable;
 class TableSpace;
 class MemMgr;
 class RecordScavenge;
+class PriorityScheduler;
+class SQLException;
 
 struct JavaCallback;
 
@@ -162,6 +170,7 @@ public:
 	void			shutdown();
 	void			execute (const char *sql);
 	void			addTable (Table *table);
+	void			truncateTable(Table *table, Transaction *transaction);
 	void			dropTable (Table *table, Transaction *transaction);
 	void			flushInversion(Transaction *transaction);
 	bool			matches (const char *fileName);
@@ -173,7 +182,8 @@ public:
 	void			clearDebug();
 	void			setDebug();
 	void			commitSystemTransaction();
-	void			flush();
+	void			rollbackSystemTransaction(void);
+	bool			flush(int64 arg);
 	
 	Transaction*	startTransaction(Connection *connection);
 	CompiledStatement* getCompiledStatement (Connection *connection, const char *sqlString);
@@ -198,56 +208,60 @@ public:
 	void			getIOInfo(InfoTable* infoTable);
 	void			getTransactionInfo(InfoTable* infoTable);
 	void			getSerialLogInfo(InfoTable* infoTable);
-	void 			setSyncDisable(int value);
-	void			sync(void);
+	void			sync();
 	void			preUpdate();
 	void			setRecordMemoryMax(uint64 value);
 	void			setRecordScavengeThreshold(int value);
 	void			setRecordScavengeFloor(int value);
 	void			forceRecordScavenge(void);
+	void			debugTrace(void);
+	void			pageCacheFlushed(int64 flushArg);
+	JString			setLogRoot(const char *defaultPath, bool create);
 
-	Dbb				*dbb;
-	Cache			*cache;
-	JString			name;
-	Database		*next;					// used by Connection
-	Database		*prior;					// used by Connection
-	Schema			*schemas [TABLE_HASH_SIZE];
-	Table			*tables [TABLE_HASH_SIZE];
-	Table			*tablesModId [TABLE_HASH_SIZE];
-	Table			*tableList;
-	Table			*zombieTables;
-	UnTable			*unTables [TABLE_HASH_SIZE];
+	Dbb					*dbb;
+	Cache				*cache;
+	JString				name;
+	JString				ioError;
+	Database			*next;					// used by Connection
+	Database			*prior;					// used by Connection
+	Schema				*schemas [TABLE_HASH_SIZE];
+	Table				*tables [TABLE_HASH_SIZE];
+	Table				*tablesModId [TABLE_HASH_SIZE];
+	Table				*tableList;
+	Table				*zombieTables;
+	UnTable				*unTables [TABLE_HASH_SIZE];
 	CompiledStatement	*compiledStatements;
-	Configuration	*configuration;
-	SerialLog		*serialLog;
-	Connection		*systemConnection;
-	int				nextTableId;
-	bool			formatting;
-	bool			licensed;
-	bool			fieldExtensions;
-	bool			utf8;
-	bool			panicShutdown;
-	bool			shuttingDown;
-	bool			longSync;
-	int				useCount;
-	int				sequence;
-	int				stepNumber;
-	int				scavengeCycle;
-	Java			*java;
-	Applications	*applications;
-	SyncObject		syncObject;
-	SyncObject		syncTables;
-	SyncObject		syncStatements;
-	SyncObject		syncAddStatement;
-	SyncObject		syncSysConnection;
-	SyncObject		syncResultSets;
-	SyncObject		syncConnectionStatements;
-	SyncObject		syncScavenge;
-	Threads			*threads;
-	Scheduler		*scheduler;
-	Scheduler		*internalScheduler;
-	Scavenger		*scavenger;
-	Scavenger		*garbageCollector;
+	Configuration		*configuration;
+	SerialLog			*serialLog;
+	Connection			*systemConnection;
+	int					nextTableId;
+	bool				formatting;
+	bool				licensed;
+	bool				fieldExtensions;
+	bool				utf8;
+	bool				panicShutdown;
+	bool				shuttingDown;
+	bool				longSync;
+	int					useCount;
+	int					sequence;
+	int					stepNumber;
+	int					scavengeCycle;
+	Java				*java;
+	Applications		*applications;
+	SyncObject			syncObject;
+	SyncObject			syncTables;
+	SyncObject			syncStatements;
+	SyncObject			syncAddStatement;
+	SyncObject			syncSysConnection;
+	SyncObject			syncResultSets;
+	SyncObject			syncConnectionStatements;
+	SyncObject			syncScavenge;
+	PriorityScheduler	*ioScheduler;
+	Threads				*threads;
+	Scheduler			*scheduler;
+	Scheduler			*internalScheduler;
+	Scavenger			*scavenger;
+	Scavenger			*garbageCollector;
 	TemplateManager		*templateManager;
 	ImageManager		*imageManager;
 	SessionManager		*sessionManager;
@@ -264,24 +278,29 @@ public:
 	PageWriter			*pageWriter;
 	PreparedStatement	*updateCardinality;
 	MemMgr				*recordDataPool;
+	time_t				startTime;
 	
-	volatile time_t	timestamp;
-	volatile int	numberQueries;
-	volatile int	numberRecords;
-	volatile int	numberTemplateEvals;
-	volatile int	numberTemplateExpands;
-	int				odsVersion;
-	int				noSchedule;
-
+	volatile time_t		deltaTime;
+	volatile time_t		timestamp;
+	volatile int		numberQueries;
+	volatile int		numberRecords;
+	volatile int		numberTemplateEvals;
+	volatile int		numberTemplateExpands;
+	volatile int		pendingIOErrors;
+	int					odsVersion;
+	int					noSchedule;
+	int					pendingIOErrorCode;
+	uint32				serialLogBlockSize;
+	
 	volatile INTERLOCK_TYPE	currentGeneration;
-	//volatile long	overflowSize;
-	//volatile long 	ageGroupSizes [AGE_GROUPS];
-	uint64			recordMemoryMax;
-	uint64			recordScavengeThreshold;
-	uint64			recordScavengeFloor;
-	int64			lastRecordMemory;
-	time_t			creationTime;
-	volatile time_t	lastScavenge;
+	uint64				recordMemoryMax;
+	uint64				recordScavengeThreshold;
+	uint64				recordScavengeFloor;
+	int64				lastRecordMemory;
+	time_t				creationTime;
+	volatile time_t		lastScavenge;
+	void setIOError(SQLException* exception);
+	void clearIOError(void);
 };
 
 #endif // !defined(AFX_DATABASE_H__5EC961D1_A406_11D2_AB5B_0000C01D2301__INCLUDED_)

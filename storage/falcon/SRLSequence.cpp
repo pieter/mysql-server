@@ -61,5 +61,5 @@ void SRLSequence::redo()
 
 void SRLSequence::print(void)
 {
-	Log::debug("Serial Log Sequence id %d, value " I64FORMAT "\n", sequenceId, sequence);
+	logPrint("Sequence id %d, value " I64FORMAT "\n", sequenceId, sequence);
 }

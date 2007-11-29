@@ -19,10 +19,13 @@
 #include "EncodedDataStream.h"
 #include "Stream.h"
 #include "IndexKey.h"
+#include "SyncObject.h"
 #include "SQLException.h"
 
 static const int UpperBound	= 1;
 static const int LowerBound = 2;
+
+static const int MaxRetryAferWait = 5;
 
 struct StorageKey {
 	int			numberSegments;
@@ -58,6 +61,9 @@ public:
 	void			clearAlter(void);
 	bool			setAlter(void);
 	
+	void			clearTruncate(void);
+	void			setTruncate(LockType lockType = Shared);
+	
 	virtual void	setConnection(StorageConnection* connection);
 	virtual void	clearIndexBounds(void);
 	virtual void	clearRecord(void);
@@ -66,6 +72,7 @@ public:
 	virtual int		open(void);
 	virtual int		deleteTable(void);
 	virtual int		deleteRow(int recordNumber);
+	virtual int		truncateTable(void);
 	virtual int		setIndex(int numberIndexes, int indexId, StorageIndexDesc* storageIndex);
 	virtual int		indexScan();
 	virtual int		setIndex(int indexId);
@@ -95,7 +102,9 @@ public:
 	virtual void	setReadAfterKey(void);
 	virtual void	unlockRow(void);
 	virtual int		optimize(void);
+	virtual void	setLocalTable(StorageInterface* handler);
 
+	SyncObject			syncTruncate;
 	JString				name;
 	StorageTable		*collision;
 	StorageConnection	*storageConnection;

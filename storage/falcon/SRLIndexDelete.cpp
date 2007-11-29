@@ -48,6 +48,7 @@ SRLIndexDelete::~SRLIndexDelete()
 
 void SRLIndexDelete::append(Dbb *dbb, int32 indexId, int idxVersion, IndexKey *key, int32 recordNumber, TransId transactionId)
 {
+	ASSERT(idxVersion >= 0 && idxVersion <= INDEX_CURRENT_VERSION);
 	START_RECORD(srlIndexDelete, "SRLIndexDelete::append");
 	putInt(dbb->tableSpaceId);
 	putInt(indexId);
@@ -83,6 +84,5 @@ void SRLIndexDelete::redo()
 
 void SRLIndexDelete::print()
 {
-	Log::debug("Serial Log Index Delete indexId %d, recordId %d, length %d\n",
-			indexId, recordId, length);
+	logPrint("Index Delete indexId %d, recordId %d, length %d\n", indexId, recordId, length);
 }

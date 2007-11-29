@@ -75,7 +75,11 @@ enum StorageError {
 	StorageErrorTablesSpaceOperationFailed = -103,
 	StorageErrorOutOfMemory			= -104,		// memory pool limit reached or system memory exhausted
 	StorageErrorOutOfRecordMemory	= -105,		// memory pool limit reached or system memory exhausted
-	StorageErrorTableSpaceExist = -106
+	StorageErrorLockTimeout			= -106,
+	StorageErrorTableSpaceExist		= -107,
+	StorageErrorTableNotEmpty		= -108,
+	StorageErrorTableSpaceNotExist	= -109,
+	StorageErrorDeviceFull			= -110
 	};
 	
 static const int StoreErrorIndexShift	= 10;
@@ -95,7 +99,6 @@ public:
 	virtual INT64		getSequenceValue(int delta);
 	virtual int			setSequenceValue(INT64 value);
 	virtual int			haveIndexes(void);
-	//virtual const char*	cleanupName(const char* tableName, char* buffer, int bufferLength, char *schema, int schemaLength);
 	virtual void		cleanupFieldName(const char* name, char* buffer, int bufferLength);
 	virtual void		setTablePath(const char* path, bool tempTable);
 	virtual void		registerCollation(const char* collationName, void* arg);
@@ -107,6 +110,7 @@ public:
 	int					getIndexId(const char* schemaName, const char* indexName);
 	int					create(StorageConnection *storageConnection, const char* sql, int64 autoIncrementValue);
 	int					deleteTable(StorageConnection *storageConnection);
+	int					truncateTable(StorageConnection *storageConnection);
 	void				load(void);
 	void				registerTable(void);
 	void				unRegisterTable(void);
@@ -116,6 +120,7 @@ public:
 	void				setDatabase(StorageDatabase* db);
 	uint64				estimateCardinality(void);
 	bool				tableExists(void);
+	JString				lookupPathName(void);
 
 	static const char*	getDefaultRoot(void);
 	static const char*	cleanupTableName(const char* name, char* buffer, int bufferLength, char *schema, int schemaLength);

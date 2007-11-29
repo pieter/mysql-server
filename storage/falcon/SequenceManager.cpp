@@ -32,7 +32,7 @@
 #define HASH(address,size)				(int)(((UIPTR) address >> 2) % size)
 
 static const char *ddl [] = {
-    "create table system.sequences ("
+	"create table system.sequences ("
 		"schema varchar (128) not null,\n"
 		"sequenceName varchar (128) not null,\n"
 		"id int,\n"
@@ -137,6 +137,15 @@ Sequence* SequenceManager::createSequence(const char *schema, const char *name, 
 	sequences [slot] = sequence;
 
 	return sequence;
+}
+
+Sequence* SequenceManager::recreateSequence(Sequence *oldSequence)
+{
+	const char *schemaName = database->getSymbol(oldSequence->schemaName);
+	const char *sequenceName = database->getSymbol(oldSequence->name);
+	
+	deleteSequence(schemaName, sequenceName);
+	return createSequence(schemaName, sequenceName, 0);
 }
 
 void SequenceManager::deleteSequence(const char *schema, const char *name)

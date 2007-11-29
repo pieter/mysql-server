@@ -2111,7 +2111,8 @@ void StorageInterface::encodeRecord(uchar *buf, bool updateFlag)
 	storageTable->preInsert();
 	my_ptrdiff_t ptrDiff = buf - table->record[0];
 	my_bitmap_map *old_map = dbug_tmp_use_all_columns(table, table->read_set);
-
+	EncodedDataStream *dataStream = &storageTable->dataStream;
+	
 	for (uint n = 0; n < table->s->fields; ++n)
 		{
 		Field *field = table->field[n];
@@ -2122,10 +2123,10 @@ void StorageInterface::encodeRecord(uchar *buf, bool updateFlag)
 		if (updateFlag && !bitmap_is_set(table->write_set, field->field_index))
 			{
 			const unsigned char *p = storageTable->getEncoding(n);
-			storageTable->dataStream.encodeEncoding(p);
+			dataStream->encodeEncoding(p);
 			}
 		else if (field->is_null())
-			storageTable->dataStream.encodeNull();
+			dataStream->encodeNull();
 		else
 			switch (field->real_type())
 				{
@@ -2139,7 +2140,7 @@ void StorageInterface::encodeRecord(uchar *buf, bool updateFlag)
 				case MYSQL_TYPE_ENUM:
 				case MYSQL_TYPE_SET:
 				case MYSQL_TYPE_BIT:
-					storageTable->dataStream.encodeInt64(field->val_int());
+					dataStream->encodeInt64(field->val_int());
 					break;
 
 				case MYSQL_TYPE_NEWDECIMAL:
@@ -2152,7 +2153,7 @@ void StorageInterface::encodeRecord(uchar *buf, bool updateFlag)
 						int64 value = ScaledBinary::getInt64FromBinaryDecimal((const char *) field->ptr,
 																			precision,
 																			scale);
-						storageTable->dataStream.encodeInt64(value, scale);
+						dataStream->encodeInt64(value, scale);
 						}
 					else
 						{
@@ -2165,42 +2166,42 @@ void StorageInterface::encodeRecord(uchar *buf, bool updateFlag)
 						if (bigInt.fitsInInt64() && scale < 19)
 							{
 							int64 value = bigInt.getInt();
-							storageTable->dataStream.encodeInt64(value, scale);
+							dataStream->encodeInt64(value, scale);
 							}
 						else
-							storageTable->dataStream.encodeBigInt(&bigInt);
+							dataStream->encodeBigInt(&bigInt);
 						}
 					}
 					break;
 
 				case MYSQL_TYPE_DOUBLE:
 				case MYSQL_TYPE_FLOAT:
-					storageTable->dataStream.encodeDouble(field->val_real());
+					dataStream->encodeDouble(field->val_real());
 					break;
 
 				case MYSQL_TYPE_TIMESTAMP:
 					{
 					my_bool nullValue;
 					int64 value = ((Field_timestamp*) field)->get_timestamp(&nullValue);
-					storageTable->dataStream.encodeDate(value * 1000);
+					dataStream->encodeDate(value * 1000);
 					}
 					break;
 
 				case MYSQL_TYPE_DATE:
-					storageTable->dataStream.encodeInt64(field->val_int());
+					dataStream->encodeInt64(field->val_int());
 					break;
 
 				case MYSQL_TYPE_NEWDATE:
-					//storageTable->dataStream.encodeInt64(field->val_int());
-					storageTable->dataStream.encodeInt64(uint3korr(field->ptr));
+					//dataStream->encodeInt64(field->val_int());
+					dataStream->encodeInt64(uint3korr(field->ptr));
 					break;
 
 				case MYSQL_TYPE_TIME:
-					storageTable->dataStream.encodeInt64(field->val_int());
+					dataStream->encodeInt64(field->val_int());
 					break;
 
 				case MYSQL_TYPE_DATETIME:
-					storageTable->dataStream.encodeInt64(field->val_int());
+					dataStream->encodeInt64(field->val_int());
 					break;
 
 				case MYSQL_TYPE_VARCHAR:
@@ -2210,7 +2211,7 @@ void StorageInterface::encodeRecord(uchar *buf, bool updateFlag)
 					String string;
 					String buffer;
 					field->val_str(&buffer, &string);
-					storageTable->dataStream.encodeOpaque(string.length(), string.ptr());
+					dataStream->encodeOpaque(string.length(), string.ptr());
 					}
 					break;
 
@@ -2220,7 +2221,7 @@ void StorageInterface::encodeRecord(uchar *buf, bool updateFlag)
 					uint length = blob->get_length();
 					uchar *ptr;
 					blob->get_ptr(&ptr);
-					storageTable->dataStream.encodeOpaque(length, (const char*) ptr);
+					dataStream->encodeOpaque(length, (const char*) ptr);
 					}
 					break;
 
@@ -2252,12 +2253,12 @@ void StorageInterface::encodeRecord(uchar *buf, bool updateFlag)
 						blob->set_ptr(storageBlob.length, storageBlob.data);
 						}
 
-					storageTable->dataStream.encodeBinaryBlob(blobId);
+					dataStream->encodeBinaryBlob(blobId);
 					}
 					break;
 
 				default:
-					storageTable->dataStream.encodeOpaque(field->field_length, (const char*) field->ptr);
+					dataStream->encodeOpaque(field->field_length, (const char*) field->ptr);
 				}
 
 		if (ptrDiff)

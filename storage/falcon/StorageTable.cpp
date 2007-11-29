@@ -50,12 +50,14 @@ StorageTable::StorageTable(StorageConnection *connection, StorageTableShare *tab
 	record = NULL;
 	recordLocked = false;
 	haveTruncateLock = false;
-	syncTruncate.setName("StorageTable::syncTruncate");
+	syncTruncate = new SyncObject;
+	syncTruncate->setName("StorageTable::syncTruncate");
 }
 
 StorageTable::~StorageTable(void)
 {
 	clearTruncateLock();
+	delete syncTruncate;
 	
 	if (bitmap)
 		((Bitmap*) bitmap)->release();
@@ -90,7 +92,7 @@ int StorageTable::deleteTable(void)
 
 int StorageTable::truncateTable(void)
 {
-	Sync sync(&syncTruncate, "StorageTable::truncateTable");
+	Sync sync(syncTruncate, "StorageTable::truncateTable");
 	sync.lock(Exclusive);
 	
 	clearRecord();
@@ -103,7 +105,7 @@ void StorageTable::clearTruncateLock(void)
 {
 	if (haveTruncateLock)
 		{
-		syncTruncate.unlock();
+		syncTruncate->unlock();
 		haveTruncateLock = false;
 		}
 }
@@ -112,7 +114,7 @@ void StorageTable::setTruncateLock()
 {
 	if (!haveTruncateLock)
 		{
-		syncTruncate.lock(NULL, Shared);
+		syncTruncate->lock(NULL, Shared);
 		haveTruncateLock = true;
 		}
 }

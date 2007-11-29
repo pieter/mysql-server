@@ -19,7 +19,6 @@
 #include "EncodedDataStream.h"
 #include "Stream.h"
 #include "IndexKey.h"
-#include "SyncObject.h"
 #include "SQLException.h"
 
 static const int UpperBound	= 1;
@@ -46,6 +45,7 @@ class StorageInterface;
 class StorageDatabase;
 class Index;
 class Record;
+class SyncObject;
 
 struct StorageIndexDesc;
 
@@ -104,7 +104,7 @@ public:
 	virtual int		optimize(void);
 	virtual void	setLocalTable(StorageInterface* handler);
 
-	SyncObject			syncTruncate;
+	SyncObject			*syncTruncate;
 	JString				name;
 	StorageTable		*collision;
 	StorageConnection	*storageConnection;

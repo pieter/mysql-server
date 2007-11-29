@@ -19,6 +19,7 @@
 #include "Engine.h"
 #include "StorageHandler.h"
 #include "StorageConnection.h"
+#include "StorageVersion.h"
 #include "Connection.h"
 #include "SyncObject.h"
 #include "Sync.h"
@@ -1064,4 +1065,12 @@ void StorageHandler::cleanFileName(const char* pathname, char* filename, int fil
 			*q++ = c;
 
 	*q = 0;
+}
+
+void StorageHandler::getFalconVersionInfo(InfoTable* infoTable)
+{
+	int n = 0;
+	infoTable->putString(n++, FALCON_VERSION);
+	infoTable->putString(n++, FALCON_DATE);
+	infoTable->putRecord();
 }

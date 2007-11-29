@@ -217,6 +217,10 @@ public:
 	static int initSerialLogInfo(void *p);
 	static int deinitSerialLogInfo(void *p);
 
+	static int callFalconVersionInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initFalconVersionInfo(void *p);
+	static int deinitFalconVersionInfo(void *p);
+
 	static int callSyncInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initSyncInfo(void *p);
 	static int deinitSyncInfo(void *p);

@@ -7,9 +7,9 @@ namespace backup {
 
 /**
   Local version of LEX_STRING structure.
-  
+
   Defines various constructors for convenience.
- */ 
+ */
 struct LEX_STRING: public ::LEX_STRING
 {
   LEX_STRING()
@@ -17,19 +17,19 @@ struct LEX_STRING: public ::LEX_STRING
     str= NULL;
     length= 0;
   }
-  
+
   LEX_STRING(const ::LEX_STRING &s)
   {
     str= s.str;
     length= s.length;
   }
-  
+
   LEX_STRING(const char *s)
   {
     str= const_cast<char*>(s);
     length= strlen(s);
   }
-  
+
   LEX_STRING(const String &s)
   {
     str= const_cast<char*>(s.ptr());
@@ -54,7 +54,7 @@ inline
 bool change_db(THD *thd, const Db_ref &db)
 {
   LEX_STRING db_name= db.name();
-  
+
   return 0 == ::mysql_change_db(thd,&db_name,TRUE);
 }
 
@@ -65,7 +65,7 @@ inline int free_table_list(TABLE_LIST *all_tables)
 {
   if (all_tables)
   {
-    TABLE_LIST *tbl= all_tables; 
+    TABLE_LIST *tbl= all_tables;
     TABLE_LIST *prev= tbl;
     while (tbl != NULL)
     {

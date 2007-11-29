@@ -2,8 +2,7 @@
 #define _DEFAULT_BACKUP_H
 
 #include <backup/backup_engine.h>
-#include <backup/archive.h>   // to define default backup image class
-#include "archive.h"
+#include "catalog.h"  // to define default backup image class
 #include "buffer_iterator.h"
 #include "backup_aux.h"
 #include "mysql_priv.h"

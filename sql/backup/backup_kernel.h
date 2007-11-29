@@ -2,7 +2,7 @@
 #define _BACKUP_KERNEL_API_H
 
 #include <backup/api_types.h>
-#include <backup/archive.h>
+#include <backup/catalog.h>
 #include <backup/stream.h>
 #include <backup/logger.h>
 
@@ -49,7 +49,7 @@ namespace backup {
 
 struct Location
 {
-  /// Type of location  
+  /// Type of location
   enum enum_type {SERVER_FILE, INVALID};
   bool read;
 
@@ -154,7 +154,7 @@ class Backup_info: public Archive_info, public Logger
 
   Db_item*    add_db(const backup::Db_ref&);
   Table_item* add_table(const Table_ref&);
-  
+
   /// Value returned by @c add_table if it decides that the table should be skipped.
   static const Table_item *const skip_table;
 
@@ -167,7 +167,7 @@ class Backup_info: public Archive_info, public Logger
   Item   *m_items;
   Item   *m_last_item;
   Item   *m_last_db;
-  
+
   friend class Item_iterator;
 };
 

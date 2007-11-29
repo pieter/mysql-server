@@ -10,13 +10,13 @@
 
 #if defined(USE_PRAGMA_INTERFACE) || defined(__APPLE_CC__)
 /*
-  #pragma interface is needed on powermac platform as otherwise compiler 
-  doesn't create/export vtable for Image_info::Tables class (if you know a 
+  #pragma interface is needed on powermac platform as otherwise compiler
+  doesn't create/export vtable for Image_info::Tables class (if you know a
   better way for fixing this issue let me know! /Rafal).
-  
+
   Apparently, configuration macro USE_PRAGMA_INTERFACE is not set by ./configure,
   on powermac platform - this is why __APPLE_CC__ is also checked.
- */ 
+ */
 #pragma interface
 #endif
 
@@ -24,7 +24,7 @@
 #include <backup/string_pool.h>
 #include <backup/stream.h>
 #include <backup/backup_engine.h>
-#include <backup/meta_backup.h>
+#include <backup/meta_data.h>
 
 namespace backup {
 
@@ -69,7 +69,7 @@ struct st_binlog_info
 class Archive_info
 {
  public:
- 
+
    static const version_t  ver=1;
    uint  img_count;       ///< number of images in the archive
    uint  table_count;     ///< total number of tables in the archive
@@ -143,7 +143,7 @@ class Archive_info
 class Image_info
 {
  public:
- 
+
   enum image_type {NATIVE_IMAGE, DEFAULT_IMAGE, SNAPSHOT_IMAGE};
 
   virtual image_type type() const =0; ///< Return type of the image.
@@ -174,9 +174,9 @@ class Image_info
   /// Determine if a table stored in given engine can be saved in this image.
   virtual bool accept(const Table_ref&, const ::handlerton*) =0;
 
-  /** 
+  /**
     Return name identifying the image in debug messages.
-   
+
     The name should fit into "%s backup/restore driver" pattern.
    */
   virtual const char* name() const

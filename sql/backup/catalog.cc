@@ -23,19 +23,19 @@
 
 #if defined(USE_PRAGMA_IMPLEMENTATION) || defined(__APPLE_CC__)
 /*
-  #pragma implementation is needed on powermac platform as otherwise compiler 
-  doesn't create/export vtable for Image_info::Tables class (if you know a 
+  #pragma implementation is needed on powermac platform as otherwise compiler
+  doesn't create/export vtable for Image_info::Tables class (if you know a
   better way for fixing this issue let me know! /Rafal).
-  
-  Apparently, configuration macro USE_PRAGMA_IMPLEMENTATION is not set by 
+
+  Apparently, configuration macro USE_PRAGMA_IMPLEMENTATION is not set by
   ./configure on powermac platform - this is why __APPLE_CC__ is also checked.
- */ 
+ */
 #pragma implementation
 #endif
 
 #include "backup_engine.h"
 #include "backup_aux.h"
-#include "archive.h"
+#include "catalog.h"
 #include "be_default.h"
 #include "be_snapshot.h"
 
@@ -798,7 +798,7 @@ Native_image::create_from_stream(version_t ver,
 
   LEX_STRING name_lex= name;
 
-  
+
   ::handlerton *hton= plugin_data(::ha_resolve_by_name(::current_thd,&name_lex),
                                   handlerton*);
   if (!hton)

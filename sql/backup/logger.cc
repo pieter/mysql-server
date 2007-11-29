@@ -24,9 +24,9 @@ int Logger::write_message(log_level::value level, int error_code,
 {
    const char *prefix= m_type == BACKUP ? "Backup" : "Restore";
    char buf[ERRMSGSIZE + 30];
-   
+
    my_snprintf(buf,sizeof(buf),"%s: %s",prefix,msg);
-  
+
    switch (level) {
    case log_level::ERROR:
      if (m_save_errors)

@@ -1,7 +1,7 @@
 #ifndef _SNAPSHOT_BACKUP_H
 #define _SNAPSHOT_BACKUP_H
 
-#include "archive.h"        
+#include "catalog.h"        
 #include "buffer_iterator.h"
 #include "be_default.h"
 

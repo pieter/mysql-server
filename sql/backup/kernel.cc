@@ -25,8 +25,8 @@
 #include "backup_aux.h"
 #include "stream.h"
 #include "backup_kernel.h"
-#include "meta_backup.h"
-#include "archive.h"
+#include "meta_data.h"
+#include "catalog.h"
 #include "debug.h"
 #include "be_default.h"
 #include "be_snapshot.h"
@@ -153,11 +153,11 @@ execute_backup_command(THD *thd, LEX *lex)
     } // if (!stream)
 
     goto finish_restore;
-    
+
    restore_error:
 
     res= res ? res : backup::ERROR;
-    
+
    finish_restore:
 
     if (stream)
@@ -236,11 +236,11 @@ execute_backup_command(THD *thd, LEX *lex)
     } // if (!stream)
 
     goto finish_backup;
-   
+
    backup_error:
-   
+
     res= res ? res : backup::ERROR;
-   
+
    finish_backup:
 
     if (stream)
@@ -351,21 +351,21 @@ class Backup_info::Table_ref:
   Table_ref(const Db_item&, const String&);
   ~Table_ref()
   { close(); }
-  
+
   ::TABLE* open(THD*);
   void close();
-  
+
   /**
    Return pointer to @c handlerton structure of table's storage engine.
-   
+
    @return @c NULL if table has not been opened or pointer to the @c handlerton
    structure of table's storage engine.
-   */ 
+   */
   ::handlerton* hton() const
   { return m_table && m_table->s ? m_table->s->db_type() : NULL; }
-  
+
   /// Check if table has been opened.
-  bool is_open() const 
+  bool is_open() const
   { return m_table != NULL; }
 };
 
@@ -401,14 +401,14 @@ int Backup_info::find_image(const Backup_info::Table_ref &tbl)
    DBUG_ENTER("Backup_info::find_image");
    // we assume that table has been opened already
    DBUG_ASSERT(tbl.is_open());
-   
+
    Image_info *img;
    const ::handlerton *hton= tbl.hton();
    // If table has no handlerton something is really bad - we crash here
    DBUG_ASSERT(hton);
 
    Table_ref::describe_buf buf;
-   
+
    DBUG_PRINT("backup",("Adding table %s using storage %s to archive%s",
                         tbl.describe(buf),
                         ::ha_resolve_storage_engine_name(hton),
@@ -451,7 +451,7 @@ int Backup_info::find_image(const Backup_info::Table_ref &tbl)
      DBUG_PRINT("backup",("%s image added to archive",img->name()));
      img_count++;
 
-#ifdef DBUG_OFF 
+#ifdef DBUG_OFF
      // avoid "unused variable" compilation warning
      img->accept(tbl,hton);
 #else
@@ -513,12 +513,12 @@ namespace backup {
 //  Returns tmp table containing records from a given I_S table
 TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st);
 
-/* 
+/*
   Backup_info::skip_table pointer is just for indicating that a table
-  added with Backup_info::add_table() was skipped. It should have value not 
+  added with Backup_info::add_table() was skipped. It should have value not
   possible for regular pointers.
  */
-const Backup_info::Table_item *const 
+const Backup_info::Table_item *const
 Backup_info::skip_table= reinterpret_cast<Backup_info::Table_item*>(1);
 
 /**
@@ -532,7 +532,7 @@ Backup_info::skip_table= reinterpret_cast<Backup_info::Table_item*>(1);
  */
 Backup_info::Backup_info(THD *thd):
   Logger(Logger::BACKUP),
-  m_state(INIT), default_image_no(-1), snapshot_image_no(-2), 
+  m_state(INIT), default_image_no(-1), snapshot_image_no(-2),
   m_thd(thd), i_s_tables(NULL),
   m_items(NULL), m_last_item(NULL), m_last_db(NULL)
 {
@@ -651,9 +651,9 @@ int Backup_info::add_dbs(List< ::LEX_STRING > &dbs)
     report_error(ER_BAD_DB_ERROR,unknown_dbs.c_ptr());
     goto error;
   }
-  
+
   return 0;
-  
+
  error:
 
   m_state= ERROR;
@@ -696,11 +696,11 @@ int Backup_info::add_all_dbs()
   while (!ha->rnd_next(db_table->record[0]))
   {
     String db_name;
-    
+
     db_table->field[1]->val_str(&db_name);
-    
+
     // skip internal databases
-    if (db_name == String("information_schema",&::my_charset_bin) 
+    if (db_name == String("information_schema",&::my_charset_bin)
         || db_name == String("mysql",&my_charset_bin))
     {
       DBUG_PRINT("backup",(" Skipping internal database %s",db_name.ptr()));
@@ -811,7 +811,7 @@ int Backup_info::add_db_items(Db_item &db)
   TEST_ERROR_IF(db.name().ptr()[0]=='a');
 
   old_map= dbug_tmp_use_all_columns(i_s_tables, i_s_tables->read_set);
-  
+
   if (ha->ha_rnd_init(TRUE) || TEST_ERROR)
   {
     dbug_tmp_restore_column_map(i_s_tables->read_set, old_map);
@@ -828,20 +828,20 @@ int Backup_info::add_db_items(Db_item &db)
     String type;
     String engine;
 
-    /* 
+    /*
       Read info about next table/view
-      
-      Note: this should be synchronized with the definition of 
+
+      Note: this should be synchronized with the definition of
       INFORMATION_SCHEMA.TABLES table.
      */
     i_s_tables->field[1]->val_str(&db_name);
     i_s_tables->field[2]->val_str(&name);
     i_s_tables->field[3]->val_str(&type);
     i_s_tables->field[4]->val_str(&engine);
-    
+
     if (db_name != db.name())
       continue; // skip tables not from the given database
-    
+
     // FIXME: right now, we handle only tables
     if (type != String("BASE TABLE",&::my_charset_bin))
     {
@@ -851,12 +851,12 @@ int Backup_info::add_db_items(Db_item &db)
     }
 
     Backup_info::Table_ref t(db,name);
-    
+
     if (engine.is_empty())
     {
       Table_ref::describe_buf buf;
       report_error(log_level::WARNING,ER_BACKUP_NO_ENGINE,t.describe(buf));
-      continue;                   
+      continue;
     }
 
     DBUG_PRINT("backup", ("Found table %s for database %s",
@@ -871,10 +871,10 @@ int Backup_info::add_db_items(Db_item &db)
     }
     // add_table method selects/creates sub-image appropriate for storing given table
     Table_item *ti= add_table(t);
-    
+
     // Close table to free resources
     t.close();
-    
+
     if (!ti)
       goto error;
 
@@ -886,13 +886,13 @@ int Backup_info::add_db_items(Db_item &db)
   }
 
   goto finish;
-  
+
  error:
- 
+
   res= res ? res : ERROR;
- 
+
  finish:
- 
+
   ha->ha_rnd_end();
 
   dbug_tmp_restore_column_map(i_s_tables->read_set, old_map);
@@ -911,46 +911,46 @@ Backup_info::Table_ref::Table_ref(const Db_item &db, const String &name):
 
 /**
  Open table and create corresponding @c TABLE structure.
- 
- A pointer to opened @c TABLE structure is stored in @c m_table member. The 
- structure is owned by @c Table_ref object, to destroy it call @c close() 
- method. 
- 
+
+ A pointer to opened @c TABLE structure is stored in @c m_table member. The
+ structure is owned by @c Table_ref object, to destroy it call @c close()
+ method.
+
  This method does nothing if table has been already opened.
- 
+
  @return Pointer to the opened @c TABLE structure or @c NULL if operation was
- not successful. 
- */ 
+ not successful.
+ */
 ::TABLE* Backup_info::Table_ref::open(THD *thd)
 {
   if (is_open())
     return m_table;
-    
+
   char path[FN_REFLEN];
   const char *db= m_db_name.ptr();
   const char *name= m_name.ptr();
   ::build_table_filename(path, sizeof(path), db, name, "", 0);
   m_table= ::open_temporary_table(
-                thd, path, db, name, 
+                thd, path, db, name,
                 FALSE /* don't link to thd->temporary_tables */,
                 OTM_OPEN);
-  
+
   /*
-   Note: If table couldn't be opened (m_table==NULL), open_temporary_table() 
-   doesn't inform us what was the reason. This makes it difficult to give 
-   precise information in the error log. Currently we just say that table 
-   couldn't be opened. When error reporting is improved, we should try to do 
+   Note: If table couldn't be opened (m_table==NULL), open_temporary_table()
+   doesn't inform us what was the reason. This makes it difficult to give
+   precise information in the error log. Currently we just say that table
+   couldn't be opened. When error reporting is improved, we should try to do
    better than that.
-   */ 
+   */
   return m_table;
 }
 
 /**
  Close previously opened table.
- 
+
  Closes table and frees allocated resources. Can be called even when table
  has not been opened, in which case it does nothing.
- */ 
+ */
 void Backup_info::Table_ref::close()
 {
   if (m_table)
@@ -965,7 +965,7 @@ void Backup_info::Table_ref::close()
 
 /**
   Add table to archive's list of meta-data items.
-  
+
   @pre Table should be opened.
  */
 
@@ -973,9 +973,9 @@ Backup_info::Table_item*
 Backup_info::add_table(const Table_ref &t)
 {
   DBUG_ASSERT(t.is_open());
-    
+
   // TODO: skip table if it is a tmp one
-    
+
   int no= find_image(t); // Note: find_image reports errors
 
   /*
@@ -1195,7 +1195,7 @@ int report_errors(THD *thd, Logger &log, int error_code, ...)
   MYSQL_ERROR *error= log.last_saved_error();
 
   if (error && !util::report_mysql_error(thd,error,error_code))
-  {  
+  {
     if (error->code)
       error_code= error->code;
   }
@@ -1216,14 +1216,14 @@ int report_errors(THD *thd, Logger &log, int error_code, ...)
 
 inline
 int check_info(THD *thd, Backup_info &info)
-{ 
-  return info.is_valid() ? OK : report_errors(thd,info,ER_BACKUP_BACKUP_PREPARE); 
+{
+  return info.is_valid() ? OK : report_errors(thd,info,ER_BACKUP_BACKUP_PREPARE);
 }
 
 inline
 int check_info(THD *thd, Restore_info &info)
-{ 
-  return info.is_valid() ? OK : report_errors(thd,info,ER_BACKUP_RESTORE_PREPARE); 
+{
+  return info.is_valid() ? OK : report_errors(thd,info,ER_BACKUP_RESTORE_PREPARE);
 }
 
 /**
@@ -1323,7 +1323,7 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
   */
   String *wild= thd->lex->wild;
   ::enum_sql_command command= thd->lex->sql_command;
-  
+
   thd->lex->wild = NULL;
   thd->lex->sql_command = enum_sql_command(0);
 
@@ -1331,7 +1331,7 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
   arg.table= t;
 
   old_map= tmp_use_all_columns(t, t->read_set);
-  
+
   /*
     Question: is it correct to fill I_S table each time we use it or should it
     be filled only once?
@@ -1339,7 +1339,7 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
   st->fill_table(thd,&arg,NULL);  // NULL = no select condition
 
   tmp_restore_column_map(t->read_set, old_map);
-  
+
   // undo changes to thd->lex
   thd->lex->wild= wild;
   thd->lex->sql_command= command;

@@ -164,6 +164,7 @@ falcon_headers= Agent.h Alias.h Application.h \
 		StorageParameters.h \
 		StorageTable.h \
 		StorageTableShare.h \
+		StorageVersion.h \
 		Stream.h \
 		StreamSegment.h SymbolManager.h Sync.h SynchronizationObject.h \
 		Synchronize.h \

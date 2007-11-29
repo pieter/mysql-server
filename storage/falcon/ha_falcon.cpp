@@ -2840,6 +2840,45 @@ int NfsPluginHandler::deinitSerialLogInfo(void *p)
 	DBUG_RETURN(0);
 }
 
+//*****************************************************************************
+//
+// Falcon Version Information
+//
+//*****************************************************************************
+
+int NfsPluginHandler::callFalconVersionInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+{
+	InfoTableImpl infoTable(thd, tables, system_charset_info);
+
+	if (storageHandler)
+		storageHandler->getFalconVersionInfo(&infoTable);
+
+	return infoTable.error;
+}
+
+ST_FIELD_INFO falconVersionFieldInfo[]=
+{
+	{"Version",		32, MYSQL_TYPE_STRING,		0, 0, "Version", SKIP_OPEN_TABLE},
+	{"Date",		32, MYSQL_TYPE_STRING,		0, 0, "Date", SKIP_OPEN_TABLE},
+	{0,				0, MYSQL_TYPE_STRING,		0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+int NfsPluginHandler::initFalconVersionInfo(void *p)
+{
+	DBUG_ENTER("initFalconVersionInfo");
+	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
+	schema->fields_info = falconVersionFieldInfo;
+	schema->fill_table = NfsPluginHandler::callFalconVersionInfo;
+
+	DBUG_RETURN(0);
+}
+
+int NfsPluginHandler::deinitFalconVersionInfo(void *p)
+{
+	DBUG_ENTER("deinitFalconVersionInfo");
+	DBUG_RETURN(0);
+}
+
 
 //*****************************************************************************
 //
@@ -3024,6 +3063,7 @@ static st_mysql_information_schema falcon_transaction_summary_info=	{ MYSQL_INFO
 static st_mysql_information_schema falcon_sync_info				=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_serial_log_info		=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_tables				=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
+static st_mysql_information_schema falcon_version				=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 
 mysql_declare_plugin(falcon)
 	{
@@ -3170,6 +3210,21 @@ mysql_declare_plugin(falcon)
 	PLUGIN_LICENSE_GPL,
 	NfsPluginHandler::initDatabaseIO,			/* plugin init */
 	NfsPluginHandler::deinitDatabaseIO,			/* plugin deinit */
+	0x0005,
+	NULL,										/* status variables */
+	NULL,										/* system variables */
+	NULL										/* config options   */
+	},
+
+	{
+	MYSQL_INFORMATION_SCHEMA_PLUGIN,
+	&falcon_version,
+	"FALCON_VERSION",
+	"MySQL AB",
+	"Falcon Database Version Number.",
+	PLUGIN_LICENSE_GPL,
+	NfsPluginHandler::initFalconVersionInfo,			/* plugin init */
+	NfsPluginHandler::deinitFalconVersionInfo,			/* plugin deinit */
 	0x0005,
 	NULL,										/* status variables */
 	NULL,										/* system variables */

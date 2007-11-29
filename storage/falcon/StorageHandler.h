@@ -130,6 +130,7 @@ public:
 	StorageTableShare	*tables[tableHashSize];
 	Connection			*dictionaryConnection;
 	int					mySqlLockSize;
+	virtual void getFalconVersionInfo(InfoTable* infoTable);
 };
 
 #endif

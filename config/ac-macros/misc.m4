@@ -125,8 +125,10 @@ fi
 ])
 
 
-AC_DEFUN([MYSQL_PTHREAD_YIELD],
-[AC_CACHE_CHECK([if pthread_yield takes zero arguments], ac_cv_pthread_yield_zero_arg,
+AC_DEFUN([MYSQL_PTHREAD_YIELD],[
+# Some OSes like Mac OS X have that as a replacement for pthread_yield()
+AC_CHECK_FUNCS(pthread_yield_np, AC_DEFINE([HAVE_PTHREAD_YIELD_NP],[],[Define if you have pthread_yield_np]))
+AC_CACHE_CHECK([if pthread_yield takes zero arguments], ac_cv_pthread_yield_zero_arg,
 [AC_TRY_LINK([#define _GNU_SOURCE
 #include <pthread.h>
 #ifdef __cplusplus
@@ -141,8 +143,7 @@ then
   AC_DEFINE([HAVE_PTHREAD_YIELD_ZERO_ARG], [1],
             [pthread_yield that doesn't take any arguments])
 fi
-]
-[AC_CACHE_CHECK([if pthread_yield takes 1 argument], ac_cv_pthread_yield_one_arg,
+AC_CACHE_CHECK([if pthread_yield takes 1 argument], ac_cv_pthread_yield_one_arg,
 [AC_TRY_LINK([#define _GNU_SOURCE
 #include <pthread.h>
 #ifdef __cplusplus
@@ -159,9 +160,6 @@ then
 fi
 ]
 )
-
-# Some OSes like Mac OS X have that as a replacement for pthread_yield()
-AC_CHECK_FUNC(pthread_yield_np)
 
 #---END:
 

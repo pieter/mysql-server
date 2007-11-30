@@ -2,6 +2,7 @@
 #define BE_NATIVE_H_
 
 #include <backup_engine.h>
+#include "../sql_plugin.h"
 
 namespace backup {
 
@@ -20,7 +21,8 @@ class Native_snapshot: public Snapshot_info
   Native_snapshot(const ::plugin_ref se): m_hton(NULL), m_be(NULL)
   {
     m_hton= plugin_data(se,::handlerton*);
-    se_ver= (*se)->plugin->version;
+
+    se_ver= plugin_decl(se)->version;
 
     DBUG_ASSERT(m_hton);
     DBUG_ASSERT(m_hton->get_backup_engine);

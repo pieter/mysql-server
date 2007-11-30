@@ -28,7 +28,7 @@ struct log_level {
   message corresponding to an error code is done using @c report_error() methods.
  */
 class Logger
-{  
+{
  public:
 
    enum enum_type { BACKUP, RESTORE } m_type;

@@ -22,9 +22,9 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/regex
                     ${CMAKE_SOURCE_DIR}/extra/yassl/include)
 
-SET(BACKUP_SOURCES stream.cc logger.cc string_pool.cc
-               archive.cc meta_backup.cc data_backup.cc
-               sql_backup.cc be_default.cc buffer_iterator.cc
+SET(BACKUP_SOURCES stream.cc logger.cc kernel.cc
+               catalog.cc meta_data.cc data_backup.cc
+               be_default.cc buffer_iterator.cc
                be_snapshot.cc be_thread.cc backup_progress.cc)
 
 IF(NOT SOURCE_SUBLIBS)
@@ -32,5 +32,6 @@ IF(NOT SOURCE_SUBLIBS)
   ADD_LIBRARY(backupstream stream_v1.c stream_v1_transport.c)
 ENDIF(NOT SOURCE_SUBLIBS)
 
+TARGET_LINK_LIBRARIES(backup backupstream)
 ADD_DEPENDENCIES(backup mysys)
 

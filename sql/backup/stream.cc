@@ -1,55 +1,128 @@
 #include "../mysql_priv.h"
 
+#include <backup_stream.h>
 #include "stream.h"
 
-/*
-  TODO
-
-  - blocking of OStream output when data window is allocated.
-  - use my_read instead of read - need to know how to detect EOF.
-  - remove fixed chunk size limit (backup::Window::buf_size)
-  - better file buffering (in case of small data chunks)
- */
-
-
-// Instantiate templates used in backup stream classes
-template class util::IStream< backup::Window >;
-template class util::OStream< backup::Window >;
+const unsigned char backup_magic_bytes[8]=
+{
+  0xE0, // ###.....
+  0xF8, // #####...
+  0x7F, // .#######
+  0x7E, // .######.
+  0x7E, // .######.
+  0x5F, // .#.#####
+  0x0F, // ....####
+  0x03  // ......##
+};
 
 namespace backup {
 
-/************** Window *************************/
+/**
+  Low level write for backup stream library.
 
-Window::Result Window::set_length(const size_t len)
+  Pointer to this function is stored in @c backup_stream::stream structure
+  and then used by other stream library function for physical writing of
+  data.
+*/
+extern "C" int stream_write(void *instance, bstream_blob *buf, bstream_blob)
 {
-  DBUG_ASSERT(!m_blocked);
+  int fd;
+  int res;
 
-  m_end= m_head+len;
+  DBUG_ENTER("backup::IStream::write");
 
-  if (m_end <= last_byte)
-    return stream_result::OK;
+  DBUG_ASSERT(instance);
+  DBUG_ASSERT(buf);
 
-  m_end= last_byte;
-  return out_of_bounds();
+  OStream *s= (OStream*)instance;
+
+  fd= s->m_fd;
+
+  DBUG_ASSERT(fd >= 0);
+
+  if (!buf->begin || buf->begin == buf->end)
+    DBUG_RETURN(BSTREAM_OK);
+
+  DBUG_ASSERT(buf->end);
+
+  size_t howmuch = buf->end - buf->begin;
+
+  res= my_write(fd, buf->begin, howmuch,
+                MY_NABP /* error if not all bytes written */ );
+
+  if (res)
+    DBUG_RETURN(BSTREAM_ERROR);
+
+  s->bytes += howmuch;
+
+  buf->begin= buf->end;
+    DBUG_RETURN(BSTREAM_OK);
 }
 
-Window::Result Window::move(const off_t offset)
+/**
+  Low level read for backup stream library.
+
+  Pointer to this function is stored in @c backup_stream::stream structure
+  and then used by other stream library function for physical reading of
+  data.
+*/
+extern "C" int stream_read(void *instance, bstream_blob *buf, bstream_blob)
 {
-  DBUG_ASSERT(!m_blocked);
+  int fd;
+  size_t howmuch;
 
-  m_head+= offset;
+  DBUG_ENTER("backup::IStream::read");
 
-  if (m_head > m_end)
-    m_end= m_head;
+  DBUG_ASSERT(instance);
+  DBUG_ASSERT(buf);
 
-  if (m_head <= last_byte)
-    return stream_result::OK;
+  IStream *s= (IStream*)instance;
 
-  m_head= m_end= last_byte;
-  return out_of_bounds();
+  fd= s->m_fd;
+
+  DBUG_ASSERT(fd >= 0);
+
+  if (!buf->begin || buf->begin == buf->end)
+    DBUG_RETURN(BSTREAM_OK);
+
+  DBUG_ASSERT(buf->end);
+
+  howmuch= buf->end - buf->begin;
+
+  howmuch= my_read(fd, buf->begin, howmuch, MYF(0));
+
+  /*
+   How to detect EOF when reading bytes with my_read().
+
+   We assume that my_read(fd, buf, count, MYF(0)) behaves as POSIX read:
+
+   - if it returns -1 then error has been detected.
+   - if it returns N>0 then N bytes have been read.
+   - if it returns 0 then there are no more bytes in the stream (EOS reached).
+  */
+
+  if (howmuch == (size_t) -1)
+    DBUG_RETURN(BSTREAM_ERROR);
+
+  if (howmuch == 0)
+    DBUG_RETURN(BSTREAM_EOS);
+
+  s->bytes += howmuch;
+  buf->begin += howmuch;
+  DBUG_RETURN(BSTREAM_OK);
 }
 
-/************** Stream *************************/
+
+Stream::Stream(const ::String &name, int flags):
+  m_fd(-1), m_path(name), m_flags(flags)
+{
+  bzero(&stream, sizeof(stream));
+  bzero(&buf, sizeof(buf));
+  bzero(&mem, sizeof(mem));
+  bzero(&data_buf, sizeof(data_buf));
+  block_size= 0;
+  state= CLOSED;
+}
 
 bool Stream::open()
 {
@@ -73,258 +146,229 @@ bool Stream::rewind()
 }
 
 
-/************** OStream *************************/
-
-/*
-  Implementation of data chunks.
-
-  Data is written to the file in form of data chunks. Each chunk is prefixed with its size stored
-  in 2 bytes (should it be increased to 4?).
-
-
-  OStream instance uses an output buffer of fixed size inherited from Window class. The size of
-  a chunk is limited by the size of this buffer as a whole chunk is stored inside the buffer
-  before writing to the file.
-
-  writing to the file happens when the current chunk is closed with <code>end_chunk()</code>
-  method. At the time of writing the output, buffer contents is as follows:
-
-  ====================== <- m_buf
-  2 bytes for chunk size
-  ====================== <- m_buf+2 (chunk data starts here)
-
-    data written to
-    the chunk
-
-  ---------------------- <- m_head
-
-   current output window
-
-  ====================== <- m_end  (this is end of chunk data)
-
- */
-
-byte* OStream::get_window(const size_t len)
+OStream::OStream(const ::String &name):
+  Stream(name,O_WRONLY|O_CREAT|O_TRUNC), bytes(0)
 {
-  if (m_blocked || m_end+len > last_byte)
-    return NULL;
-
-  m_head= m_end;
-  m_end+= len;
-  m_blocked= TRUE;
-
-  return m_head;
+  stream.write= stream_write;
+  m_block_size=0; // use default block size provided by the backup stram library
 }
 
-void OStream::drop_window()
-{
-  if (m_blocked)
-   m_end= m_head;
+/**
+  Write the magic bytes and format version number at the beginning of a stream.
 
-  m_blocked= FALSE;
+  Stream should be positioned at its beginning.
+
+  @return Number of bytes written or -1 if error.
+*/
+int OStream::write_magic_and_version()
+{
+  byte buf[10];
+
+  DBUG_ASSERT(m_fd >= 0);
+
+  memmove(buf,backup_magic_bytes,8);
+  // format version = 1
+  buf[8]= 0x01;
+  buf[9]= 0x00;
+
+  int ret= my_write(m_fd, buf, 10,
+                    MY_NABP /* error if not all bytes written */ );
+  if (ret)
+    return -1; // error when writing magic bytes
+  else
+    return 10;
 }
 
-OStream::Result
-OStream::write_window(const size_t len)
+/**
+  Open and initialize backup stream for writing.
+
+  @retval TRUE  operation succeeded
+  @retval FALSE operation failed
+
+  @todo Report errors.
+*/
+bool OStream::open()
 {
-  if (m_blocked)
+  close(FALSE);
+
+  bool ret= Stream::open();
+
+  if (!ret)
+    return FALSE;
+
+  // write magic bytes and format version
+  int len= write_magic_and_version();
+
+  if (len <= 0)
   {
-    DBUG_ASSERT(m_head+len<=m_end);
-    m_head+=len;
-    m_end= m_head;
+    // TODO: report errors
+    return FALSE;
   }
 
-  m_blocked= FALSE;
-
-  return stream_result::OK;
+  bytes= 0;
+  ret= BSTREAM_OK == bstream_open_wr(this,m_block_size,len);
+  // TODO: report errors
+  return ret;
 }
 
+/**
+  Close backup stream
 
+  If @c destroy is TRUE, the stream object is deleted.
+*/
 void OStream::close(bool destroy)
 {
   if (m_fd<0)
     return;
 
-  end_chunk();
-
-  // write 0 at the end
-  last_byte=m_buf+2;
-  Window::reset();
-  write2int(0);
-
-  my_write(m_fd,m_buf,2,MYF(0));
-
+  bstream_close(this);
   Stream::close();
 
   if (destroy)
     delete this;
 }
 
-stream_result::value OStream::end_chunk()
+/**
+  Rewind output stream so that it is positioned at its beginning and
+  ready for writing new image.
+
+  @retval TRUE  operation succeeded
+  @retval FALSE operation failed
+*/
+bool OStream::rewind()
 {
-  if (m_blocked)
-    drop_window();
+  bstream_close(this);
 
-  DBUG_ASSERT(m_end >= m_buf+2);
+  bool ret= Stream::rewind();
 
-  size_t len= m_end - m_buf - 2; // length of the chunk
-
-  if (len==0)
-  {
-    Window::reset(2);
-    return stream_result::OK;
-  }
-
-  // store length of chunk in front of the buffer
-  Window::reset();
-  write2int(len);
-
-  bytes+= len;
-
-  len+= 2;  // now len is the number of bytes we want to write
-
-  uint res= my_write(m_fd,m_buf,len,MY_NABP);
-
-  Window::reset(2);
-
-  if (res)
-    return stream_result::ERROR;
-
-  return stream_result::OK;
-}
-
-/************** IStream *************************/
-
-/*
-  Handling of stream data chunks.
-
-  Chunks are read into the input buffer inherited from <code>Window</code> class. It is assumed
-  that a whole chunk will always fit into the buffer (otherwise error is reported).
-
-  When reading a chunk of data, the size of the next chunk is also read-in in the same file access
-  and stored in the <code>next_chunk_len</code> member.
-
-  The input buffer has the following layout:
-
-  =================== <- m_buf (start of input buffer)
-
-   chunk data
-
-  ------------------- <- m_head
-   current input
-      window
-  ------------------- <- m_end
-
-   chunk data
-
-  =================== <- last_byte  (end of chunk data)
-   size of next chunk
-  =================== <- last_byte+2
-
-  The first chunk of data is read into the input buffer when stream is opened. Next chunks are
-  read inside <code>next_chunk()</code> method.
-
- */
-
-// PRE: there is at least one chunk in the stream.
-
-bool IStream::rewind()
-{
-  Stream::rewind();
-  Window::reset();
-  bytes= 0;
-
-  if (my_read(m_fd, m_buf, 2, MYF(0)) < 2)
+  if (!ret)
     return FALSE;
 
-  last_byte= m_head+2;
+  int len= write_magic_and_version();
 
-  read2int(next_chunk_len);
+  if (len <= 0)
+    return FALSE;
 
-  Window::reset();  // ignore the 2 bytes containing chunk length
-  last_byte= m_buf;
+  ret= BSTREAM_OK == bstream_open_wr(this,m_block_size,len);
 
-  return next_chunk() == stream_result::OK;
+  return ret;
 }
 
-stream_result::value IStream::next_chunk()
+
+IStream::IStream(const ::String &name):
+  Stream(name,O_RDONLY), bytes(0)
 {
-  bytes+= (last_byte-m_buf);    // update statistics
-
-  last_byte= m_buf;
-
-  if (next_chunk_len == 0)
-  {
-    Window::reset();
-    return stream_result::EOS;
-  }
-
-  size_t len= next_chunk_len+2;
-
-  long int howmuch= 0;  // POSIX ssize_t not defined on win platform :|
-
-  while (len > 0 && (howmuch= ::read(m_fd,m_buf,len)) > 0)
-    len-= howmuch;
-
-  if (howmuch<0) // error reading file
-  {
-    next_chunk_len= 0;
-    Window::reset();
-    return stream_result::ERROR;
-  }
-
-  if (len == 0)
-  {
-    // read length of next chunk (at the end of the buffer)
-    last_byte+= next_chunk_len+2;
-    Window::reset(next_chunk_len);
-    read2int(next_chunk_len);
-    last_byte-=2;
-  }
-  else
-  {
-    last_byte+= next_chunk_len+2-len;
-    next_chunk_len= 0;
-  }
-
-  Window::reset();
-
-  return howmuch==0 ? stream_result::EOS : stream_result::OK;
+  stream.read= stream_read;
 }
 
-#ifdef DBUG_BACKUP
+/**
+  Check that input stream starts with correct magic bytes and
+  version number.
 
-// Show data chunks in a backup stream;
+  Stream should be positioned at its beginning.
 
-void dump_stream(IStream &s)
+  @return Number of bytes read or -1 if error.
+*/
+int IStream::check_magic_and_version()
 {
-  stream_result::value  res;
-  byte b;
+  byte buf[10];
 
-  DBUG_PRINT("stream",("=========="));
+  DBUG_ASSERT(m_fd >= 0);
 
-  do {
+  int ret= my_read(m_fd, buf, 10,
+                   MY_NABP /* error if not all bytes read */ );
+  if (ret)
+    return -1; // couldn't read magic bytes
 
-    uint chunk_size;
+  if (memcmp(buf,backup_magic_bytes,8))
+    return -1; // wrong magic bytes
 
-    for( chunk_size=0; (res= s.readbyte(b)) == stream_result::OK ; ++chunk_size );
+  unsigned int ver = buf[8] + (buf[9]<<8);
 
-    DBUG_PRINT("stream",(" chunk size= %u",chunk_size));
+  if (ver != 1)
+    return -1; // unsupported format version
 
-    if( res == stream_result::EOC )
-    {
-      DBUG_PRINT("stream",("----------"));
-      res= s.next_chunk();
-    }
-
-  } while ( res == stream_result::OK );
-
-  if (res == stream_result::EOS)
-   DBUG_PRINT("stream",("=========="));
-  else
-   DBUG_PRINT("stream",("== ERROR: %d",(int)res));
+  return 10;
 }
 
-#endif
+/**
+  Open backup stream for reading.
+
+  @retval TRUE  operation succeeded
+  @retval FALSE operation failed
+
+  @todo Report errors.
+*/
+bool IStream::open()
+{
+  close(FALSE);
+
+  bool ret= Stream::open();
+
+  if (!ret)
+    return FALSE;
+
+  int len= check_magic_and_version();
+
+  if (len <= 0)
+  {
+    // TODO: report errors
+    return FALSE;
+  }
+
+  bytes= 0;
+
+  ret= BSTREAM_OK == bstream_open_rd(this,len);
+  // TODO: report errors
+  return ret;
+}
+
+/**
+  Close backup stream
+
+  If @c destroy is TRUE, the stream object is deleted.
+*/
+void IStream::close(bool destroy)
+{
+  if (m_fd<0)
+    return;
+
+  bstream_close(this);
+  Stream::close();
+
+  if (destroy)
+    delete this;
+}
+
+/**
+  Rewind input stream so that it can be read again.
+
+  @retval TRUE  operation succeeded
+  @retval FALSE operation failed
+*/
+bool IStream::rewind()
+{
+  bstream_close(this);
+
+  bool ret= Stream::rewind();
+
+  if (!ret)
+    return FALSE;
+
+  int len= check_magic_and_version();
+
+  if (len < 0)
+    return FALSE;
+
+  ret= BSTREAM_OK == bstream_open_rd(this,len);
+
+  return ret;
+}
+
+/// Move to next chunk in the stream.
+int IStream::next_chunk()
+{
+  return bstream_next_chunk(this);
+}
 
 } // backup namespace

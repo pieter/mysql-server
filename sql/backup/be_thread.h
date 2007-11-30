@@ -2,7 +2,7 @@
 #define _BACKUP_THREAD_H
 
 #include "../mysql_priv.h"
-#include "archive.h"
+#include "catalog.h"
 #include "api_types.h"
 #include "backup_engine.h"
 

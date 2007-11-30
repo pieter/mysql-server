@@ -20,57 +20,59 @@
 noinst_LTLIBRARIES = libbackup.la libbackupstream.la
 
 INCLUDES = \
-	-I$(top_builddir)/include \
-	-I$(top_srcdir)/include \
-	-I$(top_srcdir)/sql \
-	-I$(top_srcdir)/regex
+  -I$(top_builddir)/include \
+  -I$(top_srcdir)/include \
+  -I$(top_srcdir)/sql \
+  -I$(top_srcdir)/regex
 
 libbackup_la_SOURCES = \
-	stream.cc \
-	logger.cc \
-	string_pool.cc \
-	archive.cc \
-	meta_backup.cc \
-	data_backup.cc \
-	sql_backup.cc \
-      be_default.cc \
-      be_snapshot.cc \
-      buffer_iterator.cc \
-      be_thread.cc \
-      backup_progress.cc
+  stream.cc \
+  logger.cc \
+  catalog.cc \
+  kernel.cc \
+  meta_data.cc \
+  data_backup.cc \
+  be_default.cc \
+  be_snapshot.cc \
+  buffer_iterator.cc \
+  be_thread.cc \
+  backup_progress.cc
+
+libbackup_la_LIBADD = libbackupstream.la
 
 libbackupstream_la_SOURCES= \
   stream_v1_transport.c \
   stream_v1.c
 
 noinst_HEADERS = \
-	api_types.h \
-	backup_engine.h \
-	backup_kernel.h \
-    debug.h \
-    error.h \
-    stream.h \
-    backup_aux.h \
-    logger.h \
-    map.h \
-    string_pool.h \
-    archive.h \
-    meta_backup.h \
-      be_default.h \
-      be_snapshot.h \
-      buffer_iterator.h \
-      be_thread.h \
-      backup_progress.h \
-	stream_v1.h \
-	stream_v1_services.h
+  api_types.h \
+  backup_engine.h \
+  backup_kernel.h \
+  backup_stream.h \
+  stream_services.h \
+  debug.h \
+  error.h \
+  stream.h \
+  backup_aux.h \
+  logger.h \
+  catalog.h \
+  meta_data.h \
+  be_native.h \
+  be_default.h \
+  be_snapshot.h \
+  buffer_iterator.h \
+  be_thread.h \
+  backup_progress.h \
+  stream_v1.h \
+  stream_v1_services.h
 
 DEFS = \
-	-DMYSQL_SERVER \
-	-DDEFAULT_MYSQL_HOME="\"$(MYSQLBASEdir)\"" \
-	-DDATADIR="\"$(MYSQLDATAdir)\"" \
-	-DSHAREDIR="\"$(MYSQLSHAREdir)\"" \
-	-DLIBDIR="\"$(MYSQLLIBdir)\"" \
-	@DEFS@
+  -DMYSQL_SERVER \
+  -DDEFAULT_MYSQL_HOME="\"$(MYSQLBASEdir)\"" \
+  -DDATADIR="\"$(MYSQLDATAdir)\"" \
+  -DSHAREDIR="\"$(MYSQLSHAREdir)\"" \
+  -DLIBDIR="\"$(MYSQLLIBdir)\"" \
+  @DEFS@
 
 EXTRA_DIST =	CMakeLists.txt 
 	

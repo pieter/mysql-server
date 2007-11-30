@@ -12,6 +12,8 @@ help_relation
 help_topic
 host
 ndb_binlog_index
+online_backup
+online_backup_progress
 plugin
 proc
 procs_priv
@@ -45,6 +47,8 @@ help_relation
 help_topic
 host
 ndb_binlog_index
+online_backup
+online_backup_progress
 plugin
 proc
 procs_priv
@@ -86,6 +90,8 @@ help_relation
 help_topic
 host
 ndb_binlog_index
+online_backup
+online_backup_progress
 plugin
 proc
 procs_priv

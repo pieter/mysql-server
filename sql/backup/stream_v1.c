@@ -1796,10 +1796,10 @@ int bstream_wr_int4(backup_stream *s, unsigned long int x)
   byte buf[4];
   blob b= {buf, buf+4};
 
-  buf[0]= x & 0xFF; x >>= 8;
-  buf[1]= x & 0xFF; x >>= 8;
-  buf[2]= x & 0xFF; x >>= 8;
-  buf[3]= x & 0xFF; x >>= 8;
+  buf[0]= (byte) (x & 0xFF); x >>= 8;
+  buf[1]= (byte) (x & 0xFF); x >>= 8;
+  buf[2]= (byte) (x & 0xFF); x >>= 8;
+  buf[3]= (byte) (x & 0xFF); x >>= 8;
 
   return bstream_write_blob(s,b);
 }
@@ -1841,9 +1841,11 @@ int bstream_rd_int4(backup_stream *s, unsigned long int *x)
 int bstream_wr_num(backup_stream *s, unsigned long int x)
 {
   int ret= BSTREAM_OK;
+  byte b;
 
   do {
-    CHECK_WR_RES(bstream_wr_byte(s, (x & 0x7F) | ( x>0x7F ? 0x80: 0)));
+    b= (byte) (x & 0x7F);
+    CHECK_WR_RES(bstream_wr_byte(s, b | ( x>0x7F ? 0x80: 0)));
     x >>= 7;
   } while (x);
 
@@ -1963,12 +1965,12 @@ int bstream_wr_time(backup_stream *s, bstream_time_t *time)
   byte buf[6];
   blob b= {buf, buf+6};
 
-  buf[0]= (time->year>>4) & 0xFF;
-  buf[1]= ((time->year<<4) & 0xF0) | (time->mon &0x0F);
-  buf[2]= time->mday;
-  buf[3]= time->hour;
-  buf[4]= time->min;
-  buf[5]= time->sec;
+  buf[0]= ((byte)(time->year>>4) & 0xFF);
+  buf[1]= (((byte)(time->year<<4) & 0xF0) | ((byte)(time->mon &0x0F)));
+  buf[2]= (byte)(time->mday);
+  buf[3]= (byte)(time->hour);
+  buf[4]= (byte)(time->min);
+  buf[5]= (byte)(time->sec);
 
   return bstream_write_blob(s,b);
 }

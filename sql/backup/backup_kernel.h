@@ -160,7 +160,7 @@ class Backup_info: public Image_info, public Logger
   {
     binlog_file_name= li.log_file_name;
     binlog_file_name.copy();
-    binlog_pos.pos= li.pos;
+    binlog_pos.pos= (unsigned long int)li.pos;
     binlog_pos.file= binlog_file_name.c_ptr();
   }
 

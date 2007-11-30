@@ -338,7 +338,7 @@ void reset_output_buffer(backup_stream *s)
   {
     for(i=0; i<4; ++i)
     {
-      *(s->buf.pos++)= block_size & 0xFF;
+      *(s->buf.pos++)= (byte) (block_size & 0xFF);
       block_size >>= 8;
     }
 
@@ -355,7 +355,8 @@ void reset_output_buffer(backup_stream *s)
 
   if (s->state == FIRST_BLOCK)
   {
-    *(s->buf.pos++)= s->init_block_count;
+    ASSERT(s->init_block_count < 0xFF);
+    *(s->buf.pos++)= (byte) (s->init_block_count);
   }
 
   s->buf.header= s->buf.pos;

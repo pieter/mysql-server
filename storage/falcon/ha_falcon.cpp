@@ -362,6 +362,9 @@ StorageInterface::StorageInterface(handlerton *hton, st_table_share *table_arg)
 
 StorageInterface::~StorageInterface(void)
 {
+	if (storageTable)
+		storageTable->clearTruncateLock();
+
 	if (activeBlobs)
 		freeActiveBlobs();
 

@@ -1482,7 +1482,8 @@ void SerialLog::updateSectionUseVector(uint sectionId, int tableSpaceId, int del
 	if (sectionId >= info->sectionUseVector.length)
 		info->sectionUseVector.extend(sectionId + 10);
 	
-	info->sectionUseVector.vector[sectionId] += delta;
+	//info->sectionUseVector.vector[sectionId] += delta;
+	INTERLOCKED_ADD(info->sectionUseVector.vector + sectionId, delta);
 }
 
 void SerialLog::updateIndexUseVector(uint indexId, int tableSpaceId, int delta)

@@ -1462,6 +1462,8 @@ void Table::drop(Transaction *transaction)
 
 void Table::truncate(Transaction *transaction)
 {
+	Sync sync(&syncObject, "Table::truncate");
+	sync.lock(Exclusive);
 	Transaction *sysTransaction = database->getSystemTransaction();
 	
 	// Delete data and blob sections
@@ -1504,6 +1506,7 @@ void Table::truncate(Transaction *transaction)
 	debugThawedRecords = 0;
 	debugThawedBytes = 0;
 	alterIsActive = false;
+	database->commitSystemTransaction();
 }
 
 void Table::checkNullable(Record * record)

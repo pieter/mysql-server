@@ -104,7 +104,6 @@ public:
 	virtual int		optimize(void);
 	virtual void	setLocalTable(StorageInterface* handler);
 
-	SyncObject			*syncTruncate;
 	JString				name;
 	StorageTable		*collision;
 	StorageConnection	*storageConnection;

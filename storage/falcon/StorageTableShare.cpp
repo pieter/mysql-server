@@ -60,9 +60,13 @@ StorageTableShare::StorageTableShare(StorageHandler *handler, const char * path,
 	table = NULL;
 	indexes = NULL;
 	syncObject = new SyncObject;
+	syncObject->setName("StorageTableShare::syncObject");
 	sequence = NULL;
 	tempTable = tempTbl;
 	setPath(path);
+	syncTruncate = new SyncObject;
+	syncTruncate->setName("StorageTableShare::syncTruncate");
+	truncateLockCount = 0;
 	
 	if (tempTable)
 		tableSpace = TEMPORARY_TABLESPACE;
@@ -74,7 +78,11 @@ StorageTableShare::StorageTableShare(StorageHandler *handler, const char * path,
 
 StorageTableShare::~StorageTableShare(void)
 {
+	while (truncateLockCount > 0)
+		clearTruncateLock();
+
 	delete syncObject;
+	delete syncTruncate;
 	delete [] impure;
 	
 	if (storageDatabase)
@@ -506,4 +514,19 @@ JString StorageTableShare::lookupPathName(void)
 	connection->commit();
 	
 	return path;
+}
+
+void StorageTableShare::setTruncateLock(void)
+{
+	++truncateLockCount;
+	syncTruncate->lock(NULL, Shared);
+}
+
+void StorageTableShare::clearTruncateLock(void)
+{
+	if (truncateLockCount > 0)
+		{
+		--truncateLockCount;
+		syncTruncate->unlock();
+		}
 }

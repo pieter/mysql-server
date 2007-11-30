@@ -49,14 +49,14 @@ public:
 			
 		T *oldVector = vector;
 		vector = new T[newLength];
-		memcpy(vector, oldVector, length * sizeof(T));
-		memset(vector + length, 0, (newLength - length) * sizeof(T));
+		memcpy((void*) vector, (void*) oldVector, length * sizeof(T));
+		memset((void*) (vector + length), 0, (newLength - length) * sizeof(T));
 		length = newLength;
 		};
 	
 	void zap ()
 		{
-		memset(vector, 0, length * sizeof(T));
+		memset((void*) vector, 0, length * sizeof(T));
 		};
 	
 	T get (uint index)

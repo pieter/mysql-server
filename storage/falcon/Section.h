@@ -46,21 +46,21 @@ public:
 	Section(Dbb *dbb, int32 id, TransId transId);
 	virtual ~Section();
 
-	void	reInsertStub(int32 recordNumber, TransId transId);
-	void	markFull (bool isFull, int sequence, TransId transId);
-	void	expungeRecord (int32 recordNumber);
-	void	analyze (SectionAnalysis *analysis, int pageNumber);
-	int		storeTail (Stream *stream, int maxLength, int *pLength, TransId transId, bool earlyWrite);
-	int32	findNextRecord (int32 startingRecord, Stream *stream);
-	int32	findNextRecord (int32 pageNumber, int32 startingRecord, Stream *stream);
-	bool	fetchRecord (int32 recordNumber, Stream *stream, TransId transId);
-	void	storeRecord (RecordLocatorPage *recordLocatorPage, int32 indexPageNumber, RecordIndex *index, Stream *stream, TransId transId, bool earlyWrite);
-	int		deleteLine (Bdb *bdb, int line, int32 sectionPageNumber, TransId transId, RecordLocatorPage *locatorPage, int locatorLine);
-	void	updateRecord (int32 recordId, Stream *stream, TransId transId, bool earlyWrite);
-	int32	insertStub (TransId transId);
-	int32	getSectionRoot();
-	Bdb*	getSectionPage(int sequence, LockType lockType, TransId transId);
-	Bdb*	fetchLocatorPage (int32 root, int32 recordNumber, LockType lockType, TransId transId);
+	void		reInsertStub(int32 recordNumber, TransId transId);
+	void		markFull (bool isFull, int sequence, TransId transId);
+	void		expungeRecord (int32 recordNumber);
+	void		analyze (SectionAnalysis *analysis, int pageNumber);
+	int			storeTail (Stream *stream, int maxLength, int *pLength, TransId transId, bool earlyWrite);
+	int32		findNextRecord (int32 startingRecord, Stream *stream);
+	int32		findNextRecord (int32 pageNumber, int32 startingRecord, Stream *stream);
+	bool		fetchRecord (int32 recordNumber, Stream *stream, TransId transId);
+	void		storeRecord (RecordLocatorPage *recordLocatorPage, int32 indexPageNumber, RecordIndex *index, Stream *stream, TransId transId, bool earlyWrite);
+	int			deleteLine (Bdb *bdb, int line, int32 sectionPageNumber, TransId transId, RecordLocatorPage *locatorPage, int locatorLine);
+	void		updateRecord (int32 recordId, Stream *stream, TransId transId, bool earlyWrite);
+	int32		insertStub (TransId transId);
+	int32		getSectionRoot();
+	Bdb*		getSectionPage(int sequence, LockType lockType, TransId transId);
+	Bdb*		fetchLocatorPage (int32 root, int32 recordNumber, LockType lockType, TransId transId);
 
 	static void		redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber, int pageLength, const UCHAR* pageData, int32 newPageNumber);
 	void			redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostFlush);

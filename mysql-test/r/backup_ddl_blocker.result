@@ -51,12 +51,8 @@ con2: Completing DDL
 con3: Completing DDL
 con4: Completing DDL
 con5: Completing DDL
-Backup Summary
- header     =       36 bytes
- meta-data  =      316 bytes
- data       =      162 bytes
-              --------------
- total             514 bytes
+backup_id
+#
 
 Verifying Test 1 results for backup.
 
@@ -80,12 +76,8 @@ DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t2,
 bup_ddl_blocker.t3, bup_ddl_blocker.t4;
 con1: Restoring the database
 RESTORE FROM "bup_ddl_blocker.bak";
-Restore Summary
- header     =       36 bytes
- meta-data  =      316 bytes
- data       =      162 bytes
-              --------------
- total             514 bytes
+backup_id
+#
 con1: Showing columns that were backed up
 con1: Table t3 should not be in restored data.
 con1: Table t4 should not have new column in restored data.
@@ -126,12 +118,8 @@ INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
 INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
 DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t3;
 BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
-Backup Summary
- header     =       29 bytes
- meta-data  =      190 bytes
- data       =      162 bytes
-              --------------
- total             381 bytes
+backup_id
+#
 con6: Getting lock on DDL in progress.
 SELECT get_lock("DDL_in_progress", 0);
 get_lock("DDL_in_progress", 0)
@@ -160,12 +148,8 @@ con2: Completing DDL
 con3: Completing DDL
 con4: Completing DDL
 con5: Completing DDL
-Restore Summary
- header     =       29 bytes
- meta-data  =      190 bytes
- data       =      162 bytes
-              --------------
- total             381 bytes
+backup_id
+#
 
 Verifying Test 1 results for restore.
 
@@ -240,12 +224,8 @@ con4: Completing DDL
 con5: Completing DDL
 Table	Op	Msg_type	Msg_text
 bup_ddl_blocker.t4	repair	status	OK
-Backup Summary
- header     =       41 bytes
- meta-data  =      379 bytes
- data       =      324 bytes
-              --------------
- total             744 bytes
+backup_id
+#
 
 Verifying Test 2 results for backup.
 
@@ -262,12 +242,8 @@ DROP TABLE bup_ddl_blocker.t01, bup_ddl_blocker.t2,
 bup_ddl_blocker.t03, bup_ddl_blocker.t4;
 con1: Restoring the database
 RESTORE FROM "bup_ddl_blocker.bak";
-Restore Summary
- header     =       41 bytes
- meta-data  =      379 bytes
- data       =      324 bytes
-              --------------
- total             744 bytes
+backup_id
+#
 con1: Showing columns that were backed up
 con1: Table t01 should be in restore
 con1: Table t03 should not be in restore
@@ -302,12 +278,8 @@ INSERT INTO bup_ddl_blocker.t4 VALUES ("01 Some data to test");
 INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
 INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
 BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
-Backup Summary
- header     =       40 bytes
- meta-data  =      378 bytes
- data       =      324 bytes
-              --------------
- total             742 bytes
+backup_id
+#
 con6: Getting lock on DDL in progress.
 SELECT get_lock("DDL_in_progress", 0);
 get_lock("DDL_in_progress", 0)
@@ -340,12 +312,8 @@ con4: Completing DDL
 con5: Completing DDL
 Table	Op	Msg_type	Msg_text
 bup_ddl_blocker.t4	repair	status	OK
-Restore Summary
- header     =       40 bytes
- meta-data  =      378 bytes
- data       =      324 bytes
-              --------------
- total             742 bytes
+backup_id
+#
 
 Verifying Test 2 results for restore.
 
@@ -412,12 +380,8 @@ con4: Completing DDL
 Table	Op	Msg_type	Msg_text
 bup_ddl_blocker.t3	optimize	status	OK
 con5: Completing DDL
-Backup Summary
- header     =       36 bytes
- meta-data  =      284 bytes
- data       =      243 bytes
-              --------------
- total             563 bytes
+backup_id
+#
 
 Verifying Test 3 results for backup.
 
@@ -431,12 +395,8 @@ con1: Dropping the database tables
 DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t3;
 con1: Restoring the database
 RESTORE FROM "bup_ddl_blocker.bak";
-Restore Summary
- header     =       36 bytes
- meta-data  =      284 bytes
- data       =      243 bytes
-              --------------
- total             563 bytes
+backup_id
+#
 con1: Showing columns that were backed up
 con1: Table t2 should not be in restore
 use bup_ddl_blocker;
@@ -469,12 +429,8 @@ INSERT INTO bup_ddl_blocker.t4 VALUES ("01 Some data to test");
 INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
 INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
 BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
-Backup Summary
- header     =       40 bytes
- meta-data  =      378 bytes
- data       =      324 bytes
-              --------------
- total             742 bytes
+backup_id
+#
 con6: Getting lock on DDL in progress.
 SELECT get_lock("DDL_in_progress", 0);
 get_lock("DDL_in_progress", 0)
@@ -507,12 +463,8 @@ con4: Completing DDL
 Table	Op	Msg_type	Msg_text
 bup_ddl_blocker.t3	optimize	status	OK
 con5: Completing DDL
-Restore Summary
- header     =       40 bytes
- meta-data  =      378 bytes
- data       =      324 bytes
-              --------------
- total             742 bytes
+backup_id
+#
 
 Verifying Test 3 results for restore.
 
@@ -576,12 +528,8 @@ con2: Completing DDL
 con3: Completing DDL
 con4: Completing DDL
 con5: Completing DDL
-Backup Summary
- header     =       81 bytes
- meta-data  =      384 bytes
- data       =      324 bytes
-              --------------
- total             789 bytes
+backup_id
+#
 
 Verifying Test 4 results for backup.
 
@@ -596,12 +544,8 @@ DROP DATABASE bup_ddl_blocker_1;
 DROP DATABASE bup_ddl_blocker_3;
 con1: Restoring the database
 RESTORE FROM "bup_ddl_blocker.bak";
-Restore Summary
- header     =       81 bytes
- meta-data  =      384 bytes
- data       =      324 bytes
-              --------------
- total             789 bytes
+backup_id
+#
 con1: Showing databases that were backed up
 con1: bup_ddl_blocker_2 and bup_ddl_blocker_3 are not present
 SHOW DATABASES LIKE 'bup_ddl_blocker_%';
@@ -637,12 +581,8 @@ Database (bup_ddl_blocker_%)
 bup_ddl_blocker_2
 bup_ddl_blocker_4
 BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4 to 'bup_ddl_blocker_orig.bak';
-Backup Summary
- header     =       52 bytes
- meta-data  =      192 bytes
- data       =      162 bytes
-              --------------
- total             406 bytes
+backup_id
+#
 con6: Getting lock on DDL in progress.
 SELECT get_lock("DDL_in_progress", 0);
 get_lock("DDL_in_progress", 0)
@@ -671,12 +611,8 @@ con2: Completing DDL
 con3: Completing DDL
 con4: Completing DDL
 con5: Completing DDL
-Restore Summary
- header     =       52 bytes
- meta-data  =      192 bytes
- data       =      162 bytes
-              --------------
- total             406 bytes
+backup_id
+#
 
 Verifying Test 4 results for restore.
 
@@ -739,12 +675,8 @@ con2: Completing DDL
 con3: Completing DDL
 con4: Completing DDL
 con5: Completing DDL
-Backup Summary
- header     =       85 bytes
- meta-data  =      478 bytes
- data       =      324 bytes
-              --------------
- total             887 bytes
+backup_id
+#
 
 Verifying Test 5 results for backup.
 
@@ -772,12 +704,8 @@ DROP DATABASE bup_ddl_blocker_2;
 DROP DATABASE bup_ddl_blocker_4;
 con1: Restoring the database
 RESTORE FROM "bup_ddl_blocker.bak";
-Restore Summary
- header     =       85 bytes
- meta-data  =      478 bytes
- data       =      324 bytes
-              --------------
- total             887 bytes
+backup_id
+#
 con1: Showing databases that were backed up
 con1: bup_ddl_blocker_1 has been renamed and
 con1: bup_ddl_blocker_2.t1 has been truncated.
@@ -828,14 +756,9 @@ SHOW DATABASES LIKE 'bup_ddl_blocker_%';
 Database (bup_ddl_blocker_%)
 bup_ddl_blocker_2
 bup_ddl_blocker_4
-BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4
-to 'bup_ddl_blocker_orig.bak';
-Backup Summary
- header     =       52 bytes
- meta-data  =      192 bytes
- data       =      162 bytes
-              --------------
- total             406 bytes
+BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4 to 'bup_ddl_blocker_orig.bak';
+backup_id
+#
 con6: Getting lock on DDL in progress.
 SELECT get_lock("DDL_in_progress", 0);
 get_lock("DDL_in_progress", 0)
@@ -864,12 +787,8 @@ con2: Completing DDL
 con3: Completing DDL
 con4: Completing DDL
 con5: Completing DDL
-Restore Summary
- header     =       52 bytes
- meta-data  =      192 bytes
- data       =      162 bytes
-              --------------
- total             406 bytes
+backup_id
+#
 
 Verifying Test 5 results for restore.
 

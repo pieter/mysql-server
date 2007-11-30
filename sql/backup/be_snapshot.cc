@@ -66,8 +66,7 @@ using namespace backup;
  *
  * @retval Error code or backup::OK on success.
  */
-result_t Engine::get_backup(const uint32, const Table_list &tables, Backup_driver*
-&drv)
+result_t Engine::get_backup(const uint32, const Table_list &tables, Backup_driver* &drv)
 {
   DBUG_ENTER("Engine::get_backup");
   Backup *ptr= new snapshot_backup::Backup(tables, m_thd);
@@ -85,12 +84,13 @@ result_t Backup::lock()
     any other command type places the engine in a non-consistent read
     state. 
   */
-  m_thd->lex->sql_command= SQLCOM_SELECT; 
-  m_thd->lex->start_transaction_opt|= MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT;
-  int res= begin_trans(m_thd);
+  locking_thd->m_thd->lex->sql_command= SQLCOM_SELECT; 
+  locking_thd->m_thd->lex->start_transaction_opt|=
+    MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT;
+  int res= begin_trans(locking_thd->m_thd);
   if (res)
     DBUG_RETURN(ERROR);
-  lock_state= LOCK_ACQUIRED;
+  locking_thd->lock_state= LOCK_ACQUIRED;
   BACKUP_BREAKPOINT("backup_cs_locked");
   DBUG_RETURN(OK);
 }
@@ -99,13 +99,13 @@ result_t Backup::get_data(Buffer &buf)
 {
   result_t res;
 
-  if (!tables_open && (lock_state == LOCK_ACQUIRED))
+  if (!tables_open && (locking_thd->lock_state == LOCK_ACQUIRED))
   {
     BACKUP_BREAKPOINT("backup_cs_open_tables");
-    open_and_lock_tables(m_thd, tables_in_backup);
+    open_and_lock_tables(locking_thd->m_thd, locking_thd->tables_in_backup);
     tables_open= TRUE;
   }
-  if (lock_state == LOCK_ACQUIRED)
+  if (locking_thd->lock_state == LOCK_ACQUIRED)
     BACKUP_BREAKPOINT("backup_cs_reading");
 
   res= default_backup::Backup::get_data(buf);
@@ -116,11 +116,11 @@ result_t Backup::get_data(Buffer &buf)
     being set to LOCK_SIGNAL from parent::get_data(). This is set
     after the last table is finished reading.
   */
-  if (lock_state == LOCK_SIGNAL)
+  if (locking_thd->lock_state == LOCK_SIGNAL)
   {
-    lock_state= LOCK_DONE;     // set lock done so destructor won't wait
-    end_active_trans(m_thd);
-    close_thread_tables(m_thd);
+    locking_thd->lock_state= LOCK_DONE; // set lock done so destructor won't wait
+    end_active_trans(locking_thd->m_thd);
+    close_thread_tables(locking_thd->m_thd);
   }
   return(res);
 }

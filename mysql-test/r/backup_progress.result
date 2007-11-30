@@ -1,0 +1,157 @@
+DROP DATABASE IF EXISTS backup_progress;
+DROP TABLE IF EXISTS backup_progress.t1_res;
+CREATE DATABASE backup_progress;
+con1: Create table and new users.
+CREATE TABLE backup_progress.t1 (a char(30)) ENGINE=MYISAM;
+CREATE TABLE backup_progress.t2 (a char(30)) ENGINE=INNODB;
+CREATE TABLE backup_progress.t3 (a char(30)) ENGINE=MEMORY;
+CREATE TABLE backup_progress.t1_res (id INT);
+INSERT INTO backup_progress.t1 VALUES ("01 Test #1 - progress");
+INSERT INTO backup_progress.t1 VALUES ("02 Test #1 - progress");
+INSERT INTO backup_progress.t1 VALUES ("03 Test #1 - progress");
+INSERT INTO backup_progress.t1 VALUES ("04 Test #1 - progress");
+INSERT INTO backup_progress.t1 VALUES ("05 Test #1 - progress");
+INSERT INTO backup_progress.t1 VALUES ("06 Test #1 - progress");
+INSERT INTO backup_progress.t1 VALUES ("07 Test #1 - progress");
+INSERT INTO backup_progress.t2 VALUES ("01 Test #1 - progress");
+INSERT INTO backup_progress.t2 VALUES ("02 Test #1 - progress");
+INSERT INTO backup_progress.t2 VALUES ("03 Test #1 - progress");
+INSERT INTO backup_progress.t2 VALUES ("04 Test #1 - progress");
+INSERT INTO backup_progress.t2 VALUES ("05 Test #1 - progress");
+INSERT INTO backup_progress.t2 VALUES ("06 Test #1 - progress");
+INSERT INTO backup_progress.t3 VALUES ("01 Test #1 - progress");
+INSERT INTO backup_progress.t3 VALUES ("02 Test #1 - progress");
+INSERT INTO backup_progress.t3 VALUES ("03 Test #1 - progress");
+INSERT INTO backup_progress.t3 VALUES ("04 Test #1 - progress");
+Do backup of database
+SELECT get_lock("bp_starting_state", 0);
+get_lock("bp_starting_state", 0)
+1
+con2: Send backup command.
+BACKUP DATABASE backup_progress to 'backup_progress_orig.bak';
+con1: Checking locks.
+con1: Checking progress.
+INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "BACKUP DATABASE backup_progress%";
+SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
+backup_state
+starting
+con1: Advance the lock.
+SELECT get_lock("bp_running_state", 0);
+get_lock("bp_running_state", 0)
+1
+con1: Checking locks.
+con1: Checking progress.
+SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
+backup_state
+running
+con1: Advance the lock.
+SELECT get_lock("bp_vp_state", 0);
+get_lock("bp_vp_state", 0)
+1
+con1: Checking locks.
+con1: Checking progress.
+SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
+backup_state
+validity point
+con1: Advance the lock.
+SELECT get_lock("bp_running_state", 0);
+get_lock("bp_running_state", 0)
+1
+con1: Checking locks.
+con1: Checking progress.
+SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
+backup_state
+running
+con1: Advance the lock.
+SELECT release_lock("bp_running_state");
+release_lock("bp_running_state")
+1
+con2: Finish backup command
+backup_id
+#
+SELECT ob.* FROM mysql.online_backup AS ob JOIN backup_progress.t1_res AS t1 ON ob.backup_id = t1.id;;
+backup_id	#
+process_id	#
+binlog_pos	#
+binlog_file	#
+backup_state	complete
+operation	backup
+error_num	0
+num_objects	4
+total_bytes	896
+validity_point_time	#
+start_time	#
+stop_time	#
+host_or_server_name	localhost
+username	root
+backup_file	backup_progress_orig.bak
+user_comment	
+command	BACKUP DATABASE backup_progress to 'backup_progress_orig.bak'
+engines	Default, Snapshot
+SELECT obp.* FROM mysql.online_backup_progress AS obp JOIN backup_progress.t1_res AS t1 ON obp.backup_id = t1.id;
+backup_id	object	start_time	stop_time	total_bytes	progress	error_num	notes
+#	backup kernel	#	#	0	0	0	starting
+#	backup kernel	#	#	0	0	0	running
+#	backup kernel	#	#	0	0	0	validity point
+#	backup kernel	#	#	0	0	0	running
+#	backup kernel	#	#	0	0	0	complete
+Do restore of database
+SELECT get_lock("bp_starting_state", 0);
+get_lock("bp_starting_state", 0)
+1
+DELETE FROM backup_progress.t1_res;
+con2: Send restore command.
+RESTORE FROM 'backup_progress_orig.bak';
+con1: Checking locks.
+con1: Checking progress.
+select * from backup_progress.t1_res;
+id
+INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM 'backup_progress_orig.bak'%";
+SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
+backup_state
+starting
+con1: Advance the lock.
+SELECT get_lock("bp_running_state", 0);
+get_lock("bp_running_state", 0)
+1
+con1: Checking locks.
+con1: Checking progress.
+SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
+backup_state
+running
+con1: Advance the lock.
+SELECT release_lock("bp_running_state");
+release_lock("bp_running_state")
+1
+con2: Finish restore command
+backup_id
+#
+DELETE FROM backup_progress.t1_res;
+INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM 'backup_progress_orig.bak'%";
+SELECT ob.* FROM mysql.online_backup AS ob JOIN backup_progress.t1_res AS t1 ON ob.backup_id = t1.id;;
+backup_id	#
+process_id	#
+binlog_pos	#
+binlog_file	#
+backup_state	complete
+operation	restore
+error_num	0
+num_objects	4
+total_bytes	896
+validity_point_time	#
+start_time	#
+stop_time	#
+host_or_server_name	localhost
+username	root
+backup_file	backup_progress_orig.bak
+user_comment	
+command	RESTORE FROM 'backup_progress_orig.bak'
+engines	Default, Snapshot
+SELECT obp.* FROM mysql.online_backup_progress AS obp JOIN backup_progress.t1_res AS t1 ON obp.backup_id = t1.id;
+backup_id	object	start_time	stop_time	total_bytes	progress	error_num	notes
+#	backup kernel	#	#	0	0	0	starting
+#	backup kernel	#	#	0	0	0	running
+#	backup kernel	#	#	0	0	0	complete
+BACKUP DATABASE DOES_NOT_EXIST to 'backup_progress_orig.bak';
+ERROR 42000: Unknown database 'DOES_NOT_EXIST'
+DROP DATABASE backup_progress;

@@ -73,7 +73,8 @@ namespace backup {
   text string that must be unique among the breakpoints. It is used in 
   the macro as a means of tagging the code for pausing and resuming
   execution. Once the code is compiled, you can use a client connection
-  to set and release the breakpoint.
+  to set and release the breakpoint. Be sure to use a separate connection
+  for getting, checking, and releasing locks. 
 
   <b><c>BACKUP_BREAKPOINT("<breakpoint_name>");</c></b>
   
@@ -241,6 +242,12 @@ namespace backup {
   - When adding breakpoints, you must add a list item for each breakpoint
   to the documentation for breakpoints. See the code for the macro
   definition in @ref debug.h for details.
+  - You must use a dedicated connection for getting and releasing locks. Do
+  not issue a get_lock() or release_lock() in the same connection (thread) as
+  code that calls BACKUP_BREAKPOINT(). Using the same connection to get/release
+  locks and run code that issues BACKUP_BREAKPOINTs will result in an
+  assertion using DEBUG_ASSERT(thd->ull == NULL) from debug_sync_point() in
+  item_func.cc.
 
  */
 

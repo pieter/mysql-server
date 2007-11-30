@@ -83,6 +83,7 @@ class Archive_info
    struct tm start_time;              ///< the start datetime of the backup
    struct tm end_time;                ///< the end datetime of the backup
    struct tm vp_time;                 ///< time of validation point
+   ulonglong backup_prog_id;          ///< the backup_id for reporting progress
 
    // Classes representing various types of meta-data items.
 

@@ -193,6 +193,9 @@ class Restore: public Restore_driver
     int blob_ptr_index;            ///< Position in blob pointer list
     THD *m_thd;                    ///< Pointer to current thread struct.
     TABLE_LIST *all_tables;        ///< Reference to list of tables used.
+    my_time_t table_access_start;  ///< Start of current table access
+    my_time_t table_access_stop;   ///< End of current table access
+    ulonglong num_rows;            ///< Number of rows in table
 
     uint unpack(byte *packed_row);
 };

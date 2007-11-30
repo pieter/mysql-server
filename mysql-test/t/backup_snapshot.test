@@ -17,6 +17,14 @@
 #
 # The following tests test these conditions.
 #
+# Notes
+#   You must use a dedicated connection for getting and releasing locks.
+# Do not issue a get_lock() or release_lock() in the same connection
+# (thread) as code that calls BACKUP_BREAKPOINT(). Using the same connection
+# to get/release locks and run code that issues BACKUP_BREAKPOINTs will result
+# in an assertion using DEBUG_ASSERT(thd->ull == NULL) from debug_sync_point()
+# in item_func.cc.
+#
 
 --source include/have_innodb.inc
 --source include/have_debug.inc
@@ -110,7 +118,7 @@ let $wait_condition = SELECT count(*) = 1
 SELECT release_lock("backup_cs_locked");
 
 connection con1;
-
+--replace_column 1 #
 reap;
 
 connection con2;
@@ -133,6 +141,7 @@ connection con1;
 DROP TABLE bup_snapshot.t1;
 
 --echo con1: Restoring the database
+--replace_column 1 #
 RESTORE FROM "bup_snapshot.bak";
 
 --echo con1: Showing the data (no new data should be here).
@@ -200,7 +209,7 @@ SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
 SELECT COUNT(*) FROM bup_snapshot.t1;
 
 connection con1;
-
+--replace_column 1 #
 reap;
 
 # Now restore the database and then check to make sure the new rows
@@ -210,6 +219,7 @@ reap;
 DROP TABLE bup_snapshot.t1;
 
 --echo con1: Restoring the database
+--replace_column 1 #
 RESTORE FROM "bup_snapshot.bak";
 
 --echo con1: Showing the data (no new data should be here).

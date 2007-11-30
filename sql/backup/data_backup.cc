@@ -1,4 +1,5 @@
 #include "../mysql_priv.h"
+#include "backup_progress.h"
 
 /**
   @file
@@ -511,6 +512,11 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
       continue;
 
     Scheduler::Pump *p= new Scheduler::Pump(no,*i,s);
+    
+    /*
+      Record the backup id and name for this driver.
+    */
+    report_ob_engines(info.backup_prog_id, p->m_name);
 
     if (!p || !p->is_valid())
     {
@@ -623,6 +629,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
     // VP creation
     DBUG_PRINT("backup/data",("-- SYNC PHASE --"));
 
+    report_ob_state(info.backup_prog_id, BUP_VALIDITY_POINT);
     /*
       Block commits.
 
@@ -671,6 +678,20 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
     error= unblock_commits(thd);
     if (error)
       goto error;
+
+    /*
+      This breakpoint is used to assist in testing state changes for
+      the backup progress. It is not to be used to indicate actual
+      timing of the validity point.
+    */
+    BACKUP_BREAKPOINT("bp_vp_state");
+    report_ob_vp_time(info.backup_prog_id, (my_time_t)skr);
+    report_ob_state(info.backup_prog_id, BUP_RUNNING);
+    BACKUP_BREAKPOINT("bp_running_state");
+
+    if (mysql_bin_log.is_open())
+      report_ob_binlog_info(info.backup_prog_id, (int)info.binlog_information.position,
+                            info.binlog_information.binlog_file_name);
 
     // get final data from drivers
     DBUG_PRINT("backup/data",("-- FINISH PHASE --"));
@@ -1429,6 +1450,11 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
         (img->type() == Image_info::SNAPSHOT_IMAGE))
       get_default_snapshot_tables(NULL, (default_backup::Restore *)drv[no], 
                                   &table_list, &table_list_last);
+
+    /*
+      Record the name for this driver.
+    */
+    report_ob_engines(info.backup_prog_id, img->name());
   }
 
   {

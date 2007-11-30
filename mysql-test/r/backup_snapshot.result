@@ -36,12 +36,8 @@ con3: Release lock on driver.
 SELECT release_lock("backup_cs_locked");
 release_lock("backup_cs_locked")
 1
-Backup Summary
- header     =       29 bytes
- meta-data  =      184 bytes
- data       =      320 bytes
-              --------------
- total             533 bytes
+backup_id
+#
 INSERT INTO bup_snapshot.t1 VALUES("- Yes");
 INSERT INTO bup_snapshot.t1 VALUES("- Jethro Tull");
 DELETE FROM bup_snapshot.t1 WHERE word LIKE '10%';
@@ -58,12 +54,8 @@ con1: Dropping the database
 DROP TABLE bup_snapshot.t1;
 con1: Restoring the database
 RESTORE FROM "bup_snapshot.bak";
-Restore Summary
- header     =       29 bytes
- meta-data  =      184 bytes
- data       =      320 bytes
-              --------------
- total             533 bytes
+backup_id
+#
 con1: Showing the data (no new data should be here).
 SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
 word
@@ -98,22 +90,14 @@ word
 SELECT COUNT(*) FROM bup_snapshot.t1;
 COUNT(*)
 12
-Backup Summary
- header     =       29 bytes
- meta-data  =      184 bytes
- data       =      320 bytes
-              --------------
- total             533 bytes
+backup_id
+#
 con1: Dropping the database
 DROP TABLE bup_snapshot.t1;
 con1: Restoring the database
 RESTORE FROM "bup_snapshot.bak";
-Restore Summary
- header     =       29 bytes
- meta-data  =      184 bytes
- data       =      320 bytes
-              --------------
- total             533 bytes
+backup_id
+#
 con1: Showing the data (no new data should be here).
 SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
 word

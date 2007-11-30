@@ -56,22 +56,13 @@ LOCK TABLES `tasking` WRITE;
 INSERT INTO `tasking` VALUES ('333445555','405',23),('123763153','405',33.5),('921312388','601',44),('800122337','300',13),('820123637','300',9.5),('830132335','401',8.5),('333445555','300',11),('921312388','500',13),('800122337','300',44),('820123637','401',500.5),('830132335','400',12),('333445665','600',300.25),('123654321','607',444.75),('123456789','300',1000);
 UNLOCK TABLES;
 BACKUP DATABASE db1,db2 TO 'test.ba';
-Backup Summary
- header     =       52 bytes
- meta-data  =      807 bytes
- data       =      639 bytes
-              --------------
- total            1498 bytes
+backup_id
+#
 DROP DATABASE db1;
 DROP DATABASE db2;
 USE mysql;
 RESTORE FROM 'test.ba';
-Restore Summary
- header     =       52 bytes
- meta-data  =      807 bytes
- data       =      639 bytes
-              --------------
- total            1498 bytes
+backup_id	#
 USE db1;
 SHOW TABLES;
 Tables_in_db1
@@ -318,20 +309,11 @@ Running the client:
 Chuck@linux:~> mysql -uroot -p
 Enter password:
 BACKUP DATABASE bup_default TO "bup_default.bak";
-Backup Summary
- header     =       43 bytes
- meta-data  =      890 bytes
- data       =     7368 bytes
-              --------------
- total            8301 bytes
+backup_id
+#
 DROP DATABASE bup_default;
 RESTORE FROM "bup_default.bak";
-Restore Summary
- header     =       43 bytes
- meta-data  =      890 bytes
- data       =     7368 bytes
-              --------------
- total            8301 bytes
+backup_id	#
 SELECT * FROM bup_default.t1;
 a
 1

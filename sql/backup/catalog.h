@@ -35,7 +35,9 @@ class Image_info: public st_bstream_image_header
 {
  public:
 
+   ulonglong  backup_prog_id; ///< id of the BACKUP/RESTORE operation
    uint  table_count;     ///< total number of tables in the archive
+   size_t data_size;      ///< how much of table data is in the image.
 
    // Classes representing various types of meta-data items.
 
@@ -48,6 +50,15 @@ class Image_info: public st_bstream_image_header
    class Ditem_iterator; ///< iterates over per-db items
 
    virtual ~Image_info();
+
+   void save_start_time(const my_time_t time)
+   { save_time(time, start_time); }
+   
+   void save_end_time(const my_time_t time)
+   { save_time(time, end_time); }
+
+   void save_vp_time(const my_time_t time)
+   { save_time(time, vp_time); }
 
  protected:
 
@@ -133,6 +144,9 @@ class Image_info: public st_bstream_image_header
   */
   String create_stmt_buf;
 
+
+  void save_time(const my_time_t, bstream_time_t&);
+  
   // friends
 
   friend int ::bcat_add_item(st_bstream_image_header*, struct st_bstream_item_info*);

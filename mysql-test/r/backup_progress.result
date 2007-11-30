@@ -79,7 +79,7 @@ backup_state	complete
 operation	backup
 error_num	0
 num_objects	4
-total_bytes	896
+total_bytes	415
 validity_point_time	#
 start_time	#
 stop_time	#
@@ -138,7 +138,7 @@ backup_state	complete
 operation	restore
 error_num	0
 num_objects	4
-total_bytes	896
+total_bytes	414
 validity_point_time	#
 start_time	#
 stop_time	#

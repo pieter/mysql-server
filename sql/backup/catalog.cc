@@ -21,7 +21,7 @@ namespace backup {
 /* Image_info implementation */
 
 Image_info::Image_info():
-  table_count(0)
+  backup_prog_id(0), table_count(0), data_size(0)
 {
   /* initialize st_bstream_image_header members */
   version= 1;
@@ -64,6 +64,19 @@ Image_info::~Image_info()
     delete m_snap[no];
    m_snap[no]= NULL;
   }
+}
+
+
+void Image_info::save_time(const my_time_t t, bstream_time_t &buf)
+{
+  struct tm time;
+  gmtime_r(&t,&time);
+  buf.year= time.tm_year;
+  buf.mon= time.tm_mon;
+  buf.mday= time.tm_mday;
+  buf.hour= time.tm_hour;
+  buf.min= time.tm_min;
+  buf.sec= time.tm_sec;  
 }
 
 /// Add table to database's table list.

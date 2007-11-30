@@ -177,13 +177,6 @@ result_t meta::Table::get_create_stmt(::String &stmt)
                          tl->alias,res));
 
   stmt.copy();
-  /*
-    @todo The following is a work around for online backup and the DDL blocker.
-          It should be removed when the generalized solution is in place.
-          This is needed to ensure the restore (which uses DDL) is not blocked
-          when the DDL blocker is engaged.
-  */
-  thd->DDL_exception= TRUE;
 
   /*
     TODO: returning error here will just make upper layer think that

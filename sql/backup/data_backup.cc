@@ -226,6 +226,9 @@ class Scheduler
   size_t init_left() const
   { return m_known_count? m_init_left/m_known_count + 1 : 0; }
 
+  size_t bytes_written() const
+  { return m_total; }
+
   bool is_empty() const
   { return m_count == 0; }
 
@@ -470,6 +473,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
   Scheduler   sch(s,&info);         // scheduler instance
   List<Scheduler::Pump>  inactive;  // list of images not yet being created
   size_t      max_init_size=0;      // keeps maximal init size for images in inactive list
+  my_time_t   vp_time;              // to store validity point time
 
   DBUG_PRINT("backup/data",("initializing scheduler"));
 
@@ -628,7 +632,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
     /*
       Save VP creation time.
     */
-    save_current_time(info.vp_time);
+    vp_time= my_time(0);
 
     BACKUP_BREAKPOINT("commit_blocker_step_4");
     BACKUP_BREAKPOINT("data_unlock");
@@ -649,13 +653,14 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
       timing of the validity point.
     */
     BACKUP_BREAKPOINT("bp_vp_state");
-    report_ob_vp_time(info.backup_prog_id, (my_time_t)skr);
+    info.save_vp_time(vp_time);
+    report_ob_vp_time(info.backup_prog_id, vp_time);
     report_ob_state(info.backup_prog_id, BUP_RUNNING);
     BACKUP_BREAKPOINT("bp_running_state");
 
     if (mysql_bin_log.is_open())
-      report_ob_binlog_info(info.backup_prog_id, (int)info.binlog_information.position,
-                            info.binlog_information.binlog_file_name);
+      report_ob_binlog_info(info.backup_prog_id, 
+                            info.binlog_pos.pos, info.binlog_pos.file);
 
     // get final data from drivers
     DBUG_PRINT("backup/data",("-- FINISH PHASE --"));
@@ -667,6 +672,8 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
 
     DBUG_PRINT("backup/data",("-- DONE --"));
   }
+
+  info.data_size= sch.bytes_written();
 
   DBUG_RETURN(0);
 
@@ -1403,7 +1410,7 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
     /*
       Record the name for this driver.
     */
-    report_ob_engines(info.backup_prog_id, img->name());
+    report_ob_engines(info.backup_prog_id, snap->name());
   }
 
   {
@@ -1506,6 +1513,7 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
         switch( drvr->send_data(buf) ) {
 
         case backup::OK:
+          info.data_size += buf.size;
           state= READING;
           snap= NULL;
           drvr= NULL;

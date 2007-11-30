@@ -100,9 +100,9 @@ ulonglong report_ob_init(int process_id,
                     enum_backup_state state,
                     enum_backup_op operation,
                     int error_num,
-                    char *user_comment,
-                    char *backup_file,
-                    char *command);
+                    const char *user_comment,
+                    const char *backup_file,
+                    const char *command);
 
 /*
   This method updates the binary log information for the backup operation
@@ -110,7 +110,7 @@ ulonglong report_ob_init(int process_id,
 */
 int report_ob_binlog_info(ulonglong backup_id,
                           int binlog_pos,
-                          char *binlog_file);
+                          const char *binlog_file);
 
 /*
   This method updates the error number for the backup operation identified by
@@ -171,13 +171,13 @@ int report_ob_engines(ulonglong backup_id,
   This method inserts a new row in the progress table.
 */
 int report_ob_progress(ulonglong backup_id,
-                       char *object,
+                       const char *object,
                        my_time_t start,
                        my_time_t stop,
                        longlong size,
                        longlong progress,
                        int error_num,
-                       char *notes);
+                       const char *notes);
 
 /*
   This method sums the size entries from the online backup progress rows

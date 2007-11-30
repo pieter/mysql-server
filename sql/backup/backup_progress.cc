@@ -48,17 +48,10 @@ Locking_thread_st *open_backup_progress_table(const char *table_name,
 {
   TABLE_LIST tables;                    // List of tables (1 in this case)
   Locking_thread_st *locking_thd= NULL; // The locking thread
-  bool exists;                          // See if table exists
 
   DBUG_ENTER("open_backup_progress_table()");
 
   tables.init_one_table("mysql", table_name, lock);
-
-  /*
-    First, check to see if table exists.
-  */
-  if (check_if_table_exists(current_thd, &tables, &exists))
-    DBUG_RETURN(locking_thd);
 
   /*
     Create a new thread to open and lock the tables.
@@ -177,8 +170,10 @@ void get_state_string(enum_backup_state state, String *str)
    @returns 0 = success
    @returns 1 = failed to find row
   */
-int update_online_backup_int_field(ulonglong backup_id, char *table_name,
-                                   enum_ob_table_field fld, ulonglong value)
+int update_online_backup_int_field(ulonglong backup_id, 
+                                   const char *table_name,
+                                   enum_ob_table_field fld, 
+                                   ulonglong value)
 {
   TABLE *table= NULL;                   // table to open
   TABLE_LIST tables;                    // List of tables (1 in this case)
@@ -235,8 +230,10 @@ int update_online_backup_int_field(ulonglong backup_id, char *table_name,
    @returns 0 = success
    @returns 1 = failed to find row
   */
-int update_online_backup_datetime_field(ulonglong backup_id, char *table_name,
-                                        enum_ob_table_field fld, my_time_t value)
+int update_online_backup_datetime_field(ulonglong backup_id, 
+                                        const char *table_name,
+                                        enum_ob_table_field fld, 
+                                        my_time_t value)
 {
   TABLE *table= NULL;                   // table to open
   TABLE_LIST tables;                    // List of tables (1 in this case)
@@ -306,9 +303,9 @@ ulonglong report_ob_init(int process_id,
                     enum_backup_state state,
                     enum_backup_op operation,
                     int error_num,
-                    char *user_comment,
-                    char *backup_file,
-                    char *command)
+                    const char *user_comment,
+                    const char *backup_file,
+                    const char *command)
 {
   ulonglong backup_id= 0;
   int ret= 0;                                  // return value
@@ -413,8 +410,8 @@ end:
   */
   String str;
   get_state_string(state, &str);
-  report_ob_progress(backup_id, "backup kernel", NULL, 
-                     NULL, 0, 0, 0, str.c_ptr());
+  report_ob_progress(backup_id, "backup kernel", 0, 
+                     0, 0, 0, 0, str.c_ptr());
   DBUG_RETURN(backup_id);
 }
 
@@ -433,7 +430,7 @@ end:
   */
 int report_ob_binlog_info(ulonglong backup_id,
                           int binlog_pos,
-                          char *binlog_file)
+                          const char *binlog_file)
 {
   TABLE *table= NULL;                   // table to open
   TABLE_LIST tables;                    // List of tables (1 in this case)
@@ -711,8 +708,8 @@ int report_ob_state(ulonglong backup_id,
     Record progress update.
   */
   get_state_string(state, &str);
-  report_ob_progress(backup_id, "backup kernel", NULL, 
-                     NULL, 0, 0, 0, str.c_ptr());
+  report_ob_progress(backup_id, "backup kernel", 0, 
+                     0, 0, 0, 0, str.c_ptr());
 
   DBUG_RETURN(ret);
 }
@@ -737,13 +734,13 @@ int report_ob_state(ulonglong backup_id,
    @returns 1 = failed to write row
   */
 int report_ob_progress(ulonglong backup_id,
-                       char *object,
+                       const char *object,
                        my_time_t start,
                        my_time_t stop,
                        longlong size,
                        longlong progress,
                        int error_num,
-                       char *notes)
+                       const char *notes)
 {
   int ret= 0;                           // return value
   TABLE *table= NULL;                   // table to open
@@ -868,7 +865,7 @@ ulonglong sum_progress_rows(ulonglong backup_id)
   while (!hdl->rnd_next(table->record[0]))
     if ((table->field[ET_FIELD_PROGRESS]->val_int() == 100) &&
         (table->field[ET_FIELD_PROG_ERROR_NUM]->val_int() == 0) &&
-        (table->field[ET_FIELD_BACKUP_ID_FK]->val_int() == backup_id))
+        ((ulonglong)table->field[ET_FIELD_BACKUP_ID_FK]->val_int() == backup_id))
       size+= table->field[ET_FIELD_PROG_SIZE]->val_int();
   table->in_use= t;
 
@@ -912,7 +909,7 @@ int print_backup_summary(THD *thd, ulonglong backup_id)
     Send field data.
   */
   protocol->prepare_for_resend();
-  my_snprintf(buf, sizeof(buf), "%d", backup_id);
+  llstr(backup_id,buf);
   protocol->store(buf, system_charset_info);
   protocol->write();
 

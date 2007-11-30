@@ -80,6 +80,8 @@ int
 execute_backup_command(THD *thd, LEX *lex)
 {
   ulonglong backup_prog_id= 0;
+  my_time_t start=0, stop=0;
+  
   DBUG_ENTER("execute_backup_command");
   DBUG_ASSERT(thd && lex);
 
@@ -118,104 +120,99 @@ execute_backup_command(THD *thd, LEX *lex)
     }
     else
     {
-      Restore_info info(thd,*stream);
-
-      info.backup_prog_id= report_ob_init(thd->id, BUP_STARTING, OP_RESTORE, 
-                                          0, "",
-                                          lex->backup_dir.str, thd->query);
-      backup_prog_id= info.backup_prog_id;
-      BACKUP_BREAKPOINT("bp_starting_state");
-
-      if (check_info(thd,info))
-        goto restore_error;
-
-      /*
-        Save starting datetime of restore for progress.
-      */
-      skr= my_time(0);
-      report_ob_time(info.backup_prog_id, (my_time_t)skr, NULL);
-
       if (lex->sql_command == SQLCOM_SHOW_ARCHIVE)
       {
         my_error(ER_NOT_ALLOWED_COMMAND,MYF(0));
         goto restore_error;
-        /*
-          Uncomment when mysql_show_archive() is implemented
-
-          res= mysql_show_archive(thd,info);
-         */
       }
-      else
+
+      start= my_time(0);
+      
+      backup_prog_id= report_ob_init(thd->id, BUP_STARTING, OP_RESTORE, 
+                                     0, "", lex->backup_dir.str, thd->query);
+      report_ob_time(backup_prog_id, start, 0);
+      BACKUP_BREAKPOINT("bp_starting_state");
+
+      Restore_info info(thd,*stream);
+
+      info.backup_prog_id= backup_prog_id;
+
+      if (check_info(thd,info))
       {
-        info.report_error(log_level::INFO,ER_BACKUP_RESTORE_START);
-
-        report_ob_state(info.backup_prog_id, BUP_RUNNING);
-        BACKUP_BREAKPOINT("bp_running_state");
-
-        /*
-          Freeze all DDL operations by turning on DDL blocker.
-        */
-        if (!block_DDL(thd))
-          DBUG_RETURN(backup::ERROR);
-
-        info.save_errors();
-        info.restore_all_dbs();
-
-        if (check_info(thd,info))
-          goto restore_error;
-
-        info.clear_saved_errors();
-
-        if (mysql_restore(thd,info,*stream))
-        {
-          report_errors(thd,info,ER_BACKUP_RESTORE);
-          goto restore_error;
-        }
-
-        report_ob_num_objects(info.backup_prog_id, info.table_count);
-        report_ob_size(info.backup_prog_id, info.data_size);
-
-        /*
-          Save ending datetime of restore for progress.
-        */
-        skr= my_time(0);
-        report_ob_time(info.backup_prog_id, NULL, (my_time_t)skr);
-        report_ob_state(info.backup_prog_id, BUP_COMPLETE);
-        BACKUP_BREAKPOINT("bp_complete_state");
-
-        info.report_error(backup::log_level::INFO,ER_BACKUP_RESTORE_DONE);
-        info.total_size += info.header_size;
-        report_ob_size(info.backup_prog_id, info.total_size);
-        send_summary(thd,info);
-
-        /*
-          Unfreeze all DDL operations by turning off DDL blocker.
-        */
-        unblock_DDL();
-        BACKUP_BREAKPOINT("DDL_unblocked");
-
+        stop= my_time(0);
+        goto restore_error;
       }
+
+      info.report_error(log_level::INFO,ER_BACKUP_RESTORE_START);
+      info.save_start_time(start);
+
+      report_ob_state(backup_prog_id, BUP_RUNNING);
+      BACKUP_BREAKPOINT("bp_running_state");
+
+      /*
+        Freeze all DDL operations by turning on DDL blocker.
+      */
+      if (!block_DDL(thd))
+      {
+        stop= my_time(0); 
+        info.save_end_time(stop);
+        goto restore_error;
+      }
+
+      info.save_errors();
+      info.restore_all_dbs();
+
+      if (check_info(thd,info))
+      {
+        stop= my_time(0);
+        info.save_end_time(stop);
+        goto restore_error;
+      }
+      
+      info.clear_saved_errors();
+
+      res= mysql_restore(thd,info,*stream);      
+      stop= my_time(0);
+      info.save_end_time(stop);
+
+      if (res)
+      {
+        report_errors(thd,info,ER_BACKUP_RESTORE);
+        goto restore_error;
+      }
+
+      report_ob_num_objects(backup_prog_id, info.table_count);
+      report_ob_size(backup_prog_id, info.data_size);
+      report_ob_time(backup_prog_id, 0, stop);
+      report_ob_state(backup_prog_id, BUP_COMPLETE);
+      BACKUP_BREAKPOINT("bp_complete_state");
+
+      info.report_error(log_level::INFO,ER_BACKUP_RESTORE_DONE);
+      send_summary(thd,info);
     } // if (!stream)
 
     goto finish_restore;
 
    restore_error:
 
+    res= res ? res : ERROR;
+
+    report_ob_error(backup_prog_id, res);
+    
+    if (stop)
+      report_ob_time(backup_prog_id, 0, stop);
+
+    report_ob_state(backup_prog_id, BUP_ERRORS);
+    BACKUP_BREAKPOINT("bp_error_state");
+   
+   finish_restore:
+
     /*
       Unfreeze all DDL operations by turning off DDL blocker.
     */
     unblock_DDL();
     BACKUP_BREAKPOINT("DDL_unblocked");
-
-    res= res ? res : ERROR;
-
-    report_ob_error(backup_prog_id, res);
-    report_ob_state(backup_prog_id, BUP_ERRORS);
-    skr= my_time(0);
-    report_ob_time(backup_prog_id, NULL, (my_time_t)skr);
-    BACKUP_BREAKPOINT("bp_error_state");
-   finish_restore:
-
+    
     if (stream)
       stream->close();
 
@@ -235,6 +232,8 @@ execute_backup_command(THD *thd, LEX *lex)
     }
     else
     {
+      start= my_time(0);
+      
       /*
         Freeze all DDL operations by turning on DDL blocker.
 
@@ -248,28 +247,20 @@ execute_backup_command(THD *thd, LEX *lex)
 
       Backup_info info(thd);
 
-      info.backup_prog_id= report_ob_init(thd->id, BUP_STARTING, OP_BACKUP,
-                                          0, "",
-                                          lex->backup_dir.str, thd->query);
-      backup_prog_id= info.backup_prog_id;
+      backup_prog_id= report_ob_init(thd->id, BUP_STARTING, OP_BACKUP,
+                                     0, "", lex->backup_dir.str, thd->query);
+      report_ob_time(backup_prog_id, start, 0);
       BACKUP_BREAKPOINT("bp_starting_state");
+
+      info.backup_prog_id= backup_prog_id;
 
       if (check_info(thd,info))
         goto backup_error;
 
-      report_ob_state(info.backup_prog_id, BUP_RUNNING);
-      BACKUP_BREAKPOINT("bp_running_state");
-
       info.report_error(log_level::INFO,ER_BACKUP_BACKUP_START);
-
-      /*
-        Save starting datetime of backup.
-      */
-      skr= my_time(0);
-      gmtime_r(&skr, &info.start_time);
-      save_current_time(info.start_time);
-
-      report_ob_time(info.backup_prog_id, (my_time_t)skr, NULL);
+      info.save_start_time(start);
+      report_ob_state(backup_prog_id, BUP_RUNNING);
+      BACKUP_BREAKPOINT("bp_running_state");
 
       info.save_errors();
 
@@ -284,64 +275,67 @@ execute_backup_command(THD *thd, LEX *lex)
         info.add_dbs(lex->db_list); // backup databases specified by user
       }
 
-      report_ob_num_objects(info.backup_prog_id, info.table_count);
+      report_ob_num_objects(backup_prog_id, info.table_count);
 
       if (check_info(thd,info))
+      {
+        stop= my_time(0); 
+        info.save_end_time(stop);
         goto backup_error;
+      }
 
       info.close();
 
       if (check_info(thd,info))
+      {
+        stop= my_time(0); 
+        info.save_end_time(stop);
         goto backup_error;
+      }
 
       info.clear_saved_errors();
 
-      if (mysql_backup(thd,info,*stream))
+      res= mysql_backup(thd,info,*stream);
+      stop= my_time(0);
+      info.save_end_time(stop);
+ 
+      if (res)
       {
         report_errors(thd,info,ER_BACKUP_BACKUP);
         goto backup_error;
       }
 
       report_ob_size(info.backup_prog_id, info.data_size);
-
-      /*
-        Save ending datetime of backup.
-      */
-      save_current_time(info.end_time);
-
-      report_ob_time(info.backup_prog_id, NULL, (my_time_t)skr);
+      report_ob_time(info.backup_prog_id, 0, stop);
       report_ob_state(info.backup_prog_id, BUP_COMPLETE);
       BACKUP_BREAKPOINT("bp_complete_state");
 
-      info.report_error(backup::log_level::INFO,ER_BACKUP_BACKUP_DONE);
-      report_ob_size(info.backup_prog_id, info.total_size);
+      info.report_error(log_level::INFO,ER_BACKUP_BACKUP_DONE);
       send_summary(thd,info);
-
-      /*
-        Unfreeze all DDL operations by turning off DDL blocker.
-      */
-      unblock_DDL();
-      BACKUP_BREAKPOINT("DDL_unblocked");
 
     } // if (!stream)
 
     goto finish_backup;
 
    backup_error:
+
+    res= res ? res : ERROR;
+
+    report_ob_error(backup_prog_id, res);
+    report_ob_state(backup_prog_id, BUP_ERRORS);
+
+    if (stop)
+      report_ob_time(backup_prog_id, 0, stop);
+
+    BACKUP_BREAKPOINT("bp_error_state");
+
+   finish_backup:
+
     /*
       Unfreeze all DDL operations by turning off DDL blocker.
     */
     unblock_DDL();
-
-    res= res ? res : ERROR;
-    report_ob_error(backup_prog_id, res);
-    report_ob_state(backup_prog_id, BUP_ERRORS);
-    skr= my_time(0);
-    report_ob_time(backup_prog_id, NULL, (my_time_t)skr);
-    BACKUP_BREAKPOINT("bp_error_state");
-
-
-   finish_backup:
+    BACKUP_BREAKPOINT("DDL_unblocked");
 
     if (stream)
       stream->close();
@@ -1715,23 +1709,33 @@ int check_info(THD *thd, Restore_info &info)
 static
 bool send_summary(THD *thd, const Image_info &info, bool backup)
 {
+  Protocol *protocol= thd->protocol;    // client comms
+  List<Item> field_list;                // list of fields to send
+  String     op_str("backup_id");       // operations string
+  int ret= 0;                           // return value
+  char buf[255];                        // buffer for summary information
+  String str;
+
   DBUG_ENTER("backup::send_summary");
 
   DBUG_PRINT(backup?"backup":"restore", ("sending summary"));
 
-  op_str.length(0);
-  if (backup)
-    op_str.append("Backup Summary");
-  else
-    op_str.append("Restore Summary");
-
-
-  field_list.push_back(item= new Item_empty_string(op_str.c_ptr(),255)); // TODO: use varchar field
-  item->maybe_null= TRUE;
+  /*
+    Send field list.
+  */
+  field_list.push_back(new Item_empty_string(op_str.c_ptr(), op_str.length()));
   protocol->send_fields(&field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
 
-  print_backup_summary(thd, info.backup_prog_id);
-  DBUG_RETURN(0);
+  /*
+    Send field data.
+  */
+  protocol->prepare_for_resend();
+  llstr(info.backup_prog_id,buf);
+  protocol->store(buf, system_charset_info);
+  protocol->write();
+
+  send_eof(thd);
+  DBUG_RETURN(ret);
 }
 
 inline
@@ -1849,6 +1853,14 @@ int silent_exec_query(THD *thd, ::String &query)
   thd->query_id= ::next_query_id();
   pthread_mutex_unlock(&::LOCK_thread_count);
 
+  /*
+    @todo The following is a work around for online backup and the DDL blocker.
+          It should be removed when the generalized solution is in place.
+          This is needed to ensure the restore (which uses DDL) is not blocked
+          when the DDL blocker is engaged.
+  */
+  thd->DDL_exception= TRUE;
+
   const char *ptr;
   ::mysql_parse(thd,thd->query,thd->query_length,&ptr);
 
@@ -1865,21 +1877,5 @@ int silent_exec_query(THD *thd, ::String &query)
 
   return 0;
 }
-
-/// Get current time and save it inside bstream_time_t.
-
-void save_current_time(bstream_time_t &buf)
-{
-  time_t now= my_time(0);
-  struct tm time;
-  gmtime_r(&now,&time);
-  buf.year= time.tm_year;
-  buf.mon= time.tm_mon;
-  buf.mday= time.tm_mday;
-  buf.hour= time.tm_hour;
-  buf.min= time.tm_min;
-  buf.sec= time.tm_sec;
-}
-
 
 } // backup namespace

@@ -64,7 +64,6 @@ TABLE_PRIVILEGES
 TRIGGERS
 USER_PRIVILEGES
 VIEWS
-FALCON_VERSION
 columns_priv
 db
 event
@@ -855,7 +854,7 @@ delete from mysql.db where user='mysqltest_4';
 flush privileges;
 SELECT table_schema, count(*) FROM information_schema.TABLES where table_name<>'ndb_binlog_index' AND table_name<>'ndb_apply_status' GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	29
+information_schema	28
 mysql	22
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1270,7 +1269,6 @@ TABLE_PRIVILEGES	TABLE_SCHEMA
 TRIGGERS	TRIGGER_SCHEMA
 USER_PRIVILEGES	GRANTEE
 VIEWS	TABLE_SCHEMA
-FALCON_VERSION	Version
 SELECT t.table_name, c1.column_name
 FROM information_schema.tables t
 INNER JOIN
@@ -1314,7 +1312,6 @@ TABLE_PRIVILEGES	TABLE_SCHEMA
 TRIGGERS	TRIGGER_SCHEMA
 USER_PRIVILEGES	GRANTEE
 VIEWS	TABLE_SCHEMA
-FALCON_VERSION	Version
 SELECT MAX(table_name) FROM information_schema.tables;
 MAX(table_name)
 VIEWS
@@ -1388,7 +1385,6 @@ COLUMNS	information_schema.COLUMNS	1
 COLUMN_PRIVILEGES	information_schema.COLUMN_PRIVILEGES	1
 ENGINES	information_schema.ENGINES	1
 EVENTS	information_schema.EVENTS	1
-FALCON_VERSION	information_schema.FALCON_VERSION	1
 FILES	information_schema.FILES	1
 GLOBAL_STATUS	information_schema.GLOBAL_STATUS	1
 GLOBAL_VARIABLES	information_schema.GLOBAL_VARIABLES	1

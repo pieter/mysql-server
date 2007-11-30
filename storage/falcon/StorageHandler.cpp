@@ -452,7 +452,7 @@ int StorageHandler::createTablespace(const char* tableSpaceName, const char* fil
 	try
 		{
 		CmdGen gen;
-		gen.gen("create tablespace %s filename '%s'", tableSpaceName, filename);
+		gen.gen("create tablespace \"%s\" filename '%s'", tableSpaceName, filename);
 		Sync sync(&dictionarySyncObject, "StorageHandler::createTablespace");
 		sync.lock(Exclusive);
 		Statement *statement = dictionaryConnection->createStatement();
@@ -491,7 +491,7 @@ int StorageHandler::deleteTablespace(const char* tableSpaceName)
 	try
 		{
 		CmdGen gen;
-		gen.gen("drop tablespace %s", tableSpaceName);
+		gen.gen("drop tablespace \"%s\"", tableSpaceName);
 		Sync sync(&dictionarySyncObject, "StorageHandler::createTablespace");
 		sync.lock(Exclusive);
 		Statement *statement = dictionaryConnection->createStatement();

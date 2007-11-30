@@ -1284,7 +1284,7 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       if ((for_str= (char *)file->get_tablespace_name()))
       {
         packet->append(STRING_WITH_LEN(" /*!50100 TABLESPACE "));
-        packet->append(for_str, strlen(for_str));
+        append_identifier(thd, packet, for_str, strlen(for_str));
         packet->append(STRING_WITH_LEN(" */"));
       }
       break;
@@ -1293,7 +1293,7 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       if ((for_str= (char *)file->get_tablespace_name()))
       {
         packet->append(STRING_WITH_LEN(" TABLESPACE "));
-        packet->append(for_str, strlen(for_str));
+        append_identifier(thd, packet, for_str, strlen(for_str));
       }
       packet->append(STRING_WITH_LEN(" STORAGE DISK */"));
       break;
@@ -1302,7 +1302,7 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       if ((for_str= (char *)file->get_tablespace_name()))
       {
         packet->append(STRING_WITH_LEN(" TABLESPACE "));
-        packet->append(for_str, strlen(for_str));
+        append_identifier(thd, packet, for_str, strlen(for_str));
       }
       packet->append(STRING_WITH_LEN(" STORAGE MEMORY */"));
       break;

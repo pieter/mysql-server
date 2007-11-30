@@ -722,7 +722,7 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 		tableSpace = DEFAULT_TABLESPACE;
 
 	if (tableSpace)
-		gen.gen(" tablespace %s", tableSpace);
+		gen.gen(" tablespace \"%s\"", tableSpace);
 
 	DBUG_PRINT("info",("incrementValue = " I64FORMAT, (long long int)incrementValue));
 

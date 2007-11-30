@@ -78,7 +78,7 @@ StorageTableShare::StorageTableShare(StorageHandler *handler, const char * path,
 StorageTableShare::~StorageTableShare(void)
 {
 	delete syncObject;
-	delete syncObject;
+	delete syncTruncate;
 	delete [] impure;
 	
 	if (storageDatabase)

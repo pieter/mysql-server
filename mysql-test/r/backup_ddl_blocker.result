@@ -1,0 +1,985 @@
+SET GLOBAL debug="d,backup_debug";
+
+Starting Test 1 - Backup
+
+DROP DATABASE IF EXISTS bup_ddl_blocker;
+CREATE DATABASE bup_ddl_blocker;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t4 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
+DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t3;
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+con3: Get a DDL going and stop in the middle
+ALTER TABLE bup_ddl_blocker.t2 ADD COLUMN col_b int;
+con1: Backing up database -- will block with lock
+BACKUP DATABASE bup_ddl_blocker TO "bup_ddl_blocker.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+ALTER TABLE bup_ddl_blocker.t4 ADD COLUMN col_b int;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con5: Completing DDL
+Backup Summary
+ header     =       36 bytes
+ meta-data  =      316 bytes
+ data       =      162 bytes
+              --------------
+ total             514 bytes
+
+Verifying Test 1 results for backup.
+
+con1: Showing columns after updates and backup
+DESCRIBE bup_ddl_blocker.t1;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+DESCRIBE bup_ddl_blocker.t2;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+col_b	int(11)	YES		NULL	
+DESCRIBE bup_ddl_blocker.t3;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+DESCRIBE bup_ddl_blocker.t4;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+col_b	int(11)	YES		NULL	
+con1: Dropping the database tables
+DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t2,
+bup_ddl_blocker.t3, bup_ddl_blocker.t4;
+con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+Restore Summary
+ header     =       36 bytes
+ meta-data  =      316 bytes
+ data       =      162 bytes
+              --------------
+ total             514 bytes
+con1: Showing columns that were backed up
+con1: Table t3 should not be in restored data.
+con1: Table t4 should not have new column in restored data.
+DESCRIBE bup_ddl_blocker.t1;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+DESCRIBE bup_ddl_blocker.t2;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+col_b	int(11)	YES		NULL	
+DESCRIBE bup_ddl_blocker.t3;
+ERROR 42S02: Table 'bup_ddl_blocker.t3' doesn't exist
+DESCRIBE bup_ddl_blocker.t4;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+
+Starting Test 1 - Restore
+
+DROP DATABASE IF EXISTS bup_ddl_blocker;
+CREATE DATABASE bup_ddl_blocker;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t4 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
+DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t3;
+BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
+Backup Summary
+ header     =       29 bytes
+ meta-data  =      190 bytes
+ data       =      162 bytes
+              --------------
+ total             381 bytes
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+con3: Get a DDL going and stop in the middle
+ALTER TABLE bup_ddl_blocker.t2 ADD COLUMN col_b int;
+con1: Restoring database -- will block with lock
+RESTORE FROM "bup_ddl_blocker_orig.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+ALTER TABLE bup_ddl_blocker.t4 ADD COLUMN col_b int;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con5: Completing DDL
+Restore Summary
+ header     =       29 bytes
+ meta-data  =      190 bytes
+ data       =      162 bytes
+              --------------
+ total             381 bytes
+
+Verifying Test 1 results for restore.
+
+con1: Table t1 should not be in restored data.
+con1: Table t2 should not have new column in restored data.
+con1: Table t3 should be in restored data.
+con1: Table t4 should have new column in restored data.
+DESCRIBE bup_ddl_blocker.t1;
+ERROR 42S02: Table 'bup_ddl_blocker.t1' doesn't exist
+DESCRIBE bup_ddl_blocker.t2;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+DESCRIBE bup_ddl_blocker.t3;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+DESCRIBE bup_ddl_blocker.t4;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+col_b	int(11)	YES		NULL	
+
+Starting Test 2 - Backup
+
+DROP DATABASE IF EXISTS bup_ddl_blocker;
+CREATE DATABASE bup_ddl_blocker;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t4 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+RENAME TABLE bup_ddl_blocker.t1 TO bup_ddl_blocker.t01;
+con3: Get a DDL going and stop in the middle
+REPAIR TABLE bup_ddl_blocker.t2;
+con1: Backing up database -- will block with lock
+BACKUP DATABASE bup_ddl_blocker TO "bup_ddl_blocker.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+RENAME TABLE bup_ddl_blocker.t3 TO bup_ddl_blocker.t03;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+REPAIR TABLE bup_ddl_blocker.t4;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+Table	Op	Msg_type	Msg_text
+bup_ddl_blocker.t2	repair	status	OK
+con4: Completing DDL
+con5: Completing DDL
+Table	Op	Msg_type	Msg_text
+bup_ddl_blocker.t4	repair	status	OK
+Backup Summary
+ header     =       41 bytes
+ meta-data  =      379 bytes
+ data       =      324 bytes
+              --------------
+ total             744 bytes
+
+Verifying Test 2 results for backup.
+
+con1: Showing columns after updates and backup
+use bup_ddl_blocker;
+SHOW TABLES;
+Tables_in_bup_ddl_blocker
+t01
+t03
+t2
+t4
+con1: Dropping the database tables
+DROP TABLE bup_ddl_blocker.t01, bup_ddl_blocker.t2,
+bup_ddl_blocker.t03, bup_ddl_blocker.t4;
+con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+Restore Summary
+ header     =       41 bytes
+ meta-data  =      379 bytes
+ data       =      324 bytes
+              --------------
+ total             744 bytes
+con1: Showing columns that were backed up
+con1: Table t01 should be in restore
+con1: Table t03 should not be in restore
+use bup_ddl_blocker;
+SHOW TABLES;
+Tables_in_bup_ddl_blocker
+t01
+t2
+t3
+t4
+
+Starting Test 2 - Restore
+
+DROP DATABASE IF EXISTS bup_ddl_blocker;
+CREATE DATABASE bup_ddl_blocker;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t4 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
+BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
+Backup Summary
+ header     =       40 bytes
+ meta-data  =      378 bytes
+ data       =      324 bytes
+              --------------
+ total             742 bytes
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+RENAME TABLE bup_ddl_blocker.t1 TO bup_ddl_blocker.t01;
+con3: Get a DDL going and stop in the middle
+REPAIR TABLE bup_ddl_blocker.t2;
+con1: Restoring database -- will block with lock
+RESTORE FROM "bup_ddl_blocker_orig.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+RENAME TABLE bup_ddl_blocker.t3 TO bup_ddl_blocker.t03;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+REPAIR TABLE bup_ddl_blocker.t4;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+Table	Op	Msg_type	Msg_text
+bup_ddl_blocker.t2	repair	status	OK
+con4: Completing DDL
+con5: Completing DDL
+Table	Op	Msg_type	Msg_text
+bup_ddl_blocker.t4	repair	status	OK
+Restore Summary
+ header     =       40 bytes
+ meta-data  =      378 bytes
+ data       =      324 bytes
+              --------------
+ total             742 bytes
+
+Verifying Test 2 results for restore.
+
+con1: Table t01 should not be in restored data.
+use bup_ddl_blocker;
+SHOW TABLES;
+Tables_in_bup_ddl_blocker
+t03
+t1
+t2
+t4
+
+Starting Test 3 - Backup
+
+DROP DATABASE IF EXISTS bup_ddl_blocker;
+CREATE DATABASE bup_ddl_blocker;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t4 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+OPTIMIZE TABLE bup_ddl_blocker.t1;
+con3: Get a DDL going and stop in the middle
+DROP TABLE bup_ddl_blocker.t2;
+con1: Backing up database -- will block with lock
+BACKUP DATABASE bup_ddl_blocker TO "bup_ddl_blocker.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+OPTIMIZE TABLE bup_ddl_blocker.t3;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+DROP TABLE bup_ddl_blocker.t4;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+Table	Op	Msg_type	Msg_text
+bup_ddl_blocker.t1	optimize	status	OK
+con3: Completing DDL
+con4: Completing DDL
+Table	Op	Msg_type	Msg_text
+bup_ddl_blocker.t3	optimize	status	OK
+con5: Completing DDL
+Backup Summary
+ header     =       36 bytes
+ meta-data  =      284 bytes
+ data       =      243 bytes
+              --------------
+ total             563 bytes
+
+Verifying Test 3 results for backup.
+
+con1: Showing columns after updates and backup
+use bup_ddl_blocker;
+SHOW TABLES;
+Tables_in_bup_ddl_blocker
+t1
+t3
+con1: Dropping the database tables
+DROP TABLE bup_ddl_blocker.t1, bup_ddl_blocker.t3;
+con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+Restore Summary
+ header     =       36 bytes
+ meta-data  =      284 bytes
+ data       =      243 bytes
+              --------------
+ total             563 bytes
+con1: Showing columns that were backed up
+con1: Table t2 should not be in restore
+use bup_ddl_blocker;
+SHOW TABLES;
+Tables_in_bup_ddl_blocker
+t1
+t3
+t4
+
+Starting Test 3 - Restore
+
+DROP DATABASE IF EXISTS bup_ddl_blocker;
+CREATE DATABASE bup_ddl_blocker;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker.t4 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t4 VALUES ("03 Some data to test");
+BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
+Backup Summary
+ header     =       40 bytes
+ meta-data  =      378 bytes
+ data       =      324 bytes
+              --------------
+ total             742 bytes
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+OPTIMIZE TABLE bup_ddl_blocker.t1;
+con3: Get a DDL going and stop in the middle
+DROP TABLE bup_ddl_blocker.t2;
+con1: Restoring database -- will block with lock
+RESTORE FROM "bup_ddl_blocker_orig.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+OPTIMIZE TABLE bup_ddl_blocker.t3;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+DROP TABLE bup_ddl_blocker.t4;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+Table	Op	Msg_type	Msg_text
+bup_ddl_blocker.t1	optimize	status	OK
+con3: Completing DDL
+con4: Completing DDL
+Table	Op	Msg_type	Msg_text
+bup_ddl_blocker.t3	optimize	status	OK
+con5: Completing DDL
+Restore Summary
+ header     =       40 bytes
+ meta-data  =      378 bytes
+ data       =      324 bytes
+              --------------
+ total             742 bytes
+
+Verifying Test 3 results for restore.
+
+con1: Table t4 should not be in restored data.
+use bup_ddl_blocker;
+SHOW TABLES;
+Tables_in_bup_ddl_blocker
+t1
+t2
+t3
+
+Starting Test 4 - Backup
+
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_2;
+CREATE DATABASE bup_ddl_blocker_4;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
+con1: Show that the new data doesn't exist before backup.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_2
+bup_ddl_blocker_4
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+CREATE DATABASE bup_ddl_blocker_1;
+con3: Get a DDL going and stop in the middle
+DROP DATABASE bup_ddl_blocker_2;
+con1: Backing up database -- will block with lock
+BACKUP DATABASE * TO "bup_ddl_blocker.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+CREATE DATABASE bup_ddl_blocker_3;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+DROP DATABASE bup_ddl_blocker_4;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con5: Completing DDL
+Backup Summary
+ header     =       81 bytes
+ meta-data  =      384 bytes
+ data       =      324 bytes
+              --------------
+ total             789 bytes
+
+Verifying Test 4 results for backup.
+
+con1: Showing databases after updates and backup
+con1: bup_ddl_blocker_2 and bup_ddl_blocker_4 are not present
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_1
+bup_ddl_blocker_3
+con1: Dropping the database tables
+DROP DATABASE bup_ddl_blocker_1;
+DROP DATABASE bup_ddl_blocker_3;
+con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+Restore Summary
+ header     =       81 bytes
+ meta-data  =      384 bytes
+ data       =      324 bytes
+              --------------
+ total             789 bytes
+con1: Showing databases that were backed up
+con1: bup_ddl_blocker_2 and bup_ddl_blocker_3 are not present
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_1
+bup_ddl_blocker_4
+con1: Cleanup
+DROP DATABASE bup_ddl_blocker_1;
+DROP DATABASE bup_ddl_blocker_4;
+
+Starting Test 4 - Restore
+
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_2;
+CREATE DATABASE bup_ddl_blocker_4;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
+con1: Show that the new data doesn't exist before backup.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_2
+bup_ddl_blocker_4
+BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4 to 'bup_ddl_blocker_orig.bak';
+Backup Summary
+ header     =       52 bytes
+ meta-data  =      192 bytes
+ data       =      162 bytes
+              --------------
+ total             406 bytes
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+CREATE DATABASE bup_ddl_blocker_1;
+con3: Get a DDL going and stop in the middle
+DROP DATABASE bup_ddl_blocker_2;
+con1: Restoring database -- will block with lock
+RESTORE FROM "bup_ddl_blocker_orig.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+CREATE DATABASE bup_ddl_blocker_3;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+DROP DATABASE bup_ddl_blocker_4;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con5: Completing DDL
+Restore Summary
+ header     =       52 bytes
+ meta-data  =      192 bytes
+ data       =      162 bytes
+              --------------
+ total             406 bytes
+
+Verifying Test 4 results for restore.
+
+con1: Database bup_ddl_blocker_4 should not be in restored data.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_1
+bup_ddl_blocker_2
+bup_ddl_blocker_3
+
+Starting Test 5 - Backup
+
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_2 CHARACTER SET latin1;
+CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
+con1: Show that the new data doesn't exist before backup.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_2
+bup_ddl_blocker_4
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+TRUNCATE TABLE bup_ddl_blocker_2.t1;
+con3: Get a DDL going and stop in the middle
+ALTER DATABASE bup_ddl_blocker_2 CHARACTER SET latin2;
+con1: Backing up database -- will block with lock
+BACKUP DATABASE * TO "bup_ddl_blocker.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+TRUNCATE TABLE bup_ddl_blocker_4.t1;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+ALTER DATABASE bup_ddl_blocker_4 CHARACTER SET latin2;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con5: Completing DDL
+Backup Summary
+ header     =       85 bytes
+ meta-data  =      478 bytes
+ data       =      324 bytes
+              --------------
+ total             887 bytes
+
+Verifying Test 5 results for backup.
+
+con1: Showing databases after updates and backup
+con1: bup_ddl_blocker_2.t1 has been truncated.
+con1: bup_ddl_blocker_1 and bup_ddl_blocker_3 are renamed 
+con1: bup_ddl_blocker_4.t1 has been truncated.
+con1: bup_ddl_blocker_2 and bup_ddl_blocker_4 have had their charset changed. 
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_2
+bup_ddl_blocker_4
+SHOW CREATE DATABASE bup_ddl_blocker_2;
+Database	Create Database
+bup_ddl_blocker_2	CREATE DATABASE `bup_ddl_blocker_2` /*!40100 DEFAULT CHARACTER SET latin2 */
+SHOW CREATE DATABASE bup_ddl_blocker_4;
+Database	Create Database
+bup_ddl_blocker_4	CREATE DATABASE `bup_ddl_blocker_4` /*!40100 DEFAULT CHARACTER SET latin2 */
+SELECT * FROM bup_ddl_blocker_2.t1;
+col_a
+SELECT * FROM bup_ddl_blocker_4.t1;
+col_a
+con1: Dropping the database tables
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_4;
+con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+Restore Summary
+ header     =       85 bytes
+ meta-data  =      478 bytes
+ data       =      324 bytes
+              --------------
+ total             887 bytes
+con1: Showing databases that were backed up
+con1: bup_ddl_blocker_1 has been renamed and
+con1: bup_ddl_blocker_2.t1 has been truncated.
+con1: bup_ddl_blocker_4 has not had its character set changed. 
+con1: bup_ddl_blocker_4.t1 has not been truncated.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_2
+bup_ddl_blocker_4
+SHOW CREATE DATABASE bup_ddl_blocker_2;
+Database	Create Database
+bup_ddl_blocker_2	CREATE DATABASE `bup_ddl_blocker_2` /*!40100 DEFAULT CHARACTER SET latin1 */
+SHOW CREATE DATABASE bup_ddl_blocker_4;
+Database	Create Database
+bup_ddl_blocker_4	CREATE DATABASE `bup_ddl_blocker_4` /*!40100 DEFAULT CHARACTER SET latin1 */
+SELECT * FROM bup_ddl_blocker_2.t1;
+col_a
+SELECT * FROM bup_ddl_blocker_4.t1;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+con1: Cleanup
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_4;
+
+Starting Test 5 - Restore
+
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_2 CHARACTER SET latin1;
+CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+con1: Loading data
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
+con1: Show that the new data doesn't exist before backup.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_2
+bup_ddl_blocker_4
+BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4
+to 'bup_ddl_blocker_orig.bak';
+Backup Summary
+ header     =       52 bytes
+ meta-data  =      192 bytes
+ data       =      162 bytes
+              --------------
+ total             406 bytes
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+TRUNCATE TABLE bup_ddl_blocker_2.t1;
+con3: Get a DDL going and stop in the middle
+ALTER DATABASE bup_ddl_blocker_2 CHARACTER SET latin2;
+con1: Restoring database -- will block with lock
+RESTORE FROM "bup_ddl_blocker_orig.bak";
+con6: Checking locks
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+TRUNCATE TABLE bup_ddl_blocker_4.t1;
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+ALTER DATABASE bup_ddl_blocker_4 CHARACTER SET latin2;
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con5: Completing DDL
+Restore Summary
+ header     =       52 bytes
+ meta-data  =      192 bytes
+ data       =      162 bytes
+              --------------
+ total             406 bytes
+
+Verifying Test 5 results for restore.
+
+con1: bup_ddl_blocker_4 has had its character set changed. 
+con1: bup_ddl_blocker_2.t1 has not been truncated.
+con1: bup_ddl_blocker_4.t1 has been truncated.
+SHOW DATABASES LIKE 'bup_ddl_blocker_%';
+Database (bup_ddl_blocker_%)
+bup_ddl_blocker_2
+bup_ddl_blocker_4
+SHOW CREATE DATABASE bup_ddl_blocker_2;
+Database	Create Database
+bup_ddl_blocker_2	CREATE DATABASE `bup_ddl_blocker_2` /*!40100 DEFAULT CHARACTER SET latin1 */
+SHOW CREATE DATABASE bup_ddl_blocker_4;
+Database	Create Database
+bup_ddl_blocker_4	CREATE DATABASE `bup_ddl_blocker_4` /*!40100 DEFAULT CHARACTER SET latin2 */
+SELECT * FROM bup_ddl_blocker_2.t1;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+SELECT * FROM bup_ddl_blocker_4.t1;
+col_a
+con1: Cleanup
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_4;
+
+Starting Test 6
+
+DROP TABLE IF EXISTS test.t2;
+DROP TABLE IF EXISTS bup_ddl_blocker.t1, bup_ddl_blocker.t3;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE test.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=MEMORY;
+con1: Loading data
+INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO test.t2 VALUES ("01 Some data to test");
+INSERT INTO test.t2 VALUES ("02 Some data to test");
+INSERT INTO test.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_ddl_blocker.t3 VALUES ("03 Some data to test");
+con1: Show that the new data doesn't exist before backup.
+SELECT * FROM bup_ddl_blocker.t1;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+SELECT * FROM test.t2;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+SELECT * FROM bup_ddl_blocker.t3;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+con5: Getting lock on DDL in progress.
+SELECT get_lock("DDL_not_blocked", 0);
+get_lock("DDL_not_blocked", 0)
+1
+con2: Get a DDL going and stop in the middle
+ALTER TABLE bup_ddl_blocker.t1 ADD COLUMN col_b int;
+con3: Get a DDL going and stop in the middle
+ALTER TABLE test.t2 ADD COLUMN col_b int;
+con4: Get a DDL going and stop in the middle
+ALTER TABLE bup_ddl_blocker.t3 ADD COLUMN col_b int;
+con5: Checking locks
+con5: Releasing lock
+SELECT release_lock("DDL_not_blocked");
+release_lock("DDL_not_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con1: Showing columns after updates and backup
+DESCRIBE bup_ddl_blocker.t1;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+col_b	int(11)	YES		NULL	
+DESCRIBE test.t2;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+col_b	int(11)	YES		NULL	
+DESCRIBE bup_ddl_blocker.t3;
+Field	Type	Null	Key	Default	Extra
+col_a	char(40)	YES		NULL	
+col_b	int(11)	YES		NULL	
+
+Verifying Test 6 results:
+
+T1 should have the changes after backup - count(*) = 2
+SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 't1' AND TABLE_SCHEMA = 'bup_ddl_blocker';
+count(*)
+2
+T2 should the changes after backup - count(*) = 2
+SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 't2' AND TABLE_SCHEMA = 'test';
+count(*)
+2
+T3 should not have the changes after backup - count(*) = 2
+SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 't3' AND TABLE_SCHEMA = 'bup_ddl_blocker';
+count(*)
+2
+DROP TABLE test.t2;
+con1: Cleanup
+DROP DATABASE bup_ddl_blocker;

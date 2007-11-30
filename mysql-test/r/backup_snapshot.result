@@ -1,0 +1,126 @@
+DROP DATABASE IF EXISTS bup_snapshot;
+CREATE DATABASE bup_snapshot;
+SET GLOBAL debug="d,backup_debug";
+CREATE TABLE bup_snapshot.t1 (word CHAR(20)) ENGINE=INNODB;
+INSERT INTO bup_snapshot.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("04 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("05 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("06 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("07 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("08 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("09 Some data to test");
+INSERT INTO bup_snapshot.t1 VALUES ("10 Some data to test");
+CREATE TABLE bup_snapshot.t2 (a int) ENGINE=MEMORY;
+INSERT INTO bup_snapshot.t2 VALUES (1), (2), (3), (4), (5);
+con1: Show that the new data doesn't exist before backup.
+SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
+word
+SELECT COUNT(*) FROM bup_snapshot.t1;
+COUNT(*)
+10
+SELECT COUNT(*) FROM bup_snapshot.t2;
+COUNT(*)
+5
+con3: Getting lock on driver.
+SELECT get_lock("backup_cs_locked", 100);
+get_lock("backup_cs_locked", 100)
+1
+con1: Backing up database. Spawn this and continue...
+BACKUP DATABASE bup_snapshot TO "bup_snapshot.bak";
+con3: Checking locks.
+INSERT INTO bup_snapshot.t1 VALUES("- Dave Mathews");
+con3: Checking locks.
+con3: Release lock on driver.
+SELECT release_lock("backup_cs_locked");
+release_lock("backup_cs_locked")
+1
+Backup Summary
+ header     =       29 bytes
+ meta-data  =      184 bytes
+ data       =      320 bytes
+              --------------
+ total             533 bytes
+INSERT INTO bup_snapshot.t1 VALUES("- Yes");
+INSERT INTO bup_snapshot.t1 VALUES("- Jethro Tull");
+DELETE FROM bup_snapshot.t1 WHERE word LIKE '10%';
+con2: Showing the data after inserts.
+SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
+word
+- Dave Mathews
+- Yes
+- Jethro Tull
+SELECT COUNT(*) FROM bup_snapshot.t1;
+COUNT(*)
+12
+con1: Dropping the database
+DROP TABLE bup_snapshot.t1;
+con1: Restoring the database
+RESTORE FROM "bup_snapshot.bak";
+Restore Summary
+ header     =       29 bytes
+ meta-data  =      184 bytes
+ data       =      320 bytes
+              --------------
+ total             533 bytes
+con1: Showing the data (no new data should be here).
+SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
+word
+SELECT COUNT(*) FROM bup_snapshot.t1;
+COUNT(*)
+10
+SELECT COUNT(*) FROM bup_snapshot.t2;
+COUNT(*)
+5
+con3: Getting lock on driver.
+SELECT get_lock("backup_cs_reading", 100);
+get_lock("backup_cs_reading", 100)
+1
+con1: Backing up database. Spawn this and continue...
+BACKUP DATABASE bup_snapshot TO "bup_snapshot.bak";
+con3: Checking locks.
+INSERT INTO bup_snapshot.t1 VALUES("- Dave Mathews");
+con3: Checking locks.
+con3: Release lock on driver.
+SELECT release_lock("backup_cs_reading");
+release_lock("backup_cs_reading")
+1
+INSERT INTO bup_snapshot.t1 VALUES("- Yes");
+INSERT INTO bup_snapshot.t1 VALUES("- Jethro Tull");
+DELETE FROM bup_snapshot.t1 WHERE word LIKE '10%';
+con2: Showing the data after inserts.
+SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
+word
+- Dave Mathews
+- Yes
+- Jethro Tull
+SELECT COUNT(*) FROM bup_snapshot.t1;
+COUNT(*)
+12
+Backup Summary
+ header     =       29 bytes
+ meta-data  =      184 bytes
+ data       =      320 bytes
+              --------------
+ total             533 bytes
+con1: Dropping the database
+DROP TABLE bup_snapshot.t1;
+con1: Restoring the database
+RESTORE FROM "bup_snapshot.bak";
+Restore Summary
+ header     =       29 bytes
+ meta-data  =      184 bytes
+ data       =      320 bytes
+              --------------
+ total             533 bytes
+con1: Showing the data (no new data should be here).
+SELECT * FROM bup_snapshot.t1 WHERE word LIKE '-%';
+word
+SELECT COUNT(*) FROM bup_snapshot.t1;
+COUNT(*)
+10
+SELECT COUNT(*) FROM bup_snapshot.t2;
+COUNT(*)
+5
+DROP DATABASE bup_snapshot;

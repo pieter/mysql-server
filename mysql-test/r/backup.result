@@ -57,21 +57,17 @@ INSERT INTO `tasking` VALUES ('333445555','405',23),('123763153','405',33.5),('9
 UNLOCK TABLES;
 BACKUP DATABASE db1,db2 TO 'test.ba';
 Backup Summary
- header     =       52 bytes
- meta-data  =      807 bytes
- data       =      639 bytes
-              --------------
- total            1498 bytes
+ backed up 4 tables
+ in 2 databases
+ using 1 driver
 DROP DATABASE db1;
 DROP DATABASE db2;
 USE mysql;
 RESTORE FROM 'test.ba';
 Restore Summary
- header     =       52 bytes
- meta-data  =      807 bytes
- data       =      639 bytes
-              --------------
- total            1498 bytes
+ restored 4 tables
+ in 2 databases
+ using 1 driver
 USE db1;
 SHOW TABLES;
 Tables_in_db1
@@ -319,19 +315,15 @@ Chuck@linux:~> mysql -uroot -p
 Enter password:
 BACKUP DATABASE bup_default TO "bup_default.bak";
 Backup Summary
- header     =       43 bytes
- meta-data  =      890 bytes
- data       =     7368 bytes
-              --------------
- total            8301 bytes
+ backed up 4 tables
+ in 1 database
+ using 2 drivers
 DROP DATABASE bup_default;
 RESTORE FROM "bup_default.bak";
 Restore Summary
- header     =       43 bytes
- meta-data  =      890 bytes
- data       =     7368 bytes
-              --------------
- total            8301 bytes
+ restored 4 tables
+ in 1 database
+ using 2 drivers
 SELECT * FROM bup_default.t1;
 a
 1

@@ -2,18 +2,14 @@ DROP DATABASE IF EXISTS empty_db;
 CREATE DATABASE empty_db;
 BACKUP DATABASE empty_db TO 'empty_db.bak';
 Backup Summary
- header     =       11 bytes
- meta-data  =        2 bytes
- data       =        0 bytes
-              --------------
- total              13 bytes
+ backed up 0 tables
+ in 1 database
+ using 0 driver
 BACKUP DATABASE * TO 'all.bak';
 Backup Summary
- header     =       16 bytes
- meta-data  =        4 bytes
- data       =        0 bytes
-              --------------
- total              20 bytes
+ backed up 0 tables
+ in 2 databases
+ using 0 driver
 DROP DATABASE empty_db;
 DROP DATABASE test;
 SHOW DATABASES;
@@ -26,11 +22,9 @@ information_schema
 mysql
 RESTORE FROM 'all.bak';
 Restore Summary
- header     =       16 bytes
- meta-data  =        4 bytes
- data       =        0 bytes
-              --------------
- total              20 bytes
+ restored 0 tables
+ in 2 databases
+ using 0 driver
 SHOW DATABASES;
 Database
 information_schema
@@ -41,11 +35,9 @@ DROP DATABASE empty_db;
 DROP DATABASE test;
 RESTORE FROM 'empty_db.bak';
 Restore Summary
- header     =       11 bytes
- meta-data  =        2 bytes
- data       =        0 bytes
-              --------------
- total              13 bytes
+ restored 0 tables
+ in 1 database
+ using 0 driver
 SHOW DATABASES;
 Database
 information_schema
@@ -55,11 +47,9 @@ SHOW TABLES IN empty_db;
 Tables_in_empty_db
 RESTORE FROM 'all.bak';
 Restore Summary
- header     =       16 bytes
- meta-data  =        4 bytes
- data       =        0 bytes
-              --------------
- total              20 bytes
+ restored 0 tables
+ in 2 databases
+ using 0 driver
 SHOW DATABASES;
 Database
 information_schema
@@ -81,11 +71,9 @@ DROP VIEW IF EXISTS v1;
 CREATE VIEW v1 AS SELECT * FROM test.t1;
 BACKUP DATABASE empty_db TO 'empty_db.bak';
 Backup Summary
- header     =       11 bytes
- meta-data  =        2 bytes
- data       =        0 bytes
-              --------------
- total              13 bytes
+ backed up 0 tables
+ in 1 database
+ using 0 driver
 SHOW DATABASES;
 Database
 information_schema
@@ -94,11 +82,9 @@ mysql
 test
 RESTORE FROM 'empty_db.bak';
 Restore Summary
- header     =       11 bytes
- meta-data  =        2 bytes
- data       =        0 bytes
-              --------------
- total              13 bytes
+ restored 0 tables
+ in 1 database
+ using 0 driver
 USE empty_db;
 SHOW TABLES;
 Tables_in_empty_db

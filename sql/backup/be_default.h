@@ -200,22 +200,24 @@ class Restore: public Restore_driver
 
 /*********************************************************************
 
-  Default image class
+  Default snapshot class
 
  *********************************************************************/
 
 namespace backup {
 
 
-class Default_image: public Image_info
+class Default_snapshot: public Snapshot_info
 {
  public:
 
-  Default_image(Archive_info &info): Image_info(info)
-  { ver= 1; }
+  Default_snapshot()
+  {
+    version= 1;
+  }
 
-  image_type type() const
-  { return DEFAULT_IMAGE; }
+  enum_snap_type type() const
+  { return DEFAULT_SNAPSHOT; }
 
   const char* name() const
   { return "Default"; }
@@ -224,21 +226,11 @@ class Default_image: public Image_info
   { return TRUE; }; // accept all tables
 
   result_t get_backup_driver(Backup_driver* &ptr)
-  { return (ptr= new default_backup::Backup(tables,::current_thd, 
+  { return (ptr= new default_backup::Backup(m_tables,::current_thd,
                                             TL_READ_NO_INSERT)) ? OK : ERROR; }
 
   result_t get_restore_driver(Restore_driver* &ptr)
-  { return (ptr= new default_backup::Restore(tables,::current_thd)) ? OK : ERROR; }
-
-  result_t do_write_description(OStream&)
-  { return OK; } // nothing to write
-
-  static result_t
-  create_from_stream(version_t, Archive_info &info, IStream&,
-                     Image_info* &ptr)
-  {
-    return (ptr= new Default_image(info)) ? OK : ERROR;
-  }
+  { return (ptr= new default_backup::Restore(m_tables,::current_thd)) ? OK : ERROR; }
 
   bool is_valid(){ return TRUE; };
 

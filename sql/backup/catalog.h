@@ -1,500 +1,783 @@
-#ifndef _BACKUP_ARCHIVE_H
-#define _BACKUP_ARCHIVE_H
+#ifndef CATALOG_H_
+#define CATALOG_H_
 
-/**
-  @file
-
-  Data types used to represent contents of a backup archive and to read/write
-  its description (catalogue)
- */
-
-#if defined(USE_PRAGMA_INTERFACE) || defined(__APPLE_CC__)
-/*
-  #pragma interface is needed on powermac platform as otherwise compiler
-  doesn't create/export vtable for Image_info::Tables class (if you know a
-  better way for fixing this issue let me know! /Rafal).
-
-  Apparently, configuration macro USE_PRAGMA_INTERFACE is not set by ./configure,
-  on powermac platform - this is why __APPLE_CC__ is also checked.
- */
-#pragma interface
-#endif
-
-#include <backup/api_types.h>
-#include <backup/string_pool.h>
-#include <backup/stream.h>
-#include <backup/backup_engine.h>
-#include <backup/meta_data.h>
+#include "stream_services.h"
+#include "stream.h"
+#include "backup_aux.h"
+#include <meta_data.h>
 
 namespace backup {
 
-// Forward declaration for a class describing an image inside backup archive.
-class Image_info;
-
-#define MAX_IMAGES  256
-typedef Image_info* Img_list[MAX_IMAGES]; ///< List (vector) of image descriptions.
+class Snapshot_info;
 
 /**
-  Structure to hold information about binary log.
-*/
-struct st_binlog_info
-{
-  char binlog_file_name[FN_REFLEN];  ///< the file name
-  my_off_t position;                 ///< binlog position
-};
+  Describes contents of a backup image.
 
-/**
-  Describes contents of a backup archive.
-
-  This class stores a catalogue of a backup archive, that is, description of
-  all items stored in the archive (currently only databases and tables). It also
-  determines how to save and read the catalogue to/from a backup stream.
+  This class stores a catalogue of a backup image, that is, description of
+  all items stored in it (currently only databases and tables).
 
   Only item names are stored in the catalogue. Other item data is stored
-  in the meta-data part of an archive and in case of tables, their data is
-  stored in images created by backup drivers.
+  in the meta-data part of the image and in case of tables, their data is
+  stored in table data snapshots created by backup drivers.
 
-  The @c images member stores a list of @c Image_info objects describing the
-  images included in the archive. Each image description contains a list of
-  tables stored in that image (note that no table can be stored in more than
-  one image).
+  For each snapshot present in the image there is a @c Snapshot_info object
+  stored in @c m_snap[] array. This object contains list of tables whose
+  data is stored in it. Note that each table must belong to exactly one
+  snapshot.
 
-  To save space, we have a separate pool of database names (@c db_names member).
-  In table references, only the key of the database name is stored, not the
-  whole name.
+  Contents of the catalogue can be browsed using the iterator classes.
 
-  When reading or writing backup archive, statistics about the size of its parts
-  is stored in the members of this class for later reporting.
+  Info about each object is stored in an instance of a class derived from
+  @c Image_info::Item. This class determines how to obtain meta-data for the
+  object and how to create it from the saved meta-data.
  */
-class Archive_info
+class Image_info: public st_bstream_image_header
 {
  public:
 
-   static const version_t  ver=1;
-   uint  img_count;       ///< number of images in the archive
    uint  table_count;     ///< total number of tables in the archive
-
-   size_t total_size;   ///< size of processed backup archive
-   size_t header_size;  ///< size of archive's header (after reading or writing an archive)
-   size_t meta_size;    ///< size of archive's meta-data (after reading or writing an archive)
-   size_t data_size;    ///< size of archive's table data images (after reading or writing an archive)
-
-   st_binlog_info binlog_information; ///< stores binlog information for PTR
-   struct tm start_time;              ///< the start datetime of the backup
-   struct tm end_time;                ///< the end datetime of the backup
-   struct tm vp_time;                 ///< time of validation point
 
    // Classes representing various types of meta-data items.
 
-   class Item;
+   class Item;          ///< base class for all item types
    class Db_item;
    class Table_item;
 
-  /*
-    Classes which might be used to implement contents browsing.
+   class Iterator;       ///< base for all iterators
+   class Db_iterator;    ///< iterates over databases in archive
+   class Ditem_iterator; ///< iterates over per-db items
 
-   class Item_iterator;  // for iterating over all meta-data items
-   class Db_iterator;    // iterates over databases in archive
-   class Ditem_iterator; // iterates over per-db items
-  */
-
-   Img_list images;  ///< list of archive's images
-
-   /// Write archive's header and save the catalogue.
-   result_t save(OStream&);
-   /// Read the header and catalogue from a stream.
-   result_t read(IStream&);
-
-   virtual ~Archive_info();
+   virtual ~Image_info();
 
  protected:
 
-   Archive_info():
-     img_count(0), table_count(0),
-     total_size(0), header_size(0), meta_size(0), data_size(0)
-   {
-     for (uint i=0; i<256; ++i)
-       images[i]= NULL;
-   }
+  class Db_ref;
+  class Table_ref;
 
-   // storage for meta-data items
+  /**
+   Provides storage for the list of databases stored in the catalogue.
+  */
+  class Databases
+  {
+    Dynamic_array<Db_item> m_dbs;
 
-   StringPool      db_names; ///< Pool of database names.
+   public:
+
+    Databases(): m_dbs(16,128)
+    {}
+
+    Db_item* operator[](uint pos) const
+    { return m_dbs[pos]; }
+
+    uint count() const
+    { return m_dbs.size(); }
+
+    /// Insert database at given location
+    Image_info::Db_item* add_db(const Db_ref &db, uint pos);
+
+    /// Insert database at first available position.
+    Image_info::Db_item* add_db(const Db_ref &db)
+    {
+      return add_db(db,count());
+    }
+
+  };
+
+  Databases m_db; ///< list of databases
+  Snapshot_info *m_snap[256];   ///< list of snapshots
+
+  Image_info();
+
+ public:
+
+  uint db_count() const
+  { return m_db.count(); }
+
+  /*
+    Methods for populating backup catalogue (just wrappers which access m_db
+    member)
+  */
+
+  Db_item* add_db(const Db_ref &db, uint pos)
+  {
+    return m_db.add_db(db,pos);
+  }
+
+  Db_item* add_db(const Db_ref &db)
+  {
+    return add_db(db,m_db.count());
+  }
+
+  Db_item* get_db(uint pos) const
+  {
+    return m_db[pos];
+  }
+
+  /*
+    Inline methods for adding/accessing table items are defined after
+    Snapshot_info class.
+   */
+
+  Table_item* add_table(Db_item&, const Table_ref&, uint, unsigned long int);
+  Table_item* add_table(Db_item&, const Table_ref&, uint);
+  Table_item* get_table(uint, unsigned long int) const;
+
+  Item* locate_item(const st_bstream_item_info*) const;
 
  private:
 
-  friend class Image_info;
-  friend class Db_item;
-  friend class Table_item;
+  /**
+    Buffer for CREATE statement used in @c bcat_get_item_create_query()
+
+    FIXME: find a better solution.
+  */
+  String create_stmt_buf;
+
+  // friends
+
+  friend int ::bcat_add_item(st_bstream_image_header*, struct st_bstream_item_info*);
+  friend int ::bcat_reset(st_bstream_image_header*);
+  friend int ::bcat_get_item_create_query(st_bstream_image_header*,
+                                          struct st_bstream_item_info*,
+                                          bstream_blob *);
 };
 
-/**
-  Describes an image of table data stored in a backup archive.
 
-  An instance of this class:
-  - informs about the type of image,
-  - stores list of tables whose data is kept in the image,
-  - provides methods for creating backup and restore drivers to write/read the
-    image,
-  - determines which tables can be stored in the image,
-  - defines how image's format is described inside backup archive
-    (via @c do_write_description() method)
- */
-class Image_info
+/*
+ Provides storage for list of tables of a snapshot.
+
+ Implements the Table_list interface.
+*/
+
+class Tables: public Table_list
 {
+  Dynamic_array<Image_info::Table_item> m_tables;
+
  public:
 
-  enum image_type {NATIVE_IMAGE, DEFAULT_IMAGE, SNAPSHOT_IMAGE};
+  Tables(): m_tables(1024,1024)
+  {}
 
-  virtual image_type type() const =0; ///< Return type of the image.
-  version_t ver;  ///< Image format version.
+  backup::Table_ref operator[](uint) const;
+
+  uint count() const
+  { return m_tables.size(); }
+
+  Image_info::Table_item* add_table(const Table_ref&, unsigned long int);
+
+  Image_info::Table_item* add_table(const Table_ref &t)
+  {
+    return add_table(t,count());
+  }
+
+  Image_info::Table_item* get_table(unsigned long int pos)
+  {
+    return m_tables[pos];
+  }
+};
+
+
+/*
+  Describes table data snapshot stored inside backup image.
+
+  Such snapshot is created by a backup driver and read by a restore driver.
+ */
+class Snapshot_info
+{
+ protected:
+
+  Tables m_tables;  ///< list of tables whose data is stored in the snapshot
+
+ public:
+
+  enum enum_snap_type {
+    NATIVE_SNAPSHOT= BI_NATIVE,   ///< snapshot created by native backup driver
+    DEFAULT_SNAPSHOT= BI_DEFAULT, ///< snapshot created by built-in, blocking driver
+    CS_SNAPSHOT= BI_CS            ///< snapshot created by CS backup driver
+  };
+
+  version_t version;  ///< version of snapshot's format
+
+  virtual enum_snap_type type() const =0;
 
   /// Check if instance was correctly constructed
   virtual bool is_valid() =0;
-  /// Create backup driver for the image.
-  virtual result_t get_backup_driver(Backup_driver*&) =0;
-  /// Create restore driver for the image.
-  virtual result_t get_restore_driver(Restore_driver*&) =0;
 
-  size_t init_size; ///< Size of the initial data transfer (estimate). This is
-                    ///< meaningful only after a call to get_backup_driver().
-
-  /// Write header entry describing the image.
-  result_t write_description(OStream&);
-
-  /**
-    Create instance of @c Image_info described by an entry in backup stream.
-
-    @retval OK    entry successfully read
-    @retval DONE  end of chunk or stream has been reached.
-    @retval ERROR an error was detected
-   */
-  static result_t create_from_stream(Archive_info&, IStream&, Image_info*&);
+  /// Tell how many tables are stored in the snapshot.
+  unsigned long int table_count() const
+  { return m_tables.count(); }
 
   /// Determine if a table stored in given engine can be saved in this image.
   virtual bool accept(const Table_ref&, const ::handlerton*) =0;
 
+  /// Create backup driver for the image.
+  virtual result_t get_backup_driver(Backup_driver*&) =0;
+
+  /// Create restore driver for the image.
+  virtual result_t get_restore_driver(Restore_driver*&) =0;
+
+  /// Set snapshot's data format version
+  virtual result_t set_version(version_t ver)
+  {
+    version= ver;
+    return OK;
+  }
+
   /**
-    Return name identifying the image in debug messages.
+    Position inside image's snapshot list.
+
+    Starts with 1. M_no == 0 means that this snapshot is not included in the
+    list.
+  */
+  ushort m_no;
+
+  /**
+    Size of the initial data transfer (estimate). This is
+    meaningful only after a call to get_backup_driver().
+  */
+  size_t init_size;
+
+  /**
+    Return name identifying the snapshot in debug messages.
 
     The name should fit into "%s backup/restore driver" pattern.
    */
   virtual const char* name() const
   { return "<Unknown>"; }
 
-  virtual ~Image_info()
+  virtual ~Snapshot_info()
   {}
-
-   /*
-     Implementation of Table_list interface used to store the
-     list of tables of an image. Database names are stored in
-     external StringPool
-    */
-   class Tables: public Table_list
-   {
-    public:
-
-     Tables(StringPool &db_names):
-       m_db_names(db_names),
-       m_head(NULL),m_last(NULL),m_count(0)
-     {}
-
-     ~Tables() { clear(); }
-
-     int add(const backup::Table_ref&);
-     void clear();
-
-     backup::Table_ref operator[](uint pos) const;
-     //::TABLE_LIST* get_table_ptr(uint pos) const;
-
-     uint count() const
-     { return m_count; }
-
-     result_t save(OStream&);
-     result_t read(IStream&);
-
-    private:
-
-     struct node;
-
-     int add(const StringPool::Key&, const String&);
-     node* find_table(uint pos) const;
-
-     StringPool &m_db_names;
-     node *m_head, *m_last;
-     uint m_count;
-
-     friend class Table_ref;
-     friend class  Archive_info::Table_item;
-   };
-
-  Tables tables; ///< List of tables stored in the image.
 
  protected:
 
-  Image_info(Archive_info &info):
-    init_size(Driver::UNKNOWN_SIZE), tables(info.db_names)
+  Snapshot_info(): m_no(0), version(0)
   {}
 
-  /**
-    Write image specific data describing it.
+  // Methods for adding and accessing tables stored in the table list.
 
-    Method redefined in subclasses corresponding to different image types.
-   */
-  virtual result_t do_write_description(OStream&) =0;
+  Image_info::Table_item* add_table(const Table_ref &t, unsigned long int pos)
+  {
+    return m_tables.add_table(t,pos);
+  }
+
+  Image_info::Table_item* add_table(const Table_ref &t)
+  {
+    return add_table(t,m_tables.count());
+  }
+
+  Image_info::Table_item* get_table(unsigned long int pos)
+  {
+    return m_tables.get_table(pos);
+  }
+
+ friend class Image_info;
+};
+
+
+/*
+  Classes @c Image_info::Db_ref and @c Image_info::Table give access to
+  protected constructors so that instances of these objects can be created.
+
+  In the future they can be extended with helper methods and any features
+  needed to implement the base classes.
+ */
+
+class Image_info::Db_ref: public backup::Db_ref
+{
+  public:
+
+  Db_ref(const String &name): backup::Db_ref(name)
+  {}
+};
+
+class Image_info::Table_ref: public backup::Table_ref
+{
+  public:
+
+  Table_ref(const backup::Db_ref &db, const String &name):
+   backup::Table_ref(db.name(),name)
+  {}
 };
 
 /**
-  Represents a meta-data item in a backup archive.
+  Represents a meta-data item in a backup image.
 
   Instances of this class:
 
-  - identify a meta-data item inside backup archive,
+  - identify a meta-data item inside backup image,
   - provide storage for a corresponding meta::Item instance,
-  - write item identification data to a backup stream.
 
   For each type of meta-data there is a specialized subclass of
-  @c Archive_info::Item implementing the above tasks. Each subclass has static
-  @c create_from_stream() method which can create class instance using an
-  identity stored in a stream. For examples, see @c Archive_info::Table_item
-  class.
-
-  Class @c Archive_info::Item defines the format of an entry describing a
-  meta-data item inside the meta-data part of an archive. Such entry is created
-  by @c Archive_info::save() method. These entries are read by
-  @c Restore_info::read_item() method.
- */
-
-class Archive_info::Item
+  @c Archive_info::Item implementing the above tasks. The subclass also stores
+  all the item data required by the backup stream library.
+*/
+class Image_info::Item
 {
- protected:
-
-  /// Pointer to @c Archive_info instance to which this item belongs.
-  const Archive_info *const m_info;
-  Item  *next; ///< Used to create a linked list of all meta-data items.
-
  public:
 
   virtual ~Item() {}
 
-  /// Returns reference to the corresponding @c meta::Item instance.
-  virtual meta::Item& meta() =0;
+  virtual const st_bstream_item_info* info() const =0;
 
-  result_t save(THD*,OStream&); ///< Write entry describing the item.
+  /**
+    Tells to which database belongs this object.
 
-  // Create item from a saved entry.
-  static result_t create_from_stream(const Archive_info&, IStream&, Item*&);
+    Returns NULL for global objects which don't belong to any database.
+  */
+  virtual const Db_ref *in_db(void)
+  { return NULL; }
 
-  class Iterator;
+  virtual result_t get_create_stmt(::String &buf)
+  { return meta().get_create_stmt(buf); }
+
+  result_t drop(THD *thd)
+  { return meta().drop(thd); }
+
+  result_t create(THD *thd, ::String &query, byte *begin, byte *end)
+  { return meta().create(thd,query,begin,end); }
 
  protected:
 
-  Item(const Archive_info &i): m_info(&i), next(NULL)
-  {}
+  String m_name;  ///< For storing object's name.
 
-  /// Save data identifying the item inside the archive.
-  virtual result_t save_id(OStream&) =0;
+  Item() {}
 
-  friend class Archive_info;
-  friend class Backup_info;
-  friend class Restore_info;
-  friend class Iterator;
+ private:
+
+  /// Returns reference to the corresponding @c meta::Item instance.
+  virtual meta::Item& meta() =0;
+
+  friend class Image_info;
 };
 
-
 /**
-  Used to iterate over meta-data items.
-
-  Usage:
-  @code
-   Item *head;
-   for (Item::Iterator it(head); it ; it++)
-   {
-     it->archive_item_method()
-   }
-  @endcode
-  or
-  @code
-   Item *head, *p;
-   Item::Iterator it(head);
-
-   while ((p=it++))
-   {
-     @<use p here>
-   }
-  @endcode
- */
-class Archive_info::Item::Iterator
+  Specialization of @c Image_info::Item for storing info about a database.
+*/
+class Image_info::Db_item
+ : public st_bstream_db_info,
+   public Image_info::Item,
+   public meta::Db,
+   public Db_ref
 {
-  Item *m_curr;
-  Item *m_prev;
+  Table_item *m_tables;
+  Table_item *m_last_table;
+  unsigned long int table_count;
 
  public:
 
-  Iterator(Item *const head): m_curr(head), m_prev(NULL)
-  {}
-
-  operator bool() const
-  { return m_curr != NULL; }
-
-  Item* operator++(int)
+  Db_item():
+    Db_ref(Image_info::Item::m_name), m_tables(NULL), m_last_table(NULL)
   {
-    m_prev= m_curr;
-
-    if (m_curr)
-     m_curr= m_curr->next;
-
-    return m_prev;
+    bzero(&base,sizeof(base));
+    base.type= BSTREAM_IT_DB;
   }
 
-  Item* operator->()
-  { DBUG_ASSERT(m_curr);
-    return m_curr; }
-};
-
-
-
-/**
-  Specialization of @c Archive_info::Item representing a database.
-
-  A database is identified by a key into Archive_info::db_names string pool.
-  Using the key one can read database name from the pool. The key is saved
-  as a var-length coded integer.
- */
-class Archive_info::Db_item:
-  public Archive_info::Item, public meta::Db, public Db_ref
-{
-  StringPool::Key   key;
-
-  Db_item(const Archive_info &i, const StringPool::Key &key):
-    Archive_info::Item(i), Db_ref(m_info->db_names[key]), key(key)
-  {}
-
-  meta::Item& meta()
-  { return *this; }
-
-  /// Get the name from @c db_names pool.
   const char* sql_name() const
-  { return m_info->db_names[key].ptr(); }
+  { return (const char*)base.name.begin; }
 
- public:
+  /// Store information about database @c db.
+  Db_item& operator=(const Db_ref &db)
+  {
+    Image_info::Item::m_name= db.name();   // save name of the db
+    /*
+      setup the name member (inherited from bstream_item_info) to point
+      at the db name
+     */
+    base.name.begin= (byte*) Image_info::Item::m_name.ptr();
+    base.name.end= base.name.begin + Image_info::Item::m_name.length();
+    return *this;
+  }
 
-  result_t save_id(OStream&);
-  /// Create instance reading its identity from a stream.
-  static
-  result_t create_from_stream(const Archive_info&,IStream&, Archive_info::Item*&);
+  meta::Item& meta() { return *this; }
 
-  friend class Archive_info;
-  friend class Backup_info;
+  const st_bstream_item_info* info() const { return &base; }
+  const st_bstream_db_info* db_info() const { return this; }
+
+  result_t add_table(Table_item &t);
+
+  friend class Ditem_iterator;
+
+  friend int ::bcat_add_item(st_bstream_image_header*, struct st_bstream_item_info*);
 };
 
 
 /**
-  Specialization of @c Archive_info::Item representing a table.
-
-  A table is identified by its position inside the table list of
-  one of archive's images. Its identity is saved as two var-length coded
-  integers: first being the image number and second the table position inside
-  image's table list.
- */
-class Archive_info::Table_item:
-  public Archive_info::Item, public meta::Table, public Table_ref
+  Specialization of @c Image_info::Item for storing info about a table.
+*/
+class Image_info::Table_item
+ : public st_bstream_table_info,
+   public Image_info::Item,
+   public meta::Table,
+   public backup::Table_ref
 {
-  uint  img;  ///< Image in which this table is saved.
-  uint  pos;  ///< Position of the table in image's table list.
-
-  Table_item(const Archive_info &i, uint no, uint tno):
-    Archive_info::Item(i), Table_ref(i.images[no]->tables[tno]),
-    img(no), pos(tno)
-  {}
+  Table_item *next_table;
+  String m_db_name;  // FIXME
 
  public:
 
-  meta::Item& meta()
-  { return *this; }
+  Table_item():
+    Table_ref(m_db_name,Image_info::Item::m_name),
+    next_table(NULL), tl_entry(NULL)
+  {
+    bzero(&base,sizeof(base));
+    base.base.type= BSTREAM_IT_TABLE;
+  }
 
   const char* sql_name() const
-  { return m_info->images[img]->tables[pos].name().ptr(); }
+  { return (const char*)base.base.name.begin; }
 
-  /// Table is a per-db item -- indicate to which database it belongs.
-  const Db_ref in_db()
-  { return m_info->images[img]->tables[pos].db(); }
+  meta::Item& meta() { return *this; }
 
-  result_t save_id(OStream&);
-  /// Create instance reading its identity from a stream.
-  static
-  result_t create_from_stream(const Archive_info&,IStream&, Archive_info::Item*&);
+  /// Store information about table @c t.
+  Table_item& operator=(const Table_ref &t)
+  {
+    m_db_name= t.db().name();
+    Image_info::Item::m_name= t.name();   // save name of the db
+    /*
+      setup the name member (inherited from bstream_item_info) to point
+      at the db name
+     */
+    base.base.name.begin= (byte*) Image_info::Item::m_name.ptr();
+    base.base.name.end= base.base.name.begin + Image_info::Item::m_name.length();
+    return *this;
+  }
 
+  const st_bstream_item_info* info() const { return &base.base; }
+  const st_bstream_table_info* t_info() const { return this; }
+
+  const Db_ref *in_db(void)
+  {
+    return static_cast<Db_item*>(base.db);
+  }
+
+  String  create_stmt;    ///< buffer to store table's CREATE statement
+
+  /// Build CREATE statement for the table and store it in @c create_stmt
+  result_t get_create_stmt()
+  {
+    if (tl_entry)
+      return meta::Table::get_create_stmt(create_stmt);
+    return ERROR;
+  }
+
+  /// Put in @c buf a CREATE statement for the table.
+  result_t get_create_stmt(::String &buf)
+  {
+    if (create_stmt.is_empty() && tl_entry)
+      get_create_stmt();
+
+    buf= create_stmt;
+    return OK;
+  }
+
+ private:
+
+  /**
+    Stores pointer to a filled TABLE_LIST structure when the table is opened.
+    Otherwise should contain NULL.
+  */
+  ::TABLE_LIST *tl_entry;
+
+  /// this method is used by meta::Table class to get the CREATE statement
+  ::TABLE_LIST* get_table_list_entry()
+  { return tl_entry; }
+
+  friend class Db_item;
+  friend class Ditem_iterator;
+  friend class Tables;
   friend class Backup_info;
+
+  friend
+  int ::bcat_add_item(st_bstream_image_header*, struct st_bstream_item_info*);
+};
+
+/**
+  Add table to given snapshot at the indicated location.
+
+  @param  db  Database to which this table belongs.
+  @param  t   Table description.
+  @param  no  Snapshot to which it should be added (its position in
+              @c m_snap[] array)
+  @param  pos Position in snapshot's table list.
+
+  @note Table is also added to the database's table list.
+
+  @todo Report errors.
+*/
+inline
+Image_info::Table_item*
+Image_info::add_table(Db_item &db, const Table_ref &t, uint no, unsigned long int pos)
+{
+  Snapshot_info *snap= m_snap[no];
+
+  DBUG_ASSERT(snap);
+
+  Table_item *ti= snap->add_table(t,pos);
+  if (!ti)
+  {
+    // TODO: report error
+    return NULL;
+  }
+
+  // If the snapshot was not yet used, assign a new number to it
+  if (snap->m_no == 0)
+   snap->m_no= ++snap_count;
+
+  ti->snap_no= snap->m_no-1;
+  table_count++;
+  db.add_table(*ti);
+
+  return ti;
+}
+
+/**
+  Add table to given snapshot at first available location.
+
+  @param  db  Database to which this table belongs.
+  @param  t   Table description.
+  @param  no  Snapshot to which it should be added (its position in
+              @c m_snap[] array)
+
+  @note Table is also added to the database's table list.
+*/
+inline
+Image_info::Table_item*
+Image_info::add_table(Db_item &db, const Table_ref &t, uint no)
+{
+  return add_table(db,t,no,m_snap[no]->table_count());
+}
+
+/**
+  Get @c Table_item object for the table in the given position.
+
+  @param no  Snapshot to which the table belongs (its position in @c m_snap[]
+             array)
+  @param pos Tables position in the snapshot's table list.
+*/
+inline
+Image_info::Table_item*
+Image_info::get_table(uint no, unsigned long int pos) const
+{
+  uint i;
+
+  // FIXME: avoid the loop
+  for (i=0; i < 256; ++i)
+    if (m_snap[i] && m_snap[i]->m_no == no+1)
+      return m_snap[i]->get_table(pos);
+  return NULL;
+}
+
+/**
+  Add database to the catalogue, storing it at given position.
+
+  @param db    Database to add.
+  @param pos   Position where it should be stored in the database list.
+
+  The position should be not occupied.
+
+  @todo Report errors.
+*/
+inline
+Image_info::Db_item*
+Image_info::Databases::add_db(const Db_ref &db, uint pos)
+{
+  Db_item *di= m_dbs.get_entry(pos);
+  if (!di)
+  {
+    // TODO: report error
+    return NULL;
+  }
+  di->base.pos= pos;
+  *di= db;
+  return di;
+}
+
+/**
+  Add table to the list storing it at given position.
+
+  The position should not be occupied.
+
+  @todo Report errors.
+*/
+inline
+Image_info::Table_item*
+Tables::add_table(const Table_ref &t, unsigned long int pos)
+{
+  Image_info::Table_item *it= m_tables.get_entry(pos);
+
+  if (!it)
+  {
+    // TODO: report error
+    return NULL;
+  }
+
+  it->base.base.pos= pos;
+  *it= t; // store table info in the item
+  return it;
+}
+
+/**
+  Return table at given position.
+
+  The position should not be empty.
+*/
+inline
+Table_ref Tables::operator[](uint pos) const
+{
+  DBUG_ASSERT(pos < m_tables.size());
+
+  const Image_info::Table_item *ti= m_tables[pos];
+  DBUG_ASSERT(ti);
+
+  return *ti;
+}
+
+
+class Image_info::Iterator
+{
+ protected:
+
+  const Image_info &m_info;
+
+ public:
+
+  Iterator(const Image_info &info): m_info(info) {}
+
+  const Item* operator++(int)
+  {
+    const Item *ptr= get_ptr();
+    next();
+    return ptr;
+  }
+
+  virtual ~Iterator() {}
+
+ private:
+
+  virtual const Item* get_ptr() const =0;
+  virtual bool next() =0;
+};
+
+
+class Image_info::Db_iterator
+ : public Image_info::Iterator
+{
+  uint pos;
+
+ public:
+
+  Db_iterator(const Image_info &info): Iterator(info)
+  {
+    pos= 0;
+    find_non_null_pos();
+  }
+
+ private:
+
+  const Item* get_ptr() const
+  { return m_info.m_db[pos]; }
+
+  bool next()
+  {
+    pos++;
+    find_non_null_pos();
+    return pos < m_info.m_db.count();
+  }
+
+  void find_non_null_pos()
+  {
+    for(; pos < m_info.m_db.count() && m_info.m_db[pos] == NULL; ++pos);
+  }
+};
+
+
+class Image_info::Ditem_iterator
+ : public Image_info::Iterator
+{
+  Table_item *ptr;
+
+ public:
+
+  Ditem_iterator(const Image_info &info, const Db_item &db): Iterator(info)
+  {
+    ptr= db.m_tables;
+  }
+
+ private:
+
+  const Item* get_ptr() const
+  { return ptr; }
+
+  bool next()
+  {
+    if (ptr)
+      ptr= ptr->next_table;
+
+    return ptr != NULL;
+  }
+
 };
 
 } // backup namespace
-
-
-/************************************************************
-
-   Class describing native backup image
-
- ************************************************************/
 
 namespace backup {
 
-/**
-  Specialization of @c Image_info for images created by native backup drivers.
- */
-class Native_image: public Image_info
+/*
+ Wrappers around backup stream functions which perform necessary type conversions.
+
+ TODO: report errors
+*/
+
+inline
+result_t
+write_preamble(const Image_info &info, OStream &s)
 {
-  const ::handlerton  *m_hton; ///< Pointer to storage engine.
-  Engine   *m_be;  ///< Pointer to the native backup engine.
+  const st_bstream_image_header *hdr= static_cast<const st_bstream_image_header*>(&info);
+  int ret= bstream_wr_preamble(&s, const_cast<st_bstream_image_header*>(hdr));
+  return ret == BSTREAM_ERROR ? ERROR : OK;
+}
 
-  const char *m_name;  ///< Used to identify image in debug messages.
+inline
+result_t
+write_summary(const Image_info &info, OStream &s)
+{
+  const st_bstream_image_header *hdr= static_cast<const st_bstream_image_header*>(&info);
+  int ret= bstream_wr_summary(&s, const_cast<st_bstream_image_header*>(hdr));
+  return ret == BSTREAM_ERROR ? ERROR : OK;
+}
 
- public:
+inline
+result_t
+read_header(Image_info &info, IStream &s)
+{
+  int ret= bstream_rd_header(&s, static_cast<st_bstream_image_header*>(&info));
+  return ret == BSTREAM_ERROR ? ERROR : OK;
+}
 
-  Native_image(Archive_info &info, const ::handlerton *hton):
-    Image_info(info), m_hton(hton)
-  {
-    DBUG_ASSERT(hton);
-    DBUG_ASSERT(hton->get_backup_engine);
+inline
+result_t
+read_catalog(Image_info &info, IStream &s)
+{
+  int ret= bstream_rd_catalogue(&s, static_cast<st_bstream_image_header*>(&info));
+  return ret == BSTREAM_ERROR ? ERROR : OK;
+}
 
-    hton->get_backup_engine(const_cast< ::handlerton* >(hton),m_be);
+inline
+result_t
+read_meta_data(Image_info &info, IStream &s)
+{
+  int ret= bstream_rd_meta_data(&s, static_cast<st_bstream_image_header*>(&info));
+  return ret == BSTREAM_ERROR ? ERROR : OK;
+}
 
-    if(m_be)
-    {
-      ver= m_be->version();
-      m_name= ::ha_resolve_storage_engine_name(hton);
-    }
-  }
-
-  bool is_valid()
-  { return m_be != NULL; }
-
-  image_type type() const
-  { return NATIVE_IMAGE; }
-
-  const char* name() const
-  { return m_name; }
-
-  result_t get_backup_driver(Backup_driver* &drv)
-  {
-    DBUG_ASSERT(m_be);
-    return m_be->get_backup(Driver::PARTIAL,tables,drv);
-  }
-
-  result_t get_restore_driver(Restore_driver* &drv)
-  {
-    DBUG_ASSERT(m_be);
-    return m_be->get_restore(ver,Driver::PARTIAL,tables,drv);
-  }
-
-  result_t do_write_description(OStream&);
-  static result_t create_from_stream(version_t,Archive_info&,IStream&,Image_info*&);
-
-  bool accept(const Table_ref&, const ::handlerton *hton)
-  { return hton == m_hton; }; // this assumes handlertons are single instance objects!
-};
+inline
+result_t
+read_summary(Image_info &info, IStream &s)
+{
+  int ret= bstream_rd_summary(&s, static_cast<st_bstream_image_header*>(&info));
+  return ret == BSTREAM_ERROR ? ERROR : OK;
+}
 
 } // backup namespace
 
-
-#endif
+#endif /*CATALOG_H_*/

@@ -1,15 +1,10 @@
-#ifndef _META_BACKUP_H
-#define _META_BACKUP_H
+#ifndef META_DATA_H_
+#define META_DATA_H_
 
 /**
-  @file
-
-  Declarations of classes used to handle meta-data items.
- */
-
-#include <backup/api_types.h>
-#include <backup/stream.h>
-
+  @brief Size of a buffer used to describe an object when including it
+  in error and debug messages.
+*/
 #define META_ITEM_DESCRIPTION_LEN 128
 
 namespace backup {
@@ -17,46 +12,50 @@ namespace backup {
 namespace meta {
 
 /**
-  Defines how to backup and restore a meta-data item.
+  Defines how to backup and restore an object.
 
-  This class provides @c create() and @c drop() methods used to create and
-  destroy items. The default implementation uses SQL "CREATE ..." and "DROP ..."
-  statements for that purpose. Its instances determine how to save and read data
-  needed for item creation and provide any other item specific data. For each
-  type of meta-data there is a specialized subclass of @c meta::Item which
-  implements these tasks.
- */
-
+  This class provides methods for generating object's meta-data and also to
+  create an object from this data. The class defines default implementations
+  of these methods, but for specific object types a derived class might
+  overwrite them.
+*/
 class Item
 {
  public:
 
-  /// Possible types of meta-data items.
-  enum enum_type {DB, TABLE};
+  /// Possible types of objects.
+  enum enum_type {
+    DB= BSTREAM_IT_DB,
+    TABLE= BSTREAM_IT_TABLE
+  };
 
   virtual ~Item() {}
 
-  /// Return type of the item.
+  /// Return type of the object.
   virtual const enum_type type() const =0;
 
   /**
-    For per-db items return the database to which this item belongs.
-    For other items returns an invalid db reference.
-   */
-  virtual const Db_ref in_db()
-  { return Db_ref(); }
+    Obtain a create statement for an object and put it in the given
+    @c Stream argument.
+  */
+  virtual result_t get_create_stmt(::String&)
+  { return ERROR; }
 
-  /// Save data needed to create the item.
-  virtual result_t save(THD*,OStream&);
-
-  /// Read data saved by @c save() method.
-  virtual result_t read(IStream&);
-
-  /// Destroy the item if it exists.
   virtual result_t drop(THD*);
 
-  /// Create the item.
-  virtual result_t create(THD*);
+  /**
+    Create the object from its meta-data.
+
+    @param query  CREATE statement for the object.
+    @param begin  First byte of object's extra meta-data (not used currently).
+    @param end    One byte after the last byte of object's extra meta-data
+                  (not used currently).
+  */
+  virtual result_t create(THD *thd, ::String &query, byte*, byte*)
+  {
+    int ret= silent_exec_query(thd,query);
+    return ret ? ERROR : OK;
+  }
 
   typedef char description_buf[META_ITEM_DESCRIPTION_LEN+1];
 
@@ -69,13 +68,7 @@ class Item
 
  protected:
 
-  String create_stmt;  /// Storage for a create statement of the item.
-
-  /**
-    Return SQL name of the object represented by this item like TABLE
-    or DATABASE. This is used to construct a "DROP ..." statement for
-    the item.
-   */
+  /// Return SQL name of the object's type such as "TABLE" or "DATABASE".
   virtual const char* sql_object_name() const
   { return NULL; }
 
@@ -84,19 +77,10 @@ class Item
     per-db items the name should *not* be qualified by db name.
    */
   virtual const char* sql_name() const =0;
-
-  /// Store in @c create_stmt a DDL statement which will create the item.
-  /*
-    We give a default implementation because an item can not use create
-    statements and then it doesn't have to worry about this method.
-  */
-  virtual int build_create_stmt(THD*)
-  { return ERROR; }
-
 };
 
 /**
-  Specialization of @c meta::Item representing a database.
+  Specialization of @c meta::Item for database objects.
  */
 class Db: public Item
 {
@@ -106,28 +90,33 @@ class Db: public Item
   const char* sql_object_name() const
   { return "DATABASE"; }
 
-  // Overwrite default implementations.
-  result_t save(THD*,OStream&);
-  result_t read(IStream&);
-
+  result_t get_create_stmt(::String&);
+  result_t create(THD*, ::String&, byte*, byte*);
 };
 
 /**
-  Specialization of @c meta::Item representing a table.
+  Specialization of @c meta::Item for table objects.
  */
 class Table: public Item
 {
+ public:
+
   const enum_type type() const
   { return TABLE; }
 
   const char* sql_object_name() const
   { return "TABLE"; }
 
-  int build_create_stmt(THD*);
+  result_t get_create_stmt(::String&);
+
+ private:
+
+  virtual ::TABLE_LIST* get_table_list_entry() =0;
 };
 
 } // meta namespace
 
 } // backup namespace
 
-#endif
+
+#endif /*META_DATA_H_*/

@@ -28,15 +28,16 @@ INCLUDES = \
 libbackup_la_SOURCES = \
   stream.cc \
   logger.cc \
-  string_pool.cc \
   catalog.cc \
+  kernel.cc \
   meta_data.cc \
   data_backup.cc \
-  kernel.cc \
   be_default.cc \
   be_snapshot.cc \
   buffer_iterator.cc \
   be_thread.cc
+
+libbackup_la_LIBADD = libbackupstream.la
 
 libbackupstream_la_SOURCES= \
   stream_v1_transport.c \
@@ -46,15 +47,16 @@ noinst_HEADERS = \
   api_types.h \
   backup_engine.h \
   backup_kernel.h \
+  backup_stream.h \
+  stream_services.h \
   debug.h \
   error.h \
   stream.h \
   backup_aux.h \
   logger.h \
-  map.h \
-  string_pool.h \
   catalog.h \
   meta_data.h \
+  be_native.h \
   be_default.h \
   be_snapshot.h \
   buffer_iterator.h \

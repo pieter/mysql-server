@@ -110,39 +110,31 @@ class Restore: public default_backup::Restore
 namespace backup {
 
 
-class Snapshot_image: public Image_info
+class CS_snapshot: public Snapshot_info
 {
  public:
 
-  Snapshot_image(Archive_info &info): Image_info(info)
-  { ver= 1; }
+  CS_snapshot()
+  {
+    version= 1;
+  }
 
-  image_type type() const
-  { return SNAPSHOT_IMAGE; }
+  enum_snap_type type() const
+  { return CS_SNAPSHOT; }
 
   const char* name() const
   { return "Snapshot"; }
 
   bool accept(const Table_ref&, const ::handlerton* h)
-  { 
-    return (h->start_consistent_snapshot != NULL); 
+  {
+    return (h->start_consistent_snapshot != NULL);
   }; // accept all tables that support consistent read
 
   result_t get_backup_driver(Backup_driver* &ptr)
-  { return (ptr= new snapshot_backup::Backup(tables,::current_thd)) ? OK : ERROR; }
+  { return (ptr= new snapshot_backup::Backup(m_tables,::current_thd)) ? OK : ERROR; }
 
   result_t get_restore_driver(Restore_driver* &ptr)
-  { return (ptr= new snapshot_backup::Restore(tables,::current_thd)) ? OK : ERROR; }
-
-  result_t do_write_description(OStream&)
-  { return OK; } // nothing to write
-
-  static result_t
-  create_from_stream(version_t, Archive_info &info, IStream&,
-                     Image_info* &ptr)
-  {
-    return (ptr= new Snapshot_image(info)) ? OK : ERROR;
-  }
+  { return (ptr= new snapshot_backup::Restore(m_tables,::current_thd)) ? OK : ERROR; }
 
   bool is_valid(){ return TRUE; };
 

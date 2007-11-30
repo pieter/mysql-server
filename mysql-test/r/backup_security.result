@@ -19,11 +19,9 @@ GRANT SUPER ON *.* TO 'bup_with_rights'@'%';
 default: Do backup of database with default test user for later tests.
 BACKUP DATABASE backup_test to 'backup_test_orig.bak';
 Backup Summary
- header     =       21 bytes
- meta-data  =       92 bytes
- data       =      245 bytes
-              --------------
- total             358 bytes
+ backed up 1 tables
+ in 1 database
+ using 1 driver
 default: Connect as user with no rights and attempt backup and restore.
 no_rights: Attempting backup. Should fail with error 1227
 BACKUP DATABASE backup_test to 'bup_no_rights.bak';
@@ -50,19 +48,15 @@ Connect as user with rights and attempt backup and restore.
 no_rights: Attempting backup. Should succeed
 BACKUP DATABASE backup_test to 'bup_with_rights.bak';
 Backup Summary
- header     =       21 bytes
- meta-data  =       92 bytes
- data       =      245 bytes
-              --------------
- total             358 bytes
+ backed up 1 tables
+ in 1 database
+ using 1 driver
 no_rights: Attempting restore. Should succeed
 RESTORE FROM 'bup_with_rights.bak';
 Restore Summary
- header     =       21 bytes
- meta-data  =       92 bytes
- data       =      245 bytes
-              --------------
- total             358 bytes
+ restored 1 tables
+ in 1 database
+ using 1 driver
 SELECT * FROM t1;
 a
 01 Test #1 - super privilege
@@ -75,11 +69,9 @@ a
 default: Do restore to ensure it still works with default test user.
 RESTORE FROM 'backup_test_orig.bak';
 Restore Summary
- header     =       21 bytes
- meta-data  =       92 bytes
- data       =      245 bytes
-              --------------
- total             358 bytes
+ restored 1 tables
+ in 1 database
+ using 1 driver
 SELECT * FROM t1;
 a
 01 Test #1 - super privilege

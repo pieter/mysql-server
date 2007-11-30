@@ -86,11 +86,9 @@ UPDATE bup_commit_blocker.t3 SET col_a = "con4: 05 CHANGED" WHERE col_a LIKE '05
 UPDATE bup_commit_blocker.t3 SET col_a = "con4: 06 CHANGED" WHERE col_a LIKE '06%';
 COMMIT;
 Backup Summary
- header     =       36 bytes
- meta-data  =      284 bytes
- data       =      471 bytes
-              --------------
- total             791 bytes
+ backed up 3 tables
+ in 1 database
+ using 1 driver
 con1: Showing data after updates and backup
 SELECT * FROM bup_commit_blocker.t1;
 col_a
@@ -121,11 +119,9 @@ DROP TABLE bup_commit_blocker.t3;
 con1: Restoring the database
 RESTORE FROM "bup_commit_blocker.bak";
 Restore Summary
- header     =       36 bytes
- meta-data  =      284 bytes
- data       =      471 bytes
-              --------------
- total             791 bytes
+ restored 3 tables
+ in 1 database
+ using 1 driver
 con1: Showing the data (no new data should be here).
 SELECT * FROM bup_commit_blocker.t1;
 col_a
@@ -217,11 +213,9 @@ NULL
 con6: Completing statement
 con7: Completing statement
 Backup Summary
- header     =       28 bytes
- meta-data  =       95 bytes
- data       =       50 bytes
-              --------------
- total             173 bytes
+ backed up 1 tables
+ in 1 database
+ using 1 driver
 con1: Showing data after updates and backup
 SELECT * FROM bup_commit_blocker.t5;
 col_a
@@ -235,11 +229,9 @@ DROP TABLE bup_commit_blocker.t5;
 con1: Restoring the database
 RESTORE FROM "bup_commit_blocker.bak";
 Restore Summary
- header     =       28 bytes
- meta-data  =       95 bytes
- data       =       50 bytes
-              --------------
- total             173 bytes
+ restored 1 tables
+ in 1 database
+ using 1 driver
 con1: Showing the data (no new data should be here).
 SELECT * FROM bup_commit_blocker.t5;
 col_a
@@ -367,11 +359,9 @@ UPDATE bup_commit_blocker.t3 SET col_a = "con4: 06 CHANGED" WHERE col_a LIKE '06
 COMMIT;
 con7: Completing statement
 Backup Summary
- header     =       43 bytes
- meta-data  =      377 bytes
- data       =      521 bytes
-              --------------
- total             941 bytes
+ backed up 4 tables
+ in 1 database
+ using 2 drivers
 con1: Showing data after updates and backup
 SELECT * FROM bup_commit_blocker.t1;
 col_a
@@ -409,11 +399,9 @@ DROP TABLE bup_commit_blocker.t5;
 con1: Restoring the database
 RESTORE FROM "bup_commit_blocker.bak";
 Restore Summary
- header     =       43 bytes
- meta-data  =      377 bytes
- data       =      521 bytes
-              --------------
- total             941 bytes
+ restored 4 tables
+ in 1 database
+ using 2 drivers
 con1: Showing the data (no new data should be here).
 SELECT * FROM bup_commit_blocker.t1;
 col_a

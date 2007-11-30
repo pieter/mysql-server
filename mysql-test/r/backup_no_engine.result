@@ -4,20 +4,16 @@ CREATE TABLE db.t1 (a int, b char(32))
 ENGINE=myisam;
 BACKUP DATABASE db TO "db.backup";
 Backup Summary
- header     =       12 bytes
- meta-data  =      120 bytes
- data       =        0 bytes
-              --------------
- total             132 bytes
+ backed up 1 tables
+ in 1 database
+ using 1 driver
 DROP DATABASE db;
 CREATE DATABASE db;
 RESTORE FROM "db.backup";
 Restore Summary
- header     =       12 bytes
- meta-data  =      120 bytes
- data       =        0 bytes
-              --------------
- total             132 bytes
+ restored 1 tables
+ in 1 database
+ using 1 driver
 SHOW TABLES IN db;
 Tables_in_db
 t1

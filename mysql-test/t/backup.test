@@ -96,6 +96,7 @@ INSERT INTO `tasking` VALUES ('333445555','405',23),('123763153','405',33.5),('9
 UNLOCK TABLES;
 
 
+--replace_column 1 #
 BACKUP DATABASE db1,db2 TO 'test.ba';
 
 DROP DATABASE db1;
@@ -108,7 +109,8 @@ connection restore;
 
 USE mysql;
 
-RESTORE FROM 'test.ba';
+--replace_column 1 # 2 # 3 # 4 # 10 # 11 # 12 #
+--query_vertical RESTORE FROM 'test.ba'
 
 USE db1;
 SHOW TABLES;
@@ -261,13 +263,15 @@ SELECT COUNT(*) FROM bup_default.t1_blob;
 SELECT COUNT(*) FROM bup_default.wide;
 --query_vertical SELECT * FROM bup_default.wide;
 
+--replace_column 1 #
 BACKUP DATABASE bup_default TO "bup_default.bak";
 
 # Now restore the database and then check to make sure the data is there.
 
 DROP DATABASE bup_default;
 
-RESTORE FROM "bup_default.bak";
+--replace_column 1 # 2 # 3 # 4 # 10 # 11 # 12 #
+--query_vertical RESTORE FROM "bup_default.bak"
 
 # Show the data
 

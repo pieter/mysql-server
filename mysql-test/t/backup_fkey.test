@@ -49,6 +49,7 @@ INSERT INTO backup_fkey.child VALUES (4, 6);
 
 # Backup the database with fkey constraints preserved.
 --echo Backup the database originally.
+--replace_column 1 #
 BACKUP DATABASE backup_fkey TO 'backup_fkey_orig.bak';
 
 # Turn off foreign key constraints to create a backup that has
@@ -63,6 +64,7 @@ DROP TABLE backup_fkey.parent;
 
 # Backup only the child table.
 --echo Backup the database without the parent table.
+--replace_column 1 #
 BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
 
 --echo Turn on foreign key constraints.
@@ -71,10 +73,12 @@ SHOW VARIABLES LIKE 'foreign_key_checks%';
 
 # Restore the database and ensure there are no errors.
 --echo Now restore the database.
+--replace_column 1 #
 RESTORE FROM 'backup_fkey.bak';
 
 # Now restore the original files to show there are no problems
 # restoring valid fkey relationships.
+--replace_column 1 #
 RESTORE FROM 'backup_fkey_orig.bak';
 
 --echo Show data
@@ -100,6 +104,7 @@ INSERT INTO backup_fkey.t1 VALUES ("06 Test #2 - foreign key constraints");
 INSERT INTO backup_fkey.t1 VALUES ("07 Test #2 - foreign key constraints"); 
 
 --echo Backup the data
+--replace_column 1 #
 BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
 
 # Turn ON foreign key constraints and do restore then check result.
@@ -108,6 +113,7 @@ SET foreign_key_checks = 1;
 SHOW VARIABLES LIKE 'foreign_key_checks%';
 
 --echo Restoring data
+--replace_column 1 #
 RESTORE FROM 'backup_fkey.bak';
 
 --echo Verify foreign_key_checks = ON
@@ -118,6 +124,7 @@ SET foreign_key_checks = 0;
 SHOW VARIABLES LIKE 'foreign_key_checks%';
 
 --echo Restoring data
+--replace_column 1 #
 RESTORE FROM 'backup_fkey.bak';
 
 --echo Verify foreign_key_checks = OFF

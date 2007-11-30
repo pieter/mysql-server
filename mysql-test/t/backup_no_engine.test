@@ -17,12 +17,14 @@ ENGINE=myisam;
 --copy_file $table_def $MYSQLTEST_VARDIR/master-data/db/t2.frm
 
 # backup test database, the table with no storage engine will be ignored
+--replace_column 1 #
 BACKUP DATABASE db TO "db.backup";
 
 # wipe-out backed-up database
 DROP DATABASE db;
 CREATE DATABASE db;
 
+--replace_column 1 #
 RESTORE FROM "db.backup";
 
 # check that the table with no engine was excluded

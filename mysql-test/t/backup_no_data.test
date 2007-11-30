@@ -12,7 +12,9 @@ DROP DATABASE IF EXISTS empty_db;
 
 CREATE DATABASE empty_db;
 
+--replace_column 1 #
 BACKUP DATABASE empty_db TO 'empty_db.bak';
+--replace_column 1 #
 BACKUP DATABASE * TO 'all.bak';
 
 DROP DATABASE empty_db;
@@ -24,6 +26,7 @@ connection restore;
 
 SHOW DATABASES;
 
+--replace_column 1 #
 RESTORE FROM 'all.bak';
 
 SHOW DATABASES;
@@ -31,11 +34,13 @@ SHOW DATABASES;
 DROP DATABASE empty_db;
 DROP DATABASE test;
 
+--replace_column 1 #
 RESTORE FROM 'empty_db.bak';
 
 SHOW DATABASES;
 SHOW TABLES IN empty_db;
 
+--replace_column 1 #
 RESTORE FROM 'all.bak';
 
 SHOW DATABASES;
@@ -60,6 +65,7 @@ DROP VIEW IF EXISTS v1;
 
 CREATE VIEW v1 AS SELECT * FROM test.t1;
 
+--replace_column 1 #
 BACKUP DATABASE empty_db TO 'empty_db.bak';
 
 disconnect backup;
@@ -68,6 +74,7 @@ connection restore;
 
 SHOW DATABASES;
 
+--replace_column 1 #
 RESTORE FROM 'empty_db.bak';
 
 USE empty_db;

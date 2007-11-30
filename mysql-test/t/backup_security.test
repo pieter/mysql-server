@@ -35,9 +35,11 @@ GRANT ALL ON *.* TO 'bup_no_rights'@'%';
 GRANT ALL ON *.* TO 'bup_with_rights'@'%';
 REVOKE SUPER ON *.* FROM 'bup_no_rights'@'%';
 GRANT SUPER ON *.* TO 'bup_with_rights'@'%';
+FLUSH PRIVILEGES;
 
 --echo default: Do backup of database with default test user for later tests.
 
+--replace_column 1 #
 BACKUP DATABASE backup_test to 'backup_test_orig.bak';
 
 --echo default: Connect as user with no rights and attempt backup and restore.
@@ -46,11 +48,13 @@ connect (no_rights,localhost,bup_no_rights,,backup_test);
 connection no_rights;
 
 --echo no_rights: Attempting backup. Should fail with error 1227
+--replace_column 1 #
 --error 1227
 BACKUP DATABASE backup_test to 'bup_no_rights.bak';
 SHOW ERRORS;
 
 --echo no_rights: Attempting restore. Should fail with error 1227
+--replace_column 1 #
 --error 1227
 RESTORE FROM 'bup_no_rights.bak';
 SHOW ERRORS;
@@ -63,9 +67,11 @@ connect (with_rights,localhost,bup_with_rights,,backup_test);
 connection with_rights;
 
 --echo no_rights: Attempting backup. Should succeed
+--replace_column 1 #
 BACKUP DATABASE backup_test to 'bup_with_rights.bak';
 
 --echo no_rights: Attempting restore. Should succeed
+--replace_column 1 #
 RESTORE FROM 'bup_with_rights.bak';
 
 SELECT * FROM t1;
@@ -74,6 +80,7 @@ connection default;
 
 --echo default: Do restore to ensure it still works with default test user.
 
+--replace_column 1 #
 RESTORE FROM 'backup_test_orig.bak';
 
 SELECT * FROM t1;

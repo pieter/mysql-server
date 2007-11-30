@@ -31,6 +31,14 @@
 # strategically in the code to allow the threads to pause at the 
 # corresponding location for those goals above.
 #
+# Notes
+#   You must use a dedicated connection for getting and releasing locks.
+# Do not issue a get_lock() or release_lock() in the same connection
+# (thread) as code that calls BACKUP_BREAKPOINT(). Using the same connection
+# to get/release locks and run code that issues BACKUP_BREAKPOINTs will result
+# in an assertion using DEBUG_ASSERT(thd->ull == NULL) from debug_sync_point()
+# in item_func.cc.
+#
 
 --source include/have_innodb.inc
 --source include/have_debug.inc
@@ -247,6 +255,7 @@ COMMIT;
 # Reconnect to con1 and let backup finish.
 
 connection con1;
+--replace_column 1 #
 reap;
 
 # Now restore the database and then check to make sure the new rows
@@ -264,7 +273,8 @@ DROP TABLE bup_commit_blocker.t2;
 DROP TABLE bup_commit_blocker.t3;
 
 --echo con1: Restoring the database
-RESTORE FROM "bup_commit_blocker.bak";
+--replace_column 1 #
+ RESTORE FROM "bup_commit_blocker.bak";
 
 --echo con1: Showing the data (no new data should be here).
 SELECT * FROM bup_commit_blocker.t1;
@@ -335,6 +345,8 @@ INSERT INTO bup_commit_blocker.t5 VALUES (10), (20), (30), (40), (50);
 --echo con1: Show that the new data doesn't exist before backup.
 #SELECT * FROM bup_commit_blocker.t4;
 SELECT * FROM bup_commit_blocker.t5;
+
+connection con5;
 
 # Set the breakpoint for the commit blocker.
 --echo con5: Getting lock on commit blocker.
@@ -414,6 +426,7 @@ reap;
 # Reconnect to con1 and let backup finish.
 
 connection con1;
+--replace_column 1 #
 reap;
 
 # Now restore the database and then check to make sure the new rows
@@ -429,7 +442,8 @@ SELECT * FROM bup_commit_blocker.t5;
 DROP TABLE bup_commit_blocker.t5;
 
 --echo con1: Restoring the database
-RESTORE FROM "bup_commit_blocker.bak";
+--replace_column 1 #
+ RESTORE FROM "bup_commit_blocker.bak";
 
 --echo con1: Showing the data (no new data should be here).
 #SELECT * FROM bup_commit_blocker.t4;
@@ -698,6 +712,7 @@ reap;
 # Reconnect to con1 and let backup finish.
 
 connection con1;
+--replace_column 1 #
 reap;
 
 # Now restore the database and then check to make sure the new rows
@@ -719,6 +734,7 @@ DROP TABLE bup_commit_blocker.t3;
 DROP TABLE bup_commit_blocker.t5;
 
 --echo con1: Restoring the database
+--replace_column 1 #
 RESTORE FROM "bup_commit_blocker.bak";
 
 --echo con1: Showing the data (no new data should be here).

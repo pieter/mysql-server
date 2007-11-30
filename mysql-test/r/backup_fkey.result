@@ -24,12 +24,8 @@ INSERT INTO backup_fkey.child VALUES (4, 6);
 ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (`backup_fkey`.`child`, CONSTRAINT `child_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `parent` (`id`) ON DELETE CASCADE)
 Backup the database originally.
 BACKUP DATABASE backup_fkey TO 'backup_fkey_orig.bak';
-Backup Summary
- header     =       32 bytes
- meta-data  =      376 bytes
- data       =      106 bytes
-              --------------
- total             514 bytes
+backup_id
+#
 Turn off foreign key constraints.
 SET foreign_key_checks = 0;
 SHOW VARIABLES LIKE 'foreign_key_checks%';
@@ -39,12 +35,8 @@ Drop the parent table.
 DROP TABLE backup_fkey.parent;
 Backup the database without the parent table.
 BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
-Backup Summary
- header     =       24 bytes
- meta-data  =      264 bytes
- data       =       56 bytes
-              --------------
- total             344 bytes
+backup_id
+#
 Turn on foreign key constraints.
 SET foreign_key_checks = 1;
 SHOW VARIABLES LIKE 'foreign_key_checks%';
@@ -52,19 +44,11 @@ Variable_name	Value
 foreign_key_checks	ON
 Now restore the database.
 RESTORE FROM 'backup_fkey.bak';
-Restore Summary
- header     =       24 bytes
- meta-data  =      264 bytes
- data       =       56 bytes
-              --------------
- total             344 bytes
+backup_id
+#
 RESTORE FROM 'backup_fkey_orig.bak';
-Restore Summary
- header     =       32 bytes
- meta-data  =      376 bytes
- data       =      106 bytes
-              --------------
- total             514 bytes
+backup_id
+#
 Show data
 SELECT * FROM backup_fkey.parent;
 id
@@ -92,12 +76,8 @@ INSERT INTO backup_fkey.t1 VALUES ("06 Test #2 - foreign key constraints");
 INSERT INTO backup_fkey.t1 VALUES ("07 Test #2 - foreign key constraints");
 Backup the data
 BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
-Backup Summary
- header     =       21 bytes
- meta-data  =       92 bytes
- data       =      301 bytes
-              --------------
- total             414 bytes
+backup_id
+#
 Turn on foreign key constraints.
 SET foreign_key_checks = 1;
 SHOW VARIABLES LIKE 'foreign_key_checks%';
@@ -105,12 +85,8 @@ Variable_name	Value
 foreign_key_checks	ON
 Restoring data
 RESTORE FROM 'backup_fkey.bak';
-Restore Summary
- header     =       21 bytes
- meta-data  =       92 bytes
- data       =      301 bytes
-              --------------
- total             414 bytes
+backup_id
+#
 Verify foreign_key_checks = ON
 SHOW VARIABLES LIKE 'foreign_key_checks%';
 Variable_name	Value
@@ -122,12 +98,8 @@ Variable_name	Value
 foreign_key_checks	OFF
 Restoring data
 RESTORE FROM 'backup_fkey.bak';
-Restore Summary
- header     =       21 bytes
- meta-data  =       92 bytes
- data       =      301 bytes
-              --------------
- total             414 bytes
+backup_id
+#
 Verify foreign_key_checks = OFF
 SHOW VARIABLES LIKE 'foreign_key_checks%';
 Variable_name	Value

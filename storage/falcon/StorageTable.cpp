@@ -101,7 +101,7 @@ void StorageTable::clearTruncateLock(void)
 {
 	if (haveTruncateLock)
 		{
-		share->syncTruncate->unlock();
+		share->clearTruncateLock();
 		haveTruncateLock = false;
 		}
 }
@@ -110,7 +110,7 @@ void StorageTable::setTruncateLock()
 {
 	if (!haveTruncateLock)
 		{
-		share->syncTruncate->lock(NULL, Shared);
+		share->setTruncateLock();
 		haveTruncateLock = true;
 		}
 }

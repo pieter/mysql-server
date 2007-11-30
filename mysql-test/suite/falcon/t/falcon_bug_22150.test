@@ -58,10 +58,12 @@ connection default;
 --echo # Pull the results of the preceeding call p1()
 reap;
 --echo # Sent call p1() to the server but do not pull the results
+--real_sleep 1
 --send call p1()
 
 --echo # Switch to connection conn1
 connection conn1;
+--real_sleep 1
 call p1();
 
 --echo # Switch to connection default

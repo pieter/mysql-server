@@ -1,3 +1,5 @@
+--source include/not_embedded.inc
+
 connect (backup,localhost,root,,);
 connect (restore,localhost,root,,);
 

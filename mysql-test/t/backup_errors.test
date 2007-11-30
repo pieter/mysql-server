@@ -1,3 +1,5 @@
+--source include/not_embedded.inc
+
 DROP DATABASE IF EXISTS adb;
 DROP DATABASE IF EXISTS bdb;
 

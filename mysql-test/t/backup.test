@@ -1,4 +1,5 @@
 --source include/have_innodb.inc
+--source include/not_embedded.inc
 
 connect (backup,localhost,root,,);
 connect (restore,localhost,root,,);
@@ -15,13 +16,13 @@ USE db1;
 
 # SHOW ENGINES;
 
-#SET @@storage_engine = 'archive';
+#SET @@storage_engine = 'myisam';
 
 DROP TABLE IF EXISTS `building`;
 CREATE TABLE `building` (
   `dir_code` char(4),
   `building` char(6)
-) ENGINE=archive DEFAULT CHARSET=latin1;
+) ENGINE=myisam DEFAULT CHARSET=latin1;
 
 #
 # Dumping data for table `building`
@@ -41,7 +42,7 @@ CREATE TABLE `directorate` (
   `dir_code` char(4),
   `dir_name` char(30),
   `dir_head_id` char(9)
-) ENGINE=archive DEFAULT CHARSET=latin1;
+) ENGINE=myisam DEFAULT CHARSET=latin1;
 
 #
 # Dumping data for table `directorate`

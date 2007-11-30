@@ -10,6 +10,7 @@
 #
 
 --source include/have_innodb.inc
+--source include/not_embedded.inc
 
 --disable_warnings
 DROP DATABASE IF EXISTS backup_fkey;
@@ -93,7 +94,7 @@ DROP TABLE backup_fkey.child, backup_fkey.parent;
 #
 --echo Test 2:
 --echo Create table and add data.
-CREATE TABLE backup_fkey.t1 (a char(40));
+CREATE TABLE backup_fkey.t1 (a char(40)) ENGINE=MEMORY;
 
 INSERT INTO backup_fkey.t1 VALUES ("01 Test #2 - foreign key constraints"); 
 INSERT INTO backup_fkey.t1 VALUES ("02 Test #2 - foreign key constraints"); 

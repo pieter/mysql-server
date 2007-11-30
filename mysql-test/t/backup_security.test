@@ -5,6 +5,8 @@
 # 1) Only users with super privilege can run backup or restore.
 #
 
+--source include/not_embedded.inc
+
 --disable_warnings
 DROP DATABASE IF EXISTS backup_test;
 --enable_warnings
@@ -59,7 +61,7 @@ SHOW ERRORS;
 RESTORE FROM 'bup_no_rights.bak';
 SHOW ERRORS;
 
-SELECT * FROM t1;
+SELECT * FROM backup_test.t1;
 
 --echo Connect as user with rights and attempt backup and restore.
 
@@ -74,7 +76,7 @@ BACKUP DATABASE backup_test to 'bup_with_rights.bak';
 --replace_column 1 #
 RESTORE FROM 'bup_with_rights.bak';
 
-SELECT * FROM t1;
+SELECT * FROM backup_test.t1;
 
 connection default;
 
@@ -83,7 +85,7 @@ connection default;
 --replace_column 1 #
 RESTORE FROM 'backup_test_orig.bak';
 
-SELECT * FROM t1;
+SELECT * FROM backup_test.t1;
 
 --echo Cleanup
 

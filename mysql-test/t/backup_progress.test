@@ -6,6 +6,7 @@
 source include/have_log_bin.inc;
 source include/have_debug.inc;
 source include/have_innodb.inc;
+source include/not_embedded.inc;
 
 --disable_warnings
 DROP DATABASE IF EXISTS backup_progress;
@@ -14,6 +15,9 @@ DROP TABLE IF EXISTS backup_progress.t1_res;
 
 connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
+
+# Setup the server to use the backup breakpoints
+SET GLOBAL debug="d,backup_debug";
 
 #
 # Test 1 - Check output of backup.

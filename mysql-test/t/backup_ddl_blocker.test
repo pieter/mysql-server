@@ -51,6 +51,7 @@
 
 --source include/have_innodb.inc
 --source include/have_debug.inc
+--source include/not_embedded.inc
 
 #
 # Connections used in this test

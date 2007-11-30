@@ -34,7 +34,7 @@ ERROR 42000: Access denied; you need the SUPER privilege for this operation
 SHOW ERRORS;
 Level	Code	Message
 Error	1227	Access denied; you need the SUPER privilege for this operation
-SELECT * FROM t1;
+SELECT * FROM backup_test.t1;
 a
 01 Test #1 - super privilege
 02 Test #1 - super privilege
@@ -52,7 +52,7 @@ no_rights: Attempting restore. Should succeed
 RESTORE FROM 'bup_with_rights.bak';
 backup_id
 #
-SELECT * FROM t1;
+SELECT * FROM backup_test.t1;
 a
 01 Test #1 - super privilege
 02 Test #1 - super privilege
@@ -65,7 +65,7 @@ default: Do restore to ensure it still works with default test user.
 RESTORE FROM 'backup_test_orig.bak';
 backup_id
 #
-SELECT * FROM t1;
+SELECT * FROM backup_test.t1;
 a
 01 Test #1 - super privilege
 02 Test #1 - super privilege

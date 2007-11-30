@@ -106,7 +106,9 @@ result_t Backup::get_data(Buffer &buf)
     tables_open= TRUE;
   }
   if (locking_thd->lock_state == LOCK_ACQUIRED)
+  {
     BACKUP_BREAKPOINT("backup_cs_reading");
+  }
 
   res= default_backup::Backup::get_data(buf);
 

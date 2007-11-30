@@ -1,6 +1,8 @@
 # Test how online backup handles tables using non-existent storage engines
 # The server used to crash in this situation (BUG#30938)
 
+--source include/not_embedded.inc
+
 # .frm file for a table using non-existent storage engine
 --let $table_def=$MYSQL_TEST_DIR/std_data/bug30938.frm
 --let $backup_out_path=$MYSQLTEST_VARDIR/master-data

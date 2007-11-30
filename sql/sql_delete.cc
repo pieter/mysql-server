@@ -395,7 +395,9 @@ cleanup:
     Breakpoints for backup testing.
   */
   if (!table->file->has_transactions())
+  {
     BACKUP_BREAKPOINT("backup_commit_blocker");
+  }
 
   if (thd->lock)
   {

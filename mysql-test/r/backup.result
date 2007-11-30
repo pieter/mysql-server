@@ -13,7 +13,7 @@ Note	1051	Unknown table 'building'
 CREATE TABLE `building` (
 `dir_code` char(4),
 `building` char(6)
-) ENGINE=archive DEFAULT CHARSET=latin1;
+) ENGINE=myisam DEFAULT CHARSET=latin1;
 LOCK TABLES `building` WRITE;
 INSERT INTO `building` VALUES ('N41','1300'),('N01','1453'),('M00','1000'),('N41','1301'),('N41','1305');
 UNLOCK TABLES;
@@ -24,7 +24,7 @@ CREATE TABLE `directorate` (
 `dir_code` char(4),
 `dir_name` char(30),
 `dir_head_id` char(9)
-) ENGINE=archive DEFAULT CHARSET=latin1;
+) ENGINE=myisam DEFAULT CHARSET=latin1;
 LOCK TABLES `directorate` WRITE;
 INSERT INTO `directorate` VALUES ('N41','Development','333445555'),('N01','Human Resources','123654321'),('M00','Management','333444444');
 UNLOCK TABLES;

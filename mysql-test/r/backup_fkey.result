@@ -66,7 +66,7 @@ id	parent_id
 DROP TABLE backup_fkey.child, backup_fkey.parent;
 Test 2:
 Create table and add data.
-CREATE TABLE backup_fkey.t1 (a char(40));
+CREATE TABLE backup_fkey.t1 (a char(40)) ENGINE=MEMORY;
 INSERT INTO backup_fkey.t1 VALUES ("01 Test #2 - foreign key constraints");
 INSERT INTO backup_fkey.t1 VALUES ("02 Test #2 - foreign key constraints");
 INSERT INTO backup_fkey.t1 VALUES ("03 Test #2 - foreign key constraints");

@@ -1,5 +1,6 @@
 DROP DATABASE IF EXISTS backup_progress;
 DROP TABLE IF EXISTS backup_progress.t1_res;
+SET GLOBAL debug="d,backup_debug";
 CREATE DATABASE backup_progress;
 con1: Create table and new users.
 CREATE TABLE backup_progress.t1 (a char(30)) ENGINE=MYISAM;

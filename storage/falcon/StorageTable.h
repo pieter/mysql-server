@@ -61,9 +61,7 @@ public:
 	void			clearAlter(void);
 	bool			setAlter(void);
 	
-	void			clearTruncateLock(void);
-	void			setTruncateLock();
-	
+
 	virtual void	setConnection(StorageConnection* connection);
 	virtual void	clearIndexBounds(void);
 	virtual void	clearRecord(void);
@@ -104,7 +102,6 @@ public:
 	virtual int		optimize(void);
 	virtual void	setLocalTable(StorageInterface* handler);
 
-	SyncObject			*syncTruncate;
 	JString				name;
 	StorageTable		*collision;
 	StorageConnection	*storageConnection;
@@ -122,7 +119,6 @@ public:
 	Stream				insertStream;
 	int					searchFlags;
 	bool				recordLocked;
-	bool				haveTruncateLock;
 };
 
 #endif

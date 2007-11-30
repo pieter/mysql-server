@@ -1131,8 +1131,8 @@ void StorageInterface::startTransaction(void)
 		{
 		storageConnection->startTransaction(isolation_levels[thd_tx_isolation(mySqlThread)]);
 		
-		if (storageTable)
-			storageTable->setTruncateLock();
+		if (storageShare)
+			storageShare->setTruncateLock();
 				
 		trans_register_ha(mySqlThread, true, falcon_hton);
 		}
@@ -1716,8 +1716,8 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 
 		if (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
 			{
-			if (storageTable)
-				storageTable->clearTruncateLock();
+			if (storageShare)
+				storageShare->clearTruncateLock();
 		
 			storageConnection->endImplicitTransaction();
 			}
@@ -1749,8 +1749,8 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 
 				if (ret)
 					{
-					if (storageTable)
-						storageTable->clearTruncateLock();
+					if (storageShare)
+						storageShare->clearTruncateLock();
 						
 					DBUG_RETURN(error(ret));
 					}
@@ -1769,8 +1769,8 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			{
 			if (storageConnection->startTransaction(isolation_levels[thd_tx_isolation(thd)]))
 				{
-				if (!isTruncate && storageTable)
-					storageTable->setTruncateLock();
+				if (!isTruncate && storageShare)
+					storageShare->setTruncateLock();
 				
 				trans_register_ha(thd, true, falcon_hton);
 				}
@@ -1782,8 +1782,8 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			{
 			if (storageConnection->startImplicitTransaction(isolation_levels[thd_tx_isolation(thd)]))
 				{
-				if (!isTruncate && storageTable)
-					storageTable->setTruncateLock();
+				if (!isTruncate && storageShare)
+					storageShare->setTruncateLock();
 				
 				trans_register_ha(thd, false, falcon_hton);
 				}

@@ -57,12 +57,16 @@ StorageTableShare::StorageTableShare(StorageHandler *handler, const char * path,
 	storageDatabase = NULL;
 	impure = new UCHAR[lockSize];
 	initialized = false;
+	haveTruncateLock = false;
 	table = NULL;
 	indexes = NULL;
 	syncObject = new SyncObject;
+	syncObject->setName("StorageTableShare::syncObject");
 	sequence = NULL;
 	tempTable = tempTbl;
 	setPath(path);
+	syncTruncate = new SyncObject;
+	syncTruncate->setName("StorageTableShare::syncTruncate");
 	
 	if (tempTable)
 		tableSpace = TEMPORARY_TABLESPACE;
@@ -74,7 +78,9 @@ StorageTableShare::StorageTableShare(StorageHandler *handler, const char * path,
 
 StorageTableShare::~StorageTableShare(void)
 {
+	clearTruncateLock();
 	delete syncObject;
+	delete syncTruncate;
 	delete [] impure;
 	
 	if (storageDatabase)
@@ -127,6 +133,7 @@ int StorageTableShare::create(StorageConnection *storageConnection, const char* 
 
 int StorageTableShare::deleteTable(StorageConnection *storageConnection)
 {
+	clearTruncateLock();
 	int res = storageDatabase->deleteTable(storageConnection, this);
 	
 	if (res == 0 || res == StorageErrorTableNotFound)
@@ -144,9 +151,30 @@ int StorageTableShare::deleteTable(StorageConnection *storageConnection)
 
 int StorageTableShare::truncateTable(StorageConnection *storageConnection)
 {
+	Sync sync(syncTruncate, "StorageTable::truncateTable");
+	sync.lock(Exclusive);
+	
 	int res = storageDatabase->truncateTable(storageConnection, this);
 	
 	return res;
+}
+
+void StorageTableShare::clearTruncateLock(void)
+{
+	if (haveTruncateLock)
+		{
+		syncTruncate->unlock();
+		haveTruncateLock = false;
+		}
+}
+
+void StorageTableShare::setTruncateLock()
+{
+	if (!haveTruncateLock)
+		{
+		syncTruncate->lock(NULL, Shared);
+		haveTruncateLock = true;
+		}
 }
 
 void StorageTableShare::cleanupFieldName(const char* name, char* buffer, int bufferLength)

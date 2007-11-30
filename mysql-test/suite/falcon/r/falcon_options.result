@@ -24,6 +24,7 @@ falcon_serial_log_block_size	0
 falcon_serial_log_buffers	20
 falcon_serial_log_dir	
 falcon_serial_log_priority	1
+falcon_two_phase_commit	OFF
 falcon_use_deferred_index_hash	OFF
 SELECT @@GLOBAL.falcon_debug_server;
 @@GLOBAL.falcon_debug_server
@@ -98,4 +99,5 @@ FALCON_SERIAL_LOG_BLOCK_SIZE	0
 FALCON_SERIAL_LOG_BUFFERS	20
 FALCON_SERIAL_LOG_DIR	
 FALCON_SERIAL_LOG_PRIORITY	1
+FALCON_TWO_PHASE_COMMIT	OFF
 FALCON_USE_DEFERRED_INDEX_HASH	OFF

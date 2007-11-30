@@ -107,6 +107,7 @@ Database: information_schema
 | TRIGGERS                              |
 | USER_PRIVILEGES                       |
 | VIEWS                                 |
+| FALCON_VERSION                        |
 +---------------------------------------+
 Database: INFORMATION_SCHEMA
 +---------------------------------------+
@@ -140,6 +141,7 @@ Database: INFORMATION_SCHEMA
 | TRIGGERS                              |
 | USER_PRIVILEGES                       |
 | VIEWS                                 |
+| FALCON_VERSION                        |
 +---------------------------------------+
 Wildcard: inf_rmation_schema
 +--------------------+

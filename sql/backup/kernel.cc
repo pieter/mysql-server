@@ -36,6 +36,9 @@ namespace backup {
 static IStream* open_for_read(const Location&);
 static OStream* open_for_write(const Location&);
 
+static int start_backup_or_restore();
+static void finish_backup_or_restore();
+
 /*
   Report errors. The main error code and optional arguments for its description
   are given plus a logger object which can contain stored errors.
@@ -93,7 +96,10 @@ execute_backup_command(THD *thd, LEX *lex)
     Check access for SUPER rights. If user does not have SUPER, fail with error.
   */
   if (check_global_access(thd, SUPER_ACL))
+  {
+    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR,MYF(0));
     DBUG_RETURN(ER_SPECIFIC_ACCESS_DENIED_ERROR);
+  }
 
   Location *loc= Location::find(lex->backup_dir);
 
@@ -103,8 +109,27 @@ execute_backup_command(THD *thd, LEX *lex)
     DBUG_RETURN(ER_BACKUP_INVALID_LOC);
   }
 
+  /*
+    Start_backup_or_restore() will check if another BACKUP/RESTORE command is 
+    running now and inform us about that. If this is the case we report error.
+   */ 
+  if ((lex->sql_command == SQLCOM_RESTORE) 
+      || (lex->sql_command == SQLCOM_BACKUP))
+    if(start_backup_or_restore())
+    {
+      my_error(ER_BACKUP_RUNNING,MYF(0));
+      DBUG_RETURN(ER_BACKUP_RUNNING);
+    }
+
   prepare_stream_memory();
   int res= 0;
+
+  /*
+    Important: above start_backup_or_restore() and prepare_stream_memory() 
+    *must* be matched by finish_backup_or_restore() and free_stream_memory(),
+    respectively. Therefore be careful with early return with DBUG_RETURN() - 
+    use "goto backup/restore_error" instead.
+   */ 
 
   switch (lex->sql_command) {
 
@@ -354,6 +379,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
   loc->free();
   free_stream_memory();
+  finish_backup_or_restore();
 
   DBUG_RETURN(res);
 }
@@ -1876,6 +1902,46 @@ int silent_exec_query(THD *thd, ::String &query)
   }
 
   return 0;
+}
+
+} // backup namespace
+
+extern pthread_mutex_t LOCK_backup;
+
+namespace backup {
+  
+static bool backup_or_restore_is_running= FALSE;
+
+/**
+  Indicate that BACKUP/RESTORE operation has started.
+  
+  @returns 0 if it is OK to continue or non-zero if another BACKUP/RESTORE
+  command is running and it is not possible to execute enather one now.
+ */ 
+int start_backup_or_restore()
+{
+  bool running;
+  
+  pthread_mutex_lock(&::LOCK_backup);
+  running= backup_or_restore_is_running;
+  if (!running)
+    backup_or_restore_is_running= TRUE;
+  pthread_mutex_unlock(&::LOCK_backup);
+
+  return running;
+}
+
+/**
+  Indicate that BACKUP/RESTORE operation has finished.
+  
+  This function should be called only if an earlier call to 
+  start_backup_or_restore() was successful.
+ */ 
+void finish_backup_or_restore()
+{
+  pthread_mutex_lock(&::LOCK_backup);
+  backup_or_restore_is_running= FALSE;
+  pthread_mutex_unlock(&::LOCK_backup);
 }
 
 } // backup namespace

@@ -6118,6 +6118,8 @@ ER_BACKUP_BACKUP
         eng "Error during backup operation - server's error log contains more information about the error"
 ER_BACKUP_RESTORE
         eng "Error during restore operation - server's error log contains more information about the error"
+ER_BACKUP_RUNNING
+        eng "Can't execute this command because another BACKUP/RESTORE operation is in progress"
 ER_BACKUP_BACKUP_PREPARE
         eng "Error when preparing for backup operation"
 ER_BACKUP_RESTORE_PREPARE

@@ -588,6 +588,7 @@ pthread_mutex_t THR_LOCK_DDL_blocker;
 pthread_mutex_t THR_LOCK_DDL_is_blocked; 
 pthread_cond_t COND_DDL_blocker;
 pthread_cond_t COND_process_blocked;
+pthread_mutex_t LOCK_backup;
 
 /*
   The below lock protects access to two global server variables:
@@ -1349,6 +1350,7 @@ static void clean_up_mutexes()
   (void) pthread_mutex_destroy(&LOCK_user_conn);
   (void) pthread_mutex_destroy(&THR_LOCK_DDL_blocker);
   (void) pthread_mutex_destroy(&THR_LOCK_DDL_is_blocked);
+  (void) pthread_mutex_destroy(&LOCK_backup);
   (void) pthread_cond_destroy(&COND_DDL_blocker);
   (void) pthread_cond_destroy(&COND_process_blocked);
   Events::destroy_mutexes();
@@ -3104,6 +3106,7 @@ static int init_thread_environment()
   (void) pthread_mutex_init(&LOCK_uuid_generator, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&THR_LOCK_DDL_blocker, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&THR_LOCK_DDL_is_blocked, MY_MUTEX_INIT_FAST);
+  (void) pthread_mutex_init(&LOCK_backup, MY_MUTEX_INIT_FAST);
   (void) pthread_cond_init(&COND_DDL_blocker, NULL);
   (void) pthread_cond_init(&COND_process_blocked, NULL);
 #ifdef HAVE_OPENSSL

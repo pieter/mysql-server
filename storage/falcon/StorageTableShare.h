@@ -121,8 +121,6 @@ public:
 	uint64				estimateCardinality(void);
 	bool				tableExists(void);
 	JString				lookupPathName(void);
-	void				clearTruncateLock(void);
-	void				setTruncateLock();
 
 	static const char*	getDefaultRoot(void);
 	static const char*	cleanupTableName(const char* name, char* buffer, int bufferLength, char *schema, int schemaLength);
@@ -145,7 +143,6 @@ public:
 	Sequence			*sequence;
 	int					numberIndexes;
 	bool				tempTable;
-	bool				haveTruncateLock;
 };
 
 #endif

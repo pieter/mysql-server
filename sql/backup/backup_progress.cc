@@ -47,23 +47,23 @@ Locking_thread_st *open_backup_progress_table(const char *table_name,
                                               enum thr_lock_type lock)
 {
   TABLE_LIST tables;                    // List of tables (1 in this case)
-  Locking_thread_st *locking_thd= NULL; // The locking thread
-  bool exists;                          // See if table exists
+  Locking_thread_st *locking_thd;       // The locking thread
 
   DBUG_ENTER("open_backup_progress_table()");
 
   tables.init_one_table("mysql", table_name, lock);
 
   /*
-    First, check to see if table exists.
+    The locking thread will, via open_table(), fail if the table does not
+    exist.
   */
-  if (check_if_table_exists(current_thd, &tables, &exists))
-    DBUG_RETURN(locking_thd);
 
   /*
     Create a new thread to open and lock the tables.
   */
   locking_thd= new Locking_thread_st();
+  if (locking_thd == NULL)
+    DBUG_RETURN(locking_thd);    
   locking_thd->tables_in_backup= &tables;
 
   /*

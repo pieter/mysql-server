@@ -28,6 +28,8 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_EPOLL
+
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/tree.h>
@@ -364,3 +366,5 @@ epoll_dealloc(struct event_base *base, void *arg)
 	memset(epollop, 0, sizeof(struct epollop));
 	free(epollop);
 }
+
+#endif /* HAVE_EPOLL */

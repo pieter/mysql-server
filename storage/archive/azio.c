@@ -365,7 +365,7 @@ void check_header(azio_stream *s)
     errno = 0;
     len = (uInt)my_pread(s->file, (uchar *)s->inbuf + len, AZ_BUFSIZE_READ >> len, s->pos, MYF(0));
     s->pos+= len;
-    if (len == 0) s->z_err = Z_ERRNO;
+    if (len == (uInt)-1) s->z_err = Z_ERRNO;
     s->stream.avail_in += len;
     s->stream.next_in = s->inbuf;
   }

@@ -56,8 +56,8 @@ struct TableSpaceInfo
 	int						tableSpaceId;
 	TableSpaceInfo			*collision;
 	TableSpaceInfo			*next;
-	DenseArray<int, 200>	sectionUseVector;
-	DenseArray<int, 200>	indexUseVector;
+	DenseArray<volatile long, 200>	sectionUseVector;
+	DenseArray<volatile long, 200>	indexUseVector;
 };
 
 class SerialLogFile;

@@ -84,7 +84,7 @@ int bcat_get_item_create_query(st_bstream_image_header *catalogue,
   if (res != OK)
     return BSTREAM_ERROR;
 
-  stmt->begin= (byte*)info->create_stmt_buf.ptr();
+  stmt->begin= (backup::byte*)info->create_stmt_buf.ptr();
   stmt->end= stmt->begin + info->create_stmt_buf.length();
 
   return BSTREAM_OK;

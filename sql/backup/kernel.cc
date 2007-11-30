@@ -111,7 +111,7 @@ execute_backup_command(THD *thd, LEX *lex)
   case SQLCOM_SHOW_ARCHIVE:
   case SQLCOM_RESTORE:
   {
-    IStream *stream= open_for_read(*loc);
+    backup::IStream *stream= open_for_read(*loc);
 
     if (!stream)
     {
@@ -221,7 +221,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
   case SQLCOM_BACKUP:
   {
-    OStream *stream= open_for_write(*loc);
+    backup::OStream *stream= open_for_write(*loc);
 
     // TODO: report error if location exists
 

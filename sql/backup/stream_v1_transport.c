@@ -1296,6 +1296,7 @@ static
 int check_end(backup_stream *s)
 {
   int ret;
+  bool eoc_seen= FALSE;
 
   if (s->state == ERROR)
     return BSTREAM_ERROR;
@@ -1315,8 +1316,6 @@ int check_end(backup_stream *s)
     Note: in each iteration of this loop one byte of the stream is consumed,
     hence it must terminate eventually.
   */
-
-  bool eoc_seen= FALSE;
 
   while(TRUE)
   {

@@ -31,6 +31,7 @@
 #include "be_default.h"
 #include "be_snapshot.h"
 #include "ddl_blocker.h"
+#include "backup_progress.h"
 
 namespace backup {
 
@@ -75,6 +76,7 @@ extern pthread_cond_t COND_DDL_blocker;
 int
 execute_backup_command(THD *thd, LEX *lex)
 {
+  ulonglong backup_prog_id= 0;
   time_t skr;
 
   DBUG_ENTER("execute_backup_command");
@@ -114,8 +116,20 @@ execute_backup_command(THD *thd, LEX *lex)
     {
       backup::Restore_info info(*stream);
 
+      info.backup_prog_id= report_ob_init(thd->id, BUP_STARTING, OP_RESTORE, 
+                                          0, "",
+                                          lex->backup_dir.str, thd->query);
+      backup_prog_id= info.backup_prog_id;
+      BACKUP_BREAKPOINT("bp_starting_state");
+
       if (check_info(thd,info))
         goto restore_error;
+
+      /*
+        Save starting datetime of restore for progress.
+      */
+      skr= my_time(0);
+      report_ob_time(info.backup_prog_id, (my_time_t)skr, NULL);
 
       if (lex->sql_command == SQLCOM_SHOW_ARCHIVE)
       {
@@ -130,6 +144,9 @@ execute_backup_command(THD *thd, LEX *lex)
       else
       {
         info.report_error(backup::log_level::INFO,ER_BACKUP_RESTORE_START);
+
+        report_ob_state(info.backup_prog_id, BUP_RUNNING);
+        BACKUP_BREAKPOINT("bp_running_state");
 
         /*
           Freeze all DDL operations by turning on DDL blocker.
@@ -150,12 +167,22 @@ execute_backup_command(THD *thd, LEX *lex)
           report_errors(thd,info,ER_BACKUP_RESTORE);
           goto restore_error;
         }
-        else
-        {
-          info.report_error(backup::log_level::INFO,ER_BACKUP_RESTORE_DONE);
-          info.total_size += info.header_size;
-          send_summary(thd,info);
-        }
+
+        report_ob_num_objects(info.backup_prog_id, info.table_count);
+        report_ob_size(info.backup_prog_id, info.data_size);
+
+        /*
+          Save ending datetime of restore for progress.
+        */
+        skr= my_time(0);
+        report_ob_time(info.backup_prog_id, NULL, (my_time_t)skr);
+        report_ob_state(info.backup_prog_id, BUP_COMPLETE);
+        BACKUP_BREAKPOINT("bp_complete_state");
+
+        info.report_error(backup::log_level::INFO,ER_BACKUP_RESTORE_DONE);
+        info.total_size += info.header_size;
+        report_ob_size(info.backup_prog_id, info.total_size);
+        send_summary(thd,info);
 
         /*
           Unfreeze all DDL operations by turning off DDL blocker.
@@ -177,6 +204,11 @@ execute_backup_command(THD *thd, LEX *lex)
     BACKUP_BREAKPOINT("DDL_unblocked");
 
     res= res ? res : backup::ERROR;
+    report_ob_error(backup_prog_id, res);
+    report_ob_state(backup_prog_id, BUP_ERRORS);
+    skr= my_time(0);
+    report_ob_time(backup_prog_id, NULL, (my_time_t)skr);
+    BACKUP_BREAKPOINT("bp_error_state");
     
    finish_restore:
 
@@ -210,8 +242,17 @@ execute_backup_command(THD *thd, LEX *lex)
 
       backup::Backup_info info(thd);
 
+      info.backup_prog_id= report_ob_init(thd->id, BUP_STARTING, OP_BACKUP,
+                                          0, "",
+                                          lex->backup_dir.str, thd->query);
+      backup_prog_id= info.backup_prog_id;
+      BACKUP_BREAKPOINT("bp_starting_state");
+
       if (check_info(thd,info))
         goto backup_error;
+
+      report_ob_state(info.backup_prog_id, BUP_RUNNING);
+      BACKUP_BREAKPOINT("bp_running_state");
 
       info.report_error(backup::log_level::INFO,ER_BACKUP_BACKUP_START);
 
@@ -220,6 +261,8 @@ execute_backup_command(THD *thd, LEX *lex)
       */
       skr= my_time(0);
       gmtime_r(&skr, &info.start_time);
+
+      report_ob_time(info.backup_prog_id, (my_time_t)skr, NULL);
 
       info.save_errors();
 
@@ -233,6 +276,8 @@ execute_backup_command(THD *thd, LEX *lex)
         info.write_message(backup::log_level::INFO,"Backing up selected databases");
         info.add_dbs(lex->db_list); // backup databases specified by user
       }
+
+      report_ob_num_objects(info.backup_prog_id, info.table_count);
 
       if (check_info(thd,info))
         goto backup_error;
@@ -249,17 +294,22 @@ execute_backup_command(THD *thd, LEX *lex)
         report_errors(thd,info,ER_BACKUP_BACKUP);
         goto backup_error;
       }
-      else
-      {
-        info.report_error(backup::log_level::INFO,ER_BACKUP_BACKUP_DONE);
-        send_summary(thd,info);
-      }
+
+      report_ob_size(info.backup_prog_id, info.data_size);
 
       /*
         Save ending datetime of backup.
       */
       skr= my_time(0);
       gmtime_r(&skr, &info.end_time);
+
+      report_ob_time(info.backup_prog_id, NULL, (my_time_t)skr);
+      report_ob_state(info.backup_prog_id, BUP_COMPLETE);
+      BACKUP_BREAKPOINT("bp_complete_state");
+
+      info.report_error(backup::log_level::INFO,ER_BACKUP_BACKUP_DONE);
+      report_ob_size(info.backup_prog_id, info.total_size);
+      send_summary(thd,info);
 
       /*
         Unfreeze all DDL operations by turning off DDL blocker.
@@ -278,7 +328,12 @@ execute_backup_command(THD *thd, LEX *lex)
     */
     unblock_DDL();
     res= res ? res : backup::ERROR;
-   
+    report_ob_error(backup_prog_id, res);
+    report_ob_state(backup_prog_id, BUP_ERRORS);
+    skr= my_time(0);
+    report_ob_time(backup_prog_id, NULL, (my_time_t)skr);
+    BACKUP_BREAKPOINT("bp_error_state");
+
    finish_backup:
 
     if (stream)
@@ -1319,54 +1374,8 @@ int check_info(THD *thd, Restore_info &info)
 static
 bool send_summary(THD *thd, const Archive_info &info, bool backup)
 {
-  Protocol   *protocol= ::current_thd->protocol; // client comms
-  List<Item> field_list;                         // list of fields to send
-  Item       *item;                              // field item
-  char       buf[255];                           // buffer for data
-  String     op_str;                             // operations string
-  String     print_str;                          // string to print
-
   DBUG_ENTER("backup::send_summary");
-
-  DBUG_PRINT(backup?"backup":"restore", ("sending summary"));
-
-  op_str.length(0);
-  if (backup)
-    op_str.append("Backup Summary");
-  else
-    op_str.append("Restore Summary");
-
-
-  field_list.push_back(item= new Item_empty_string(op_str.c_ptr(),255)); // TODO: use varchar field
-  item->maybe_null= TRUE;
-  protocol->send_fields(&field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
-
-  my_snprintf(buf,sizeof(buf)," header     = %-8lu bytes",(unsigned long)info.header_size);
-  protocol->prepare_for_resend();
-  protocol->store(buf,system_charset_info);
-  protocol->write();
-
-  my_snprintf(buf,sizeof(buf)," meta-data  = %-8lu bytes",(unsigned long)info.meta_size);
-  protocol->prepare_for_resend();
-  protocol->store(buf,system_charset_info);
-  protocol->write();
-
-  my_snprintf(buf,sizeof(buf)," data       = %-8lu bytes",(unsigned long)info.data_size);
-  protocol->prepare_for_resend();
-  protocol->store(buf,system_charset_info);
-  protocol->write();
-
-  my_snprintf(buf,sizeof(buf),"              --------------");
-  protocol->prepare_for_resend();
-  protocol->store(buf,system_charset_info);
-  protocol->write();
-
-  my_snprintf(buf,sizeof(buf)," total        %-8lu bytes", (unsigned long)info.total_size);
-  protocol->prepare_for_resend();
-  protocol->store(buf,system_charset_info);
-  protocol->write();
-
-  send_eof(thd);
+  print_backup_summary(thd, info.backup_prog_id);
   DBUG_RETURN(0);
 }
 

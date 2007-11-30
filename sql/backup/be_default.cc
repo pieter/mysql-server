@@ -126,7 +126,6 @@ Backup::Backup(const Table_list &tables, THD *t_thd, thr_lock_type lock_type):
   all_tables= locking_thd->tables_in_backup;
   init_phase_complete= FALSE;
   locks_acquired= FALSE;
-  backup_prog_id= 0;
 }
 
 /**

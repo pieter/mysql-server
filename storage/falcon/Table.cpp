@@ -2393,6 +2393,9 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 			return checkUniqueWaited;
 			}
 
+		if (dup->state == recChilled)
+			dup->getRecordData();
+
 		// Check for a deleted record or a record lock
 
 		if (!dup->hasRecord())

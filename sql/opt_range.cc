@@ -2209,16 +2209,13 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
   keys_to_use.intersect(head->keys_in_use_for_query);
   if (!keys_to_use.is_clear_all())
   {
-#ifndef EMBEDDED_LIBRARY                      // Avoid compiler warning
-    uchar buff[STACK_BUFF_ALLOC];
-#endif
     MEM_ROOT alloc;
     SEL_TREE *tree= NULL;
     KEY_PART *key_parts;
     KEY *key_info;
     PARAM param;
 
-    if (check_stack_overrun(thd, 2*STACK_MIN_SIZE, buff))
+    if (check_stack_overrun(thd, 2*STACK_MIN_SIZE, NULL))
       DBUG_RETURN(0);                           // Fatal error flag is set
 
     /* set up parameter that is passed to all functions */

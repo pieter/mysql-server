@@ -468,8 +468,12 @@ StorageConnection* StorageInterface::getStorageConnection(THD* thd)
 
 int StorageInterface::close(void)
 {
-  DBUG_ENTER("StorageInterface::close");
-  DBUG_RETURN(0);
+	DBUG_ENTER("StorageInterface::close");
+
+	if (storageTable)
+		storageTable->clearTruncateLock();
+
+	DBUG_RETURN(0);
 }
 
 int StorageInterface::rnd_next(uchar *buf)

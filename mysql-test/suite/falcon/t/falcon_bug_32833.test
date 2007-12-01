@@ -12,7 +12,7 @@ DROP PROCEDURE IF EXISTS p1;
 
 --echo # Create table
 CREATE TABLE t1 (int_column INT, char_column CHAR(5) CHARACTER SET UTF32) 
-  ENGINE=FALCON PARTITION BY KEY(char_column);
+  PARTITION BY KEY(char_column);
 
 --echo # Create and call procedure
 SET @@autocommit=0;
@@ -22,28 +22,35 @@ BEGIN
   DECLARE v_rownum INT DEFAULT 0;
   DECLARE v_random_character CHAR(1);
   DECLARE v_random_string VARCHAR(50);
-  WHILE v_rownum < 1000 DO
-    IF V_rownum MOD 100 = 0 THEN COMMIT; END IF;
+  WHILE v_rownum < 1000000 DO
+    IF V_rownum MOD 101 = 0 THEN COMMIT; END IF;
     # IF V_rownum MOD 1000 = 0 THEN SELECT v_rownum; END IF;
     SET @stmt1 = CONCAT('INSERT INTO t1 VALUES (',
       v_rownum, ',', '0x',v_rownum, ');');
     # SELECT v_rownum,v_random_string,@stmt1;
     PREPARE stmt1 FROM @stmt1;
     EXECUTE stmt1;
-    SET v_rownum = v_rownum + 1000;
-    END WHILE;
-	SELECT v_rownum;
-  END//
+    SET v_rownum = v_rownum + 357;
+  END WHILE;
+END//
 DELIMITER ;//
 CALL p1();
 
+--disable_warnings
+SELECT count(*) FROM t1;
+# SELECT int_column, hex(char_column) FROM t1;
+--enable_warnings
+
 --echo # Change column from UTF32 to UTF8
+--disable_warnings
 ALTER TABLE t1 MODIFY COLUMN char_column CHAR(5) CHARACTER SET utf8;
+# SELECT int_column, hex(char_column) FROM t1;
+--enable_warnings
 
 --echo # Add index to UTF8 column
 CREATE INDEX i ON t1 (char_column);
+# SELECT int_column, hex(char_column) FROM t1;
 
 --echo # Final cleanup
-DROP TABLE IF EXISTS t1;
-DROP PROCEDURE IF EXISTS p1;
-
+DROP TABLE t1;
+DROP PROCEDURE p1;

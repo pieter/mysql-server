@@ -34,13 +34,15 @@ class Bdb;
 class Validation  
 {
 public:
-	bool minutia();
-	bool isRepair();
-	bool inUse (Bdb *bdb, const char *descrption);
-	bool isPageType (Bdb *bdb, PageType type, const char *errorText, ...);
-	bool error (const char *text, ...);
-	void sectionInUse (int sectionId);
-	bool inUse (int32 pageNumber, const char *description);
+	bool	minutia();
+	bool	isRepair();
+	bool	inUse (Bdb *bdb, const char *descrption);
+	bool	isPageType (Bdb *bdb, PageType type, const char *errorText, ...);
+	bool	error (const char *text, ...);
+	bool	warning(const char* text, ...);
+	void	sectionInUse (int sectionId);
+	bool	inUse (int32 pageNumber, const char *description);
+	
 	Validation(Dbb *db, int validationOptions);
 	virtual ~Validation();
 

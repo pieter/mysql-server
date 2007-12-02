@@ -103,6 +103,22 @@ bool Validation::error(const char *text, ...)
 	return false;
 }
 
+
+bool Validation::warning(const char* text, ...)
+{
+	va_list		args;
+	va_start	(args, text);
+	char temp [1024];
+
+	if (vsnprintf (temp, sizeof (temp) - 1, text, args) < 0)
+		temp [sizeof (temp) - 1] = 0;
+
+	Log::debug ("  %s\n", temp);
+	++errors;
+		
+	return false;
+}
+
 bool Validation::isPageType(Bdb *bdb, PageType type, const char *text, ...)
 {
 #ifdef STOP_PAGE

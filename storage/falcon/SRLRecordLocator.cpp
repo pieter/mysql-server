@@ -71,6 +71,9 @@ void SRLRecordLocator::read()
 
 void SRLRecordLocator::pass1()
 {
+	if (log->tracePage == pageNumber)
+		print();
+	
 	log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
 }
 

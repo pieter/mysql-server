@@ -48,6 +48,8 @@
 static int stopSection = 40;
 #endif
 
+static const int MAX_LEVELS			= 4;
+
 //#define VALIDATE_SPACE_SLOTS(page)		page->validateSpaceSlots();
 
 #ifndef VALIDATE_SPACE_SLOTS
@@ -182,7 +184,7 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 
 	lockTypes [0] = requestedLockType;
 	int level = -1;
-	int slots[4];
+	int slots[MAX_LEVELS];
 
 	for (;;)
 		{
@@ -190,6 +192,7 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 		Bdb *bdb = dbb->fetchPage(root, PAGE_any, lockType);
 		BDB_HISTORY(bdb);
 		SectionPage *page = (SectionPage*) bdb->buffer;
+		ASSERT(page->pageType == PAGE_sections);
 		level = page->level;
 
 		// Knock off the simple case first
@@ -223,7 +226,6 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 			memcpy(newPage, page, dbb->pageSize);
 			newBdb->setPageHeader(newPage->pageType);
 			memset(page, 0, dbb->pageSize);
-			//page->pageType = PAGE_sections;
 			bdb->setPageHeader(PAGE_sections);
 			page->section = newPage->section;
 			page->level = newPage->level + 1;
@@ -1101,6 +1103,7 @@ void Section::validate(Dbb *dbb, Validation *validation, int sectionId, int page
 
 bool Section::decomposeSequence(Dbb *dbb, int32 sequence, int level, int *slots)
 {
+	ASSERT(level <= MAX_LEVELS);
 	int seq = sequence;
 
 	for (int n = 0; n < level; ++n)
@@ -1278,8 +1281,7 @@ void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostF
 			Bdb *locatorBdb = dbb->fakePage(pageNumber, PAGE_record_locator, 0);
 			BDB_HISTORY(locatorBdb);
 			RecordLocatorPage *locatorPage = (RecordLocatorPage*) locatorBdb->buffer;
-			//locatorPage->pageType = PAGE_record_locator;
-			locatorBdb->setPageHeader(PAGE_record_locator);
+			//locatorBdb->setPageHeader(PAGE_record_locator);
 			locatorPage->section = sectionId;
 			locatorPage->sequence = sequence;
 			locatorPage->maxLine = 0;

@@ -75,13 +75,19 @@ void SRLSectionPage::read()
 	sequence = getInt();
 	level = getInt();
 	
+	/***
 	if ((log->tracePage && log->tracePage == pageNumber) ||
 		(log->tracePage && log->tracePage && log->tracePage == parentPage))
 		print();
+	***/
 }
 
 void SRLSectionPage::pass1()
 {
+	if ((pageNumber && log->tracePage == pageNumber) ||
+		(parentPage && log->tracePage == parentPage))
+		print();
+
 	log->bumpPageIncarnation(parentPage, tableSpaceId, objInUse);
 	
 	if (pageNumber)
@@ -90,7 +96,8 @@ void SRLSectionPage::pass1()
 
 void SRLSectionPage::pass2()
 {
-	if (pageNumber && log->tracePage == pageNumber)
+	if ((pageNumber && log->tracePage == pageNumber) ||
+		(parentPage && log->tracePage == parentPage))
 		print();
 	
 	if (log->bumpPageIncarnation(parentPage, tableSpaceId, objInUse))

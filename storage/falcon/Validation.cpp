@@ -95,7 +95,11 @@ bool Validation::error(const char *text, ...)
 		temp [sizeof (temp) - 1] = 0;
 
 	Log::debug ("  %s\n", temp);
-
+	++errors;
+	
+	if (options & validateOrBreak)
+		Error::error("  %s\n", temp);
+		
 	return false;
 }
 

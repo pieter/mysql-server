@@ -54,6 +54,7 @@ public:
 	int32		highPage;
 	int32		stopPage;
 	bool		dups;
+	int			errors;
 	int			pageCounts [(int) PAGE_max];
 };
 

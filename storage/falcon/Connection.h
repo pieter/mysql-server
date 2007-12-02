@@ -89,6 +89,7 @@ const int validateRepair	= 2;
 const int validateBlobs		= 4;
 const int validateSpecial	= 8;
 const int validateMinutia	= 16;
+const int validateOrBreak	= 32;
 
 const int statementMaxSortLimit		= 1;
 const int connectionMaxSortLimit	= 2;

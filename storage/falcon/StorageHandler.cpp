@@ -423,13 +423,19 @@ void StorageHandler::releaseText(const char* text)
 	delete [] text;
 }
 
-int StorageHandler::commitByXID(int xidLength, const UCHAR* xid)
+int StorageHandler::commitByXid(int xidLength, const UCHAR* xid)
 {
+	if (dictionaryConnection)
+		dictionaryConnection->commitByXid(xidLength, xid);
+
 	return 0;
 }
 
-int StorageHandler::rollbackByXID(int xidLength, const UCHAR* xis)
+int StorageHandler::rollbackByXid(int xidLength, const UCHAR* xid)
 {
+	if (dictionaryConnection)
+		dictionaryConnection->rollbackByXid(xidLength, xid);
+
 	return 0;
 }
 

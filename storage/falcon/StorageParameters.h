@@ -31,6 +31,6 @@ PARAMETER_UINT(serial_log_block_size, "Minimum block size for serial log.", 0, 0
 PARAMETER_UINT(serial_log_buffers, "The number of buffers allocated for Falcon serial log.", 10, 20, 32768, 0x0200, NULL)
 PARAMETER_UINT(serial_log_priority, "Whether or not serial log has write priority over other writes.", 0, 1, 1, 0, NULL)
 PARAMETER_BOOL(use_deferred_index_hash, "Use Deferred Index hash lookup", 0, 0, NULL)
-PARAMETER_BOOL(two_phase_commit, "Enable XA two phase commit", 0, 0x0200, NULL) 
+PARAMETER_BOOL(support_xa, "Enable XA two phase commit", 0, 0x0200, NULL) 
 
 // #define PARAMETER_BOOL(name, text, default, flags, update_function)

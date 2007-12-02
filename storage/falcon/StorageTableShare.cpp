@@ -527,6 +527,6 @@ void StorageTableShare::clearTruncateLock(void)
 	if (truncateLockCount > 0)
 		{
 		--truncateLockCount;
-		syncTruncate->unlock();
+		syncTruncate->unlock(NULL, Shared);
 		}
 }

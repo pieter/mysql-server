@@ -148,7 +148,7 @@ int StorageInterface::falcon_init(void *p)
 	falcon_hton->alter_table_flags  = StorageInterface::alter_table_flags;
 #endif
 
-	if (falcon_two_phase_commit)
+	if (falcon_support_xa)
 		{
 		falcon_hton->prepare = StorageInterface::prepare;
 		falcon_hton->recover = StorageInterface::recover;
@@ -1103,14 +1103,14 @@ int StorageInterface::rollback(handlerton *hton, THD *thd, bool all)
 int StorageInterface::commit_by_xid(handlerton* hton, XID* xid)
 {
 	DBUG_ENTER("StorageInterface::commit_by_xid");
-	int ret = storageHandler->commitByXID(sizeof(XID), (const unsigned char*) xid);
+	int ret = storageHandler->commitByXid(sizeof(XID), (const unsigned char*) xid);
 	DBUG_RETURN(ret);
 }
 
 int StorageInterface::rollback_by_xid(handlerton* hton, XID* xid)
 {
 	DBUG_ENTER("StorageInterface::rollback_by_xid");
-	int ret = storageHandler->rollbackByXID(sizeof(XID), (const unsigned char*) xid);
+	int ret = storageHandler->rollbackByXid(sizeof(XID), (const unsigned char*) xid);
 	DBUG_RETURN(ret);
 }
 

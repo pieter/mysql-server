@@ -19,7 +19,6 @@ falcon_bug_22156    : Bug#22156 2006-11-04 hakank Case sensitivity problem
 falcon_bug_22165    : Bug#22165 2006-08-24 hakank (Get pushbuild green)
 falcon_bug_22166    : Bug#22166 2006-08-24 hakank (Get pushbuild green)
 falcon_bug_22169    : Bug#22169 2006-08-24 hakank Too long run time for PB
-falcon_bug_22173a   : Bug#22173 2007-11-15 cpowers (Fix concurrency issues)
 falcon_bug_22182    : Disabled until runtime team provides RENAME DATABASE replacement. See WL#4030
 falcon_bug_22187    : Bug#22187 2006-08-24 hakank (Get pushbuild green)
 falcon_bug_22189    : Bug#22189 2006-08-24 hakank (Get pushbuild green)

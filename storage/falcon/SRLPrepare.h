@@ -32,6 +32,9 @@ public:
 	virtual void print();
 	virtual void pass1();
 	virtual void read();
+	virtual void commit();
+	virtual void rollback();
+
 	SRLPrepare();
 	virtual ~SRLPrepare();
 

@@ -84,3 +84,16 @@ void SRLPrepare::print()
 {
 	logPrint("Prepare Transaction "TXIDFORMAT"\n", transactionId);
 }
+
+
+void SRLPrepare::commit()
+{
+	SerialLogTransaction *srlTransaction = log->findTransaction(transactionId);
+	srlTransaction->setFinished();
+}
+
+void SRLPrepare::rollback()
+{
+	SerialLogTransaction *srlTransaction = log->findTransaction(transactionId);
+	srlTransaction->setFinished();
+}

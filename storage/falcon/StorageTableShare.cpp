@@ -25,7 +25,7 @@
 #include "Sequence.h"
 #include "Index.h"
 #include "Table.h"
-#include "SyncObject.h"
+#include "Interlock.h"
 #include "CollationManager.h"
 #include "MySQLCollation.h"
 #include "Connection.h"
@@ -518,7 +518,7 @@ JString StorageTableShare::lookupPathName(void)
 
 void StorageTableShare::setTruncateLock(void)
 {
-	++truncateLockCount;
+	INTERLOCKED_INCREMENT(truncateLockCount);
 	syncTruncate->lock(NULL, Shared);
 }
 
@@ -526,7 +526,8 @@ void StorageTableShare::clearTruncateLock(void)
 {
 	if (truncateLockCount > 0)
 		{
-		--truncateLockCount;
-		syncTruncate->unlock(NULL, Shared);
+		INTERLOCKED_DECREMENT(truncateLockCount);
+		syncTruncate->unlock();
+//		syncTruncate->unlock(NULL, Shared);
 		}
 }

@@ -17,6 +17,7 @@
 #define _STORAGE_TABLE_SHARE_H_
 
 #include "JString.h"
+#include "SyncObject.h"
 
 #ifndef _WIN32
 #define __int64			long long
@@ -144,7 +145,7 @@ public:
 	StorageIndexDesc	**indexes;
 	Sequence			*sequence;
 	int					numberIndexes;
-	int					truncateLockCount;
+	volatile INTERLOCK_TYPE	truncateLockCount;
 	bool				tempTable;
 };
 

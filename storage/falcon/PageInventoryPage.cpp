@@ -263,7 +263,7 @@ void PageInventoryPage::validateInventory(Dbb *dbb, Validation *validation)
 							switch (page->pageType)
 								{
 								case PAGE_record_locator:
-									validation->error ("orphan section index page %d/%d, section %d, seq %d", 
+									validation->warning("orphan section index page %d/%d, section %d, seq %d", 
 													pageNumber, tableSpaceId,
 													((RecordLocatorPage*) page)->section,
 													((RecordLocatorPage*) page)->sequence);
@@ -272,7 +272,7 @@ void PageInventoryPage::validateInventory(Dbb *dbb, Validation *validation)
 								case PAGE_btree:
 									{
 									IndexPage *ipg = (IndexPage*) page;
-									validation->error ("orphan index page %d/%d, level %d, parent %d, prior %d, next %d", 
+									validation->warning("orphan index page %d/%d, level %d, parent %d, prior %d, next %d", 
 													pageNumber,  tableSpaceId,
 													ipg->level, 
 													ipg->parentPage, 
@@ -284,36 +284,36 @@ void PageInventoryPage::validateInventory(Dbb *dbb, Validation *validation)
 								case PAGE_data:
 									{
 									DataPage *pg = (DataPage*) page;
-									validation->error ("orphan data page %d/%d, maxLine %d", pageNumber,  tableSpaceId, pg->maxLine);
+									validation->warning("orphan data page %d/%d, maxLine %d", pageNumber,  tableSpaceId, pg->maxLine);
 									}
 									break;
 
 								case PAGE_data_overflow:
 									{
 									DataOverflowPage *pg = (DataOverflowPage*) page;
-									validation->error ("orphan data overflow page %d/%d, section=%d, next=%d", pageNumber,  tableSpaceId, pg->section, pg->nextPage);
+									validation->warning("orphan data overflow page %d/%d, section=%d, next=%d", pageNumber,  tableSpaceId, pg->section, pg->nextPage);
 									}
 									break;
 
 								case PAGE_sections:
 									{
 									SectionPage *pg = (SectionPage*) page;
-									validation->error ("orphan section page %d/%d, section=%d, seq=%d, level=%d, flgs=%d", 
+									validation->warning("orphan section page %d/%d, section=%d, seq=%d, level=%d, flgs=%d", 
 														pageNumber, tableSpaceId, pg->section, pg->level, pg->flags);
 									}
 									break;
 
 								case PAGE_free:
-									validation->error ("orphan free page %d", pageNumber);
+									validation->warning("orphan free page %d", pageNumber);
 									break;
 
 								default:
-									validation->error ("orphan page %d/%d, type %d", 
+									validation->warning("orphan page %d/%d, type %d", 
 													pageNumber, tableSpaceId, page->pageType);
 								}
 							}
 						else
-							validation->error("possible unwritten orphan page %d/%d", pageNumber, tableSpaceId);
+							validation->warning("possible unwritten orphan page %d/%d", pageNumber, tableSpaceId);
 							
 						if (validation->isRepair())
 							{

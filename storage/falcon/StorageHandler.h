@@ -81,8 +81,8 @@ public:
 	virtual void		releaseText(const char* text);
 
 	virtual int			recoverGetNextLimbo(int xidSize, unsigned char *xid);
-	virtual int			commitByXID(int xidLength, const unsigned char* xid);
-	virtual int			rollbackByXID(int xidLength, const unsigned char* xis);
+	virtual int			commitByXid(int xidLength, const unsigned char* xid);
+	virtual int			rollbackByXid(int xidLength, const unsigned char* xis);
 
 	virtual Connection*	getDictionaryConnection(void);
 	virtual int			createTablespace(const char* tableSpaceName, const char* filename);

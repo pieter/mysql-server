@@ -1315,10 +1315,9 @@ void Section::redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber
 	BDB_HISTORY(bdb);
 	SectionPage *newPage = (SectionPage*) bdb->buffer;
 	memcpy(newPage, pageData, pageLength);
-	
+	bdb->setPageHeader(PAGE_sections);
 	rootBdb->mark(NO_TRANSACTION);
 	memset(page, 0, dbb->pageSize);
-	//page->pageType = PAGE_sections;
 	rootBdb->setPageHeader(PAGE_sections);
 	page->section = newPage->section;
 	page->level = newPage->level + 1;

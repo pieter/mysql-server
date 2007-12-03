@@ -1111,19 +1111,19 @@ int ha_recover(HASH *commit_list)
   if (info.commit_list)
     sql_print_information("Starting crash recovery...");
 
-/***
+
 #ifndef WILL_BE_DELETED_LATER
-***/
+
   /*
     for now, only InnoDB supports 2pc. It means we can always safely
     rollback all pending transactions, without risking inconsistent data
   */
-/***
+
   DBUG_ASSERT(total_ha_2pc == (ulong) opt_bin_log+1); // only InnoDB and binlog
   tc_heuristic_recover= TC_HEURISTIC_RECOVER_ROLLBACK; // forcing ROLLBACK
   info.dry_run=FALSE;
 #endif
-***/
+
 
   for (info.len= MAX_XID_LIST_SIZE ; 
        info.list==0 && info.len > MIN_XID_LIST_SIZE; info.len/=2)
@@ -2291,6 +2291,11 @@ void handler::print_error(int error, myf errflag)
     break;
   case HA_ERR_AUTOINC_ERANGE:
     textno= ER_WARN_DATA_OUT_OF_RANGE;
+    break;
+  case HA_ERR_LOCK_OR_ACTIVE_TRANSACTION:
+    my_message(ER_LOCK_OR_ACTIVE_TRANSACTION,
+               ER(ER_LOCK_OR_ACTIVE_TRANSACTION), MYF(0));
+    DBUG_VOID_RETURN;
     break;
   default:
     {

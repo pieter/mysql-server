@@ -112,6 +112,7 @@ public:
 	void			encodeRecord(uchar *buf, bool updateFlag);
 	void			decodeRecord(uchar *buf);
 	void			unlockTable(void);
+	void			checkBinLog(void);
 
 	static StorageConnection* getStorageConnection(THD* thd);
 	
@@ -174,6 +175,7 @@ public:
 	key_range			startKey;
 	key_range			endKey;
 	uint64				insertCount;
+	ulonglong			tableFlags;
 };
 
 class NfsPluginHandler

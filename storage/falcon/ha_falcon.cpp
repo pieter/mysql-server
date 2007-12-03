@@ -84,6 +84,14 @@ int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED,
 						                       TRANSACTION_READ_COMMITTED,
 						                       TRANSACTION_CONSISTENT_READ, // TRANSACTION_WRITE_COMMITTED, // This is repeatable read
 						                       TRANSACTION_SERIALIZABLE};
+						                       
+static const ulonglong	default_table_flags = (	  HA_REC_NOT_IN_SEQ
+												| HA_NULL_IN_KEY
+												| HA_PARTIAL_COLUMN_READ
+												| HA_CAN_GEOMETRY
+												//| HA_AUTO_PART_KEY
+												| HA_BINLOG_ROW_CAPABLE);
+						                       
 
 static struct st_mysql_show_var falconStatus[]=
 {
@@ -357,6 +365,8 @@ StorageInterface::StorageInterface(handlerton *hton, st_table_share *table_arg)
 		recordLength = table_arg->reclength;
 		tempTable = false;
 		}
+		
+	tableFlags = default_table_flags;
 }
 
 
@@ -629,8 +639,7 @@ const char **StorageInterface::bas_ext(void) const
 ulonglong StorageInterface::table_flags(void) const
 {
 	DBUG_ENTER("StorageInterface::table_flags");
-	DBUG_RETURN(HA_REC_NOT_IN_SEQ | HA_NULL_IN_KEY | // HA_AUTO_PART_KEY |
-	            HA_PARTIAL_COLUMN_READ | HA_CAN_GEOMETRY | HA_BINLOG_ROW_CAPABLE);
+	DBUG_RETURN(tableFlags);
 }
 
 
@@ -1034,6 +1043,7 @@ int StorageInterface::delete_row(const uchar* buf)
 
 	DBUG_RETURN(0);
 }
+
 
 int StorageInterface::commit(handlerton *hton, THD* thd, bool all)
 {
@@ -1720,7 +1730,6 @@ int StorageInterface::start_stmt(THD *thd, thr_lock_type lock_type)
 	DBUG_RETURN(0);
 }
 
-
 int StorageInterface::external_lock(THD *thd, int lock_type)
 {
 	DBUG_ENTER("StorageInterface::external_lock");
@@ -1783,11 +1792,13 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 
 		if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
 			{
+			checkBinLog();
+			
 			if (storageConnection->startTransaction(isolation_levels[thd_tx_isolation(thd)]))
 				{
 				if (!isTruncate && storageTable)
 					storageTable->setTruncateLock();
-				
+					
 				trans_register_ha(thd, true, falcon_hton);
 				}
 
@@ -1796,6 +1807,8 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			}
 		else
 			{
+			checkBinLog();
+			
 			if (storageConnection->startImplicitTransaction(isolation_levels[thd_tx_isolation(thd)]))
 				{
 				if (!isTruncate && storageTable)
@@ -2453,6 +2466,17 @@ void StorageInterface::unlockTable(void)
 		tableLocked = false;
 		}
 }
+
+void StorageInterface::checkBinLog(void)
+{
+	// If binary logging is enabled, ensure that records are fully populated for replication
+	
+	if (mysql_bin_log.is_open())
+		tableFlags |= HA_PRIMARY_KEY_REQUIRED_FOR_DELETE;
+	else
+		tableFlags &= ~HA_PRIMARY_KEY_REQUIRED_FOR_DELETE;
+}
+
 
 //*****************************************************************************
 //

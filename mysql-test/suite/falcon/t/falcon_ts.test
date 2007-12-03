@@ -1,5 +1,13 @@
 --source include/have_falcon.inc
 
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--disable_errors
+DROP TABLESPACE ts1 ENGINE=falcon;
+--enable_errors
+
 #
 # BUG#31110 - falcon: missing engine check while dropping tablespace
 #

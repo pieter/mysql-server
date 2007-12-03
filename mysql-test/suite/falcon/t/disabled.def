@@ -37,6 +37,10 @@ falcon_bug_30480_B  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_bug_32413    : Bug#32413 2007-11-15 cpowers Does not play nicely with other tests
 falcon_page_size_1  : Bug#23220 2007-02-19 hakank Currently failing
 falcon_page_size_2  : Bug#23220 2007-02-19 hakank Currently failing
+falcon_page_size_4  : Bug#32921 2007-12-03 hakank Currently failing
+falcon_page_size_8  : Bug#32921 2007-12-03 hakank Currently failing
+falcon_page_size_16  : Bug#32921 2007-12-03 hakank Currently failing
+falcon_page_size_32  : Bug#32921 2007-12-03 hakank Currently failing
 read_many_rows_falcon : Bug#23783 2006-10-30 ML Get pushbuild green
 index_merge_falcon    : Bug#32696 index_merge_falcon.test fails
 falcon_bug_26433      : Bug#32697 falcon_bug_26433.test fails randomly

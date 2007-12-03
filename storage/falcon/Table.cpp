@@ -1506,7 +1506,7 @@ void Table::truncate(Transaction *transaction)
 	debugThawedRecords = 0;
 	debugThawedBytes = 0;
 	alterIsActive = false;
-	database->commitSystemTransaction();
+	//database->commitSystemTransaction();
 }
 
 void Table::checkNullable(Record * record)

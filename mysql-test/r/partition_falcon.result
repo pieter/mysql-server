@@ -1,0 +1,18 @@
+DROP TABLE IF EXISTS t1;
+SET storage_engine = Falcon;
+# Bug #30480
+CREATE TABLE t1 (c1 VARCHAR(3))
+ENGINE=Falcon
+PARTITION BY KEY(c1)
+PARTITIONS 1;
+CREATE INDEX i1 ON t1 (c1);
+INSERT INTO t1 VALUES ('B'), ('A');
+# No result if bug exists
+SELECT * FROM t1 WHERE c1 LIKE 'A%';
+c1
+A
+# But this was not found (if bug exists)
+SELECT * FROM t1 WHERE c1 = 'A';
+c1
+A
+DROP TABLE t1;

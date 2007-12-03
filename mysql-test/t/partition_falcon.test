@@ -1,0 +1,25 @@
+--source include/have_falcon.inc
+--source include/have_partition.inc
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+SET storage_engine = Falcon;
+
+#
+# Bug #30480: Falcon: searches fail if LIKE and key partition
+# (mattiasj 2007-11-23: verified all testcases on the following bugs:
+# 29320, 29493, 30536, 30480, this simple test substitutes them all)
+--echo # Bug #30480
+# simple test on Bug#30480
+CREATE TABLE t1 (c1 VARCHAR(3))
+ENGINE=Falcon
+PARTITION BY KEY(c1)
+PARTITIONS 1;
+# must have index to show the bug
+CREATE INDEX i1 ON t1 (c1);
+INSERT INTO t1 VALUES ('B'), ('A');
+-- echo # No result if bug exists
+SELECT * FROM t1 WHERE c1 LIKE 'A%';
+-- echo # But this was not found (if bug exists)
+SELECT * FROM t1 WHERE c1 = 'A';
+DROP TABLE t1;

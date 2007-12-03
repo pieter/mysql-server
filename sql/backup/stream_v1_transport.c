@@ -73,6 +73,15 @@ typedef bstream_blob blob;
 #define bzero(A,B)  memset((A),0,(B))
 
 /*
+  Helper functions defined in stream_v1.c
+*/
+extern byte get_byte_ulong(unsigned long int value);
+extern byte get_byte_uint(unsigned int value);
+extern byte get_byte_ushort(short value);
+extern byte get_byte_short(short value);
+extern byte get_byte_size_t(size_t value);
+
+/*
  Carrier format
  --------------
 
@@ -170,20 +179,20 @@ byte biggest_fragment_prefix(blob *data)
     return FR_HUGE_MAX_HDR;
   }
 
-  hdr= len & FR_LEN_MASK;
+  hdr= get_byte_size_t(((len & FR_LEN_MASK) & 0xFF));
   prefix_end= data->begin + hdr;
 
   len >>= 6;
   if (len)
   {
-    hdr = FR_BIG|(len & FR_LEN_MASK);
+    hdr = FR_BIG|get_byte_size_t(((len & FR_LEN_MASK) & 0xFF));
     prefix_end= data->begin + ((len & FR_LEN_MASK) << FR_BIG_SHIFT);
   }
 
   len >>= 6;
   if (len)
   {
-    hdr = FR_HUGE|(len & FR_LEN_MASK);
+    hdr = FR_HUGE|get_byte_size_t(((len & FR_LEN_MASK) & 0xFF));
     prefix_end= data->begin + ((len & FR_LEN_MASK) << FR_HUGE_SHIFT);
   }
 
@@ -338,7 +347,7 @@ void reset_output_buffer(backup_stream *s)
   {
     for(i=0; i<4; ++i)
     {
-      *(s->buf.pos++)= (byte) (block_size & 0xFF);
+      *(s->buf.pos++)= get_byte_ulong((block_size & 0xFF));
       block_size >>= 8;
     }
 
@@ -356,7 +365,7 @@ void reset_output_buffer(backup_stream *s)
   if (s->state == FIRST_BLOCK)
   {
     ASSERT(s->init_block_count < 0xFF);
-    *(s->buf.pos++)= (byte) (s->init_block_count);
+    *(s->buf.pos++)= get_byte_short(s->init_block_count);
   }
 
   s->buf.header= s->buf.pos;

@@ -67,7 +67,7 @@ Image_info::~Image_info()
 }
 
 
-void Image_info::save_time(const my_time_t t, bstream_time_t &buf)
+void Image_info::save_time(const time_t t, bstream_time_t &buf)
 {
   struct tm time;
   gmtime_r(&t,&time);

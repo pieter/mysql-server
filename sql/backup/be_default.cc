@@ -601,7 +601,6 @@ result_t Restore::truncate_table(TABLE *tbl)
   */
   if ((last_write_res != 0) && (last_write_res != HA_ERR_WRONG_COMMAND))
     DBUG_RETURN(ERROR);
-  table_access_start= (my_time_t)my_time(0);
   num_rows= 0;
   DBUG_RETURN(OK);
 }

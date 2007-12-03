@@ -29,7 +29,7 @@ CREATE DATABASE backup_progress;
 
 --echo con1: Create table and new users.
 
-CREATE TABLE backup_progress.t1 (a char(30)) ENGINE=MYISAM;
+CREATE TABLE backup_progress.t1 (a char(30)) ENGINE=MEMORY;
 CREATE TABLE backup_progress.t2 (a char(30)) ENGINE=INNODB;
 CREATE TABLE backup_progress.t3 (a char(30)) ENGINE=MEMORY;
 CREATE TABLE backup_progress.t1_res (id INT);

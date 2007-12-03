@@ -473,7 +473,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
   Scheduler   sch(s,&info);         // scheduler instance
   List<Scheduler::Pump>  inactive;  // list of images not yet being created
   size_t      max_init_size=0;      // keeps maximal init size for images in inactive list
-  my_time_t   vp_time;              // to store validity point time
+  time_t      vp_time;              // to store validity point time
 
   DBUG_PRINT("backup/data",("initializing scheduler"));
 

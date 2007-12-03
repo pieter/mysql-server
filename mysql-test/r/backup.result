@@ -13,7 +13,7 @@ Note	1051	Unknown table 'building'
 CREATE TABLE `building` (
 `dir_code` char(4),
 `building` char(6)
-) ENGINE=myisam DEFAULT CHARSET=latin1;
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
 LOCK TABLES `building` WRITE;
 INSERT INTO `building` VALUES ('N41','1300'),('N01','1453'),('M00','1000'),('N41','1301'),('N41','1305');
 UNLOCK TABLES;
@@ -24,7 +24,7 @@ CREATE TABLE `directorate` (
 `dir_code` char(4),
 `dir_name` char(30),
 `dir_head_id` char(9)
-) ENGINE=myisam DEFAULT CHARSET=latin1;
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
 LOCK TABLES `directorate` WRITE;
 INSERT INTO `directorate` VALUES ('N41','Development','333445555'),('N01','Human Resources','123654321'),('M00','Management','333444444');
 UNLOCK TABLES;
@@ -40,7 +40,7 @@ CREATE TABLE `staff` (
 `sex` char(1),
 `salary` int(11),
 `mgr_id` char(9)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
 LOCK TABLES `staff` WRITE;
 INSERT INTO `staff` VALUES ('333445555','John','Q','Smith','M',30000,'333444444'),('123763153','William','E','Walters','M',25000,'123654321'),('333444444','Alicia','F','St.Cruz','F',25000,NULL),('921312388','Goy','X','Hong','F',40000,'123654321'),('800122337','Rajesh','G','Kardakarna','M',38000,'333445555'),('820123637','Monty','C','Smythe','M',38000,'333445555'),('830132335','Richard','E','Jones','M',38000,'333445555'),('333445665','Edward','E','Engles','M',25000,'333445555'),('123654321','Beware','D','Borg','F',55000,'333444444'),('123456789','Wilma','N','Maxima','F',43000,'333445555');
 UNLOCK TABLES;
@@ -127,9 +127,9 @@ CREATE TABLE bup_default.wide (
 `p` char(255) DEFAULT NULL,
 `q` TEXT,
 PRIMARY KEY (`a`)
-) ENGINE=myisam DEFAULT CHARSET=latin1;
+) ENGINE=INNODB DEFAULT CHARSET=latin1;
 CREATE TABLE bup_default.t1 (a int) engine=innodb;
-CREATE TABLE bup_default.t2 (a int) engine=myisam;
+CREATE TABLE bup_default.t2 (a int) engine=MEMORY;
 CREATE TABLE bup_default.t1_blob (a int, b text) engine=innodb;
 INSERT INTO bup_default.wide VALUES (
 NULL,

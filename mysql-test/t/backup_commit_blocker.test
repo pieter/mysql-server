@@ -188,6 +188,10 @@ let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 connection con3;
 
 --echo con3: Starting commit -- will block with lock
@@ -202,6 +206,10 @@ let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
                       WHERE info LIKE "COMMIT%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+
 # Set the breakpoint for the commit blocker.
 --echo con5: Getting lock on commit blocker.
 SELECT get_lock("backup_commit_blocker", 0);
@@ -213,12 +221,20 @@ let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 # Wait for lock to be acquired and execution to reach breakpoint
 --echo con5: Checking lock
 let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "COMMIT%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
 
 connection con4;
 
@@ -234,6 +250,10 @@ let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "BEGIN%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BEGIN%";
 
 --echo con5: Releasing lock
 SELECT release_lock("backup_commit_blocker");
@@ -393,6 +413,10 @@ let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_4"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 connection con7;
 
 --echo con7: Show that the statement in progress has executed before backup.
@@ -411,6 +435,10 @@ let $wait_condition = SELECT state = "Waiting for release of readlock"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "UPDATE%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "UPDATE%";
 
 --echo con5: Releasing locks
 SELECT release_lock("commit_blocker_step_4");
@@ -601,6 +629,10 @@ let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 # Wait for lock to be acquired and execution to reach breakpoint
 #--echo con5: Checking lock
 #let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
@@ -622,6 +654,10 @@ let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
                       WHERE info LIKE "COMMIT%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+
 # Set the breakpoint for the commit blocker.
 --echo con5: Getting lock on commit blocker.
 SELECT get_lock("backup_commit_blocker", 0);
@@ -633,12 +669,20 @@ let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 # Wait for lock to be acquired and execution to reach breakpoint
 --echo con5: Checking lock
 let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "COMMIT%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
 
 connection con4;
 
@@ -655,6 +699,10 @@ let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
                       WHERE info LIKE "BEGIN%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BEGIN%";
+
 # Wait for lock to be acquired and execution to reach breakpoint
 --echo con5: Checking lock
 
@@ -662,6 +710,10 @@ let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
 
 connection con7;
 
@@ -681,6 +733,10 @@ let $wait_condition = SELECT state = "Waiting for release of readlock"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DELETE%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DELETE%";
 
 --echo con5: Releasing lock
 SELECT release_lock("backup_commit_blocker");

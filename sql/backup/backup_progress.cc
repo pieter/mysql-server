@@ -240,7 +240,7 @@ int update_online_backup_int_field(ulonglong backup_id,
 int update_online_backup_datetime_field(ulonglong backup_id, 
                                         const char *table_name,
                                         enum_ob_table_field fld, 
-                                        my_time_t value)
+                                        time_t value)
 {
   TABLE *table= NULL;                   // table to open
   TABLE_LIST tables;                    // List of tables (1 in this case)
@@ -273,7 +273,7 @@ int update_online_backup_datetime_field(ulonglong backup_id,
   if (value)
   {
     MYSQL_TIME time;
-    my_tz_OFFSET0->gmt_sec_to_TIME(&time, value);
+    my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)value);
 
     table->field[fld]->set_notnull();
     table->field[fld]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);
@@ -577,8 +577,8 @@ int report_ob_size(ulonglong backup_id,
    @returns 1 = failed to find row
   */
 int report_ob_time(ulonglong backup_id,
-                   my_time_t start,
-                   my_time_t stop)
+                   time_t start,
+                   time_t stop)
 {
   int ret= 0;  // return value
 
@@ -605,7 +605,7 @@ int report_ob_time(ulonglong backup_id,
    @returns 1 = failed to find row
   */
 int report_ob_vp_time(ulonglong backup_id,
-                      my_time_t vp_time)
+                      time_t vp_time)
 {
   int ret= 0;  // return value
 
@@ -742,8 +742,8 @@ int report_ob_state(ulonglong backup_id,
   */
 int report_ob_progress(ulonglong backup_id,
                        const char *object,
-                       my_time_t start,
-                       my_time_t stop,
+                       time_t start,
+                       time_t stop,
                        longlong size,
                        longlong progress,
                        int error_num,
@@ -800,7 +800,7 @@ int report_ob_progress(ulonglong backup_id,
   if (start)
   {
     MYSQL_TIME time;
-    my_tz_OFFSET0->gmt_sec_to_TIME(&time, start);
+    my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)start);
 
     table->field[ET_FIELD_PROG_START_TIME]->set_notnull();
     table->field[ET_FIELD_PROG_START_TIME]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);
@@ -809,7 +809,7 @@ int report_ob_progress(ulonglong backup_id,
   if (stop)
   {
     MYSQL_TIME time;
-    my_tz_OFFSET0->gmt_sec_to_TIME(&time, stop);
+    my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)stop);
 
     table->field[ET_FIELD_PROG_STOP_TIME]->set_notnull();
     table->field[ET_FIELD_PROG_STOP_TIME]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);

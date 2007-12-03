@@ -62,19 +62,44 @@ get_lock("commit_blocker_step_1", 0)
 con1: Backing up database -- will block with lock
 BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak";
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: commit_blocker_step_1	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
 con3: Starting commit -- will block with lock
 COMMIT;
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+state	info
+debug_sync_point: commit_blocker_step_1	COMMIT
 con5: Getting lock on commit blocker.
 SELECT get_lock("backup_commit_blocker", 0);
 get_lock("backup_commit_blocker", 0)
 1
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: backup_commit_blocker	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+state	info
+debug_sync_point: backup_commit_blocker	COMMIT
 con4: Starting begin -- will block with lock
 Assumption (c): TRX not started is not included in backup
 BEGIN;
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BEGIN%";
+state	info
+debug_sync_point: backup_commit_blocker	BEGIN
 con5: Releasing lock
 SELECT release_lock("backup_commit_blocker");
 release_lock("backup_commit_blocker")
@@ -188,6 +213,11 @@ SELECT get_lock("commit_blocker_step_4", 0);
 get_lock("commit_blocker_step_4", 0)
 1
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: commit_blocker_step_4	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
 con7: Show that the statement in progress has executed before backup.
 SELECT * FROM bup_commit_blocker.t5;
 col_a
@@ -200,6 +230,11 @@ con7: Starting non-trx about to start -- will block with lock
 Assumption (e): non-TRX not started is not included in backup
 UPDATE bup_commit_blocker.t5 SET col_a = 333 WHERE col_a = 30;
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "UPDATE%";
+state	info
+Waiting for release of readlock	UPDATE bup_commit_blocker.t5 SET col_a = 333 WHERE col_a = 30
 con5: Releasing locks
 SELECT release_lock("commit_blocker_step_4");
 release_lock("commit_blocker_step_4")
@@ -313,20 +348,50 @@ get_lock("commit_blocker_step_1", 0)
 con1: Backing up database -- will block with lock
 BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak";
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: commit_blocker_step_1	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
 con3: Starting commit -- will block with lock
 COMMIT;
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+state	info
+debug_sync_point: commit_blocker_step_1	COMMIT
 con5: Getting lock on commit blocker.
 SELECT get_lock("backup_commit_blocker", 0);
 get_lock("backup_commit_blocker", 0)
 1
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: backup_commit_blocker	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+state	info
+debug_sync_point: backup_commit_blocker	COMMIT
 con4: Starting begin -- will block with lock
 Assumption (c): TRX not started is not included in backup
 BEGIN;
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BEGIN%";
+state	info
+debug_sync_point: backup_commit_blocker	BEGIN
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: backup_commit_blocker	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
 con7: Show that the statement in progress has executed before backup.
 SELECT * FROM bup_commit_blocker.t5;
 col_a
@@ -339,6 +404,11 @@ con7: Starting non-trx about to start -- will block with lock
 Assumption (e): non-TRX not started is not included in backup
 DELETE FROM bup_commit_blocker.t5 WHERE col_a = 50;
 con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DELETE%";
+state	info
+Waiting for release of readlock	DELETE FROM bup_commit_blocker.t5 WHERE col_a = 50
 con5: Releasing lock
 SELECT release_lock("backup_commit_blocker");
 release_lock("backup_commit_blocker")

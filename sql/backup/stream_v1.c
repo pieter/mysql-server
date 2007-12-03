@@ -42,7 +42,6 @@ typedef bstream_blob blob;
 /* this is needed for seamless compilation on windows */
 #define bzero(A,B)  memset((A),0,(B))
 
-
 /*
   Macros used to test results of functions writing/reading backup stream.
 
@@ -90,6 +89,36 @@ int bstream_read_part(backup_stream*, bstream_blob*, bstream_blob);
 int bstream_read_blob(backup_stream*, bstream_blob);
 int bstream_skip(backup_stream*, unsigned long int);
 
+/* Helper functions to safely convert values to byte type. */
+byte get_byte_ulong(unsigned long int value)
+{
+  ASSERT(value < 256);
+  return (byte)value;
+}
+
+byte get_byte_uint(unsigned int value)
+{
+  ASSERT(value < 256);
+  return (byte)value;
+}
+
+byte get_byte_short(short value)
+{
+  ASSERT(value < 256);
+  return (byte)value;
+}
+
+byte get_byte_ushort(unsigned short value)
+{
+  ASSERT(value < 256);
+  return (byte)value;
+}
+
+byte get_byte_size_t(size_t value)
+{
+  ASSERT(value < 256);
+  return (byte)value;
+}
 
 /*************************************************************************
  *
@@ -1795,11 +1824,13 @@ int bstream_wr_int4(backup_stream *s, unsigned long int x)
 {
   byte buf[4];
   blob b= {buf, buf+4};
+  int i;
 
-  buf[0]= (byte) (x & 0xFF); x >>= 8;
-  buf[1]= (byte) (x & 0xFF); x >>= 8;
-  buf[2]= (byte) (x & 0xFF); x >>= 8;
-  buf[3]= (byte) (x & 0xFF); x >>= 8;
+  for (i= 0; i < 4; i++)
+  {
+    buf[i]= get_byte_ulong((x & 0xFF));
+    x >>= 8;
+  }
 
   return bstream_write_blob(s,b);
 }
@@ -1844,7 +1875,7 @@ int bstream_wr_num(backup_stream *s, unsigned long int x)
   byte b;
 
   do {
-    b= (byte) (x & 0x7F);
+    b= get_byte_ulong((x & 0x7F));
     CHECK_WR_RES(bstream_wr_byte(s, b | ( x>0x7F ? 0x80: 0)));
     x >>= 7;
   } while (x);
@@ -1965,12 +1996,13 @@ int bstream_wr_time(backup_stream *s, bstream_time_t *time)
   byte buf[6];
   blob b= {buf, buf+6};
 
-  buf[0]= ((byte)(time->year>>4) & 0xFF);
-  buf[1]= (((byte)(time->year<<4) & 0xF0) | ((byte)(time->mon &0x0F)));
-  buf[2]= (byte)(time->mday);
-  buf[3]= (byte)(time->hour);
-  buf[4]= (byte)(time->min);
-  buf[5]= (byte)(time->sec);
+  buf[0]= get_byte_uint(((time->year>>4) & 0xFF));
+  buf[1]= (get_byte_uint(((time->year<<4) & 0xF0)) |
+           get_byte_ushort((time->mon &0x0F)));
+  buf[2]= get_byte_ushort(time->mday);
+  buf[3]= get_byte_ushort(time->hour);
+  buf[4]= get_byte_ushort(time->min);
+  buf[5]= get_byte_ushort(time->sec);
 
   return bstream_write_blob(s,b);
 }

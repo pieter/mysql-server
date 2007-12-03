@@ -51,13 +51,13 @@ class Image_info: public st_bstream_image_header
 
    virtual ~Image_info();
 
-   void save_start_time(const my_time_t time)
+   void save_start_time(const time_t time)
    { save_time(time, start_time); }
    
-   void save_end_time(const my_time_t time)
+   void save_end_time(const time_t time)
    { save_time(time, end_time); }
 
-   void save_vp_time(const my_time_t time)
+   void save_vp_time(const time_t time)
    { save_time(time, vp_time); }
 
  protected:
@@ -145,7 +145,7 @@ class Image_info: public st_bstream_image_header
   String create_stmt_buf;
 
 
-  void save_time(const my_time_t, bstream_time_t&);
+  void save_time(const time_t, bstream_time_t&);
   
   // friends
 

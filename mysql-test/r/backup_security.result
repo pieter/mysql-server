@@ -1,7 +1,7 @@
 DROP DATABASE IF EXISTS backup_test;
 CREATE DATABASE backup_test;
 default: Create table and new users.
-CREATE TABLE backup_test.t1 (a char(30));
+CREATE TABLE backup_test.t1 (a char(30)) ENGINE=MEMORY;
 INSERT INTO backup_test.t1 VALUES ("01 Test #1 - super privilege");
 INSERT INTO backup_test.t1 VALUES ("02 Test #1 - super privilege");
 INSERT INTO backup_test.t1 VALUES ("03 Test #1 - super privilege");
@@ -28,11 +28,13 @@ ERROR 42000: Access denied; you need the SUPER privilege for this operation
 SHOW ERRORS;
 Level	Code	Message
 Error	1227	Access denied; you need the SUPER privilege for this operation
+Error	1227	Access denied; you need the SUPER privilege for this operation
 no_rights: Attempting restore. Should fail with error 1227
 RESTORE FROM 'bup_no_rights.bak';
 ERROR 42000: Access denied; you need the SUPER privilege for this operation
 SHOW ERRORS;
 Level	Code	Message
+Error	1227	Access denied; you need the SUPER privilege for this operation
 Error	1227	Access denied; you need the SUPER privilege for this operation
 SELECT * FROM backup_test.t1;
 a

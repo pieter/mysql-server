@@ -150,15 +150,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -172,6 +181,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
 
 connection con4;
 
@@ -190,10 +202,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t3%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t3%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -301,15 +319,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -323,6 +350,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
 
 connection con4;
 
@@ -341,10 +371,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t3%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE TABLE bup_ddl_blocker.t3%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -430,15 +466,25 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t2%";
+
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -452,6 +498,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
 
 connection con4;
 
@@ -470,10 +519,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t3%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t3%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -574,15 +629,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -596,6 +660,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
 
 connection con4;
 
@@ -614,10 +681,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t3%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RENAME TABLE bup_ddl_blocker.t3%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "REPAIR TABLE bup_ddl_blocker.t4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -701,15 +774,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DROP TABLE bup_ddl_blocker.t2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP TABLE bup_ddl_blocker.t2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -723,6 +805,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
 
 connection con4;
 
@@ -741,10 +826,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t3%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t3%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DROP TABLE bup_ddl_blocker.t4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP TABLE bup_ddl_blocker.t4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -843,15 +934,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DROP TABLE bup_ddl_blocker.t2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP TABLE bup_ddl_blocker.t2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -865,6 +965,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
 
 connection con4;
 
@@ -883,10 +986,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t3%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "OPTIMIZE TABLE bup_ddl_blocker.t3%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DROP TABLE bup_ddl_blocker.t4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP TABLE bup_ddl_blocker.t4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -950,7 +1059,7 @@ CREATE DATABASE bup_ddl_blocker_4;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
 
 --echo con1: Loading data
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
@@ -996,15 +1105,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DROP DATABASE bup_ddl_blocker_2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP DATABASE bup_ddl_blocker_2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -1018,6 +1136,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
 
 connection con4;
 
@@ -1036,10 +1157,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_3%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_3%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DROP DATABASE bup_ddl_blocker_4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP DATABASE bup_ddl_blocker_4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -1117,7 +1244,7 @@ CREATE DATABASE bup_ddl_blocker_4;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
 
 --echo con1: Loading data
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
@@ -1167,15 +1294,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DROP DATABASE bup_ddl_blocker_2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP DATABASE bup_ddl_blocker_2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -1189,6 +1325,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
 
 connection con4;
 
@@ -1207,10 +1346,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_3%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE DATABASE bup_ddl_blocker_3%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "DROP DATABASE bup_ddl_blocker_4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP DATABASE bup_ddl_blocker_4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -1273,7 +1418,7 @@ CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
 
 --echo con1: Loading data
 
@@ -1320,15 +1465,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_2%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_2%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -1342,6 +1496,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "BACKUP DATABASE%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
 
 connection con4;
 
@@ -1359,10 +1516,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_4%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_4%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -1462,7 +1625,7 @@ CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
 
 --echo con1: Loading data
 
@@ -1513,15 +1676,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_2%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_2%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_in_progress"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_2%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_2%";
 
 # Now set the breakpoint for DDL blocker.
 # This releases lock on DDL_in_progress stopping all DDLs.
@@ -1535,6 +1707,9 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "RESTORE FROM%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
 
 connection con4;
 
@@ -1553,10 +1728,16 @@ let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_4%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "TRUNCATE TABLE bup_ddl_blocker_4%";
+
 let $wait_condition = SELECT state = "DDL blocker: DDL is blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_4%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER DATABASE bup_ddl_blocker_4%";
 
 --echo con6: Releasing lock
 SELECT release_lock("DDL_blocked");
@@ -1648,7 +1829,7 @@ DROP TABLE IF EXISTS bup_ddl_blocker.t1, bup_ddl_blocker.t3;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE test.t2 (col_a CHAR(40)) ENGINE=MYISAM;
+CREATE TABLE test.t2 (col_a CHAR(40)) ENGINE=MEMORY;
 CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=MEMORY;
 
 --echo con1: Loading data
@@ -1699,15 +1880,24 @@ let $wait_condition = SELECT state = "debug_sync_point: DDL_not_blocked"
                       WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t1%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t1%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_not_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER TABLE test.t2%";
 --source include/wait_condition.inc
 
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER TABLE test.t2%";
+
 let $wait_condition = SELECT state = "debug_sync_point: DDL_not_blocked"
                       FROM INFORMATION_SCHEMA.PROCESSLIST
                       WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t3%";
 --source include/wait_condition.inc
+
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "ALTER TABLE bup_ddl_blocker.t3%";
 
 --echo con5: Releasing lock
 SELECT release_lock("DDL_not_blocked");
@@ -1762,6 +1952,7 @@ DROP DATABASE bup_ddl_blocker;
 
 remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak;
 remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak;
+
 
 
 

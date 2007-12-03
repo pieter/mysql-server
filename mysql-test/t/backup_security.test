@@ -19,7 +19,7 @@ CREATE DATABASE backup_test;
 
 --echo default: Create table and new users.
 
-CREATE TABLE backup_test.t1 (a char(30));
+CREATE TABLE backup_test.t1 (a char(30)) ENGINE=MEMORY;
 
 INSERT INTO backup_test.t1 VALUES ("01 Test #1 - super privilege"); 
 INSERT INTO backup_test.t1 VALUES ("02 Test #1 - super privilege"); 

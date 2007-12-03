@@ -13,7 +13,7 @@ DROP DATABASE IF EXISTS db;
 
 CREATE DATABASE db;
 CREATE TABLE db.t1 (a int, b char(32))
-ENGINE=myisam;
+ENGINE=MEMORY;
 
 # copy description of a table using non-existent storage engine
 --copy_file $table_def $MYSQLTEST_VARDIR/master-data/db/t2.frm

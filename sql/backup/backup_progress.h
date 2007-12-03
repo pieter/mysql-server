@@ -149,15 +149,15 @@ int report_ob_size(ulonglong backup_id,
   for stop).
 */
 int report_ob_time(ulonglong backup_id,
-                   my_time_t start,
-                   my_time_t stop);
+                   time_t start,
+                   time_t stop);
 
 /*
   This method updates the validity point time for the backup operation
   identified by backup_id.
 */
 int report_ob_vp_time(ulonglong backup_id,
-                      my_time_t vp_time);
+                      time_t vp_time);
 
 /*
   This method updates the engines information for the backup operation
@@ -172,8 +172,8 @@ int report_ob_engines(ulonglong backup_id,
 */
 int report_ob_progress(ulonglong backup_id,
                        const char *object,
-                       my_time_t start,
-                       my_time_t stop,
+                       time_t start,
+                       time_t stop,
                        longlong size,
                        longlong progress,
                        int error_num,

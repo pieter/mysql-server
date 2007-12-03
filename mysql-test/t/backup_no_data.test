@@ -1,7 +1,6 @@
 --source include/not_embedded.inc
 
 connect (backup,localhost,root,,);
-connect (restore,localhost,root,,);
 
 connection backup;
 
@@ -21,10 +20,6 @@ BACKUP DATABASE * TO 'all.bak';
 
 DROP DATABASE empty_db;
 DROP DATABASE test;
-
-SHOW DATABASES;
-
-connection restore;
 
 SHOW DATABASES;
 
@@ -57,7 +52,7 @@ DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (
   `dir_code` char(4),
   `building` char(6)
-) ENGINE=myisam DEFAULT CHARSET=latin1;
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
 
 USE empty_db;
 
@@ -69,10 +64,6 @@ CREATE VIEW v1 AS SELECT * FROM test.t1;
 
 --replace_column 1 #
 BACKUP DATABASE empty_db TO 'empty_db.bak';
-
-disconnect backup;
-
-connection restore;
 
 SHOW DATABASES;
 

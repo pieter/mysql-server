@@ -2,7 +2,6 @@
 --source include/not_embedded.inc
 
 connect (backup,localhost,root,,);
-connect (restore,localhost,root,,);
 
 connection backup;
 
@@ -16,13 +15,13 @@ USE db1;
 
 # SHOW ENGINES;
 
-#SET @@storage_engine = 'myisam';
+#SET @@storage_engine = 'MEMORY';
 
 DROP TABLE IF EXISTS `building`;
 CREATE TABLE `building` (
   `dir_code` char(4),
   `building` char(6)
-) ENGINE=myisam DEFAULT CHARSET=latin1;
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
 
 #
 # Dumping data for table `building`
@@ -42,7 +41,7 @@ CREATE TABLE `directorate` (
   `dir_code` char(4),
   `dir_name` char(30),
   `dir_head_id` char(9)
-) ENGINE=myisam DEFAULT CHARSET=latin1;
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
 
 #
 # Dumping data for table `directorate`
@@ -67,7 +66,7 @@ CREATE TABLE `staff` (
   `sex` char(1),
   `salary` int(11),
   `mgr_id` char(9)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MEMORY DEFAULT CHARSET=latin1;
 
 #
 # Dumping data for table `staff`
@@ -105,8 +104,6 @@ DROP DATABASE db2;
 
 #Disabled until SHOW commands are implemented.
 #SHOW BACKUP 'test.ba';
-
-connection restore;
 
 USE mysql;
 
@@ -162,10 +159,10 @@ CREATE TABLE bup_default.wide (
   `p` char(255) DEFAULT NULL,
   `q` TEXT,
   PRIMARY KEY (`a`)
-) ENGINE=myisam DEFAULT CHARSET=latin1;
+) ENGINE=INNODB DEFAULT CHARSET=latin1;
 
 CREATE TABLE bup_default.t1 (a int) engine=innodb;
-CREATE TABLE bup_default.t2 (a int) engine=myisam;
+CREATE TABLE bup_default.t2 (a int) engine=MEMORY;
 CREATE TABLE bup_default.t1_blob (a int, b text) engine=innodb;
 
 # Insert some data.

@@ -21,7 +21,7 @@
 #include "backup_aux.h"
 #include "stream.h"
 #include "backup_kernel.h"
-#include "catalog.h"
+#include "catalog.h" 
 #include "debug.h"
 #include "be_native.h"
 #include "be_default.h"
@@ -83,7 +83,7 @@ int
 execute_backup_command(THD *thd, LEX *lex)
 {
   ulonglong backup_prog_id= 0;
-  my_time_t start=0, stop=0;
+  time_t start=0, stop=0;
   
   DBUG_ENTER("execute_backup_command");
   DBUG_ASSERT(thd && lex);
@@ -97,7 +97,7 @@ execute_backup_command(THD *thd, LEX *lex)
   */
   if (check_global_access(thd, SUPER_ACL))
   {
-    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR,MYF(0));
+    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER");
     DBUG_RETURN(ER_SPECIFIC_ACCESS_DENIED_ERROR);
   }
 

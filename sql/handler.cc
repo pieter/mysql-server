@@ -2292,6 +2292,11 @@ void handler::print_error(int error, myf errflag)
   case HA_ERR_AUTOINC_ERANGE:
     textno= ER_WARN_DATA_OUT_OF_RANGE;
     break;
+  case HA_ERR_LOCK_OR_ACTIVE_TRANSACTION:
+    my_message(ER_LOCK_OR_ACTIVE_TRANSACTION,
+               ER(ER_LOCK_OR_ACTIVE_TRANSACTION), MYF(0));
+    DBUG_VOID_RETURN;
+    break;
   default:
     {
       /* The error was "unknown" to this function.

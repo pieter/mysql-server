@@ -1676,7 +1676,7 @@ int StorageInterface::getMySqlError(int storageError)
 
 		case StorageErrorUncommittedUpdates:
 			DBUG_PRINT("info", ("StorageErrorUncommittedUpdates"));
-			return (HA_ERR_TABLE_EXIST);
+			return (HA_ERR_LOCK_OR_ACTIVE_TRANSACTION);
 
 		case StorageErrorUncommittedRecords:
 			DBUG_PRINT("info", ("StorageErrorUncommittedRecords"));

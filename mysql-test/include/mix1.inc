@@ -1019,6 +1019,15 @@ SELECT * FROM t1 ORDER BY b DESC, a ASC;
 
 DROP TABLE t1;
 
+#
+# Bug #31137: Assertion failed: primary_key_no == -1 || primary_key_no == 0
+#
+create table t1(a char(10) not null, unique key aa(a(1)),
+                b char(4) not null, unique key bb(b(4))) engine=innodb;
+desc t1;
+show create table t1;
+drop table t1;
+
 --echo End of 5.0 tests
 
 # Fix for BUG#19243 "wrong LAST_INSERT_ID() after ON DUPLICATE KEY
@@ -1179,5 +1188,13 @@ if ($test_foreign_keys)
   DROP TABLE t2;
   DROP TABLE t1;
 }
+
+#
+# Bug #26447: "ALTER TABLE .. ORDER" does not work with InnoDB and 
+#             auto_increment keys
+#
+create table t1 (a int auto_increment primary key) engine=innodb;
+alter table t1 order by a;
+drop table t1;
 
 --echo End of 5.1 tests

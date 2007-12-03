@@ -98,12 +98,7 @@ void SRLSectionPage::pass2()
 {
 	if ((pageNumber && log->tracePage == pageNumber) ||
 		(parentPage && log->tracePage == parentPage))
-		{
 		print();
-	
-		if (sectionId == 1353)
-			print();
-		}
 		
 	bool ret = true;
 	

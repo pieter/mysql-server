@@ -1200,7 +1200,8 @@ void Section::redoSectionPage(Dbb *dbb, int32 parentPage, int32 pageNumber, int 
 
 	//  Unless parent page is already leaf, probe and if necessary rebuild section page
 
-	if (pageNumber && (page->level > 0 || parentPage == SECTION_ROOT))
+	//if (pageNumber && (page->level > 0 || parentPage == SECTION_ROOT))
+	if (pageNumber && (page->level > 0 || page->section == -1))
 		{
 		Bdb *sectionBdb = dbb->fakePage(pageNumber, PAGE_any, 0);
 		BDB_HISTORY(bdb);

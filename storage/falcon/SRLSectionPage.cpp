@@ -98,16 +98,24 @@ void SRLSectionPage::pass2()
 {
 	if ((pageNumber && log->tracePage == pageNumber) ||
 		(parentPage && log->tracePage == parentPage))
+		{
 		print();
 	
-	if (log->bumpPageIncarnation(parentPage, tableSpaceId, objInUse))
+		if (sectionId == 1353)
+			print();
+		}
+		
+	bool ret = true;
+	
+	if (pageNumber)
+		ret = log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
+		
+	if (log->bumpPageIncarnation(parentPage, tableSpaceId, objInUse) && ret)
 		{
 		if (control->isPostFlush())
 			Section::redoSectionPage(log->getDbb(tableSpaceId), parentPage, pageNumber, sectionSlot, sectionId, sequence, level);
 		}
 
-	if (pageNumber)
-		log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
 }
 
 void SRLSectionPage::redo()

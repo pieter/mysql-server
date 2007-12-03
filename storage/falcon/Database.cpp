@@ -761,7 +761,7 @@ void Database::openDatabase(const char * filename)
 	upgradeSystemTables();
 	Trigger::initialize (this);
 	serialLog->checkpoint(true);
-	validate(validateOrBreak);
+	//validate(validateOrBreak);
 
 #ifndef STORAGE_ENGINE
 

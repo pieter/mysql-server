@@ -340,8 +340,9 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 	if (!bdb)
 		bdb = findBuffer(dbb, pageNumber, Exclusive);
 
-	//ASSERT(!(bdb->flags & BDB_dirty));
-	bdb->mark(transId);
+	if (!dbb->isReadOnly)
+		bdb->mark(transId);
+		
 	memset(bdb->buffer, 0, pageSize);
 	bdb->setPageHeader(type);
 	moveToHead(bdb);

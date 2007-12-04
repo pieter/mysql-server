@@ -98,11 +98,10 @@ TableSpace* TableSpaceManager::findTableSpace(const char *name)
 		if (tableSpace->name == name)
 			return tableSpace;
 
-
 	Sync syncSystem (&database->syncSysConnection, "TableSpaceManager::findTableSpace");
 	syncSystem.lock (Shared);
 	PStatement statement = database->prepareStatement(
-		"select tablespace_id, filename from system.tablespaces where tablespace=?");
+		"select tablespace_id,filename,status from system.tablespaces where tablespace=?");
 	statement->setString(1, name);
 	RSet resultSet = statement->executeQuery();
 
@@ -110,7 +109,8 @@ TableSpace* TableSpaceManager::findTableSpace(const char *name)
 		{
 		int id = resultSet->getInt(1);
 		const char *fileName = resultSet->getString(2);
-		tableSpace = new TableSpace(database, name, id, fileName, 0);
+		int type = resultSet->getInt(3);
+		tableSpace = new TableSpace(database, name, id, fileName, 0, type);
 
 		try
 			{
@@ -142,15 +142,16 @@ TableSpace* TableSpaceManager::getTableSpace(const char *name)
 	return tableSpace;
 }
 
-TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fileName, uint64 initialAllocation)
+TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fileName, uint64 initialAllocation, bool repository)
 {
 	Sync syncSystem(&database->syncSysConnection, "TableSpaceManager::createTableSpace");
 	syncSystem.lock(Shared);
 	Sequence *sequence = database->sequenceManager->getSequence(database->getSymbol("SYSTEM"), database->getSymbol("TABLESPACE_IDS"));
+	int type = (repository) ? TABLESPACE_TYPE_REPOSITORY : TABLESPACE_TYPE_TABLESPACE;
 	int id = (int) sequence->update(1, database->getSystemTransaction());
-	TableSpace *tableSpace = new TableSpace(database, name, id, fileName, initialAllocation);
+	TableSpace *tableSpace = new TableSpace(database, name, id, fileName, initialAllocation, type);
 	
-	if (tableSpace->dbb->doesFileExist(fileName))
+	if (!repository && tableSpace->dbb->doesFileExist(fileName))
 		{
 		delete tableSpace;
 		throw SQLError(TABLESPACE_EXIST_ERROR, "table space file name \"%s\" already exists\n", fileName);
@@ -159,7 +160,10 @@ TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fi
 	try
 		{
 		tableSpace->save();
-		tableSpace->create();
+		
+		if (!repository)
+			tableSpace->create();
+			
 		syncSystem.unlock();
 		database->commitSystemTransaction();
 		add(tableSpace);
@@ -190,20 +194,23 @@ void TableSpaceManager::bootstrap(int sectionId)
 		Value name;
 		Value id;
 		Value fileName;
+		Value status;
 		p = EncodedDataStream::decode(p, &name, true);
 		p = EncodedDataStream::decode(p, &id, true);
 		p = EncodedDataStream::decode(p, &fileName, true);
-		TableSpace *tableSpace = new TableSpace(database, name.getString(), id.getInt(), fileName.getString(), 0);
+		p = EncodedDataStream::decode(p, &status, true);
+		TableSpace *tableSpace = new TableSpace(database, name.getString(), id.getInt(), fileName.getString(), 0, status.getInt());
 		
-		try
-			{
-			tableSpace->open();
-			}
-		catch(SQLException& exception)
-			{
-			Log::log("Couldn't open table space file \"%s\" for tablespace \"%s\": %s\n", 
-					 fileName.getString(), name.getString(), exception.getText());
-			}
+		if (tableSpace->type == TABLESPACE_TYPE_TABLESPACE)
+			try
+				{
+				tableSpace->open();
+				}
+			catch(SQLException& exception)
+				{
+				Log::log("Couldn't open table space file \"%s\" for tablespace \"%s\": %s\n", 
+						fileName.getString(), name.getString(), exception.getText());
+				}
 			
 		add(tableSpace);
 		stream.clear();
@@ -227,8 +234,9 @@ TableSpace* TableSpaceManager::getTableSpace(int id)
 		throw SQLError(COMPILE_ERROR, "can't find table space %d", id);
 
 	if (!tableSpace->active)
-		throw SQLError(RUNTIME_ERROR, "table space \"%s\" is not active", (const char*) tableSpace->name);
-		
+		//throw SQLError(RUNTIME_ERROR, "table space \"%s\" is not active", (const char*) tableSpace->name);
+		tableSpace->open();
+
 	return tableSpace;
 }
 
@@ -359,7 +367,7 @@ void TableSpaceManager::reportWrites(void)
 		tableSpace->dbb->reportWrites();
 }
 
-void TableSpaceManager::redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName)
+void TableSpaceManager::redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName, int type)
 {
 	Sync sync(&syncObject, "TableSpaceManager::redoCreateTableSpace");
 	sync.lock(Exclusive);
@@ -375,7 +383,7 @@ void TableSpaceManager::redoCreateTableSpace(int id, int nameLength, const char*
 	char *file = buffer + nameLength + 1;
 	memcpy(file, fileName, fileNameLength);
 	file[fileNameLength] = 0;
-	tableSpace = new TableSpace(database, buffer, id, file, 0);
+	tableSpace = new TableSpace(database, buffer, id, file, 0, type);
 	tableSpace->needSave = true;
 	add(tableSpace);	
 
@@ -404,4 +412,14 @@ void TableSpaceManager::initialize(void)
 			syncSystem.unlock();
 			database->commitSystemTransaction();
 			}
+}
+
+void TableSpaceManager::postRecovery(void)
+{
+	Sync sync(&syncObject, "TableSpaceManager::postRecovery");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		if (tableSpace->active && tableSpace->type == TABLESPACE_TYPE_REPOSITORY)
+			tableSpace->close();
 }

@@ -38,6 +38,8 @@
 #include "Stream.h"
 #include "IndexKey.h"
 #include "Index.h"
+#include "TableSpaceManager.h"
+#include "TableSpace.h"
 
 #define TIMEOUT				(60 * 4)
 #define VOLUME_INDEX_ID			0
@@ -59,7 +61,15 @@ RepositoryVolume::RepositoryVolume(Repository *repo, int volume, JString file)
 	volumeNumber = volume;
 	fileName = file;
 	database = repository->database;
-	dbb = new Dbb (database->dbb, -1);
+	JString volumeName;
+	volumeName.Format("%s.%s.%d", repository->schema, repository->name, volumeNumber);
+	tableSpace = database->tableSpaceManager->findTableSpace(volumeName);
+	
+	if (!tableSpace)
+		tableSpace = database->tableSpaceManager->createTableSpace(volumeName, fileName, 0, true);
+	
+	dbb = tableSpace->dbb;
+	//dbb = new Dbb (database->dbb, -1);
 	isOpen = false;
 	isWritable = false;
 	lastAccess = 0;
@@ -80,9 +90,6 @@ void RepositoryVolume::storeBlob(BlobReference *blob, Transaction *transaction)
 
 void RepositoryVolume::storeBlob(int64 blobId, Stream *stream, Transaction *transaction)
 {
-	if (!section)
-		section = dbb->findSection(VOLUME_SECTION_ID);
-
 	Sync sync (&syncObject, "RepositoryVolume::getBlob");
 	sync.lock (Shared);
 
@@ -92,6 +99,9 @@ void RepositoryVolume::storeBlob(int64 blobId, Stream *stream, Transaction *tran
 		makeWritable();
 		sync.lock(Shared);
 		}
+
+	if (!section)
+		section = dbb->findSection(VOLUME_SECTION_ID);
 
 	lastAccess = database->timestamp;
 	IndexKey indexKey;

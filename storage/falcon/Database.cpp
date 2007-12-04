@@ -719,6 +719,7 @@ void Database::openDatabase(const char * filename)
 				tableSpaceManager->bootstrap(dbb->tableSpaceSectionId);
 
 			serialLog->recover();
+			tableSpaceManager->postRecovery();
 			serialLog->start();
 			}
 		else

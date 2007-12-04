@@ -2947,7 +2947,7 @@ void Statement::createTableSpace(Syntax *syntax)
 		initialAllocation = alloc->getUInt64();
 		
 	if (!tableSpace)
-		tableSpaceManager->createTableSpace(name, fileName, initialAllocation);
+		tableSpaceManager->createTableSpace(name, fileName, initialAllocation, false);
 }
 
 void Statement::dropTableSpace(Syntax* syntax)

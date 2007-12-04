@@ -1232,17 +1232,11 @@ void Dbb::logIndexUpdates(DeferredIndex* deferredIndex)
 
 bool Dbb::sectionInUse(int sectionId)
 {
-	if (tableSpaceId < 0)
-		return false;				// repository
-		
 	return serialLog->sectionInUse(sectionId, tableSpaceId);
 }
 
 bool Dbb::indexInUse(int indexId)
 {
-	if (tableSpaceId < 0)
-		return false;				// repository
-
 	return serialLog->indexInUse(indexId, tableSpaceId);
 }
 

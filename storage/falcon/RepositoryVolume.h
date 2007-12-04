@@ -33,6 +33,7 @@ class Transaction;
 class BlobReference;
 class IndexKey;
 class Section;
+class TableSpace;
 
 class RepositoryVolume  
 {
@@ -69,6 +70,7 @@ public:
 	int32				rootPage;
 	Repository			*repository;
 	RepositoryVolume	*collision;
+	TableSpace			*tableSpace;
 	SyncObject			syncObject;
 	JString				fileName;
 	Section				*section;

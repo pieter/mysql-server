@@ -37,7 +37,7 @@ static const char THIS_FILE[]=__FILE__;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-TableSpace::TableSpace(Database *db, const char *spaceName, int spaceId, const char *spaceFilename, uint64 allocation)
+TableSpace::TableSpace(Database *db, const char *spaceName, int spaceId, const char *spaceFilename, uint64 allocation, int tsType)
 {
 	database = db;
 	name = spaceName;
@@ -47,6 +47,7 @@ TableSpace::TableSpace(Database *db, const char *spaceName, int spaceId, const c
 	active = false;
 	initialAllocation = allocation;
 	needSave = false;
+	type = tsType;
 }
 
 TableSpace::~TableSpace()
@@ -78,9 +79,23 @@ void TableSpace::open()
 		{
 		dbb->readHeader (&header);
 
-		if (header.fileType != HdrTableSpace)
-			throw SQLError (RUNTIME_ERROR, "table space file \"%s\" has wrong page type (expeced %d, got %d)\n", 
-							(const char*) filename, HdrRepositoryFile, header.fileType);
+		switch (type)
+			{
+			case TABLESPACE_TYPE_TABLESPACE:
+				if (header.fileType != HdrTableSpace)
+					throw SQLError (RUNTIME_ERROR, "table space file \"%s\" has wrong page type (expeced %d, got %d)\n", 
+									(const char*) filename, HdrTableSpace, header.fileType);
+				break;
+			
+			case TABLESPACE_TYPE_REPOSITORY:
+				if (header.fileType != HdrRepositoryFile)
+					throw SQLError (RUNTIME_ERROR, "table space file \"%s\" has wrong page type (expeced %d, got %d)\n", 
+									(const char*) filename, HdrRepositoryFile, header.fileType);
+				break;
+			
+			default:
+				NOT_YET_IMPLEMENTED;
+			}
 
 		if (header.pageSize != dbb->pageSize)
 			throw SQLError (RUNTIME_ERROR, "table space file \"%s\" has wrong page size (expeced %d, got %d)\n", 
@@ -135,11 +150,12 @@ void TableSpace::sync(void)
 void TableSpace::save(void)
 {
 	PStatement statement = database->prepareStatement(
-		"replace into system.tablespaces (tablespace,tablespace_id,filename) values (?,?,?)");
+		"replace into system.tablespaces (tablespace,tablespace_id,filename,status) values (?,?,?,?)");
 	int n = 1;
 	statement->setString(n++, name);
 	statement->setInt(n++, tableSpaceId);
 	statement->setString(n++, filename);
+	statement->setInt(n++, type);
 	statement->executeUpdate();
 	needSave = false;
 }
@@ -155,4 +171,10 @@ void TableSpace::getIOInfo(InfoTable* infoTable)
 	infoTable->putInt(n++, dbb->fetches);
 	infoTable->putInt(n++, dbb->fakes);
 	infoTable->putRecord();
+}
+
+void TableSpace::close(void)
+{
+	dbb->close();
+	active = false;
 }

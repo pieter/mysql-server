@@ -146,7 +146,7 @@ public:
 	Cache*	open (const char *fileName, int64 cacheSize, TransId transId);
 	void	flush();
 	bool	addIndexEntry (int32 indexId, int indexVersion, IndexKey *key, int32 recordNumber, TransId transId);
-	int32	createIndex(TransId transId);
+	int32	createIndex(TransId transId, int indexVersion);
 	int32	findNextRecord (Section *section, int32 startingRecord, Stream *stream);
 	bool	fetchRecord (int32 sectionId, int32 recordNumber, Stream *stream);
 

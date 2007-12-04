@@ -389,12 +389,26 @@ int32 Dbb::findNextRecord(Section *section, int32 startingRecord, Stream *stream
 	return section->findNextRecord(startingRecord, stream);
 }
 
-int32 Dbb::createIndex(TransId transId)
+int32 Dbb::createIndex(TransId transId, int indexVersion)
 {
-	int indexId = IndexRootPage::createIndex(this, transId);
+	int indexId;
+	
+	switch (indexVersion)
+		{
+		case INDEX_VERSION_0:
+			indexId = Index2RootPage::createIndex(this, transId);
+			break;
+		
+		case INDEX_VERSION_1:
+			indexId = IndexRootPage::createIndex(this, transId);
+			break;
+		
+		default:
+			ASSERT(false);
+		}
 
 	if (serialLog)
-		serialLog->logControl->createIndex.append(this, transId, indexId, INDEX_CURRENT_VERSION);
+		serialLog->logControl->createIndex.append(this, transId, indexId, indexVersion);
 
 	return indexId;
 }
@@ -1218,11 +1232,17 @@ void Dbb::logIndexUpdates(DeferredIndex* deferredIndex)
 
 bool Dbb::sectionInUse(int sectionId)
 {
+	if (tableSpaceId < 0)
+		return false;				// repository
+		
 	return serialLog->sectionInUse(sectionId, tableSpaceId);
 }
 
 bool Dbb::indexInUse(int indexId)
 {
+	if (tableSpaceId < 0)
+		return false;				// repository
+
 	return serialLog->indexInUse(indexId, tableSpaceId);
 }
 

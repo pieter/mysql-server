@@ -37,6 +37,7 @@
 #include "BDB.h"
 #include "Stream.h"
 #include "IndexKey.h"
+#include "Index.h"
 
 #define TIMEOUT				(60 * 4)
 #define VOLUME_INDEX_ID			0
@@ -58,10 +59,12 @@ RepositoryVolume::RepositoryVolume(Repository *repo, int volume, JString file)
 	volumeNumber = volume;
 	fileName = file;
 	database = repository->database;
-	dbb = new Dbb (database->dbb, 0);
+	dbb = new Dbb (database->dbb, -1);
 	isOpen = false;
 	isWritable = false;
 	lastAccess = 0;
+	rootPage = 0;
+	section = NULL;
 }
 
 RepositoryVolume::~RepositoryVolume()
@@ -77,6 +80,9 @@ void RepositoryVolume::storeBlob(BlobReference *blob, Transaction *transaction)
 
 void RepositoryVolume::storeBlob(int64 blobId, Stream *stream, Transaction *transaction)
 {
+	if (!section)
+		section = dbb->findSection(VOLUME_SECTION_ID);
+
 	Sync sync (&syncObject, "RepositoryVolume::getBlob");
 	sync.lock (Shared);
 
@@ -110,8 +116,9 @@ void RepositoryVolume::storeBlob(int64 blobId, Stream *stream, Transaction *tran
 		throw SQLError (INCONSISTENT_BLOB, "inconsistent values for repository blobId\n");
 		}
 
-	int recordId = dbb->insertStub (VOLUME_SECTION_ID, transaction);
-	dbb->logRecord (VOLUME_SECTION_ID, recordId, stream, transaction);
+	int recordId = dbb->insertStub (section, transaction);
+	//dbb->logRecord (VOLUME_SECTION_ID, recordId, stream, transaction);
+	dbb->updateRecord(section, recordId, stream, transaction, true);
 	dbb->addIndexEntry (VOLUME_INDEX_ID, VOLUME_INDEX_VERSION, &indexKey, recordId + 1, transaction->transactionId);
 }
 
@@ -211,10 +218,14 @@ void RepositoryVolume::create()
 {
 	IO::createPath (fileName);
 	dbb->create(fileName, dbb->pageSize, 0, HdrRepositoryFile, 0, NULL, 0);
-	//int indexId = 
-	dbb->createIndex (0);
-	//int sectionId = 
-	dbb->createSection (0);
+	Sync syncSystem(&database->syncSysConnection, "RepositoryVolume::create");
+	Transaction *transaction = database->getSystemTransaction();
+	syncSystem.lock(Exclusive);
+	int indexId = dbb->createIndex(transaction->transactionId, VOLUME_INDEX_VERSION);
+	int sectionId = dbb->createSection(transaction->transactionId);
+	syncSystem.unlock();
+	database->commitSystemTransaction();
+	
 	Bdb *bdb = dbb->fetchPage(HEADER_PAGE, PAGE_header, Exclusive);
 	BDB_HISTORY(bdb);
 	bdb->mark (0);
@@ -308,9 +319,12 @@ int RepositoryVolume::getRecordNumber(int64 blobId)
 
 int RepositoryVolume::getRecordNumber(IndexKey *indexKey)
 {
+	if (!rootPage)
+		rootPage = Index2RootPage::getIndexRoot(dbb, VOLUME_INDEX_ID);
+
 	Bitmap bitmap;
 	//dbb->scanIndex (VOLUME_INDEX_ID, VOLUME_INDEX_VERSION, indexKey, indexKey, false, bitmap);
-	Index2RootPage::scanIndex(dbb, VOLUME_INDEX_ID, 0, indexKey, indexKey, false, NO_TRANSACTION, &bitmap);
+	Index2RootPage::scanIndex(dbb, VOLUME_INDEX_ID, rootPage, indexKey, indexKey, false, NO_TRANSACTION, &bitmap);
 	int recordNumber = bitmap.nextSet (0);
 
 	return recordNumber;
@@ -318,7 +332,10 @@ int RepositoryVolume::getRecordNumber(IndexKey *indexKey)
 
 void RepositoryVolume::fetchRecord(int recordNumber, Stream *stream)
 {
-	dbb->fetchRecord (VOLUME_SECTION_ID, recordNumber, stream);
+	if (!section)
+		section = dbb->findSection(VOLUME_SECTION_ID);
+		
+	dbb->fetchRecord (section, recordNumber, stream);
 }
 
 int RepositoryVolume::compare(Stream *stream1, Stream *stream2)

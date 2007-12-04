@@ -969,6 +969,8 @@ bool login_connection(THD *thd)
   /* Use "connect_timeout" value during connection phase */
   my_net_set_read_timeout(net, connect_timeout);
   my_net_set_write_timeout(net, connect_timeout);
+  
+  lex_start(thd);
 
   if (check_connection(thd))
   {						// Wrong permissions
@@ -1132,7 +1134,6 @@ pthread_handler_t handle_one_connection(void *arg)
   {
     NET *net= &thd->net;
 
-    lex_start(thd);
     if (login_connection(thd))
       goto end_thread;
 

@@ -30,6 +30,8 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_WORKING_KQUEUE
+
 #include <sys/types.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -417,3 +419,5 @@ kq_dealloc(struct event_base *base, void *arg)
 	memset(kqop, 0, sizeof(struct kqop));
 	free(kqop);
 }
+
+#endif /* HAVE_WORKING_KQUEUE */

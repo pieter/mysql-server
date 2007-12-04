@@ -164,10 +164,7 @@ local_infile_configs="--enable-local-infile"
 
 max_no_embedded_configs="$SSL_LIBRARY --with-plugins=max"
 max_no_ndb_configs="$SSL_LIBRARY --with-plugins=max-no-ndb --with-embedded-server"
-
-# See bug#32156 before adding --with-libevent
-# max_configs="$SSL_LIBRARY --with-plugins=max --with-embedded-server --with-libevent"
-max_configs="$SSL_LIBRARY --with-plugins=max --with-embedded-server"
+max_configs="$SSL_LIBRARY --with-plugins=max --with-embedded-server --with-libevent"
 
 #
 # CPU and platform specific compilation flags.

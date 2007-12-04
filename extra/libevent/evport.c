@@ -55,6 +55,8 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_EVENT_PORTS
+
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #else
@@ -529,3 +531,5 @@ evport_dealloc(struct event_base *base, void *arg)
 		free(evpd->ed_fds);
 	free(evpd);
 }
+
+#endif /* HAVE_EVENT_PORTS */

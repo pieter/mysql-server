@@ -27,7 +27,7 @@ SUBDIRS =		. include @docs_dirs@ @zlib_dir@ \
 			@sql_union_dirs@ unittest storage plugin \
 			@sql_server@ @man_dirs@ tests \
 			netware @libmysqld_dirs@ \
-			mysql-test support-files sql-bench @tools_dirs@ \
+			mysql-test support-files sql-bench \
 			win
 
 DIST_SUBDIRS =		. include Docs zlib \
@@ -36,7 +36,7 @@ DIST_SUBDIRS =		. include Docs zlib \
 			strings mysys dbug extra regex libmysql libmysql_r client unittest storage plugin \
 			vio sql man tests \
 			netware libmysqld \
-			mysql-test support-files sql-bench server-tools \
+			mysql-test support-files sql-bench \
 			win \
 			BUILD
 DISTCLEANFILES = ac_available_languages_fragment
@@ -91,7 +91,7 @@ test-nr:
 
 test-pr:
 	cd mysql-test ; \
-	@PERL@ ./mysql-test-run.pl $(force) $(mem) --ps-protocol --mysqld=--binlog-format=row
+	@PERL@ ./mysql-test-run.pl $(force) $(mem) --ps-protocol --mysqld=--binlog-format=row @libevent_test_option@
 
 test-ns:
 	cd mysql-test ; \
@@ -135,8 +135,8 @@ test-bt:
 	@PERL@ ./mysql-test-run.pl --comment=normal+rowrepl --force --timer \
 	--skip-ndbcluster --mysqld=--binlog-format=row
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	@PERL@ ./mysql-test-run.pl --comment=ps+rowrepl+NDB --force --timer \
-	--ps-protocol --mysqld=--binlog-format=row
+	@PERL@ ./mysql-test-run.pl --comment=ps+rowrepl+NDB+libevent --force --timer \
+	--ps-protocol --mysqld=--binlog-format=row @libevent_test_option@
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
 	@PERL@ ./mysql-test-run.pl --comment=NDB            --force --timer \
 	--with-ndbcluster-only

@@ -30,6 +30,8 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_SELECT
+
 #include <sys/types.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -371,3 +373,5 @@ select_dealloc(struct event_base *base, void *arg)
 	memset(sop, 0, sizeof(struct selectop));
 	free(sop);
 }
+
+#endif /* HAVE_SELECT */

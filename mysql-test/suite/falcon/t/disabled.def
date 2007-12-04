@@ -46,4 +46,4 @@ index_merge_falcon    : Bug#32696 index_merge_falcon.test fails
 falcon_bug_26433      : Bug#32697 falcon_bug_26433.test fails randomly
 falcon_bug_27951      : Bug#32731 falcon_bug_27951 fails randomly
 ps_8falcon	    : Bug #32683  	Test ps_8falcon fails in 6.0
-
+falcon_bug_22173a    : Bug#32963: falcon_bug_22173a fails

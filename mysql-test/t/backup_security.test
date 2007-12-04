@@ -49,6 +49,12 @@ BACKUP DATABASE backup_test to 'backup_test_orig.bak';
 connect (no_rights,localhost,bup_no_rights,,backup_test);
 connection no_rights;
 
+# Checking processes
+let $wait_condition = SELECT count(*) = 0
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
 --echo no_rights: Attempting backup. Should fail with error 1227
 --replace_column 1 #
 --error 1227
@@ -63,10 +69,18 @@ SHOW ERRORS;
 
 SELECT * FROM backup_test.t1;
 
+disconnect no_rights;
+
 --echo Connect as user with rights and attempt backup and restore.
 
 connect (with_rights,localhost,bup_with_rights,,backup_test);
 connection with_rights;
+
+# Checking processes
+let $wait_condition = SELECT count(*) = 0
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
 
 --echo no_rights: Attempting backup. Should succeed
 --replace_column 1 #
@@ -78,7 +92,15 @@ RESTORE FROM 'bup_with_rights.bak';
 
 SELECT * FROM backup_test.t1;
 
+disconnect with_rights;
+
 connection default;
+
+# Checking processes
+let $wait_condition = SELECT count(*) = 0
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "RESTORE FROM%";
+--source include/wait_condition.inc
 
 --echo default: Do restore to ensure it still works with default test user.
 

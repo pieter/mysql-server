@@ -73,7 +73,7 @@ connect (con7,localhost,root,,);
 connection con1;
 
 # Setup the server to use the backup breakpoints
-SET GLOBAL debug="d,backup_debug";
+SET GLOBAL debug="d,backup_debug:d,backup";
 
 #
 # Test 1 - transactional statements only

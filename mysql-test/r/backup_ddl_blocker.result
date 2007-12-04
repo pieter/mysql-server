@@ -1,4 +1,4 @@
-SET GLOBAL debug="d,backup_debug";
+SET GLOBAL debug="d,backup_debug:d,backup";
 
 Starting Test 1 - Backup
 

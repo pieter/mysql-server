@@ -37,6 +37,13 @@
   *       use it and replace code in ndb_binlog_thread_func(void *arg) to
   *       call this function.
   *
+  * @TODO Make this thread visible to SHOW PROCESSLIST. The following code
+  *       can be used to do this. See BUG#32970 for more details.
+  *
+  *       pthread_mutex_lock(&LOCK_thread_count);
+  *       threads.append(thd);
+  *       pthread_mutex_unlock(&LOCK_thread_count);
+  *
   * @note my_net_init() this should be paired with my_net_end() on 
   *       close/kill of thread.
   */
@@ -73,13 +80,7 @@ THD *create_new_thd()
   thd->main_security_ctx.master_access= ~0;
   thd->main_security_ctx.priv_user= 0;
   thd->real_id= pthread_self();
-  /*
-    Making this thread visible to SHOW PROCESSLIST is useful for
-    troubleshooting a backup job (why does it stall etc).
-  */
-  pthread_mutex_lock(&LOCK_thread_count);
-  threads.append(thd);
-  pthread_mutex_unlock(&LOCK_thread_count);
+
   lex_start(thd);
   mysql_reset_thd_for_next_command(thd);
   DBUG_RETURN(thd);

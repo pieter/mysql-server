@@ -45,6 +45,14 @@ namespace backup {
    DBUG_EXECUTE_IF("backup_error_test", backup::test_error_flag= (X);); \
  } while(0)
 
+#else
+
+//#define BACKUP_BREAKPOINT(S)
+#define TEST_ERROR  FALSE
+#define TEST_ERROR_IF(X)
+
+#endif
+
 /**
   @page BACKUP_BREAKPOINT Online Backup Breakpoints
   Macros for creating breakpoints during testing.
@@ -259,13 +267,5 @@ namespace backup {
   DBUG_PRINT("backup",("== breakpoint on '%s' ==",(S))); \
   DBUG_EXECUTE_IF("backup_debug", DBUG_SYNC_POINT((S),BACKUP_BREAKPOINT_TIMEOUT);); \
  } while (0)
-
-#else
-
-#define BACKUP_BREAKPOINT(S)
-#define TEST_ERROR  FALSE
-#define TEST_ERROR_IF(X)
-
-#endif
 
 #endif

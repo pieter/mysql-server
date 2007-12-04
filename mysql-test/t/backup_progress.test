@@ -17,7 +17,7 @@ connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
 
 # Setup the server to use the backup breakpoints
-SET GLOBAL debug="d,backup_debug";
+SET GLOBAL debug="d,backup_debug:d,backup";
 
 #
 # Test 1 - Check output of backup.

@@ -2773,8 +2773,11 @@ void Statement::createRepository(Syntax *syntax, bool upgrade)
 	if (sequenceName)	 
 		sequence = database->sequenceManager->findSequence (schema, sequenceName);
 
-	if (!sequence && !upgrade)
-		throw SQLEXCEPTION (DDL_ERROR, "sequence %s.%s isn't defined", schema, sequenceName);
+	if (!upgrade && !sequence)
+		if (sequenceName)
+			throw SQLEXCEPTION (DDL_ERROR, "sequence %s.%s isn't defined", schema, sequenceName);
+		else
+			throw SQLEXCEPTION (DDL_ERROR, "a sequence name is required for repository %d", schema);
 
 	if (repository)
 		{

@@ -148,7 +148,7 @@ void RepositoryVolume::open()
 
 	try
 		{
-		dbb->openFile (fileName, true);
+		dbb->openFile(fileName, true);
 		}
 	catch (SQLException&)
 		{
@@ -156,27 +156,32 @@ void RepositoryVolume::open()
 			throw;
 
 		create();
+		
 		return;
 		}
 
 	try
 		{
-		dbb->readHeader (&header);
+		dbb->readHeader(&header);
+		
+		if (header.pageSize < 1024)
+			dbb->skewHeader(&header);
+
 		if (header.fileType != HdrRepositoryFile)
-			throw SQLError (RUNTIME_ERROR, "repository file \"%s\" has wrong page type (expeced %d, got %d)\n", 
+			throw SQLError(RUNTIME_ERROR, "repository file \"%s\" has wrong page type (expeced %d, got %d)\n", 
 							(const char*) fileName, HdrRepositoryFile, header.fileType);
 
 		if (header.pageSize != dbb->pageSize)
-			throw SQLError (RUNTIME_ERROR, "repository file \"%s\" has wrong page size (expeced %d, got %d)\n", 
+			throw SQLError(RUNTIME_ERROR, "repository file \"%s\" has wrong page size (expeced %d, got %d)\n", 
 							(const char*) fileName, dbb->pageSize, header.pageSize);
 
 		if (volumeNumber == 0)
 			volumeNumber = header.volumeNumber;
 		else if (header.volumeNumber != volumeNumber)
-			throw SQLError (RUNTIME_ERROR, "repository file \"%s\" has wrong volume number (expected %d, got %d)\n", 
+			throw SQLError(RUNTIME_ERROR, "repository file \"%s\" has wrong volume number (expected %d, got %d)\n", 
 							(const char*) fileName, volumeNumber, header.volumeNumber);
 
-		dbb->initRepository (&header);
+		dbb->initRepository(&header);
 		isOpen = true;
 		isWritable = false;
 		name = getName();

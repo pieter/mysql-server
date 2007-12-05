@@ -77,19 +77,22 @@ void TableSpace::open()
 
 	try
 		{
-		dbb->readHeader (&header);
+		dbb->readHeader(&header);
+
+		if (header.pageSize < 1024)
+			dbb->skewHeader(&header);
 
 		switch (type)
 			{
 			case TABLESPACE_TYPE_TABLESPACE:
 				if (header.fileType != HdrTableSpace)
-					throw SQLError (RUNTIME_ERROR, "table space file \"%s\" has wrong page type (expeced %d, got %d)\n", 
+					throw SQLError(RUNTIME_ERROR, "table space file \"%s\" has wrong page type (expeced %d, got %d)\n", 
 									(const char*) filename, HdrTableSpace, header.fileType);
 				break;
 			
 			case TABLESPACE_TYPE_REPOSITORY:
 				if (header.fileType != HdrRepositoryFile)
-					throw SQLError (RUNTIME_ERROR, "table space file \"%s\" has wrong page type (expeced %d, got %d)\n", 
+					throw SQLError(RUNTIME_ERROR, "table space file \"%s\" has wrong page type (expeced %d, got %d)\n", 
 									(const char*) filename, HdrRepositoryFile, header.fileType);
 				break;
 			
@@ -98,9 +101,8 @@ void TableSpace::open()
 			}
 
 		if (header.pageSize != dbb->pageSize)
-			throw SQLError (RUNTIME_ERROR, "table space file \"%s\" has wrong page size (expeced %d, got %d)\n", 
+			throw SQLError(RUNTIME_ERROR, "table space file \"%s\" has wrong page size (expeced %d, got %d)\n", 
 							(const char*) filename, dbb->pageSize, header.pageSize);
-
 
 		dbb->initRepository(&header);
 		}

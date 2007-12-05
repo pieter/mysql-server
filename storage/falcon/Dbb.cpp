@@ -468,7 +468,7 @@ Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
 	while (n && !(n & 1))
 		n >>= 1;
 		
-	if (n != 1)
+	if (n != 1 || header.pageSize < 1024)
 		{
 		skewHeader(&header);
 		headerSkew = true;

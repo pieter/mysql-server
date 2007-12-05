@@ -1,6 +1,6 @@
 --source include/have_falcon.inc
 #
-# Bug #29151: Falcon: running sysbench 0.4.8 leads to duplicate key errors duplicate key
+# Bug #29151: Falcon: running sysbench 0.4.8 leads to duplicate key errors
 #
 --echo *** Bug #29151 ***
 

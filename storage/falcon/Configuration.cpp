@@ -339,9 +339,9 @@ uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
 #ifdef __APPLE__
 	uint64_t physMem = 0;
 	mib[1] = HW_MEMSIZE;
-#elif	// __FreeBSD__
+#elif	__FreeBSD__
 	size_t physMem = 0;
-	mib[1] = HW_PHYSMEM
+	mib[1] = HW_PHYSMEM;
 #endif
     
 	len = sizeof physMem;

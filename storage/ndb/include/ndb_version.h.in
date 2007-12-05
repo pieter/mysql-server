@@ -130,33 +130,33 @@ ndb_check_prep_copy_frag_version(Uint32 version)
 {	
   if (version == NDB_VERSION_D)
     return 2;
-
-  const Uint32 major = (version >> 16) & 0xFF;
-  const Uint32 minor = (version >>  8) & 0xFF;
-  if (major >= 6)
   {
-    if (minor == 2)
+    const Uint32 major = (version >> 16) & 0xFF;
+    const Uint32 minor = (version >>  8) & 0xFF;
+    if (major >= 6)
     {
-      if (version >= NDBD_PREPARE_COPY_FRAG_V2_62)
-        return 2;
-      if (version >= NDBD_PREPARE_COPY_FRAG_VERSION)
+      if (minor == 2)
+      {
+        if (version >= NDBD_PREPARE_COPY_FRAG_V2_62)
+          return 2;
+        if (version >= NDBD_PREPARE_COPY_FRAG_VERSION)
+          return 1;
+        return 0;
+      }
+      else if (minor == 3)
+      {
+        if (version >= NDBD_PREPARE_COPY_FRAG_V2_63)
+          return 2;
         return 1;
-      return 0;
-    }
-    else if (minor == 3)
-    {
-      if (version >= NDBD_PREPARE_COPY_FRAG_V2_63)
-        return 2;
-      return 1;
-    }
-    return 2;
-  }
-  else if (major == 5 && minor == 1)
-  {
-    if (version >= NDBD_PREPARE_COPY_FRAG_V2_51)
+      }
       return 2;
-  }
-    
+    }
+    else if (major == 5 && minor == 1)
+    {
+      if (version >= NDBD_PREPARE_COPY_FRAG_V2_51)
+        return 2;
+    }
+  }   
   return 0;
 }
 

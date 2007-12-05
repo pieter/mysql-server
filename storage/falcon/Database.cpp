@@ -1418,29 +1418,35 @@ void Database::truncateTable(Table *table, Transaction *transaction)
 		throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and cannot be truncated",
 						table->schemaName, table->name);
 						   
-	Sync sync(&syncTables, "Database::truncateTable");
-	sync.lock(Exclusive);
-	
-	// No access until truncate complete
-	
-	Sync syncObj(&table->syncObject, "Database::truncateTable");
-	syncObj.lock(Exclusive);
-	
 	// Keep scavenger out of the way
 	
 	Sync scavenge(&table->syncScavenge, "Database::truncateTable");
-	scavenge.lock(Exclusive);
+	scavenge.lock(Shared);
+	
+	// Block drop/add, table list scans ok
+	
+	Sync sync(&syncTables, "Database::truncateTable");
+	sync.lock(Shared);
+	
+	// No access until truncate completes
+	
+	Sync syncObj(&table->syncObject, "Database::truncateTable");
+	syncObj.lock(Exclusive);
 	
 	// Purge records out of committed transactions
 	
 	transactionManager->truncateTable(table, transaction);
 	
+	Sync syncConnection(&syncSysConnection, "Table::truncate");
+	syncConnection.lock(Shared);
+	
+	Transaction *sysTransaction = getSystemTransaction();
+	
 	// Recreate data/blob sections and indexes
 	
-	Sync syncConnection(&syncSysConnection, "Table::truncate");
-	syncConnection.lock(Exclusive);
+	table->truncate(sysTransaction);
 	
-	table->truncate(transaction);
+	syncConnection.unlock();
 	
 	commitSystemTransaction();
 }
@@ -2251,10 +2257,10 @@ void Database::getTransactionSummaryInfo(InfoTable* infoTable)
 
 void Database::updateCardinalities(void)
 {
-	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
-	syncSystemTransaction.lock(Shared);
 	Sync sync (&syncTables, "Database::updateCardinalities");
 	sync.lock (Shared);
+	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
+	syncSystemTransaction.lock(Shared);
 	bool hit = false;
 	
 	try

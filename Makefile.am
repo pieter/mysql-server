@@ -140,7 +140,7 @@ test-bt:
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
 	@PERL@ ./mysql-test-run.pl --comment=NDB            --force --timer \
 	--with-ndbcluster-only
-	-$(MAKE) test-embedded
+	-$(MAKE) -f $(MAKEFILE_LIST) test-embedded
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
 	@PERL@ ./mysql-test-run.pl --force --comment=falcon --suite=falcon
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \

@@ -196,7 +196,7 @@ typedef enum {
   UPDATE_TYPE_REQUIRES_PREFIX= 3,
   CREATE_TABLE_TYPE= 4,
   SELECT_TYPE_REQUIRES_PREFIX= 5,
-  DELETE_TYPE_REQUIRES_PREFIX= 6,
+  DELETE_TYPE_REQUIRES_PREFIX= 6
 } slap_query_type;
 
 typedef struct statement statement;

@@ -941,6 +941,24 @@ D800DCFF
 DBFFDC00
 DBFFDCFF
 drop table t1;
+create table t1 (s1 varchar(50) character set ucs2);
+insert into t1 values (0xdf84);
+alter table t1 modify column s1 varchar(50) character set utf16;
+Warnings:
+Warning	1366	Incorrect string value: '\xDF\x84' for column 's1' at row 1
+select hex(s1) from t1;
+hex(s1)
+003F
+drop table t1;
+create table t1 (s1 varchar(5) character set ucs2, s2 varchar(5) character set utf16);
+insert into t1 (s1) values (0xdf84);
+update t1 set s2 = s1;
+Warnings:
+Warning	1366	Incorrect string value: '\xDF\x84' for column 's2' at row 1
+select hex(s2) from t1;
+hex(s2)
+003F
+drop table t1;
 create table t1 (a char(10)) character set utf16;
 insert into t1 values ('a   ');
 select hex(a) from t1;

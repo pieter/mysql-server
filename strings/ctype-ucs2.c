@@ -1038,7 +1038,7 @@ my_lengthsp_mb2(CHARSET_INFO *cs __attribute__((unused)),
 
 #define MY_UTF16_HIGH_HEAD(x)  ((((uchar) (x)) & 0xFC) == 0xD8)
 #define MY_UTF16_LOW_HEAD(x)   ((((uchar) (x)) & 0xFC) == 0xDC)
-
+#define MY_UTF16_SURROGATE(x)  (((x) & 0xF800) == 0xD800)
 
 static int
 my_utf16_uni(CHARSET_INFO *cs __attribute__((unused)),
@@ -1090,6 +1090,8 @@ my_uni_utf16(CHARSET_INFO *cs __attribute__((unused)),
   {
     if (s + 2 > e)
       return MY_CS_TOOSMALL2;
+    if (MY_UTF16_SURROGATE(wc))
+      return MY_CS_ILUNI;
     *s++= (uchar) (wc >> 8);
     *s= (uchar) (wc & 0xFF);
     return 2;

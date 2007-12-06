@@ -51,8 +51,6 @@ Locking_thread_st *open_backup_progress_table(const char *table_name,
 
   DBUG_ENTER("open_backup_progress_table()");
 
-  tables.init_one_table("mysql", table_name, lock);
-
   /*
     The locking thread will, via open_table(), fail if the table does not
     exist.
@@ -64,7 +62,10 @@ Locking_thread_st *open_backup_progress_table(const char *table_name,
   locking_thd= new Locking_thread_st();
   if (locking_thd == NULL)
     DBUG_RETURN(locking_thd);    
-  locking_thd->tables_in_backup= &tables;
+
+  locking_thd->tables_in_backup= (TABLE_LIST*)my_malloc(sizeof(TABLE_LIST), MYF(MY_WME));
+  locking_thd->tables_in_backup->init_one_table("mysql", table_name, lock);
+
 
   /*
     Start the locking thread and wait until it is ready.
@@ -83,6 +84,42 @@ Locking_thread_st *open_backup_progress_table(const char *table_name,
     locking_thd= NULL;
   }
   DBUG_RETURN(locking_thd);
+}
+
+/**
+   Close backup progress table.
+
+   This method closes the online backup table specified. It uses the locking
+   thread mechanism in be_thread.cc to close the table in a separate thread.
+
+   @param Locking_thread_st *locking_thd  The locking thread.
+
+   @returns 0 = success
+   @returns 1 = failed to close table
+
+   @todo : Replace poling loop with signal.
+  */
+int close_backup_progress_table(Locking_thread_st *locking_thd)
+{
+  DBUG_ENTER("close_backup_progress_table()");
+
+  /*
+    Tell locking thread to die.
+  */
+  locking_thd->kill_locking_thread();
+
+  /*
+    Poll the locking thread until ready.
+  */
+  while (locking_thd && (locking_thd->lock_state != LOCK_DONE) &&
+         (locking_thd->lock_state != LOCK_ERROR))
+    sleep(0);
+  if (locking_thd->lock_state == LOCK_ERROR)
+    DBUG_RETURN(1);
+  my_free(locking_thd->tables_in_backup, MYF(0));
+  delete locking_thd;
+  locking_thd= NULL;
+  DBUG_RETURN(0);
 }
 
 /**
@@ -192,7 +229,7 @@ int update_online_backup_int_field(ulonglong backup_id,
   locking_thd= open_backup_progress_table(table_name, TL_WRITE);
   if (!locking_thd)
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(0);
   }
 
@@ -201,7 +238,7 @@ int update_online_backup_int_field(ulonglong backup_id,
 
   if (find_online_backup_row(table, backup_id))
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(1);
   }
 
@@ -219,7 +256,7 @@ int update_online_backup_int_field(ulonglong backup_id,
   if ((ret= table->file->ha_update_row(table->record[1], table->record[0])))
     table->file->print_error(ret, MYF(0));
 
-  locking_thd->kill_locking_thread();
+  ret= close_backup_progress_table(locking_thd);
   DBUG_RETURN(ret);
 }
 
@@ -252,7 +289,7 @@ int update_online_backup_datetime_field(ulonglong backup_id,
   locking_thd= open_backup_progress_table(table_name, TL_WRITE);
   if (!locking_thd)
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(0);
   }
 
@@ -261,7 +298,7 @@ int update_online_backup_datetime_field(ulonglong backup_id,
 
   if (find_online_backup_row(table, backup_id))
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(1);
   }
 
@@ -285,7 +322,7 @@ int update_online_backup_datetime_field(ulonglong backup_id,
   if ((ret= table->file->ha_update_row(table->record[1], table->record[0])))
     table->file->print_error(ret, MYF(0));
 
-  locking_thd->kill_locking_thread();
+  ret= close_backup_progress_table(locking_thd);
   DBUG_RETURN(ret);
 }
 
@@ -327,7 +364,7 @@ ulonglong report_ob_init(int process_id,
   locking_thd= open_backup_progress_table("online_backup", TL_WRITE);
   if (!locking_thd)
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(0);
   }
 
@@ -411,7 +448,7 @@ ulonglong report_ob_init(int process_id,
 
 end:
 
-  locking_thd->kill_locking_thread();
+  ret= close_backup_progress_table(locking_thd);
   /*
     Record progress update.
   */
@@ -449,7 +486,7 @@ int report_ob_binlog_info(ulonglong backup_id,
   locking_thd= open_backup_progress_table("online_backup", TL_WRITE);
   if (!locking_thd)
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(0);
   }
 
@@ -458,7 +495,7 @@ int report_ob_binlog_info(ulonglong backup_id,
 
   if (find_online_backup_row(table, backup_id))
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(1);
   }
 
@@ -490,7 +527,7 @@ int report_ob_binlog_info(ulonglong backup_id,
 
 end:
 
-  locking_thd->kill_locking_thread();
+  ret= close_backup_progress_table(locking_thd);
   DBUG_RETURN(ret);
 }
 
@@ -643,7 +680,7 @@ int report_ob_engines(ulonglong backup_id,
   locking_thd= open_backup_progress_table("online_backup", TL_WRITE);
   if (!locking_thd)
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(0);
   }
 
@@ -652,7 +689,7 @@ int report_ob_engines(ulonglong backup_id,
 
   if (find_online_backup_row(table, backup_id))
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(1);
   }
 
@@ -686,7 +723,7 @@ int report_ob_engines(ulonglong backup_id,
 
 end:
 
-  locking_thd->kill_locking_thread();
+  ret= close_backup_progress_table(locking_thd);
   DBUG_RETURN(ret);
 }
 
@@ -759,7 +796,7 @@ int report_ob_progress(ulonglong backup_id,
   locking_thd= open_backup_progress_table("online_backup_progress", TL_WRITE);
   if (!locking_thd)
   {
-    locking_thd->kill_locking_thread();
+    ret= close_backup_progress_table(locking_thd);
     DBUG_RETURN(0);
   }
 
@@ -830,7 +867,7 @@ int report_ob_progress(ulonglong backup_id,
 
 end:
 
-  locking_thd->kill_locking_thread();
+  ret= close_backup_progress_table(locking_thd);
   DBUG_RETURN(ret);
 }
 
@@ -858,7 +895,7 @@ ulonglong sum_progress_rows(ulonglong backup_id)
   locking_thd= open_backup_progress_table("online_backup_progress", TL_READ);
   if (!locking_thd)
   {
-    locking_thd->kill_locking_thread();
+    close_backup_progress_table(locking_thd);
     DBUG_RETURN(0);
   }
 
@@ -878,7 +915,7 @@ ulonglong sum_progress_rows(ulonglong backup_id)
 
   hdl->ha_rnd_end();
 
-  locking_thd->kill_locking_thread();
+  close_backup_progress_table(locking_thd);
   DBUG_RETURN(size);
 }
 

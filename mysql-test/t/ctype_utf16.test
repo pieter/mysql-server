@@ -678,5 +678,12 @@ select hex(a), hex(@a:=convert(a using utf8)), hex(convert(@a using utf16)) from
 drop table t1;
 
 #
+# Test basic regex functionality
+#
+set collation_connection=utf16_general_ci;
+--source include/ctype_regex.inc
+set names latin1;
+
+#
 ## TODO: add tests for all engines
 #

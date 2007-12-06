@@ -328,10 +328,12 @@ BuildMySQL "--enable-shared \
 		--with-blackhole-storage-engine \
 		--with-federated-storage-engine \
 %ifarch i386 x86_64
-                --with-falcon \
+		--with-falcon \
+%else
+		--without-falcon \
 %endif
-	        --with-partition \
-	        --with-big-tables \
+		--with-partition \
+		--with-big-tables \
 		--with-comment=\"MySQL Community Server - Debug (GPL)\"")
 
 # We might want to save the config log file
@@ -360,11 +362,13 @@ BuildMySQL "--enable-shared \
 		--with-blackhole-storage-engine \
 		--with-federated-storage-engine \
 %ifarch i386 x86_64
-                --with-falcon \
+		--with-falcon \
+%else
+		--without-falcon \
 %endif
-	        --with-partition \
+		--with-partition \
 		--with-embedded-server \
-	        --with-big-tables \
+		--with-big-tables \
 		--with-comment=\"MySQL Community Server (GPL)\"")
 # We might want to save the config log file
 if test -n "$MYSQL_CONFLOG_DEST"

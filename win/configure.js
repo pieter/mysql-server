@@ -48,6 +48,7 @@ try
             case "WITH_PARTITION_STORAGE_ENGINE":
             case "__NT__":
             case "CYBOZU":
+            case "EXTRA_DEBUG":
             case "EMBED_MANIFESTS":
             case "WITH_EMBEDDED_SERVER":
                     configfile.WriteLine("SET (" + args.Item(i) + " TRUE)");

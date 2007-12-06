@@ -6118,6 +6118,8 @@ ER_BACKUP_BACKUP
         eng "Error during backup operation - server's error log contains more information about the error"
 ER_BACKUP_RESTORE
         eng "Error during restore operation - server's error log contains more information about the error"
+ER_BACKUP_RUNNING
+        eng "Can't execute this command because another BACKUP/RESTORE operation is in progress"
 ER_BACKUP_BACKUP_PREPARE
         eng "Error when preparing for backup operation"
 ER_BACKUP_RESTORE_PREPARE
@@ -6196,6 +6198,9 @@ ER_BACKUP_SEND_DATA_RETRY
 
 ER_BACKUP_OPEN_TABLES
         eng "Open and lock tables failed in %-.64s"
+
+ER_BACKUP_THREAD_INIT
+        eng "Backup driver's table locking thread can not be initialized."
 
 ER_VIEW_NO_CREATION_CTX
   eng "View `%-.64s`.`%-.64s` has no creation context"

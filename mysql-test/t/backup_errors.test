@@ -1,0 +1,31 @@
+--source include/not_embedded.inc
+
+DROP DATABASE IF EXISTS adb;
+DROP DATABASE IF EXISTS bdb;
+
+# non-existent backup archive
+-- exec rm -f $MYSQLTEST_VARDIR/master-data/test.bak
+-- error ER_BACKUP_READ_LOC
+RESTORE FROM 'test.bak';
+
+CREATE DATABASE adb;
+CREATE DATABASE bdb;
+
+# bad archive name
+-- error ER_BACKUP_INVALID_LOC
+BACKUP DATABASE adb TO '';
+
+# non-existent database
+DROP DATABASE IF EXISTS foo;
+DROP DATABASE IF EXISTS bar;
+-- error ER_BAD_DB_ERROR
+BACKUP DATABASE foo TO 'test.bak';
+-- error ER_BAD_DB_ERROR
+BACKUP DATABASE test,foo,bdb,bar TO 'test.bak';
+
+# TODO: fix error injection and test more errors
+
+DROP DATABASE IF EXISTS adb;
+DROP DATABASE IF EXISTS bdb;
+
+

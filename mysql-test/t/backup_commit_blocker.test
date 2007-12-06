@@ -1,0 +1,831 @@
+#
+# This test is for the commit blocker
+# The goals of the test should be to ensure the following assumptions for
+# the behaviour of the commit blocker hold true.
+#
+# a) transactions in progress are not committed until after the backup
+# b) transactions that are committing are allowed to commit
+# c) transactions that have not started are allowed to start but do not commit
+# d) non-transaction statements in progress are allowed to finish
+# e) non-transaction statements that have not started are blocked
+#
+# The results of the backup should show (based on statements above):
+#
+# a) Test result for this assumption: Not included in backup
+# b) Test result for this assumption: Included in backup
+# c) Test result for this assumption: Not included in backup
+# d) Test result for this assumption: Included in backup
+# e) Test result for this assumption: Not included in backup
+#
+# Note: the statements above assume statements that change data.
+#
+# The test shall run three sets of data manipulation statements. 
+#
+# 1) transactional statments only
+# 2) non-transactional statements only
+# 3) mix of both transactional and non-transactional statements
+#
+# TODO : Add a native driver to the test when one becomes available
+#
+# We use a breakpoint named "backup_commit_blocker" which is placed
+# strategically in the code to allow the threads to pause at the 
+# corresponding location for those goals above.
+#
+# Notes
+#   You must use a dedicated connection for getting and releasing locks.
+# Do not issue a get_lock() or release_lock() in the same connection
+# (thread) as code that calls BACKUP_BREAKPOINT(). Using the same connection
+# to get/release locks and run code that issues BACKUP_BREAKPOINTs will result
+# in an assertion using DEBUG_ASSERT(thd->ull == NULL) from debug_sync_point()
+# in item_func.cc.
+#
+
+--source include/have_innodb.inc
+--source include/have_debug.inc
+--source include/not_embedded.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS bup_commit_blocker;
+--enable_warnings
+
+CREATE DATABASE bup_commit_blocker;
+
+#
+# Connections used in this test
+#
+# con1 - used to create data, load data, and run the backup 
+# con2 - used for setting up transactions in progress
+# con3 - used for setting up transactions in commit
+# con4 - used for setting up transactions about to start
+# con5 - used for setting and releasing breakpoints
+# con6 - used for setting up non-transactions in progress
+# con7 - used for setting up non-transactions about to start
+#
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+connect (con3,localhost,root,,);
+connect (con4,localhost,root,,);
+connect (con5,localhost,root,,);
+connect (con6,localhost,root,,);
+connect (con7,localhost,root,,);
+
+connection con1;
+
+# Setup the server to use the backup breakpoints
+SET GLOBAL debug="d,backup_debug:d,backup";
+
+#
+# Test 1 - transactional statements only
+#
+
+--echo 
+--echo Starting Test 1
+--echo 
+
+#
+# Test 1 sequence diagram (not UML)
+#
+#   con1     con2     con3     con4     con5
+#  (setup)    |        |        |        |
+#     |       |        |        |        |
+#     |     BEGIN      |        |        |
+#     |    UPDATE t1   |        |        |
+#     |       |      BEGIN      |        |
+#     |       |     INSERT t2   |        |
+#     |       |     INSERT t2   |        |
+#     |       |        |        |  lock("commit_blocker_step_1");
+#   BACKUP    |        |        |        |
+#     |       |        |        |  <wait for locks>
+#     |       |      COMMIT     |        |
+#     |       |        |        |  <wait for locks>
+#     |       |        |        |  lock("backup_commit_blocker");
+#     |       |        |        |  <wait for locks>
+#     |       |        |      BEGIN      |
+#     |       |        |        |  <wait for locks>
+#     |       |        |        |  <release locks>
+#     |    DELETE t1   |        |        |
+#     |     COMMIT     |        |        |
+#     |       |      <...>      |        |
+#     |       |        |     UPDATE t3   |
+#     |       |        |     COMMIT      |
+#   <...>     |        |        |        |
+# (results)   |        |        |        |
+#
+# Note: The resume of the commands is indicated with <...> and
+#       may occur in any order.
+#
+
+# Create transaction tables and load them with data.
+--echo con1: Creating tables
+CREATE TABLE bup_commit_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t2 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+
+--echo con1: Loading data
+INSERT INTO bup_commit_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("05 Some data to test");
+
+INSERT INTO bup_commit_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("05 Some data to test");
+
+INSERT INTO bup_commit_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("05 Some data to test");
+
+--echo con1: Show that the new data doesn't exist before backup.
+SELECT * FROM bup_commit_blocker.t1;
+SELECT * FROM bup_commit_blocker.t2;
+SELECT * FROM bup_commit_blocker.t3;
+
+connection con2;
+
+--echo con2: Get a transaction going and stop in the middle
+--echo Assumption (a): TRX in progress is not included in backup
+BEGIN;
+  UPDATE bup_commit_blocker.t1 SET col_a = "con2: CHANGED" WHERE col_a LIKE '01%';
+
+connection con3;
+
+--echo con3: Start a transaction and send commit after lock is taken
+--echo Assumption (b): TRX in commit is included in backup
+BEGIN;
+  INSERT INTO bup_commit_blocker.t2 VALUES ("con3: 04 Some data to test");
+  INSERT INTO bup_commit_blocker.t2 VALUES ("con3: 05 Some data to test");
+
+connection con5;
+
+# Set the breakpoint for the commit blocker.
+--echo con5: Getting lock on commit blocker.
+SELECT get_lock("commit_blocker_step_1", 0);
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+#
+# We must start the backup and allow it to gather the metadata first.
+# We stop (with the lock) the backup after the metadata but before the
+# commit blocker.
+#
+--echo con1: Backing up database -- will block with lock
+send BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak";
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
+connection con3;
+
+--echo con3: Starting commit -- will block with lock
+send COMMIT;
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "COMMIT%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+
+# Set the breakpoint for the commit blocker.
+--echo con5: Getting lock on commit blocker.
+SELECT get_lock("backup_commit_blocker", 0);
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "COMMIT%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+
+connection con4;
+
+--echo con4: Starting begin -- will block with lock
+--echo Assumption (c): TRX not started is not included in backup
+send BEGIN;
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BEGIN%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BEGIN%";
+
+--echo con5: Releasing lock
+SELECT release_lock("backup_commit_blocker");
+
+# Reconnect to con2, con3, and con4 and allow them to finish.
+
+connection con2;
+
+--echo con2: Completing transaction
+  DELETE FROM bup_commit_blocker.t1 WHERE col_a LIKE '02%';
+COMMIT;
+
+connection con3;
+--echo con3: Completing transaction
+reap;
+
+connection con4;
+reap;
+  UPDATE bup_commit_blocker.t3 SET col_a = "con4: 05 CHANGED" WHERE col_a LIKE '05%';
+  UPDATE bup_commit_blocker.t3 SET col_a = "con4: 06 CHANGED" WHERE col_a LIKE '06%';
+COMMIT;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+--replace_column 1 #
+reap;
+
+# Now restore the database and then check to make sure the new rows
+# were not backed up.
+
+# Do selects to show that all changes got applied.
+--echo con1: Showing data after updates and backup
+SELECT * FROM bup_commit_blocker.t1;
+SELECT * FROM bup_commit_blocker.t2;
+SELECT * FROM bup_commit_blocker.t3;
+
+--echo con1: Dropping the database
+DROP TABLE bup_commit_blocker.t1;
+DROP TABLE bup_commit_blocker.t2;
+DROP TABLE bup_commit_blocker.t3;
+
+--echo con1: Restoring the database
+--replace_column 1 #
+ RESTORE FROM "bup_commit_blocker.bak";
+
+--echo con1: Showing the data (no new data should be here).
+SELECT * FROM bup_commit_blocker.t1;
+SELECT * FROM bup_commit_blocker.t2;
+SELECT * FROM bup_commit_blocker.t3;
+
+--echo
+--echo Verifying test 1 results:
+--echo
+
+--echo T1 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t1 WHERE col_a like 'con2%';
+
+--echo T2 should have the changes after backup - count(*) = 2
+SELECT count(*) FROM bup_commit_blocker.t2 WHERE col_a like 'con3%';
+
+--echo T3 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t3 WHERE col_a like 'con4%';
+
+--echo con1: Cleanup
+DROP DATABASE bup_commit_blocker;
+
+remove_file $MYSQLTEST_VARDIR/master-data/bup_commit_blocker.bak;
+
+#
+# Test 2 - non-transactional statements only
+#
+
+--echo 
+--echo Starting Test 2
+--echo 
+
+#
+# Test 2 sequence diagram (not UML)
+#
+#   con1     con2     con3     con4     con5     con6       con7
+#  (setup)    |        |        |        |        |          |
+#     |       |        |        |        |        |          |
+#     |       |        |        |  lock("backup_commit_blocker");
+#     |       |        |        |        |    DELETE t4      |
+#     |       |        |        |  <wait for locks>          |
+#   BACKUP    |        |        |        |        |          |
+#     |       |        |        |  <wait for locks>          |
+#     |       |        |        |  lock("commit_blocker_step_4");
+#     |       |        |        |  <wait for locks>          |
+#     |       |        |        |    (results)    |          |
+#     |       |        |        |        |        |       UPDATE t5
+#     |       |        |        |  <wait for locks>          |
+#     |       |        |        |  <release locks>|          |
+#   <...>     |        |        |        |      <...>      <...>
+# (results)   |        |        |        |        |          |
+#
+# Note: The resume of the commands is indicated with <...> and
+#       may occur in any order.
+#
+
+CREATE DATABASE bup_commit_blocker;
+
+# Create a non-transaction table and load it with data.
+--echo con1: Creating tables
+#CREATE TABLE bup_commit_blocker.t4 (col_a int) ENGINE=MEMORY;
+CREATE TABLE bup_commit_blocker.t5 (col_a int) ENGINE=MEMORY;
+
+--echo con1: Loading data
+#INSERT INTO bup_commit_blocker.t4 VALUES (1), (2), (3), (4), (5);
+INSERT INTO bup_commit_blocker.t5 VALUES (10), (20), (30), (40), (50);
+
+--echo con1: Show that the new data doesn't exist before backup.
+#SELECT * FROM bup_commit_blocker.t4;
+SELECT * FROM bup_commit_blocker.t5;
+
+connection con5;
+
+# Set the breakpoint for the commit blocker.
+--echo con5: Getting lock on commit blocker.
+SELECT get_lock("backup_commit_blocker", 0);
+
+connection con6;
+
+#--echo con6: Starting non-trx in progress -- will block with lock
+#--echo Assumption (d): non-TRX in progress is included in backup
+#send DELETE FROM bup_commit_blocker.t4 WHERE col_a <= 2;
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+#let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
+#                      FROM INFORMATION_SCHEMA.PROCESSLIST
+#                      WHERE info LIKE "DELETE%";
+#--source include/wait_condition.inc
+
+connection con1;
+
+--echo con1: Backing up database -- will block with lock
+send BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak";
+
+connection con5;
+
+# Set the breakpoint for the commit blocker.
+#
+# This allows the statement that was inprogress to finish and unblock the 
+# backup which is waiting on open_and_lock_tables.
+#
+--echo con5: Getting lock on commit blocker.
+SELECT get_lock("commit_blocker_step_4", 0);
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_4"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
+connection con7;
+
+--echo con7: Show that the statement in progress has executed before backup.
+#SELECT * FROM bup_commit_blocker.t4;
+SELECT * FROM bup_commit_blocker.t5;
+
+--echo con7: Starting non-trx about to start -- will block with lock
+--echo Assumption (e): non-TRX not started is not included in backup
+send UPDATE bup_commit_blocker.t5 SET col_a = 333 WHERE col_a = 30;
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "Waiting for release of readlock"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "UPDATE%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "UPDATE%";
+
+--echo con5: Releasing locks
+SELECT release_lock("commit_blocker_step_4");
+SELECT release_lock("backup_commit_blocker");
+
+# Reconnect to con6 and con7 and allow them to finish.
+
+connection con6;
+
+--echo con6: Completing statement
+#reap;
+
+connection con7;
+--echo con7: Completing statement
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+--replace_column 1 #
+reap;
+
+# Now restore the database and then check to make sure the new rows
+# were not backed up.
+
+# Do selects to show that all changes got applied.
+--echo con1: Showing data after updates and backup
+#SELECT * FROM bup_commit_blocker.t4;
+SELECT * FROM bup_commit_blocker.t5;
+
+--echo con1: Dropping the database
+#DROP TABLE bup_commit_blocker.t4;
+DROP TABLE bup_commit_blocker.t5;
+
+--echo con1: Restoring the database
+--replace_column 1 #
+ RESTORE FROM "bup_commit_blocker.bak";
+
+--echo con1: Showing the data (no new data should be here).
+#SELECT * FROM bup_commit_blocker.t4;
+SELECT * FROM bup_commit_blocker.t5;
+
+--echo
+--echo Verifying test 2 results:
+--echo
+
+#--echo T4 should have the changes after backup - count(*) = 3
+#SELECT count(*) FROM bup_commit_blocker.t4 WHERE col_a > 2;
+
+--echo T5 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t5 WHERE col_a = 333;
+
+--echo con1: Cleanup
+DROP DATABASE bup_commit_blocker;
+
+remove_file $MYSQLTEST_VARDIR/master-data/bup_commit_blocker.bak;
+
+#
+# Test 3 - mix of both transactional and non-transactional statements
+#
+
+--echo 
+--echo Starting Test 3
+--echo 
+
+#
+# Test 3 sequence diagram (not UML)
+#
+#   con1     con2     con3     con4     con5     con6       con7
+#  (setup)    |        |        |        |        |          |
+#     |       |        |        |        |        |          |
+#     |     BEGIN      |        |        |        |          |
+#     |    UPDATE t1   |        |        |        |          |
+#     |       |      BEGIN      |        |        |          |
+#     |       |     INSERT t2   |        |        |          |
+#     |       |     INSERT t2   |        |        |          |
+#     |       |        |        |  lock("commit_blocker_step_1");
+#   BACKUP    |        |        |        |        |          |
+#     |       |        |        |        |     INSERT t4     |
+#     |       |        |        |  <wait for locks>          |
+#     |       |      COMMIT     |        |        |          |
+#     |       |        |        |  <wait for locks>          |
+#     |       |        |        |  lock("backup_commit_blocker");
+#     |       |        |        |  <wait for locks>          |
+#     |       |        |      BEGIN      |        |          |
+#     |       |        |        |  <wait for locks>          |
+#     |       |        |        |        |        |      (results)
+#     |       |        |        |        |        |       DELETE t5
+#     |       |        |        |  <wait for locks>          |
+#     |       |        |        |  <release locks>|          |
+#     |    DELETE t1   |        |        |        |          |
+#     |     COMMIT     |        |        |        |          |
+#     |       |      <...>      |        |        |          |
+#     |       |        |     UPDATE t3   |        |          |
+#     |       |        |     UPDATE t3   |        |          |
+#     |       |        |     COMMIT      |        |          |
+#   <...>     |        |        |        |      <...>      <...>
+# (results)   |        |        |        |        |          |
+#
+# Note: The resume of the commands is indicated with <...> and
+#       may occur in any order.
+#
+
+CREATE DATABASE bup_commit_blocker;
+
+# Create tables and load them with data.
+--echo con1: Creating tables
+CREATE TABLE bup_commit_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t2 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+#CREATE TABLE bup_commit_blocker.t4 (col_a int) ENGINE=MEMORY;
+CREATE TABLE bup_commit_blocker.t5 (col_a int) ENGINE=MEMORY;
+
+--echo con1: Loading data
+INSERT INTO bup_commit_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("05 Some data to test");
+
+INSERT INTO bup_commit_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("05 Some data to test");
+
+INSERT INTO bup_commit_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("05 Some data to test");
+
+#INSERT INTO bup_commit_blocker.t4 VALUES (1), (2), (3), (4), (5);
+INSERT INTO bup_commit_blocker.t5 VALUES (10), (20), (30), (40), (50);
+
+--echo con1: Show that the new data doesn't exist before backup.
+SELECT * FROM bup_commit_blocker.t1;
+SELECT * FROM bup_commit_blocker.t2;
+SELECT * FROM bup_commit_blocker.t3;
+#SELECT * FROM bup_commit_blocker.t4;
+SELECT * FROM bup_commit_blocker.t5;
+
+connection con2;
+
+--echo con2: Get a transaction going and stop in the middle
+--echo Assumption (a): TRX in progress is not included in backup
+BEGIN;
+  UPDATE bup_commit_blocker.t1 SET col_a = "con2: CHANGED" WHERE col_a LIKE '01%';
+
+connection con3;
+
+--echo con3: Start a transaction and send commit after lock is taken
+--echo Assumption (b): TRX in commit is included in backup
+BEGIN;
+  INSERT INTO bup_commit_blocker.t2 VALUES ("con3: 04 Some data to test");
+  INSERT INTO bup_commit_blocker.t2 VALUES ("con3: 05 Some data to test");
+
+connection con5;
+
+# Set the breakpoint for the commit blocker.
+--echo con5: Getting lock on commit blocker.
+SELECT get_lock("commit_blocker_step_1", 0);
+
+# Start the backup and allow it to break on lock.
+
+connection con1;
+
+#
+# We must start the backup and allow it to gather the metadata first.
+# We stop (with the lock) the backup after the metadata but before the
+# commit blocker.
+#
+--echo con1: Backing up database -- will block with lock
+send BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak";
+
+connection con6;
+
+#--echo con6: Starting non-trx in progress -- will block
+#--echo Assumption (d): non-TRX in progress is included in backup
+#send INSERT INTO bup_commit_blocker.t4 VALUES (31), (32), (33);
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
+# Wait for lock to be acquired and execution to reach breakpoint
+#--echo con5: Checking lock
+#let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
+#                      FROM INFORMATION_SCHEMA.PROCESSLIST
+#                      WHERE info LIKE "INSERT INTO bup_commit_blocker.t4%";
+#--source include/wait_condition.inc
+
+connection con3;
+
+--echo con3: Starting commit -- will block with lock
+send COMMIT;
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: commit_blocker_step_1"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "COMMIT%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+
+# Set the breakpoint for the commit blocker.
+--echo con5: Getting lock on commit blocker.
+SELECT get_lock("backup_commit_blocker", 0);
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "COMMIT%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+
+connection con4;
+
+--echo con4: Starting begin -- will block with lock
+--echo Assumption (c): TRX not started is not included in backup
+send BEGIN;
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BEGIN%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BEGIN%";
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+
+let $wait_condition = SELECT state = "debug_sync_point: backup_commit_blocker"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "BACKUP DATABASE%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+
+connection con7;
+
+--echo con7: Show that the statement in progress has executed before backup.
+#SELECT * FROM bup_commit_blocker.t4;
+SELECT * FROM bup_commit_blocker.t5;
+
+--echo con7: Starting non-trx about to start -- will block with lock
+--echo Assumption (e): non-TRX not started is not included in backup
+send DELETE FROM bup_commit_blocker.t5 WHERE col_a = 50;
+
+connection con5;
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo con5: Checking lock
+let $wait_condition = SELECT state = "Waiting for release of readlock"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "DELETE%";
+--source include/wait_condition.inc
+
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DELETE%";
+
+--echo con5: Releasing lock
+SELECT release_lock("backup_commit_blocker");
+
+# Reconnect to con2, con3, con4, con6, and con7 and allow them to finish.
+
+connection con2;
+
+--echo con2: Completing transaction
+  DELETE FROM bup_commit_blocker.t2 WHERE col_a LIKE '02%';
+COMMIT;
+
+connection con3;
+--echo con3: Completing transaction
+reap;
+
+connection con4;
+reap;
+  UPDATE bup_commit_blocker.t3 SET col_a = "con4: 05 CHANGED" WHERE col_a LIKE '05%';
+  UPDATE bup_commit_blocker.t3 SET col_a = "con4: 06 CHANGED" WHERE col_a LIKE '06%';
+COMMIT;
+
+connection con6;
+
+#--echo con6: Completing statement
+#reap;
+
+connection con7;
+
+--echo con7: Completing statement
+reap;
+
+# Reconnect to con1 and let backup finish.
+
+connection con1;
+--replace_column 1 #
+reap;
+
+# Now restore the database and then check to make sure the new rows
+# were not backed up.
+
+# Do selects to show that all changes got applied.
+--echo con1: Showing data after updates and backup
+SELECT * FROM bup_commit_blocker.t1;
+SELECT * FROM bup_commit_blocker.t2;
+SELECT * FROM bup_commit_blocker.t3;
+#SELECT * FROM bup_commit_blocker.t4;
+SELECT * FROM bup_commit_blocker.t5;
+
+--echo con1: Dropping the database
+DROP TABLE bup_commit_blocker.t1;
+DROP TABLE bup_commit_blocker.t2;
+DROP TABLE bup_commit_blocker.t3;
+#DROP TABLE bup_commit_blocker.t4;
+DROP TABLE bup_commit_blocker.t5;
+
+--echo con1: Restoring the database
+--replace_column 1 #
+RESTORE FROM "bup_commit_blocker.bak";
+
+--echo con1: Showing the data (no new data should be here).
+SELECT * FROM bup_commit_blocker.t1;
+SELECT * FROM bup_commit_blocker.t2;
+SELECT * FROM bup_commit_blocker.t3;
+#SELECT * FROM bup_commit_blocker.t4;
+SELECT * FROM bup_commit_blocker.t5;
+
+--echo
+--echo Verifying test 3 results:
+--echo
+
+--echo T1 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t1 WHERE col_a like 'con2%';
+
+--echo T2 should have the changes after backup - count(*) = 2
+SELECT count(*) FROM bup_commit_blocker.t2 WHERE col_a like 'con3%';
+
+--echo T3 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t3 WHERE col_a like 'con4%';
+
+#--echo T4 should have the changes after backup - count(*) = 3
+#SELECT count(*) FROM bup_commit_blocker.t4 WHERE col_a > 30;
+
+--echo T5 should not have the changes after backup - count(*) = 1
+SELECT count(*) FROM bup_commit_blocker.t5 WHERE col_a >= 50;
+
+--echo con1: Cleanup
+DROP DATABASE bup_commit_blocker;
+
+remove_file $MYSQLTEST_VARDIR/master-data/bup_commit_blocker.bak;
+
+

@@ -1,0 +1,515 @@
+DROP DATABASE IF EXISTS bup_commit_blocker;
+CREATE DATABASE bup_commit_blocker;
+SET GLOBAL debug="d,backup_debug:d,backup";
+
+Starting Test 1
+
+con1: Creating tables
+CREATE TABLE bup_commit_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t2 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+con1: Loading data
+INSERT INTO bup_commit_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("05 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("05 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("05 Some data to test");
+con1: Show that the new data doesn't exist before backup.
+SELECT * FROM bup_commit_blocker.t1;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t2;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t3;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+con2: Get a transaction going and stop in the middle
+Assumption (a): TRX in progress is not included in backup
+BEGIN;
+UPDATE bup_commit_blocker.t1 SET col_a = "con2: CHANGED" WHERE col_a LIKE '01%';
+con3: Start a transaction and send commit after lock is taken
+Assumption (b): TRX in commit is included in backup
+BEGIN;
+INSERT INTO bup_commit_blocker.t2 VALUES ("con3: 04 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("con3: 05 Some data to test");
+con5: Getting lock on commit blocker.
+SELECT get_lock("commit_blocker_step_1", 0);
+get_lock("commit_blocker_step_1", 0)
+1
+con1: Backing up database -- will block with lock
+BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak";
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: commit_blocker_step_1	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
+con3: Starting commit -- will block with lock
+COMMIT;
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+state	info
+debug_sync_point: commit_blocker_step_1	COMMIT
+con5: Getting lock on commit blocker.
+SELECT get_lock("backup_commit_blocker", 0);
+get_lock("backup_commit_blocker", 0)
+1
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: backup_commit_blocker	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+state	info
+debug_sync_point: backup_commit_blocker	COMMIT
+con4: Starting begin -- will block with lock
+Assumption (c): TRX not started is not included in backup
+BEGIN;
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BEGIN%";
+state	info
+debug_sync_point: backup_commit_blocker	BEGIN
+con5: Releasing lock
+SELECT release_lock("backup_commit_blocker");
+release_lock("backup_commit_blocker")
+1
+con2: Completing transaction
+DELETE FROM bup_commit_blocker.t1 WHERE col_a LIKE '02%';
+COMMIT;
+con3: Completing transaction
+UPDATE bup_commit_blocker.t3 SET col_a = "con4: 05 CHANGED" WHERE col_a LIKE '05%';
+UPDATE bup_commit_blocker.t3 SET col_a = "con4: 06 CHANGED" WHERE col_a LIKE '06%';
+COMMIT;
+backup_id
+#
+con1: Showing data after updates and backup
+SELECT * FROM bup_commit_blocker.t1;
+col_a
+con2: CHANGED
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t2;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+con3: 04 Some data to test
+con3: 05 Some data to test
+SELECT * FROM bup_commit_blocker.t3;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+con4: 05 CHANGED
+con1: Dropping the database
+DROP TABLE bup_commit_blocker.t1;
+DROP TABLE bup_commit_blocker.t2;
+DROP TABLE bup_commit_blocker.t3;
+con1: Restoring the database
+RESTORE FROM "bup_commit_blocker.bak";
+backup_id
+#
+con1: Showing the data (no new data should be here).
+SELECT * FROM bup_commit_blocker.t1;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t2;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+con3: 04 Some data to test
+con3: 05 Some data to test
+SELECT * FROM bup_commit_blocker.t3;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+
+Verifying test 1 results:
+
+T1 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t1 WHERE col_a like 'con2%';
+count(*)
+0
+T2 should have the changes after backup - count(*) = 2
+SELECT count(*) FROM bup_commit_blocker.t2 WHERE col_a like 'con3%';
+count(*)
+2
+T3 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t3 WHERE col_a like 'con4%';
+count(*)
+0
+con1: Cleanup
+DROP DATABASE bup_commit_blocker;
+
+Starting Test 2
+
+CREATE DATABASE bup_commit_blocker;
+con1: Creating tables
+CREATE TABLE bup_commit_blocker.t5 (col_a int) ENGINE=MEMORY;
+con1: Loading data
+INSERT INTO bup_commit_blocker.t5 VALUES (10), (20), (30), (40), (50);
+con1: Show that the new data doesn't exist before backup.
+SELECT * FROM bup_commit_blocker.t5;
+col_a
+10
+20
+30
+40
+50
+con5: Getting lock on commit blocker.
+SELECT get_lock("backup_commit_blocker", 0);
+get_lock("backup_commit_blocker", 0)
+1
+con5: Checking lock
+con1: Backing up database -- will block with lock
+BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak";
+con5: Getting lock on commit blocker.
+SELECT get_lock("commit_blocker_step_4", 0);
+get_lock("commit_blocker_step_4", 0)
+1
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: commit_blocker_step_4	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
+con7: Show that the statement in progress has executed before backup.
+SELECT * FROM bup_commit_blocker.t5;
+col_a
+10
+20
+30
+40
+50
+con7: Starting non-trx about to start -- will block with lock
+Assumption (e): non-TRX not started is not included in backup
+UPDATE bup_commit_blocker.t5 SET col_a = 333 WHERE col_a = 30;
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "UPDATE%";
+state	info
+Waiting for release of readlock	UPDATE bup_commit_blocker.t5 SET col_a = 333 WHERE col_a = 30
+con5: Releasing locks
+SELECT release_lock("commit_blocker_step_4");
+release_lock("commit_blocker_step_4")
+1
+SELECT release_lock("backup_commit_blocker");
+release_lock("backup_commit_blocker")
+NULL
+con6: Completing statement
+con7: Completing statement
+backup_id
+#
+con1: Showing data after updates and backup
+SELECT * FROM bup_commit_blocker.t5;
+col_a
+10
+20
+333
+40
+50
+con1: Dropping the database
+DROP TABLE bup_commit_blocker.t5;
+con1: Restoring the database
+RESTORE FROM "bup_commit_blocker.bak";
+backup_id
+#
+con1: Showing the data (no new data should be here).
+SELECT * FROM bup_commit_blocker.t5;
+col_a
+10
+20
+30
+40
+50
+
+Verifying test 2 results:
+
+T5 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t5 WHERE col_a = 333;
+count(*)
+0
+con1: Cleanup
+DROP DATABASE bup_commit_blocker;
+
+Starting Test 3
+
+CREATE DATABASE bup_commit_blocker;
+con1: Creating tables
+CREATE TABLE bup_commit_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t2 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t3 (col_a CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_commit_blocker.t5 (col_a int) ENGINE=MEMORY;
+con1: Loading data
+INSERT INTO bup_commit_blocker.t1 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t1 VALUES ("05 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("05 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("01 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("02 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("03 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("04 Some data to test");
+INSERT INTO bup_commit_blocker.t3 VALUES ("05 Some data to test");
+INSERT INTO bup_commit_blocker.t5 VALUES (10), (20), (30), (40), (50);
+con1: Show that the new data doesn't exist before backup.
+SELECT * FROM bup_commit_blocker.t1;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t2;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t3;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t5;
+col_a
+10
+20
+30
+40
+50
+con2: Get a transaction going and stop in the middle
+Assumption (a): TRX in progress is not included in backup
+BEGIN;
+UPDATE bup_commit_blocker.t1 SET col_a = "con2: CHANGED" WHERE col_a LIKE '01%';
+con3: Start a transaction and send commit after lock is taken
+Assumption (b): TRX in commit is included in backup
+BEGIN;
+INSERT INTO bup_commit_blocker.t2 VALUES ("con3: 04 Some data to test");
+INSERT INTO bup_commit_blocker.t2 VALUES ("con3: 05 Some data to test");
+con5: Getting lock on commit blocker.
+SELECT get_lock("commit_blocker_step_1", 0);
+get_lock("commit_blocker_step_1", 0)
+1
+con1: Backing up database -- will block with lock
+BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak";
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: commit_blocker_step_1	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
+con3: Starting commit -- will block with lock
+COMMIT;
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+state	info
+debug_sync_point: commit_blocker_step_1	COMMIT
+con5: Getting lock on commit blocker.
+SELECT get_lock("backup_commit_blocker", 0);
+get_lock("backup_commit_blocker", 0)
+1
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: backup_commit_blocker	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "COMMIT%";
+state	info
+debug_sync_point: backup_commit_blocker	COMMIT
+con4: Starting begin -- will block with lock
+Assumption (c): TRX not started is not included in backup
+BEGIN;
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BEGIN%";
+state	info
+debug_sync_point: backup_commit_blocker	BEGIN
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: backup_commit_blocker	BACKUP DATABASE bup_commit_blocker TO "bup_commit_blocker.bak"
+con7: Show that the statement in progress has executed before backup.
+SELECT * FROM bup_commit_blocker.t5;
+col_a
+10
+20
+30
+40
+50
+con7: Starting non-trx about to start -- will block with lock
+Assumption (e): non-TRX not started is not included in backup
+DELETE FROM bup_commit_blocker.t5 WHERE col_a = 50;
+con5: Checking lock
+SELECT state, info FROM
+INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DELETE%";
+state	info
+Waiting for release of readlock	DELETE FROM bup_commit_blocker.t5 WHERE col_a = 50
+con5: Releasing lock
+SELECT release_lock("backup_commit_blocker");
+release_lock("backup_commit_blocker")
+1
+con2: Completing transaction
+DELETE FROM bup_commit_blocker.t2 WHERE col_a LIKE '02%';
+COMMIT;
+con3: Completing transaction
+UPDATE bup_commit_blocker.t3 SET col_a = "con4: 05 CHANGED" WHERE col_a LIKE '05%';
+UPDATE bup_commit_blocker.t3 SET col_a = "con4: 06 CHANGED" WHERE col_a LIKE '06%';
+COMMIT;
+con7: Completing statement
+backup_id
+#
+con1: Showing data after updates and backup
+SELECT * FROM bup_commit_blocker.t1;
+col_a
+con2: CHANGED
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t2;
+col_a
+01 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+con3: 04 Some data to test
+con3: 05 Some data to test
+SELECT * FROM bup_commit_blocker.t3;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+con4: 05 CHANGED
+SELECT * FROM bup_commit_blocker.t5;
+col_a
+10
+20
+30
+40
+con1: Dropping the database
+DROP TABLE bup_commit_blocker.t1;
+DROP TABLE bup_commit_blocker.t2;
+DROP TABLE bup_commit_blocker.t3;
+DROP TABLE bup_commit_blocker.t5;
+con1: Restoring the database
+RESTORE FROM "bup_commit_blocker.bak";
+backup_id
+#
+con1: Showing the data (no new data should be here).
+SELECT * FROM bup_commit_blocker.t1;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t2;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+con3: 04 Some data to test
+con3: 05 Some data to test
+SELECT * FROM bup_commit_blocker.t3;
+col_a
+01 Some data to test
+02 Some data to test
+03 Some data to test
+04 Some data to test
+05 Some data to test
+SELECT * FROM bup_commit_blocker.t5;
+col_a
+10
+20
+30
+40
+50
+
+Verifying test 3 results:
+
+T1 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t1 WHERE col_a like 'con2%';
+count(*)
+0
+T2 should have the changes after backup - count(*) = 2
+SELECT count(*) FROM bup_commit_blocker.t2 WHERE col_a like 'con3%';
+count(*)
+2
+T3 should not have the changes after backup - count(*) = 0
+SELECT count(*) FROM bup_commit_blocker.t3 WHERE col_a like 'con4%';
+count(*)
+0
+T5 should not have the changes after backup - count(*) = 1
+SELECT count(*) FROM bup_commit_blocker.t5 WHERE col_a >= 50;
+count(*)
+1
+con1: Cleanup
+DROP DATABASE bup_commit_blocker;

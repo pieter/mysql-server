@@ -195,8 +195,8 @@ void Index::save()
 void Index::create(Transaction *transaction)
 {
 	ASSERT (indexId == -1);
-	indexId = dbb->createIndex(TRANSACTION_ID(transaction));
 	indexVersion = INDEX_CURRENT_VERSION;
+	indexId = dbb->createIndex(TRANSACTION_ID(transaction), indexVersion);
 }
 
 void Index::insert(Record * record, Transaction *transaction)
@@ -694,7 +694,7 @@ void Index::rebuildIndex(Transaction *transaction)
 	Sync sync (&database->syncSysConnection, "Index::rebuildIndex");
 	sync.lock (Shared);
 	int oldId = indexId;
-	indexId = dbb->createIndex(TRANSACTION_ID(transaction));
+	indexId = dbb->createIndex(TRANSACTION_ID(transaction), indexVersion);
 
 	getRootPage();
 

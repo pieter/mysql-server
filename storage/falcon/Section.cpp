@@ -192,7 +192,7 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 		Bdb *bdb = dbb->fetchPage(root, PAGE_any, lockType);
 		BDB_HISTORY(bdb);
 		SectionPage *page = (SectionPage*) bdb->buffer;
-		ASSERT(page->pageType == PAGE_sections);
+		ASSERT(page->pageType == PAGE_sections || page->pageType == 0);
 		level = page->level;
 
 		// Knock off the simple case first

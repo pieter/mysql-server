@@ -103,6 +103,7 @@ public:
 	uint		priorFakes;
 	uint		writeTypes[WRITE_TYPE_MAX];
 	bool		fatalError;
+	bool		isReadOnly;
 
 //private:
 	Dbb			*dbb;						// this is a crock and should be phased out

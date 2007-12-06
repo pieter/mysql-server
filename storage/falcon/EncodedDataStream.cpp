@@ -663,32 +663,38 @@ const UCHAR* EncodedDataStream::decode(const UCHAR *ptr, Value *value, bool copy
 			break;
 
 		case edsClobLen0:
+			value->setAsciiBlob(0);
+			break;
+			
 		case edsClobLen1:
 		case edsClobLen2:
 		case edsClobLen3:
 		case edsClobLen4:
 			{
-			int count = code - edsClobLen0;
-			int blobId = 0;
+			int l = code - edsClobLen1;
+			int32 blobId = (signed char) *p++;
 
-			for (int n = 0; n < count; ++n)
-				blobId = blobId << 8 | *p++;
+			for (int n = 0; n < l; ++n)
+				blobId = (blobId << 8) | *p++;
 
 			value->setAsciiBlob(blobId);
 			}
 			break;
 
 		case edsBlobLen0:
+			value->setBinaryBlob(0);
+			break;
+
 		case edsBlobLen1:
 		case edsBlobLen2:
 		case edsBlobLen3:
 		case edsBlobLen4:
 			{
-			int count = code - edsBlobLen0;
-			int blobId = 0;
+			int l = code - edsBlobLen1;
+			int32 blobId = (signed char) *p++;
 
-			for (int n = 0; n < count; ++n)
-				blobId = blobId << 8 | *p++;
+			for (int n = 0; n < l; ++n)
+				blobId = (blobId << 8) | *p++;
 
 			value->setBinaryBlob(blobId);
 			}
@@ -1085,16 +1091,20 @@ DataStreamType EncodedDataStream::decode()
 			break;
 
 		case edsClobLen0:
+			value.blobId = 0;
+			type = edsTypeClob;
+			break;
+			
 		case edsClobLen1:
 		case edsClobLen2:
 		case edsClobLen3:
 		case edsClobLen4:
 			{
-			int count = code - edsClobLen0;
-			int32 blobId = 0;
+			int l = code - edsClobLen1;
+			int32 blobId = (signed char) *ptr++;
 
-			for (int n = 0; n < count; ++n)
-				blobId = blobId << 8 | *ptr++;
+			for (int n = 0; n < l; ++n)
+				blobId = (blobId << 8) | *ptr++;
 
 			value.blobId = blobId;
 			type = edsTypeClob;
@@ -1102,16 +1112,20 @@ DataStreamType EncodedDataStream::decode()
 			break;
 
 		case edsBlobLen0:
+			value.blobId = 0;
+			type = edsTypeBlob;
+			break;
+			
 		case edsBlobLen1:
 		case edsBlobLen2:
 		case edsBlobLen3:
 		case edsBlobLen4:
 			{
-			int count = code - edsBlobLen0;
-			int blobId = 0;
+			int l = code - edsBlobLen1;
+			int32 blobId = (signed char) *ptr++;
 
-			for (int n = 0; n < count; ++n)
-				blobId = blobId << 8 | *ptr++;
+			for (int n = 0; n < l; ++n)
+				blobId = (blobId << 8) | *ptr++;
 
 			value.blobId = blobId;
 			type = edsTypeBlob;

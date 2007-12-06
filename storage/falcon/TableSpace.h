@@ -24,6 +24,9 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
+static const int TABLESPACE_TYPE_TABLESPACE		= 0;
+static const int TABLESPACE_TYPE_REPOSITORY		= 1;
+
 class Dbb;
 class Database;
 class InfoTable;
@@ -31,11 +34,12 @@ class InfoTable;
 class TableSpace  
 {
 public:
-	TableSpace(Database *database, const char *spaceName, int spaceId, const char *spaceFilename, uint64 initialAllocation);
+	TableSpace(Database *database, const char *spaceName, int spaceId, const char *spaceFilename, uint64 initialAllocation, int tsType);
 	virtual ~TableSpace();
 
 	void	create();
 	void	open();
+	void	close(void);
 	void	shutdown(TransId transId);
 	void	dropTableSpace(void);
 	bool	fileNameEqual(const char* file);
@@ -52,6 +56,7 @@ public:
 	Database	*database;
 	uint64		initialAllocation;
 	int			tableSpaceId;
+	int			type;
 	bool		active;
 	bool		needSave;
 };

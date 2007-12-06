@@ -22,6 +22,7 @@
 #include "SerialLogControl.h"
 #include "Index.h"
 #include "IndexRootPage.h"
+#include "Index2RootPage.h"
 #include "Dbb.h"
 
 //////////////////////////////////////////////////////////////////////
@@ -76,6 +77,10 @@ void SRLCreateIndex::redo()
 		{
 		case INDEX_VERSION_1:
 			IndexRootPage::redoCreateIndex(log->getDbb(tableSpaceId), indexId);
+			break;
+		
+		case INDEX_VERSION_0:
+			Index2RootPage::redoCreateIndex(log->getDbb(tableSpaceId), indexId);
 			break;
 		
 		default:

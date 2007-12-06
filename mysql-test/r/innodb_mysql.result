@@ -1283,7 +1283,7 @@ select_type	SIMPLE
 table	t1
 type	index
 possible_keys	NULL
-key	Primary
+key	PRIMARY
 key_len	4
 ref	NULL
 rows	3

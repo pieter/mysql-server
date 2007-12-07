@@ -3695,8 +3695,8 @@ int DsMrr_impl::dsmrr_fill_buffer(handler *h)
   uint elem_size= h->ref_length + (int)is_mrr_assoc * sizeof(void*);
   uint n_rowids= (rowids_buf_cur - rowids_buf) / elem_size;
   
-  qsort2(rowids_buf, n_rowids, elem_size, (qsort2_cmp)rowid_cmp,
-         (void*)h);
+  my_qsort2(rowids_buf, n_rowids, elem_size, (qsort2_cmp)rowid_cmp,
+            (void*)h);
   rowids_buf_last= rowids_buf_cur;
   rowids_buf_cur=  rowids_buf;
   DBUG_RETURN(0);

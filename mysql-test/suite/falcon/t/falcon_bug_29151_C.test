@@ -2,7 +2,7 @@
 #--disable_abort_on_error
 
 #
-# Bug #29151: Falcon: running sysbench 0.4.8 leads to duplicate key errors duplicate key
+# Bug #29151: Falcon: running sysbench 0.4.8 leads to duplicate key errors
 #
 --echo *** Bug #29151 ***
 
@@ -10,7 +10,7 @@
 --echo *** Initialization for 'InnoDB Compatibility Mode'
 # -----------------------------------------------------
 SET @@storage_engine = Falcon;
-SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+SET GLOBAL falcon_consistent_read = off;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -18,36 +18,41 @@ DROP TABLE IF EXISTS t1;
 
 CREATE TABLE t1 (a int, b int, c char(10), PRIMARY KEY (a));
 
+# We need to set up an exlipicit connection here,
+# as SET GLOBAL does not set the current connection's setting.
 --echo # Establish connection conn1
 connect (conn1,localhost,root,,);
+
+--echo # Establish connection conn2
+connect (conn2,localhost,root,,);
 INSERT INTO t1 VALUES(490, 0, 'inserted');
 
 # -------------------------------------------------------
 --echo *** Test if an UPDATE will get the new record after waiting
 # -------------------------------------------------------
---echo # Switch to connection default
-connection default;
+--echo # Switch to connection conn1
+connection conn1;
 BEGIN;
 UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
 INSERT INTO t1 VALUES(490, 1, 'inserted');
 SELECT * FROM t1;
 
---echo # Switch to connection conn1
-connection conn1;
+--echo # Switch to connection conn2
+connection conn2;
 BEGIN;
 SELECT * FROM t1;
 # This one blocks until other transaction COMMITs.
 --send UPDATE t1 SET c = 'updated' WHERE a = 490
 
---echo # Switch to connection default
-connection default;
+--echo # Switch to connection conn1
+connection conn1;
 SELECT * FROM t1;
 --real_sleep 1
 COMMIT;
 
---echo # Switch to connection conn1
-connection conn1;
+--echo # Switch to connection conn2
+connection conn2;
 --reap
 DELETE FROM t1 WHERE a = 490;
 INSERT INTO t1 VALUES(490, 2, 'inserted');
@@ -63,20 +68,20 @@ UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
 INSERT INTO t1 VALUES(490, 3, 'inserted');
 
---echo # Switch to connection default
-connection default;
+--echo # Switch to connection conn1
+connection conn1;
 BEGIN;
 SELECT * FROM t1;
 --send DELETE FROM t1 WHERE a = 490
 
---echo # Switch to connection conn1
-connection conn1;
+--echo # Switch to connection conn2
+connection conn2;
 SELECT * FROM t1;
 --real_sleep 1
 COMMIT;
 
---echo # Switch to connection default
-connection default;
+--echo # Switch to connection conn1
+connection conn1;
 --reap
 SELECT * FROM t1;
 COMMIT;
@@ -94,26 +99,26 @@ UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
 SELECT * FROM t1;
 
---echo # Switch to connection conn1
-connection conn1;
+--echo # Switch to connection conn2
+connection conn2;
 BEGIN;
 SELECT * FROM t1;
 --send INSERT INTO t1 VALUES(490, 5, 'inserted')
 
---echo # Switch to connection default
-connection default;
+--echo # Switch to connection conn1
+connection conn1;
 SELECT * FROM t1;
 --real_sleep 1
 COMMIT;
 
---echo # Switch to connection conn1
-connection conn1;
+--echo # Switch to connection conn2
+connection conn2;
 --reap
 SELECT * FROM t1;
 COMMIT;
 
---echo # Switch to connection default
-connection default;
+--echo # Switch to connection conn1
+connection conn1;
 SELECT * FROM t1;
 
 # ---------------------------------------------
@@ -122,5 +127,6 @@ SELECT * FROM t1;
 --echo # Switch to connection default
 connection default;
 disconnect conn1;
+disconnect conn2;
 DROP TABLE t1;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+SET GLOBAL falcon_consistent_read = on;

@@ -9,7 +9,7 @@
 # ----------------------------------------------------- #
 let $engine = 'Falcon';
 eval SET @@storage_engine = $engine;
-SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+SET GLOBAL falcon_consistent_read = off;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -22,39 +22,47 @@ CREATE TABLE t1 (
   PRIMARY KEY (a)
 );
 
-SET @@autocommit = 0;
-
+# We need to set up an exlipicit connection here,
+# as SET GLOBAL does not set the current connection's setting.
 --echo # Establish connection conn1
 connect (conn1,localhost,root,,);
 eval SET storage_engine = $engine;
+SET @@tx_isolation = 'REPEATABLE-READ';
 SET @@autocommit = 0;
+
+--echo # Establish connection conn2
+connect (conn2,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@tx_isolation = 'REPEATABLE-READ';
+SET @@autocommit = 0;
+
 INSERT INTO t1 VALUES(49990, 0, 'c1');
 COMMIT;
 
 # ----------------------------------------------------- #
 # --- Test                                          --- #
 # ----------------------------------------------------- #
---echo # Switch to connection default
-connection default;
+--echo # Switch to connection conn1
+connection conn1;
 BEGIN;
 UPDATE t1 SET b=b+1 WHERE a = 49990;
 DELETE FROM t1 WHERE a = 49990;
 INSERT INTO t1 VALUES(49990, 0, 'c1');
 
---echo # Switch to connection conn1
-connection conn1;
+--echo # Switch to connection conn2
+connection conn2;
 BEGIN;
 SELECT * FROM t1;
 # This one blocks until other transaction COMMITs.
 --send UPDATE t1 SET b=b+1 WHERE a = 49990
 
---echo # Switch to connection default
-connection default;
+--echo # Switch to connection conn1
+connection conn1;
 --real_sleep 1
 COMMIT;
 
---echo # Switch to connection conn1
-connection conn1;
+--echo # Switch to connection conn2
+connection conn2;
 --reap
 DELETE FROM t1 WHERE a = 49990;
 # This gives an error with Falcon, but it should not.
@@ -73,5 +81,6 @@ COMMIT;
 --echo # Switch to connection default
 connection default;
 disconnect conn1;
+disconnect conn2;
 DROP TABLE t1;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+SET GLOBAL falcon_consistent_read = on;

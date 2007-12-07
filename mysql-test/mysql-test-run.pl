@@ -501,6 +501,7 @@ sub command_line_setup () {
   # Put the complete option string here.  For example, to remove the --suite
   # option, remove it from GetOptions() below and put 'suite|suites=s' here.
   my @removed_options = (
+    'skip-im',  # WL#4085 "Discontinue the instance manager"
   );
 
   Getopt::Long::Configure("pass_through");
@@ -4888,7 +4889,6 @@ Options to control what test suites or cases to run
                         list of suite names.
                         The default is: "$opt_suites"
   skip-rpl              Skip the replication test cases.
-  skip-im               Don't start IM, and skip the IM test cases
   big-test              Set the environment variable BIG_TEST, which can be
                         checked from test cases.
   combination="ARG1 .. ARG2" Specify a set of "mysqld" arguments for one 

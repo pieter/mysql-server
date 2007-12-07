@@ -744,8 +744,8 @@ static void close_server_sock();
 static void clean_up_mutexes(void);
 static void wait_for_signal_thread_to_end(void);
 static void create_pid_file();
-static void end_ssl();
 #endif
+static void end_ssl();
 
 
 #ifndef EMBEDDED_LIBRARY
@@ -1259,9 +1259,7 @@ void clean_up(bool print_message)
 #endif
   delete binlog_filter;
   delete rpl_filter;
-#ifndef EMBEDDED_LIBRARY
   end_ssl();
-#endif
   vio_end();
 #ifdef USE_REGEX
   my_regex_end();

@@ -18,6 +18,10 @@
 
 #include <my_config.h>
 
+#  ifdef HAVE_STDDEF_H
+#    include <stddef.h>
+#  endif
+
 #  ifndef HAVE_YASSL
 #    include <openssl/sha.h>
 #  endif

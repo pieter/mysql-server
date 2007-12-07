@@ -20,7 +20,7 @@
 
 #include "mysql_priv.h"
 
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /*
   Without SSL the handshake consists of one packet. This packet
   has both client capabilites and scrambled password.
@@ -36,7 +36,7 @@
 #define MIN_HANDSHAKE_SIZE      2
 #else
 #define MIN_HANDSHAKE_SIZE      6
-#endif /* HAVE_OPENSSL */
+#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
 
 #ifdef __WIN__
 static void  test_signal(int sig_ptr)
@@ -647,6 +647,7 @@ bool init_new_connection_handler_thread()
   return 0;
 }
 
+#ifndef EMBEDDED_LIBRARY
 /*
   Perform handshake, authorize client and update thd ACL variables.
 
@@ -660,7 +661,6 @@ bool init_new_connection_handler_thread()
    > 0  error code (not sent to user)
 */
 
-#ifndef EMBEDDED_LIBRARY
 static int check_connection(THD *thd)
 {
   uint connect_errors= 0;
@@ -738,7 +738,7 @@ static int check_connection(THD *thd)
 #ifdef HAVE_COMPRESS
     client_flags |= CLIENT_COMPRESS;
 #endif /* HAVE_COMPRESS */
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL)
     if (ssl_acceptor_fd)
       client_flags |= CLIENT_SSL;       /* Wow, SSL is available! */
 #endif /* HAVE_OPENSSL */
@@ -807,7 +807,7 @@ static int check_connection(THD *thd)
 
   if (thd->client_capabilities & CLIENT_IGNORE_SPACE)
     thd->variables.sql_mode|= MODE_IGNORE_SPACE;
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL)
   DBUG_PRINT("info", ("client capabilities: %lu", thd->client_capabilities));
   if (thd->client_capabilities & CLIENT_SSL)
   {

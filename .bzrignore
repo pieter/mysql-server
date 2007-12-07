@@ -3019,3 +3019,6 @@ win/vs71cache.txt
 win/vs8cache.txt
 zlib/*.ds?
 zlib/*.vcproj
+.DS_Store
+ylwrap
+mysql-test/.DS_Store

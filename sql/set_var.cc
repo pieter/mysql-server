@@ -426,7 +426,7 @@ static sys_var_thd_sql_mode    sys_sql_mode(&vars, "sql_mode",
                                      &SV::sql_mode);
 static sys_var_thd_optimizer_switch   sys_optimizer_switch(&vars, "optimizer_switch",
                                      &SV::optimizer_switch);
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 extern char *opt_ssl_ca, *opt_ssl_capath, *opt_ssl_cert, *opt_ssl_cipher,
             *opt_ssl_key;
 static sys_var_const_str_ptr	sys_ssl_ca(&vars, "ssl_ca", &opt_ssl_ca);

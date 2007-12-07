@@ -127,7 +127,7 @@ mysqld_SOURCES =	sql_lex.cc sql_handler.cc sql_partition.cc \
                         event_queue.cc event_db_repository.cc events.cc \
 			sql_plugin.cc sql_binlog.cc \
 			sql_builtin.cc sql_tablespace.cc partition_info.cc \
-			sql_servers.cc
+			sql_servers.cc sha2.cc
 
 if HAVE_DTRACE
   mysqld_SOURCES += probes.d

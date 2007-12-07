@@ -1375,4 +1375,5 @@ DROP DATABASE mysqltest1;
 RENAME TABLE mysql.procs_gone TO mysql.procs_priv;
 FLUSH PRIVILEGES;
 
+
 --echo End of 5.1 tests

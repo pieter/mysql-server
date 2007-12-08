@@ -23,13 +23,12 @@
 #pragma implementation				// gcc: Class implementation
 #endif
 
-/* May include caustic 3rd-party defs. Use early, so it can override nothing. */
-#include "sha2.h"
 
 #include "mysql_priv.h"
 #include <m_ctype.h>
 #include "my_md5.h"
 #include "sha1.h"
+#include "sha2.h"
 #include "my_aes.h"
 #include <zlib.h>
 C_MODE_START

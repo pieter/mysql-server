@@ -24,16 +24,6 @@
 */
 #define DTOA_BUFF_SIZE (420 * sizeof(void *))
 
-/**
-  We want to use the 'e' format in some cases even if we have enough space
-  for the 'f' one just to mimic sprintf("%.15g") behavior for large integers,
-  and to improve it for numbers < 10^(-4).
-  That is, for |x| < 1 we require |x| >= 10^(-15), and for |x| > 1 we require
-  it to be integer and be <= 10^DBL_DIG for the 'f' format to be used.
-  We don't lose precision, but make cases like "1e200" or "0.00001" look nicer.
-*/
-#define MAX_DECPT_FOR_F_FORMAT DBL_DIG
-
 /* Magic value returned by dtoa() to indicate overflow */
 #define DTOA_OVERFLOW 9999
 

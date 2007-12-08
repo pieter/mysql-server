@@ -214,11 +214,21 @@ size_t my_gcvt(double x, my_gcvt_arg_type type, int width, char *to,
 #define FLOATING_POINT_BUFFER (311 + NOT_FIXED_DEC)
 
 /*
-  The maximum reasonable field width for my_gcvt() conversion.
-  (DBL_DIG + 2) significant digits + sign + "." + "e-NNN".
-  Lower values may lead to loss of precision.
+  We want to use the 'e' format in some cases even if we have enough space
+  for the 'f' one just to mimic sprintf("%.15g") behavior for large integers,
+  and to improve it for numbers < 10^(-4).
+  That is, for |x| < 1 we require |x| >= 10^(-15), and for |x| > 1 we require
+  it to be integer and be <= 10^DBL_DIG for the 'f' format to be used.
+  We don't lose precision, but make cases like "1e200" or "0.00001" look nicer.
 */
-#define MY_GCVT_MAX_FIELD_WIDTH (DBL_DIG + 2 + 7)
+#define MAX_DECPT_FOR_F_FORMAT DBL_DIG
+
+/*
+  The maximum possible field width for my_gcvt() conversion.
+  (DBL_DIG + 2) significant digits + sign + "." + ("e-NNN" or
+  MAX_DECPT_FOR_F_FORMAT zeros for cases when |x|<1 and the 'f' format is used).
+*/
+#define MY_GCVT_MAX_FIELD_WIDTH (DBL_DIG + 4 + max(5, MAX_DECPT_FOR_F_FORMAT))
   
 
 extern char *llstr(longlong value,char *buff);

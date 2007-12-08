@@ -178,6 +178,10 @@ int StorageInterface::falcon_init(void *p)
 	falcon_hton->flags = HTON_NO_FLAGS;
 	storageHandler->addNfsLogger(falcon_debug_mask, StorageInterface::logger, NULL);
 
+	int repeatableRead = (falcon_consistent_read ? 
+		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
+	isolation_levels[2] = repeatableRead;
+
 	if (falcon_debug_server)
 		storageHandler->startNfsServer();
 
@@ -1044,7 +1048,6 @@ int StorageInterface::delete_row(const uchar* buf)
 	DBUG_RETURN(0);
 }
 
-
 int StorageInterface::commit(handlerton *hton, THD* thd, bool all)
 {
 	DBUG_ENTER("StorageInterface::commit");
@@ -1798,7 +1801,7 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 				{
 				if (!isTruncate && storageTable)
 					storageTable->setTruncateLock();
-					
+				
 				trans_register_ha(thd, true, falcon_hton);
 				}
 

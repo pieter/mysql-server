@@ -170,25 +170,35 @@ int initgroups(const char *,unsigned int);
 #ifdef HAVE_FP_EXCEPT				// Fix type conflict
 typedef fp_except fp_except_t;
 #endif
+#endif /* __FreeBSD__ && HAVE_IEEEFP_H */
 
-  /* We can't handle floating point exceptions with threads, so disable
-     this on freebsd
-  */
-
-inline void reset_floating_point_exceptions()
+#ifdef HAVE_FPU_CONTROL_H
+#include <fpu_control.h>
+#endif
+  
+inline void setup_fpu()
 {
-  /* Don't fall for overflow, underflow,divide-by-zero or loss of precision */
+#if defined(__FreeBSD__) && defined(HAVE_IEEEFP_H)
+  /*
+     We can't handle floating point exceptions with threads, so disable
+     this on freebsd.
+     Don't fall for overflow, underflow,divide-by-zero or loss of precision
+  */
 #if defined(__i386__)
   fpsetmask(~(FP_X_INV | FP_X_DNML | FP_X_OFL | FP_X_UFL | FP_X_DZ |
 	      FP_X_IMP));
 #else
- fpsetmask(~(FP_X_INV |             FP_X_OFL | FP_X_UFL | FP_X_DZ |
-	     FP_X_IMP));
-#endif
-}
-#else
-#define reset_floating_point_exceptions()
+  fpsetmask(~(FP_X_INV |             FP_X_OFL | FP_X_UFL | FP_X_DZ |
+              FP_X_IMP));
+#endif /* __i386__ */
 #endif /* __FreeBSD__ && HAVE_IEEEFP_H */
+#if defined(__i386__) && defined(HAVE_FPU_CONTROL_H) && defined(_FPU_DOUBLE)
+  fpu_control_t cw;
+  _FPU_GETCW(cw);
+  cw= (cw & ~_FPU_EXTENDED) | _FPU_DOUBLE;
+  _FPU_SETCW(cw);
+#endif /* __i386__ && HAVE_FPU_CONTROL_H && _FPU_DOUBLE */
+}
 
 } /* cplusplus */
 
@@ -3303,7 +3313,7 @@ static int init_server_components()
   query_cache_init();
   query_cache_resize(query_cache_size);
   randominit(&sql_rand,(ulong) server_start_time,(ulong) server_start_time/2);
-  reset_floating_point_exceptions();
+  setup_fpu();
   init_thr_lock();
 #ifdef HAVE_REPLICATION
   init_slave_list();

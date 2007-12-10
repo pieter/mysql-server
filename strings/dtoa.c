@@ -728,7 +728,7 @@ static Bigint *multadd(Bigint *b, int m, int a, Stack_alloc *alloc)
   {
     y= *x * (ULLong)m + carry;
     carry= y >> 32;
-    *x++= y & FFFFFFFF;
+    *x++= (ULong)(y & FFFFFFFF);
   }
   while (++i < wds);
   if (carry)
@@ -740,7 +740,7 @@ static Bigint *multadd(Bigint *b, int m, int a, Stack_alloc *alloc)
       Bfree(b, alloc);
       b= b1;
     }
-    b->p.x[wds++]= carry;
+    b->p.x[wds++]= (ULong) carry;
     b->wds= wds;
   }
   return b;
@@ -914,10 +914,10 @@ static Bigint *mult(Bigint *a, Bigint *b, Stack_alloc *alloc)
       {
         z= *x++ * (ULLong)y + *xc + carry;
         carry= z >> 32;
-        *xc++= z & FFFFFFFF;
+        *xc++= (ULong) (z & FFFFFFFF);
       }
       while (x < xae);
-      *xc= carry;
+      *xc= (ULong) carry;
     }
   }
   for (xc0= c->p.x, xc= xc0 + wc; wc > 0 && !*--xc; --wc) ;
@@ -1107,14 +1107,14 @@ static Bigint *diff(Bigint *a, Bigint *b, Stack_alloc *alloc)
   {
     y= (ULLong)*xa++ - *xb++ - borrow;
     borrow= y >> 32 & (ULong)1;
-    *xc++= y & FFFFFFFF;
+    *xc++= (ULong) (y & FFFFFFFF);
   }
   while (xb < xbe);
   while (xa < xae)
   {
     y= *xa++ - borrow;
     borrow= y >> 32 & (ULong)1;
-    *xc++= y & FFFFFFFF;
+    *xc++= (ULong) (y & FFFFFFFF);
   }
   while (!*--xc)
     wa--;
@@ -1920,7 +1920,7 @@ static double my_strtod_int(const char *s00, char **se, int *error, char *buf, s
       {
         if (aadj <= 0x7fffffff)
         {
-          if ((z= aadj) <= 0)
+          if ((z= (ULong) aadj) <= 0)
             z= 1;
           aadj= z;
           aadj1= dsign ? aadj : -aadj;
@@ -2017,7 +2017,7 @@ static int quorem(Bigint *b, Bigint *S)
       carry= ys >> 32;
       y= *bx - (ys & FFFFFFFF) - borrow;
       borrow= y >> 32 & (ULong)1;
-      *bx++= y & FFFFFFFF;
+      *bx++= (ULong) (y & FFFFFFFF);
     }
     while (sx <= sxe);
     if (!*bxe)
@@ -2041,7 +2041,7 @@ static int quorem(Bigint *b, Bigint *S)
       carry= ys >> 32;
       y= *bx - (ys & FFFFFFFF) - borrow;
       borrow= y >> 32 & (ULong)1;
-      *bx++= y & FFFFFFFF;
+      *bx++= (ULong) (y & FFFFFFFF);
     }
     while (sx <= sxe);
     bx= b->p.x;
@@ -2377,7 +2377,7 @@ static char *dtoa(double d, int mode, int ndigits, int *decpt, int *sign,
       dval(eps)= 0.5/tens[ilim-1] - dval(eps);
       for (i= 0;;)
       {
-        L= dval(d);
+        L= (Long) dval(d);
         dval(d)-= L;
         *s++= '0' + (int)L;
         if (dval(d) < dval(eps))

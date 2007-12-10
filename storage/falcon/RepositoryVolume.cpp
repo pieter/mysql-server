@@ -236,8 +236,8 @@ void RepositoryVolume::create()
 	Sync syncSystem(&database->syncSysConnection, "RepositoryVolume::create");
 	Transaction *transaction = database->getSystemTransaction();
 	syncSystem.lock(Exclusive);
-	int indexId = dbb->createIndex(transaction->transactionId, VOLUME_INDEX_VERSION);
-	int sectionId = dbb->createSection(transaction->transactionId);
+	dbb->createIndex(transaction->transactionId, VOLUME_INDEX_VERSION);
+	dbb->createSection(transaction->transactionId);
 	syncSystem.unlock();
 	database->commitSystemTransaction();
 	

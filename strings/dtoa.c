@@ -200,7 +200,7 @@ size_t my_gcvt(double x, my_gcvt_arg_type type, int width, char *to,
 
   res= dtoa(x, 4, type == MY_GCVT_ARG_DOUBLE ? width : min(width, FLT_DIG),
             &decpt, &sign, &end, buf, sizeof(buf));
-  if (decpt == 9999)
+  if (decpt == DTOA_OVERFLOW)
   {
     dtoa_free(res, buf, sizeof(buf));
     *to++= '0';
@@ -481,7 +481,7 @@ double my_atof(const char *nptr)
     It now honors 'se' (end of string) argument as the input parameter,
     not just as the output one.
   * in dtoa(), in case of overflow/underflow/NaN result string now contains "0";
-    decpt is set to 9999 to indicate overflow.
+    decpt is set to DTOA_OVERFLOW to indicate overflow.
   * support for VAX, IBM mainframe and 16-bit hardware removed
   * we always assume that 64-bit integer type is available
   * support for Kernigan-Ritchie style headers (pre-ANSI compilers)
@@ -1307,6 +1307,7 @@ static double my_strtod_int(const char *s00, char **se, int *error, char *buf, s
   int rounding;
 #endif
   Stack_alloc alloc;
+  LINT_INIT(c);
 
   *error= 0;
 
@@ -2099,7 +2100,7 @@ static char *dtoa(double d, int mode, int ndigits, int *decpt, int *sign,
     of ecvt and fcvt; trailing zeros are suppressed from
     the returned string.  If not null, *rve is set to point
     to the end of the return value.  If d is +-Infinity or NaN,
-    then *decpt is set to 9999.
+    then *decpt is set to DTOA_OVERFLOW.
 
     mode:
           0 ==> shortest string that yields d when read in
@@ -2142,6 +2143,9 @@ static char *dtoa(double d, int mode, int ndigits, int *decpt, int *sign,
   int rounding;
 #endif
   Stack_alloc alloc;
+  LINT_INIT(ilim);
+  LINT_INIT(ilim1);
+  
   alloc.begin= alloc.free= buf;
   alloc.end= buf + buf_size;
   memset(alloc.freelist, 0, sizeof(alloc.freelist));
@@ -2155,7 +2159,7 @@ static char *dtoa(double d, int mode, int ndigits, int *decpt, int *sign,
   else
     *sign= 0;
 
-  /* If infinity, set decpt to 9999, if 0 set it to 1 */
+  /* If infinity, set decpt to DTOA_OVERFLOW, if 0 set it to 1 */
   if (((word0(d) & Exp_mask) == Exp_mask && (*decpt= DTOA_OVERFLOW)) ||
       (!dval(d) && (*decpt= 1)))
   {

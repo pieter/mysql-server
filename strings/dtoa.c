@@ -15,6 +15,7 @@
 
 #include <my_global.h>
 #include <m_string.h>  /* for memcpy and NOT_FIXED_DEC */
+#include <my_base.h> /* for EOVERFLOW on Windows */
 
 /**
    Appears to suffice to not call malloc() in most cases.

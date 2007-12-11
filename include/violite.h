@@ -109,6 +109,8 @@ typedef my_socket YASSL_SOCKET_T;
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#ifndef EMBEDDED_LIBRARY
+
 struct st_VioSSLFd
 {
   SSL_CTX *ssl_context;
@@ -126,6 +128,7 @@ struct st_VioSSLFd
 		      const char *ca_file,const char *ca_path,
 		      const char *cipher);
 void free_vio_ssl_acceptor_fd(struct st_VioSSLFd *fd);
+#endif /* ! EMBEDDED_LIBRARY */
 #endif /* HAVE_OPENSSL */
 
 #ifdef HAVE_SMEM

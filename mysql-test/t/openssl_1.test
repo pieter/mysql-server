@@ -1,7 +1,7 @@
 # Tests for SSL connections, only run if mysqld is compiled
 # with support for SSL.
 
--- source include/have_ssl.inc
+-- source include/have_ssl_communication.inc
 
 --disable_warnings
 drop table if exists t1;

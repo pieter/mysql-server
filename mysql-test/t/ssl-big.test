@@ -1,7 +1,7 @@
 # Turn on ssl between the client and server
 # and run a number of tests
 
--- source include/have_ssl.inc
+-- source include/have_ssl_communication.inc
 -- source include/big_test.inc
 
 --disable_warnings
@@ -54,3 +54,5 @@ connect (ssl_con,localhost,root,,,,,SSL);
 
 drop table t1;
 
+##  This test file is for testing encrypted communication only, not other
+##  encryption routines that the SSL library happens to provide!

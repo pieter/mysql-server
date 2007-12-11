@@ -524,8 +524,15 @@ typedef uint64 ULLong;
 
 typedef union { double d; ULong L[2]; } U;
 
+#if defined(WORDS_BIGENDIAN) || (defined(__FLOAT_WORD_ORDER) &&        \
+                                 (__FLOAT_WORD_ORDER == __BIG_ENDIAN))
+#define word0(x) ((U*)&x)->L[0]
+#define word1(x) ((U*)&x)->L[1]
+#else
 #define word0(x) ((U*)&x)->L[1]
 #define word1(x) ((U*)&x)->L[0]
+#endif
+
 #define dval(x) ((U*)&x)->d
 
 /* #define P DBL_MANT_DIG */

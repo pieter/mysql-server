@@ -238,7 +238,7 @@ int archive_discover(handlerton *hton, THD* thd, const char *db,
   if (!(my_stat(az_file, &file_stat, MYF(0))))
     goto err;
 
-  if (!(azopen(&frm_stream, az_file, O_RDONLY|O_BINARY)))
+  if (!(azopen(&frm_stream, az_file, O_RDONLY|O_BINARY, AZ_METHOD_BLOCK)))
   {
     if (errno == EROFS || errno == EACCES)
       DBUG_RETURN(my_errno= errno);
@@ -268,7 +268,7 @@ int ha_archive::read_data_header(azio_stream *file_to_read)
 {
   DBUG_ENTER("ha_archive::read_data_header");
 
-  if (azrewind(file_to_read) == -1)
+  if (azread_init(file_to_read) == -1)
     DBUG_RETURN(HA_ERR_CRASHED_ON_USAGE);
 
   if (file_to_read->version >= 3)
@@ -331,7 +331,8 @@ ARCHIVE_SHARE *ha_archive::get_share(const char *table_name, int *rc)
       anything but reading... open it for write and we will generate null
       compression writes).
     */
-    if (!(azopen(&archive_tmp, share->data_file_name, O_RDONLY|O_BINARY)))
+    if (!(azopen(&archive_tmp, share->data_file_name, O_RDONLY|O_BINARY,
+                 AZ_METHOD_BLOCK)))
     {
       VOID(pthread_mutex_destroy(&share->mutex));
       free(share);
@@ -411,7 +412,7 @@ int ha_archive::init_archive_writer()
     that is shared amoung all open tables.
   */
   if (!(azopen(&(share->archive_write), share->data_file_name, 
-               O_RDWR|O_BINARY)))
+               O_RDWR|O_BINARY, AZ_METHOD_BLOCK)))
   {
     DBUG_PRINT("ha_archive", ("Could not open archive write file"));
     share->crashed= TRUE;
@@ -436,16 +437,26 @@ int ha_archive::init_archive_reader()
   */
   if (archive_reader_open == FALSE)
   {
-    if (!(azopen(&archive, share->data_file_name, O_RDONLY|O_BINARY)))
+    az_method method;
+
+    switch (archive_use_aio)
+    {
+    case FALSE:
+      method= AZ_METHOD_BLOCK;
+      break;
+    case TRUE:
+      method= AZ_METHOD_AIO;
+      break;
+    default:
+      method= AZ_METHOD_BLOCK;
+    }
+    if (!(azopen(&archive, share->data_file_name, O_RDONLY|O_BINARY, 
+                 method)))
     {
       DBUG_PRINT("ha_archive", ("Could not open archive read file"));
       share->crashed= TRUE;
       DBUG_RETURN(1);
     }
-#ifdef AZIO_AIO
-    if (archive_use_aio)
-      azio_enable_aio(&archive);
-#endif
     archive_reader_open= TRUE;
   }
 
@@ -627,7 +638,8 @@ int ha_archive::create(const char *name, TABLE *table_arg,
   if (!(my_stat(name_buff, &file_stat, MYF(0))))
   {
     my_errno= 0;
-    if (!(azopen(&create_stream, name_buff, O_CREAT|O_RDWR|O_BINARY)))
+    if (!(azopen(&create_stream, name_buff, O_CREAT|O_RDWR|O_BINARY,
+                 AZ_METHOD_BLOCK)))
     {
       error= errno;
       goto error2;
@@ -1178,7 +1190,7 @@ int ha_archive::optimize(THD* thd, HA_CHECK_OPT* check_opt)
   fn_format(writer_filename, share->table_name, "", ARN, 
             MY_REPLACE_EXT | MY_UNPACK_FILENAME);
 
-  if (!(azopen(&writer, writer_filename, O_CREAT|O_RDWR|O_BINARY)))
+  if (!(azopen(&writer, writer_filename, O_CREAT|O_RDWR|O_BINARY, AZ_METHOD_BLOCK)))
     DBUG_RETURN(HA_ERR_CRASHED_ON_USAGE); 
 
   /* 

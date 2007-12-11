@@ -192,11 +192,18 @@ inline void setup_fpu()
               FP_X_IMP));
 #endif /* __i386__ */
 #endif /* __FreeBSD__ && HAVE_IEEEFP_H */
+
+  /*
+    x86 (32-bit) requires FPU precision to be explicitly set to 64 bit for
+    portable results of floating point operations
+  */
 #if defined(__i386__) && defined(HAVE_FPU_CONTROL_H) && defined(_FPU_DOUBLE)
   fpu_control_t cw;
   _FPU_GETCW(cw);
   cw= (cw & ~_FPU_EXTENDED) | _FPU_DOUBLE;
   _FPU_SETCW(cw);
+#elif defined(_WIN32) && !defined(_WIN64)
+  _control87(_PC_53, MCW_PC);
 #endif /* __i386__ && HAVE_FPU_CONTROL_H && _FPU_DOUBLE */
 }
 

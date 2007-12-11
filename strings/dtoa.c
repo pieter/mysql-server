@@ -13,9 +13,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA */
 
+#include <my_base.h> /* for EOVERFLOW on Windows */
 #include <my_global.h>
 #include <m_string.h>  /* for memcpy and NOT_FIXED_DEC */
-#include <my_base.h> /* for EOVERFLOW on Windows */
 
 /**
    Appears to suffice to not call malloc() in most cases.

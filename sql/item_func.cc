@@ -2968,7 +2968,6 @@ udf_handler::fix_fields(THD *thd, Item_result_field *func,
         }
       }
     }
-    thd->net.last_error[0]=0;
     Udf_func_init init= u_d->func_init;
     if ((error=(uchar) init(&initid, &f_args, init_msg_buff)))
     {

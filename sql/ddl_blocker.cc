@@ -29,15 +29,49 @@
 
 #include "ddl_blocker.h"
 
-my_bool DDL_blocked= FALSE;   ///< Assume DDL is not blocked.
-int DDL_blocks= 0;            ///< Number of DDL operations in progress.
+DDL_blocker_class *DDL_blocker_class::m_instance= NULL;
+
+DDL_blocker_class *DDL_blocker_class::get_DDL_blocker_class_instance()
+{
+  if (m_instance == NULL)
+    m_instance = new DDL_blocker_class();
+  return m_instance;
+}
+
+void DDL_blocker_class::destroy_DDL_blocker_class_instance()
+{
+  delete m_instance;
+  m_instance= NULL;
+}
+
+DDL_blocker_class::DDL_blocker_class()
+{
+  pthread_mutex_init(&THR_LOCK_DDL_blocker, MY_MUTEX_INIT_FAST);
+  pthread_mutex_init(&THR_LOCK_DDL_is_blocked, MY_MUTEX_INIT_FAST);
+  pthread_mutex_init(&THR_LOCK_DDL_blocker_blocked, MY_MUTEX_INIT_FAST);
+  pthread_cond_init(&COND_DDL_blocker, NULL);
+  pthread_cond_init(&COND_process_blocked, NULL);
+  pthread_cond_init(&COND_DDL_blocker_blocked, NULL);
+  DDL_blocked= FALSE;
+  DDL_blocks= 0;
+}
+
+DDL_blocker_class::~DDL_blocker_class()
+{
+  pthread_mutex_destroy(&THR_LOCK_DDL_blocker);
+  pthread_mutex_destroy(&THR_LOCK_DDL_is_blocked);
+  pthread_mutex_destroy(&THR_LOCK_DDL_blocker_blocked);
+  pthread_cond_destroy(&COND_DDL_blocker);
+  pthread_cond_destroy(&COND_process_blocked);
+  pthread_cond_destroy(&COND_DDL_blocker_blocked);
+}
 
 /**
    start_DDL()
 
    Increments the DDL_blocks counter to indicate a DDL is in progress.
   */
-void start_DDL()
+void DDL_blocker_class::start_DDL()
 {
   DBUG_ENTER("start_DDL()");
   pthread_mutex_lock(&THR_LOCK_DDL_blocker);
@@ -52,7 +86,7 @@ void start_DDL()
    Decrements the DDL_blocks counter to indicate a DDL is done.
    Signals blocked process if counter == 0.
   */
-void end_DDL()
+void DDL_blocker_class::end_DDL()
 {
   DBUG_ENTER("end_DDL()");
   pthread_mutex_lock(&THR_LOCK_DDL_blocker);
@@ -65,7 +99,7 @@ void end_DDL()
 }
 
 /**
-    check_ddl_blocker
+    check_DDL_blocker
 
     Check to see if we are blocked from continuing. If so,
     wait until the blocked process signals the condition.
@@ -73,7 +107,7 @@ void end_DDL()
     @param thd The THD object from the caller.
     @returns TRUE
   */
-my_bool check_DDL_blocker(THD *thd)
+my_bool DDL_blocker_class::check_DDL_blocker(THD *thd)
 {
   DBUG_ENTER("check_DDL_blocker()");
   BACKUP_BREAKPOINT("DDL_not_blocked");
@@ -105,26 +139,38 @@ my_bool check_DDL_blocker(THD *thd)
    @params thd THD object.
    @returns TRUE
   */
-my_bool block_DDL(THD *thd)
+my_bool DDL_blocker_class::block_DDL(THD *thd)
 {
   DBUG_ENTER("block_DDL()");
 
   BACKUP_BREAKPOINT("DDL_in_progress");
+
   /*
     Only 1 DDL blocking operation can run at a time.
+    Check the blocker blocked condition. 
+    Rest until another blocker is done.
   */
-  if (DDL_blocked)
-    DBUG_RETURN(FALSE);
+  pthread_mutex_lock(&THR_LOCK_DDL_blocker_blocked);
+  thd->enter_cond(&COND_DDL_blocker_blocked, &THR_LOCK_DDL_blocker_blocked,
+                  "DDL blocker: Checking block on blocker");
+  while (DDL_blocked)
+    pthread_cond_wait(&COND_DDL_blocker_blocked,
+                      &THR_LOCK_DDL_blocker_blocked);
+  DDL_blocked= TRUE;
+  thd->exit_cond("DDL blocker: Ok to block DDL");
+
+  BACKUP_BREAKPOINT("DDL_blocker_blocked");
+
   /*
     Check the ddl blocker condition. Rest until ddl blocker is released.
   */
   pthread_mutex_lock(&THR_LOCK_DDL_blocker);
   thd->enter_cond(&COND_process_blocked, &THR_LOCK_DDL_blocker,
-                  "DDL blocker: Checking block on DDL changes");
+                  "DDL blocker: Checking block on DDL");
   while (DDL_blocks != 0)
     pthread_cond_wait(&COND_process_blocked, &THR_LOCK_DDL_blocker);
-  DDL_blocked= TRUE;
-  thd->exit_cond("DDL blocker: Ok to run operation - no DDL in progress");
+  thd->exit_cond("DDL blocker: DDL is now blocked");
+
   BACKUP_BREAKPOINT("DDL_blocked");
   DBUG_RETURN(TRUE);
 }
@@ -135,11 +181,12 @@ my_bool block_DDL(THD *thd)
    This method is used to unblock all DDL commands. It sets the boolean
    DDL_blocked to FALSE to tell the DDL operations that they can proceed.
   */
-void unblock_DDL()
+void DDL_blocker_class::unblock_DDL()
 {
   pthread_mutex_lock(&THR_LOCK_DDL_blocker);
   DDL_blocked= FALSE;
   pthread_cond_broadcast(&COND_DDL_blocker);
+  pthread_cond_signal(&COND_DDL_blocker_blocked);
   pthread_mutex_unlock(&THR_LOCK_DDL_blocker);
 }
 

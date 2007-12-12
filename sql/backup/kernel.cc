@@ -29,6 +29,8 @@
 #include "ddl_blocker.h"
 #include "backup_progress.h"
 
+extern DDL_blocker_class *DDL_blocker;
+
 namespace backup {
 
 // Helper functions
@@ -66,10 +68,6 @@ void prepare_stream_memory();
 void free_stream_memory();
 
 }
-
-extern pthread_mutex_t THR_LOCK_DDL_blocker;
-extern pthread_cond_t COND_backup_blocked;
-extern pthread_cond_t COND_DDL_blocker;
 
 /**
   Call backup kernel API to execute backup related SQL statement.
@@ -177,7 +175,7 @@ execute_backup_command(THD *thd, LEX *lex)
       /*
         Freeze all DDL operations by turning on DDL blocker.
       */
-      if (!block_DDL(thd))
+      if (!DDL_blocker->block_DDL(thd))
       {
         stop= my_time(0); 
         info.save_end_time(stop);
@@ -235,7 +233,7 @@ execute_backup_command(THD *thd, LEX *lex)
     /*
       Unfreeze all DDL operations by turning off DDL blocker.
     */
-    unblock_DDL();
+    DDL_blocker->unblock_DDL();
     BACKUP_BREAKPOINT("DDL_unblocked");
     
     if (stream)
@@ -267,7 +265,7 @@ execute_backup_command(THD *thd, LEX *lex)
               be counted. Waiting until after this step caused backup to
               skip new or dropped tables.
       */
-      if (!block_DDL(thd))
+      if (!DDL_blocker->block_DDL(thd))
         goto backup_error;
 
       Backup_info info(thd);
@@ -359,7 +357,7 @@ execute_backup_command(THD *thd, LEX *lex)
     /*
       Unfreeze all DDL operations by turning off DDL blocker.
     */
-    unblock_DDL();
+    DDL_blocker->unblock_DDL();
     BACKUP_BREAKPOINT("DDL_unblocked");
 
     if (stream)
@@ -442,7 +440,7 @@ int mysql_backup(THD *thd,
 
  error:
 
-  unblock_DDL();
+  DDL_blocker->unblock_DDL();
   DBUG_RETURN(ERROR);
 }
 

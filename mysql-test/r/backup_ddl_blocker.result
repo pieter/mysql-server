@@ -1056,7 +1056,314 @@ con1: Cleanup
 DROP DATABASE bup_ddl_blocker_2;
 DROP DATABASE bup_ddl_blocker_4;
 
-Starting Test 6
+Starting Test 6 - Backup
+
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_1;
+CREATE DATABASE bup_ddl_blocker_2;
+CREATE DATABASE bup_ddl_blocker_3;
+CREATE DATABASE bup_ddl_blocker_4;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker_1.t1 (col_a CHAR(40), col_b int) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40), col_b int) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_3.t1 (col_a CHAR(40), col_b int) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40), col_b int) ENGINE=INNODB;
+con1: Loading data
+INSERT INTO bup_ddl_blocker_1.t1 VALUES ("01 Some data to test", 10);
+INSERT INTO bup_ddl_blocker_1.t1 VALUES ("02 Some data to test", 09);
+INSERT INTO bup_ddl_blocker_1.t1 VALUES ("03 Some data to test", 12);
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test", 3);
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test", 8);
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test", 11);
+CREATE INDEX 2t1col_b ON bup_ddl_blocker_2.t1 (col_b);
+INSERT INTO bup_ddl_blocker_3.t1 VALUES ("01 Some data to test", 2);
+INSERT INTO bup_ddl_blocker_3.t1 VALUES ("02 Some data to test", 4);
+INSERT INTO bup_ddl_blocker_3.t1 VALUES ("03 Some data to test", 5);
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test", 1);
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test", 12);
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test", 3);
+CREATE INDEX 4t1col_b ON bup_ddl_blocker_4.t1 (col_b);
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+CREATE INDEX 1t1col_b ON bup_ddl_blocker_1.t1 (col_b);
+con3: Get a DDL going and stop in the middle
+DROP INDEX 2t1col_b ON bup_ddl_blocker_2.t1;
+con1: Backing up database -- will block with lock
+BACKUP DATABASE bup_ddl_blocker_1, bup_ddl_blocker_2,
+bup_ddl_blocker_3, bup_ddl_blocker_4
+TO "bup_ddl_blocker.bak";
+con6: Checking locks
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: DDL_in_progress	BACKUP DATABASE bup_ddl_blocker_1, bup_ddl_blocker_2,
+bup_ddl_blocker_3, bup_ddl_blocker_4
+TO "bup_ddl_blocker.bak"
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE INDEX 1t1col_b%";
+state	info
+debug_sync_point: DDL_in_progress	CREATE INDEX 1t1col_b ON bup_ddl_blocker_1.t1 (col_b)
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP INDEX 2t1col_b%";
+state	info
+debug_sync_point: DDL_in_progress	DROP INDEX 2t1col_b ON bup_ddl_blocker_2.t1
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%";
+state	info
+debug_sync_point: DDL_blocked	BACKUP DATABASE bup_ddl_blocker_1, bup_ddl_blocker_2,
+bup_ddl_blocker_3, bup_ddl_blocker_4
+TO "bup_ddl_blocker.bak"
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+CREATE INDEX 3t1col_b ON bup_ddl_blocker_3.t1 (col_b);
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+DROP INDEX 4t1col_b ON bup_ddl_blocker_4.t1;
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE INDEX 3t1col_b%";
+state	info
+DDL blocker: DDL is blocked	CREATE INDEX 3t1col_b ON bup_ddl_blocker_3.t1 (col_b)
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP INDEX 4t1col_b%";
+state	info
+DDL blocker: DDL is blocked	DROP INDEX 4t1col_b ON bup_ddl_blocker_4.t1
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con5: Completing DDL
+backup_id
+#
+
+Verifying Test 6 results for backup.
+
+con1: Showing database tables after updates and backup
+con1: bup_ddl_blocker_2 and bup_ddl_blocker_4 indexes are not present
+SHOW INDEX FROM bup_ddl_blocker_1.t1;
+Table	t1
+Non_unique	1
+Key_name	1t1col_b
+Seq_in_index	1
+Column_name	col_b
+Collation	A
+Cardinality	3
+Sub_part	NULL
+Packed	NULL
+Null	YES
+Index_type	BTREE
+Comment	
+Index_Comment	
+SHOW INDEX FROM bup_ddl_blocker_2.t1;
+SHOW INDEX FROM bup_ddl_blocker_3.t1;
+Table	t1
+Non_unique	1
+Key_name	3t1col_b
+Seq_in_index	1
+Column_name	col_b
+Collation	A
+Cardinality	3
+Sub_part	NULL
+Packed	NULL
+Null	YES
+Index_type	BTREE
+Comment	
+Index_Comment	
+SHOW INDEX FROM bup_ddl_blocker_4.t1;
+con1: Dropping the database tables
+DROP DATABASE bup_ddl_blocker_1;
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_3;
+DROP DATABASE bup_ddl_blocker_4;
+con1: Restoring the database
+RESTORE FROM "bup_ddl_blocker.bak";
+backup_id
+#
+con1: Showing databases that were backed up
+con1: bup_ddl_blocker_2 and bup_ddl_blocker_3 indexes are not present
+SHOW INDEX FROM bup_ddl_blocker_1.t1;
+Table	t1
+Non_unique	1
+Key_name	1t1col_b
+Seq_in_index	1
+Column_name	col_b
+Collation	A
+Cardinality	3
+Sub_part	NULL
+Packed	NULL
+Null	YES
+Index_type	BTREE
+Comment	
+Index_Comment	
+SHOW INDEX FROM bup_ddl_blocker_2.t1;
+SHOW INDEX FROM bup_ddl_blocker_3.t1;
+SHOW INDEX FROM bup_ddl_blocker_4.t1;
+Table	t1
+Non_unique	1
+Key_name	4t1col_b
+Seq_in_index	1
+Column_name	col_b
+Collation	A
+Cardinality	3
+Sub_part	NULL
+Packed	NULL
+Null	YES
+Index_type	BTREE
+Comment	
+Index_Comment	
+con1: Cleanup
+DROP DATABASE bup_ddl_blocker_1;
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_3;
+DROP DATABASE bup_ddl_blocker_4;
+
+Starting Test 6 - Restore
+
+DROP DATABASE IF EXISTS bup_ddl_blocker_1;
+DROP DATABASE IF EXISTS bup_ddl_blocker_2;
+DROP DATABASE IF EXISTS bup_ddl_blocker_3;
+DROP DATABASE IF EXISTS bup_ddl_blocker_4;
+con1: Creating databases
+CREATE DATABASE bup_ddl_blocker_1;
+CREATE DATABASE bup_ddl_blocker_2;
+CREATE DATABASE bup_ddl_blocker_3;
+CREATE DATABASE bup_ddl_blocker_4;
+con1: Creating tables
+CREATE TABLE bup_ddl_blocker_1.t1 (col_a CHAR(40), col_b int) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40), col_b int) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_3.t1 (col_a CHAR(40), col_b int) ENGINE=INNODB;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40), col_b int) ENGINE=INNODB;
+con1: Loading data
+INSERT INTO bup_ddl_blocker_1.t1 VALUES ("01 Some data to test", 10);
+INSERT INTO bup_ddl_blocker_1.t1 VALUES ("02 Some data to test", 09);
+INSERT INTO bup_ddl_blocker_1.t1 VALUES ("03 Some data to test", 12);
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test", 3);
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test", 8);
+INSERT INTO bup_ddl_blocker_2.t1 VALUES ("03 Some data to test", 11);
+CREATE INDEX 2t1col_b ON bup_ddl_blocker_2.t1 (col_b);
+INSERT INTO bup_ddl_blocker_3.t1 VALUES ("01 Some data to test", 2);
+INSERT INTO bup_ddl_blocker_3.t1 VALUES ("02 Some data to test", 4);
+INSERT INTO bup_ddl_blocker_3.t1 VALUES ("03 Some data to test", 5);
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("01 Some data to test", 1);
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("02 Some data to test", 12);
+INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test", 3);
+CREATE INDEX 4t1col_b ON bup_ddl_blocker_4.t1 (col_b);
+BACKUP DATABASE bup_ddl_blocker_1, bup_ddl_blocker_2,
+bup_ddl_blocker_3, bup_ddl_blocker_4
+TO "bup_ddl_blocker_orig.bak";
+backup_id
+#
+con6: Getting lock on DDL in progress.
+SELECT get_lock("DDL_in_progress", 0);
+get_lock("DDL_in_progress", 0)
+1
+con2: Get a DDL going and stop in the middle
+CREATE INDEX 1t1col_b ON bup_ddl_blocker_1.t1 (col_b);
+con3: Get a DDL going and stop in the middle
+DROP INDEX 2t1col_b ON bup_ddl_blocker_2.t1;
+con1: Restoring database -- will block with lock
+RESTORE FROM "bup_ddl_blocker_orig.bak";
+con6: Checking locks
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
+state	info
+debug_sync_point: DDL_in_progress	RESTORE FROM "bup_ddl_blocker_orig.bak"
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE INDEX 1t1col_b%";
+state	info
+debug_sync_point: DDL_in_progress	CREATE INDEX 1t1col_b ON bup_ddl_blocker_1.t1 (col_b)
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP INDEX 2t1col_b%";
+state	info
+debug_sync_point: DDL_in_progress	DROP INDEX 2t1col_b ON bup_ddl_blocker_2.t1
+con6: Getting lock on DDL blocker.
+SELECT get_lock("DDL_blocked", 0);
+get_lock("DDL_blocked", 0)
+1
+con6: Checking locks
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "RESTORE FROM%";
+state	info
+debug_sync_point: DDL_blocked	RESTORE FROM "bup_ddl_blocker_orig.bak"
+con4: Try a DDL but it is blocked by backup -- will not be in backup
+CREATE INDEX 3t1col_b ON bup_ddl_blocker_3.t1 (col_b);
+con5: Try a DDL but it is blocked by backup -- will not be in backup
+DROP INDEX 4t1col_b ON bup_ddl_blocker_4.t1;
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "CREATE INDEX 3t1col_b%";
+state	info
+DDL blocker: DDL is blocked	CREATE INDEX 3t1col_b ON bup_ddl_blocker_3.t1 (col_b)
+Timeout in wait_condition.inc for SELECT state = "DDL blocker: DDL is blocked"
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DDROP INDEX 4t1col_b%"
+SELECT state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "DROP INDEX 4t1col_b%";
+state	info
+DDL blocker: DDL is blocked	DROP INDEX 4t1col_b ON bup_ddl_blocker_4.t1
+con6: Releasing lock
+SELECT release_lock("DDL_blocked");
+release_lock("DDL_blocked")
+1
+con2: Completing DDL
+con3: Completing DDL
+con4: Completing DDL
+con5: Completing DDL
+backup_id
+#
+
+Verifying Test 6 results for restore.
+
+con1: Showing databases that were backed up
+con1: bup_ddl_blocker_1 and bup_ddl_blocker_4 indexes are not present
+SHOW INDEX FROM bup_ddl_blocker_1.t1;
+SHOW INDEX FROM bup_ddl_blocker_2.t1;
+Table	t1
+Non_unique	1
+Key_name	2t1col_b
+Seq_in_index	1
+Column_name	col_b
+Collation	A
+Cardinality	3
+Sub_part	NULL
+Packed	NULL
+Null	YES
+Index_type	BTREE
+Comment	
+Index_Comment	
+SHOW INDEX FROM bup_ddl_blocker_3.t1;
+Table	t1
+Non_unique	1
+Key_name	3t1col_b
+Seq_in_index	1
+Column_name	col_b
+Collation	A
+Cardinality	3
+Sub_part	NULL
+Packed	NULL
+Null	YES
+Index_type	BTREE
+Comment	
+Index_Comment	
+SHOW INDEX FROM bup_ddl_blocker_4.t1;
+con1: Cleanup
+DROP DATABASE bup_ddl_blocker_1;
+DROP DATABASE bup_ddl_blocker_2;
+DROP DATABASE bup_ddl_blocker_3;
+DROP DATABASE bup_ddl_blocker_4;
+
+Starting Test 7
 
 DROP TABLE IF EXISTS test.t2;
 DROP TABLE IF EXISTS bup_ddl_blocker.t1, bup_ddl_blocker.t3;
@@ -1134,7 +1441,7 @@ Field	Type	Null	Key	Default	Extra
 col_a	char(40)	YES		NULL	
 col_b	int(11)	YES		NULL	
 
-Verifying Test 6 results:
+Verifying Test 7 results:
 
 T1 should have the changes after backup - count(*) = 2
 SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS
@@ -1152,5 +1459,4 @@ WHERE TABLE_NAME = 't3' AND TABLE_SCHEMA = 'bup_ddl_blocker';
 count(*)
 2
 DROP TABLE test.t2;
-con1: Cleanup
 DROP DATABASE bup_ddl_blocker;

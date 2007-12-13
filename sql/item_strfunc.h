@@ -64,6 +64,18 @@ public:
   const char *func_name() const { return "sha"; }	
 };
 
+class Item_func_sha2 :public Item_str_func
+{
+public:
+  Item_func_sha2(Item *a, Item *b) :Item_str_func(a, b)
+  {
+    collation.set(&my_charset_bin);
+  }
+  String *val_str(String *);    
+  void fix_length_and_dec();      
+  const char *func_name() const { return "sha2"; }	
+};
+
 class Item_func_aes_encrypt :public Item_str_func
 {
 public:
@@ -657,7 +669,12 @@ public:
     }
   String* val_str(String* str);
   const char *func_name() const { return "inet_ntoa"; }
-  void fix_length_and_dec() { decimals = 0; max_length=3*8+7; maybe_null=1;}
+  void fix_length_and_dec() 
+  { 
+    decimals= 0; 
+    max_length= 3 * 8 + 7; 
+    maybe_null= 1;
+  }
 };
 
 class Item_func_quote :public Item_str_func

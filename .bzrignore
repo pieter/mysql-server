@@ -58,6 +58,7 @@
 ./mysql.sln
 ./mysql.suo
 ./prepare
+.DS_Store
 .defs.mk
 .depend
 .depend.mk
@@ -1140,6 +1141,7 @@ libmysqld/rpl_record.cc
 libmysqld/rpl_record_old.cc
 libmysqld/scheduler.cc
 libmysqld/set_var.cc
+libmysqld/sha2.cc
 libmysqld/simple-test
 libmysqld/slave.cc
 libmysqld/sp.cc
@@ -1279,6 +1281,7 @@ mysql-5.0.2-alpha.tar.gz
 mysql-max-4.0.2-alpha-pc-linux-gnu-i686.tar.gz
 mysql-test/*.ds?
 mysql-test/*.vcproj
+mysql-test/.DS_Store
 mysql-test/dump.txt
 mysql-test/gmon.out
 mysql-test/install_test_db
@@ -3017,5 +3020,6 @@ vio/viotest.cpp
 win/configure.data
 win/vs71cache.txt
 win/vs8cache.txt
+ylwrap
 zlib/*.ds?
 zlib/*.vcproj

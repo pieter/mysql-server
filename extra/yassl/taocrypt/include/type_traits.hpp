@@ -48,7 +48,10 @@ class IsFundamentalType {
 
 MK_FUNDAMENTAL_TYPE(void)
 
+#ifndef bool_defined
 MK_FUNDAMENTAL_TYPE(bool)
+#endif
+
 MK_FUNDAMENTAL_TYPE(         char)
 MK_FUNDAMENTAL_TYPE(signed   char)
 MK_FUNDAMENTAL_TYPE(unsigned char)

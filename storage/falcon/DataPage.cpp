@@ -28,6 +28,7 @@
 #include "Stream.h"
 #include "Validation.h"
 #include "Log.h"
+#include "LogLock.h"
 #include "SerialLog.h"
 
 #ifdef _DEBUG
@@ -417,7 +418,8 @@ void DataPage::analyze(Dbb *dbb, SectionAnalysis *analysis)
 
 int DataPage::computeSpaceAvailable(int pageSize)
 {
-	int spaceUsed = sizeof(DataPage) - sizeof(LineIndex);  // Page overhead
+	//int spaceUsed = sizeof(DataPage) - sizeof(LineIndex);  // Page overhead
+	int spaceUsed = OFFSET(DataPage*, lineIndex);
 	
 	for (int n = 0; n < maxLine; ++n)
 		if (lineIndex[n].offset)
@@ -428,7 +430,8 @@ int DataPage::computeSpaceAvailable(int pageSize)
 	if (space < 0)
 		{
 		Log::debug("DataPage::computeSpaceAvailable got a negative number\n");
-		
+		print();
+
 		return 1;
 		}
 	
@@ -447,4 +450,23 @@ void DataPage::deletePage(Dbb *dbb, TransId transId)
 			if (overflowPageNumber && !dbb->serialLog->recovering)
 				deleteOverflowPages (dbb, overflowPageNumber, transId);
 			}
+}
+
+void DataPage::print(void)
+{
+	LogLock lock;
+#ifdef STORAGE_ENGINE
+	Log::debug("Data page %d, max line %d\n", pageNumber, maxLine);
+#else
+	Log::debug("Data page, max line %d\n", maxLine);
+#endif
+
+	for (int n = 0; n < maxLine; ++n)
+		{
+		LineIndex *index = lineIndex + n;
+		
+		if (index->length || index->offset)
+			Log::debug("    %d. offset %d, length %d\n", n, index->offset, index->length);
+		}
+
 }

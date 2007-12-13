@@ -56,6 +56,7 @@ public:
 
 	short		maxLine;
 	LineIndex	lineIndex [1];
+	void print(void);
 };
 
 #endif // !defined(AFX_DATAPAGE_H__6A019C29_A340_11D2_AB5A_0000C01D2301__INCLUDED_)

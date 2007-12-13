@@ -1,9 +1,5 @@
 DROP DATABASE IF EXISTS adb;
-Warnings:
-Note	1008	Can't drop database 'adb'; database doesn't exist
 DROP DATABASE IF EXISTS bdb;
-Warnings:
-Note	1008	Can't drop database 'bdb'; database doesn't exist
 RESTORE FROM 'test.bak';
 ERROR HY000: Can't read backup location 'test.bak'
 CREATE DATABASE adb;
@@ -11,14 +7,10 @@ CREATE DATABASE bdb;
 BACKUP DATABASE adb TO '';
 ERROR HY000: Invalid backup location ''
 DROP DATABASE IF EXISTS foo;
-Warnings:
-Note	1008	Can't drop database 'foo'; database doesn't exist
 DROP DATABASE IF EXISTS bar;
-Warnings:
-Note	1008	Can't drop database 'bar'; database doesn't exist
 BACKUP DATABASE foo TO 'test.bak';
 ERROR 42000: Unknown database 'foo'
 BACKUP DATABASE test,foo,bdb,bar TO 'test.bak';
 ERROR 42000: Unknown database 'foo,bar'
-DROP DATABASE IF EXISTS adb;
-DROP DATABASE IF EXISTS bdb;
+DROP DATABASE adb;
+DROP DATABASE bdb;

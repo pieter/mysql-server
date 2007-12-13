@@ -5,19 +5,18 @@ connect (backup,localhost,root,,);
 
 connection backup;
 
+--disable_warnings
 DROP DATABASE IF EXISTS db1;
 DROP DATABASE IF EXISTS db2;
+DROP DATABASE IF EXISTS db3;
+--enable_warnings
 
 CREATE DATABASE db1;
-CREATE DATABASE db2;
+CREATE DATABASE db2 CHARACTER SET=utf8;
+CREATE DATABASE db3 COLLATE latin1_bin;
 
 USE db1;
 
-# SHOW ENGINES;
-
-#SET @@storage_engine = 'MEMORY';
-
-DROP TABLE IF EXISTS `building`;
 CREATE TABLE `building` (
   `dir_code` char(4),
   `building` char(6)
@@ -36,7 +35,6 @@ UNLOCK TABLES;
 # Table structure for table `directorate`
 #
 
-DROP TABLE IF EXISTS `directorate`;
 CREATE TABLE `directorate` (
   `dir_code` char(4),
   `dir_name` char(30),
@@ -57,7 +55,6 @@ USE db2;
 # Table structure for table `staff`
 #
 
-DROP TABLE IF EXISTS `staff`;
 CREATE TABLE `staff` (
   `id` char(9),
   `first_name` char(20),
@@ -80,7 +77,6 @@ UNLOCK TABLES;
 # Table structure for table `tasking`
 #
 
-DROP TABLE IF EXISTS `tasking`;
 CREATE TABLE `tasking` (
   `id` char(9),
   `project_number` char(9),
@@ -110,6 +106,10 @@ USE mysql;
 --replace_column 1 # 2 # 3 # 4 # 10 # 11 # 12 #
 --query_vertical RESTORE FROM 'test.ba'
 
+SHOW CREATE DATABASE db1;
+SHOW CREATE DATABASE db2;
+SHOW CREATE DATABASE db3;
+
 USE db1;
 SHOW TABLES;
 
@@ -123,8 +123,9 @@ SHOW TABLES;
 SELECT * FROM staff;
 SHOW CREATE TABLE tasking;
 
-DROP DATABASE IF EXISTS db1;
-DROP DATABASE IF EXISTS db2;
+DROP DATABASE db1;
+DROP DATABASE db2;
+DROP DATABASE db3;
 
 #
 # This test is for the default and snapshot online backup drivers

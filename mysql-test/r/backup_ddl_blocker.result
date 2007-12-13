@@ -933,7 +933,7 @@ bup_ddl_blocker_2
 bup_ddl_blocker_4
 SHOW CREATE DATABASE bup_ddl_blocker_2;
 Database	Create Database
-bup_ddl_blocker_2	CREATE DATABASE `bup_ddl_blocker_2` /*!40100 DEFAULT CHARACTER SET latin1 */
+bup_ddl_blocker_2	CREATE DATABASE `bup_ddl_blocker_2` /*!40100 DEFAULT CHARACTER SET latin2 */
 SHOW CREATE DATABASE bup_ddl_blocker_4;
 Database	Create Database
 bup_ddl_blocker_4	CREATE DATABASE `bup_ddl_blocker_4` /*!40100 DEFAULT CHARACTER SET latin1 */

@@ -145,21 +145,11 @@ result_t meta::Item::drop(THD *thd)
 
 result_t meta::Db::get_create_stmt(::String &stmt)
 {
-  // TODO: get a full CREATE statement for a database
-  return ERROR;
+  int res= ::store_db_create_info(::current_thd, sql_name(), &stmt, NULL);
+
+  return res ? ERROR : OK;
 }
 
-result_t meta::Db::create(THD *thd, ::String&, byte*, byte*)
-{
-  String stmt;
-
-  // TODO: CREATE DATABASE statement should be taken from the backup image.
-
-  stmt.append("CREATE DATABASE ");
-  stmt.append(sql_name());
-
-  return silent_exec_query(thd,stmt) ? ERROR : OK;
-}
 
 result_t meta::Table::get_create_stmt(::String &stmt)
 {

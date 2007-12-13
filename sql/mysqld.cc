@@ -5138,6 +5138,9 @@ enum options_mysqld
   OPT_SECURE_FILE_PRIV,
   OPT_MIN_EXAMINED_ROW_LIMIT,
   OPT_LOG_SLOW_SLAVE_STATEMENTS,
+#if HAVE_POOL_OF_THREADS == 1
+  OPT_POOL_OF_THREADS,
+#endif
   OPT_OLD_MODE
 };
 
@@ -5652,6 +5655,11 @@ thread is in the master's binlogs.",
   {"one-thread", OPT_ONE_THREAD,
    "(deprecated): Only use one thread (for debugging under Linux). Use thread-handling=no-threads instead",
    0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
+#if HAVE_POOL_OF_THREADS == 1
+  {"pool-of-threads", OPT_POOL_OF_THREADS,
+   "Use pool of threads during testing. NOTE: Use thread-handling=pool-of-threads instead",
+   0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
+#endif
   {"old-style-user-limits", OPT_OLD_STYLE_USER_LIMITS,
    "Enable old-style user limits (before 5.0.3 user resources were counted per each user+host vs. per account)",
    (uchar**) &opt_old_style_user_limits, (uchar**) &opt_old_style_user_limits,
@@ -7737,6 +7745,12 @@ mysqld_get_one_option(int optid,
     global_system_variables.thread_handling=
       SCHEDULER_ONE_THREAD_PER_CONNECTION;
     break;
+#if HAVE_POOL_OF_THREADS == 1
+  case OPT_POOL_OF_THREADS:
+    global_system_variables.thread_handling=
+      SCHEDULER_POOL_OF_THREADS;
+    break;
+#endif
   case OPT_THREAD_HANDLING:
   {
     global_system_variables.thread_handling=

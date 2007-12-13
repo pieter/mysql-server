@@ -58,7 +58,9 @@
 USE INFORMATION_SCHEMA;
 SHOW CREATE TABLE INFORMATION_SCHEMA.ROUTINES;
 
-SELECT * FROM information_schema.columns
+# embedded server does not display privileges
+--replace_column 18 #
+query_vertical SELECT * FROM information_schema.columns
 WHERE table_schema = 'information_schema'
   AND table_name   = 'routines'
 ORDER BY ordinal_position;

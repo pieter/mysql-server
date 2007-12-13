@@ -53,10 +53,10 @@ public:
 	int		updateRecord (Section *section, int line, Stream *stream, TransId transId, bool earlyWrite);
 	int		computeSpaceAvailable(int pageSize);
 	void	deletePage(Dbb *dbb, TransId transId);
+	void	print(void);
 
 	short		maxLine;
 	LineIndex	lineIndex [1];
-	void print(void);
 };
 
 #endif // !defined(AFX_DATAPAGE_H__6A019C29_A340_11D2_AB5A_0000C01D2301__INCLUDED_)

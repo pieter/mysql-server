@@ -58,14 +58,14 @@ protected:
 	virtual ~RecordVersion();
 
 public:
+	uint64			virtualOffset; // byte offset into serial log window
 	Transaction		*transaction;
-	TransId			transactionId;
-	int				savePointId;
 	Record			*priorVersion;
 	RecordVersion	*nextInTrans;
 	RecordVersion	*prevInTrans;
+	TransId			transactionId;
+	int				savePointId;
 	bool			superceded;
-	uint64			virtualOffset; // byte offset into serial log window
 };
 
 #endif // !defined(AFX_RECORDVERSION_H__84FD1965_A97F_11D2_AB5C_0000C01D2301__INCLUDED_)

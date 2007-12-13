@@ -33,17 +33,17 @@ int Logger::write_message(log_level::value level, int error_code,
        errors.push_front(new MYSQL_ERROR(::current_thd,error_code,
                                          MYSQL_ERROR::WARN_LEVEL_ERROR,msg));
      sql_print_error(buf);
-     DBUG_PRINT("backup log",("[ERROR] %s",buf));
+     DBUG_PRINT("backup_log",("[ERROR] %s",buf));
      return 0;
 
    case log_level::WARNING:
      sql_print_warning(buf);
-     DBUG_PRINT("backup log",("[Warning] %s",buf));
+     DBUG_PRINT("backup_log",("[Warning] %s",buf));
      return 0;
 
    case log_level::INFO:
      sql_print_information(buf);
-     DBUG_PRINT("backup log",("[Info] %s",buf));
+     DBUG_PRINT("backup_log",("[Info] %s",buf));
      return 0;
 
    default: return ERROR;

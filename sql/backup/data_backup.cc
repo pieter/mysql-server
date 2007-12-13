@@ -475,7 +475,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
   size_t      max_init_size=0;      // keeps maximal init size for images in inactive list
   time_t      vp_time;              // to store validity point time
 
-  DBUG_PRINT("backup/data",("initializing scheduler"));
+  DBUG_PRINT("backup_data",("initializing scheduler"));
 
   // add unknown "at end" drivers to scheduler, rest to inactive list
 
@@ -520,11 +520,11 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
    */
   DBUG_ASSERT( !sch.is_empty() || !inactive.is_empty() );
 
-  DBUG_PRINT("backup/data",("%u drivers initialized, %u inactive",
+  DBUG_PRINT("backup_data",("%u drivers initialized, %u inactive",
                             sch.init_count,
                             inactive.elements));
 
-  DBUG_PRINT("backup/data",("-- INIT PHASE --"));
+  DBUG_PRINT("backup_data",("-- INIT PHASE --"));
   BACKUP_BREAKPOINT("data_init");
 
   /*
@@ -573,7 +573,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
 
   {
     // start "at begin" drivers
-    DBUG_PRINT("backup/data",("- activating \"at begin\" drivers"));
+    DBUG_PRINT("backup_data",("- activating \"at begin\" drivers"));
 
     List_iterator<Scheduler::Pump>  it1(inactive);
     Scheduler::Pump *p;
@@ -587,7 +587,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
       goto error;
 
     // prepare for VP
-    DBUG_PRINT("backup/data",("-- PREPARE PHASE --"));
+    DBUG_PRINT("backup_data",("-- PREPARE PHASE --"));
     BACKUP_BREAKPOINT("data_prepare");
 
     if (sch.prepare())
@@ -598,7 +598,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
       goto error;
 
     // VP creation
-    DBUG_PRINT("backup/data",("-- SYNC PHASE --"));
+    DBUG_PRINT("backup_data",("-- SYNC PHASE --"));
 
     report_ob_state(info.backup_prog_id, BUP_VALIDITY_POINT);
     /*
@@ -625,8 +625,8 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
       LOG_INFO li;
       mysql_bin_log.get_current_log(&li);
       info.save_binlog_pos(li);
-      DBUG_PRINT("SYNC PHASE - binlog position : ", ("%d", (int) li.pos));
-      DBUG_PRINT("SYNC PHASE - binlog filename : ", ("%s", li.log_file_name));
+      DBUG_PRINT("backup_ptr_pos", ("%d", (int) li.pos));
+      DBUG_PRINT("backup_ptr_logname", ("%s", li.log_file_name));
     }
 
     /*
@@ -663,14 +663,14 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
                             info.binlog_pos.pos, info.binlog_pos.file);
 
     // get final data from drivers
-    DBUG_PRINT("backup/data",("-- FINISH PHASE --"));
+    DBUG_PRINT("backup_data",("-- FINISH PHASE --"));
     BACKUP_BREAKPOINT("data_finish");
 
     while (sch.finish_count > 0)
     if (sch.step())
       goto error;
 
-    DBUG_PRINT("backup/data",("-- DONE --"));
+    DBUG_PRINT("backup_data",("-- DONE --"));
   }
 
   info.data_size= sch.bytes_written();
@@ -753,7 +753,7 @@ int Scheduler::step()
 
   move_pump_to_end(p);
 
-  DBUG_PRINT("backup/data",("polling %s",p->m_name));
+  DBUG_PRINT("backup_data",("polling %s",p->m_name));
 
   backup_state::value before_state= p->state;
 
@@ -825,7 +825,7 @@ int Scheduler::step()
     default: break;
     }
 
-    DBUG_PRINT("backup/data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
+    DBUG_PRINT("backup_data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
                               m_count, init_count, prepare_count, finish_count));
   }
 
@@ -853,7 +853,7 @@ int Scheduler::add(Pump *p)
   // in case of error, above call should return non-zero code (and report error)
   DBUG_ASSERT(p->state != backup_state::ERROR);
 
-  DBUG_PRINT("backup/data",("Adding %s to scheduler (at pos %lu)",
+  DBUG_PRINT("backup_data",("Adding %s to scheduler (at pos %lu)",
                             p->m_name, (unsigned long)avg));
 
   m_pumps= list_cons(p,m_pumps);
@@ -886,9 +886,9 @@ int Scheduler::add(Pump *p)
   default: break;
   }
 
-  DBUG_PRINT("backup/data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
+  DBUG_PRINT("backup_data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
                             m_count, init_count, prepare_count, finish_count));
-  DBUG_PRINT("backup/data",("total init data size estimate: %lu",(unsigned long)m_init_left));
+  DBUG_PRINT("backup_data",("total init data size estimate: %lu",(unsigned long)m_init_left));
 
   return 0;
 
@@ -964,7 +964,7 @@ int Scheduler::prepare()
   DBUG_ASSERT(!cancelled);
   // we should start prepare phase only when init phase is finished
   DBUG_ASSERT(init_count==0);
-  DBUG_PRINT("backup/data",("calling prepare() for all drivers"));
+  DBUG_PRINT("backup_data",("calling prepare() for all drivers"));
 
   for (Pump_iterator it(*this); it; ++it)
   {
@@ -977,7 +977,7 @@ int Scheduler::prepare()
      prepare_count++;
   }
 
-  DBUG_PRINT("backup/data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
+  DBUG_PRINT("backup_data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
                             m_count, init_count, prepare_count, finish_count));
   return 0;
 }
@@ -988,7 +988,7 @@ int Scheduler::lock()
   DBUG_ASSERT(!cancelled);
   // lock only when init and prepare phases are finished
   DBUG_ASSERT(init_count==0 && prepare_count==0);
-  DBUG_PRINT("backup/data",("calling lock() for all drivers"));
+  DBUG_PRINT("backup_data",("calling lock() for all drivers"));
 
   for (Pump_iterator it(*this); it; ++it)
    if (it->lock())
@@ -997,7 +997,7 @@ int Scheduler::lock()
      return ERROR;
    }
 
-  DBUG_PRINT("backup/data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
+  DBUG_PRINT("backup_data",("driver counts: total=%u, init=%u, prepare=%u, finish=%u.",
                             m_count, init_count, prepare_count, finish_count));
   return 0;
 }
@@ -1006,7 +1006,7 @@ int Scheduler::lock()
 int Scheduler::unlock()
 {
   DBUG_ASSERT(!cancelled);
-  DBUG_PRINT("backup/data",("calling unlock() for all drivers"));
+  DBUG_PRINT("backup_data",("calling unlock() for all drivers"));
 
   for(Pump_iterator it(*this); it; ++it)
   {
@@ -1059,7 +1059,7 @@ Backup_pump::~Backup_pump()
 int Backup_pump::begin()
 {
   state= backup_state::INIT;
-  DBUG_PRINT("backup/data",(" %s enters INIT state",m_name));
+  DBUG_PRINT("backup_data",(" %s enters INIT state",m_name));
 
   if (ERROR == m_drv->begin(m_bw.buf_size))
   {
@@ -1079,7 +1079,7 @@ int Backup_pump::end()
 {
   if (state != backup_state::SHUT_DOWN)
   {
-    DBUG_PRINT("backup/data",(" shutting down %s",m_name));
+    DBUG_PRINT("backup_data",(" shutting down %s",m_name));
 
     if (ERROR == m_drv->end())
     {
@@ -1118,7 +1118,7 @@ int Backup_pump::prepare()
       return ERROR;
   }
 
-  DBUG_PRINT("backup/data",(" preparing %s, goes to %s state",
+  DBUG_PRINT("backup_data",(" preparing %s, goes to %s state",
                             m_name,backup_state::name[state]));
   return 0;
 }
@@ -1126,7 +1126,7 @@ int Backup_pump::prepare()
 /// Request VP from the driver.
 int Backup_pump::lock()
 {
-  DBUG_PRINT("backup/data",(" locking %s",m_name));
+  DBUG_PRINT("backup_data",(" locking %s",m_name));
   if (ERROR == m_drv->lock())
   {
     state= backup_state::ERROR;
@@ -1141,7 +1141,7 @@ int Backup_pump::lock()
 /// Unlock the driver after VP creation.
 int Backup_pump::unlock()
 {
-  DBUG_PRINT("backup/data",(" unlocking %s, goes to FINISHING state",m_name));
+  DBUG_PRINT("backup_data",(" unlocking %s, goes to FINISHING state",m_name));
   state= backup_state::FINISHING;
   if (ERROR == m_drv->unlock())
   {
@@ -1265,9 +1265,9 @@ int Backup_pump::pump(size_t *howmuch)
         {
           mark_stream_closed(m_buf.table_no);
           if (all_streams_closed())
-            DBUG_PRINT("backup/data",(" all streams of %s closed",m_name));
+            DBUG_PRINT("backup_data",(" all streams of %s closed",m_name));
           else
-            DBUG_PRINT("backup/data",(" stream %u closed",m_buf.table_no));
+            DBUG_PRINT("backup_data",(" stream %u closed",m_buf.table_no));
         }
 
         m_buf.data= m_buf_head;
@@ -1311,7 +1311,7 @@ int Backup_pump::pump(size_t *howmuch)
         if (howmuch)
           *howmuch= m_buf.size;
 
-        DBUG_PRINT("backup/data",(" added %lu bytes from %s to archive (drv_no=%u, table_no=%u)",
+        DBUG_PRINT("backup_data",(" added %lu bytes from %s to archive (drv_no=%u, table_no=%u)",
                                   (unsigned long)howmuch, m_name, m_bw.snap_no, m_buf.table_no));
         mode= READING;
         break;
@@ -1331,7 +1331,7 @@ int Backup_pump::pump(size_t *howmuch)
   }
 
   if (state != before_state)
-    DBUG_PRINT("backup/data",(" %s changes state %s->%s",
+    DBUG_PRINT("backup_data",(" %s changes state %s->%s",
                               m_name,backup_state::name[before_state],
                                      backup_state::name[state]));
   return 0;

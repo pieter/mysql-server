@@ -351,6 +351,21 @@ case "$target_os" in
     AC_SUBST(TARGET_SOLARIS)
   ;;
 esac
+
+# The following is required for portable results of floating point calculations
+# on PowerPC. The same must also be done for IA-64, but this options is missing
+# in the IA-64 gcc backend.
+
+if test "$GCC" = "yes"
+then
+  case "$host_cpu" in
+    *ppc* | *powerpc*)
+      CFLAGS="$CFLAGS -mno-fused-madd"
+      CXXFLAGS="$CXXFLAGS -mno-fused-madd"
+    ;;
+  esac
+fi
+
 AC_SUBST(CC)
 AC_SUBST(CFLAGS)
 AC_SUBST(CXX)

@@ -47,6 +47,8 @@
 
 --disable_warnings
 DROP DATABASE IF EXISTS bup_commit_blocker;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_commit_blocker.bak;
 --enable_warnings
 
 CREATE DATABASE bup_commit_blocker;

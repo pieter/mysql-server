@@ -8,8 +8,16 @@ RESTORE FROM 'test.bak';
 ERROR HY000: Can't read backup location 'test.bak'
 CREATE DATABASE adb;
 CREATE DATABASE bdb;
+CREATE TABLE bdb.t1(a int) ENGINE=MEMORY;
 BACKUP DATABASE adb TO '';
 ERROR HY000: Invalid backup location ''
+BACKUP DATABASE adb TO "bdb/t1.frm";
+ERROR HY000: Can't write to backup location 'bdb/t1.frm' (file already exists?)
+BACKUP DATABASE adb TO "test.bak";
+backup_id
+#
+BACKUP DATABASE adb TO "test.bak";
+ERROR HY000: Can't write to backup location 'test.bak' (file already exists?)
 DROP DATABASE IF EXISTS foo;
 Warnings:
 Note	1008	Can't drop database 'foo'; database doesn't exist

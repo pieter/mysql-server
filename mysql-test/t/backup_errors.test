@@ -1,19 +1,40 @@
 --source include/not_embedded.inc
 
+# Check that BACKUP/RESTORE commands correctly report errors 
+#
+# TODO: When we know how to do that, check that the backup progress table
+# contains appropriate rows when errors have been detected.
+
 DROP DATABASE IF EXISTS adb;
 DROP DATABASE IF EXISTS bdb;
 
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/test.bak
+
 # non-existent backup archive
--- exec rm -f $MYSQLTEST_VARDIR/master-data/test.bak
 -- error ER_BACKUP_READ_LOC
 RESTORE FROM 'test.bak';
 
 CREATE DATABASE adb;
 CREATE DATABASE bdb;
+CREATE TABLE bdb.t1(a int) ENGINE=MEMORY;
 
-# bad archive name
--- error ER_BACKUP_INVALID_LOC
+# invalid location
+--error ER_BACKUP_INVALID_LOC
 BACKUP DATABASE adb TO '';
+
+# don't overwrite existing files
+--error ER_BACKUP_WRITE_LOC
+BACKUP DATABASE adb TO "bdb/t1.frm";
+
+--replace_column 1 #
+BACKUP DATABASE adb TO "test.bak";
+
+# don't overwrite existing backup image
+--error ER_BACKUP_WRITE_LOC
+BACKUP DATABASE adb TO "test.bak";
+
+--remove_file $MYSQLTEST_VARDIR/master-data/test.bak
 
 # non-existent database
 DROP DATABASE IF EXISTS foo;
@@ -28,4 +49,7 @@ BACKUP DATABASE test,foo,bdb,bar TO 'test.bak';
 DROP DATABASE IF EXISTS adb;
 DROP DATABASE IF EXISTS bdb;
 
-
+# Note: the file should be removed - if it is not, the following command
+# will fail and we will be warned that something is wrong with the test
+--error 1
+--remove_file $MYSQLTEST_VARDIR/master-data/test.bak

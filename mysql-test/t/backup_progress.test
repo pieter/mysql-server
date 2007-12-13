@@ -12,6 +12,8 @@
 --disable_warnings
 DROP DATABASE IF EXISTS backup_progress;
 DROP TABLE IF EXISTS backup_progress.t1_res;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_progress_orig.bak;
 --enable_warnings
 
 connect (con1,localhost,root,,);
@@ -33,7 +35,7 @@ CREATE DATABASE backup_progress;
 CREATE TABLE backup_progress.t1 (a char(30)) ENGINE=MEMORY;
 CREATE TABLE backup_progress.t2 (a char(30)) ENGINE=INNODB;
 CREATE TABLE backup_progress.t3 (a char(30)) ENGINE=MEMORY;
-CREATE TABLE backup_progress.t1_res (id INT);
+CREATE TABLE backup_progress.t1_res (id INT) ENGINE=MEMORY;
 
 INSERT INTO backup_progress.t1 VALUES ("01 Test #1 - progress"); 
 INSERT INTO backup_progress.t1 VALUES ("02 Test #1 - progress"); 
@@ -229,10 +231,12 @@ SELECT obp.* FROM mysql.online_backup_progress AS obp JOIN backup_progress.t1_re
 connection con1;
 
 --replace_column 1 #
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_progress_orig.bak
 --error 1049
 BACKUP DATABASE DOES_NOT_EXIST to 'backup_progress_orig.bak';
 
 DROP DATABASE backup_progress;
-
-remove_file $MYSQLTEST_VARDIR/master-data/backup_progress_orig.bak;
+# note: the backup file should be deleted.
+--error 1
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_progress_orig.bak
 

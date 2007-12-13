@@ -6,7 +6,7 @@ con1: Create table and new users.
 CREATE TABLE backup_progress.t1 (a char(30)) ENGINE=MEMORY;
 CREATE TABLE backup_progress.t2 (a char(30)) ENGINE=INNODB;
 CREATE TABLE backup_progress.t3 (a char(30)) ENGINE=MEMORY;
-CREATE TABLE backup_progress.t1_res (id INT);
+CREATE TABLE backup_progress.t1_res (id INT) ENGINE=MEMORY;
 INSERT INTO backup_progress.t1 VALUES ("01 Test #1 - progress");
 INSERT INTO backup_progress.t1 VALUES ("02 Test #1 - progress");
 INSERT INTO backup_progress.t1 VALUES ("03 Test #1 - progress");

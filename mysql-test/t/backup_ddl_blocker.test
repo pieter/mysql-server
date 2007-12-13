@@ -55,6 +55,15 @@
 --source include/not_valgrind.inc
 
 #
+# Remove backup files (if they exist)
+#
+
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak;
+
+#
 # Connections used in this test
 #
 # con1       used to create data, load data, and run the backup 
@@ -456,6 +465,7 @@ send REPAIR TABLE bup_ddl_blocker.t2;
 connection con1;
 
 --echo con1: Backing up database -- will block with lock
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak
 send BACKUP DATABASE bup_ddl_blocker TO "bup_ddl_blocker.bak";
 
 connection con6;
@@ -595,6 +605,7 @@ SHOW TABLES;
 --source include/backup_ddl_create_data.inc
 
 # Get a backup to work with.
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak
 --replace_column 1 #
 BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
 
@@ -764,6 +775,7 @@ send DROP TABLE bup_ddl_blocker.t2;
 connection con1;
 
 --echo con1: Backing up database -- will block with lock
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak
 send BACKUP DATABASE bup_ddl_blocker TO "bup_ddl_blocker.bak";
 
 connection con6;
@@ -900,6 +912,7 @@ SHOW TABLES;
 --source include/backup_ddl_create_data.inc
 
 # Get a backup to work with.
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak
 --replace_column 1 #
 BACKUP DATABASE bup_ddl_blocker to 'bup_ddl_blocker_orig.bak';
 
@@ -1095,6 +1108,7 @@ send DROP DATABASE bup_ddl_blocker_2;
 connection con1;
 
 --echo con1: Backing up database -- will block with lock
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak
 send BACKUP DATABASE * TO "bup_ddl_blocker.bak";
 
 connection con6;
@@ -1260,6 +1274,7 @@ INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
 SHOW DATABASES LIKE 'bup_ddl_blocker_%';
 
 # Get a backup to work with.
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak
 --replace_column 1 #
 BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4 to 'bup_ddl_blocker_orig.bak';
 
@@ -1455,6 +1470,7 @@ send ALTER DATABASE bup_ddl_blocker_2 CHARACTER SET latin2;
 connection con1;
 
 --echo con1: Backing up database -- will block with lock
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak
 send BACKUP DATABASE * TO "bup_ddl_blocker.bak";
 
 connection con6;
@@ -1642,6 +1658,7 @@ INSERT INTO bup_ddl_blocker_4.t1 VALUES ("03 Some data to test");
 SHOW DATABASES LIKE 'bup_ddl_blocker_%';
 
 # Get a backup to work with.
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak
 --replace_column 1 #
 BACKUP DATABASE bup_ddl_blocker_2, bup_ddl_blocker_4 to 'bup_ddl_blocker_orig.bak';
 
@@ -1951,8 +1968,8 @@ DROP TABLE test.t2;
 --echo con1: Cleanup
 DROP DATABASE bup_ddl_blocker;
 
-remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak;
-remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak;
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker_orig.bak
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_ddl_blocker.bak
 
 
 

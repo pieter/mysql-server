@@ -7,6 +7,9 @@ connection backup;
 
 DROP DATABASE IF EXISTS db1;
 DROP DATABASE IF EXISTS db2;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_default.bak
+
 
 CREATE DATABASE db1;
 CREATE DATABASE db2;
@@ -268,7 +271,7 @@ BACKUP DATABASE bup_default TO "bup_default.bak";
 
 DROP DATABASE bup_default;
 
---replace_column 1 # 2 # 3 # 4 # 10 # 11 # 12 #
+--replace_column 1 #
 --query_vertical RESTORE FROM "bup_default.bak"
 
 # Show the data
@@ -284,5 +287,5 @@ SELECT COUNT(*) FROM bup_default.wide;
 DROP DATABASE IF EXISTS bup_default;
 --enable_warnings
 
-#--exec rm $MYSQLTEST_VARDIR/master-data/bup_default.bak
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_default.bak
 

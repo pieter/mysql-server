@@ -20,7 +20,7 @@ USE db1;
 CREATE TABLE `building` (
   `dir_code` char(4),
   `building` char(6)
-) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
 
 #
 # Dumping data for table `building`
@@ -39,7 +39,7 @@ CREATE TABLE `directorate` (
   `dir_code` char(4),
   `dir_name` char(30),
   `dir_head_id` char(9)
-) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
 
 #
 # Dumping data for table `directorate`
@@ -63,7 +63,7 @@ CREATE TABLE `staff` (
   `sex` char(1),
   `salary` int(11),
   `mgr_id` char(9)
-) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
 
 #
 # Dumping data for table `staff`
@@ -163,7 +163,7 @@ CREATE TABLE bup_default.wide (
 ) ENGINE=INNODB DEFAULT CHARSET=latin1;
 
 CREATE TABLE bup_default.t1 (a int) engine=innodb;
-CREATE TABLE bup_default.t2 (a int) engine=MEMORY;
+CREATE TABLE bup_default.t2 (a int) engine=MYISAM;
 CREATE TABLE bup_default.t1_blob (a int, b text) engine=innodb;
 
 # Insert some data.

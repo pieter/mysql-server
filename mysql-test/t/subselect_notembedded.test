@@ -59,18 +59,18 @@ select sum(a),a from t1 where a> (
   )group by b limit 1)group by b limit 1)group by b limit 1) 
 group by a;
 # test for the memory consumption & subquery slowness bug
-explain select sum(a),a from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
-  select sum(a) from t1 where a> ( select sum(a) from t1 
-  )group by b limit 1)group by b limit 1
-  )group by b limit 1)group by b limit 1)group by b limit 1
-  )group by b limit 1)group by b limit 1)group by b limit 1
-  )group by b limit 1)group by b limit 1)group by b limit 1) 
-group by a;
+#explain select sum(a),a from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 where a> (
+#  select sum(a) from t1 where a> ( select sum(a) from t1 
+#  )group by b limit 1)group by b limit 1
+#  )group by b limit 1)group by b limit 1)group by b limit 1
+#  )group by b limit 1)group by b limit 1)group by b limit 1
+#  )group by b limit 1)group by b limit 1)group by b limit 1) 
+#group by a;
 --replace_regex /overrun.*$/overrun detected/
 --error 1436
 explain select sum(a),a from t1 where a> (

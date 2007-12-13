@@ -2141,8 +2141,6 @@ void Database::renameTable(Table* table, const char* newSchema, const char* newN
 {
 	newSchema = getSymbol(newSchema);
 	newName = getSymbol(newName);
-	Sync sync (&syncTables, "Database::renameTable");
-	sync.lock (Exclusive);
 	roleModel->renameTable(table, newSchema, newName);
 
 	// Remove table from name hash table

@@ -84,6 +84,8 @@ class Item
  */
 class Db: public Item
 {
+ public:
+
   const enum_type type() const
   { return DB; }
 
@@ -91,7 +93,6 @@ class Db: public Item
   { return "DATABASE"; }
 
   result_t get_create_stmt(::String&);
-  result_t create(THD*, ::String&, byte*, byte*);
 };
 
 /**

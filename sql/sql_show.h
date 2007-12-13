@@ -34,6 +34,8 @@ find_files_result find_files(THD *thd, List<LEX_STRING> *files, const char *db,
 
 int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
                       HA_CREATE_INFO  *create_info_arg);
+bool store_db_create_info(THD *thd, const char *dbname, String *buffer,
+                          HA_CREATE_INFO *create_info);
 int view_store_create_info(THD *thd, TABLE_LIST *table, String *buff);
 
 int copy_event_to_schema_table(THD *thd, TABLE *sch_table, TABLE *event_table);

@@ -714,7 +714,7 @@ result_t Restore::send_data(Buffer &buf)
   byte block_type= 0;
 
   DBUG_ENTER("Restore::send_data");
-  DBUG_PRINT("default/restore",("Got packet with %lu bytes from stream %u",
+  DBUG_PRINT("default_restore",("Got packet with %lu bytes from stream %u",
                                 (unsigned long)buf.size, buf.table_no));
   
   /* 

@@ -1585,14 +1585,6 @@ RESTORE FROM "bup_ddl_blocker.bak";
 
 --echo con1: Showing databases that were backed up
 --echo con1: bup_ddl_blocker_1 has been renamed and
-
-#
-# NOTE: The online backup does not preserve character set information as 
-# it should. Thus, the results of this test will not show the changes
-# made with the alter database command to bup_ddl_blocker_2. This has
-# been reported as BUG#32190. 
-#
-
 --echo con1: bup_ddl_blocker_2.t1 has been truncated.
 --echo con1: bup_ddl_blocker_4 has not had its character set changed. 
 --echo con1: bup_ddl_blocker_4.t1 has not been truncated.
@@ -1774,13 +1766,6 @@ reap;
 --echo Verifying Test 5 results for restore.
 --echo
 ##############################################################
-
-#
-# NOTE: The online backup does not preserve character set information as 
-# it should. Thus, the results of this test will not show the changes
-# made with the alter database command to bup_ddl_blocker_2. This has
-# been reported as BUG#32190. 
-#
 
 --echo con1: bup_ddl_blocker_4 has had its character set changed. 
 --echo con1: bup_ddl_blocker_2.t1 has not been truncated.

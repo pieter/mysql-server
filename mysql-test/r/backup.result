@@ -1,37 +1,26 @@
 DROP DATABASE IF EXISTS db1;
-Warnings:
-Note	1008	Can't drop database 'db1'; database doesn't exist
 DROP DATABASE IF EXISTS db2;
-Warnings:
-Note	1008	Can't drop database 'db2'; database doesn't exist
+DROP DATABASE IF EXISTS db3;
 CREATE DATABASE db1;
-CREATE DATABASE db2;
+CREATE DATABASE db2 CHARACTER SET=utf8;
+CREATE DATABASE db3 COLLATE latin1_bin;
 USE db1;
-DROP TABLE IF EXISTS `building`;
-Warnings:
-Note	1051	Unknown table 'building'
 CREATE TABLE `building` (
 `dir_code` char(4),
 `building` char(6)
-) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
 LOCK TABLES `building` WRITE;
 INSERT INTO `building` VALUES ('N41','1300'),('N01','1453'),('M00','1000'),('N41','1301'),('N41','1305');
 UNLOCK TABLES;
-DROP TABLE IF EXISTS `directorate`;
-Warnings:
-Note	1051	Unknown table 'directorate'
 CREATE TABLE `directorate` (
 `dir_code` char(4),
 `dir_name` char(30),
 `dir_head_id` char(9)
-) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
 LOCK TABLES `directorate` WRITE;
 INSERT INTO `directorate` VALUES ('N41','Development','333445555'),('N01','Human Resources','123654321'),('M00','Management','333444444');
 UNLOCK TABLES;
 USE db2;
-DROP TABLE IF EXISTS `staff`;
-Warnings:
-Note	1051	Unknown table 'staff'
 CREATE TABLE `staff` (
 `id` char(9),
 `first_name` char(20),
@@ -40,13 +29,10 @@ CREATE TABLE `staff` (
 `sex` char(1),
 `salary` int(11),
 `mgr_id` char(9)
-) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
 LOCK TABLES `staff` WRITE;
 INSERT INTO `staff` VALUES ('333445555','John','Q','Smith','M',30000,'333444444'),('123763153','William','E','Walters','M',25000,'123654321'),('333444444','Alicia','F','St.Cruz','F',25000,NULL),('921312388','Goy','X','Hong','F',40000,'123654321'),('800122337','Rajesh','G','Kardakarna','M',38000,'333445555'),('820123637','Monty','C','Smythe','M',38000,'333445555'),('830132335','Richard','E','Jones','M',38000,'333445555'),('333445665','Edward','E','Engles','M',25000,'333445555'),('123654321','Beware','D','Borg','F',55000,'333444444'),('123456789','Wilma','N','Maxima','F',43000,'333445555');
 UNLOCK TABLES;
-DROP TABLE IF EXISTS `tasking`;
-Warnings:
-Note	1051	Unknown table 'tasking'
 CREATE TABLE `tasking` (
 `id` char(9),
 `project_number` char(9),
@@ -63,6 +49,15 @@ DROP DATABASE db2;
 USE mysql;
 RESTORE FROM 'test.ba';
 backup_id	#
+SHOW CREATE DATABASE db1;
+Database	Create Database
+db1	CREATE DATABASE `db1` /*!40100 DEFAULT CHARACTER SET latin1 */
+SHOW CREATE DATABASE db2;
+Database	Create Database
+db2	CREATE DATABASE `db2` /*!40100 DEFAULT CHARACTER SET utf8 */
+SHOW CREATE DATABASE db3;
+Database	Create Database
+db3	CREATE DATABASE `db3` /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_bin */
 USE db1;
 SHOW TABLES;
 Tables_in_db1
@@ -104,8 +99,9 @@ tasking	CREATE TABLE `tasking` (
   `project_number` char(9) DEFAULT NULL,
   `hours_worked` double(10,2) DEFAULT NULL
 ) ENGINE=BLACKHOLE DEFAULT CHARSET=latin1
-DROP DATABASE IF EXISTS db1;
-DROP DATABASE IF EXISTS db2;
+DROP DATABASE db1;
+DROP DATABASE db2;
+DROP DATABASE db3;
 DROP DATABASE IF EXISTS bup_default;
 CREATE DATABASE bup_default;
 CREATE TABLE bup_default.wide (
@@ -129,7 +125,7 @@ CREATE TABLE bup_default.wide (
 PRIMARY KEY (`a`)
 ) ENGINE=INNODB DEFAULT CHARSET=latin1;
 CREATE TABLE bup_default.t1 (a int) engine=innodb;
-CREATE TABLE bup_default.t2 (a int) engine=MEMORY;
+CREATE TABLE bup_default.t2 (a int) engine=MYISAM;
 CREATE TABLE bup_default.t1_blob (a int, b text) engine=innodb;
 INSERT INTO bup_default.wide VALUES (
 NULL,

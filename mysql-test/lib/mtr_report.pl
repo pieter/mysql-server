@@ -368,6 +368,10 @@ sub mtr_report_stats ($) {
 		/Slave: Can't DROP 'c7'.* 1091/ or
 		/Slave: Key column 'c6'.* 1072/ or
 
+                # BUG#32080 - Excessive warnings on Solaris: setrlimit could not
+                #             change the size of core files
+                /setrlimit could not change the size of core files to 'infinity'/ or
+
                 # rpl_ndb_basic expects this error
                 /Slave: Got error 146 during COMMIT Error_code: 1180/
 	       )

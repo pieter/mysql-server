@@ -735,6 +735,10 @@ fi
 # itself - note that they must be ordered by date (important when
 # merging BK trees)
 %changelog
+* Thu Dec 06 2007 Jonathan Perkin <jperkin@mysql.com>
+
+- Enabled the "Falcon" storage engine on i386/x86_64.
+
 * Wed May 02 2007 Joerg Bruehe <joerg@mysql.com>
 
 - "ndb_size.tmpl" is not needed any more, 

@@ -123,7 +123,9 @@ bool IndexRootPage::addIndexEntry(Dbb * dbb, int32 indexId, IndexKey *key, int32
 		Btn::printKey (" appended key", &searchKey, 0, false);
 		}
 		
-	for (int n = 0; n < 3; ++n)
+	// Multiple threads may attempt to update the same index. If necessary, make several attempts.
+	
+	for (int n = 0; n < 10; ++n)
 		{
 		/* Find insert page and position on page */
 

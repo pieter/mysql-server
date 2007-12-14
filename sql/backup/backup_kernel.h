@@ -65,9 +65,31 @@ struct Location
   virtual void free()
   { delete this; }  // use destructor to free resources
 
+  /** 
+    Determine if the location is valid
+  
+    An invalid location will not be used.
+    
+    @retval TRUE  Location is valid.
+    @retval FALSE Location is invalid.
+  */
+  virtual bool is_valid() =0;
+  
   /// Describe location for debug purposes
   virtual const char* describe()
   { return "Invalid location"; }
+
+  /**
+    Remove any system resources connected to that location.
+
+    When location is opened for writing, some system resources will be usually
+    created (depending on the type of the location). For example, a file in the
+    file system. This method should remove/free any such resources. If no
+    resources were created, the method should do nothing.
+    
+    @returns OK on success, ERROR otherwise.
+   */ 
+  virtual result_t remove() =0;
 
   /**
     Interpret string passed to BACKUP/RESTORE statement as backup location

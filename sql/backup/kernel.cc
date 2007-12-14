@@ -101,7 +101,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
   Location *loc= Location::find(lex->backup_dir);
 
-  if (!loc)
+  if (!loc || !loc->is_valid())
   {
     my_error(ER_BACKUP_INVALID_LOC,MYF(0),lex->backup_dir.str);
     DBUG_RETURN(ER_BACKUP_INVALID_LOC);
@@ -244,9 +244,9 @@ execute_backup_command(THD *thd, LEX *lex)
 
   case SQLCOM_BACKUP:
   {
+    /* if set to true, backup location will be removed (e.g., upon failure) */
+    bool remove_location= FALSE; 
     backup::OStream *stream= open_for_write(*loc);
-
-    // TODO: report error if location exists
 
     if (!stream)
     {
@@ -350,6 +350,15 @@ execute_backup_command(THD *thd, LEX *lex)
     if (stop)
       report_ob_time(backup_prog_id, 0, stop);
 
+    /*
+      If the output stream was opened, a file or other system resource
+      (depending on the type of the backup location) could be created. Since
+      we failed to write backup image, this resource should be removed.
+      We set remove_location flag so that loc->remove() will be called after
+      closing the output stream.
+     */
+    remove_location= TRUE;
+
     BACKUP_BREAKPOINT("bp_error_state");
 
    finish_backup:
@@ -361,7 +370,13 @@ execute_backup_command(THD *thd, LEX *lex)
     BACKUP_BREAKPOINT("DDL_unblocked");
 
     if (stream)
+    {
       stream->close();
+
+      if (remove_location)
+        if (loc->remove() != OK)
+          res= res ? res : ERROR;
+    }
 
     break;
   }
@@ -1606,9 +1621,39 @@ struct File_loc: public Location
   File_loc(const char *p)
   { path.append(p); }
 
+  bool is_valid()
+  {
+   /*
+     On some systems certain file names are invalid. We use 
+     check_if_legal_filename() function from mysys to detect this.
+    */ 
+#if defined(__WIN__) || defined(__EMX__)  
+  
+   if (check_if_legal_filename(path.c_ptr()))
+    return FALSE;
+  
+#endif
+    return TRUE;
+  }
+  
   const char* describe()
   { return path.c_ptr(); }
 
+  result_t remove()
+  {
+    int res= my_delete(path.c_ptr(),MYF(0));
+
+    /*
+      Ignore ENOENT error since it is ok if the file doesn't exist.
+     */
+    if (my_errno == ENOENT)
+      res= 0;
+
+    if (res)
+      sql_print_error(ER(ER_CANT_DELETE_FILE),path.c_ptr(),my_errno);
+
+    return res ? ERROR : OK;
+  }
 };
 
 

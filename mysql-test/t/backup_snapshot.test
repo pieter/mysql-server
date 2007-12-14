@@ -33,6 +33,8 @@
 
 --disable_warnings
 DROP DATABASE IF EXISTS bup_snapshot;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_snapshot.bak;
 --enable_warnings
 
 CREATE DATABASE bup_snapshot;

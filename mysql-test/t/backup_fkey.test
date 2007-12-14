@@ -14,6 +14,10 @@
 
 --disable_warnings
 DROP DATABASE IF EXISTS backup_fkey;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey.bak;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey_orig.bak;
 --enable_warnings
 
 CREATE DATABASE backup_fkey;
@@ -105,6 +109,7 @@ INSERT INTO backup_fkey.t1 VALUES ("06 Test #2 - foreign key constraints");
 INSERT INTO backup_fkey.t1 VALUES ("07 Test #2 - foreign key constraints"); 
 
 --echo Backup the data
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey.bak
 --replace_column 1 #
 BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
 
@@ -141,6 +146,6 @@ SHOW VARIABLES LIKE 'foreign_key_checks%';
 
 DROP DATABASE backup_fkey;
 
-remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey.bak;
-remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey_orig.bak;
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey.bak
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_fkey_orig.bak
 

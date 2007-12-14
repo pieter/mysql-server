@@ -147,7 +147,7 @@ bool Stream::rewind()
 
 
 OStream::OStream(const ::String &name):
-  Stream(name,O_WRONLY|O_CREAT|O_TRUNC), bytes(0)
+  Stream(name,O_WRONLY|O_CREAT|O_EXCL|O_TRUNC), bytes(0)
 {
   stream.write= stream_write;
   m_block_size=0; // use default block size provided by the backup stram library

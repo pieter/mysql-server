@@ -63,6 +63,12 @@ SHOW TABLES;
 Tables_in_db1
 building
 directorate
+CHECK TABLE building EXTENDED;
+Table	Op	Msg_type	Msg_text
+db1.building	check	status	OK
+CHECK TABLE directorate EXTENDED;
+Table	Op	Msg_type	Msg_text
+db1.directorate	check	status	OK
 SELECT * FROM building;
 dir_code	building
 N41	1300
@@ -80,6 +86,9 @@ SHOW TABLES;
 Tables_in_db2
 staff
 tasking
+CHECK TABLE staff EXTENDED;
+Table	Op	Msg_type	Msg_text
+db2.staff	check	status	OK
 SELECT * FROM staff;
 id	first_name	mid_name	last_name	sex	salary	mgr_id
 333445555	John	Q	Smith	M	30000	333444444

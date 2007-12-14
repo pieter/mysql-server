@@ -2194,7 +2194,9 @@ int subselect_single_select_engine::exec()
       DBUG_RETURN(1);
     }
   }
-  if (select_lex->uncacheable && executed)
+  if (select_lex->uncacheable &&
+      select_lex->uncacheable != UNCACHEABLE_EXPLAIN
+      && executed)
   {
     if (join->reinit())
     {

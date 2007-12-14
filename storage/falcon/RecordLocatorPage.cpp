@@ -385,6 +385,9 @@ void RecordLocatorPage::unlinkSpaceSlot(int slot)
 	int priorSlot;
 	int nextSlot;
 	
+	if (maxLine == 0)
+		return;
+
 	for (priorSlot = -1; (nextSlot = nextSpaceSlot(priorSlot)) >= 0 && nextSlot < slot; priorSlot = nextSlot)
 		;
 

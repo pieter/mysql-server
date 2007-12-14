@@ -546,11 +546,15 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 			{
 			if (earlyWrite)
 				dbb->serialLog->logControl->blobDelete.append(dbb, bdb->pageNumber, line, index->page, index->line);
-				
-			int spaceAvailable = deleteLine(dataBdb, index->line, bdb->pageNumber, transId, locatorPage, line);
-			locatorPage->deleteLine(line, spaceAvailable);
-			ASSERT(index->page == 0 && index->line == 0);
-			VALIDATE_SPACE_SLOTS(locatorPage);
+			
+			if (line < locatorPage->maxLine)
+				{
+				int spaceAvailable = deleteLine(dataBdb, index->line, bdb->pageNumber, transId, locatorPage, line);
+				locatorPage->deleteLine(line, spaceAvailable);
+				ASSERT(index->page == 0 && index->line == 0);
+				VALIDATE_SPACE_SLOTS(locatorPage);
+				}
+
 			bdb->release(REL_HISTORY);
 
 			if (flags & SECTION_FULL)

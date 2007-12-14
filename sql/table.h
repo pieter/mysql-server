@@ -1115,6 +1115,8 @@ struct TABLE_LIST
   /* For transactional locking. */
   int           lock_timeout;           /* NOWAIT or WAIT [X]               */
   bool          lock_transactional;     /* If transactional lock requested. */
+  bool          internal_tmp_table;
+
 
   /* View creation context. */
 

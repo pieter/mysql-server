@@ -1897,13 +1897,18 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
                                 outparam, (open_mode != OTM_OPEN),
                                 share->default_part_db_type,
                                 &work_part_info_used);
-    if (!tmp)
-      outparam->part_info->is_auto_partitioned= share->auto_partitioned;
+    if (tmp)
+    {
+      thd->stmt_arena= backup_stmt_arena_ptr;
+      thd->restore_active_arena(&part_func_arena, &backup_arena);
+      goto partititon_err;
+    }
+    outparam->part_info->is_auto_partitioned= share->auto_partitioned;
     DBUG_PRINT("info", ("autopartitioned: %u", share->auto_partitioned));
     /* we should perform the fix_partition_func in either local or
        caller's arena depending on work_part_info_used value
     */
-    if (!tmp && !work_part_info_used)
+    if (!work_part_info_used)
       tmp= fix_partition_func(thd, outparam, (open_mode != OTM_OPEN));
     thd->stmt_arena= backup_stmt_arena_ptr;
     thd->restore_active_arena(&part_func_arena, &backup_arena);
@@ -1918,6 +1923,7 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
       delete outparam->file;
       outparam->file= 0;
     }
+partititon_err:
     if (tmp)
     {
       if (open_mode == OTM_CREATE)

@@ -2497,9 +2497,12 @@ static int open_ndb_binlog_index(THD *thd, TABLE_LIST *tables,
   thd->clear_error();
   if (open_tables(thd, &tables, &counter, MYSQL_LOCK_IGNORE_FLUSH))
   {
-    sql_print_error("NDB Binlog: Opening ndb_binlog_index: %d, '%s'",
-                    thd->main_da.sql_errno(),
-                    thd->main_da.message());
+    if (thd->killed)
+      sql_print_error("NDB Binlog: Opening ndb_binlog_index: killed");
+    else
+      sql_print_error("NDB Binlog: Opening ndb_binlog_index: %d, '%s'",
+                      thd->main_da.sql_errno(),
+                      thd->main_da.message());
     THD_SET_PROC_INFO(thd, save_proc_info);
     return -1;
   }

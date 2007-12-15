@@ -2767,7 +2767,7 @@ int NfsPluginHandler::callTransactionInfo(THD *thd, TABLE_LIST *tables, COND *co
 
 ST_FIELD_INFO transactionInfoFieldInfo[]=
 {
-	{"DATABASE",		120, MYSQL_TYPE_STRING,		0, 0, "Database", SKIP_OPEN_TABLE},
+	{"STATE",			120, MYSQL_TYPE_STRING,		0, 0, "State", SKIP_OPEN_TABLE},
 	{"THREAD_ID",		4, MYSQL_TYPE_LONG,			0, 0, "Thread Id", SKIP_OPEN_TABLE},
 	{"ID",				4, MYSQL_TYPE_LONG,			0, 0, "Id", SKIP_OPEN_TABLE},
 	{"STATE",			10, MYSQL_TYPE_STRING,		0, 0, "State", SKIP_OPEN_TABLE},
@@ -2815,7 +2815,7 @@ int NfsPluginHandler::callTransactionSummaryInfo(THD *thd, TABLE_LIST *tables, C
 
 ST_FIELD_INFO transactionInfoFieldSummaryInfo[]=
 {
-	{"DATABASE",		120, MYSQL_TYPE_STRING,		0, 0, "Database", SKIP_OPEN_TABLE},
+//	{"DATABASE",		120, MYSQL_TYPE_STRING,		0, 0, "Database", SKIP_OPEN_TABLE},
 	{"COMMITTED",		4, MYSQL_TYPE_LONG,			0, 0, "Committed Transaction.", SKIP_OPEN_TABLE},
 	{"ROLLED_BACK",		4, MYSQL_TYPE_LONG,			0, 0, "Transactions Rolled Back.", SKIP_OPEN_TABLE},
 	{"ACTIVE",   		4, MYSQL_TYPE_LONG,			0, 0, "Active Transactions", SKIP_OPEN_TABLE},
@@ -2859,7 +2859,7 @@ int NfsPluginHandler::callSerialLogInfo(THD *thd, TABLE_LIST *tables, COND *cond
 
 ST_FIELD_INFO serialSerialLogFieldInfo[]=
 {
-	{"DATABASE",		120, MYSQL_TYPE_STRING,		0, 0, "Database", SKIP_OPEN_TABLE},
+//	{"DATABASE",		120, MYSQL_TYPE_STRING,		0, 0, "Database", SKIP_OPEN_TABLE},
 	{"TRANSACTIONS",	4, MYSQL_TYPE_LONG,			0, 0, "Transactions", SKIP_OPEN_TABLE},
 	{"BLOCKS",			8, MYSQL_TYPE_LONGLONG,		0, 0, "Blocks", SKIP_OPEN_TABLE},
 	{"WINDOWS",			4, MYSQL_TYPE_LONG,			0, 0, "Windows", SKIP_OPEN_TABLE},

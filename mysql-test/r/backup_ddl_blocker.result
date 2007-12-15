@@ -631,7 +631,7 @@ CREATE DATABASE bup_ddl_blocker_2;
 CREATE DATABASE bup_ddl_blocker_4;
 con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
 con1: Loading data
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
@@ -735,7 +735,7 @@ CREATE DATABASE bup_ddl_blocker_2;
 CREATE DATABASE bup_ddl_blocker_4;
 con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
 con1: Loading data
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
@@ -826,7 +826,7 @@ CREATE DATABASE bup_ddl_blocker_2 CHARACTER SET latin1;
 CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
 con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
 con1: Loading data
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
@@ -959,7 +959,7 @@ CREATE DATABASE bup_ddl_blocker_2 CHARACTER SET latin1;
 CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
 con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
 con1: Loading data
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("02 Some data to test");
@@ -1062,7 +1062,7 @@ DROP TABLE IF EXISTS test.t2;
 DROP TABLE IF EXISTS bup_ddl_blocker.t1, bup_ddl_blocker.t3;
 con1: Creating tables
 CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE test.t2 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE test.t2 (col_a CHAR(40)) ENGINE=MYISAM;
 CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=MEMORY;
 con1: Loading data
 INSERT INTO bup_ddl_blocker.t1 VALUES ("01 Some data to test");

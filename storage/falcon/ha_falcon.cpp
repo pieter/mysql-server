@@ -2360,6 +2360,11 @@ void StorageInterface::decodeRecord(uchar *buf)
 				case MYSQL_TYPE_TIMESTAMP:
 					{
 					int value = (int) (dataStream->value.integer64 / 1000);
+#ifdef _BIG_ENDIAN
+					if (table->s->db_low_byte_first)
+					int4store(field->ptr, value);
+					else
+#endif
 					longstore(field->ptr, value);
 					}
 					break;

@@ -10,6 +10,8 @@ AC_CACHE_CHECK([if Falcon Storage Engine is supported on $MACHINE_TYPE],
   case "$BASE_MACHINE_TYPE" in
     i386)   falcon_supported_by_machine="yes" ;;
     x86_64) falcon_supported_by_machine="yes" ;;
+    powerpc)falcon_supported_by_machine="yes" ;;
+    sparc)  falcon_supported_by_machine="yes" ;;
     *) falcon_supported_by_machine="no" ;;
   esac
 ])

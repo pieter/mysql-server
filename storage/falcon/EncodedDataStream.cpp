@@ -571,8 +571,13 @@ const UCHAR* EncodedDataStream::decode(const UCHAR *ptr, Value *value, bool copy
 			u.d = 0;
 			int count = code - edsDoubleLen0;
 
+#ifdef _BIG_ENDIAN
+			for (int n = 0; n < count; ++n)
+				u.chars[n] = *p++;
+#else
 			for (int n = 0; n < count; ++n)
 				u.chars[7 - n] = *p++;
+#endif
 
 			value->setValue(u.d);
 			}
@@ -993,8 +998,13 @@ DataStreamType EncodedDataStream::decode()
 			u.d = 0;
 			int count = code - edsDoubleLen0;
 
+#ifdef _BIG_ENDIAN
+			for (int n = 0; n < count; ++n)
+				u.chars[n] = *ptr++;
+#else
 			for (int n = 0; n < count; ++n)
 				u.chars[7 - n] = *ptr++;
+#endif
 
 			value.dbl = u.d;
 			type = edsTypeDouble;
@@ -1262,6 +1272,17 @@ void EncodedDataStream::encodeDouble(double dbl)
 		
 	u.d = (dbl == 0 ? 0 : dbl);
 		
+#ifdef _BIG_ENDIAN
+	int count = 8;
+
+	while (count && u.chars[count - 1] == 0)
+		count--;
+
+	stream->putCharacter(edsDoubleLen0 + count);
+
+	for (int n = 0; n < count; n++)
+		stream->putCharacter(u.chars[n]);
+#else
 	int count = 0;
 
 	while (count < 8 && u.chars[count] == 0)
@@ -1271,6 +1292,7 @@ void EncodedDataStream::encodeDouble(double dbl)
 
 	for (int n = 7; n >= count; --n)
 		stream->putCharacter(u.chars[n]);
+#endif
 }
 
 void EncodedDataStream::encodeAsciiBlob(int32 blobId)

@@ -42,3 +42,5 @@ SELECT @@GLOBAL.falcon_record_memory_max;
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.global_variables
   WHERE variable_name LIKE 'falcon%';
+
+--real_sleep=10

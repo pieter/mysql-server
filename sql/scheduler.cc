@@ -607,7 +607,6 @@ pthread_handler_t libevent_thread_proc(void *arg)
     do
     {
       /* Process a query */
-      thd->net.no_send_error= 0;
       if (do_command(thd))
       {
         libevent_connection_close(thd);

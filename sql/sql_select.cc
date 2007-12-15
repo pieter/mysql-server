@@ -1446,7 +1446,6 @@ JOIN::optimize()
       }
       if (res > 1)
       {
-        thd->fatal_error();
         error= res;
         DBUG_PRINT("error",("Error from opt_sum_query"));
 	DBUG_RETURN(1);
@@ -2879,7 +2878,6 @@ mysql_select(THD *thd, Item ***rref_pointer_array,
   if (join->flatten_subqueries())
   {
     err= 1;
-    thd->net.report_error= 1;
     goto err;
   }
   /* dump_TABLE_LIST_struct(select_lex, select_lex->leaf_tables); */
@@ -3998,10 +3996,7 @@ make_join_statistics(JOIN *join, TABLE_LIST *tables, COND *conds,
   }
 
   if (pull_out_semijoin_tables(join))
-  {
-    join->thd->net.report_error= 1;
     DBUG_RETURN(TRUE);
-  }
 
   /* Calc how many (possible) matched records in each table */
 
@@ -17181,6 +17176,7 @@ calc_group_buffer(JOIN *join,ORDER *group)
       default:
         /* This case should never be choosen */
         DBUG_ASSERT(0);
+        my_error(ER_OUT_OF_RESOURCES, MYF(0));
         join->thd->fatal_error();
       }
     }

@@ -2,6 +2,8 @@
 
 SHOW VARIABLES LIKE 'falcon_%';
 
+--real_sleep=10
+
 # Test that these server variables are READ ONLY.
 
 SELECT @@GLOBAL.falcon_debug_server;

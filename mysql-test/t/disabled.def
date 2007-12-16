@@ -26,3 +26,4 @@ subselect_sj         : Bug#32994: subselect_sj fails sporadically (timeout)
 ctype_create         : Bug#32965 main.ctype_create fails
 status               : Bug#32966 main.status fails
 ps_ddl               : Bug#12093 2007-12-14 pending WL#4165 / WL#4166
+user_limits          : Bug#23921 2007-12-16 random failure of user_limits.test

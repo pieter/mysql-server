@@ -49,4 +49,4 @@ falcon_bug_27951      : Bug#32731 falcon_bug_27951 fails randomly
 ps_8falcon	    : Bug #32683  	Test ps_8falcon fails in 6.0
 #falcon_bug_22173a    : Bug#32963: falcon_bug_22173a fails
 #falcon_read-committed: Bug#32992: falcon_read-committed.test causes a server crash occasionally
-#falcon_ts            : Bug#32993: falcon_ts.test fails sporadically
+falcon_ts            : Bug#32993: falcon_ts.test fails sporadically

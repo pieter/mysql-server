@@ -437,14 +437,12 @@ template<> inline word32 rotrFixed(word32 x, word32 y)
 
 #endif // INTEL_INTRINSICS
 
-#ifdef min
-#undef min
-#endif 
-
+#ifndef min
 inline word32 min(word32 a, word32 b)
 {
     return a < b ? a : b;
 }
+#endif
 
 
 inline word32 ByteReverse(word32 value)

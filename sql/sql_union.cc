@@ -501,10 +501,8 @@ bool st_select_lex_unit::exec()
 
         /* dump_TABLE_LIST_struct(select_lex, select_lex->leaf_tables); */
         if (sl->join->flatten_subqueries())
-        {
-          thd->net.report_error= 1;
           DBUG_RETURN(TRUE);
-        }
+
         /* dump_TABLE_LIST_struct(select_lex, select_lex->leaf_tables); */
 	saved_error= sl->join->optimize();
       }

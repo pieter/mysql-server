@@ -1023,18 +1023,23 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
       next_chunk+= 2 + share->comment.length;
     }
     DBUG_ASSERT (next_chunk <= buff_end);
-    if (share->mysql_version >= MYSQL_VERSION_TABLESPACE_IN_FRM)
+    if (share->mysql_version >= MYSQL_VERSION_TABLESPACE_IN_FRM_CGE)
     {
       /*
-       New frm format in mysql_version 5.2.5
+       New frm format in mysql_version 5.2.5 (originally in
+       mysql-5.1.22-ndb-6.2.5)
        New column properties added:
        COLUMN_FORMAT DYNAMIC|FIXED and STORAGE DISK|MEMORY
        TABLESPACE name is now stored in frm
       */
       if (next_chunk >= buff_end)
       {
-        DBUG_PRINT("error", ("Found no field extra info"));
-        goto err;
+        if (share->mysql_version >= MYSQL_VERSION_TABLESPACE_IN_FRM)
+        {
+          DBUG_PRINT("error", ("Found no field extra info"));
+          goto err;
+        }
+        DBUG_PRINT("info", ("Found no field extra info"));
       }
       else
       {
@@ -1892,13 +1897,18 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
                                 outparam, (open_mode != OTM_OPEN),
                                 share->default_part_db_type,
                                 &work_part_info_used);
-    if (!tmp)
-      outparam->part_info->is_auto_partitioned= share->auto_partitioned;
+    if (tmp)
+    {
+      thd->stmt_arena= backup_stmt_arena_ptr;
+      thd->restore_active_arena(&part_func_arena, &backup_arena);
+      goto partititon_err;
+    }
+    outparam->part_info->is_auto_partitioned= share->auto_partitioned;
     DBUG_PRINT("info", ("autopartitioned: %u", share->auto_partitioned));
     /* we should perform the fix_partition_func in either local or
        caller's arena depending on work_part_info_used value
     */
-    if (!tmp && !work_part_info_used)
+    if (!work_part_info_used)
       tmp= fix_partition_func(thd, outparam, (open_mode != OTM_OPEN));
     thd->stmt_arena= backup_stmt_arena_ptr;
     thd->restore_active_arena(&part_func_arena, &backup_arena);
@@ -1913,6 +1923,7 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
       delete outparam->file;
       outparam->file= 0;
     }
+partititon_err:
     if (tmp)
     {
       if (open_mode == OTM_CREATE)
@@ -3355,31 +3366,32 @@ bool TABLE_LIST::prep_check_option(THD *thd, uint8 check_opt_type)
 }
 
 
-/*
+/**
   Hide errors which show view underlying table information
 
-  SYNOPSIS
-    TABLE_LIST::hide_view_error()
-    thd     thread handler
+  @param[in,out]  thd     thread handler
 
+  @pre This method can be called only if there is an error.
 */
 
 void TABLE_LIST::hide_view_error(THD *thd)
 {
   /* Hide "Unknown column" or "Unknown function" error */
-  if (thd->net.last_errno == ER_BAD_FIELD_ERROR ||
-      thd->net.last_errno == ER_SP_DOES_NOT_EXIST ||
-      thd->net.last_errno == ER_PROCACCESS_DENIED_ERROR ||
-      thd->net.last_errno == ER_COLUMNACCESS_DENIED_ERROR ||
-      thd->net.last_errno == ER_TABLEACCESS_DENIED_ERROR ||
-      thd->net.last_errno == ER_TABLE_NOT_LOCKED ||
-      thd->net.last_errno == ER_NO_SUCH_TABLE)
+  DBUG_ASSERT(thd->is_error());
+
+  if (thd->main_da.sql_errno() == ER_BAD_FIELD_ERROR ||
+      thd->main_da.sql_errno() == ER_SP_DOES_NOT_EXIST ||
+      thd->main_da.sql_errno() == ER_PROCACCESS_DENIED_ERROR ||
+      thd->main_da.sql_errno() == ER_COLUMNACCESS_DENIED_ERROR ||
+      thd->main_da.sql_errno() == ER_TABLEACCESS_DENIED_ERROR ||
+      thd->main_da.sql_errno() == ER_TABLE_NOT_LOCKED ||
+      thd->main_da.sql_errno() == ER_NO_SUCH_TABLE)
   {
     TABLE_LIST *top= top_table();
-    thd->clear_error(); 
+    thd->clear_error();
     my_error(ER_VIEW_INVALID, MYF(0), top->view_db.str, top->view_name.str);
   }
-  else if (thd->net.last_errno == ER_NO_DEFAULT_FOR_FIELD)
+  else if (thd->main_da.sql_errno() == ER_NO_DEFAULT_FOR_FIELD)
   {
     TABLE_LIST *top= top_table();
     thd->clear_error();

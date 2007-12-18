@@ -561,9 +561,10 @@ my_bool handle_local_infile(MYSQL *mysql, const char *net_filename)
     VOID(my_net_write(net,(const uchar*) "",0)); /* Server needs one packet */
     net_flush(net);
     strmov(net->sqlstate, unknown_sqlstate);
-    net->last_errno= (*options->local_infile_error)(li_ptr,
-						    net->last_error,
-						    sizeof(net->last_error)-1);
+    net->client_last_errno=
+      (*options->local_infile_error)(li_ptr,
+                                     net->client_last_error,
+                                     sizeof(net->client_last_error)-1);
     goto err;
   }
 
@@ -590,9 +591,10 @@ my_bool handle_local_infile(MYSQL *mysql, const char *net_filename)
 
   if (readcount < 0)
   {
-    net->last_errno= (*options->local_infile_error)(li_ptr,
-						    net->last_error,
-						    sizeof(net->last_error)-1);
+    net->client_last_errno=
+      (*options->local_infile_error)(li_ptr,
+                                     net->client_last_error,
+                                     sizeof(net->client_last_error)-1);
     goto err;
   }
 
@@ -1024,7 +1026,7 @@ const char *cli_read_statistics(MYSQL *mysql)
   if (!mysql->net.read_pos[0])
   {
     set_mysql_error(mysql, CR_WRONG_HOST_INFO, unknown_sqlstate);
-    return mysql->net.last_error;
+    return mysql->net.client_last_error;
   }
   return (char*) mysql->net.read_pos;
 }
@@ -1035,7 +1037,7 @@ mysql_stat(MYSQL *mysql)
 {
   DBUG_ENTER("mysql_stat");
   if (simple_command(mysql,COM_STATISTICS,0,0,0))
-    DBUG_RETURN(mysql->net.last_error);
+    DBUG_RETURN(mysql->net.client_last_error);
   DBUG_RETURN((*mysql->methods->read_statistics)(mysql));
 }
 
@@ -1400,7 +1402,7 @@ static my_bool my_realloc_str(NET *net, ulong length)
     if (res)
     {
       strmov(net->sqlstate, unknown_sqlstate);
-      strmov(net->last_error, ER(net->last_errno));
+      strmov(net->client_last_error, ER(net->client_last_errno));
     }
     net->write_pos= net->buff+ buf_length;
   }
@@ -1451,13 +1453,15 @@ void set_stmt_error(MYSQL_STMT * stmt, int errcode,
 void set_stmt_errmsg(MYSQL_STMT *stmt, NET *net)
 {
   DBUG_ENTER("set_stmt_errmsg");
-  DBUG_PRINT("enter", ("error: %d/%s '%s'", net->last_errno, net->sqlstate,
-                       net->last_error));
+  DBUG_PRINT("enter", ("error: %d/%s '%s'",
+                       net->client_last_errno,
+                       net->sqlstate,
+                       net->client_last_error));
   DBUG_ASSERT(stmt != 0);
 
-  stmt->last_errno= net->last_errno;
-  if (net->last_error && net->last_error[0])
-    strmov(stmt->last_error, net->last_error);
+  stmt->last_errno= net->client_last_errno;
+  if (net->client_last_error && net->client_last_error[0])
+    strmov(stmt->last_error, net->client_last_error);
   strmov(stmt->sqlstate, net->sqlstate);
 
   DBUG_VOID_RETURN;

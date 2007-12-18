@@ -134,6 +134,7 @@ static int terminate_slave_thread(THD *thd,
                                   pthread_cond_t* term_cond,
                                   volatile uint *slave_running,
                                   bool skip_lock);
+static bool check_io_slave_killed(THD *thd, Master_info *mi, const char *info);
 
 /*
   Find out which replications threads are running
@@ -815,7 +816,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     mi->clock_diff_with_master=
       (long) (time((time_t*) 0) - strtoul(master_row[0], 0, 10));
   }
-  else
+  else if (!check_io_slave_killed(mi->io_thd, mi, NULL))
   {
     mi->clock_diff_with_master= 0; /* The "most sensible" value */
     sql_print_warning("\"SELECT UNIX_TIMESTAMP()\" failed on master, "
@@ -1036,7 +1037,7 @@ int register_slave_on_master(MYSQL* mysql, Master_info *mi,
     {
       *suppress_warnings= TRUE;                 // Suppress reconnect warning
     }
-    else
+    else if (!check_io_slave_killed(mi->io_thd, mi, NULL))
     {
       char buf[256];
       my_snprintf(buf, sizeof(buf), "%s (Errno: %d)", mysql_error(mysql), 
@@ -1497,26 +1498,31 @@ static int has_temporary_error(THD *thd)
   DBUG_ENTER("has_temporary_error");
 
   if (thd->is_fatal_error)
-  {
-    DBUG_PRINT("info", ("thd->net.last_errno: %s", ER(thd->net.last_errno)));
     DBUG_RETURN(0);
-  }
 
   DBUG_EXECUTE_IF("all_errors_are_temporary_errors",
-                  if (thd->net.last_errno)
-                    thd->net.last_errno= ER_LOCK_DEADLOCK;);
+                  if (thd->main_da.is_error())
+                  {
+                    thd->clear_error();
+                    my_error(ER_LOCK_DEADLOCK, MYF(0));
+                  });
+
+  /*
+    If there is no message in THD, we can't say if it's a temporary
+    error or not. This is currently the case for Incident_log_event,
+    which sets no message. Return FALSE.
+  */
+  if (!thd->is_error())
+    DBUG_RETURN(0);
 
   /*
     Temporary error codes:
     currently, InnoDB deadlock detected by InnoDB or lock
     wait timeout (innodb_lock_wait_timeout exceeded
   */
-  if (thd->net.last_errno == ER_LOCK_DEADLOCK ||
-      thd->net.last_errno == ER_LOCK_WAIT_TIMEOUT)
-  {
-    DBUG_PRINT("info", ("thd->net.last_errno: %s", ER(thd->net.last_errno)));
+  if (thd->main_da.sql_errno() == ER_LOCK_DEADLOCK ||
+      thd->main_da.sql_errno() == ER_LOCK_WAIT_TIMEOUT)
     DBUG_RETURN(1);
-  }
 
 #ifdef HAVE_NDB_BINLOG
   /*
@@ -1782,7 +1788,7 @@ static bool check_io_slave_killed(THD *thd, Master_info *mi, const char *info)
 {
   if (io_slave_killed(thd, mi))
   {
-    if (global_system_variables.log_warnings)
+    if (info && global_system_variables.log_warnings)
       sql_print_information(info);
     return TRUE;
   }
@@ -1967,11 +1973,15 @@ connected:
     THD_SET_PROC_INFO(thd, "Registering slave on master");
     if (register_slave_on_master(mysql, mi, &suppress_warnings))
     {
-      sql_print_error("Slave I/O thread couldn't register on master");
-      if (check_io_slave_killed(thd, mi, "Slave I/O thread killed while \
-registering slave on master") ||
-          try_to_reconnect(thd, mysql, mi, &retry_count, suppress_warnings,
-                           reconnect_messages[SLAVE_RECON_ACT_REG]))
+      if (!check_io_slave_killed(thd, mi, "Slave I/O thread killed "
+                                "while registering slave on master"))
+      {
+        sql_print_error("Slave I/O thread couldn't register on master");
+        if (try_to_reconnect(thd, mysql, mi, &retry_count, suppress_warnings,
+                             reconnect_messages[SLAVE_RECON_ACT_REG]))
+          goto err;
+      }
+      else
         goto err;
       goto connected;
     }
@@ -2327,20 +2337,21 @@ Slave SQL thread aborted. Can't execute init_slave query");
         */
         uint32 const last_errno= rli->last_error().number;
 
-        DBUG_PRINT("info", ("thd->net.last_errno=%d; rli->last_error.number=%d",
-                            thd->net.last_errno, last_errno));
-        if (thd->net.last_errno != 0)
+        if (thd->is_error())
         {
-          char const *const errmsg=
-            thd->net.last_error ? thd->net.last_error : "<no message>";
+          char const *const errmsg= thd->main_da.message();
+
+          DBUG_PRINT("info",
+                     ("thd->main_da.sql_errno()=%d; rli->last_error.number=%d",
+                      thd->main_da.sql_errno(), last_errno));
           if (last_errno == 0)
           {
-            rli->report(ERROR_LEVEL, thd->net.last_errno, errmsg);
+            rli->report(ERROR_LEVEL, thd->main_da.sql_errno(), errmsg);
           }
-          else if (last_errno != thd->net.last_errno)
+          else if (last_errno != thd->main_da.sql_errno())
           {
             sql_print_error("Slave (additional info): %s Error_code: %d",
-                            errmsg, thd->net.last_errno);
+                            errmsg, thd->main_da.sql_errno());
           }
         }
 

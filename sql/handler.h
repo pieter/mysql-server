@@ -1210,32 +1210,12 @@ class handler :public Sql_alloc
 
 public:
   typedef ulonglong Table_flags;
-
- protected:
+protected:
   struct st_table_share *table_share;   /* The table definition */
   struct st_table *table;               /* The current open table */
   Table_flags cached_table_flags;       /* Set on init() and open() */
 
-  virtual int index_init(uint idx, bool sorted) { active_index=idx; return 0; }
-  virtual int index_end() { active_index=MAX_KEY; return 0; }
-  /**
-    rnd_init() can be called two times without rnd_end() in between
-    (it only makes sense if scan=1).
-    then the second call should prepare for the new table scan (e.g
-    if rnd_init allocates the cursor, second call should position it
-    to the start of the table, no need to deallocate and allocate it again
-  */
-  virtual int rnd_init(bool scan) =0;
-  virtual int rnd_end() { return 0; }
-  virtual Table_flags table_flags(void) const =0;
-
-  void ha_statistic_increment(ulong SSV::*offset) const;
-  void **ha_data(THD *) const;
-  THD *ha_thd(void) const;
-
   ha_rows estimation_rows_to_insert;
-  virtual void start_bulk_insert(ha_rows rows) {}
-  virtual int end_bulk_insert() {return 0; }
 public:
   handlerton *ht;                 /* storage engine of this handler */
   uchar *ref;				/* Pointer to current row */
@@ -1325,7 +1305,74 @@ public:
   {
     cached_table_flags= table_flags();
   }
+  /* ha_ methods: pubilc wrappers for private virtual API */
+
   int ha_open(TABLE *table, const char *name, int mode, int test_if_locked);
+  int ha_index_init(uint idx, bool sorted)
+  {
+    int result;
+    DBUG_ENTER("ha_index_init");
+    DBUG_ASSERT(inited==NONE);
+    if (!(result= index_init(idx, sorted)))
+      inited=INDEX;
+    DBUG_RETURN(result);
+  }
+  int ha_index_end()
+  {
+    DBUG_ENTER("ha_index_end");
+    DBUG_ASSERT(inited==INDEX);
+    inited=NONE;
+    DBUG_RETURN(index_end());
+  }
+  int ha_rnd_init(bool scan)
+  {
+    int result;
+    DBUG_ENTER("ha_rnd_init");
+    DBUG_ASSERT(inited==NONE || (inited==RND && scan));
+    inited= (result= rnd_init(scan)) ? NONE: RND;
+    DBUG_RETURN(result);
+  }
+  int ha_rnd_end()
+  {
+    DBUG_ENTER("ha_rnd_end");
+    DBUG_ASSERT(inited==RND);
+    inited=NONE;
+    DBUG_RETURN(rnd_end());
+  }
+  int ha_reset();
+  /* this is necessary in many places, e.g. in HANDLER command */
+  int ha_index_or_rnd_end()
+  {
+    return inited == INDEX ? ha_index_end() : inited == RND ? ha_rnd_end() : 0;
+  }
+  Table_flags ha_table_flags() const { return cached_table_flags; }
+  /**
+    These functions represent the public interface to *users* of the
+    handler class, hence they are *not* virtual. For the inheritance
+    interface, see the (private) functions write_row(), update_row(),
+    and delete_row() below.
+  */
+  int ha_external_lock(THD *thd, int lock_type);
+  int ha_write_row(uchar * buf);
+  int ha_update_row(const uchar * old_data, uchar * new_data);
+  int ha_delete_row(const uchar * buf);
+  void ha_release_auto_increment();
+
+  int ha_check_for_upgrade(HA_CHECK_OPT *check_opt);
+  /** to be actually called to get 'check()' functionality*/
+  int ha_check(THD *thd, HA_CHECK_OPT *check_opt);
+  int ha_repair(THD* thd, HA_CHECK_OPT* check_opt);
+  void ha_start_bulk_insert(ha_rows rows)
+  {
+    estimation_rows_to_insert= rows;
+    start_bulk_insert(rows);
+  }
+  int ha_end_bulk_insert()
+  {
+    estimation_rows_to_insert= 0;
+    return end_bulk_insert();
+  }
+
   void adjust_next_insert_id_after_explicit_value(ulonglong nr);
   int update_auto_increment();
   void print_keydup_error(uint key_nr, const char *msg);
@@ -1404,45 +1451,6 @@ public:
 
   virtual const char *index_type(uint key_number) { DBUG_ASSERT(0); return "";}
 
-  int ha_index_init(uint idx, bool sorted)
-  {
-    int result;
-    DBUG_ENTER("ha_index_init");
-    DBUG_ASSERT(inited==NONE);
-    if (!(result= index_init(idx, sorted)))
-      inited=INDEX;
-    DBUG_RETURN(result);
-  }
-  int ha_index_end()
-  {
-    DBUG_ENTER("ha_index_end");
-    DBUG_ASSERT(inited==INDEX);
-    inited=NONE;
-    DBUG_RETURN(index_end());
-  }
-  int ha_rnd_init(bool scan)
-  {
-    int result;
-    DBUG_ENTER("ha_rnd_init");
-    DBUG_ASSERT(inited==NONE || (inited==RND && scan));
-    inited= (result= rnd_init(scan)) ? NONE: RND;
-    DBUG_RETURN(result);
-  }
-  int ha_rnd_end()
-  {
-    DBUG_ENTER("ha_rnd_end");
-    DBUG_ASSERT(inited==RND);
-    inited=NONE;
-    DBUG_RETURN(rnd_end());
-  }
-  int ha_reset();
-
-  /* this is necessary in many places, e.g. in HANDLER command */
-  int ha_index_or_rnd_end()
-  {
-    return inited == INDEX ? ha_index_end() : inited == RND ? ha_rnd_end() : 0;
-  }
-  Table_flags ha_table_flags() const { return cached_table_flags; }
 
   /**
     Signal that the table->read_set and table->write_set table maps changed
@@ -1453,19 +1461,7 @@ public:
   */
   virtual void column_bitmaps_signal();
   uint get_index(void) const { return active_index; }
-  virtual int open(const char *name, int mode, uint test_if_locked)=0;
   virtual int close(void)=0;
-
-  /**
-    These functions represent the public interface to *users* of the
-    handler class, hence they are *not* virtual. For the inheritance
-    interface, see the (private) functions write_row(), update_row(),
-    and delete_row() below.
-   */
-  int ha_external_lock(THD *thd, int lock_type);
-  int ha_write_row(uchar * buf);
-  int ha_update_row(const uchar * old_data, uchar * new_data);
-  int ha_delete_row(const uchar * buf);
 
   /**
     @retval  0   Bulk update used by handler
@@ -1528,11 +1524,6 @@ public:
     DBUG_ASSERT(FALSE);
     return HA_ERR_WRONG_COMMAND;
   }
-private:
-  virtual int index_read(uchar * buf, const uchar * key, uint key_len,
-                         enum ha_rkey_function find_flag)
-   { return  HA_ERR_WRONG_COMMAND; }
-public:
   /**
      @brief
      Positions an index cursor to the index specified in the handle. Fetches the
@@ -1564,10 +1555,6 @@ public:
   virtual int index_last(uchar * buf)
    { return  HA_ERR_WRONG_COMMAND; }
   virtual int index_next_same(uchar *buf, const uchar *key, uint keylen);
-  private:
-  virtual int index_read_last(uchar * buf, const uchar * key, uint key_len)
-   { return (my_errno=HA_ERR_WRONG_COMMAND); }
-public:
   /**
      @brief
      The following functions works like index_read, but it find the last
@@ -1621,12 +1608,6 @@ public:
   { return extra(operation); }
 
   /**
-    Reset state of file to after 'open'.
-    This function is called after every statement for all tables used
-    by that statement.
-  */
-  virtual int reset() { return 0; }
-  /**
     In an UPDATE or DELETE, if the row under the cursor was locked by another
     transaction, and the engine used an optimistic read of the last
     committed row value under the cursor, then the engine returns 1 from this
@@ -1660,10 +1641,6 @@ public:
                                   ulonglong nb_desired_values,
                                   ulonglong *first_value,
                                   ulonglong *nb_reserved_values);
-private:
-  virtual void release_auto_increment() { return; };
-public:
-  void ha_release_auto_increment();
   void set_next_insert_id(ulonglong id)
   {
     DBUG_PRINT("info",("auto_increment: next value %lu", (ulong)id));
@@ -1694,30 +1671,7 @@ public:
   { return HA_ERR_WRONG_COMMAND; }
 
   virtual void update_create_info(HA_CREATE_INFO *create_info) {}
-protected:
-  /* to be implemented in handlers */
-
-  /** admin commands - called from mysql_admin_table */
-  virtual int check(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
-
-  /**
-     In these two methods check_opt can be modified
-     to specify CHECK option to use to call check()
-     upon the table.
-  */
-  virtual int check_for_upgrade(HA_CHECK_OPT *check_opt)
-  { return 0; }
-public:
-  int ha_check_for_upgrade(HA_CHECK_OPT *check_opt);
   int check_old_types();
-  /** to be actually called to get 'check()' functionality*/
-  int ha_check(THD *thd, HA_CHECK_OPT *check_opt);
-protected:
-  virtual int repair(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
-public:
-  int ha_repair(THD* thd, HA_CHECK_OPT* check_opt);
   virtual int optimize(THD* thd, HA_CHECK_OPT* check_opt)
   { return HA_ADMIN_NOT_IMPLEMENTED; }
   virtual int analyze(THD* thd, HA_CHECK_OPT* check_opt)
@@ -1732,16 +1686,6 @@ public:
   virtual int disable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int enable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int indexes_are_disabled(void) {return 0;}
-  void ha_start_bulk_insert(ha_rows rows)
-  {
-    estimation_rows_to_insert= rows;
-    start_bulk_insert(rows);
-  }
-  int ha_end_bulk_insert()
-  {
-    estimation_rows_to_insert= 0;
-    return end_bulk_insert();
-  }
   virtual int discard_or_import_tablespace(my_bool discard)
   {return HA_ERR_WRONG_COMMAND;}
   virtual char *update_table_comment(const char * comment)
@@ -2112,31 +2056,29 @@ public:
   */
   virtual void use_hidden_primary_key();
 
-  /*
+  /**
     Lock table.
 
-    SYNOPSIS
-      handler::lock_table()
-        thd                     Thread handle
-        lock_type               HA_LOCK_IN_SHARE_MODE     (F_RDLCK)
-                                HA_LOCK_IN_EXCLUSIVE_MODE (F_WRLCK)
-        lock_timeout            -1 default timeout
-                                0  no wait
-                                >0 wait timeout in milliseconds.
+    @param    thd                     Thread handle
+    @param    lock_type               HA_LOCK_IN_SHARE_MODE     (F_RDLCK)
+                                      HA_LOCK_IN_EXCLUSIVE_MODE (F_WRLCK)
+    @param    lock_timeout            -1 default timeout
+                                      0  no wait
+                                      >0 wait timeout in milliseconds.
 
-    NOTE
+   @note
       lock_timeout >0 is not used by MySQL currently. If the storage
       engine does not support NOWAIT (lock_timeout == 0) it should
       return an error. But if it does not support WAIT X (lock_timeout
       >0) it should treat it as lock_timeout == -1 and wait a default
       (or even hard-coded) timeout.
 
-    RETURN
-      HA_ERR_WRONG_COMMAND      Storage engine does not support lock_table()
-      HA_ERR_UNSUPPORTED        Storage engine does not support NOWAIT
-      HA_ERR_LOCK_WAIT_TIMEOUT  Lock request timed out or
-                                lock conflict with NOWAIT option
-      HA_ERR_LOCK_DEADLOCK      Deadlock detected
+    @retval HA_ERR_WRONG_COMMAND      Storage engine does not support
+                                      lock_table()
+    @retval HA_ERR_UNSUPPORTED        Storage engine does not support NOWAIT
+    @retval HA_ERR_LOCK_WAIT_TIMEOUT  Lock request timed out or
+                                      lock conflict with NOWAIT option
+    @retval HA_ERR_LOCK_DEADLOCK      Deadlock detected
   */
   virtual int lock_table(THD *thd         __attribute__((unused)),
                          int lock_type    __attribute__((unused)),
@@ -2146,13 +2088,37 @@ public:
   }
 
   virtual void add_explain_extra_info(uint keyno, String *extra) {}
+protected:
+  /* Service methods for use by storage engines. */
+  void ha_statistic_increment(ulong SSV::*offset) const;
+  void **ha_data(THD *) const;
+  THD *ha_thd(void) const;
 private:
   /*
-    Row-level primitives for storage engines.  These should be
+    Low-level primitives for storage engines.  These should be
     overridden by the storage engine class. To call these methods, use
     the corresponding 'ha_*' method above.
   */
 
+  virtual int open(const char *name, int mode, uint test_if_locked)=0;
+  virtual int index_init(uint idx, bool sorted) { active_index= idx; return 0; }
+  virtual int index_end() { active_index= MAX_KEY; return 0; }
+  /**
+    rnd_init() can be called two times without rnd_end() in between
+    (it only makes sense if scan=1).
+    then the second call should prepare for the new table scan (e.g
+    if rnd_init allocates the cursor, second call should position it
+    to the start of the table, no need to deallocate and allocate it again
+  */
+  virtual int rnd_init(bool scan)= 0;
+  virtual int rnd_end() { return 0; }
+  /**
+    Reset state of file to after 'open'.
+    This function is called after every statement for all tables used
+    by that statement.
+  */
+  virtual int reset() { return 0; }
+  virtual Table_flags table_flags(void) const= 0;
   /**
     Is not invoked for non-transactional temporary tables.
 
@@ -2180,7 +2146,29 @@ private:
   {
     return 0;
   }
+  virtual void release_auto_increment() { return; };
+  /** admin commands - called from mysql_admin_table */
+  virtual int check_for_upgrade(HA_CHECK_OPT *check_opt)
+  { return 0; }
+  virtual int check(THD* thd, HA_CHECK_OPT* check_opt)
+  { return HA_ADMIN_NOT_IMPLEMENTED; }
+
+  /**
+     In this method check_opt can be modified
+     to specify CHECK option to use to call check()
+     upon the table.
+  */
+  virtual int repair(THD* thd, HA_CHECK_OPT* check_opt)
+  { return HA_ADMIN_NOT_IMPLEMENTED; }
+  virtual void start_bulk_insert(ha_rows rows) {}
+  virtual int end_bulk_insert() { return 0; }
+  virtual int index_read(uchar * buf, const uchar * key, uint key_len,
+                         enum ha_rkey_function find_flag)
+   { return  HA_ERR_WRONG_COMMAND; }
+  virtual int index_read_last(uchar * buf, const uchar * key, uint key_len)
+   { return (my_errno= HA_ERR_WRONG_COMMAND); }
 };
+
 
 
 /*

@@ -241,10 +241,11 @@ String *Item_func_sha2::val_str(String *str)
     break;
 #endif
   default:
-    push_warning_printf(current_thd,
-      MYSQL_ERROR::WARN_LEVEL_ERROR,
-      ER_WRONG_PARAMETERS_TO_PROCEDURE,
-      ER(ER_WRONG_PARAMETERS_TO_PROCEDURE), "sha2");
+    if (!args[1]->const_item())
+      push_warning_printf(current_thd,
+        MYSQL_ERROR::WARN_LEVEL_ERROR,
+        ER_WRONG_PARAMETERS_TO_NATIVE_FCT,
+        ER(ER_WRONG_PARAMETERS_TO_NATIVE_FCT), "sha2");
     null_value= TRUE;
     return NULL;
   }
@@ -284,8 +285,10 @@ void Item_func_sha2::fix_length_and_dec()
   maybe_null = 1;
   max_length = 0;
 
+  int sha_variant= args[1]->const_item() ? args[1]->val_int() : 512;
+
 #if defined(HAVE_OPENSSL)
-  switch ((uint) args[1]->val_int()) {
+  switch (sha_variant) {
 #ifndef OPENSSL_NO_SHA512
   case 512:
     max_length= SHA512_DIGEST_LENGTH*2;
@@ -306,8 +309,8 @@ void Item_func_sha2::fix_length_and_dec()
   default:
     push_warning_printf(current_thd,
       MYSQL_ERROR::WARN_LEVEL_ERROR,
-      ER_WRONG_PARAMETERS_TO_PROCEDURE,
-      ER(ER_WRONG_PARAMETERS_TO_PROCEDURE), "sha2");
+      ER_WRONG_PARAMETERS_TO_NATIVE_FCT,
+      ER(ER_WRONG_PARAMETERS_TO_NATIVE_FCT), "sha2");
   }
 
   /*
@@ -580,7 +583,7 @@ String *Item_func_des_encrypt::val_str(String *str)
 {
   DBUG_ASSERT(fixed == 1);
 #ifdef HAVE_OPENSSL
-  uint code= ER_WRONG_PARAMETERS_TO_PROCEDURE;
+  uint code= ER_WRONG_PARAMETERS_TO_NATIVE_FCT;
   DES_cblock ivec;
   struct st_des_keyblock keyblock;
   struct st_des_keyschedule keyschedule;
@@ -671,7 +674,7 @@ String *Item_func_des_decrypt::val_str(String *str)
 {
   DBUG_ASSERT(fixed == 1);
 #ifdef HAVE_OPENSSL
-  uint code= ER_WRONG_PARAMETERS_TO_PROCEDURE;
+  uint code= ER_WRONG_PARAMETERS_TO_NATIVE_FCT;
   DES_cblock ivec;
   struct st_des_keyblock keyblock;
   struct st_des_keyschedule keyschedule;

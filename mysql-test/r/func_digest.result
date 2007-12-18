@@ -1346,38 +1346,32 @@ SELECT SHA2( x'ff', 1 );
 SHA2( x'ff', 1 )
 NULL
 Warnings:
-Error	1108	Incorrect parameters to procedure 'sha2'
-Error	1108	Incorrect parameters to procedure 'sha2'
+Error	1583	Incorrect parameters in the call to native function 'sha2'
 SELECT SHA2( x'ff', 2 );
 SHA2( x'ff', 2 )
 NULL
 Warnings:
-Error	1108	Incorrect parameters to procedure 'sha2'
-Error	1108	Incorrect parameters to procedure 'sha2'
+Error	1583	Incorrect parameters in the call to native function 'sha2'
 SELECT SHA2( x'ff', 223 );
 SHA2( x'ff', 223 )
 NULL
 Warnings:
-Error	1108	Incorrect parameters to procedure 'sha2'
-Error	1108	Incorrect parameters to procedure 'sha2'
+Error	1583	Incorrect parameters in the call to native function 'sha2'
 SELECT SHA2( x'ff', 511 );
 SHA2( x'ff', 511 )
 NULL
 Warnings:
-Error	1108	Incorrect parameters to procedure 'sha2'
-Error	1108	Incorrect parameters to procedure 'sha2'
+Error	1583	Incorrect parameters in the call to native function 'sha2'
 SELECT SHA2( x'ff', least(123, 42) );
 SHA2( x'ff', least(123, 42) )
 NULL
 Warnings:
-Error	1108	Incorrect parameters to procedure 'sha2'
-Error	1108	Incorrect parameters to procedure 'sha2'
+Error	1583	Incorrect parameters in the call to native function 'sha2'
 SELECT SHA2( x'ff', 10000000000000 );
 SHA2( x'ff', 10000000000000 )
 NULL
 Warnings:
-Error	1108	Incorrect parameters to procedure 'sha2'
-Error	1108	Incorrect parameters to procedure 'sha2'
+Error	1583	Incorrect parameters in the call to native function 'sha2'
 SELECT SHA2( SHA2( NULL, 224), 224 );
 SHA2( SHA2( NULL, 224), 224 )
 NULL

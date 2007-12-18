@@ -1,0 +1,17 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #26469: Falcon: searches fail if decimal(6,6) column and index exists
+#
+--echo *** Bug #26469 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a decimal(6, 6), KEY (a));
+
+INSERT INTO t1 VALUES (0.000001);
+SELECT count(*) FROM t1 WHERE a = 0.000001;
+
+# Final cleanup.
+DROP TABLE t1;

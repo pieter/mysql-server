@@ -1,0 +1,22 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE='Falcon';
+#
+# Bug #28055: Falcon wrong comparison of columns of data type date in join 
+#   This test is derived from innodb.test
+#
+--echo #---- Bug 28055 ----
+--enable_abort_on_error
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(a date);
+create table t2(a date, key(a));
+insert into t1 values('2005-10-01');
+insert into t2 values('2005-10-01');
+
+select * from t1
+  where t1.a between t1.a and t1.a;
+select * from t1, t2
+  where t2.a = t1.a;
+drop table t1, t2;

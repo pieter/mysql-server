@@ -1,0 +1,21 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #22161: Duplicate key error with non-unique index after alter
+#
+--echo *** Bug #22161 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a text);
+INSERT INTO t1 VALUES (repeat('a',16384));
+ALTER TABLE t1 MODIFY COLUMN a varchar(30000);
+ALTER TABLE t1 MODIFY COLUMN a text;
+--error ER_BLOB_USED_AS_KEY
+CREATE INDEX i1 ON t1 (a);
+ALTER TABLE t1 MODIFY COLUMN a varchar(30000);
+CREATE INDEX i1 ON t1 (a);
+
+# Final cleanup
+DROP TABLE t1;

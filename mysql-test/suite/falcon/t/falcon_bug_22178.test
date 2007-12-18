@@ -1,0 +1,26 @@
+--source include/have_falcon.inc
+#
+# Bug #22178: Partitions: crash if expression
+# Note: Certain partition functions are not allowed anymore.
+#
+--echo #---- Bug 22178 ----
+SET STORAGE_ENGINE='Falcon';
+
+--disable_warnings
+DROP TABLE IF EXISTS t18;
+--enable_warnings
+
+--error ER_PARTITION_FUNCTION_IS_NOT_ALLOWED
+CREATE TABLE t18 (
+  s1 char(5), 
+  PRIMARY KEY (s1)
+) 
+PARTITION BY LIST (ascii(s1)) (PARTITION p1 VALUES IN (1));
+#INSERT INTO t18 VALUES (0x01);
+#SELECT * FROM t18 WHERE s1 < 'a';
+#SELECT * FROM t18 WHERE s1 > 'a';
+
+# Final cleanup.
+--disable_warnings
+DROP TABLE IF EXISTS t18;
+--enable_warnings

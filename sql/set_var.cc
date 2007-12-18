@@ -246,9 +246,6 @@ static sys_var_key_cache_long  sys_key_cache_age_threshold(&vars, "key_cache_age
 							      param_age_threshold));
 static sys_var_bool_ptr	sys_local_infile(&vars, "local_infile",
 					 &opt_local_infile);
-static sys_var_trust_routine_creators
-sys_trust_routine_creators(&vars, "log_bin_trust_routine_creators",
-                           &trust_function_creators);
 static sys_var_bool_ptr       
 sys_trust_function_creators(&vars, "log_bin_trust_function_creators",
                             &trust_function_creators);
@@ -323,8 +320,6 @@ static sys_var_long_ptr	sys_max_write_lock_count(&vars, "max_write_lock_count",
 						 &max_write_lock_count);
 static sys_var_thd_ulong       sys_min_examined_row_limit(&vars, "min_examined_row_limit",
                                                           &SV::min_examined_row_limit);
-static sys_var_thd_ulong       sys_multi_range_count(&vars, "multi_range_count",
-                                              &SV::multi_range_count);
 static sys_var_long_ptr	sys_myisam_data_pointer_size(&vars, "myisam_data_pointer_size",
                                                     &myisam_data_pointer_size);
 static sys_var_thd_ulonglong	sys_myisam_max_sort_file_size(&vars, "myisam_max_sort_file_size", &SV::myisam_max_sort_file_size, fix_myisam_max_sort_file_size, 1);
@@ -337,7 +332,6 @@ static sys_var_thd_enum         sys_myisam_stats_method(&vars, "myisam_stats_met
                                                 &SV::myisam_stats_method,
                                                 &myisam_stats_method_typelib,
                                                 NULL);
-
 static sys_var_thd_ulong	sys_net_buffer_length(&vars, "net_buffer_length",
 					      &SV::net_buffer_length);
 static sys_var_thd_ulong	sys_net_read_timeout(&vars, "net_read_timeout",
@@ -360,6 +354,18 @@ static sys_var_thd_ulong        sys_optimizer_prune_level(&vars, "optimizer_prun
                                                   &SV::optimizer_prune_level);
 static sys_var_thd_ulong        sys_optimizer_search_depth(&vars, "optimizer_search_depth",
                                                    &SV::optimizer_search_depth);
+
+const char *optimizer_use_mrr_names[] = {"auto", "force", "disable", NullS};
+TYPELIB optimizer_use_mrr_typelib= {
+  array_elements(optimizer_use_mrr_names) - 1, "",
+  optimizer_use_mrr_names, NULL
+};
+
+static sys_var_thd_enum        sys_optimizer_use_mrr(&vars, "optimizer_use_mrr",
+                                              &SV::optimizer_use_mrr,
+                                              &optimizer_use_mrr_typelib,
+                                              NULL);
+
 static sys_var_thd_ulong        sys_preload_buff_size(&vars, "preload_buffer_size",
                                               &SV::preload_buff_size);
 static sys_var_thd_ulong	sys_read_buff_size(&vars, "read_buffer_size",
@@ -414,12 +420,18 @@ static sys_var_const_str_ptr sys_secure_file_priv(&vars, "secure_file_priv",
 static sys_var_long_ptr	sys_server_id(&vars, "server_id", &server_id, fix_server_id);
 static sys_var_bool_ptr	sys_slave_compressed_protocol(&vars, "slave_compressed_protocol",
 						      &opt_slave_compressed_protocol);
+#ifdef HAVE_REPLICATION
+static sys_var_bool_ptr         sys_slave_allow_batching(&vars, "slave_allow_batching",
+                                                         &slave_allow_batching);
+#endif
 static sys_var_long_ptr	sys_slow_launch_time(&vars, "slow_launch_time",
 					     &slow_launch_time);
 static sys_var_thd_ulong	sys_sort_buffer(&vars, "sort_buffer_size",
 					&SV::sortbuff_size);
 static sys_var_thd_sql_mode    sys_sql_mode(&vars, "sql_mode",
                                      &SV::sql_mode);
+static sys_var_thd_optimizer_switch   sys_optimizer_switch(&vars, "optimizer_switch",
+                                     &SV::optimizer_switch);
 #ifdef HAVE_OPENSSL
 extern char *opt_ssl_ca, *opt_ssl_capath, *opt_ssl_cert, *opt_ssl_cipher,
             *opt_ssl_key;
@@ -440,8 +452,6 @@ sys_updatable_views_with_limit(&vars, "updatable_views_with_limit",
                                &SV::updatable_views_with_limit,
                                &updatable_views_with_limit_typelib);
 
-static sys_var_thd_table_type  sys_table_type(&vars, "table_type",
-				       &SV::table_plugin);
 static sys_var_thd_storage_engine sys_storage_engine(&vars, "storage_engine",
 				       &SV::table_plugin);
 static sys_var_bool_ptr	sys_sync_frm(&vars, "sync_frm", &opt_sync_frm);
@@ -3410,24 +3420,6 @@ bool sys_var_thd_storage_engine::update(THD *thd, set_var *var)
   return 0;
 }
 
-void sys_var_thd_table_type::warn_deprecated(THD *thd)
-{
-  WARN_DEPRECATED(thd, "5.2", "table_type", "'storage_engine'");
-}
-
-void sys_var_thd_table_type::set_default(THD *thd, enum_var_type type)
-{
-  warn_deprecated(thd);
-  sys_var_thd_storage_engine::set_default(thd, type);
-}
-
-bool sys_var_thd_table_type::update(THD *thd, set_var *var)
-{
-  warn_deprecated(thd);
-  return sys_var_thd_storage_engine::update(thd, var);
-}
-
-
 /****************************************************************************
  Functions to handle sql_mode
 ****************************************************************************/
@@ -3567,6 +3559,58 @@ ulong fix_sql_mode(ulong sql_mode)
 }
 
 
+//psergey-todo: think if we can join this with thd_sql_mode one
+
+bool
+sys_var_thd_optimizer_switch::
+symbolic_mode_representation(THD *thd, ulonglong val, LEX_STRING *rep)
+{
+  char buff[STRING_BUFFER_USUAL_SIZE*8];
+  String tmp(buff, sizeof(buff), &my_charset_latin1);
+
+  tmp.length(0);
+
+  for (uint i= 0; val; val>>= 1, i++)
+  {
+    if (val & 1)
+    {
+      tmp.append(optimizer_switch_typelib.type_names[i],
+                 optimizer_switch_typelib.type_lengths[i]);
+      tmp.append(',');
+    }
+  }
+
+  if (tmp.length())
+    tmp.length(tmp.length() - 1); /* trim the trailing comma */
+
+  rep->str= thd->strmake(tmp.ptr(), tmp.length());
+
+  rep->length= rep->str ? tmp.length() : 0;
+
+  return rep->length != tmp.length();
+}
+
+
+uchar *sys_var_thd_optimizer_switch::value_ptr(THD *thd, enum_var_type type,
+				               LEX_STRING *base)
+{
+  LEX_STRING opts;
+  ulonglong val= ((type == OPT_GLOBAL) ? global_system_variables.*offset :
+                  thd->variables.*offset);
+  (void) symbolic_mode_representation(thd, val, &opts);
+  return (uchar *) opts.str;
+}
+
+
+void sys_var_thd_optimizer_switch::set_default(THD *thd, enum_var_type type)
+{
+  if (type == OPT_GLOBAL)
+    global_system_variables.*offset= 0;
+  else
+    thd->variables.*offset= global_system_variables.*offset;
+}
+
+
 /****************************************************************************
   Named list handling
 ****************************************************************************/
@@ -3671,24 +3715,6 @@ bool process_key_caches(process_key_cache_t func)
   return 0;
 }
 
-
-void sys_var_trust_routine_creators::warn_deprecated(THD *thd)
-{
-  WARN_DEPRECATED(thd, "5.2", "log_bin_trust_routine_creators",
-                      "'log_bin_trust_function_creators'");
-}
-
-void sys_var_trust_routine_creators::set_default(THD *thd, enum_var_type type)
-{
-  warn_deprecated(thd);
-  sys_var_bool_ptr::set_default(thd, type);
-}
-
-bool sys_var_trust_routine_creators::update(THD *thd, set_var *var)
-{
-  warn_deprecated(thd);
-  return sys_var_bool_ptr::update(thd, var);
-}
 
 bool sys_var_opt_readonly::update(THD *thd, set_var *var)
 {

@@ -1,0 +1,22 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28034: crash on ... 
+#       WHERE <UNIQUE column>=<value> OR NOT(<same column>=<same value>)
+#
+--echo *** Bug #28034 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  EMPNUM   CHAR(3) NOT NULL UNIQUE,
+  EMPNAME  CHAR(20),
+  GRADE    DECIMAL(4),
+  CITY     CHAR(15)
+);
+INSERT INTO t1 VALUES ('E1','Alice',12,'Deale');
+SELECT EMPNUM,CITY FROM t1 WHERE EMPNUM='E1' OR NOT(EMPNUM='E1');
+
+# Final cleanup
+DROP TABLE t1;

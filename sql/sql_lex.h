@@ -42,8 +42,8 @@ class Event_parse_data;
 #ifdef MYSQL_YACC
 #define LEX_YYSTYPE void *
 #else
-#include "lex_symbol.h"
 #if MYSQL_LEX
+#include "lex_symbol.h"
 #include "sql_yacc.h"
 #define LEX_YYSTYPE YYSTYPE *
 #else
@@ -86,10 +86,10 @@ enum enum_sql_command {
   SQLCOM_ROLLBACK, SQLCOM_ROLLBACK_TO_SAVEPOINT,
   SQLCOM_COMMIT, SQLCOM_SAVEPOINT, SQLCOM_RELEASE_SAVEPOINT,
   SQLCOM_SLAVE_START, SQLCOM_SLAVE_STOP,
-  SQLCOM_BEGIN, SQLCOM_LOAD_MASTER_TABLE, SQLCOM_CHANGE_MASTER,
-  SQLCOM_RENAME_TABLE, SQLCOM_BACKUP_TABLE, SQLCOM_RESTORE_TABLE,
+  SQLCOM_BEGIN, SQLCOM_CHANGE_MASTER,
+  SQLCOM_RENAME_TABLE,  
   SQLCOM_RESET, SQLCOM_PURGE, SQLCOM_PURGE_BEFORE, SQLCOM_SHOW_BINLOGS,
-  SQLCOM_SHOW_OPEN_TABLES, SQLCOM_LOAD_MASTER_DATA,
+  SQLCOM_SHOW_OPEN_TABLES,
   SQLCOM_HA_OPEN, SQLCOM_HA_CLOSE, SQLCOM_HA_READ,
   SQLCOM_SHOW_SLAVE_HOSTS, SQLCOM_DELETE_MULTI, SQLCOM_UPDATE_MULTI,
   SQLCOM_SHOW_BINLOG_EVENTS, SQLCOM_SHOW_NEW_MASTER, SQLCOM_DO,
@@ -496,6 +496,10 @@ public:
     Item_type_holders from which this list consist may have pointers to Field,
     pointers is valid only after preparing SELECTS of this unit and before
     any SELECT of this unit execution
+
+    TODO:
+    Possibly this member should be protected, and its direct use replaced
+    by get_unit_column_types(). Check the places where it is used.
   */
   List<Item> types;
   /*
@@ -548,7 +552,8 @@ public:
   bool add_fake_select_lex(THD *thd);
   void init_prepare_fake_select_lex(THD *thd);
   inline bool is_prepared() { return prepared; }
-  bool change_result(select_subselect *result, select_subselect *old_result);
+  bool change_result(select_result_interceptor *result,
+                     select_result_interceptor *old_result);
   void set_limit(st_select_lex *values);
   void set_thd(THD *thd_arg) { thd= thd_arg; }
   inline bool is_union (); 
@@ -593,6 +598,7 @@ public:
   List<TABLE_LIST> top_join_list; /* join list of the top level          */
   List<TABLE_LIST> *join_list;    /* list for the currently parsed join  */
   TABLE_LIST *embedding;          /* table embedding to the above list   */
+  List<TABLE_LIST> sj_nests;
   /*
     Beginning of the list of leaves in a FROM clause, where the leaves
     inlcude all base tables including view tables. The tables are connected
@@ -815,37 +821,35 @@ inline bool st_select_lex_unit::is_union ()
 #define ALTER_ADD_COLUMN	(1L << 0)
 #define ALTER_DROP_COLUMN	(1L << 1)
 #define ALTER_CHANGE_COLUMN	(1L << 2)
-#define ALTER_ADD_INDEX		(1L << 3)
-#define ALTER_DROP_INDEX	(1L << 4)
-#define ALTER_RENAME		(1L << 5)
-#define ALTER_ORDER		(1L << 6)
-#define ALTER_OPTIONS		(1L << 7)
-#define ALTER_CHANGE_COLUMN_DEFAULT (1L << 8)
-#define ALTER_KEYS_ONOFF        (1L << 9)
-#define ALTER_CONVERT           (1L << 10)
-#define ALTER_FORCE		(1L << 11)
-#define ALTER_RECREATE          (1L << 12)
-#define ALTER_ADD_PARTITION     (1L << 13)
-#define ALTER_DROP_PARTITION    (1L << 14)
-#define ALTER_COALESCE_PARTITION (1L << 15)
-#define ALTER_REORGANIZE_PARTITION (1L << 16) 
-#define ALTER_PARTITION          (1L << 17)
-#define ALTER_OPTIMIZE_PARTITION (1L << 18)
-#define ALTER_TABLE_REORG        (1L << 19)
-#define ALTER_REBUILD_PARTITION  (1L << 20)
-#define ALTER_ALL_PARTITION      (1L << 21)
-#define ALTER_ANALYZE_PARTITION  (1L << 22)
-#define ALTER_CHECK_PARTITION    (1L << 23)
-#define ALTER_REPAIR_PARTITION   (1L << 24)
-#define ALTER_REMOVE_PARTITIONING (1L << 25)
-#define ALTER_FOREIGN_KEY         (1L << 26)
-
-enum enum_alter_table_change_level
-{
-  ALTER_TABLE_METADATA_ONLY= 0,
-  ALTER_TABLE_DATA_CHANGED= 1,
-  ALTER_TABLE_INDEX_CHANGED= 2
-};
+#define ALTER_COLUMN_STORAGE	(1L << 3)
+#define ALTER_COLUMN_FORMAT	(1L << 4)
+#define ALTER_COLUMN_ORDER      (1L << 5)
+#define ALTER_ADD_INDEX		(1L << 6)
+#define ALTER_DROP_INDEX	(1L << 7)
+#define ALTER_RENAME		(1L << 8)
+#define ALTER_ORDER		(1L << 9)
+#define ALTER_OPTIONS		(1L << 10)
+#define ALTER_COLUMN_DEFAULT    (1L << 11)
+#define ALTER_KEYS_ONOFF        (1L << 12)
+#define ALTER_STORAGE	        (1L << 13)
+#define ALTER_ROW_FORMAT        (1L << 14)
+#define ALTER_CONVERT           (1L << 15)
+#define ALTER_FORCE		(1L << 16)
+#define ALTER_RECREATE          (1L << 17)
+#define ALTER_ADD_PARTITION     (1L << 18)
+#define ALTER_DROP_PARTITION    (1L << 19)
+#define ALTER_COALESCE_PARTITION (1L << 20)
+#define ALTER_REORGANIZE_PARTITION (1L << 21)
+#define ALTER_PARTITION          (1L << 22)
+#define ALTER_OPTIMIZE_PARTITION (1L << 23)
+#define ALTER_TABLE_REORG        (1L << 24)
+#define ALTER_REBUILD_PARTITION  (1L << 25)
+#define ALTER_ALL_PARTITION      (1L << 26)
+#define ALTER_ANALYZE_PARTITION  (1L << 27)
+#define ALTER_CHECK_PARTITION    (1L << 28)
+#define ALTER_REPAIR_PARTITION   (1L << 29)
+#define ALTER_REMOVE_PARTITIONING (1L << 30)
+#define ALTER_FOREIGN_KEY         (1L << 31)
 
 /**
   @brief Parsing data for CREATE or ALTER TABLE.
@@ -866,7 +870,7 @@ public:
   enum tablespace_op_type       tablespace_op;
   List<char>                    partition_names;
   uint                          no_parts;
-  enum_alter_table_change_level change_level;
+  enum ha_build_method          build_method;
   Create_field                 *datetime_field;
   bool                          error_if_not_empty;
 
@@ -876,7 +880,7 @@ public:
     keys_onoff(LEAVE_AS_IS),
     tablespace_op(NO_TABLESPACE_OP),
     no_parts(0),
-    change_level(ALTER_TABLE_METADATA_ONLY),
+    build_method(HA_BUILD_DEFAULT),
     datetime_field(NULL),
     error_if_not_empty(FALSE)
   {}
@@ -892,7 +896,7 @@ public:
     tablespace_op= NO_TABLESPACE_OP;
     no_parts= 0;
     partition_names.empty();
-    change_level= ALTER_TABLE_METADATA_ONLY;
+    build_method= HA_BUILD_DEFAULT;
     datetime_field= 0;
     error_if_not_empty= FALSE;
   }
@@ -1491,7 +1495,7 @@ typedef struct st_lex : public Query_tables_list
   char *length,*dec,*change;
   LEX_STRING name;
   char *help_arg;
-  char *backup_dir;				/* For RESTORE/BACKUP */
+  LEX_STRING backup_dir;				/* For RESTORE/BACKUP */
   char* to_log;                                 /* For PURGE MASTER LOGS TO */
   char* x509_subject,*x509_issuer,*ssl_cipher;
   String *wild;
@@ -1556,6 +1560,7 @@ typedef struct st_lex : public Query_tables_list
     required a local context, the parser pops the top-most context.
   */
   List<Name_resolution_context> context_stack;
+  List<LEX_STRING>     db_list;
 
   SQL_LIST	      proc_list, auxiliary_table_list, save_list;
   Create_field	      *last_field;
@@ -1595,6 +1600,7 @@ typedef struct st_lex : public Query_tables_list
   union {
     enum ha_rkey_function ha_rkey_mode;
     enum xa_option_words xa_opt;
+    bool lock_transactional;            /* For LOCK TABLE ... IN ... MODE */
   };
   enum enum_var_type option_type;
   enum enum_view_create_mode create_view_mode;
@@ -1603,6 +1609,8 @@ typedef struct st_lex : public Query_tables_list
   uint profile_query_id;
   uint profile_options;
   uint uint_geom_type;
+  enum ha_storage_media storage_type;
+  enum column_format_type column_format;
   uint grant, grant_tot_col, which_columns;
   uint fk_delete_opt, fk_update_opt, fk_match_option;
   uint slave_thd_opt, start_transaction_opt;

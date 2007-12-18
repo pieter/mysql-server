@@ -21,7 +21,7 @@
 #define _mysql_com_h
 
 #define HOSTNAME_LENGTH 60
-#define SYSTEM_CHARSET_MBMAXLEN 3
+#define SYSTEM_CHARSET_MBMAXLEN 4
 #define NAME_CHAR_LEN	64              /* Field/table name length */
 #define USERNAME_CHAR_LENGTH 16
 #define NAME_LEN                (NAME_CHAR_LEN*SYSTEM_CHARSET_MBMAXLEN)
@@ -29,6 +29,14 @@
 
 #define SERVER_VERSION_LENGTH 60
 #define SQLSTATE_LENGTH 5
+
+/*
+  Maximum length of comments
+*/
+#define TABLE_COMMENT_MAXLEN 2048
+#define COLUMN_COMMENT_MAXLEN 1024
+#define INDEX_COMMENT_MAXLEN 1024
+
 
 /*
   USER_HOST_BUFF_SIZE -- length of string buffer, that is enough to contain
@@ -104,6 +112,8 @@ enum enum_server_command
 #define FIELD_IN_PART_FUNC_FLAG (1 << 19)/* Field part of partition func */
 #define FIELD_IN_ADD_INDEX (1<< 20)	/* Intern: Field used in ADD INDEX */
 #define FIELD_IS_RENAMED (1<< 21)       /* Intern: Field is being renamed */
+#define FIELD_STORAGE_FLAGS 22          /* Storage type: bit 22, 23 and 24 */
+#define COLUMN_FORMAT_FLAGS 25          /* Column format: bit 25, 26 and 27 */
 
 #define REFRESH_GRANT		1	/* Refresh grant tables */
 #define REFRESH_LOG		2	/* Start on new log file */
@@ -224,7 +234,7 @@ typedef struct st_net {
   unsigned int last_errno;
   unsigned char error;
   my_bool report_error; /* We should report error (we have unreported error) */
-  my_bool return_errno;
+  my_bool unused1; /* Please remove with the next incompatible ABI change */
   char last_error[MYSQL_ERRMSG_SIZE], sqlstate[SQLSTATE_LENGTH+1];
   void *extension;
 } NET;
@@ -359,10 +369,6 @@ void my_net_set_write_timeout(NET *net, uint timeout);
 void my_net_set_read_timeout(NET *net, uint timeout);
 #endif
 
-/*
-  The following function is not meant for normal usage
-  Currently it's used internally by manager.c
-*/
 struct sockaddr;
 int my_connect(my_socket s, const struct sockaddr *name, unsigned int namelen,
 	       unsigned int timeout);

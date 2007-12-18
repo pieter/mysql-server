@@ -1,0 +1,27 @@
+SET @@storage_engine = Falcon;
+*** Bug #23220_2 ***
+DROP SCHEMA IF EXISTS page_2;
+SHOW VARIABLES LIKE 'falcon_page_size';
+Variable_name	Value
+falcon_page_size	2048
+CREATE SCHEMA page_2;
+USE page_2;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (2);
+SELECT count(*) FROM t1;
+count(*)
+1
+CREATE TABLE t2 (a int, b varchar(1100), PRIMARY KEY (b));
+INSERT INTO t2 VALUES (2, repeat('b', 1100));
+INSERT INTO t2 VALUES (3, repeat('c', 1000));
+INSERT INTO t2 VALUES (4, repeat('d', 900));
+INSERT INTO t2 VALUES (5, repeat('e', 800));
+INSERT INTO t2 VALUES (6, repeat('f', 700));
+UPDATE t2 SET a = a + 1 WHERE a = 3;
+SELECT count(*) FROM t2 WHERE a = 2 AND b = repeat('b', 1100);
+count(*)
+1
+DROP TABLE t1;
+DROP TABLE t2;
+DROP SCHEMA page_2;
+USE test;

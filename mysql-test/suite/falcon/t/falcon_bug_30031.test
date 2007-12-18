@@ -1,0 +1,73 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #30031: Falcon: running JVer leads to duplicate key error
+#
+
+--echo *** Bug#30031 ***
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+# Default Connection
+connection default;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--ensable_warnings
+
+CREATE TABLE t1 (a int(11) NOT NULL, PRIMARY KEY (a)) ENGINE=Falcon;
+INSERT INTO t1 VALUES (4);
+INSERT INTO t1 VALUES (6);
+SELECT * from t1 ORDER BY a;
+
+# Inserting and deleting a single unique key value causes the 
+# minimum and maximum value optimization in DeferredIndex to be
+# turned OFF
+BEGIN;
+INSERT INTO t1 VALUES (5);
+DELETE FROM t1 WHERE  a= 5;
+
+INSERT INTO t1 VALUES (3);
+INSERT INTO t1 VALUES (7);
+SELECT * from t1 ORDER BY a;
+
+
+# Connection #1
+# Should wait for pending transaction, then fail.
+# With this bug, it used the previous min value of 5, 
+# even though the optimization was turned OFF.
+connection con1;
+SELECT * from t1;
+--send INSERT INTO t1 VALUES (3)
+
+# Connection #2
+# Should wait for pending transaction, then fail.
+# With this bug, it used the previous max value of 5, 
+# even though the optimization was turned OFF.
+connection con2;
+SELECT * from t1;
+--send INSERT INTO t1 VALUES (7)
+
+# Default Connection
+connection default;
+COMMIT;
+
+# Connection #1
+connection con1;
+--error ER_DUP_ENTRY
+reap;
+SELECT * from t1;
+
+# Connection #2
+connection con2;
+--error ER_DUP_ENTRY
+reap;
+SELECT * from t1;
+
+# Default Connection
+connection default;
+disconnect con1;
+disconnect con2;
+DROP TABLE t1;
+

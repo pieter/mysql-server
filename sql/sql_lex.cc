@@ -1451,7 +1451,7 @@ Alter_info::Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root)
   tablespace_op(rhs.tablespace_op),
   partition_names(rhs.partition_names, mem_root),
   no_parts(rhs.no_parts),
-  change_level(rhs.change_level),
+  build_method(rhs.build_method),
   datetime_field(rhs.datetime_field),
   error_if_not_empty(rhs.error_if_not_empty)
 {
@@ -1576,6 +1576,7 @@ void st_select_lex::init_query()
 void st_select_lex::init_select()
 {
   st_select_lex_node::init_select();
+  sj_nests.empty();
   group_list.empty();
   type= db= 0;
   having= 0;
@@ -1787,6 +1788,7 @@ void st_select_lex::mark_as_dependent(st_select_lex *last)
   for (SELECT_LEX *s= this;
        s && s != last;
        s= s->outer_select())
+  {
     if (!(s->uncacheable & UNCACHEABLE_DEPENDENT))
     {
       // Select is dependent of outer select
@@ -1802,8 +1804,11 @@ void st_select_lex::mark_as_dependent(st_select_lex *last)
           sl->uncacheable|= UNCACHEABLE_UNITED;
       }
     }
-  is_correlated= TRUE;
-  this->master_unit()->item->is_correlated= TRUE;
+    s->is_correlated= TRUE;
+    Item_subselect *subquery_predicate= s->master_unit()->item;
+    if (subquery_predicate)
+      subquery_predicate->is_correlated= TRUE;
+  }
 }
 
 bool st_select_lex_node::set_braces(bool value)      { return 1; }
@@ -2004,16 +2009,28 @@ void st_select_lex::print_limit(THD *thd, String *str)
 {
   SELECT_LEX_UNIT *unit= master_unit();
   Item_subselect *item= unit->item;
-  if (item && unit->global_parameters == this &&
-      (item->substype() == Item_subselect::EXISTS_SUBS ||
-       item->substype() == Item_subselect::IN_SUBS ||
-       item->substype() == Item_subselect::ALL_SUBS))
-  {
-    DBUG_ASSERT(!item->fixed ||
-                select_limit->val_int() == LL(1) && offset_limit == 0);
-    return;
-  }
 
+  if (item && unit->global_parameters == this)
+  {
+    Item_subselect::subs_type subs_type= item->substype();
+    if (subs_type == Item_subselect::EXISTS_SUBS ||
+        subs_type == Item_subselect::IN_SUBS ||
+        subs_type == Item_subselect::ALL_SUBS)
+    {
+      DBUG_ASSERT(!item->fixed ||
+                  /*
+                    If not using materialization both:
+                    select_limit == 1, and there should be no offset_limit.
+                  */
+                  (((subs_type == Item_subselect::IN_SUBS) &&
+                    ((Item_in_subselect*)item)->exec_method ==
+                    Item_in_subselect::MATERIALIZATION) ?
+                   TRUE :
+                   (select_limit->val_int() == LL(1)) &&
+                   offset_limit == 0));
+      return;
+    }
+  }
   if (explicit_limit)
   {
     str->append(STRING_WITH_LEN(" limit "));

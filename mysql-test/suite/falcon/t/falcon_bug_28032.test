@@ -1,0 +1,18 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28032: LIKE searches fail if indexes exist
+#
+--echo *** Bug #28032 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 SELECT repeat('a',50) AS c1;
+INSERT INTO t1 VALUES ('aaa');
+SELECT * FROM t1 WHERE c1 LIKE 'aaa%';
+ALTER TABLE t1 ADD index(c1(5));
+SELECT * FROM t1 WHERE c1 LIKE 'aaa%';
+
+# Final cleanup
+DROP TABLE t1;

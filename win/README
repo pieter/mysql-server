@@ -1,11 +1,11 @@
-Windows building readme
+Windows building README
 ======================================
 
 ----------------IMPORTANT----------------------------
 This readme outlines the instructions for building 
 MySQL for Windows staring from version 5.1.
-This readme does not apply to MySQL versions 5.0 
-or ealier.
+This README only applies to MySQL versions 6.0 
+or later.
 -----------------------------------------------------
 
 The Windows build system uses a tool named CMake to generate build files for
@@ -23,9 +23,11 @@ http://msdn.microsoft.com/vstudio/express/
 
 Step 2
 ------
-Download and install CMake.  It can be downloaded from http://www.cmake.org. 
-Once it is installed, modify your path to make sure you can execute
-the cmake binary.
+Download and install CMake 2.2.  It can be downloaded from
+http://www.cmake.org.
+
+Once it is installed, modify your path to make sure you can execute the cmake
+binary.
 
 Step 3
 ------
@@ -56,6 +58,7 @@ The options right now are:
     WITH_ARCHIVE_STORAGE_ENGINE
     WITH_BLACKHOLE_STORAGE_ENGINE
     WITH_EXAMPLE_STORAGE_ENGINE
+    WITH_FALCON_STORAGE_ENGINE
     WITH_FEDERATED_STORAGE_ENGINE
     __NT__                               Enable named pipe support
     MYSQL_SERVER_SUFFIX=<suffix>         Server suffix, default none

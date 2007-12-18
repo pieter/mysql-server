@@ -1,0 +1,16 @@
+SET STORAGE_ENGINE = Falcon;
+*** Bug #23189 ***
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+CREATE TABLE t1 (a varchar(1100));
+INSERT INTO t1 VALUES (repeat('r',1100));
+CREATE INDEX i ON t1 (a);
+CREATE TABLE t2 (a varchar(20000));
+INSERT INTO t2 VALUES (repeat('r',20000));
+CREATE INDEX i ON t2 (a);
+Warnings:
+Warning	1071	Specified key was too long; max key length is 1100 bytes
+Warning	1071	Specified key was too long; max key length is 1100 bytes
+Warning	1071	Specified key was too long; max key length is 1100 bytes
+DROP TABLE t1;
+DROP TABLE t2;

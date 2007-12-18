@@ -19,13 +19,23 @@
 
 #include "tap.h"
 
-#include "my_config.h"
+#include "my_global.h"
 
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+
+/*
+  Visual Studio 2003 does not know vsnprintf but knows _vsnprintf.
+  We don't put this #define in config-win.h because we prefer
+  my_vsnprintf everywhere instead, except when linking with libmysys
+  is not desirable - the case here.
+*/
+#if defined(_MSC_VER) && ( _MSC_VER == 1310 )
+#define vsnprintf _vsnprintf
+#endif
 
 /**
    @defgroup MyTAP_Internal MyTAP Internals
@@ -150,8 +160,10 @@ static signal_entry install_signal[]= {
   { SIGILL,  handle_core_signal },
   { SIGABRT, handle_core_signal },
   { SIGFPE,  handle_core_signal },
-  { SIGSEGV, handle_core_signal },
-  { SIGBUS,  handle_core_signal }
+  { SIGSEGV, handle_core_signal }
+#ifdef SIGBUS
+  , { SIGBUS,  handle_core_signal }
+#endif
 #ifdef SIGXCPU
   , { SIGXCPU, handle_core_signal }
 #endif

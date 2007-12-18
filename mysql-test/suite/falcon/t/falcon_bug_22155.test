@@ -1,0 +1,26 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #22155: Double rename failure
+#
+--echo *** Bug #22155 ***
+--disable_warnings
+DROP DATABASE IF EXISTS jstar18;
+DROP DATABASE IF EXISTS jstar19;
+--enable_warnings
+
+CREATE SCHEMA jstar18;
+CREATE SCHEMA jstar19;
+
+USE jstar18;
+CREATE TABLE t1 (s1 int) Engine MyISAM;
+RENAME TABLE t1 TO jstar19.t1;
+RENAME TABLE jstar19.t1 TO t1;
+
+CREATE TABLE t2 (s1 int);
+RENAME TABLE t2 TO jstar19.t2;
+RENAME TABLE jstar19.t2 TO t2;
+
+# Final cleanup
+DROP DATABASE jstar18;
+DROP DATABASE jstar19;

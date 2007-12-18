@@ -1,0 +1,21 @@
+*** Bug #24017 ***
+set storage_engine= Falcon;
+DROP TABLE IF EXISTS t1;
+create table t1 (v varchar(2499), key(v(10)));
+insert into t1 values(repeat('a',2499));
+select length(v) from t1 where v=repeat('a',2499);
+length(v)
+2499
+drop table t1;
+create table t1 (v varchar(2500), key(v(10)));
+insert into t1 values(repeat('a',2500));
+select length(v) from t1 where v=repeat('a',2500);
+length(v)
+2500
+drop table t1;
+create table t1 (v varchar(65530), key(v(10)));
+insert into t1 values(repeat('a',65530));
+select length(v) from t1 where v=repeat('a',65530);
+length(v)
+65530
+drop table t1;

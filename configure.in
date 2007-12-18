@@ -7,11 +7,15 @@ AC_INIT(sql/mysqld.cc)
 AC_CANONICAL_SYSTEM
 # The Docs Makefile.am parses this line!
 # remember to also update version.c in ndb
-#
 # When changing major version number please also check switch statement
 # in mysqlbinlog::check_master_version().
-AM_INIT_AUTOMAKE(mysql, 5.1.23-rc)
+AM_INIT_AUTOMAKE(mysql, 6.0.5-alpha)
 AM_CONFIG_HEADER([include/config.h:config.h.in])
+
+NDB_VERSION_MAJOR=6
+NDB_VERSION_MINOR=2
+NDB_VERSION_BUILD=8
+NDB_VERSION_STATUS="-beta"
 
 PROTOCOL_VERSION=10
 DOT_FRM_VERSION=6
@@ -27,7 +31,7 @@ MYSQL_BASE_VERSION=`echo $MYSQL_NO_DASH_VERSION | sed -e "s|\.[[^.]]*$||"`
 MYSQL_VERSION_ID=`echo $MYSQL_NO_DASH_VERSION | sed -e 's|[[^0-9.]].*$||;s|$|.|' | sed -e 's/[[^0-9.]]//g; s/\./  /g; s/ \([[0-9]]\) / 0\\1 /g; s/ //g'`
 
 # Add previous major version for debian package upgrade path
-MYSQL_PREVIOUS_BASE_VERSION=5.0
+MYSQL_PREVIOUS_BASE_VERSION=5.1
 
 # The port should be constant for a LONG time
 MYSQL_TCP_PORT_DEFAULT=3306
@@ -38,12 +42,14 @@ sinclude(config/ac-macros/alloca.m4)
 sinclude(config/ac-macros/check_cpu.m4)
 sinclude(config/ac-macros/character_sets.m4)
 sinclude(config/ac-macros/compiler_flag.m4)
+sinclude(config/ac-macros/dtrace.m4)
 sinclude(config/ac-macros/plugins.m4)
 sinclude(config/ac-macros/ha_ndbcluster.m4)
 sinclude(config/ac-macros/large_file.m4)
 sinclude(config/ac-macros/misc.m4)
 sinclude(config/ac-macros/readline.m4)
 sinclude(config/ac-macros/ssl.m4)
+sinclude(config/ac-macros/libevent.m4)
 sinclude(config/ac-macros/zlib.m4)
 
 # Remember to add a directory sql/share/LANGUAGE
@@ -339,7 +345,27 @@ case "$target_os" in
         [1], [Defined by configure. Use explicit template instantiation.])
     fi
   ;;
+  *solaris*)
+    TARGET_SOLARIS="true"
+    AC_DEFINE([TARGET_OS_SOLARIS], [1], [Whether we are building for Solaris])
+    AC_SUBST(TARGET_SOLARIS)
+  ;;
 esac
+
+# The following is required for portable results of floating point calculations
+# on PowerPC. The same must also be done for IA-64, but this options is missing
+# in the IA-64 gcc backend.
+
+if test "$GCC" = "yes"
+then
+  case "$host_cpu" in
+    *ppc* | *powerpc*)
+      CFLAGS="$CFLAGS -mno-fused-madd"
+      CXXFLAGS="$CXXFLAGS -mno-fused-madd"
+    ;;
+  esac
+fi
+
 AC_SUBST(CC)
 AC_SUBST(CFLAGS)
 AC_SUBST(CXX)
@@ -805,8 +831,8 @@ AC_TYPE_SIZE_T
 AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(fcntl.h float.h floatingpoint.h ieeefp.h limits.h \
- memory.h pwd.h select.h \
+AC_CHECK_HEADERS(fcntl.h float.h floatingpoint.h fpu_control.h ieeefp.h \
+ limits.h memory.h pwd.h select.h \
  stdlib.h stddef.h \
  strings.h string.h synch.h sys/mman.h sys/socket.h netinet/in.h arpa/inet.h \
  sys/timeb.h sys/types.h sys/un.h sys/vadvise.h sys/wait.h term.h \
@@ -823,6 +849,7 @@ AC_CHECK_HEADERS([xfs/xfs.h])
 #--------------------------------------------------------------------
 
 AC_CHECK_LIB(m, floor, [], AC_CHECK_LIB(m, __infinity))
+AC_CHECK_FUNCS(log2)
 
 AC_CHECK_LIB(nsl_r, gethostbyname_r, [],
   AC_CHECK_LIB(nsl, gethostbyname_r))
@@ -839,8 +866,12 @@ AC_CHECK_FUNC(bind, , AC_CHECK_LIB(bind, bind))
 AC_SEARCH_LIBS(crypt, crypt, AC_DEFINE(HAVE_CRYPT, 1, [crypt]))
 AC_SEARCH_LIBS(inet_aton, [socket nsl resolv])
 
+# Check rt for aio_read
+AC_CHECK_LIB(rt, aio_read)
+
 # For the sched_yield() function on Solaris
-AC_CHECK_FUNC(sched_yield, , AC_CHECK_LIB(posix4, sched_yield))
+AC_CHECK_FUNC(sched_yield, , AC_CHECK_LIB(posix4, sched_yield,
+[AC_DEFINE(HAVE_SCHED_YIELD) LIBS="$LIBS -lposix4"]))
 
 MYSQL_CHECK_ZLIB_WITH_COMPRESS
 
@@ -2314,6 +2345,7 @@ MYSQL_CHECK_BIG_TABLES
 MYSQL_CHECK_MAX_INDEXES
 MYSQL_CHECK_VIO
 MYSQL_CHECK_SSL
+MYSQL_CHECK_LIBEVENT
 
 #--------------------------------------------------------------------
 # Declare our plugin modules
@@ -2378,19 +2410,6 @@ then
             [Access checks in embedded library])
 fi
 
-tools_dirs=""
-
-AC_ARG_WITH([mysqlmanager],
-  AC_HELP_STRING([--with-mysqlmanager], [Build the mysqlmanager binary: yes/no (default: build if server is built.)]),,)
-
-if test "$with_mysqlmanager" = "yes" -o \
-        '(' "$with_mysqlmanager:$with_server" = ":yes" -a \
-            -d "$srcdir/server-tools" ')' ; then
-  tools_dirs="server-tools"
-fi
-
-AC_SUBST(tools_dirs)
-
 #MYSQL_CHECK_CPU
 
 libmysqld_dirs=
@@ -2417,10 +2436,15 @@ AC_ARG_WITH(docs,
 if test "$with_docs" = "yes"
 then
   docs_dirs="Docs"
+  if test -f "$srcdir/Docs/manual.chm" ; then
+    extra_docs="manual.chm"
+  fi
 else
   docs_dirs=""
+  extra_docs=""
 fi
 AC_SUBST(docs_dirs)
+AC_SUBST(extra_docs)
 
 # Shall we build the man pages?
 AC_ARG_WITH(man,
@@ -2710,7 +2734,6 @@ AC_CONFIG_FILES(Makefile extra/Makefile mysys/Makefile dnl
  dbug/Makefile scripts/Makefile include/Makefile dnl
  tests/Makefile Docs/Makefile support-files/Makefile dnl
  support-files/MacOSX/Makefile support-files/RHEL4-SElinux/Makefile dnl
- server-tools/Makefile server-tools/instance-manager/Makefile dnl
  cmd-line-utils/Makefile cmd-line-utils/libedit/Makefile dnl
  libmysqld/Makefile libmysqld/examples/Makefile dnl
  mysql-test/Makefile dnl

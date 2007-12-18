@@ -181,6 +181,7 @@ public:
   TYPELIB* plugin_var_typelib(void);
   uchar* value_ptr(THD *thd, enum_var_type type, LEX_STRING *base);
   bool check(THD *thd, set_var *var);
+  bool check_default(enum_var_type type) { return is_readonly(); }
   void set_default(THD *thd, enum_var_type type);
   bool update(THD *thd, set_var *var);
 };
@@ -346,8 +347,7 @@ static st_plugin_dl *plugin_dl_add(const LEX_STRING *dl, int report)
     plugin directory are used (to make this even remotely secure).
   */
   if (my_strchr(files_charset_info, dl->str, dl->str + dl->length, FN_LIBCHAR) ||
-      check_string_char_length((LEX_STRING *) dl, "", NAME_CHAR_LEN,
-                               system_charset_info, 1) ||
+      check_identifier_name((LEX_STRING *) dl) ||
       plugin_dir_len + dl->length + 1 >= FN_REFLEN)
   {
     if (report & REPORT_TO_USER)
@@ -2169,9 +2169,11 @@ static st_bookmark *register_var(const char *plugin, const char *name,
     size= sizeof(int);
     break;
   case PLUGIN_VAR_LONG:
+  case PLUGIN_VAR_ENUM:
     size= sizeof(long);
     break;
   case PLUGIN_VAR_LONGLONG:
+  case PLUGIN_VAR_SET:
     size= sizeof(ulonglong);
     break;
   case PLUGIN_VAR_STR:
@@ -2612,6 +2614,7 @@ void sys_var_pluginvar::set_default(THD *thd, enum_var_type type)
   if (is_readonly())
     return;
 
+  pthread_mutex_lock(&LOCK_global_system_variables);
   tgt= real_value_ptr(thd, type);
   src= ((void **) (plugin_var + 1) + 1);
 
@@ -2628,12 +2631,14 @@ void sys_var_pluginvar::set_default(THD *thd, enum_var_type type)
 
   if (!(plugin_var->flags & PLUGIN_VAR_THDLOCAL) || type == OPT_GLOBAL)
   {
-    pthread_mutex_lock(&LOCK_plugin);
     plugin_var->update(thd, plugin_var, tgt, src);
-    pthread_mutex_unlock(&LOCK_plugin);
+    pthread_mutex_unlock(&LOCK_global_system_variables);
   }
   else
+  {
+    pthread_mutex_unlock(&LOCK_global_system_variables);
     plugin_var->update(thd, plugin_var, tgt, src);
+  }
 }
 
 

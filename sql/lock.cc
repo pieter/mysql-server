@@ -90,7 +90,6 @@ extern HASH open_cache;
 
 static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table,uint count,
 				 uint flags, TABLE **write_locked);
-static void reset_lock_data(MYSQL_LOCK *sql_lock);
 static int lock_external(THD *thd, TABLE **table,uint count);
 static int unlock_external(THD *thd, TABLE **table,uint count);
 static void print_lock_error(int error, const char *);
@@ -194,6 +193,45 @@ int mysql_lock_tables_check(THD *thd, TABLE **tables, uint count, uint flags)
   DBUG_RETURN(0);
 }
 
+
+/**
+  Reset lock type in lock data and free.
+
+  @param mysql_lock Lock structures to reset.
+
+  @note After a locking error we want to quit the locking of the table(s).
+        The test case in the bug report for Bug #18544 has the following
+        cases: 1. Locking error in lock_external() due to InnoDB timeout.
+        2. Locking error in get_lock_data() due to missing write permission.
+        3. Locking error in wait_if_global_read_lock() due to lock conflict.
+
+  @note In all these cases we have already set the lock type into the lock
+        data of the open table(s). If the table(s) are in the open table
+        cache, they could be reused with the non-zero lock type set. This
+        could lead to ignoring a different lock type with the next lock.
+
+  @note Clear the lock type of all lock data. This ensures that the next
+        lock request will set its lock type properly.
+*/
+
+static void reset_lock_data_and_free(MYSQL_LOCK **mysql_lock)
+{
+  MYSQL_LOCK *sql_lock= *mysql_lock;
+  THR_LOCK_DATA **ldata, **ldata_end;
+
+  /* Clear the lock type of all lock data to avoid reusage. */
+  for (ldata= sql_lock->locks, ldata_end= ldata + sql_lock->lock_count;
+       ldata < ldata_end;
+       ldata++)
+  {
+    /* Reset lock type. */
+    (*ldata)->type= TL_UNLOCK;
+  }
+  my_free((uchar*) sql_lock, MYF(0));
+  *mysql_lock= 0;
+}
+
+
 MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count,
                               uint flags, bool *need_reopen)
 {
@@ -224,16 +262,13 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count,
       if (wait_if_global_read_lock(thd, 1, 1))
       {
         /* Clear the lock type of all lock data to avoid reusage. */
-        reset_lock_data(sql_lock);
-	my_free((uchar*) sql_lock,MYF(0));
-	sql_lock=0;
+        reset_lock_data_and_free(&sql_lock);
 	break;
       }
       if (thd->version != refresh_version)
       {
         /* Clear the lock type of all lock data to avoid reusage. */
-        reset_lock_data(sql_lock);
-	my_free((uchar*) sql_lock,MYF(0));
+        reset_lock_data_and_free(&sql_lock);
 	goto retry;
       }
     }
@@ -248,9 +283,7 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count,
 	Someone has issued SET GLOBAL READ_ONLY=1 and we want a write lock.
         We do not wait for READ_ONLY=0, and fail.
       */
-      reset_lock_data(sql_lock);
-      my_free((uchar*) sql_lock, MYF(0));
-      sql_lock=0;
+      reset_lock_data_and_free(&sql_lock);
       my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only");
       break;
     }
@@ -261,14 +294,11 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count,
                                                sql_lock->table_count))
     {
       /* Clear the lock type of all lock data to avoid reusage. */
-      reset_lock_data(sql_lock);
-      my_free((uchar*) sql_lock,MYF(0));
-      sql_lock=0;
+      reset_lock_data_and_free(&sql_lock);
       break;
     }
     thd_proc_info(thd, "Table lock");
     DBUG_PRINT("info", ("thd->proc_info %s", thd->proc_info));
-    thd->locked=1;
     /* Copy the lock data array. thr_multi_lock() reorders its contens. */
     memcpy(sql_lock->locks + sql_lock->lock_count, sql_lock->locks,
            sql_lock->lock_count * sizeof(*sql_lock->locks));
@@ -281,22 +311,15 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count,
     {
       if (sql_lock->table_count)
         VOID(unlock_external(thd, sql_lock->table, sql_lock->table_count));
+      reset_lock_data_and_free(&sql_lock);
       my_error(rc, MYF(0));
-      my_free((uchar*) sql_lock,MYF(0));
-      sql_lock= 0;
       break;
     }
     else if (rc == 1)                           /* aborted */
     {
-      /*
-        reset_lock_data is required here. If thr_multi_lock fails it
-        resets lock type for tables, which were locked before (and
-        including) one that caused error. Lock type for other tables
-        preserved.
-      */
-      reset_lock_data(sql_lock);
       thd->some_tables_deleted=1;		// Try again
       sql_lock->lock_count= 0;                  // Locks are already freed
+      // Fall through: unlock, reset lock data, free and retry
     }
     else if (!thd->some_tables_deleted || (flags & MYSQL_LOCK_IGNORE_FLUSH))
     {
@@ -304,23 +327,30 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count,
         Thread was killed or lock aborted. Let upper level close all
         used tables and retry or give error.
       */
-      thd->locked=0;
       break;
     }
     else if (!thd->open_tables)
     {
       // Only using temporary tables, no need to unlock
       thd->some_tables_deleted=0;
-      thd->locked=0;
       break;
     }
     thd_proc_info(thd, 0);
 
-    /* some table was altered or deleted. reopen tables marked deleted */
-    mysql_unlock_tables(thd,sql_lock);
-    thd->locked=0;
+    /* going to retry, unlock all tables */
+    if (sql_lock->lock_count)
+        thr_multi_unlock(sql_lock->locks, sql_lock->lock_count);
+
+    if (sql_lock->table_count)
+      VOID(unlock_external(thd, sql_lock->table, sql_lock->table_count));
+
+    /*
+      If thr_multi_lock fails it resets lock type for tables, which
+      were locked before (and including) one that caused error. Lock
+      type for other tables preserved.
+    */
+    reset_lock_data_and_free(&sql_lock);
 retry:
-    sql_lock=0;
     if (flags & MYSQL_LOCK_NOTIFY_IF_NEED_REOPEN)
     {
       *need_reopen= TRUE;
@@ -866,8 +896,7 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, uint count,
 	my_error(ER_OPEN_AS_READONLY,MYF(0),table->alias);
         /* Clear the lock type of the lock data that are stored already. */
         sql_lock->lock_count= locks - sql_lock->locks;
-        reset_lock_data(sql_lock);
-	my_free((uchar*) sql_lock,MYF(0));
+        reset_lock_data_and_free(&sql_lock);
 	DBUG_RETURN(0);
       }
     }
@@ -888,42 +917,6 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, uint count,
 	(*org_locks)->debug_print_param= (void *) table;
   }
   DBUG_RETURN(sql_lock);
-}
-
-
-/**
-  Reset lock type in lock data.
-
-  After a locking error we want to quit the locking of the table(s).
-  The test case in the bug report for Bug #18544 has the following
-  cases:
-  -# Locking error in lock_external() due to InnoDB timeout.
-  -# Locking error in get_lock_data() due to missing write permission.
-  -# Locking error in wait_if_global_read_lock() due to lock conflict.
-
-  In all these cases we have already set the lock type into the lock
-  data of the open table(s). If the table(s) are in the open table
-  cache, they could be reused with the non-zero lock type set. This
-  could lead to ignoring a different lock type with the next lock.
-
-  Clear the lock type of all lock data. This ensures that the next
-  lock request will set its lock type properly.
-
-  @param sql_lock                  The MySQL lock.
-*/
-
-static void reset_lock_data(MYSQL_LOCK *sql_lock)
-{
-  THR_LOCK_DATA **ldata;
-  THR_LOCK_DATA **ldata_end;
-
-  for (ldata= sql_lock->locks, ldata_end= ldata + sql_lock->lock_count;
-       ldata < ldata_end;
-       ldata++)
-  {
-    /* Reset lock type. */
-    (*ldata)->type= TL_UNLOCK;
-  }
 }
 
 
@@ -1006,6 +999,7 @@ int lock_table_name(THD *thd, TABLE_LIST *table_list, bool check_in_use)
   char  key[MAX_DBKEY_LENGTH];
   char *db= table_list->db;
   uint  key_length;
+  bool  found_locked_table= FALSE;
   HASH_SEARCH_STATE state;
   DBUG_ENTER("lock_table_name");
   DBUG_PRINT("enter",("db: %s  name: %s", db, table_list->table_name));
@@ -1021,6 +1015,13 @@ int lock_table_name(THD *thd, TABLE_LIST *table_list, bool check_in_use)
          table = (TABLE*) hash_next(&open_cache,(uchar*) key,
                                     key_length, &state))
     {
+      if (table->reginfo.lock_type < TL_WRITE)
+      {
+        if (table->in_use == thd)
+          found_locked_table= TRUE;
+        continue;
+      }
+
       if (table->in_use == thd)
       {
         DBUG_PRINT("info", ("Table is in use"));
@@ -1029,6 +1030,17 @@ int lock_table_name(THD *thd, TABLE_LIST *table_list, bool check_in_use)
         DBUG_RETURN(0);
       }
     }
+  }
+
+  if (thd->locked_tables && thd->locked_tables->table_count &&
+      ! find_temporary_table(thd, table_list->db, table_list->table_name))
+  {
+    if (found_locked_table)
+      my_error(ER_TABLE_NOT_LOCKED_FOR_WRITE, MYF(0), table_list->alias);
+    else
+      my_error(ER_TABLE_NOT_LOCKED, MYF(0), table_list->alias);
+
+    DBUG_RETURN(-1);
   }
 
   if (!(table= table_cache_insert_placeholder(thd, key, key_length)))
@@ -1584,6 +1596,249 @@ void broadcast_refresh(void)
   VOID(pthread_cond_broadcast(&COND_refresh));
   VOID(pthread_cond_broadcast(&COND_global_read_lock));
 }
+
+
+/*
+  Try to get transactional table locks for the tables in the list.
+
+  SYNOPSIS
+    try_transactional_lock()
+      thd                       Thread handle
+      table_list                List of tables to lock
+
+  DESCRIPTION
+    This is called if transactional table locks are requested for all
+    tables in table_list and no non-transactional locks pre-exist.
+
+  RETURN
+    0                   OK. All tables are transactional locked.
+    1                   Error: must fall back to non-transactional locks.
+    -1                  Error: no recovery possible.
+*/
+
+int try_transactional_lock(THD *thd, TABLE_LIST *table_list)
+{
+  uint          dummy_counter;
+  int           error;
+  int           result= 0;
+  DBUG_ENTER("try_transactional_lock");
+
+  /* Need to open the tables to be able to access engine methods. */
+  if (open_tables(thd, &table_list, &dummy_counter, 0))
+  {
+    /* purecov: begin tested */
+    DBUG_PRINT("lock_info", ("aborting, open_tables failed"));
+    DBUG_RETURN(-1);
+    /* purecov: end */
+  }
+
+  /* Required by InnoDB. */
+  thd->in_lock_tables= TRUE;
+
+  if ((error= set_handler_table_locks(thd, table_list, TRUE)))
+  {
+    /*
+      Not all transactional locks could be taken. If the error was
+      something else but "unsupported by storage engine", abort the
+      execution of this statement.
+    */
+    if (error != HA_ERR_WRONG_COMMAND)
+    {
+      DBUG_PRINT("lock_info", ("aborting, lock_table failed"));
+      result= -1;
+      goto err;
+    }
+    /*
+      Fall back to non-transactional locks because transactional locks
+      are unsupported by a storage engine. No need to unlock the
+      successfully taken transactional locks. They go away at end of
+      transaction anyway.
+    */
+    DBUG_PRINT("lock_info", ("fall back to non-trans lock: no SE support"));
+    result= 1;
+  }
+
+ err:
+  /* We need to explicitly commit if autocommit mode is active. */
+  (void) ha_autocommit_or_rollback(thd, 0);
+  /* Close the tables. The locks (if taken) persist in the storage engines. */
+  close_tables_for_reopen(thd, &table_list);
+  thd->in_lock_tables= FALSE;
+  DBUG_PRINT("lock_info", ("result: %d", result));
+  DBUG_RETURN(result);
+}
+
+
+/*
+  Check if lock method conversion was done and was allowed.
+
+  SYNOPSIS
+    check_transactional_lock()
+      thd                       Thread handle
+      table_list                List of tables to lock
+
+  DESCRIPTION
+
+    Lock method conversion can be done during parsing if one of the
+    locks is non-transactional. It can also happen if non-transactional
+    table locks exist when the statement is executed or if a storage
+    engine does not support transactional table locks.
+
+    Check if transactional table locks have been converted to
+    non-transactional and if this was allowed. In a running transaction
+    or in strict mode lock method conversion is not allowed - report an
+    error. Otherwise it is allowed - issue a warning.
+
+  RETURN
+    0                   OK. Proceed with non-transactional locks.
+    -1                  Error: Lock conversion is prohibited.
+*/
+
+int check_transactional_lock(THD *thd, TABLE_LIST *table_list)
+{
+  TABLE_LIST    *tlist;
+  int           result= 0;
+  char          warn_buff[MYSQL_ERRMSG_SIZE];
+  DBUG_ENTER("check_transactional_lock");
+
+  for (tlist= table_list; tlist; tlist= tlist->next_global)
+  {
+    DBUG_PRINT("lock_info", ("checking table: '%s'", tlist->table_name));
+
+    /*
+      Unfortunately we cannot use tlist->placeholder() here. This method
+      returns TRUE if the table is not open, which is always the case
+      here. Whenever the definition of TABLE_LIST::placeholder() is
+      changed, probably this condition needs to be changed too.
+    */
+    if (tlist->derived || tlist->view || tlist->schema_table ||
+        !tlist->lock_transactional)
+    {
+      DBUG_PRINT("lock_info", ("skipping placeholder: %d  transactional: %d",
+                               tlist->placeholder(),
+                               tlist->lock_transactional));
+      continue;
+    }
+
+    /* We must not convert the lock method in strict mode. */
+    DBUG_PRINT("lock_info", ("sql_mode: %lu", thd->variables.sql_mode));
+    if (thd->variables.sql_mode & (MODE_STRICT_ALL_TABLES |
+                                   MODE_STRICT_TRANS_TABLES))
+    {
+      my_error(ER_NO_AUTO_CONVERT_LOCK_STRICT, MYF(0),
+               tlist->alias ? tlist->alias : tlist->table_name);
+      result= -1;
+      continue;
+    }
+
+    /* We must not convert the lock method within an active transaction. */
+    if (thd->active_transaction())
+    {
+      my_error(ER_NO_AUTO_CONVERT_LOCK_TRANSACTION, MYF(0),
+               tlist->alias ? tlist->alias : tlist->table_name);
+      result= -1;
+      continue;
+    }
+
+    /* Warn about the conversion. */
+    my_snprintf(warn_buff, sizeof(warn_buff), ER(ER_WARN_AUTO_CONVERT_LOCK),
+                tlist->alias ? tlist->alias : tlist->table_name);
+    push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
+                 ER_WARN_AUTO_CONVERT_LOCK, warn_buff);
+  }
+
+  DBUG_PRINT("lock_info", ("result: %d", result));
+  DBUG_RETURN(result);
+}
+
+
+/*
+  Set table locks in the table handler.
+
+  SYNOPSIS
+    set_handler_table_locks()
+      thd                       Thread handle
+      table_list                List of tables to lock
+      transactional             If to lock transactional or non-transactional
+
+  RETURN
+    0                   OK.
+    != 0                Error code from handler::lock_table().
+*/
+
+int set_handler_table_locks(THD *thd, TABLE_LIST *table_list,
+                            bool transactional)
+{
+  TABLE_LIST    *tlist;
+  int           error= 0;
+  DBUG_ENTER("set_handler_table_locks");
+  DBUG_PRINT("lock_info", ("transactional: %d", transactional));
+
+  for (tlist= table_list; tlist; tlist= tlist->next_global)
+  {
+    int lock_type;
+    int lock_timeout= -1; /* Use default for non-transactional locks. */
+
+    if (tlist->placeholder())
+      continue;
+
+    DBUG_ASSERT((tlist->lock_type == TL_READ) ||
+                (tlist->lock_type == TL_READ_NO_INSERT) ||
+                (tlist->lock_type == TL_WRITE_DEFAULT) ||
+                (tlist->lock_type == TL_WRITE) ||
+                (tlist->lock_type == TL_WRITE_LOW_PRIORITY));
+
+    /*
+      Every tlist object has a proper lock_type set. Even if it came in
+      the list as a base table from a view only.
+    */
+    lock_type= ((tlist->lock_type <= TL_READ_NO_INSERT) ?
+                HA_LOCK_IN_SHARE_MODE : HA_LOCK_IN_EXCLUSIVE_MODE);
+
+    if (transactional)
+    {
+      /*
+        The lock timeout is not set if this table belongs to a view. We
+        need to take it from the top-level view. After this loop
+        iteration, lock_timeout is not needed any more. Not even if the
+        locks are converted to non-transactional locks later.
+        Non-transactional locks do not support a lock_timeout.
+      */
+      lock_timeout= tlist->top_table()->lock_timeout;
+      DBUG_PRINT("lock_info",
+                 ("table: '%s'  tlist==top_table: %d  lock_timeout: %d",
+                  tlist->table_name, tlist==tlist->top_table(), lock_timeout));
+
+      /*
+        For warning/error reporting we need to set the intended lock
+        method in the TABLE_LIST object. It will be used later by
+        check_transactional_lock(). The lock method is not set if this
+        table belongs to a view. We can safely set it to transactional
+        locking here. Even for non-view tables. This function is not
+        called if non-transactional locking was requested for any
+        object.
+      */
+      tlist->lock_transactional= TRUE;
+    }
+
+    /*
+      Because we need to set the lock method (see above) for all
+      involved tables, we cannot break the loop on an error.
+      But we do not try more locks after the first error.
+      However, for non-transactional locking handler::lock_table() is
+      a hint only. So we continue to call it for other tables.
+    */
+    if (!error || !transactional)
+    {
+      error= tlist->table->file->lock_table(thd, lock_type, lock_timeout);
+      if (error && transactional && (error != HA_ERR_WRONG_COMMAND))
+        tlist->table->file->print_error(error, MYF(0));
+    }
+  }
+
+  DBUG_RETURN(error);
+}
+
 
 /**
   @} (end of group Locking)

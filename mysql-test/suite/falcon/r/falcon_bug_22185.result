@@ -1,0 +1,44 @@
+*** Bug #22185 ***
+SET @@storage_engine = Falcon;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+DROP TABLE IF EXISTS sbtest;
+# Establish connection conn1 (user = root)
+SET @@storage_engine = Falcon;
+# Switch to connection default
+CREATE TABLE sbtest (
+id int(10) unsigned NOT NULL,
+k int(10) unsigned NOT NULL DEFAULT 0,
+c char(120) NOT NULL DEFAULT '',
+pad char(60) NOT NULL DEFAULT '',
+PRIMARY KEY (id),
+KEY k (k)
+);
+INSERT INTO sbtest VALUES (10000, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+INSERT INTO sbtest VALUES (10001, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+INSERT INTO sbtest VALUES (10002, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+BEGIN;
+UPDATE sbtest SET pad = 'qq' WHERE id = 10000;
+SELECT * FROM sbtest;
+id	k	c	pad
+10000	0		qq
+10001	0		qqqqqqwwwwwweeeeeerrrrrrtttttt
+10002	0		qqqqqqwwwwwweeeeeerrrrrrtttttt
+# Switch to connection conn1
+UPDATE sbtest SET pad = 'eee' WHERE id = 10000;
+# Switch to connection default
+COMMIT;
+SELECT * FROM sbtest;
+id	k	c	pad
+10000	0		qq
+10001	0		qqqqqqwwwwwweeeeeerrrrrrtttttt
+10002	0		qqqqqqwwwwwweeeeeerrrrrrtttttt
+# Switch to connection conn1
+ERROR HY000: Record has changed since last read in table 'sbtest'
+SELECT * FROM sbtest;
+id	k	c	pad
+10000	0		qq
+10001	0		qqqqqqwwwwwweeeeeerrrrrrtttttt
+10002	0		qqqqqqwwwwwweeeeeerrrrrrtttttt
+# Switch to connection default
+DROP TABLE sbtest;

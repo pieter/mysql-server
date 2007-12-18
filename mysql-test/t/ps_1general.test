@@ -451,8 +451,6 @@ prepare stmt1 from ' optimize table t1 ' ;
 prepare stmt1 from ' analyze table t1 ' ;
 prepare stmt1 from ' checksum table t1 ' ;
 prepare stmt1 from ' repair table t1 ' ;
---error ER_UNSUPPORTED_PS
-prepare stmt1 from ' restore table t1 from ''data.txt'' ' ;
 ## handler
 --error ER_UNSUPPORTED_PS
 prepare stmt1 from ' handler t1 open ';

@@ -169,10 +169,10 @@ optimize table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK
 show keys from t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	id	A	#	NULL	NULL		BTREE	
-t1	1	parent_id	1	parent_id	A	#	NULL	NULL		BTREE	
-t1	1	level	1	level	A	#	NULL	NULL		BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	id	A	#	NULL	NULL		BTREE		
+t1	1	parent_id	1	parent_id	A	#	NULL	NULL		BTREE		
+t1	1	level	1	level	A	#	NULL	NULL		BTREE		
 drop table t1;
 CREATE TABLE t1 (
 gesuchnr int(11) DEFAULT '0' NOT NULL,
@@ -212,8 +212,8 @@ analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 show keys from t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	1	skr	1	a	A	#	NULL	NULL	YES	BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	1	skr	1	a	A	#	NULL	NULL	YES	BTREE		
 drop table t1;
 create table t1 (a int,b varchar(20),key(a)) engine=MyISAM;
 insert into t1 values (1,""), (2,"testing");
@@ -257,13 +257,13 @@ drop table t1;
 CREATE TABLE t1 (a int not null, b int not null,c int not null,
 key(a),primary key(a,b), unique(c),key(a),unique(b)) ENGINE = MyISAM;
 show index from t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	a	A	#	NULL	NULL		BTREE	
-t1	0	PRIMARY	2	b	A	#	NULL	NULL		BTREE	
-t1	0	c	1	c	A	#	NULL	NULL		BTREE	
-t1	0	b	1	b	A	#	NULL	NULL		BTREE	
-t1	1	a	1	a	A	#	NULL	NULL		BTREE	
-t1	1	a_2	1	a	A	#	NULL	NULL		BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	a	A	#	NULL	NULL		BTREE		
+t1	0	PRIMARY	2	b	A	#	NULL	NULL		BTREE		
+t1	0	c	1	c	A	#	NULL	NULL		BTREE		
+t1	0	b	1	b	A	#	NULL	NULL		BTREE		
+t1	1	a	1	a	A	#	NULL	NULL		BTREE		
+t1	1	a_2	1	a	A	#	NULL	NULL		BTREE		
 drop table t1;
 create table t1 (col1 int not null, col2 char(4) not null, primary key(col1)) ENGINE = MEMORY;
 alter table t1 engine=MyISAM;
@@ -635,8 +635,8 @@ optimize table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK
 show keys from t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	a	A	#	NULL	NULL		BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	a	A	#	NULL	NULL		BTREE		
 drop table t1;
 create table t1 (i int, j int ) ENGINE=MyISAM;
 insert into t1 values (1,2);
@@ -1114,11 +1114,11 @@ count(*)
 29267
 explain select * from t1 where c between 1 and 2500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	c	c	5	NULL	#	Using where
+1	SIMPLE	t1	range	c	c	5	NULL	#	Using index condition; Using MRR
 update t1 set c=a;
 explain select * from t1 where c between 1 and 2500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	c	c	5	NULL	#	Using where
+1	SIMPLE	t1	range	c	c	5	NULL	#	Using index condition; Using MRR
 drop table t1,t2;
 create table t1 (id int primary key auto_increment, fk int, index index_fk (fk)) engine=MyISAM;
 insert into t1 (id) values (null),(null),(null),(null),(null);
@@ -1559,7 +1559,7 @@ qq
 *a         *a*a         *
 explain select * from t1 where v='a';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref	v,v_2	#	13	const	#	Using where
+1	SIMPLE	t1	ref	v,v_2	#	13	const	#	Using index condition
 select v,count(*) from t1 group by v limit 10;
 v	count(*)
 a	1
@@ -1735,7 +1735,7 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	ref	v	v	303	const	#	Using where; Using index
 explain select * from t1 where v='a';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref	v	v	303	const	#	Using where
+1	SIMPLE	t1	ref	v	v	303	const	#	Using index condition
 select v,count(*) from t1 group by v limit 10;
 v	count(*)
 a	1
@@ -1979,7 +1979,7 @@ a	b
 drop table t1;
 create table t1 (v varchar(65530), key(v));
 Warnings:
-Warning	1071	Specified key was too long; max key length is 1000 bytes
+Warning	1071	Specified key was too long; max key length is 1332 bytes
 drop table t1;
 create table t1 (v varchar(65536));
 Warnings:

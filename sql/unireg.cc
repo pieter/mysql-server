@@ -115,6 +115,9 @@ bool mysql_create_frm(THD *thd, const char *file_name,
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   partition_info *part_info= thd->work_part_info;
 #endif
+  const uint format_section_header_size= 8;
+  uint format_section_len;
+  uint tablespace_len= 0;
   Pack_header_error_handler pack_header_error_handler;
   int error;
   DBUG_ENTER("mysql_create_frm");
@@ -184,9 +187,53 @@ bool mysql_create_frm(THD *thd, const char *file_name,
     if (key_info[i].parser_name)
       create_info->extra_size+= key_info[i].parser_name->length + 1;
   }
+  /* Add space for storage type and field format array of fields */
+  if (create_info->tablespace)
+    tablespace_len= strlen(create_info->tablespace);
+  format_section_len=
+    format_section_header_size +
+    tablespace_len + 1 +
+    create_fields.elements;
+  create_info->extra_size+= format_section_len;
+
+  tmp_len= system_charset_info->cset->charpos(system_charset_info,
+                                              create_info->comment.str,
+                                              create_info->comment.str +
+                                              create_info->comment.length, 
+                                              TABLE_COMMENT_MAXLEN);
+
+  if (tmp_len < create_info->comment.length)
+  {
+    if ((thd->variables.sql_mode &
+         (MODE_STRICT_TRANS_TABLES | MODE_STRICT_ALL_TABLES)))
+    {
+      my_error(ER_WRONG_STRING_LENGTH, MYF(0),
+                 create_info->comment.str,"TABLE COMMENT",
+                 (uint) TABLE_COMMENT_MAXLEN);
+      my_free(screen_buff,MYF(0));
+      DBUG_RETURN(1);
+    }
+    push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_WARN,
+                        ER_WRONG_STRING_LENGTH, ER(ER_WRONG_STRING_LENGTH),
+                        create_info->comment.str,"TABLE COMMENT",
+                        (uint) TABLE_COMMENT_MAXLEN);
+    create_info->comment.length= tmp_len;
+  }
+
+  //if table comment is larger than 180 bytes, store into extra segment.
+  if (create_info->comment.length > 180)
+  {
+    forminfo[46]=255;
+    create_info->extra_size+= 2 + create_info->comment.length;
+  }
+  else{
+    strmake((char*) forminfo+47, create_info->comment.str ?
+            create_info->comment.str : "", create_info->comment.length);
+    forminfo[46]=(uchar) create_info->comment.length;
+  }
 
   if ((file=create_frm(thd, file_name, db, table, reclength, fileinfo,
-		       create_info, keys)) < 0)
+		       create_info, keys, key_info)) < 0)
   {
     my_free(screen_buff, MYF(0));
     DBUG_RETURN(1);
@@ -205,28 +252,7 @@ bool mysql_create_frm(THD *thd, const char *file_name,
 			     (create_info->min_rows == 1) && (keys == 0));
   int2store(fileinfo+28,key_info_length);
 
-  tmp_len= system_charset_info->cset->charpos(system_charset_info,
-                                              create_info->comment.str,
-                                              create_info->comment.str +
-                                              create_info->comment.length, 60);
-  if (tmp_len < create_info->comment.length)
-  {
-    (void) my_snprintf(buff, sizeof(buff), "Too long comment for table '%s'",
-                       table);
-    if ((thd->variables.sql_mode &
-         (MODE_STRICT_TRANS_TABLES | MODE_STRICT_ALL_TABLES)))
-    {
-      my_message(ER_UNKNOWN_ERROR, buff, MYF(0));
-      goto err;
-    }
-    push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_WARN,
-                        ER_UNKNOWN_ERROR, ER(ER_UNKNOWN_ERROR), buff);
-    create_info->comment.length= tmp_len;
-  }
 
-  strmake((char*) forminfo+47, create_info->comment.str ?
-          create_info->comment.str : "", create_info->comment.length);
-  forminfo[46]=(uchar) create_info->comment.length;
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   if (part_info)
   {
@@ -288,6 +314,55 @@ bool mysql_create_frm(THD *thd, const char *file_name,
     }
   }
 
+  if (forminfo[46] == (uchar)255)
+  {
+    uchar comment_length_buff[2];
+    int2store(comment_length_buff,create_info->comment.length);
+    if (my_write(file, comment_length_buff, 2, MYF(MY_NABP)) ||
+        my_write(file, (uchar*)create_info->comment.str,
+                  create_info->comment.length, MYF(MY_NABP)))
+      goto err;
+  }
+
+  /* Store storage type and field format array of fields */
+  {
+    /* prepare header */
+    {
+      uint flags= 0;
+      flags|= create_info->default_storage_media; //3 bits
+
+      bzero(buff, format_section_header_size);
+      /* length of section 2 bytes*/
+      int2store(buff+0, format_section_len);
+      /* flags of section 4 bytes*/
+      int4store(buff+2, flags);
+      /* 2 bytes left for future use */
+    }
+    /* write header */
+    if (my_write(file, (const uchar*)buff, format_section_header_size, MYF_RW))
+      goto err;
+    /* write tablespace name */
+    if (tablespace_len > 0)
+      if (my_write(file, (const uchar*)create_info->tablespace, tablespace_len, MYF_RW))
+        goto err;
+    buff[0]= 0;
+    if (my_write(file, (const uchar*)buff, 1, MYF_RW))
+      goto err;
+    /* write column info, 1 byte per column */
+    {
+      List_iterator<Create_field> it(create_fields);
+      Create_field *field;
+      uchar storage_type, column_format, write_byte;
+      while ((field=it++))
+      {
+        storage_type= (uchar)field->field_storage_type();
+        column_format= (uchar)field->column_format();
+        write_byte= storage_type + (column_format << COLUMN_FORMAT_SHIFT);
+        if (my_write(file, &write_byte, 1, MYF_RW))
+          goto err;
+      }
+    }
+  }
   VOID(my_seek(file,filepos,MY_SEEK_SET,MYF(0)));
   if (my_write(file, forminfo, 288, MYF_RW) ||
       my_write(file, screen_buff, info_length, MYF_RW) ||
@@ -538,6 +613,16 @@ static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
   }
   *(pos++)=0;
 
+  for (key=keyinfo,end=keyinfo+key_count ; key != end ; key++)
+  {
+    if (key->flags & HA_USES_COMMENT)
+    {
+      int2store(pos, key->comment.length);
+      uchar *tmp= (uchar*)strnmov((char*) pos+2,key->comment.str,key->comment.length);
+      pos= tmp;
+    }
+  }
+
   if (key_count > 127 || key_parts > 127)
   {
     keybuff[0]= (key_count & 0x7f) | 0x80;
@@ -590,20 +675,22 @@ static bool pack_header(uchar *forminfo, enum legacy_db_type table_type,
                                                      field->comment.str,
                                                      field->comment.str +
                                                      field->comment.length,
-                                                     255);
+                                                     COLUMN_COMMENT_MAXLEN);
+
     if (tmp_len < field->comment.length)
     {
-      char buff[128];
-      (void) my_snprintf(buff,sizeof(buff), "Too long comment for field '%s'",
-                         field->field_name);
       if ((current_thd->variables.sql_mode &
 	   (MODE_STRICT_TRANS_TABLES | MODE_STRICT_ALL_TABLES)))
       {
-        my_message(ER_UNKNOWN_ERROR, buff, MYF(0));
+        my_error(ER_WRONG_STRING_LENGTH, MYF(0),
+                   field->comment.str,"COLUMN COMMENT",
+                   (uint) COLUMN_COMMENT_MAXLEN);
 	DBUG_RETURN(1);
       }
       push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_WARN,
-                          ER_UNKNOWN_ERROR, ER(ER_UNKNOWN_ERROR), buff);
+                          ER_WRONG_STRING_LENGTH, ER(ER_WRONG_STRING_LENGTH),
+                          field->comment.str,"COLUMN COMMENT",
+                          (uint) COLUMN_COMMENT_MAXLEN);
       field->comment.length= tmp_len;
     }
 

@@ -247,6 +247,8 @@
 #endif
 #undef inline_test_2
 #undef inline_test_1
+/* helper macro for "instantiating" inline functions */
+#define STATIC_INLINE static inline
 
 /*
   The following macros are used to control inlining a bit more than
@@ -889,6 +891,14 @@ typedef SOCKET_SIZE_TYPE size_socket;
 #define M_LN2 0.69314718055994530942
 #endif
 
+#ifndef HAVE_LOG2
+/*
+  This will be slightly slower and perhaps a tiny bit less accurate than
+  doing it the IEEE754 way but log2() should be available on C99 systems.
+*/
+#define log2(X) (log(X) / M_LN2)
+#endif
+
 /*
   Max size that must be added to a so that we know Size to make
   adressable obj.
@@ -1020,6 +1030,7 @@ typedef long long intptr;
 #error sizeof(void *) is neither sizeof(int) nor sizeof(long) nor sizeof(long long)
 #endif
 
+#define MY_ERRPTR ((void*)(intptr)1)
 #ifdef USE_RAID
 /*
   The following is done with a if to not get problems with pre-processors
@@ -1452,7 +1463,7 @@ do { doubleget_union _tmp; \
 #define statistic_sub(V,C,L)       (V)-=(C)
 #endif
 
-#ifdef HAVE_CHARSET_utf8
+#if defined(HAVE_CHARSET_utf8mb3) || defined(HAVE_CHARSET_utf8mb4)
 #define MYSQL_UNIVERSAL_CLIENT_CHARSET "utf8"
 #else
 #define MYSQL_UNIVERSAL_CLIENT_CHARSET MYSQL_DEFAULT_CHARSET_NAME

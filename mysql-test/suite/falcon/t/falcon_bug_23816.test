@@ -1,0 +1,49 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #23816: Falcon: rows temporarily disappear after index dropped
+#
+--echo *** Bug #23816 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo # Establish connection conn1 (user = root)
+connect (conn1,localhost,root,,);
+SET @@storage_engine = Falcon;
+SET @@autocommit = 0;
+
+--echo # Switch to connection default
+connection default;
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int, key i (a));
+INSERT INTO t1 VALUES (1), (2), (3), (4), (5);
+COMMIT;
+START TRANSACTION;
+INSERT INTO t1 VALUES (6);
+
+--echo # Switch to connection conn1
+connection conn1;
+START TRANSACTION;
+--send DROP INDEX i ON t1
+
+--echo # Switch to connection default
+connection default;
+--real_sleep 1
+SELECT count(*) FROM t1;
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+--error ER_CANT_LOCK
+--reap
+COMMIT;
+
+--echo # Switch to connection default
+connection default;
+SELECT count(*) FROM t1;
+COMMIT;
+
+# Final cleanup.
+disconnect conn1;
+DROP TABLE t1;

@@ -1,0 +1,15 @@
+--source include/have_falcon.inc
+CREATE TABLE t1(a INT) ENGINE=Falcon;
+connect (con1,localhost,root,,);
+connection con1;
+START TRANSACTION;
+INSERT INTO t1 VALUES(1);
+connection default;
+--error 1051
+DROP TABLE t1;
+SHOW WARNINGS;
+connection con1;
+COMMIT;
+connection default;
+disconnect con1;
+DROP TABLE t1;

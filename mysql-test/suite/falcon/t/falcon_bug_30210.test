@@ -1,0 +1,44 @@
+--source include/have_falcon.inc
+#
+# Bug #30210: Falcon: bad data with case insensitive table names
+#
+# In this test, Falcon should currently not allow the second table
+# to be created.  It fails by allowing the second table name, 
+# but internally using only one file. 
+#
+# Somewhat related to Bug#22166 - Falcon: case insensitive table names
+#
+--echo *** Bug #30210 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS T;
+DROP TABLE IF EXISTS t;
+--enable_warnings
+
+CREATE TABLE T (a int);
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--error ER_TABLE_EXISTS_ERROR, ER_CANT_CREATE_TABLE
+CREATE TABLE t (a int);
+INSERT INTO T VALUES (1);
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM T;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--disable_warnings
+DROP TABLE IF EXISTS t;
+DROP TABLE IF EXISTS T;
+--enable_warnings

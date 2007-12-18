@@ -44,6 +44,11 @@
 #include "sql_plugin.h"
 #include "scheduler.h"
 
+#ifdef HAVE_DTRACE
+#define _DTRACE_VERSION 1
+#endif
+#include "probes.h"
+
 /* TODO convert all these three maps to Bitmap classes */
 typedef ulonglong table_map;          /* Used for table bits in join */
 #if MAX_INDEXES <= 64
@@ -96,16 +101,35 @@ char* query_table_status(THD *thd,const char *db,const char *table_name);
 #define PREV_BITS(type,A)	((type) (((type) 1 << (A)) -1))
 #define all_bits_set(A,B) ((A) & (B) != (B))
 
-#define WARN_DEPRECATED(Thd,Ver,Old,New)                                             \
-  do {                                                                               \
-    DBUG_ASSERT(strncmp(Ver, MYSQL_SERVER_VERSION, sizeof(Ver)-1) > 0);              \
-    if (((uchar*)Thd) != NULL)                                                         \
-      push_warning_printf(((THD *)Thd), MYSQL_ERROR::WARN_LEVEL_WARN,                \
-                        ER_WARN_DEPRECATED_SYNTAX, ER(ER_WARN_DEPRECATED_SYNTAX_WITH_VER), \
-                        (Old), (Ver), (New));                                        \
-    else                                                                             \
-      sql_print_warning("The syntax '%s' is deprecated and will be removed "         \
-                        "in MySQL %s. Please use %s instead.", (Old), (Ver), (New)); \
+/*
+  Generates a warning that a feature is deprecated. After a specified version
+  asserts that the feature is removed.
+
+  Using it as
+
+    WARN_DEPRECATED(thd, 6,2, "BAD", "'GOOD'");
+
+ Will result in a warning
+
+    "The syntax 'BAD' is deprecated and will be removed in MySQL 6.2. Please
+    use 'GOOD' instead"
+
+ Note, that in macro arguments BAD is not quoted, while 'GOOD' is.
+ Note, that the version is TWO numbers, separated with a comma
+ (two macro arguments, that is)
+*/
+#define WARN_DEPRECATED(Thd,VerHi,VerLo,Old,New)                            \
+  do {                                                                      \
+    compile_time_assert(MYSQL_VERSION_ID < VerHi * 10000 + VerLo * 100);    \
+    if (Thd)                                                                \
+      push_warning_printf((Thd), MYSQL_ERROR::WARN_LEVEL_WARN,              \
+                        ER_WARN_DEPRECATED_SYNTAX,                          \
+                        ER(ER_WARN_DEPRECATED_SYNTAX_WITH_VER),             \
+                        (Old), #VerHi "." #VerLo, (New));                   \
+    else                                                                    \
+      sql_print_warning("The syntax '%s' is deprecated and will be removed " \
+                        "in MySQL %s. Please use %s instead.",              \
+                        (Old), #VerHi "." #VerLo, (New));                   \
   } while(0)
 
 extern CHARSET_INFO *system_charset_info, *files_charset_info ;
@@ -234,6 +258,18 @@ protected:
   CHARSET_INFO *m_connection_cl;
 };
 
+
+/**
+  Opening modes for open_temporary_table and open_table_from_share
+*/
+
+enum open_table_mode
+{
+  OTM_OPEN= 0,
+  OTM_CREATE= 1,
+  OTM_ALTER= 2
+};
+
 /***************************************************************************
   Configuration parameters
 ****************************************************************************/
@@ -307,11 +343,11 @@ protected:
   The cost of average seek 
     DISK_SEEK_BASE_COST + DISK_SEEK_PROP_COST*BLOCKS_IN_AVG_SEEK =1.0.
 */
-#define DISK_SEEK_BASE_COST ((double)0.5)
+#define DISK_SEEK_BASE_COST ((double)0.9)
 
 #define BLOCKS_IN_AVG_SEEK  128
 
-#define DISK_SEEK_PROP_COST ((double)0.5/BLOCKS_IN_AVG_SEEK)
+#define DISK_SEEK_PROP_COST ((double)0.1/BLOCKS_IN_AVG_SEEK)
 
 
 /**
@@ -447,7 +483,11 @@ protected:
 #define TMP_TABLE_FORCE_MYISAM          (ULL(1) << 32)
 #define OPTION_PROFILING                (ULL(1) << 33)
 
-
+/*
+  Dont report errors for individual rows,
+  But just report error on commit (or read ofcourse)
+*/
+#define OPTION_ALLOW_BATCH              (ULL(1) << 33) // THD, intern (slave)
 
 /**
   Maximum length of time zone name that we support
@@ -491,6 +531,12 @@ protected:
 #define MODE_HIGH_NOT_PRECEDENCE	(MODE_NO_AUTO_CREATE_USER*2)
 #define MODE_NO_ENGINE_SUBSTITUTION     (MODE_HIGH_NOT_PRECEDENCE*2)
 #define MODE_PAD_CHAR_TO_FULL_LENGTH    (ULL(1) << 31)
+
+
+/* @@optimizer_switch flags */
+#define OPTIMIZER_SWITCH_NO_MATERIALIZATION 1
+#define OPTIMIZER_SWITCH_NO_SEMIJOIN 2
+
 
 /*
   Replication uses 8 bytes to store SQL_MODE in the binary log. The day you
@@ -728,6 +774,17 @@ bool check_string_byte_length(LEX_STRING *str, const char *err_msg,
 bool check_string_char_length(LEX_STRING *str, const char *err_msg,
                               uint max_char_length, CHARSET_INFO *cs,
                               bool no_error);
+bool check_identifier_name(LEX_STRING *str, uint max_char_length,
+                           uint err_code, const char *param_for_err_msg);
+inline bool check_identifier_name(LEX_STRING *str, uint err_code)
+{
+  return check_identifier_name(str, NAME_CHAR_LEN, err_code, "");
+}
+inline bool check_identifier_name(LEX_STRING *str)
+{
+  return check_identifier_name(str, NAME_CHAR_LEN, 0, "");
+}
+
 
 bool parse_sql(THD *thd,
                class Lex_input_stream *lip,
@@ -942,6 +999,7 @@ void decrease_user_connections(USER_CONN *uc);
 void thd_init_client_charset(THD *thd, uint cs_number);
 bool setup_connection_thread_globals(THD *thd);
 bool login_connection(THD *thd);
+void prepare_new_connection_state(THD* thd);
 void end_connection(THD *thd);
 
 bool mysql_create_db(THD *thd, char *db, HA_CREATE_INFO *create, bool silent);
@@ -1176,6 +1234,10 @@ bool reopen_tables(THD *thd,bool get_locks,bool in_refresh);
 void close_data_files_and_morph_locks(THD *thd, const char *db,
                                       const char *table_name);
 void close_handle_and_leave_table_as_lock(TABLE *table);
+bool open_new_frm(THD *thd, TABLE_SHARE *share, const char *alias,
+                  uint db_stat, uint prgflag,
+                  uint ha_open_flags, TABLE *outparam,
+                  TABLE_LIST *table_desc, MEM_ROOT *mem_root);
 bool wait_for_tables(THD *thd);
 bool table_is_used(TABLE *table, bool wait_for_name_lock);
 TABLE *drop_locked_tables(THD *thd,const char *db, const char *table_name);
@@ -1322,6 +1384,8 @@ void set_item_name(Item *item,char *pos,uint length);
 bool add_field_to_list(THD *thd, LEX_STRING *field_name, enum enum_field_types type,
 		       char *length, char *decimal,
 		       uint type_modifier,
+                       enum ha_storage_media storage_type,
+                       enum column_format_type column_format,
 		       Item *default_value, Item *on_update_value,
 		       LEX_STRING *comment,
 		       char *change, List<String> *interval_list,
@@ -1437,8 +1501,9 @@ bool open_normal_and_derived_tables(THD *thd, TABLE_LIST *tables, uint flags);
 int lock_tables(THD *thd, TABLE_LIST *tables, uint counter, bool *need_reopen);
 int decide_logging_format(THD *thd, TABLE_LIST *tables);
 TABLE *open_temporary_table(THD *thd, const char *path, const char *db,
-			    const char *table_name, bool link_in_list);
-bool rm_temporary_table(handlerton *base, char *path);
+                            const char *table_name, bool link_in_list,
+                            open_table_mode open_mode);
+bool rm_temporary_table(handlerton *base, char *path, bool frm_only);
 void free_io_cache(TABLE *entry);
 void intern_close_table(TABLE *entry);
 bool close_thread_table(THD *thd, TABLE **table_ptr);
@@ -1676,14 +1741,21 @@ void print_cached_tables(void);
 void TEST_filesort(SORT_FIELD *sortorder,uint s_length);
 void print_plan(JOIN* join,uint idx, double record_count, double read_time,
                 double current_read_time, const char *info);
+void print_keyuse_array(DYNAMIC_ARRAY *keyuse_array);
+#define EXTRA_DEBUG_DUMP_TABLE_LISTS
+#ifdef EXTRA_DEBUG_DUMP_TABLE_LISTS
+void dump_TABLE_LIST_graph(SELECT_LEX *select_lex, TABLE_LIST* tl);
+#endif
 #endif
 void mysql_print_status();
+
 /* key.cc */
 int find_ref_key(KEY *key, uint key_count, uchar *record, Field *field,
                  uint *key_length, uint *keypart);
 void key_copy(uchar *to_key, uchar *from_record, KEY *key_info, uint key_length);
 void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
                  uint key_length);
+void key_zero_nulls(uchar *tuple, KEY *key_info);
 bool key_cmp_if_same(TABLE *form,const uchar *key,uint index,uint key_length);
 void key_unpack(String *to,TABLE *form,uint index);
 bool is_key_used(TABLE *table, uint idx, const MY_BITMAP *fields);
@@ -1782,6 +1854,7 @@ extern uint reg_ext_length;
 extern char glob_hostname[FN_REFLEN], mysql_home[FN_REFLEN];
 extern char pidfile_name[FN_REFLEN], system_time_zone[30], *opt_init_file;
 extern char log_error_file[FN_REFLEN], *opt_tc_log_file;
+extern const double log_10[309];
 extern ulonglong log_10_int[20];
 extern ulonglong keybuff_size;
 extern ulonglong thd_startup_options;
@@ -1797,6 +1870,7 @@ extern ulong query_cache_size, query_cache_min_res_unit;
 extern ulong slow_launch_threads, slow_launch_time;
 extern ulong table_cache_size, table_def_size;
 extern ulong max_connections,max_connect_errors, connect_timeout;
+extern my_bool slave_allow_batching;
 extern ulong slave_net_timeout, slave_trans_retries;
 extern uint max_user_connections;
 extern ulong what_to_log,flush_time;
@@ -1974,6 +2048,10 @@ bool make_global_read_lock_block_commit(THD *thd);
 bool set_protect_against_global_read_lock(void);
 void unset_protect_against_global_read_lock(void);
 void broadcast_refresh(void);
+int try_transactional_lock(THD *thd, TABLE_LIST *table_list);
+int check_transactional_lock(THD *thd, TABLE_LIST *table_list);
+int set_handler_table_locks(THD *thd, TABLE_LIST *table_list,
+                            bool transactional);
 
 /* Lock based on name */
 int lock_and_wait_for_table_name(THD *thd, TABLE_LIST *table_list);
@@ -2019,7 +2097,7 @@ int open_table_def(THD *thd, TABLE_SHARE *share, uint db_flags);
 void open_table_error(TABLE_SHARE *share, int error, int db_errno, int errarg);
 int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
                           uint db_stat, uint prgflag, uint ha_open_flags,
-                          TABLE *outparam, bool is_create_table);
+                          TABLE *outparam, open_table_mode open_mode);
 int readfrm(const char *name, uchar **data, size_t *length);
 int writefrm(const char* name, const uchar* data, size_t len);
 int closefrm(TABLE *table, bool free_share);
@@ -2097,7 +2175,7 @@ ulong next_io_size(ulong pos);
 void append_unescaped(String *res, const char *pos, uint length);
 int create_frm(THD *thd, const char *name, const char *db, const char *table,
                uint reclength, uchar *fileinfo,
-	       HA_CREATE_INFO *create_info, uint keys);
+	       HA_CREATE_INFO *create_info, uint keys, KEY *key_info);
 void update_create_info_from_table(HA_CREATE_INFO *info, TABLE *form);
 int rename_file_ext(const char * from,const char * to,const char * ext);
 bool check_db_name(LEX_STRING *db);

@@ -1,0 +1,56 @@
+--source include/have_falcon.inc
+#
+# Bug #27719: Falcon: hang after many updates of blob column
+# @comment Original loop count is 100000. Lowered to 35000
+#          because of run time on Pushbuild. Should be tested
+#          with loop count of 1 mio from time to time.
+# @tag Memory leak, BLOB
+#
+--echo *** Bug #27719 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+--enable_warnings
+
+CREATE TABLE t1 (a blob);
+INSERT INTO t1 VALUES ('1');
+COMMIT;
+SET @@autocommit = 0;
+
+DELIMITER //;
+
+CREATE PROCEDURE p1 ()
+BEGIN
+  DECLARE v int DEFAULT 0;
+  WHILE v < 35000 DO
+    /* IF v MOD 1000 = 0 THEN SELECT v; END IF; */
+    UPDATE t1 SET a = '1';
+    COMMIT;
+    SET v = v + 1;
+  END WHILE;
+END //
+
+DELIMITER ;//
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+CALL p1;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;
+DROP PROCEDURE p1;

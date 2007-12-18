@@ -1,0 +1,40 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+
+#
+# Bug #22180: Case-insensitive searches fail if index exists
+#
+--echo #---- Bug 22180 ----
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+--enable_warnings
+
+CREATE TABLE t1 (a char(50),KEY (a)) CHARSET utf8;
+
+CREATE TABLE t2 (a char(1),PRIMARY KEY (a));
+
+CREATE TABLE t3 (a char(5));
+
+ALTER TABLE t3 ADD UNIQUE KEY (a);
+
+INSERT INTO t1 VALUES ('u');
+INSERT INTO t1 VALUES ('U');
+SELECT count(*) FROM t1 WHERE a = 'u';
+SELECT count(*) FROM t1 WHERE a = 'U';
+
+INSERT INTO t2 VALUES ('c');
+SELECT * FROM t2 WHERE a < '_';
+SELECT * FROM t2 WHERE a > '_';
+SELECT * FROM t2 WHERE a = '_';
+SELECT * FROM t2 WHERE a LIKE '_';
+
+INSERT INTO t3 VALUES ('I');
+--error ER_DUP_ENTRY
+INSERT INTO t3 VALUES ('i');
+
+# Final cleanup.
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;

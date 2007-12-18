@@ -1,0 +1,79 @@
+--source include/have_falcon.inc
+# Can't test this with embedded server
+--source include/not_embedded.inc
+#--disable_abort_on_error
+
+# Concurrent UPDATE test
+#
+# Note: 1. The "--real_sleep 1" are not needed for the test logics itself.
+#          I just want to exclude that the visible strange effect is caused
+#          by a currently not detected but thinkable bug around timing/when
+#          changes become visible ....
+#       2. The "--disable_abort_on_error" before and "--enable_abort_on_error"
+#          after "reap" are used with the intention to get a reject file.
+#          Both lines can be removed from an final testcase if we are sure
+#          that "reap" must not get a server error.
+#
+
+--echo #---- Bug #22212 (Mantis #264) ----
+
+SET @@storage_engine = Falcon;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+
+--echo # Initialization
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+eval CREATE TABLE t1 (id INTEGER, x CHAR(20)) ENGINE=Falcon;
+INSERT INTO t1 VALUES(0, 'Initialized');
+COMMIT;
+
+--echo # Establish connection con1 (user=root)
+connect (con1,localhost,root,,);
+SET AUTOCOMMIT = 0;
+
+--echo # Establish connection con2 (user=root)
+connect (con2,localhost,root,,);
+SET AUTOCOMMIT = 0;
+
+--echo # Switch to connection con1
+connection con1;
+UPDATE t1 SET x = 'Update by con1' WHERE id = 0;
+
+--real_sleep 1
+
+--echo # Switch to connection con2
+connection con2;
+--echo # The following UPDATE t1 SET x = 'Update by con2' WHERE id = 0 is sent without
+--echo # waiting of the client (for this session) for completion.
+--echo # That means if you see the statement printed in the protocoll
+--echo # the outcome of the statement is unknown and no following server
+--echo # message etc. does not mean that the statement was successful
+--echo # completed.
+--send UPDATE t1 SET x = 'Update by con2' WHERE id = 0;
+
+--real_sleep 1
+
+--echo # Switch to connection con1
+connection con1;
+COMMIT;
+
+--real_sleep 1
+
+--echo # Switch to connection con2
+connection con2;
+--echo # Here the connection prints the outcome of the preceeding
+--echo # UPDATE t1 SET x = 'Update by con2' WHERE id = 0;
+--echo # If there is nothing printed before the next statement (COMMIT)
+--echo # appears the outcome was success.
+--disable_abort_on_error
+--error 1020
+reap;
+--enable_abort_on_error
+COMMIT;
+SELECT * FROM t1;
+COMMIT;
+
+DROP TABLE t1;

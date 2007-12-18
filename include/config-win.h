@@ -237,6 +237,8 @@ inline double rint(double nr)
   return (((c-nr) >= (nr-f)) ? f :c);
 }
 
+#define log2(x) (_logb(x))
+
 #ifdef _WIN64
 #define ulonglong2double(A) ((double) (ulonglong) (A))
 #define my_off_t2double(A)  ((double) (my_off_t) (A))
@@ -382,6 +384,7 @@ inline double ulonglong2double(ulonglong value)
 #define HAVE_ANSI_INCLUDE
 #define HAVE_SYS_UTIME_H
 #define HAVE_STRTOUL
+#define HAVE_LOG2
 #endif
 #define my_reinterpret_cast(A) reinterpret_cast <A>
 #define my_const_cast(A) const_cast<A>
@@ -470,6 +473,9 @@ inline double ulonglong2double(ulonglong value)
 #define HAVE_CHARSET_tis620 1
 #define HAVE_CHARSET_ucs2 1
 #define HAVE_CHARSET_ujis 1
-#define HAVE_CHARSET_utf8 1
+#define HAVE_CHARSET_utf16 1
+#define HAVE_CHARSET_utf32 1
+#define HAVE_CHARSET_utf8mb4 1
+#define HAVE_CHARSET_utf8mb3 1
 #define HAVE_UCA_COLLATIONS 1
 

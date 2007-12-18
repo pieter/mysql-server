@@ -10,7 +10,7 @@ INSERT INTO t1 VALUES (1), (2);
 <database name="test">
 	<table_structure name="t1">
 		<field Field="a" Type="int(11)" Null="YES" Key="MUL" Extra="" />
-		<key Table="t1" Non_unique="1" Key_name="a" Seq_in_index="1" Column_name="a" Collation="A" Null="YES" Index_type="BTREE" Comment="" />
+		<key Table="t1" Non_unique="1" Key_name="a" Seq_in_index="1" Column_name="a" Collation="A" Null="YES" Index_type="BTREE" Comment="" Index_Comment="" />
 	</table_structure>
 	<table_data name="t1">
 	<row>
@@ -50,7 +50,7 @@ CREATE TABLE `t1` (
   `a` double DEFAULT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 SET character_set_client = @saved_cs_client;
-INSERT INTO `t1` VALUES (RES);
+INSERT INTO `t1` VALUES (-1.7976931348623157e308);
 DROP TABLE t1;
 #
 # Bug #3361 mysqldump quotes DECIMAL values inconsistently

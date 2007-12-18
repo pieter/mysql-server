@@ -15,6 +15,12 @@
 
 #called from the top level Makefile
 
+if THREAD_SAFE_CLIENT
+LIBMYSQLCLIENT_LA =		$(top_builddir)/libmysql_r/libmysqlclient_r.la
+else
+LIBMYSQLCLIENT_LA =		$(top_builddir)/libmysql/libmysqlclient.la
+endif
+
 MYSQLDATAdir =          $(localstatedir)
 MYSQLSHAREdir =         $(pkgdatadir)
 MYSQLBASEdir=           $(prefix)
@@ -26,15 +32,16 @@ INCLUDES =              -I$(top_srcdir)/include -I$(top_builddir)/include \
 WRAPLIBS=
 
 LDADD =
+AM_CFLAGS = -DHAVE_MYSQL_CONFIG_H
 
 DEFS =                  @DEFS@
 
-noinst_HEADERS =	ha_archive.h azlib.h
-noinst_PROGRAMS	=	archive_test archive_reader
+noinst_HEADERS =	ha_archive.h azio.h
+noinst_PROGRAMS	=	archive_test archive_reader archive_performance concurrency_test
 
 EXTRA_LTLIBRARIES =	ha_archive.la
 pkglib_LTLIBRARIES =	@plugin_archive_shared_target@
-ha_archive_la_LDFLAGS =	-module -rpath $(MYSQLLIBdir)
+ha_archive_la_LDFLAGS =	-module -rpath $(MYSQLLIBdir) $(LDADD)
 ha_archive_la_CXXFLAGS=	$(AM_CFLAGS) -DMYSQL_DYNAMIC_PLUGIN
 ha_archive_la_CFLAGS =	$(AM_CFLAGS) -DMYSQL_DYNAMIC_PLUGIN
 ha_archive_la_SOURCES =	ha_archive.cc azio.c
@@ -42,27 +49,51 @@ ha_archive_la_SOURCES =	ha_archive.cc azio.c
 
 EXTRA_LIBRARIES =	libarchive.a
 noinst_LIBRARIES =	@plugin_archive_static_target@
-libarchive_a_CXXFLAGS =	$(AM_CFLAGS)
-libarchive_a_CFLAGS =	$(AM_CFLAGS)
+libarchive_a_CXXFLAGS =	$(AM_CFLAGS) 
+libarchive_a_CFLAGS =	$(AM_CFLAGS) 
 libarchive_a_SOURCES =	ha_archive.cc azio.c
 
+archive_performance_SOURCES =	archive_performance.c azio.c
+archive_performance_CFLAGS =	$(AM_CFLAGS) 
+archive_performance_LDADD =	$(top_builddir)/mysys/libmysys.a \
+			$(top_builddir)/dbug/libdbug.a \
+			$(top_builddir)/strings/libmystrings.a \
+			$(LDADD) \
+			@ZLIB_LIBS@
+archive_performance_LDFLAGS = @NOINST_LDFLAGS@
 
 archive_test_SOURCES =	archive_test.c azio.c
-archive_test_CFLAGS =	$(AM_CFLAGS)
+archive_test_CFLAGS =	$(AM_CFLAGS) 
 archive_test_LDADD =	$(top_builddir)/mysys/libmysys.a \
 			$(top_builddir)/dbug/libdbug.a \
 			$(top_builddir)/strings/libmystrings.a \
+			$(LDADD) \
 			@ZLIB_LIBS@
 archive_test_LDFLAGS = @NOINST_LDFLAGS@
 
 archive_reader_SOURCES = archive_reader.c azio.c
-archive_reader_CFLAGS =	$(AM_CFLAGS)
+archive_reader_CFLAGS =	$(AM_CFLAGS) 
 archive_reader_LDADD =	$(top_builddir)/mysys/libmysys.a \
 			$(top_builddir)/dbug/libdbug.a \
 			$(top_builddir)/strings/libmystrings.a \
+			$(LDADD) \
 			@ZLIB_LIBS@
 archive_reader_LDFLAGS = @NOINST_LDFLAGS@
 
+concurrency_test_SOURCES = concurrency_test.c azio.c
+concurrency_test_CFLAGS =	$(AM_CFLAGS) 
+concurrency_test_LDADD =	$(top_builddir)/mysys/libmysys.a \
+			$(top_builddir)/dbug/libdbug.a \
+			$(top_builddir)/strings/libmystrings.a \
+			$(LIBMYSQLCLIENT_LA) \
+			$(LDADD) \
+			@ZLIB_LIBS@
+concurrency_test_LDFLAGS = @NOINST_LDFLAGS@
+
+valgrind-test: archive_test archive_performance
+	libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes  ./concurrency_test
+	libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes  ./archive_test
+	libtool --mode=execute valgrind --leak-check=yes --show-reachable=yes  ./archive_performance
 
 EXTRA_DIST =		CMakeLists.txt plug.in
 # Don't update the files from bitkeeper

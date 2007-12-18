@@ -1,0 +1,45 @@
+--source include/have_falcon.inc
+#
+# Bug #26803: unique constraints on VARCHAR columns behave different in MyISAM and Falcon
+#
+--echo *** Bug #26803 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  a varchar(5),
+  b varchar(5)
+);
+CREATE UNIQUE INDEX i1 ON t1 (a, b);
+INSERT INTO t1 VALUES ('y', 'y');
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES ('y', 'y');
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES ('y ', 'y');
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES ('y', 'y ');
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES ('y ', 'y ');
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+SELECT count(*) FROM t1 WHERE a = 'y' AND b ='y';
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

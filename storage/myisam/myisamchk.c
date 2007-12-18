@@ -20,6 +20,7 @@
 #include <m_ctype.h>
 #include <stdarg.h>
 #include <my_getopt.h>
+#include <my_bit.h>
 #ifdef HAVE_SYS_VADVICE_H
 #include <sys/vadvise.h>
 #endif
@@ -1813,3 +1814,5 @@ void mi_check_print_error(MI_CHECK *param, const char *fmt,...)
   va_end(args);
   DBUG_VOID_RETURN;
 }
+
+#include "mi_extrafunc.h"

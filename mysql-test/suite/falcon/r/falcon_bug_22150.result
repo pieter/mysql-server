@@ -1,0 +1,42 @@
+SET STORAGE_ENGINE = Falcon;
+*** Bug #22150 ***
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+# Establish connection conn1 (user = root)
+SET @@autocommit = 1;
+# Switch to connection default
+SET @@autocommit = 1;
+CREATE TABLE t1 (a int(11), KEY a (a));
+CREATE PROCEDURE p1()
+begin declare v1 int default 0;
+declare v2 int;
+declare continue handler for 1020 begin end;
+declare continue handler for 1213 begin end;
+while v1 < 2500 do
+/* SELECT 'insert', v1; */
+INSERT INTO t1 VALUES (v1);
+SET v2 = rand() * 10000;
+UPDATE t1 SET a = v2 WHERE a = v1;
+/* SELECT ' update', v1; */
+SET v1 = v1 + 1;
+if v1 mod 50 = 0 then
+/* SELECT ' delete'; */
+DELETE FROM t1;
+end if;
+end while;
+end//
+# Sent call p1() to the server but do not pull the results
+call p1();
+# Switch to connection conn1
+call p1();
+# Switch to connection default
+# Pull the results of the preceeding call p1()
+# Sent call p1() to the server but do not pull the results
+call p1();
+# Switch to connection conn1
+call p1();
+# Switch to connection default
+# Pull the results of the preceeding call p1()
+# Disconnect conn1
+DROP TABLE t1;
+DROP PROCEDURE p1;

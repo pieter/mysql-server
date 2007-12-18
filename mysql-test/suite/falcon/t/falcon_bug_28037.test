@@ -1,0 +1,21 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28037: Falcon OR fails if index exists (2)
+#
+--echo *** Bug #28037 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  s2 int(11) DEFAULT NULL,
+  s3 int(11) DEFAULT NULL,
+  KEY s2 (s2),
+  KEY s3 (s3)
+);
+INSERT INTO t1 VALUES (0,0),(1,1),(null,null);
+SELECT * FROM t1 WHERE s2 IS NULL or s3 IS NULL;
+
+# Final cleanup.
+DROP TABLE t1;

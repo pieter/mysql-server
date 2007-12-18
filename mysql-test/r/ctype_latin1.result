@@ -409,3 +409,213 @@ select hex(cast(_ascii 0x7f as char(1) character set latin1));
 hex(cast(_ascii 0x7f as char(1) character set latin1))
 7F
 End of 5.0 tests
+End of 5.1 tests
+set @@collation_connection=latin1_swedish_ci;
+select @@collation_connection;
+@@collation_connection
+latin1_swedish_ci
+select hex(weight_string('a'));
+hex(weight_string('a'))
+41
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+414243
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+4142
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+414243
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+4142432020
+select @@collation_connection;
+@@collation_connection
+latin1_swedish_ci
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+41
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+41
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+414243
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+4142
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+414243
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+4142432020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+2020434241
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+BEBDBCDFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFDFBCBDBE
+set @@collation_connection=latin1_bin;
+select @@collation_connection;
+@@collation_connection
+latin1_bin
+select hex(weight_string('a'));
+hex(weight_string('a'))
+61
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+616263
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+6162
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+616263
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+6162632020
+select @@collation_connection;
+@@collation_connection
+latin1_bin
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+61
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+41
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+616263
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+6162
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+616263
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+6162632020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+2020636261
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+9E9D9CDFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFDF9C9D9E
+set @@collation_connection=latin1_general_cs;
+select @@collation_connection;
+@@collation_connection
+latin1_general_cs
+select hex(weight_string('a'));
+hex(weight_string('a'))
+42
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+425254
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+4252
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+425254
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+4252542020
+select @@collation_connection;
+@@collation_connection
+latin1_general_cs
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+42
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+41
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+425254
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+4252
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+425254
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+4252542020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+2020545242
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+BDADABDFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFDFABADBD
+set @@collation_connection=binary;
+select @@collation_connection;
+@@collation_connection
+binary
+select hex(weight_string('a'));
+hex(weight_string('a'))
+61
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+616263
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+6162
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+616263
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+6162630000
+select @@collation_connection;
+@@collation_connection
+binary
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+61
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+41
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+616263
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+6162
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+616263
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+6162630000
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+0000636261
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+9E9D9CFFFF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+FFFF9C9D9E
+set names latin1;

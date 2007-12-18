@@ -1,0 +1,83 @@
+*** Bug #28686 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+DROP TABLE IF EXISTS t4;
+DROP TABLE IF EXISTS t5;
+DROP TABLE IF EXISTS t6;
+CREATE TABLE t1 (f1 varchar(6) DEFAULT NULL, f2 int(6) PRIMARY KEY NOT NULL);
+CREATE TABLE t2 (f3 varchar(5) NOT NULL, f4 varchar(5) NOT NULL, UNIQUE KEY ukey (f3,f4));
+INSERT INTO t1 VALUES (' 2', 2);
+INSERT INTO t2 VALUES (' 2', ' one '),(' 2', ' two ');
+CREATE TABLE t3 (
+auto int not null auto_increment,
+fld1 int(6) unsigned zerofill DEFAULT '000000' NOT NULL,
+companynr tinyint(2) unsigned zerofill DEFAULT '00' NOT NULL,
+fld3 char(30) DEFAULT '' NOT NULL,
+fld4 char(35) DEFAULT '' NOT NULL,
+fld5 char(35) DEFAULT '' NOT NULL,
+fld6 char(4) DEFAULT '' NOT NULL,
+UNIQUE fld1 (fld1),
+KEY fld3 (fld3),
+PRIMARY KEY (auto)
+);
+INSERT INTO t3 (fld1, companynr) VALUES (999999,99);
+CREATE TABLE t4 (
+companynr tinyint(2) unsigned zerofill NOT NULL default '00',
+companyname char(30) NOT NULL default '',
+PRIMARY KEY (companynr),
+UNIQUE KEY companyname(companyname)
+) MAX_ROWS=50 PACK_KEYS=1 COMMENT='companynames';
+CREATE TABLE t5 (
+a int, b varchar(30),
+PRIMARY KEY(a)
+);
+INSERT INTO t5 VALUES (1,'one');
+INSERT INTO t5 VALUES (2,'two');
+INSERT INTO t5 VALUES (3,'three');
+INSERT INTO t5 VALUES (4,'four');
+CREATE TABLE t6 AS SELECT * FROM t5;
+SELECT * FROM t1 LEFT JOIN t2 ON f1 = f3;
+f1	f2	f3	f4
+ 2	2	 2	 one 
+ 2	2	 2	 two 
+SELECT t3.companynr,companyname FROM t3 LEFT JOIN t4 USING (companynr) WHERE t4.companynr IS NULL;
+companynr	companyname
+99	NULL
+SELECT * FROM t6 LEFT JOIN t5 ON(t5.a = t6.a) ORDER BY t6.a;
+a	b	a	b
+1	one	1	one
+2	two	2	two
+3	three	3	three
+4	four	4	four
+SELECT * FROM t6 LEFT JOIN t5 USING(a) ORDER BY t6.a;
+a	b	b
+1	one	one
+2	two	two
+3	three	three
+4	four	four
+SELECT count(*) FROM t1;
+count(*)
+1
+SELECT count(*) FROM t2;
+count(*)
+2
+SELECT count(*) FROM t3;
+count(*)
+1200
+SELECT count(*) FROM t4;
+count(*)
+12
+SELECT count(*) FROM t5;
+count(*)
+4
+SELECT count(*) FROM t6;
+count(*)
+4
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+DROP TABLE t4;
+DROP TABLE t5;
+DROP TABLE t6;

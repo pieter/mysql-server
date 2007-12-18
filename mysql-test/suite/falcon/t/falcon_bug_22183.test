@@ -1,0 +1,60 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #22183: Loss of data after INSERT and ALTER with two 
+#                  interleaving transactions
+#
+--echo *** Bug #22183 ***
+--disable_warnings
+DROP DATABASE IF EXISTS falcon6;
+--enable_warnings
+CREATE DATABASE falcon6;
+USE falcon6;
+SET @@autocommit = 0;
+CREATE TABLE t (s1 int primary key, s2 varchar(10000), s3 blob);
+INSERT INTO t VALUES (3,'a','a');
+
+--echo # Establish connection conn1 (user = root)
+connect (conn1,localhost,root,,);
+SET @@storage_engine = Falcon;
+USE falcon6;
+# ALTER TABLE on table with pending transactions
+# does not work with Falcon. However, the error message
+# is misleading.
+--error ER_CANT_LOCK
+ALTER TABLE t DROP PRIMARY KEY;
+SET @@autocommit = 0;
+START TRANSACTION;
+--send INSERT INTO t VALUES (3,'b','b')
+
+--echo # Switch to connection default
+connection default;
+# We get a "multiple primary key defined", as the previous
+# DROP PRIMARY KEY did not worked.
+--error ER_MULTIPLE_PRI_KEY
+ALTER TABLE t ADD PRIMARY KEY (s1);
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+--error ER_DUP_ENTRY
+--reap
+COMMIT;
+ALTER TABLE t DROP PRIMARY KEY;
+
+--echo # Switch to connection default
+connection default;
+SELECT * FROM t;
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+COMMIT;
+
+--echo # Switch to connection default
+connection default;
+
+# Final cleanup.
+disconnect conn1;
+DROP DATABASE falcon6;
+USE test;

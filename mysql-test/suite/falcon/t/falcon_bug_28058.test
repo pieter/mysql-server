@@ -1,0 +1,32 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28058: Falcon Crash with savepoint
+#
+--echo *** Bug #28058 ***
+--disable_warnings
+DROP DATABASE IF EXISTS f12;
+--enable_warnings
+
+connect (conn1,localhost,root,,);
+SET storage_engine = Falcon;
+
+CREATE DATABASE f12;
+USE f12;
+
+SET @@autocommit=0;
+CREATE TABLE tf2 (s2 char(50));
+COMMIT;
+START TRANSACTION;
+INSERT INTO tf2 VALUES ('The plain');
+SAVEPOINT a;
+UPDATE tf2 SET s2 = 'b';
+ROLLBACK TO SAVEPOINT a;
+SELECT * FROM tf2;
+COMMIT;
+disconnect conn1;
+
+# Final cleanup
+connection default;
+DROP DATABASE f12;
+USE test;

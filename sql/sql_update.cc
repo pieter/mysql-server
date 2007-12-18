@@ -232,6 +232,7 @@ int mysql_update(THD *thd,
        mysql_handle_derived(thd->lex, &mysql_derived_filling)))
     DBUG_RETURN(1);
 
+  MYSQL_UPDATE_START();
   thd_proc_info(thd, "init");
   table= table_list->table;
 
@@ -245,7 +246,7 @@ int mysql_update(THD *thd,
                    table_list->grant.want_privilege);
 #endif
   if (mysql_prepare_update(thd, table_list, &conds, order_num, order))
-    DBUG_RETURN(1);
+    goto abort;
 
   old_covering_keys= table->covering_keys;		// Keys used in WHERE
   /* Check the fields we are going to modify */
@@ -254,15 +255,13 @@ int mysql_update(THD *thd,
   table_list->register_want_access(want_privilege);
 #endif
   if (setup_fields_with_no_wrap(thd, 0, fields, MARK_COLUMNS_WRITE, 0, 0))
-    DBUG_RETURN(1);                     /* purecov: inspected */
+    goto abort;                               /* purecov: inspected */
   if (table_list->view && check_fields(thd, fields))
-  {
-    DBUG_RETURN(1);
-  }
+    goto abort;
   if (!table_list->updatable || check_key_in_view(thd, table_list))
   {
     my_error(ER_NON_UPDATABLE_TABLE, MYF(0), table_list->alias, "UPDATE");
-    DBUG_RETURN(1);
+    goto abort;
   }
   if (table->timestamp_field)
   {
@@ -287,12 +286,15 @@ int mysql_update(THD *thd,
   if (setup_fields(thd, 0, values, MARK_COLUMNS_READ, 0, 0))
   {
     free_underlaid_joins(thd, select_lex);
-    DBUG_RETURN(1);				/* purecov: inspected */
+    goto abort;                               /* purecov: inspected */
   }
 
   if (select_lex->inner_refs_list.elements &&
     fix_inner_refs(thd, all_fields, select_lex, select_lex->ref_pointer_array))
+  {
+    MYSQL_UPDATE_END();
     DBUG_RETURN(-1);
+  }
 
   if (conds)
   {
@@ -319,6 +321,7 @@ int mysql_update(THD *thd,
   if (prune_partitions(thd, table, conds))
   {
     free_underlaid_joins(thd, select_lex);
+    MYSQL_UPDATE_END();
     send_ok(thd);				// No matching records
     DBUG_RETURN(0);
   }
@@ -333,9 +336,8 @@ int mysql_update(THD *thd,
     delete select;
     free_underlaid_joins(thd, select_lex);
     if (error)
-    {
-      DBUG_RETURN(1);				// Error in where
-    }
+      goto abort;				// Error in where
+    MYSQL_UPDATE_END();
     send_ok(thd);				// No matching records
     DBUG_RETURN(0);
   }
@@ -817,6 +819,7 @@ int mysql_update(THD *thd,
   id= thd->arg_of_last_insert_id_function ?
     thd->first_successful_insert_id_in_prev_stmt : 0;
 
+  MYSQL_UPDATE_END();
   if (error < 0)
   {
     char buff[STRING_BUFFER_USUAL_SIZE];
@@ -840,6 +843,9 @@ err:
     table->file->extra(HA_EXTRA_NO_KEYREAD);
   }
   thd->abort_on_warning= 0;
+
+abort:
+  MYSQL_UPDATE_END();
   DBUG_RETURN(1);
 }
 
@@ -1679,11 +1685,13 @@ bool multi_update::send_data(List<Item> &not_used_values)
       {
         if (error &&
             create_myisam_from_heap(thd, tmp_table,
-                                    tmp_table_param + offset, error, 1))
+                                         tmp_table_param[offset].start_recinfo,
+                                         &tmp_table_param[offset].recinfo,
+                                         error, 1))
         {
-          do_update= 0;
-          DBUG_RETURN(1);			// Not a table_is_full error
-        }
+          do_update=0;
+	  DBUG_RETURN(1);			// Not a table_is_full error
+	}
         found++;
       }
     }

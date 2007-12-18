@@ -1,0 +1,72 @@
+--source include/have_falcon.inc
+#--disable_abort_on_error
+#
+# Bug #22852: Falcon: Packets out of order after handled error
+#
+--echo *** Bug #22852 ***
+
+SET storage_engine = Falcon;
+SET @@autocommit = 0;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+--enable_warnings
+
+--echo # Establish connection conn1 (user = root)
+connect (conn1,localhost,root,,);
+SET storage_engine = Falcon;
+SET @@autocommit = 0;
+
+--echo # Switch to connection default
+connection default;
+CREATE TABLE t1 (
+  a binary(1) NOT NULL,
+  b varbinary(3) NOT NULL,
+  c longblob
+);
+
+INSERT INTO t1 VALUES (0x01, 0x02, 'm');
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+
+delimiter //;
+create procedure p1 ()
+begin
+  /* declare continue handler for sqlexception select 'handled'; */
+  update t1 set c = 'm';
+  end//
+delimiter ;//
+COMMIT;
+CALL p1();
+INSERT INTO t1 SELECT * FROM t1;
+
+--echo # Switch to connection conn1
+connection conn1;
+SET @@autocommit = 0;
+--send call p1()
+
+--echo # Switch to connection default
+connection default;
+--real_sleep 1
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+--reap
+INSERT INTO t1 SELECT * FROM t1;
+COMMIT;
+
+--echo # Switch to connection default
+connection default;
+SELECT count(*) FROM t1;
+COMMIT;
+
+# Final cleanup.
+disconnect conn1;
+DROP TABLE t1;
+DROP PROCEDURE p1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

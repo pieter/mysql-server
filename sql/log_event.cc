@@ -4333,11 +4333,11 @@ void User_var_log_event::pack_info(Protocol* protocol)
     case REAL_RESULT:
       double real_val;
       float8get(real_val, val);
-      if (!(buf= (char*) my_malloc(val_offset + FLOATING_POINT_BUFFER,
+      if (!(buf= (char*) my_malloc(val_offset + MY_GCVT_MAX_FIELD_WIDTH + 1,
                                    MYF(MY_WME))))
         return;
-      event_len+= my_sprintf(buf + val_offset,
-			     (buf + val_offset, "%.14g", real_val));
+      event_len+= my_gcvt(real_val, MY_GCVT_ARG_DOUBLE, MY_GCVT_MAX_FIELD_WIDTH,
+                          buf + val_offset, NULL);
       break;
     case INT_RESULT:
       if (!(buf= (char*) my_malloc(val_offset + 22, MYF(MY_WME))))
@@ -6369,6 +6369,12 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
         thd->options|= OPTION_RELAXED_UNIQUE_CHECKS;
     else
         thd->options&= ~OPTION_RELAXED_UNIQUE_CHECKS;
+    
+    if (slave_allow_batching)
+      thd->options|= OPTION_ALLOW_BATCH;
+    else
+      thd->options&= ~OPTION_ALLOW_BATCH;
+    
     /* A small test to verify that objects have consistent types */
     DBUG_ASSERT(sizeof(thd->options) == sizeof(OPTION_RELAXED_UNIQUE_CHECKS));
 
@@ -6482,6 +6488,9 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
   */
   if (rli->tables_to_lock && get_flags(STMT_END_F))
     const_cast<Relay_log_info*>(rli)->clear_tables_to_lock();
+
+  /* reset OPTION_ALLOW_BATCH as not affect later events */
+  thd->options&= ~OPTION_ALLOW_BATCH;
 
   if (error)
   {                     /* error has occured during the transaction */
@@ -7510,7 +7519,13 @@ Rows_log_event::write_row(const Relay_log_info *const rli,
     if (table->file->ha_table_flags() & HA_DUPLICATE_POS)
     {
       DBUG_PRINT("info",("Locating offending record using rnd_pos()"));
+      if (table->file->inited && (error= table->file->ha_index_end()))
+        DBUG_RETURN(error);
+      if ((error= table->file->ha_rnd_init(FALSE)))
+        DBUG_RETURN(error);
+
       error= table->file->rnd_pos(table->record[1], table->file->dup_ref);
+      table->file->ha_rnd_end();
       if (error)
       {
         DBUG_PRINT("info",("rnd_pos() returns error %d",error));
@@ -7803,10 +7818,26 @@ int Rows_log_event::find_row(const Relay_log_info *rli)
               int error= table->file->rnd_pos(table->record[0], table->file->ref);
       ADD>>>  DBUG_ASSERT(memcmp(table->record[1], table->record[0],
                                  table->s->reclength) == 0);
-
     */
+
+    /*
+      Ndb does not need read before delete/update (and no updates are sent)
+      if primary key specified
+
+      (Actually uniquekey will also do, but pk will be in each
+      row if table has pk)
+
+      Also set ignore no key, as we don't really know if row exists...
+    */
+    if (table->file->ht->db_type == DB_TYPE_NDBCLUSTER)
+    {
+      table->file->extra(HA_EXTRA_IGNORE_NO_KEY);
+      DBUG_RETURN(0);
+    }
+
     DBUG_PRINT("info",("locating record using primary key (position)"));
     int error= table->file->rnd_pos_by_record(table->record[0]);
+    table->file->ha_rnd_end();
     if (error)
     {
       DBUG_PRINT("info",("rnd_pos returns error %d",error));

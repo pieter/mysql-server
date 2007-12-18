@@ -1,4 +1,4 @@
-#include "azlib.h"
+#include "azio.h"
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
   unsigned int ret;
   azio_stream reader_handle;
 
+  my_init();
   MY_INIT(argv[0]);
   get_options(&argc, &argv);
 
@@ -110,71 +111,34 @@ int main(int argc, char *argv[])
 
   if (opt_check)
   {
-    uchar size_buffer[ARCHIVE_ROW_HEADER_SIZE];
     int error;
-    unsigned int x;
     unsigned int read;
-    unsigned int row_len;
     unsigned long long row_count= 0;
-    char buffer;
 
-    while ((read= azread(&reader_handle, (uchar *)size_buffer, 
-                        ARCHIVE_ROW_HEADER_SIZE, &error)))
+    while ((read= azread_row(&reader_handle, &error)))
     {
-      if (error == Z_STREAM_ERROR ||  (read && read < ARCHIVE_ROW_HEADER_SIZE))
+      if (error == Z_STREAM_ERROR || &error)
       {
         printf("Table is damaged\n");
         goto end;
       }
 
-      /* If we read nothing we are at the end of the file */
-      if (read == 0 || read != ARCHIVE_ROW_HEADER_SIZE)
-        break;
-
-      row_len=  uint4korr(size_buffer);
       row_count++;
 
-      if (row_len > reader_handle.longest_row)
+      if (read > reader_handle.longest_row)
       {
-        printf("Table is damaged, row %llu is invalid\n", 
-               row_count);
-        goto end;
-      }
-
-
-      for (read= x= 0; x < row_len ; x++) 
-      {
-        read+= (unsigned int)azread(&reader_handle, &buffer, sizeof(char), &error); 
-        if (!read)
-          break;
-      }
-
-
-      if (row_len != read)
-      {
-        printf("Row length did not match row (at %llu). %u != %u \n", 
-               row_count, row_len, read);
+        printf("Table is damaged, row %llu is invalid\n", row_count);
         goto end;
       }
     }
 
-    if (0)
-    {
-      printf("Table is damaged\n");
-      goto end;
-    }
-    else
-    {
-      printf("Found %llu rows\n", row_count);
-    }
+    printf("Found %llu rows\n", row_count);
   }
 
   if (opt_backup)
   {
-    uchar size_buffer[ARCHIVE_ROW_HEADER_SIZE];
     int error;
     unsigned int read;
-    unsigned int row_len;
     unsigned long long row_count= 0;
     char *buffer;
 
@@ -213,39 +177,21 @@ int main(int argc, char *argv[])
       my_free(ptr, MYF(0));
     }
 
-    while ((read= azread(&reader_handle, (uchar *)size_buffer, 
-                        ARCHIVE_ROW_HEADER_SIZE, &error)))
+    while ((read= azread_row(&reader_handle, &error)))
     {
-      if (error == Z_STREAM_ERROR ||  (read && read < ARCHIVE_ROW_HEADER_SIZE))
+      if (error == Z_STREAM_ERROR || error)
       {
         printf("Table is damaged\n");
         goto end;
       }
 
       /* If we read nothing we are at the end of the file */
-      if (read == 0 || read != ARCHIVE_ROW_HEADER_SIZE)
+      if (read == 0)
         break;
-
-      row_len=  uint4korr(size_buffer);
 
       row_count++;
 
-      memcpy(buffer, size_buffer, ARCHIVE_ROW_HEADER_SIZE);
-
-      read= (unsigned int)azread(&reader_handle, buffer + ARCHIVE_ROW_HEADER_SIZE, 
-                                 row_len, &error); 
-
-      DBUG_ASSERT(read == row_len);
-
-      azwrite(&writer_handle, buffer, row_len + ARCHIVE_ROW_HEADER_SIZE);
-
-
-      if (row_len != read)
-      {
-        printf("Row length did not match row (at %llu). %u != %u \n", 
-               row_count, row_len, read);
-        goto end;
-      }
+      azwrite_row(&writer_handle, reader_handle.row_ptr, read);
 
       if (reader_handle.rows == writer_handle.rows)
         break;
@@ -272,6 +218,7 @@ end:
   printf("\n");
   azclose(&reader_handle);
 
+  my_end(0);
   return 0;
 }
 

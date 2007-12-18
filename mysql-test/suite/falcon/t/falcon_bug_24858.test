@@ -1,0 +1,68 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #24858: Falcon: searches fail if partial index on utf8 column
+#
+--echo *** Bug #24858 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+DROP TABLE IF EXISTS t4;
+--enable_warnings
+
+#
+#  Test case #1 - original test
+#
+
+SET NAMES utf8;
+CREATE TABLE t1 (s1 char(5) character set utf8);
+CREATE INDEX i on t1 (s1(3));
+INSERT INTO t1 VALUES ('abÜde');
+SELECT hex(s1),s1 FROM t1 WHERE s1 = 'abÜde';
+SELECT hex(s1),s1 FROM t1 WHERE s1 like 'ab%';
+SELECT hex(s1),s1 FROM t1 WHERE s1 < 'abÜ';
+SELECT hex(s1),s1 FROM t1 WHERE s1 = 'abÜ';
+SELECT hex(s1),s1 FROM t1 WHERE s1 > 'abÜ';
+
+#
+#  Test case #2. U+2020 is "Dagger".
+#
+
+CREATE TABLE t2 (s1 char(5) character set ucs2) engine=falcon;
+CREATE INDEX i on t2 (s1);
+INSERT INTO t2 VALUES (0x2020);
+SELECT hex(s1),s1 FROM t2 WHERE s1 < '';
+SELECT hex(s1),s1 FROM t2 WHERE s1 = '';
+SELECT hex(s1),s1 FROM t2 WHERE s1 > '';
+
+#
+#  Test case #3
+#
+
+CREATE TABLE t3 (s1 char(3) character set utf8) engine=falcon;
+CREATE INDEX i on t3 (s1);
+INSERT INTO t3 VALUES ('a'),('ä');
+SELECT hex(s1),s1 FROM t3 WHERE s1 < 'a';
+SELECT hex(s1),s1 FROM t3 WHERE s1 = 'a';
+SELECT hex(s1),s1 FROM t3 WHERE s1 > 'a';
+
+#
+#  Test case #4
+#
+
+CREATE TABLE t4 (s1 varchar(7) character set utf8 collate utf8_unicode_ci,
+                 s2 varchar(7) character set utf8 collate utf8_unicode_ci) engine=falcon;
+INSERT INTO t4 VALUES (0x41414141000020,0x41414141000020);
+INSERT INTO t4 VALUES (0x41414141000000,0x41414141000000);
+INSERT INTO t4 VALUES (0x41414141041000,0x41414141041000);
+SELECT hex(s1) FROM t4 WHERE s1 = 0x41414141;
+CREATE INDEX i on t4 (s1);
+SELECT hex(s1) FROM t4 WHERE s1 = 0x41414141;
+
+# Final cleanup.
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+DROP TABLE t4;
+SET NAMES default;

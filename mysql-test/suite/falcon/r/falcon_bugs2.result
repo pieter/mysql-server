@@ -1,0 +1,313 @@
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+SET storage_engine=falcon;
+create table t1 (a int);
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL
+) ENGINE=Falcon DEFAULT CHARSET=latin1
+drop table t1;
+***************** falcon_bugs2_001 *****************
+CREATE TABLE t1 (a varchar(8)) DEFAULT CHARSET ucs2;
+INSERT INTO t1 VALUES ();
+SELECT * FROM t1;
+a
+NULL
+DROP TABLE t1;
+***************** falcon_bugs2_002 *****************
+SET @@tx_isolation="READ-COMMITTED";
+SET autocommit=0;
+CREATE TABLE t1 (a int);
+COMMIT;
+INSERT INTO t1 VALUES (1);
+SET @@tx_isolation="READ-COMMITTED";
+SET autocommit=0;
+SELECT * FROM t1;
+a
+DROP TABLE t1;
+***************** falcon_bugs2_003 *****************
+CREATE TABLE t1 (
+a varchar(4) NOT NULL default ' ',
+b varchar(4) NOT NULL default ' ',
+c varchar(4) NOT NULL default '0000',
+d varchar(1) NOT NULL default '',
+PRIMARY KEY (a, b, c)
+) COLLATE latin1_bin;
+INSERT INTO t1 VALUES ('ZWEI', 'WRT', '0400', '');
+SELECT * FROM t1 WHERE b LIKE 'W%RT';
+a	b	c	d
+ZWEI	WRT	0400	
+SELECT count(*) FROM t1 WHERE b LIKE 'W%RT';
+count(*)
+1
+ALTER TABLE t1 DROP COLUMN d;
+SELECT * FROM t1 WHERE b LIKE 'W%RT';
+a	b	c
+ZWEI	WRT	0400
+SELECT count(*) FROM t1 WHERE b LIKE 'W%RT';
+count(*)
+1
+SELECT * FROM t1;
+a	b	c
+ZWEI	WRT	0400
+DROP TABLE t1;
+***************** falcon_bugs2_004 *****************
+SET autocommit=0;
+CREATE TABLE t1 (a int, b varchar(4), PRIMARY KEY(a));
+COMMIT;
+INSERT INTO t1 VALUES (1, 'foo');
+COMMIT;
+INSERT INTO t1 VALUES (2, 'oma');
+COMMIT;
+INSERT INTO t1 VALUES (2, 'opa');
+Got one of the listed errors
+COMMIT;
+SELECT * FROM t1;
+a	b
+1	foo
+2	oma
+DROP TABLE t1;
+***************** falcon_bugs2_005 *****************
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (2);
+DELETE FROM t1 WHERE a = 1;
+DELETE FROM t1 WHERE a = 2;
+SELECT * FROM t1;
+a
+SELECT count(*) FROM t1;
+count(*)
+0
+DROP TABLE t1;
+***************** falcon_bugs2_006 *****************
+CREATE TABLE t1 (
+`id` int(10) unsigned NOT NULL auto_increment,
+`name` varchar(64) NOT NULL default '',
+`email` varchar(64) NOT NULL default '',
+`password` varchar(64) NOT NULL default '',
+`dob` date default NULL,
+`address` varchar(128) NOT NULL default '',
+`city` varchar(64) NOT NULL default '',
+`state_id` tinyint(3) unsigned NOT NULL default '0',
+`zip` varchar(8) NOT NULL default '',
+`country_id` smallint(5) unsigned NOT NULL default '0',
+`gender` enum('M','F') NOT NULL default 'M',
+`account_type` varchar(32) NOT NULL default '',
+`verified` tinyint(4) NOT NULL default '0',
+`allow_mail` tinyint(3) unsigned NOT NULL default '0',
+`parrent_account` int(10) unsigned NOT NULL default '0',
+`closest_airport` varchar(3) NOT NULL default '',
+PRIMARY KEY (`id`),
+UNIQUE KEY `email` (`email`),
+KEY `country_id` (`country_id`,`state_id`,`city`),
+KEY `name` (`name`),
+KEY `dob` (`dob`),
+KEY `gender` (`gender`,`dob`),
+KEY `verified` (`verified`),
+KEY `country_id_2` (`country_id`,`gender`),
+KEY `account_type` (`account_type`,`verified`),
+KEY `zip` (`zip`),
+KEY `city` (`city`,`address`(30)),
+KEY `allow_mail` (`allow_mail`),
+KEY `parrent_account` (`parrent_account`),
+KEY `closest_airport` (`closest_airport`)
+);
+DROP TABLE t1;
+***************** falcon_bugs2_007 *****************
+CREATE SCHEMA t1;
+CREATE SCHEMA t2;
+CREATE TABLE t1.t1 (a int);
+CREATE TABLE t2.t1 (a int);
+DROP SCHEMA t1;
+DROP SCHEMA t2;
+***************** falcon_bugs2_008 *****************
+CREATE TABLE `AAB` (
+`AA` varchar(1) collate latin1_bin NOT NULL default ' ',
+`AB` varchar(30) collate latin1_bin NOT NULL default ' ',
+`AC` varchar(80) collate latin1_bin NOT NULL default ' ',
+PRIMARY KEY  (`AA`,`AB`)
+) DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+INSERT INTO `AAB` VALUES ('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcsw'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcsx'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcsy'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcsz'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcta'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctb'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctc'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctd'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcte'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctf'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctg'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcth'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcti'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctj'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctk'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctl'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctm'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctn'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcto'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctp'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctq'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctr'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcts'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctt'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctu'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctv'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctw'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctx'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcty'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctz'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcua'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcub'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuc'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcud'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcue'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuf'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcug'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuh'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcui'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuj'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuk'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcul'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcum'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcun'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFID', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuo'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcup'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuq'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcur'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcus'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFII', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcut'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuu'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuv'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuw'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcux'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuy'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuz'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcva'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvb'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvc'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvd'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcve'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvf'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvg'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvh'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvi'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvj'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvk'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvl'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvm'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvn'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvo'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvp'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvq'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvr'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvs'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvt'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvu'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvv'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvw'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvx'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvy'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvz'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwa'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwb'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwc'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwd'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwe'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwf'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwg'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwh'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwi'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwj'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwk'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwl'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwm'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwn'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwo'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwp'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwq'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwr'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcws'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwt'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwu'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwv'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcww'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwx'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwy'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwz'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxa'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxb'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxc'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxd'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxe'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxf'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxg'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxh'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxi'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxj'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxk'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxl'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxm'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxn'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxo'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxp'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxq'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxr'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxs'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxt'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxu'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxv'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxw'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxx'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxy'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxz'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcya'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyb'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyc'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyd'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcye'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyf'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyg'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyh'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyi'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyj'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyk'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyl'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcym'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyn'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyo'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFME', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyp'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyq'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyr'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcys'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyt'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyu'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyv'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFML', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyw'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyx'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyy'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyz'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcza'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczb'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczc'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczd'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcze'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczf'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczg'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczh'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczi'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczj'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczk'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczl'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczm'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczn'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFND', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczo'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczp'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczq'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczr'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczs'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczt'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczu'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczv'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczw'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczx'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczy'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczz'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdaa'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdab'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdac'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdad'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdae'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdaf'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdag'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdah'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdai'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdaj'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdak'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFOA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdal'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFOB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdam'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFOC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdan');
+SELECT 'Done' FROM DUAL;
+Done
+Done
+DROP TABLE AAB;
+***************** falcon_bugs2_009 *****************
+SET SQL_MODE="ANSI_QUOTES";
+CREATE TABLE t1 (
+"a" varchar(40) collate latin1_bin NOT NULL default ' ',
+"b" varchar(12) collate latin1_bin NOT NULL default ' ',
+"c" varchar(40) collate latin1_bin NOT NULL default ' ',
+"d" varchar(1) collate latin1_bin NOT NULL default ' ',
+"e" varchar(1) collate latin1_bin NOT NULL default ' ',
+"f" tinyint(3) unsigned NOT NULL default '0',
+"g" varchar(12) collate latin1_bin NOT NULL default ' ',
+"h" decimal(15,0) NOT NULL default '0',
+"i" decimal(15,0) NOT NULL default '0',
+PRIMARY KEY ("a","b","c","d","e")
+) ENGINE=MyISAM;
+CREATE TABLE t2 (
+"a" varchar(40) collate latin1_bin NOT NULL default ' ',
+"b" varchar(12) collate latin1_bin NOT NULL default ' ',
+"c" varchar(40) collate latin1_bin NOT NULL default ' ',
+"d" varchar(1) collate latin1_bin NOT NULL default ' ',
+"e" varchar(1) collate latin1_bin NOT NULL default ' ',
+"f" tinyint(3) unsigned NOT NULL default '0',
+"g" varchar(12) collate latin1_bin NOT NULL default ' ',
+"h" decimal(15,0) NOT NULL default '0',
+"i" decimal(15,0) NOT NULL default '0',
+PRIMARY KEY ("a","b","c","d","e")
+);
+INSERT INTO t2 SELECT * FROM t1;
+DROP TABLE t1, t2;
+***************** falcon_bugs2_011 *****************
+set @@tx_isolation="READ-COMMITTED";
+SET autocommit=0;
+CREATE TABLE t1 (a int, b int);
+INSERT INTO t1 VALUES (1,1);
+COMMIT;
+SELECT * FROM t1;
+a	b
+1	1
+set @@tx_isolation="READ-COMMITTED";
+SET autocommit=0;
+SELECT * FROM t1;
+a	b
+1	1
+UPDATE t1 SET b=2 WHERE a=1;
+COMMIT;
+SELECT * FROM t1;
+a	b
+1	2
+SELECT * FROM t1;
+a	b
+1	1
+DROP TABLE t1;
+***************** falcon_bugs2_012 *****************
+CREATE TABLE t1 (a bigint);
+INSERT INTO t1 VALUES (4999999),(-23);
+SELECT * FROM t1;
+a
+4999999
+-23
+DROP TABLE t1;
+***************** falcon_bugs2_013 *****************
+CREATE TABLE `t1` (
+`a` VARBINARY(255) NOT NULL,
+`b` VARBINARY(255) NOT NULL,
+`c` varchar(4) collate latin1_bin NOT NULL default ' ',
+`d` VARBINARY(255) ,
+`e` int(11) NOT NULL default '0',
+`f` int(11) NOT NULL default '0',
+`g` varchar(255) collate latin1_bin NOT NULL default ' ',
+`h` longtext collate latin1_bin,
+`i` longblob,
+`j` longtext collate latin1_bin,
+PRIMARY KEY  (`a`(255), `b`(255), `c`)
+) DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+select COUNT(*) from t1 WHERE a=0xB1B4E843F5A6783CE10000000A114455 AND b=0xB1B4E843F5A6783CE10000000A114455 AND c=' ' AND f=2;
+COUNT(*)
+1
+DROP TABLE t1;
+***************** falcon_bugs2_014 *****************
+CREATE TABLE t1 (a int not null primary key, b varchar(20));
+INSERT INTO t1 (a,b) VALUES (1,'foo') ON DUPLICATE KEY UPDATE a=3;
+INSERT INTO t1 (a,b) VALUES (1,'foo') ON DUPLICATE KEY UPDATE a=3;
+DROP TABLE t1;
+***************** falcon_bugs2_015 *****************
+CREATE TABLE `M345F` (
+`NIVBDUCL` varchar(40) collate latin1_bin NOT NULL default ' ',
+`QNIUJAL` varchar(1) collate latin1_bin NOT NULL default ' ',
+`FSNL` varchar(1) collate latin1_bin NOT NULL default ' ',
+`RKVJTDI` int(11) NOT NULL default '0',
+`RKVRKB` int(11) NOT NULL default '0',
+`EMUF` varchar(8) collate latin1_bin NOT NULL default ' ',
+`EFPCL` varchar(6) collate latin1_bin NOT NULL default ' ',
+`RKVJTKB` int(11) NOT NULL default '0',
+`RKVJT` text collate latin1_bin,
+PRIMARY KEY  (`NIVBDUCL`,`QNIUJAL`,`FSNL`,`RKVJTDI`)
+) DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+select max(length(`RKVJT`)) FROM `M345F`;
+max(length(`RKVJT`))
+12045
+DROP TABLE `M345F`;
+***************** falcon_bugs2_016 *****************
+CREATE TABLE t1 (a int) ENGINE=MyISAM;
+ALTER TABLE t1 ENGINE=Falcon;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE "t1" (
+  "a" int(11) DEFAULT NULL
+) ENGINE=Falcon DEFAULT CHARSET=latin1
+DROP TABLE t1;
+***************** falcon_bugs2_017 *****************
+CREATE TABLE t1 (a varchar(4), b varchar(1000), key (a, b(255)));
+INSERT INTO t1 VALUES (1, 0x6441F4);
+INSERT INTO t1 VALUES (2, 'andrushka');
+DROP TABLE t1;
+***************** falcon_bugs2_018 ***************** 
+CREATE TABLE t1 (
+C001 varchar(1000) character set latin1,
+PRIMARY KEY (C001(255))
+);
+CREATE TABLE t2 (
+C001 varchar(1000) character set utf8,
+PRIMARY KEY (C001(255))
+);
+DROP TABLE t1;
+DROP TABLE t2;
+***************** falcon_bugs2_019 *****************
+CREATE SCHEMA jstar;
+CREATE TABLE jstar.t1(a int);
+DROP SCHEMA jstar;
+***************** falcon_bugs2_020 *****************
+CREATE TABLE `normal` (
+`id` int(10) unsigned NOT NULL auto_increment,
+`name` varchar(64) NOT NULL default '',
+`email` varchar(64) NOT NULL default '',
+`password` varchar(64) NOT NULL default '',
+`dob` date default NULL,
+`address` varchar(128) NOT NULL default '',
+`city` varchar(64) NOT NULL default '',
+`state_id` tinyint(3) unsigned NOT NULL default '0',
+`zip` varchar(8) NOT NULL default '',
+`country_id` smallint(5) unsigned NOT NULL default '0',
+PRIMARY KEY (`id`),
+UNIQUE KEY `email` (`email`),
+KEY `country_id` (`country_id`,`state_id`,`city`)
+) DEFAULT CHARSET latin1;
+INSERT INTO normal (id,name,password,email,city,zip,dob,country_id,state_id) VALUES (2,'4leluys0vf1c10e9q2a5iog0hfubks5p','50ce8','wjrs2htec8@pb82n6mjh362j5663i6m.com','04k675wjvgbxjfsze182t5sm','pppbc','2006-06-27',131,8);
+SELECT * FROM `normal` WHERE country_id=131;
+id	name	email	password	dob	address	city	state_id	zip	country_id
+2	4leluys0vf1c10e9q2a5iog0hfubks5p	wjrs2htec8@pb82n6mjh362j5663i6m.com	50ce8	2006-06-27		04k675wjvgbxjfsze182t5sm	8	pppbc	131
+DROP TABLE `normal`;
+***************** falcon_bugs2_021 *****************
+SET autocommit=0;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+SET autocommit=0;
+SELECT * FROM t1;
+a
+DROP TABLE t1;
+***************** falcon_bugs2_022 *****************
+SET autocommit=0;
+SET tx_isolation="READ-COMMITTED";
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+SET autocommit=0;
+SET tx_isolation="READ-COMMITTED";
+SELECT * FROM t1;
+a
+COMMIT;
+SELECT * FROM t1;
+a
+1
+SELECT * FROM t1;
+a
+1
+DROP TABLE t1;
+***************** falcon_bugs2_023 *****************
+CREATE TABLE t1 (a int);
+ALTER TABLE t1 ADD PRIMARY KEY (a);
+DROP TABLE t1;

@@ -1,0 +1,77 @@
+--source include/have_falcon.inc
+#
+# Bug #29151: Falcon: running sysbench 0.4.8 leads to duplicate key errors duplicate key
+#
+--echo *** Bug #29151 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  a int,
+  b int,
+  c char(50),
+  PRIMARY KEY (a)
+);
+
+SET @@autocommit = 0;
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@autocommit = 0;
+INSERT INTO t1 VALUES(49990, 0, 'c1');
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+BEGIN;
+UPDATE t1 SET b=b+1 WHERE a = 49990;
+DELETE FROM t1 WHERE a = 49990;
+INSERT INTO t1 VALUES(49990, 0, 'c1');
+
+--echo # Switch to connection conn1
+connection conn1;
+BEGIN;
+SELECT * FROM t1;
+# This one blocks until other transaction COMMITs.
+--send UPDATE t1 SET b=b+1 WHERE a = 49990
+
+--echo # Switch to connection default
+connection default;
+--real_sleep 1
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+--reap
+DELETE FROM t1 WHERE a = 49990;
+# This gives an error with Falcon, but it should not.
+INSERT INTO t1 VALUES(49990, 0, 'c2');
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT * FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

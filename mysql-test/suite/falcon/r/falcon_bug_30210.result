@@ -1,0 +1,13 @@
+*** Bug #30210 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS T;
+DROP TABLE IF EXISTS t;
+CREATE TABLE T (a int);
+CREATE TABLE t (a int);
+Got one of the listed errors
+INSERT INTO T VALUES (1);
+SELECT count(*) FROM T;
+count(*)
+1
+DROP TABLE IF EXISTS t;
+DROP TABLE IF EXISTS T;

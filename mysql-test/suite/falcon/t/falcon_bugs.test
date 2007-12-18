@@ -1,0 +1,1774 @@
+#
+# As we are setting different variables in different tests we
+# initialize the variables in use to their default values.
+#
+--source include/initialize_falcon.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+
+# Verify that setting storage engine worked.
+CREATE TABLE t1 (a int);
+SHOW CREATE TABLE t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# This is a collection of test cases for Falcon related fixed bugs.
+# There is no particular order other than roughly by date of the fix.
+#
+
+#
+# Mantis bug #96:
+#    CREATE TABLE + ALTER TABLE + close connection = crash in JStar
+#
+--echo *** Bug #96 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+connect (con1,localhost,root,,);
+SET @@storage_engine = Falcon;
+CREATE TABLE t1 (a int);
+ALTER TABLE t1 ADD PRIMARY KEY(a);
+
+# Final cleanup.
+connection default;
+disconnect con1;
+DROP TABLE t1;
+
+#
+# Mantis bug #100: CREATE TABLE SELECT doesn't insert data
+#
+--echo *** Bug #100 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 SELECT 'foo' FROM DUAL UNION SELECT 'bar' FROM DUAL;
+SELECT * FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #85: Crash with SELECT on 2nd connection
+#
+--echo *** Bug #85 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+create table t1 (a int);
+insert into t1 values (1);
+connect (con1,localhost,root,,);
+select * from t1;
+
+# Final cleanup.
+disconnect con1;
+connection default;
+drop table t1;
+
+#
+# Mantis bug #95:
+#   Second connection does not see changes made by first connection
+#
+--echo *** Bug #95 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+connect (con1,localhost,root,,);
+SET @@storage_engine = Falcon;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+
+connection default;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+# We have READ-COMMITTED, so we expect empty set here.
+SELECT * FROM t1;
+
+connection con1;
+COMMIT;
+
+connection default;
+SELECT * FROM t1;
+
+# Final cleanup.
+disconnect con1;
+connection default;
+DROP TABLE t1;
+
+#
+# Mantis bug #97: Problems with auto_increment
+#
+--echo *** Bug #97 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+create table t1 (
+  a char(10) not null, 
+  b int not null auto_increment, 
+  primary key(b,a)
+);
+
+# Final cleanup.
+drop table t1;
+
+#
+# Mantis bug #87: Compound key is not working
+#
+--echo *** Bug #87 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+create table t1 (a varchar(4), b varchar(1000), key (a, b(255)));
+insert into t1 values (1, 0x6441F4);
+insert into t1 values (1, 'foo');
+SELECT * FROM t1;
+
+# Final cleanup.
+drop table t1;
+
+#
+# Mantis bug #102: 
+#    Server crash during create table (when tablename == schemaname)
+#
+--echo *** Bug #102 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+create schema my1;
+drop schema my1;
+create schema my1;
+create table my1.my1 (a int);
+drop schema my1;
+create schema my1;
+create table my1.my1 (a int);
+drop schema my1;
+
+#
+# Mantis bug #88: Can't drop schema
+#
+--echo *** Bug #88 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+create schema mysqltest_1;
+create table mysqltest_1.t1 (a int);
+drop schema mysqltest_1;
+
+#
+# Mantis bug #111:
+#    transactions of two clients set to autocommit = 0 broken and cause crash
+#
+--echo *** Bug #111 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+insert into t1 values (1),(2),(3),(4),(5);
+select * from t1;
+commit;
+update t1 set a=33 where a=3;
+select * from t1;
+
+connect (con1,localhost,root,,);
+select * from t1;
+SET @@autocommit = 0;
+#update t1 set a=44 WHERE a=4;
+
+connection default;
+select * from t1;
+
+connection con1;
+commit;
+select * from t1;
+disconnect con1;
+connection default;
+select * from t1;
+drop table t1;
+
+#
+# Mantis bug 112: changing auto_increment doesn't work
+#
+--echo *** Bug #112 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+CREATE TABLE t1 (a int not null auto_increment primary key);
+INSERT INTO t1 VALUES (0);
+ALTER TABLE t1 AUTO_INCREMENT=100;
+INSERT INTO t1 VALUES (0);
+SELECT a FROM t1;
+DROP TABLE t1;
+
+#
+# Mantis bug #94: Incorrect SELECT results
+#
+--echo *** Bug #94 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+CREATE TABLE `t1` (
+  `id` int(10) unsigned NOT NULL auto_increment,
+  `name` varchar(64) NOT NULL default '',
+  `email` varchar(64) NOT NULL default '',
+  `password` varchar(64) NOT NULL default '',
+  `dob` date default NULL,
+  `address` varchar(128) NOT NULL default '',
+  `city` varchar(64) NOT NULL default '',
+  `state_id` tinyint(3) unsigned NOT NULL default '0',
+  `zip` varchar(8) NOT NULL default '',
+  `country_id` smallint(5) unsigned NOT NULL default '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  KEY `country_id` (`country_id`,`state_id`,`city`)
+) DEFAULT CHARSET=latin1;
+INSERT INTO t1 (id,name,password,email,city,zip,dob,country_id,state_id) VALUES (2,'4leluys0vf1c10e9q2a5iog0hfubks5p','50ce8','wjrs2htec8@pb82n6mjh362j5663i6m.com','04k675wjvgbxjfsze182t5sm','pppbc','2006-04-20',131,8);
+select * from t1 where country_id=131;
+drop table t1;
+
+#
+# Mantis bug #91: JStar doesn't support PK len > 255 bytes
+#
+--echo *** Bug #91 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+create table t1 (C001 VARCHAR(1000) CHARACTER SET utf8, PRIMARY KEY (C001(255)));
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #122: Crash on CREATE TABLE
+#
+--echo *** Bug #122 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+CREATE TABLE IF NOT EXISTS `falcon` (
+    `id` int(10) unsigned NOT NULL,
+    `f2` int(10) NOT NULL,
+    `f3` int(10) NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `f3` (`f3`)
+);
+
+# Final cleanup.
+DROP TABLE falcon;
+
+#
+# Mantis bug #115: CREATE TABLE crashes server
+#
+--echo *** Bug #115 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (a varchar(8)) DEFAULT CHARSET ucs2;
+INSERT INTO t1 VALUES ();
+SELECT * FROM t1;
+DROP TABLE t1;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #110: ON DUPLICATE KEY doesn't work
+#
+--echo *** Bug #110 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (a int not null primary key, b varchar(20));
+INSERT INTO t1 (a,b) VALUES (1,'foo') ON DUPLICATE KEY UPDATE a=3;
+INSERT INTO t1 (a,b) VALUES (1,'foo') ON DUPLICATE KEY UPDATE a=3;
+SELECT * FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #129: INSERT fails (multi column PK)
+#
+--echo *** Bug #129 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS T002_1;
+--enable_warnings
+CREATE TABLE T002_1 (
+        C001 INT NOT NULL,
+        C002 VARBINARY(1800),
+        C003 VARCHAR(255) CHARACTER SET latin1,
+        C004 VARCHAR(255) CHARACTER SET latin1,
+        C005 VARCHAR(255) CHARACTER SET latin1,
+        C006 VARCHAR(255) CHARACTER SET latin1,
+        C007 VARCHAR(255) CHARACTER SET latin1,
+        C008 VARCHAR(255) CHARACTER SET latin1,
+        C009 VARCHAR(255) CHARACTER SET latin1,
+        C010 VARCHAR(255) CHARACTER SET latin1,
+        C011 VARCHAR(255) CHARACTER SET latin1,
+        C012 VARCHAR(255) CHARACTER SET latin1,
+        C013 VARCHAR(255) CHARACTER SET latin1,
+        C014 VARCHAR(255) CHARACTER SET latin1,
+        C015 VARCHAR(255) CHARACTER SET latin1,
+        C016 VARCHAR(255) CHARACTER SET latin1 
+);
+
+ALTER TABLE T002_1
+        ADD PRIMARY KEY
+(C001,C002(60),C003(60),C004(60),C005(60),C006(60),C007(60),C008(60),C009(60),C010(60),C011(60),C012(60),C013(60),C014(60),C015(58));
+
+INSERT INTO T002_1 VALUES
+        (1, REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), CONCAT(REPEAT('0',56),'1'), "0"),
+        (1, REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), CONCAT(REPEAT('0',56),'2'), "0");
+
+# Final cleanup.
+DROP TABLE T002_1;
+
+#
+# Mantis bug #154: OR fails if index exists
+#
+--echo *** Bug #154 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+CREATE TABLE t2 (s1 int, index (s1));
+INSERT INTO t2 VALUES (1),(null),(2),(2);
+SELECT * FROM t2 WHERE s1 IS NULL OR s1 = 2;
+
+# Final cleanup.
+DROP TABLE t2;
+
+#
+# Mantis bug #163: BLOB cleared by irrelevant update
+#
+--echo *** Bug #163 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP PROCEDURE IF EXISTS p56;
+DROP TABLE IF EXISTS t55;
+delimiter //;
+create procedure p56 ()
+begin
+  set @@autocommit = 1;
+  create table t55 (s1 int, s2 char(1), s3 blob);
+  insert into t55 values (1,'a','x');
+  update t55 set s1 = s1, s2='';
+  select hex(left(s3,1)) from t55;
+end//
+delimiter ;//
+call p56();
+
+# Final cleanup.
+DROP TABLE t55;
+DROP PROCEDURE p56;
+
+#
+# Mantis bug #152: Loss of data after ALTER
+#
+--echo *** Bug #152 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (s1 text);
+INSERT INTO t1 VALUES (repeat('a',16384));
+ALTER TABLE t1 MODIFY COLUMN s1 varchar(30000);
+SELECT character_length(s1) FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #156: Crash if long unique key
+#
+--echo *** Bug #156 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+create table t1 (s1 int, s3 varchar(1000), unique (s1,s3));
+start transaction;
+insert into t1 values (1,repeat('b',1000));
+rollback;
+start transaction;
+insert into t1 values (1,repeat('b',1000));
+rollback;
+start transaction;
+insert into t1 values (1,repeat('b',1000));
+commit;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #159: Triggered changes remain after statement failure
+#
+--echo *** Bug #159 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS tia;
+DROP TABLE IF EXISTS tib;
+--enable_warnings
+set @@autocommit = 0;
+create table tia (s2 char(1), unique(s2));
+insert into tia values ('a');
+create table tib (s2 char(1));
+create trigger tia_bi before insert on tia for each row insert into tib values (new.s2);
+--error ER_DUP_ENTRY
+insert into tia values ('a');
+select * from tib;
+
+# Final cleanup.
+DROP TRIGGER tia_bi;
+DROP TABLE tia;
+DROP TABLE tib;
+
+#
+# Mantis bug #137: Varbinary use fails if index exists
+#
+--echo *** Bug #137 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t4;
+DROP TABLE IF EXISTS t4a;
+--enable_warnings
+create table t4 (s1 varbinary(3) primary key);
+insert into t4 values (0x41),(0x4100),(0x410000);
+rename table t4 to t4a;
+insert into t4a values (0x00);
+insert into t4a values (0x42);
+delete from t4a;
+
+# Final cleanup.
+DROP TABLE t4a;
+
+#
+# Mantis bug #149: UNIQUE constraint works wrong
+#
+--echo *** Bug #149 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (NUMKEY DECIMAL(3) NOT NULL UNIQUE, COL2 CHAR(2));
+INSERT INTO t1 VALUES(1,'A');
+INSERT INTO t1 VALUES(2,'B');
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #162: Error on first insert after create trigger
+#
+--echo *** Bug #162 ***
+--disable_warnings
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t;
+--enable_warnings
+create table t (s1 int);
+create trigger t_bi before insert on t for each row set @a=5;
+insert into t values (0);
+insert into t values (0);
+select * from t;
+select @a;
+
+# Final cleanup.
+DROP TRIGGER t_bi;
+DROP TABLE t;
+
+#
+# Mantis bug #151: crash during DROP SCHEMA under very special conditions 
+# Disabled until we resolve this issue of case, per Jim Starkey's request
+#
+# --echo *** Bug #151 ***
+# --source include/initialize_falcon.inc
+# SET @@storage_engine = Falcon;
+# CREATE SCHEMA test_db;
+# CREATE SCHEMA test_dB;
+# connect (con1, localhost,root,,);
+# connection con1;
+# # There will be no crash if this table would be created within the first
+# # session
+# CREATE TABLE test_dB.PROJ_DURATION
+# ( MONTHS INTEGER,
+# TIME_LEFT INTEGER,
+# EMP_HOURS INTEGER,
+# CHECK (MONTHS > 0));
+#COMMIT WORK;
+#DROP SCHEMA IF EXISTS test_db;
+# The next statement crashes the server
+#DROP SCHEMA IF EXISTS test_dB;
+#disconnect con1;
+#connection default;
+
+#
+# Mantis bug #166: CREATE TABLE crashes server
+#
+--echo *** Bug #166 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+SET @@sql_mode = 'ANSI_QUOTES';
+--disable_warnings
+DROP TABLE IF EXISTS "aa";
+--enable_warnings
+CREATE TABLE "aa" (
+"ba" varchar(8) collate latin1_bin NOT NULL default ' ',
+"bb" varchar(40) collate latin1_bin NOT NULL default ' ',
+"bc" varchar(3) collate latin1_bin NOT NULL default ' ',
+"bd" varchar(10) collate latin1_bin NOT NULL default ' ',
+"be" varchar(3) collate latin1_bin NOT NULL default ' ',
+"bf" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"bg" varchar(6) collate latin1_bin NOT NULL default '000000',
+"bh" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"bi" varchar(6) collate latin1_bin NOT NULL default '000000',
+"ak" varchar(6) collate latin1_bin NOT NULL default ' ',
+"al" int(11) NOT NULL default '0',
+"am" int(11) NOT NULL default '0',
+"an" int(11) NOT NULL default '0',
+"ao" int(11) NOT NULL default '0',
+"ap" int(11) NOT NULL default '0',
+"aq" int(11) NOT NULL default '0',
+"ar" int(11) NOT NULL default '0',
+"as" int(11) NOT NULL default '0',
+"at" int(11) NOT NULL default '0',
+"au" int(11) NOT NULL default '0',
+"av" varchar(16) collate latin1_bin NOT NULL default ' ',
+"aw" varchar(30) collate latin1_bin NOT NULL default ' ',
+"ax" varchar(40) collate latin1_bin NOT NULL default ' ',
+"ay" varchar(12) collate latin1_bin NOT NULL default ' ',
+"az" decimal(15,0) NOT NULL default '0',
+PRIMARY KEY ("ba","bb","bc","bd","be","bf","bg","bh","bi"));
+
+# Final cleanup.
+DROP TABLE "aa";
+
+#
+# Mantis bug #175: Can't create table
+#
+--echo *** Bug #175 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+SET @@sql_mode = 'ANSI_QUOTES';
+--disable_warnings
+DROP TABLE IF EXISTS "aa";
+--enable_warnings
+CREATE TABLE "aa" (
+"gt" varchar(3) collate latin1_bin NOT NULL default '000',
+"fm" varchar(12) collate latin1_bin NOT NULL default ' ',
+"gn" varchar(2) collate latin1_bin NOT NULL default ' ',
+"gu" varchar(40) collate latin1_bin NOT NULL default ' ',
+"af" varchar(2) collate latin1_bin NOT NULL default ' ',
+"ag" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ah" varchar(12) collate latin1_bin NOT NULL default ' ',
+"ai" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"aj" varchar(12) collate latin1_bin NOT NULL default ' ',
+"ak" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"al" varchar(6) collate latin1_bin NOT NULL default '000000',
+"fq" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"an" varchar(12) collate latin1_bin NOT NULL default ' ',
+"ao" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ap" varchar(6) collate latin1_bin NOT NULL default '000000',
+"aq" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ar" varchar(6) collate latin1_bin NOT NULL default '000000',
+"as" varchar(5) collate latin1_bin NOT NULL default ' ',
+"ft" varchar(12) collate latin1_bin NOT NULL default ' ',
+"au" varchar(4) collate latin1_bin NOT NULL default ' ',
+"av" varchar(18) collate latin1_bin NOT NULL default ' ',
+"aw" varchar(4) collate latin1_bin NOT NULL default ' ',
+"ax" varchar(12) collate latin1_bin NOT NULL default ' ',
+"gm" varchar(18) collate latin1_bin NOT NULL default ' ',
+"az" varchar(2) collate latin1_bin NOT NULL default ' ',
+"ba" varchar(9) collate latin1_bin NOT NULL default ' ',
+"bb" varchar(18) collate latin1_bin NOT NULL default ' ',
+"bc" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bd" varchar(1) collate latin1_bin NOT NULL default ' ',
+"gd" varchar(10) collate latin1_bin NOT NULL default ' ',
+"bf" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bg" varchar(1) collate latin1_bin NOT NULL default ' ',
+"fp" varchar(22) collate latin1_bin NOT NULL default ' ',
+"bi" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"bj" varchar(6) collate latin1_bin NOT NULL default '000000',
+"bk" varchar(9) collate latin1_bin NOT NULL default ' ',
+"bl" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bm" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bn" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bo" varchar(2) collate latin1_bin NOT NULL default ' ',
+"bp" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"bq" varchar(6) collate latin1_bin NOT NULL default '000000',
+"fw" varchar(10) collate latin1_bin NOT NULL default ' ',
+"bs" varchar(12) collate latin1_bin NOT NULL default ' ',
+"bt" varchar(10) collate latin1_bin NOT NULL default ' ',
+"bu" varchar(35) collate latin1_bin NOT NULL default ' ',
+"bv" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"gg" varchar(2) collate latin1_bin NOT NULL default ' ',
+"ge" varchar(4) collate latin1_bin NOT NULL default ' ',
+"gf" varchar(2) collate latin1_bin NOT NULL default ' ',
+"bz" varchar(10) collate latin1_bin NOT NULL default ' ',
+"ca" varchar(6) collate latin1_bin NOT NULL default '000000',
+"cb" varchar(6) collate latin1_bin NOT NULL default '000000',
+"go" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cd" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ce" varchar(8) collate latin1_bin NOT NULL default ' ',
+"cf" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cg" varchar(4) collate latin1_bin NOT NULL default ' ',
+"ch" varchar(4) collate latin1_bin NOT NULL default ' ',
+"gr" varchar(12) collate latin1_bin NOT NULL default '000000000000',
+"cj" varchar(10) collate latin1_bin NOT NULL default ' ',
+"ck" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cl" varchar(15) collate latin1_bin NOT NULL default ' ',
+"cm" varchar(10) collate latin1_bin NOT NULL default ' ',
+"cn" varchar(18) collate latin1_bin NOT NULL default ' ',
+"fx" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cp" varchar(3) collate latin1_bin NOT NULL default ' ',
+"cq" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cr" varchar(12) collate latin1_bin NOT NULL default ' ',
+"cs" varchar(10) collate latin1_bin NOT NULL default '0000000000',
+"ct" varchar(10) collate latin1_bin NOT NULL default ' ',
+"cu" varchar(5) collate latin1_bin NOT NULL default '00000',
+"cv" varchar(4) collate latin1_bin NOT NULL default '0000',
+"cw" varchar(10) collate latin1_bin NOT NULL default ' ',
+"cx" varchar(4) collate latin1_bin NOT NULL default '0000',
+"cy" varchar(10) collate latin1_bin NOT NULL default ' ',
+"cz" varchar(6) collate latin1_bin NOT NULL default '000000',
+"da" varchar(10) collate latin1_bin NOT NULL default ' ',
+"db" varchar(6) collate latin1_bin NOT NULL default '000000',
+"dc" varchar(2) collate latin1_bin NOT NULL default ' ',
+"dd" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"de" varchar(4) collate latin1_bin NOT NULL default ' ',
+"df" varchar(8) collate latin1_bin NOT NULL default ' ',
+"dg" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"dh" decimal(13,3) NOT NULL default '0.000',
+"di" decimal(13,3) NOT NULL default '0.000',
+"dj" varchar(3) collate latin1_bin NOT NULL default ' ',
+"dk" decimal(13,3) NOT NULL default '0.000',
+"dl" decimal(13,3) NOT NULL default '0.000',
+"dm" decimal(13,3) NOT NULL default '0.000',
+"dn" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"do" varchar(12) collate latin1_bin NOT NULL default ' ',
+"dp" varchar(12) collate latin1_bin NOT NULL default ' ',
+"dq" varchar(20) collate latin1_bin NOT NULL default ' ',
+"dr" varchar(35) collate latin1_bin NOT NULL default ' ',
+"ds" varchar(35) collate latin1_bin NOT NULL default ' ',
+"dt" varchar(18) collate latin1_bin NOT NULL default ' ',
+"du" varchar(1) collate latin1_bin NOT NULL default ' ',
+"dv" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"dw" varchar(40) collate latin1_bin NOT NULL default ' ',
+"dx" varchar(4) collate latin1_bin NOT NULL default ' ',
+"dy" varchar(3) collate latin1_bin NOT NULL default ' ',
+"dz" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ea" varchar(12) collate latin1_bin NOT NULL default '000000000000',
+"eb" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ec" varchar(2) collate latin1_bin NOT NULL default ' ',
+"ed" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ee" varchar(22) collate latin1_bin NOT NULL default ' ',
+"ef" varchar(1) collate latin1_bin NOT NULL default ' ',
+"eg" varchar(10) collate latin1_bin NOT NULL default ' ',
+"eh" varchar(6) collate latin1_bin NOT NULL default ' ',
+"ei" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ej" varchar(4) collate latin1_bin NOT NULL default ' ',
+"ek" varchar(10) collate latin1_bin NOT NULL default ' ',
+"el" varchar(24) collate latin1_bin NOT NULL default '000000000000000000000000',
+"em" varchar(10) collate latin1_bin NOT NULL default ' ',
+"en" varchar(10) collate latin1_bin NOT NULL default ' ',
+"eo" varchar(10) collate latin1_bin NOT NULL default ' ',
+"ep" varchar(20) collate latin1_bin NOT NULL default ' ',
+"eq" varchar(10) collate latin1_bin NOT NULL default ' ',
+"er" varchar(1) collate latin1_bin NOT NULL default ' ',
+"es" varchar(10) collate latin1_bin NOT NULL default ' ',
+"et" varchar(10) collate latin1_bin NOT NULL default ' ',
+"eu" varchar(14) collate latin1_bin NOT NULL default '00000000000000',
+"ev" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ew" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ex" varchar(6) collate latin1_bin NOT NULL default '000000',
+"ey" varchar(8) collate latin1_bin NOT NULL default ' ',
+"ez" varchar(3) collate latin1_bin NOT NULL default '000',
+"fa" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"fb" decimal(13,2) NOT NULL default '0.00',
+"fc" decimal(13,2) NOT NULL default '0.00',
+"fd" decimal(13,2) NOT NULL default '0.00',
+"fe" varchar(2) collate latin1_bin NOT NULL default '00',
+"ff" varchar(2) collate latin1_bin NOT NULL default ' ',
+"fg" varchar(12) collate latin1_bin NOT NULL default '000000000000',
+"fh" varchar(4) collate latin1_bin NOT NULL default ' ',
+"fi" varchar(22) collate latin1_bin NOT NULL default ' ',
+"fj" varchar(22) collate latin1_bin NOT NULL default ' ',
+"fk" varchar(1) collate latin1_bin NOT NULL default ' ',
+PRIMARY KEY ("gt","fm"),
+UNIQUE KEY "fn" ("gt","fp","fq"),
+KEY "fr" ("gt","ft"),
+KEY "fu" ("gt","fw","fx","gm","go","gn"),
+KEY "gb" ("gt","gd","ge","gf","gg","gm","go","gn"),
+KEY "gk" ("gt","gm","gn","go"),
+KEY "gp" ("gt","gr"),
+KEY "gs" ("gt","gu")
+);
+
+# Final cleanup.
+DROP TABLE "aa";
+
+#
+# Mantis bug #164: Unique index unchecked if other index exists
+#
+--echo *** Bug #164 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS tg;
+--enable_warnings
+create table tg (s1 int);
+create unique index tgi2 on tg (s1);
+insert into tg values (1);
+--error ER_DUP_ENTRY
+insert into tg values (1);
+create index tgi3 on tg (s1);
+--error ER_DUP_ENTRY
+insert into tg values (1);
+
+# Final cleanup.
+DROP TABLE tg;
+
+#
+# Mantis bug #143: Joins fail if indexes exist
+#
+--echo *** Bug #143 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+create table t1 (id int);
+create table t2 (id int not null primary key, val int);
+insert into t1 values (1);
+insert into t2 values (1,1);
+select * from t1, t2 where t1.id=t2.id;
+
+# Final cleanup.
+DROP TABLE t1, t2;
+
+#
+# Mantis bug #146: Difference from MyISAM auto_increment value, again
+#
+--echo *** Bug #146 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+create table t1 (a int not null auto_increment primary key, val int);
+insert into t1 (val) values (1);
+update t1 set a=2 where a=1;
+insert into t1 (val) values (1);
+select * from t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #145: Subqueries fail when indexes exist
+#
+--echo *** Bug #145 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1,t3;
+--enable_warnings
+create table t1 (libname varchar(21) not null, city text, primary key (libname));
+create table t3 (libname varchar(21) not null, city text, primary key (libname));
+insert into t1 values ('New York Public Libra','1');
+insert into t3 values ('New York Public Libra','3');
+select * from t3 where libname in (select libname from t1);
+drop table t1;
+create table t1 (id int, key(id));
+insert into t1 values (1),(2),(3);
+select count(*) from t1 where id not in (1,2);
+
+# Final cleanup.
+DROP TABLE t1,t3;
+
+#
+# Mantis bug #144: Difference from MyISAM auto_increment value
+#
+--echo *** Bug #144 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (id bigint auto_increment primary key, a int)
+auto_increment=9999999999;
+INSERT INTO t1 VALUES (null,1);
+SELECT * FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #165: Unique index rejects insertion of two nulls
+#
+--echo *** Bug #165 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (s1 int);
+CREATE UNIQUE INDEX tgi2 ON t1 (s1);
+INSERT INTO t1 VALUES (null),(null);
+SELECT * FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #157: Rows get lost after some rollbacks
+#
+--echo *** Bug #157 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+DELIMITER //;
+SET @@autocommit = 0//
+create table t1 (s1 int)//
+create procedure p1 ()
+begin
+  declare v int default 0;
+  while v < 2000 do
+    insert into t1 values (v);
+    if mod(v,300)=0 then
+      rollback;
+    end if;
+    set v = v + 1;
+    end while;
+end//
+start transaction//
+call p1()//
+select count(*) from t1//
+
+# Final cleanup.
+DELIMITER ;//
+DROP PROCEDURE p1;
+DROP TABLE t1;
+
+#
+# Mantis bug #177: duplicate key error
+#
+--echo *** Bug #177 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS `cq`;
+--enable_warnings
+CREATE TABLE `cq` (
+`cj` varchar(3) collate latin1_bin NOT NULL default '000',
+`ck` varchar(50) collate latin1_bin NOT NULL default ' ',
+`cm` varchar(10) collate latin1_bin NOT NULL default '0000000000',
+`bd` varchar(3) collate latin1_bin NOT NULL default '000',
+`co` varchar(1) collate latin1_bin NOT NULL default ' ',
+`cl` varchar(3) collate latin1_bin NOT NULL default ' ',
+`bg` varchar(4) collate latin1_bin NOT NULL default '0000',
+`cf` varchar(30) collate latin1_bin default NULL,
+`cn` double default NULL,
+`ak` varchar(3) collate latin1_bin default NULL,
+`al` double default NULL,
+`am` varchar(3) collate latin1_bin default NULL,
+`an` varchar(1) collate latin1_bin NOT NULL default ' ',
+`ao` double default NULL,
+`ap` double default NULL,
+`aq` varchar(1) collate latin1_bin default NULL,
+`ar` double default NULL,
+`as` varchar(1) collate latin1_bin default NULL,
+`bj` varchar(12) collate latin1_bin default NULL,
+`cp` varchar(8) collate latin1_bin NOT NULL default '00000000',
+`av` varchar(1) collate latin1_bin NOT NULL default ' ',
+`aw` varchar(10) collate latin1_bin default NULL,
+`ax` varchar(3) collate latin1_bin default NULL,
+`ay` varchar(4) collate latin1_bin NOT NULL default '0000',
+`az` varchar(1) collate latin1_bin NOT NULL default ' ',
+PRIMARY KEY  (`cj`,`ck`,`cm`,`bd`,`co`,`cl`,`bg`),
+KEY `bh` (`cj`,`bj`),
+KEY `bk` (`cj`,`cl`,`cm`,`cf`,`ck`,`co`,`cp`),
+KEY `bs` (`cj`,`cl`,`cm`,`cn`,`ck`,`co`,`cp`),
+KEY `ca` (`cj`,`ck`,`cl`,`cm`,`cf`,`co`,`cp`),
+KEY `ci` (`cj`,`ck`,`cl`,`cm`,`cn`,`co`,`cp`)
+) DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+INSERT INTO `cq` VALUES ('900','ATO_KEYBOARDDE_00','0000000001','001','O','200','0000','DE',0,'',0,'','1',0,0,'',0,'','','00000000','','0000000000','000','0000','');
+
+# Final cleanup.
+DROP TABLE `cq`;
+
+#
+# Mantis bug #213: Can't use decimal data type with more than 19 digits 
+#
+--echo *** Bug #213 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1; 
+--enable_warnings
+
+CREATE TABLE t1 (a decimal(20));
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Manits bug #219: wrong comparison of columns of data type date in join
+#
+--echo *** Bug #219 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1(a date);
+create table t2(a date, key(a));
+insert into t1 values('2005-10-01');
+insert into t2 values('2005-10-01');
+
+select * from t1
+  where t1.a between t1.a and t1.a;
+select * from t1, t2
+  where t2.a = t1.a;
+
+# Final cleanup.
+DROP TABLE t1, t2;
+
+#
+# Mantis bug #212: LIKE searches fail if partial indexes exist
+#
+--echo *** Bug #212 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (c1 char(50));
+ALTER TABLE t1 ADD INDEX(c1(5));
+INSERT INTO t1 VALUES ('abcdefg'),('abcdefg'),('abcdefg');
+SELECT c1 FROM t1 WHERE c1 LIKE 'abcdef%';
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #214: Crash with insert while unique key for date and tinyint
+#
+--echo *** Bug #214 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1(
+ Month date NOT NULL,
+ Type tinyint(3) unsigned NOT NULL auto_increment,
+ UNIQUE KEY Month (Type, Month)
+);
+
+--disable_abort_on_error
+INSERT INTO t1 VALUES
+(1, '2003-09-01'),
+(1, '2003-09-01'),
+(2, '2003-09-01'),
+(2, '2003-09-01'),
+(3, '2003-09-01');
+--enable_abort_on_error
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #206: Varbinary use fails if index exists
+#
+--echo *** Bug #206 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t315;
+--enable_warnings
+
+CREATE TABLE t315 (s1 varbinary(5));
+INSERT INTO t315 VALUES (0x0001020304);
+CREATE INDEX it315 ON t315 (s1);
+SELECT hex(s1) FROM t315 WHERE s1=0x0001020304;
+
+# Final cleanup.
+DROP TABLE t315;
+
+#
+# Mantis bug #197: Varbinary use fails if index exists
+#
+--echo *** Bug #197 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t15;
+--enable_warnings
+
+CREATE TABLE t15 (
+  s1 enum('a','b','c','d')
+);
+INSERT INTO t15 VALUES ('a'),('b'),('c'),('d');
+SELECT * FROM t15 WHERE s1 = 'a' OR s1 = 'b' OR s1 = 'c' OR s1 = 'd';
+CREATE INDEX it15 ON t15 (s1);
+SELECT * FROM t15 WHERE s1 = 'a' OR s1 = 'b' OR s1 = 'c' OR s1 = 'd';
+
+# Final cleanup.
+DROP TABLE t15;
+
+#
+# Mantis bug #196: crash when selecting on column of type NUMERIC
+#
+--echo *** Bug #196 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t14_1;
+--enable_warnings
+CREATE TABLE t14_1 (f1 NUMERIC (64));
+INSERT INTO t14_1 SET f1 = 1;
+# Auxiliary command, which should only show that the server is alive
+SELECT 1;
+SELECT * FROM t14_1;
+
+# Final cleanup.
+DROP TABLE t14_1;
+
+#
+# Mantis bug #205:
+#   high probability of crash when executing transactional tests several times
+#
+--echo *** Bug #205 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--enable_abort_on_error
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# We need sometimes several attempts to reach the problem
+--disable_query_log
+--disable_result_log
+let $num= 1001;
+while ($num)
+{
+  create table t1 (n int not null primary key);
+  SET @@autocommit = 0;
+  insert into t1 values (4);
+  rollback;
+  select n, 'after rollback' from t1;
+  insert into t1 values (4);
+  commit;
+  select n, 'after commit' from t1;
+  commit;
+  insert into t1 values (5);
+  --error ER_DUP_ENTRY
+  insert into t1 values (4);
+  commit;
+  select n, 'after commit' from t1;
+  SET @@autocommit = 1;
+  insert into t1 values (6);
+  --error ER_DUP_ENTRY
+  insert into t1 values (4);
+  select n from t1;
+  SET @@autocommit = 0;
+
+  DROP TABLE t1;
+  dec $num;
+}
+--enable_result_log
+--enable_query_log
+
+#
+# Mantis bug #209: Can't use data type = bit
+#
+--echo *** Bug #209 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a bit);
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #239: Changing schema does not work
+#
+--echo *** Bug #239 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP DATABASE IF EXISTS rechange;
+--enable_warnings
+
+CREATE DATABASE rechange;
+USE rechange;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (239);
+DROP DATABASE rechange;
+
+USE test;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (239);
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #133: Crash if view contains all-space column
+#
+--echo *** Bug #133 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP VIEW IF EXISTS v5y;
+--enable_warnings
+
+--error 1166
+CREATE VIEW v5y AS SELECT 1 AS ` `;
+
+#
+# Bug #27696: Tables with non-ASCII names can't be created
+#
+--echo *** Bug #27696 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+SET names utf8;
+--disable_warnings
+DROP TABLE IF EXISTS ä;
+DROP TABLE IF EXISTS ı;
+--enable_warnings
+
+CREATE TABLE ä (ä int);
+CREATE TABLE ı (ı int);
+
+# Final cleanup.
+DROP TABLE ä;
+DROP TABLE ı;
+
+#
+# Mantis bug #139: AND fails if index exists
+#
+--echo *** Bug #139 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t3;
+--enable_warnings
+
+CREATE TABLE t3 (
+  place_id int (10) unsigned,
+  ts timestamp, 
+  PRIMARY KEY (place_id, ts)
+);
+
+INSERT INTO t3 VALUES (1,20000928174434);
+SELECT * FROM t3 WHERE place_id = 1 AND ts>='2000-09-28 00:00:00';
+SELECT * FROM t3 WHERE place_id = 1 AND ts >= 20000928000000;
+
+# Final cleanup.
+DROP TABLE t3;
+
+#
+# Mantis bug #140: Difference from InnoDB autocommit behaviour 
+#
+--echo *** Bug #140 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS ti;
+--enable_warnings
+
+SET @@autocommit = 1;
+SELECT @@autocommit;
+
+CREATE TABLE ti (s1 int);
+START TRANSACTION;
+INSERT INTO ti VALUES (0);
+ROLLBACK;
+SELECT count(*) FROM ti;
+
+# Final cleanup.
+DROP TABLE ti;
+
+#
+# Mantis bug #150: crash on SELECT .. 
+#       WHERE <UNIQUE column>=<value> OR NOT(<same column>=<same value>)
+#
+--echo *** Bug #150 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  EMPNUM   CHAR(3) NOT NULL UNIQUE,
+  EMPNAME  CHAR(20),
+  GRADE    DECIMAL(4),
+  CITY     CHAR(15)
+);
+INSERT INTO t1 VALUES ('E1','Alice',12,'Deale');
+SELECT EMPNUM,CITY FROM t1 WHERE EMPNUM='E1' OR NOT(EMPNUM='E1');
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #155: Partial indexing failure
+#
+--echo *** Bug #155 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+CREATE TABLE t2 (s1 varchar(5));
+CREATE INDEX i2 ON t2 (s1(1));
+INSERT INTO t2 VALUES ('b'),('ba');
+
+SELECT * FROM t2 WHERE s1 = 'b';
+SELECT * FROM t2 WHERE s1 = 'ba';
+
+# Final cleanup.
+DROP TABLE t2;
+
+#
+# Mantis bug #186: OR fails if index exists (2)
+#
+--echo *** Bug #186 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t;
+--enable_warnings
+
+CREATE TABLE t (
+  s2 int(11) DEFAULT NULL,
+  s3 int(11) DEFAULT NULL,
+  KEY s2 (s2),
+  KEY s3 (s3)
+);
+INSERT INTO t VALUES (0,0),(1,1),(null,null);
+SELECT * FROM t WHERE s2 IS NULL or s3 IS NULL;
+
+# Final cleanup.
+DROP TABLE t;
+
+#
+# Mantis bug #187: Large DECIMAL values stored incorrectly
+#
+--echo *** Bug #187 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS tj23;
+--enable_warnings
+
+CREATE TABLE tj23 (
+  s1 decimal(20)
+);
+INSERT INTO tj23 VALUES (12345678901234567890);
+SELECT * FROM tj23;
+
+# Final cleanup.
+DROP TABLE tj23;
+
+#
+# Mantis bug #188: Crash if INSERT ON DUPLICATE KEY with two 
+#                  interleaving transactions
+#
+--echo *** Bug #188 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo # Establish connection con1 (root)
+connect (con1,localhost,root,,test);
+SET @@storage_engine = Falcon;
+
+--echo # Switch to connection default
+connection default;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+CREATE TABLE t1 (
+  s1 int,
+  s2 int,
+  PRIMARY KEY (s1)
+);
+INSERT INTO t1 VALUES (1,2);
+
+--echo # Switch to connection con1
+connection con1;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+--send INSERT INTO t1 VALUES (1,2) ON DUPLICATE KEY UPDATE s2 = 5
+
+--echo # Switch to connection default
+connection default;
+COMMIT;
+
+--echo # Switch to connection con1
+connection con1;
+--reap
+SELECT * FROM t1;
+COMMIT;
+
+# Final cleanup
+disconnect con1;
+connection default;
+DROP TABLE t1;
+
+#
+# Mantis bug #190: CREATE TABLE in new SCHEMA crashes server
+#
+--echo *** Bug #190 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP DATABASE IF EXISTS test_db;
+--enable_warnings
+
+CREATE DATABASE test_db;
+USE test_db;
+
+CREATE TABLE BASE_TESTREPORT (
+  TESTNO CHAR(4),
+  RESULT CHAR(4),
+  TESTTYPE CHAR(3)
+);
+
+# Final cleanup.
+DROP DATABASE test_db;
+USE test;
+
+
+#
+# Mantis bug #191:
+#     PRIMARY KEY of type DECIMAL in qualification leads to wrong result set
+#
+--echo *** Bug #191 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# GRADE BIGINT instead of DECIMAL is harmless
+eval CREATE TABLE t1 (EMPNUM    CHAR(3) NOT NULL,
+       EMPNAME  CHAR(20) DEFAULT NULL,
+       GRADE DECIMAL(4) NOT NULL ,
+       CITY   CHAR(15), PRIMARY KEY (GRADE));
+
+INSERT INTO t1 (EMPNUM,EMPNAME,GRADE)
+       VALUES ('E3','Bill',151);
+
+SELECT * FROM t1;
+# !!! I miss the record within the next result set.
+SELECT * FROM t1 WHERE GRADE= 151;
+
+# DROP PRIMARY KEY removes the problem
+ALTER TABLE t1 DROP PRIMARY KEY;
+SELECT * FROM t1;
+SELECT * FROM t1 WHERE GRADE= 151;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #192: Partitions: crash after a few alters
+#
+--echo *** Bug #192 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP PROCEDURE IF EXISTS falcon4.pf3;
+DROP DATABASE IF EXISTS falcon4;
+--enable_warnings
+
+DELIMITER //;
+CREATE DATABASE falcon4//
+USE falcon4//
+CREATE TABLE tf3 (
+  s1 int, 
+  s2 varchar(200)
+)//
+
+CREATE PROCEDURE pf3 () 
+BEGIN 
+  declare v int default 0; 
+  while v < 2 
+    do 
+    alter table tf3 partition by range (s1) (partition p4 values less than maxvalue);
+    alter table tf3 remove partitioning;
+    set v = v + 1; 
+  end while; 
+END//
+
+CALL falcon4.pf3()//
+
+# Final cleanup.
+DELIMITER ;//
+DROP PROCEDURE falcon4.pf3;
+DROP DATABASE falcon4;
+USE test;
+
+#
+# Mantis bug #234: Binary use fails if index exists
+#
+--echo *** Bug #234 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t315;
+--enable_warnings
+
+CREATE TABLE t315 (s1 binary(5));
+CREATE INDEX it315 ON t315 (s1);
+INSERT INTO t315 VALUES (0x0001020300),(0x0001020300),(0x0001020300);
+
+SELECT hex(s1) FROM t315 WHERE s1=0x0001020300;
+
+# Final cleanup.
+DROP TABLE t315;
+
+#
+# Mantis bug #230: OR fails if index exists (3)
+#
+--echo *** Bug #230 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t7;
+--enable_warnings
+
+# Part 1
+CREATE TABLE t7 (s1 int);
+CREATE INDEX it7 ON t7 (s1);
+INSERT INTO t7 VALUES (null),(0),(1);
+SELECT * FROM t7;
+SELECT * FROM t7 WHERE s1 IS NULL OR s1 = 0 OR s1 = 1;
+DROP TABLE t7;
+
+# Part 2
+CREATE TABLE t7 (s1 varchar(5));
+CREATE INDEX it7 ON t7 (s1);
+INSERT INTO t7 VALUES (null),(''),(' ');
+SELECT * FROM t7;
+SELECT * FROM t7 WHERE s1 >= '' OR s1 IS NULL;
+
+# Final cleanup.
+DROP TABLE t7;
+
+#
+# Mantis bug #141: LIKE searches fail if indexes exist
+#
+--echo *** Bug #141 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 SELECT repeat('a',50) AS c1;
+INSERT INTO t1 VALUES ('aaa');
+SELECT * FROM t1 WHERE c1 LIKE 'aaa%';
+ALTER TABLE t1 ADD index(c1(5));
+SELECT * FROM t1 WHERE c1 LIKE 'aaa%';
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #202: update ignore feature is missing
+#
+--echo *** Bug #202 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--enable_abort_on_error
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# Heavy simplified testcase
+create table t1 (id int not null ,
+                 name char(20) not null,
+                 primary key (id));
+
+insert into t1 (id, name) values (1, 'Tim'), (2, 'Monty');
+select id, name from t1 order by id;
+
+update ignore t1 set id = 8, name = 'Sinisa' where id < 3;
+select count(*) from t1 where name = 'Sinisa';
+
+drop table t1;
+
+
+# Slightly simplified original testcase
+create table t1 (id int unsigned not null auto_increment,
+                 code tinyint unsigned not null, name char(20) not null,
+                 primary key (id), key (code), unique (name));
+
+insert into t1 (code, name) values (1, 'Tim'), (1, 'Monty');
+select id, code, name from t1 order by id;
+
+update ignore t1 set id = 8, name = 'Sinisa' where id < 3;
+select count(*) from t1 where name = 'Sinisa';
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #200: ROLLBACK does not work correctly
+#
+--echo *** Bug #200 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS testSavepoints;
+--enable_warnings
+
+SET @@autocommit = 1;
+CREATE TABLE testSavepoints (field1 int);
+SET @@autocommit = 0;
+INSERT INTO testSavepoints VALUES (1);
+SAVEPOINT `afterInsert`;
+UPDATE testSavepoints SET field1=2;
+SAVEPOINT `afterUpdate`;
+DELETE FROM testSavepoints;
+SELECT count(*) FROM testSavepoints;
+ROLLBACK TO SAVEPOINT afterUpdate;
+SELECT count(*) FROM testSavepoints;
+
+# Final cleanup.
+DROP TABLE testSavepoints;
+
+#
+# Mantis bug #201: crash on update of non PK column, if PK is auto_increment
+#     This test is derived from innodb.test
+#
+--echo *** Bug #201 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+
+--enable_abort_on_error
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# Second test of falconx derived from innodb.test
+# Heavy simplified variant
+--echo # If I remove the auto_increment, the crash on the update disappers
+CREATE TABLE t1 (
+  id BIGINT NOT NULL auto_increment,
+  parent_id BIGINT,
+  PRIMARY KEY (id)
+);
+
+INSERT INTO t1 VALUES (9,2),(24,4);
+
+--echo # This UPDATE gets a crash
+update t1 set parent_id=parent_id+100;
+
+# Is the server alive?
+SELECT * FROM t1;
+
+DROP TABLE t1;
+
+# Second test of falcon derived from innodb.test
+# Slightly simplified variant
+CREATE TABLE t1 (
+  id int(11) NOT NULL auto_increment,
+  parent_id int(11) DEFAULT '0' NOT NULL,
+  level tinyint(4) DEFAULT '0' NOT NULL,
+  PRIMARY KEY (id),
+  KEY parent_id (parent_id),
+  KEY level (level)
+);
+
+INSERT INTO t1 VALUES (9,2,2),(24,4,2);
+
+--echo # This UPDATE gets a crash
+update t1 set parent_id=parent_id+100;
+
+--error ER_DUP_ENTRY, ER_DUP_KEY
+update t1 set id=24 where id=9; 
+
+# Is the server alive ?
+SELECT * FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #232: Crash with savepoint
+#
+--echo *** Bug #232 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP DATABASE IF EXISTS f12;
+--enable_warnings
+
+connect (conn1,localhost,root,,);
+SET @@storage_engine = Falcon;
+
+CREATE DATABASE f12;
+USE f12;
+
+SET @@autocommit = 0;
+CREATE TABLE tf2 (s2 char(50));
+COMMIT;
+START TRANSACTION;
+INSERT INTO tf2 VALUES ('The plain');
+SAVEPOINT a;
+UPDATE tf2 SET s2 = 'b';
+ROLLBACK TO SAVEPOINT a;
+SELECT * FROM tf2;
+COMMIT;
+disconnect conn1;
+
+# Final cleanup.
+connection default;
+DROP DATABASE f12;
+USE test;
+
+#
+# Mantis bug #256: Savepoint tests. Inspired by Kevin.
+#
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (c1 int, c2 varchar(8));
+INSERT INTO t1 VALUES (1, 'AAAAAAAA');
+INSERT INTO t1 VALUES (2, 'BBBBBBBB');
+
+BEGIN;
+SELECT * FROM t1;
+INSERT INTO t1 VALUES (3, 'CCCCCCCC');
+UPDATE t1 SET c2 = lower(c2);
+
+SAVEPOINT sp1;
+SELECT * FROM t1;
+UPDATE t1 SET c2 = upper(c2);
+UPDATE t1 SET c2 = right(c2, 6);
+
+SAVEPOINT sp2;
+SELECT * FROM t1;
+UPDATE t1 SET c2 = lower(c2);
+UPDATE t1 SET c2 = right(c2, 4);
+DELETE FROM t1 WHERE c1 = 2;
+
+Savepoint sp3;
+SELECT * FROM t1;
+
+ROLLBACK TO SAVEPOINT sp1;
+SELECT * FROM t1;
+
+# This should release sp1 and reset it and not give a SQL error
+# about a bad savepoint.
+SAVEPOINT sp1;
+ROLLBACK;
+SELECT * FROM t1;
+COMMIT;
+
+# Final cleanup.
+DROP TABLE t1;
+
+#
+# Mantis bug #207: Hang after fifteen exceptions
+#
+--echo *** Bug #207 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p;
+--enable_warnings
+
+delimiter //;
+SET @@autocommit = 0//
+create procedure p ()
+begin
+  declare v int default 0;
+  declare continue handler for sqlexception begin end;
+  create table t1 (s1 int unique);
+  while v < 1000 do
+    insert into t1 values (v);
+    update t1 set s1 = s1 * 2;
+    select distinct v from t1;
+    set v = v + 1;
+    end while;
+  end;
+//
+call p()//
+
+# Final cleanup.
+DROP TABLE t1//
+DROP PROCEDURE p//
+
+delimiter ;//
+
+#
+# Mantis bug #216: crash on multi table update
+#   This test is derived from innodb.test
+#
+--echo *** Bug 216 ***
+--source include/initialize_falcon.inc
+SET @@storage_engine = Falcon;
+--enable_abort_on_error
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2;
+--enable_warnings
+
+create table t1 (a int not null, b int, primary key (a));
+create table t2 (a int not null, b int, primary key (a));
+insert into t1 values (10, 20);
+insert into t2 values (10, 20);
+update t1, t2 set t1.b = 150, t2.b = t1.b where t2.a = t1.a and t1.a = 10;
+
+select count(*) from t1 where b = 150;
+select count(*) from t2 where b = 150;
+
+# Final cleanup.
+DROP TABLE t1, t2;

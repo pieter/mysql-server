@@ -1585,7 +1585,7 @@ let $message= Testcase 3.3.1.41 ;
 ###############################################################################
 # Testcase 3.3.1.41: Ensure that a view definition within a stored procedure
 #                    definition cannot include references to any of the stored
-#                    procedure’s parameters.
+#                    procedureâs parameters.
 ###############################################################################
 --disable_warnings
 Drop view if exists test.v1 ;
@@ -2415,6 +2415,15 @@ SELECT * FROM v1;
 # 3.3.1.54
 --vertical_results
 SET sql_mode = 'traditional,ansi';
+# due to bug#32496 "no trailing blanks in identifier".
+CREATE OR REPLACE VIEW v1 AS
+SELECT f3 AS "pure column f3:", f1 + f3 AS "sum of columns f1 + f3 =",
+       3 * (- 0.11111E+1) AS "product of constants 3 * (- 0.11111E+1):",
+       '->' || CAST(f3 AS CHAR) || '<-'
+         AS "expression with '||'=CONCAT and CAST(DECIMAL column AS CHAR):"
+FROM t1 WHERE f1 = 2;
+# This error is not conformant with ansi (see bug#32496). hhunger
+--error ER_WRONG_COLUMN_NAME
 CREATE OR REPLACE VIEW v1 AS
 SELECT f3 AS "pure column f3: ", f1 + f3 AS "sum of columns f1 + f3 = ",
        3 * (- 0.11111E+1) AS "product of constants 3 * (- 0.11111E+1): ",
@@ -3085,7 +3094,7 @@ eval EXPLAIN SELECT CAST(f1 AS SIGNED INTEGER) AS f1,
                    CAST(f2 AS CHAR) AS f2 FROM test1.v$toplevel;
 # 2.3.3 UCS2 string instead of common string
 CREATE OR REPLACE VIEW test3.v0 AS
-SELECT f1 , CONVERT('ßÄäÖöÜü§' USING UCS2) as f2 FROM test1.t1;
+SELECT f1 , CONVERT('ÃÃÃ¤ÃÃ¶ÃÃ¼Â§' USING UCS2) as f2 FROM test1.t1;
 eval SHOW CREATE VIEW test1.v$toplevel;
 eval SELECT CAST(f1 AS SIGNED INTEGER) AS f1,
             CAST(f2 AS CHAR) AS f2 FROM test1.v$toplevel;
@@ -3094,7 +3103,7 @@ eval EXPLAIN SELECT CAST(f1 AS SIGNED INTEGER) AS f1,
 
 # 2.3.4 UCS2 string instead of numeric
 CREATE OR REPLACE VIEW test3.v0 AS
-SELECT CONVERT('ßÄäÖöÜü§' USING UCS2) as f1, f2 FROM test1.t1;
+SELECT CONVERT('ÃÃÃ¤ÃÃ¶ÃÃ¼Â§' USING UCS2) as f1, f2 FROM test1.t1;
 eval SHOW CREATE VIEW test1.v$toplevel;
 eval SELECT CAST(f1 AS SIGNED INTEGER) AS f1,
             CAST(f2 AS CHAR) AS f2 FROM test1.v$toplevel;

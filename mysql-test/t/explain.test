@@ -66,4 +66,10 @@ explain extended select * from t1 having 1;
 drop view v1;
 drop table t1;
 
-# End of 5.0 tests.
+--echo End of 5.0 tests.
+
+--enable_metadata
+explain select 1;
+--disable_metadata
+
+--echo End of 5.2 tests.

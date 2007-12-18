@@ -42,6 +42,7 @@ try
             case "WITH_ARCHIVE_STORAGE_ENGINE":
             case "WITH_BLACKHOLE_STORAGE_ENGINE":
             case "WITH_EXAMPLE_STORAGE_ENGINE":
+            case "WITH_FALCON_STORAGE_ENGINE":
             case "WITH_FEDERATED_STORAGE_ENGINE":
             case "WITH_INNOBASE_STORAGE_ENGINE":
             case "WITH_PARTITION_STORAGE_ENGINE":

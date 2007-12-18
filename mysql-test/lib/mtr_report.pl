@@ -234,6 +234,7 @@ sub mtr_report_stats ($) {
 			    "\\[ERROR\\]",
 			    "^Error:", "^==.* at 0x",
 			    "InnoDB: Warning",
+			    "InnoDB: Error",
 			    "^safe_mutex:",
 			    "missing DBUG_RETURN",
 			    "mysqld: Warning",
@@ -298,6 +299,9 @@ sub mtr_report_stats ($) {
 		/Slave: .*master may suffer from/ or
 		/Slave: According to the master's version/ or
 		/Slave: Column [0-9]* type mismatch/ or
+                /Slave: Can't DROP 'c7'; check that column.key exists Error_code: 1091/ or
+                /Slave: Unknown column 'c7' in 't15' Error_code: 1054/ or
+                /Slave: Key column 'c6' doesn't exist in table Error_code: 1072/ or
 		/Slave: Error .* doesn't exist/ or
 		/Slave: Error .*Deadlock found/ or
 		/Slave: Error .*Unknown table/ or
@@ -310,6 +314,7 @@ sub mtr_report_stats ($) {
 		/Slave: Unknown error.* 1105/ or
 		/Slave: Can't drop database.* database doesn't exist/ or
                 /Slave SQL:.*(?:Error_code: \d+|Query:.*)/ or
+		/Backup:/ or /Restore:/ or
 		/Sort aborted/ or
 		/Time-out in NDB/ or
 		/Warning:\s+One can only use the --user.*root/ or
@@ -335,14 +340,19 @@ sub mtr_report_stats ($) {
 		/\QError in Log_event::read_log_event(): 'Sanity check failed', data_len: 258, event_type: 49\E/ or
                 /Statement is not safe to log in statement format/ or
 
+                # test case for Bug#bug29807 copies a stray frm into database
+                /InnoDB: Error: table `test`.`bug29807` does not exist in the InnoDB internal/ or
+                /Cannot find or open table test\/bug29807 from/ or
+
+                # innodb foreign key tests that fail in ALTER or RENAME produce this
+                /InnoDB: Error: in ALTER TABLE `test`.`t[12]`/ or
+                /InnoDB: Error: in RENAME TABLE table `test`.`t1`/ or
+                /InnoDB: Error: table `test`.`t[12]` does not exist in the InnoDB internal/ or
+
                 # Test case for Bug#14233 produces the following warnings:
                 /Stored routine 'test'.'bug14233_1': invalid value in column mysql.proc/ or
                 /Stored routine 'test'.'bug14233_2': invalid value in column mysql.proc/ or
                 /Stored routine 'test'.'bug14233_3': invalid value in column mysql.proc/ or
-
-                # BUG#29807 - innodb_mysql.test: Cannot find table test/t2
-                #             from the internal data dictionary
-                /Cannot find or open table test\/bug29807 from/ or
 
                 # BUG#29839 - lowercase_table3.test: Cannot find table test/T1
                 #             from the internal data dictiona
@@ -353,8 +363,10 @@ sub mtr_report_stats ($) {
 		# master
 		/Slave: Unknown column 'c7' in 't15' Error_code: 1054/ or
 		/Slave: Can't DROP 'c7'.* 1091/ or
-		/Slave: Key column 'c6'.* 1072/
+		/Slave: Key column 'c6'.* 1072/ or
 
+                # rpl_ndb_basic expects this error
+                /Slave: Got error 146 during COMMIT Error_code: 1180/
 	       )
             {
               next;                       # Skip these lines

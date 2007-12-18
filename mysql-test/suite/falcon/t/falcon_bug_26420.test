@@ -1,0 +1,19 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #26420: Falcon: Can't find record with long multi-column index
+#
+--echo *** Bug #26420 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a varchar(548), b varchar(548));
+
+INSERT INTO t1 VALUES (null, null);
+CREATE INDEX i1 on t1 (a, b);
+UPDATE t1 SET a = repeat('a', 548), b = repeat('b', 548);
+SELECT count(*) FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;

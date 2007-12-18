@@ -1,0 +1,54 @@
+--source include/have_falcon.inc
+#
+# Bug #27993: Falcon: crash if rollback while other job is waiting
+#
+--echo *** Bug #27993 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a int);
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+SET @@autocommit = 0;
+SELECT * FROM t1 WHERE a = 6;
+INSERT INTO t1 VALUES (6);
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@autocommit = 0;
+--send UPDATE t1 SET a = 5 WHERE a = 6
+
+--echo # Switch to connection default
+connection default;
+ROLLBACK;
+
+--echo # Switch to connection conn1
+connection conn1;
+--reap
+COMMIT;
+
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+SELECT count(*) FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+disconnect conn1;
+DROP TABLE t1;

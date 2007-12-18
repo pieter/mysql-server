@@ -1,0 +1,143 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Testing READ-COMMITTED and REPEATABLE-READ behaviour.
+#
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+# Verify that setting storage engine worked.
+CREATE TABLE t1 (a int);
+SHOW CREATE TABLE t1;
+
+# Final cleanup.
+DROP TABLE t1;
+
+connect (conn1,localhost,root,,);
+SET storage_engine = Falcon;
+SET @@tx_isolation = 'REPEATABLE-READ';
+SET @@autocommit=0;
+
+connection default;
+SET @@tx_isolation = 'REPEATABLE-READ';
+SET @@autocommit=0;
+
+BEGIN;
+CREATE TABLE t1 (a int);
+COMMIT;
+BEGIN;
+INSERT INTO t1 VALUES (1);
+
+connection conn1;
+BEGIN;
+# We expect no result as this transaction started after connection default.
+SELECT count(*) FROM t1;
+
+connection default;
+COMMIT;
+
+connection conn1;
+# We expect no result, as this transaction has to be repeatable.
+SELECT count(*) FROM t1;
+
+connection default;
+BEGIN;
+INSERT INTO t1 VALUES (2);
+
+connection conn1;
+# We expect no result, as this transaction has to be repeatable.
+SELECT count(*) FROM t1;
+
+connection default;
+COMMIT;
+
+connection conn1;
+# We expect no result, as this transaction has to be repeatable.
+SELECT count(*) FROM t1;
+COMMIT;
+BEGIN;
+# Now, in the new transaction we should see two rows.
+SELECT count(*) FROM t1;
+
+connection default;
+BEGIN;
+INSERT INTO t1 VALUES (2);
+
+connection conn1;
+# Still two rows, as results in this transaction have to be repeatable.
+SELECT count(*) FROM t1;
+COMMIT;
+
+connection default;
+COMMIT;
+
+connection conn1;
+BEGIN;
+# Now, in the new transaction we should see three rows.
+SELECT count(*) FROM t1;
+COMMIT;
+
+#
+# READ-COMMITTED test.
+#
+
+connection default;
+BEGIN;
+DELETE FROM t1;
+
+connection conn1;
+BEGIN;
+SET tx_isolation = 'READ-COMMITTED';
+COMMIT;
+BEGIN;
+# Three rows, as the DELETE of default is not committed.
+SELECT count(*) FROM t1;
+
+connection default;
+COMMIT;
+
+connection conn1;
+# Zero rows, as we are in READ-COMMITTED isolation level.
+SELECT count(*) FROM t1;
+
+connection default;
+BEGIN;
+INSERT INTO t1 VALUES (1);
+COMMIT;
+
+connection conn1;
+# One row, as we are in READ-COMMITTED isolation level.
+SELECT count(*) FROM t1;
+COMMIT;
+
+#
+# Switching back to REPEATABLE-READ.
+#
+
+# Falcon does not like the BEGIN here.
+#BEGIN;
+SET @@tx_isolation = 'REPEATABLE-READ';
+COMMIT;
+BEGIN;
+# Still one row.
+SELECT count(*) FROM t1;
+
+connection default;
+BEGIN;
+INSERT INTO t1 values (2);
+COMMIT;
+
+connection conn1;
+# Still one row, as we are in REPEATABLE-READ.
+SELECT count(*) FROM t1;
+COMMIT;
+BEGIN;
+# Now we should have two rows.
+SELECT count(*) FROM t1;
+COMMIT;
+
+# Final cleanup.
+disconnect conn1;
+connection default;
+DROP TABLE t1;

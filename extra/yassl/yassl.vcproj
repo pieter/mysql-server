@@ -1,10 +1,11 @@
-<?xml version="1.0" encoding="Windows-1252"?>
+<?xml version="1.0" encoding = "Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="7.10"
 	Name="yassl"
 	SccProjectName=""
-	SccLocalPath="">
+	SccLocalPath=""
+	Keyword="Win32Proj">
 	<Platforms>
 		<Platform
 			Name="Win32"/>
@@ -12,197 +13,294 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory=".\debug_obj"
-			IntermediateDirectory=".\debug_obj"
+			OutputDirectory="Debug"
+			IntermediateDirectory="yassl.dir\Debug"
 			ConfigurationType="4"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="FALSE"
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="0"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="include,taocrypt\include,taocrypt\mySTL"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;YASSL_PREFIX"
+				AdditionalOptions=" /Zm1000"
+				AdditionalIncludeDirectories="D:\MySQL\mysql-6.0-falcon\extra\yassl\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\mySTL;"
+				BasicRuntimeChecks="1"
+				CompileAs="2"
+				DebugInformationFormat="3"
 				ExceptionHandling="FALSE"
-				BasicRuntimeChecks="3"
+				InlineFunctionExpansion="0"
+				Optimization="0"
 				RuntimeLibrary="1"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderFile=".\debug_obj/yassl.pch"
-				AssemblerListingLocation=".\debug_obj/"
-				ObjectFile=".\debug_obj/"
-				ProgramDataBaseFileName=".\debug_obj/"
-				BrowseInformation="1"
+				RuntimeTypeInfo="TRUE"
 				WarningLevel="3"
-				SuppressStartupBanner="TRUE"
-				DebugInformationFormat="4"
-				CompileAs="0"/>
+				PreprocessorDefinitions="WIN32,_WINDOWS,_DEBUG,FORCE_INIT_OF_VARS,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;Debug\&quot;&quot;"
+				AssemblerListingLocation="Debug"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="D:/MySQL/mysql-6.0-falcon/extra/yassl/Debug/yassl.pdb"
+/>
 			<Tool
 				Name="VCCustomBuildTool"/>
 			<Tool
-				Name="VCLibrarianTool"
-				OutputFile=".\debug_obj\yassl.lib"
-				SuppressStartupBanner="TRUE"/>
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="D:\MySQL\mysql-6.0-falcon\extra\yassl\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\mySTL;"
+				PreprocessorDefinitions="WIN32,_WINDOWS,_DEBUG,FORCE_INIT_OF_VARS,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;Debug\&quot;&quot;"/>
 			<Tool
-				Name="VCMIDLTool"/>
-			<Tool
-				Name="VCPostBuildEventTool"/>
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="WIN32,_WINDOWS,_DEBUG,FORCE_INIT_OF_VARS,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;Debug\&quot;&quot;"
+				MkTypLibCompatible="FALSE"
+				TargetEnvironment="1"
+				GenerateStublessProxies="TRUE"
+				TypeLibraryName="$(InputName).tlb"
+				OutputDirectory="$(IntDir)"
+				HeaderFileName="$(InputName).h"
+				DLLDataFileName=""
+				InterfaceIdentifierFileName="$(InputName)_i.c"
+				ProxyFileName="$(InputName)_p.c"/>
 			<Tool
 				Name="VCPreBuildEventTool"/>
 			<Tool
 				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="_DEBUG"
-				Culture="1033"/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCWebServiceProxyGeneratorTool"/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"/>
-			<Tool
-				Name="VCManagedWrapperGeneratorTool"/>
-			<Tool
-				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\yassl.lib"/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory=".\release_obj"
-			IntermediateDirectory=".\release_obj"
+			OutputDirectory="Release"
+			IntermediateDirectory="yassl.dir\Release"
 			ConfigurationType="4"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="FALSE"
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
-				InlineFunctionExpansion="1"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="include,taocrypt\include,taocrypt\mySTL"
-				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;YASSL_PREFIX"
-				StringPooling="TRUE"
+				AdditionalOptions=" /Zm1000"
+				AdditionalIncludeDirectories="D:\MySQL\mysql-6.0-falcon\extra\yassl\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\mySTL;"
+				CompileAs="2"
 				ExceptionHandling="FALSE"
+				InlineFunctionExpansion="2"
+				Optimization="2"
 				RuntimeLibrary="0"
-				EnableFunctionLevelLinking="TRUE"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderFile=".\release_obj/yassl.pch"
-				AssemblerListingLocation=".\release_obj/"
-				ObjectFile=".\release_obj/"
-				ProgramDataBaseFileName=".\release_obj/"
+				RuntimeTypeInfo="TRUE"
 				WarningLevel="3"
-				SuppressStartupBanner="TRUE"
-				CompileAs="0"/>
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,DBUG_OFF,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;Release\&quot;&quot;"
+				AssemblerListingLocation="Release"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="D:/MySQL/mysql-6.0-falcon/extra/yassl/Release/yassl.pdb"
+/>
 			<Tool
 				Name="VCCustomBuildTool"/>
 			<Tool
-				Name="VCLibrarianTool"
-				OutputFile=".\release_obj\yassl.lib"
-				SuppressStartupBanner="TRUE"/>
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="D:\MySQL\mysql-6.0-falcon\extra\yassl\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\mySTL;"
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,DBUG_OFF,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;Release\&quot;&quot;"/>
 			<Tool
-				Name="VCMIDLTool"/>
-			<Tool
-				Name="VCPostBuildEventTool"/>
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,DBUG_OFF,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;Release\&quot;&quot;"
+				MkTypLibCompatible="FALSE"
+				TargetEnvironment="1"
+				GenerateStublessProxies="TRUE"
+				TypeLibraryName="$(InputName).tlb"
+				OutputDirectory="$(IntDir)"
+				HeaderFileName="$(InputName).h"
+				DLLDataFileName=""
+				InterfaceIdentifierFileName="$(InputName)_i.c"
+				ProxyFileName="$(InputName)_p.c"/>
 			<Tool
 				Name="VCPreBuildEventTool"/>
 			<Tool
 				Name="VCPreLinkEventTool"/>
 			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\yassl.lib"/>
+		</Configuration>
+		<Configuration
+			Name="MinSizeRel|Win32"
+			OutputDirectory="MinSizeRel"
+			IntermediateDirectory="yassl.dir\MinSizeRel"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE"
+			CharacterSet="2">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions=" /Zm1000"
+				AdditionalIncludeDirectories="D:\MySQL\mysql-6.0-falcon\extra\yassl\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\mySTL;"
+				CompileAs="2"
+				ExceptionHandling="FALSE"
+				InlineFunctionExpansion="1"
+				Optimization="1"
+				RuntimeLibrary="2"
+				RuntimeTypeInfo="TRUE"
+				WarningLevel="3"
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;MinSizeRel\&quot;&quot;"
+				AssemblerListingLocation="MinSizeRel"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="D:/MySQL/mysql-6.0-falcon/extra/yassl/MinSizeRel/yassl.pdb"
+/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="NDEBUG"
-				Culture="1033"/>
+				AdditionalIncludeDirectories="D:\MySQL\mysql-6.0-falcon\extra\yassl\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\mySTL;"
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;MinSizeRel\&quot;&quot;"/>
 			<Tool
-				Name="VCWebServiceProxyGeneratorTool"/>
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;MinSizeRel\&quot;&quot;"
+				MkTypLibCompatible="FALSE"
+				TargetEnvironment="1"
+				GenerateStublessProxies="TRUE"
+				TypeLibraryName="$(InputName).tlb"
+				OutputDirectory="$(IntDir)"
+				HeaderFileName="$(InputName).h"
+				DLLDataFileName=""
+				InterfaceIdentifierFileName="$(InputName)_i.c"
+				ProxyFileName="$(InputName)_p.c"/>
 			<Tool
-				Name="VCXMLDataGeneratorTool"/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCManagedWrapperGeneratorTool"/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\yassl.lib"/>
+		</Configuration>
+		<Configuration
+			Name="RelWithDebInfo|Win32"
+			OutputDirectory="RelWithDebInfo"
+			IntermediateDirectory="yassl.dir\RelWithDebInfo"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE"
+			CharacterSet="2">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions=" /Zm1000"
+				AdditionalIncludeDirectories="D:\MySQL\mysql-6.0-falcon\extra\yassl\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\mySTL;"
+				CompileAs="2"
+				DebugInformationFormat="3"
+				ExceptionHandling="FALSE"
+				InlineFunctionExpansion="1"
+				Optimization="2"
+				RuntimeLibrary="0"
+				RuntimeTypeInfo="TRUE"
+				WarningLevel="3"
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,DBUG_OFF,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;RelWithDebInfo\&quot;&quot;"
+				AssemblerListingLocation="RelWithDebInfo"
+				ObjectFile="$(IntDir)\"
+				ProgramDataBaseFileName="D:/MySQL/mysql-6.0-falcon/extra/yassl/RelWithDebInfo/yassl.pdb"
+/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="D:\MySQL\mysql-6.0-falcon\extra\yassl\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\include;D:\MySQL\mysql-6.0-falcon\extra\yassl\taocrypt\mySTL;"
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,DBUG_OFF,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;RelWithDebInfo\&quot;&quot;"/>
+			<Tool
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="WIN32,_WINDOWS,NDEBUG,DBUG_OFF,HAVE_YASSL,WITH_HEAP_STORAGE_ENGINE,WITH_MYISAM_STORAGE_ENGINE,WITH_MYISAMMRG_STORAGE_ENGINE,WITH_CSV_STORAGE_ENGINE,WITH_INNOBASE_STORAGE_ENGINE,WITH_FALCON_STORAGE_ENGINE,_WINDOWS,__WIN__,_CRT_SECURE_NO_DEPRECATE,_LIB,YASSL_PREFIX,&quot;CMAKE_INTDIR=\&quot;RelWithDebInfo\&quot;&quot;"
+				MkTypLibCompatible="FALSE"
+				TargetEnvironment="1"
+				GenerateStublessProxies="TRUE"
+				TypeLibraryName="$(InputName).tlb"
+				OutputDirectory="$(IntDir)"
+				HeaderFileName="$(InputName).h"
+				DLLDataFileName=""
+				InterfaceIdentifierFileName="$(InputName)_i.c"
+				ProxyFileName="$(InputName)_p.c"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\yassl.lib"/>
 		</Configuration>
 	</Configurations>
-	<References>
-	</References>
 	<Files>
+			<File
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+					Name="VCCustomBuildTool"
+					Description="Building Custom Rule D:/MySQL/mysql-6.0-falcon/extra/yassl/CMakeLists.txt"
+					CommandLine="&quot;C:\Program Files\CMake 2.4\bin\cmake.exe&quot; -HD:/MySQL/mysql-6.0-falcon -BD:/MySQL/mysql-6.0-falcon"
+					AdditionalDependencies="D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt;&quot;C:\Program Files\CMake 2.4\share\cmake-2.4\Templates\CMakeWindowsSystemConfig.cmake&quot;;D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt;"
+					Outputs="yassl.vcproj.cmake"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+					Name="VCCustomBuildTool"
+					Description="Building Custom Rule D:/MySQL/mysql-6.0-falcon/extra/yassl/CMakeLists.txt"
+					CommandLine="&quot;C:\Program Files\CMake 2.4\bin\cmake.exe&quot; -HD:/MySQL/mysql-6.0-falcon -BD:/MySQL/mysql-6.0-falcon"
+					AdditionalDependencies="D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt;&quot;C:\Program Files\CMake 2.4\share\cmake-2.4\Templates\CMakeWindowsSystemConfig.cmake&quot;;D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt;"
+					Outputs="yassl.vcproj.cmake"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="MinSizeRel|Win32">
+					<Tool
+					Name="VCCustomBuildTool"
+					Description="Building Custom Rule D:/MySQL/mysql-6.0-falcon/extra/yassl/CMakeLists.txt"
+					CommandLine="&quot;C:\Program Files\CMake 2.4\bin\cmake.exe&quot; -HD:/MySQL/mysql-6.0-falcon -BD:/MySQL/mysql-6.0-falcon"
+					AdditionalDependencies="D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt;&quot;C:\Program Files\CMake 2.4\share\cmake-2.4\Templates\CMakeWindowsSystemConfig.cmake&quot;;D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt;"
+					Outputs="yassl.vcproj.cmake"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="RelWithDebInfo|Win32">
+					<Tool
+					Name="VCCustomBuildTool"
+					Description="Building Custom Rule D:/MySQL/mysql-6.0-falcon/extra/yassl/CMakeLists.txt"
+					CommandLine="&quot;C:\Program Files\CMake 2.4\bin\cmake.exe&quot; -HD:/MySQL/mysql-6.0-falcon -BD:/MySQL/mysql-6.0-falcon"
+					AdditionalDependencies="D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt;&quot;C:\Program Files\CMake 2.4\share\cmake-2.4\Templates\CMakeWindowsSystemConfig.cmake&quot;;D:\MySQL\mysql-6.0-falcon\extra\yassl\CMakeLists.txt;"
+					Outputs="yassl.vcproj.cmake"/>
+				</FileConfiguration>
+			</File>
 		<Filter
 			Name="Source Files"
-			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat">
+			Filter="">
 			<File
-				RelativePath="src\buffer.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\buffer.cpp">
 			</File>
 			<File
-				RelativePath="src\cert_wrapper.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\cert_wrapper.cpp">
 			</File>
 			<File
-				RelativePath="src\crypto_wrapper.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\crypto_wrapper.cpp">
 			</File>
 			<File
-				RelativePath="src\handshake.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\handshake.cpp">
 			</File>
 			<File
-				RelativePath="src\lock.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\lock.cpp">
 			</File>
 			<File
-				RelativePath="src\log.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\log.cpp">
 			</File>
 			<File
-				RelativePath="src\socket_wrapper.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\socket_wrapper.cpp">
 			</File>
 			<File
-				RelativePath="src\ssl.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\ssl.cpp">
 			</File>
 			<File
-				RelativePath="src\timer.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\timer.cpp">
 			</File>
 			<File
-				RelativePath="src\yassl_error.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\yassl_error.cpp">
 			</File>
 			<File
-				RelativePath="src\yassl_imp.cpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\yassl_imp.cpp">
 			</File>
 			<File
-				RelativePath="src\yassl_int.cpp">
-			</File>
-		</Filter>
-		<Filter
-			Name="Header Files"
-			Filter="h;hpp;hxx;hm;inl">
-			<File
-				RelativePath="include\buffer.hpp">
-			</File>
-			<File
-				RelativePath="include\cert_wrapper.hpp">
-			</File>
-			<File
-				RelativePath="include\crypto_wrapper.hpp">
-			</File>
-			<File
-				RelativePath="include\factory.hpp">
-			</File>
-			<File
-				RelativePath="include\handshake.hpp">
-			</File>
-			<File
-				RelativePath="include\lock.hpp">
-			</File>
-			<File
-				RelativePath="include\log.hpp">
-			</File>
-			<File
-				RelativePath="include\socket_wrapper.hpp">
-			</File>
-			<File
-				RelativePath="include\timer.hpp">
-			</File>
-			<File
-				RelativePath="include\yassl_error.hpp">
-			</File>
-			<File
-				RelativePath="include\yassl_imp.hpp">
-			</File>
-			<File
-				RelativePath="include\yassl_int.hpp">
-			</File>
-			<File
-				RelativePath="include\yassl_types.hpp">
+				RelativePath="D:\MySQL\mysql-6.0-falcon\extra\yassl\src\yassl_int.cpp">
 			</File>
 		</Filter>
 	</Files>

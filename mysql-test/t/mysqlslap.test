@@ -7,6 +7,7 @@
 --exec $MYSQL_SLAP --silent --concurrency=5 --iterations=20 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql
 
 --exec $MYSQL_SLAP --only-print --iterations=20  --query="select * from t1" --create="CREATE TABLE t1 (id int, name varchar(64)); INSERT INTO t1 VALUES (1, 'This is a test')" --delimiter=";"
+
 --exec $MYSQL_SLAP --silent --concurrency=5 --iterations=20 --query="select * from t1" --create="CREATE TABLE t1 (id int, name varchar(64)); INSERT INTO t1 VALUES (1, 'This is a test')" --delimiter=";"
 
 --exec $MYSQL_SLAP --only-print --delimiter=";" --query="select * from t1;select * from t2" --create="CREATE TABLE t1 (id int, name varchar(64)); create table t2(foo1 varchar(32), foo2 varchar(32)); INSERT INTO t1 VALUES (1, 'This is a test'); insert into t2 values ('test', 'test2')" --engine="heap,myisam"
@@ -41,6 +42,38 @@
 
 --exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write --detach=2
 
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write --timer-length=10
+
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write --timer-length=1
+
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write --delayed_start=1234
+
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=2:1024/2048
+
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=1:8197
+
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=1:1024 --auto-generate-sql-select-columns="charcol1, blobcol1"
+
+# All this is really doing is making sure nothing crashes, there is no way
+# to test the actual output (all non-deterministic)
+--exec $MYSQL_SLAP --silent --auto-generate-sql --label="This is a test"
+
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write  --number-blob-cols=1:1024 --auto-generate-sql-select-columns="charcol1, blobcol1" --set-random-seed=2
+
+--exec $MYSQL_SLAP --silent --concurrency=5 --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write,read  --number-blob-cols=1:1024 --auto-generate-sql-select-columns="charcol1, blobcol1"
+
+CREATE SCHEMA mysqlslap;
+
+CREATE TABLE mysqlslap.t1 (id int, name varchar(64));
+
+--exec $MYSQL_SLAP --silent --iterations=20  --query="select * from t1" --query="INSERT INTO t1 VALUES (1, 'This is a test');" --delimiter=";"
+
+SELECT count(*) from mysqlslap.t1;
+
+# Now we will test to make sure we can destory the data if it happens to be
+# in our way.
+#
+--exec $MYSQL_SLAP --silent --iterations=1 --number-int-cols=2 --number-char-cols=3 --auto-generate-sql --auto-generate-sql-add-autoincrement --auto-generate-sql-load-type=write --timer-length=1
 --echo #
 --echo # Bug #29985: mysqlslap -- improper handling of resultsets in SPROCs
 --echo #

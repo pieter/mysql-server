@@ -460,3 +460,13 @@ drop table t1;
 --exec $MYSQL --default-character-set=utf8 test -e "charset cp932; select 'ƒ\'"
 --exec $MYSQL --default-character-set=utf8 test -e "/*charset cp932 */; set character_set_client= cp932; select 'ƒ\'"
 --exec $MYSQL --default-character-set=utf8 test -e "/*!\C cp932 */; set character_set_client= cp932; select 'ƒ\'"
+
+--echo End of 5.1 tests
+
+set names cp932;
+--source include/weight_string.inc
+--source include/weight_string_8140.inc
+
+set collation_connection=cp932_bin;
+--source include/weight_string.inc
+--source include/weight_string_8140.inc

@@ -1,0 +1,50 @@
+--source include/have_falcon.inc
+#
+# Bug #22179: UCS2 searches fail if index exists	
+#
+--echo *** Bug #22179 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+CREATE TABLE t1 (
+  a char(5) CHARACTER SET ucs2
+);
+INSERT INTO t1 VALUES ('aa'), ('!'), ('aaa'), ('ab'), ('c');
+CREATE INDEX i1 ON t1 (a);
+
+CREATE TABLE t2 (
+  a char(50),
+  PRIMARY KEY (a)
+) CHARSET ucs2 COLLATE ucs2_bin;
+INSERT INTO t2 VALUES ('u');
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+SELECT * FROM t1 WHERE a LIKE '__a';
+SELECT * FROM t1
+  WHERE a = 'aa' OR a = '!' OR a = 'aaa' OR a = 'ab' OR a = 'c'
+  ORDER BY a;
+
+SELECT count(*) FROM t2 WHERE a = 'u';
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+SELECT count(*) FROM t2;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;
+DROP TABLE t2;

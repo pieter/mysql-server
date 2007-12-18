@@ -1,5 +1,6 @@
 # should work with embedded server after mysqltest is fixed
--- source include/not_embedded.inc
+source include/not_embedded.inc;
+source include/have_binlog_format_mixed_or_statement.inc;
 source include/have_archive.inc;
 source include/federated.inc;
 

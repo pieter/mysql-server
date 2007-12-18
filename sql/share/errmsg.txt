@@ -4299,16 +4299,16 @@ ER_SLAVE_NOT_RUNNING
 ER_BAD_SLAVE  
         dan "Denne server er ikke konfigureret som slave. Ret in config-filen eller brug kommandoen CHANGE MASTER TO"
         nla "De server is niet geconfigureerd als slave, fix in configuratie bestand of met CHANGE MASTER TO"
-        eng "The server is not configured as slave; fix in config file or with CHANGE MASTER TO"
+        eng "The server is not configured as slave; fix with CHANGE MASTER TO"
         fre "Le server n'est pas configurИ comme un esclave, changez le fichier de configuration ou utilisez CHANGE MASTER TO"
-        ger "Der Server ist nicht als Slave konfiguriert. Bitte in der Konfigurationsdatei oder mittels CHANGE MASTER TO beheben"
+        ger "Der Server ist nicht als Slave konfiguriert. Bitte mittels CHANGE MASTER TO beheben"
         ita "Il server non e' configurato come 'slave', correggere il file di configurazione cambiando CHANGE MASTER TO"
         por "O servidor nЦo estА configurado como 'slave'. Acerte o arquivo de configuraГЦo ou use CHANGE MASTER TO"
-        rus "Этот сервер не настроен как подчиненный. Внесите исправления в конфигурационном файле или с помощью CHANGE MASTER TO"
-        serbian "Server nije konfigurisan kao podreПeni server, ispravite konfiguracioni file ili na njemu izvr ite komandu 'CHANGE MASTER TO'"
+        rus "Этот сервер не настроен как подчиненный. Исправьте с помощью CHANGE MASTER TO"
+        serbian "Server nije konfigurisan kao podreПeni server, na njemu izvr ite komandu 'CHANGE MASTER TO'"
         spa "El servidor no estА configurado como esclavo, edite el archivo config file o con CHANGE MASTER TO"
-        swe "Servern Дr inte konfigurerade som en replikationsslav. дndra konfigurationsfilen eller gЖr CHANGE MASTER TO"
-        ukr "Сервер не зконф╕гуровано як п╕длеглий, виправте це у файл╕ конф╕гурац╕╖ або з CHANGE MASTER TO"
+        swe "Servern Дr inte konfigurerad som replikationsslav. AnvДnd 'CHANGE MASTER TO' fЖr att konfigurera slavservern"
+        ukr "Сервер не зконф╕гуровано як п╕длеглий, виправте це за допомогою CHANGE MASTER TO"
 ER_MASTER_INFO  
         eng "Could not initialize master info structure; more error messages can be found in the MySQL error log"
         fre "Impossible d'initialiser les structures d'information de maНtre, vous trouverez des messages d'erreur supplИmentaires dans le journal des erreurs de MySQL"
@@ -6090,6 +6090,112 @@ ER_SLAVE_MASTER_COM_FAILURE
         eng "Master command %s failed: %s"
 ER_BINLOG_LOGGING_IMPOSSIBLE
         eng "Binary logging not possible. Message: %s"
+ER_WARN_AUTO_CONVERT_LOCK
+        eng "Converted to non-transactional lock on '%-.64s'"
+        ger "Umgewandelt zu nicht-transaktionalen Sperren auf '%-.64s'"
+
+ER_NO_AUTO_CONVERT_LOCK_STRICT
+        eng "Cannot convert to non-transactional lock in strict mode on '%-.64s'"
+        ger "Im strikten Modus ist die Umwandlung zu nicht-transaktionalen Sperren verboten. Betrifft '%-.64s'"
+
+ER_NO_AUTO_CONVERT_LOCK_TRANSACTION
+        eng "Cannot convert to non-transactional lock in an active transaction on '%-.64s'"
+        ger "In einer laufenden Transaktion ist die Umwandlung zu nicht-transaktionalen Sperren verboten. Betrifft '%-.64s'"
+
+ER_NO_STORAGE_ENGINE
+        eng "Can't access storage engine of table %-.64s"
+
+ER_BACKUP_BACKUP_START
+        eng "Starting backup process"
+ER_BACKUP_BACKUP_DONE
+        eng "Backup completed"
+ER_BACKUP_RESTORE_START
+        eng "Starting restore process"
+ER_BACKUP_RESTORE_DONE
+        eng "Restore completed"
+
+ER_BACKUP_BACKUP
+        eng "Error during backup operation - server's error log contains more information about the error"
+ER_BACKUP_RESTORE
+        eng "Error during restore operation - server's error log contains more information about the error"
+ER_BACKUP_BACKUP_PREPARE
+        eng "Error when preparing for backup operation"
+ER_BACKUP_RESTORE_PREPARE
+        eng "Error when preparing for restore operation"
+ER_BACKUP_INVALID_LOC
+        eng "Invalid backup location '%-.64s'"
+ER_BACKUP_READ_LOC
+        eng "Can't read backup location '%-.64s'"
+ER_BACKUP_WRITE_LOC
+        eng "Can't write to backup location '%-.64s'"
+ER_BACKUP_LIST_DBS
+        eng "Can't enumerate server databases"
+ER_BACKUP_LIST_TABLES
+        eng "Can't enumerate server tables"
+ER_BACKUP_LIST_DB_TABLES
+        eng "Can't enumerate tables in database %-.64s"
+ER_BACKUP_SKIP_VIEW
+        eng "Skipping view %-.64s in database %-.64s"
+ER_BACKUP_NO_ENGINE
+        eng "Skipping table %-.64s since it has no valid storage engine"
+ER_BACKUP_TABLE_OPEN
+        eng "Can't open table %-.64s"
+ER_BACKUP_READ_HEADER
+        eng "Can't read backup archive preamble"
+ER_BACKUP_WRITE_HEADER
+        eng "Can't write backup archive preamble"
+ER_BACKUP_NO_BACKUP_DRIVER
+        eng "Can't find backup driver for table %-.64s"
+ER_BACKUP_NOT_ACCEPTED
+        eng "%-.64s backup driver was selected for table %-.64s but it rejects to handle this table"
+ER_BACKUP_CREATE_BACKUP_DRIVER
+        eng "Can't create %-.64s backup driver"
+ER_BACKUP_CREATE_RESTORE_DRIVER
+        eng "Can't create %-.64s restore driver"
+ER_BACKUP_TOO_MANY_IMAGES
+        eng "Found %d images in backup archive but maximum %d are supported"
+ER_BACKUP_WRITE_META
+        eng "Error when saving meta-data of %-.64s"
+ER_BACKUP_READ_META
+        eng "Error when reading meta-data list"
+ER_BACKUP_CREATE_META
+        eng "Can't create %-.64s"
+ER_BACKUP_GET_BUF
+        eng "Can't allocate buffer for image data transfer"
+ER_BACKUP_WRITE_DATA
+        eng "Error when writing %-.64s backup image data (for table #%d)"
+ER_BACKUP_READ_DATA
+        eng "Error when reading data from backup stream"
+ER_BACKUP_NEXT_CHUNK
+        eng "Can't go to the next chunk in backup stream"
+
+ER_BACKUP_INIT_BACKUP_DRIVER
+        eng "Can't initialize %-.64s backup driver"
+ER_BACKUP_INIT_RESTORE_DRIVER
+        eng "Can't initialize %-.64s restore driver"
+ER_BACKUP_STOP_BACKUP_DRIVER
+        eng "Can't shut down %-.64s backup driver"
+ER_BACKUP_STOP_RESTORE_DRIVERS
+        eng "Can't shut down %-.64s backup driver(s)"
+ER_BACKUP_PREPARE_DRIVER
+        eng "%-.64s backup driver can't prepare for synchronization"
+ER_BACKUP_CREATE_VP
+        eng	"%-.64s backup driver can't create its image validity point"
+ER_BACKUP_UNLOCK_DRIVER
+        eng "Can't unlock %-.64s backup driver after creating the validity point"
+ER_BACKUP_CANCEL_BACKUP
+        eng "%-.64s backup driver can't cancel its backup operation"
+ER_BACKUP_CANCEL_RESTORE
+        eng "%-.64s restore driver can't cancel its restore operation"
+ER_BACKUP_GET_DATA
+        eng "Error when polling %-.64s backup driver for its image data"
+ER_BACKUP_SEND_DATA
+        eng "Error when sending image data (for table #%d) to %-.64s restore driver"
+ER_BACKUP_SEND_DATA_RETRY
+        eng "After %d attempts %-.64s restore driver still can't accept next block of data"
+
+ER_BACKUP_OPEN_TABLES
+        eng "Open and lock tables failed in %-.64s"
 
 ER_VIEW_NO_CREATION_CTX
   eng "View `%-.64s`.`%-.64s` has no creation context"
@@ -6114,3 +6220,5 @@ ER_TRG_CANT_OPEN_TABLE
 
 ER_CANT_CREATE_SROUTINE
   eng "Cannot create stored routine `%-.64s`. Check warnings"
+ER_TABLESPACE_EXIST
+  eng "Tablespace '%-.192s' already exists"

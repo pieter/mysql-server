@@ -11391,3 +11391,114 @@ c_cp932
 ã‚½
 ƒ\
 ƒ\
+End of 5.1 tests
+set names cp932;
+select @@collation_connection;
+@@collation_connection
+cp932_japanese_ci
+select hex(weight_string('a'));
+hex(weight_string('a'))
+41
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+414243
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+4142
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+414243
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+4142432020
+select collation(cast(0x8140 as char));
+collation(cast(0x8140 as char))
+cp932_japanese_ci
+select hex(weight_string(cast(0x6141 as char)));
+hex(weight_string(cast(0x6141 as char)))
+4141
+select hex(weight_string(cast(0x8140 as char)));
+hex(weight_string(cast(0x8140 as char)))
+8140
+select hex(weight_string(cast(0x8140 as char) as char(1)));
+hex(weight_string(cast(0x8140 as char) as char(1)))
+8140
+select hex(weight_string(cast(0x81408140 as char) as char(1)));
+hex(weight_string(cast(0x81408140 as char) as char(1)))
+8140
+select hex(weight_string(cast(0x8140 as char) as char(3)));
+hex(weight_string(cast(0x8140 as char) as char(3)))
+81402020
+select hex(weight_string(cast(0x81408140 as char) as char(3)));
+hex(weight_string(cast(0x81408140 as char) as char(3)))
+8140814020
+select hex(weight_string(cast(0x408140 as char) as char(3)));
+hex(weight_string(cast(0x408140 as char) as char(3)))
+40814020
+select hex(weight_string(cast(0x4081408140 as char) as char(3)));
+hex(weight_string(cast(0x4081408140 as char) as char(3)))
+4081408140
+select hex(weight_string(cast(0x40814081408140 as char) as char(3)));
+hex(weight_string(cast(0x40814081408140 as char) as char(3)))
+4081408140
+select hex(weight_string(cast(0x4040814081408140 as char) as char(3)));
+hex(weight_string(cast(0x4040814081408140 as char) as char(3)))
+40408140
+set collation_connection=cp932_bin;
+select @@collation_connection;
+@@collation_connection
+cp932_bin
+select hex(weight_string('a'));
+hex(weight_string('a'))
+61
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+616263
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+6162
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+616263
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+6162632020
+select collation(cast(0x8140 as char));
+collation(cast(0x8140 as char))
+cp932_bin
+select hex(weight_string(cast(0x6141 as char)));
+hex(weight_string(cast(0x6141 as char)))
+6141
+select hex(weight_string(cast(0x8140 as char)));
+hex(weight_string(cast(0x8140 as char)))
+8140
+select hex(weight_string(cast(0x8140 as char) as char(1)));
+hex(weight_string(cast(0x8140 as char) as char(1)))
+8140
+select hex(weight_string(cast(0x81408140 as char) as char(1)));
+hex(weight_string(cast(0x81408140 as char) as char(1)))
+8140
+select hex(weight_string(cast(0x8140 as char) as char(3)));
+hex(weight_string(cast(0x8140 as char) as char(3)))
+81402020
+select hex(weight_string(cast(0x81408140 as char) as char(3)));
+hex(weight_string(cast(0x81408140 as char) as char(3)))
+8140814020
+select hex(weight_string(cast(0x408140 as char) as char(3)));
+hex(weight_string(cast(0x408140 as char) as char(3)))
+40814020
+select hex(weight_string(cast(0x4081408140 as char) as char(3)));
+hex(weight_string(cast(0x4081408140 as char) as char(3)))
+4081408140
+select hex(weight_string(cast(0x40814081408140 as char) as char(3)));
+hex(weight_string(cast(0x40814081408140 as char) as char(3)))
+4081408140
+select hex(weight_string(cast(0x4040814081408140 as char) as char(3)));
+hex(weight_string(cast(0x4040814081408140 as char) as char(3)))
+40408140

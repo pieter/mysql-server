@@ -1,0 +1,25 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #26827: Falcon: column is null after update of a different column
+#
+--echo *** Bug #26827 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a int, b int)
+PARTITION BY list(a) (
+  PARTITION p1 VALUES IN (1),
+  PARTITION p2 VALUES IN (2)
+);
+
+INSERT INTO t1 VALUES (1, 1);
+CREATE INDEX i1 ON t1 (a);
+UPDATE t1 SET a = 2 WHERE a = 1;
+
+SELECT * FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;
+

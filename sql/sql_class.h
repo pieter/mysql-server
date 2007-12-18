@@ -40,6 +40,7 @@ enum enum_delay_key_write { DELAY_KEY_WRITE_NONE, DELAY_KEY_WRITE_ON,
 			    DELAY_KEY_WRITE_ALL };
 enum enum_mark_columns
 { MARK_COLUMNS_NONE, MARK_COLUMNS_READ, MARK_COLUMNS_WRITE};
+enum enum_filetype { FILETYPE_CSV, FILETYPE_XML };
 
 extern char internal_table_name[2];
 extern char empty_c_string[1];
@@ -261,7 +262,6 @@ struct system_variables
   ulong max_tmp_tables;
   ulong max_insert_delayed_threads;
   ulong min_examined_row_limit;
-  ulong multi_range_count;
   ulong myisam_repair_threads;
   ulong myisam_sort_buff_size;
   ulong myisam_stats_method;
@@ -273,6 +273,15 @@ struct system_variables
   ulong net_write_timeout;
   ulong optimizer_prune_level;
   ulong optimizer_search_depth;
+  /*
+    Controls use of Engine-MRR:
+      0 - auto, based on cost
+      1 - force MRR when the storage engine is capable of doing it
+      2 - disable MRR.
+  */
+  ulong optimizer_use_mrr; 
+  /* A bitmap for switching optimizations on/off */
+  ulong optimizer_switch;
   ulong preload_buff_size;
   ulong profiling_history_size;
   ulong query_cache_type;
@@ -1065,12 +1074,25 @@ public:
 
   /*
     Points to info-string that we show in SHOW PROCESSLIST
-    You are supposed to update thd->proc_info only if you have coded
+    You are supposed to call THD_SET_PROC_INFO only if you have coded
     a time-consuming piece that MySQL can get stuck in for a long time.
 
     Set it using the  thd_proc_info(THD *thread, const char *message)
     macro/function.
   */
+#ifndef DBUG_OFF
+  #define THD_SET_PROC_INFO(thd, info) \
+    (thd)->set_proc_info(__FILE__, __LINE__, (info))
+
+  void set_proc_info(const char* file, int line, const char* info);
+#else
+  #define THD_SET_PROC_INFO(thd, info) \
+    (thd)->proc_info= (info)
+#endif
+
+  inline const char* get_proc_info() { return proc_info;}
+
+  /* left public for the the storage engines, please avoid direct use */
   const char *proc_info;
 
   /*
@@ -1117,6 +1139,8 @@ public:
   /* container for handler's private per-connection data */
   void *ha_data[MAX_HA];
 
+  /* Place to store various things */
+  void *thd_marker;
 #ifndef MYSQL_CLIENT
   int binlog_setup_trx_data();
 
@@ -1179,8 +1203,6 @@ public:
     THD_TRANS all;			// Trans since BEGIN WORK
     THD_TRANS stmt;			// Trans for current statement
     bool on;                            // see ha_enable_transaction()
-    XID  xid;                           // transaction identifier
-    enum xa_states xa_state;            // used by external XA only
     XID_STATE xid_state;
     Rows_log_event *m_pending_rows_event;
 
@@ -1462,7 +1484,7 @@ public:
   bool       slave_thread, one_shot_set;
   /* tells if current statement should binlog row-based(1) or stmt-based(0) */
   bool       current_stmt_binlog_row_based;
-  bool	     locked, some_tables_deleted;
+  bool	     some_tables_deleted;
   bool       last_cuted_field;
   bool	     no_errors, password;
   /**
@@ -1998,13 +2020,15 @@ private:
 class sql_exchange :public Sql_alloc
 {
 public:
+  enum enum_filetype filetype; /* load XML, Added by Arnold & Erik */ 
   char *file_name;
   String *field_term,*enclosed,*line_term,*line_start,*escaped;
   bool opt_enclosed;
   bool dumpfile;
   ulong skip_lines;
   CHARSET_INFO *cs;
-  sql_exchange(char *name,bool dumpfile_flag);
+  sql_exchange(char *name, bool dumpfile_flag,
+               enum_filetype filetype_arg= FILETYPE_CSV);
 };
 
 #include "log_event.h"
@@ -2269,11 +2293,18 @@ public:
   */
   bool precomputed_group_by;
   bool force_copy_fields;
+  /*
+    If TRUE, create_tmp_field called from create_tmp_table will convert
+    all BIT fields to 64-bit longs. This is a workaround the limitation
+    that MEMORY tables cannot index BIT columns.
+  */
+  bool bit_fields_as_long;
 
   TMP_TABLE_PARAM()
     :copy_field(0), group_parts(0),
      group_length(0), group_null_parts(0), convert_blob_length(0),
-     schema_table(0), precomputed_group_by(0), force_copy_fields(0)
+     schema_table(0), precomputed_group_by(0), force_copy_fields(0),
+     bit_fields_as_long(0)
   {}
   ~TMP_TABLE_PARAM()
   {
@@ -2301,10 +2332,10 @@ public:
   bool send_data(List<Item> &items);
   bool send_eof();
   bool flush();
-
+  void cleanup();
   bool create_result_table(THD *thd, List<Item> *column_types,
                            bool is_distinct, ulonglong options,
-                           const char *alias);
+                           const char *alias, bool bit_fields_as_long);
 };
 
 /* Base subselect interface class */

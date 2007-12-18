@@ -1,0 +1,34 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #24511: Falcon: BETWEEN fails with unicode field
+#    Originally taken from JVer test
+#    com.sap.sql.test.jdbc.ComparisonTest::testBetweenStatic()
+#
+--echo *** Bug #24511 ***
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+SET @char32  = '12345678901234567890123456789012';
+SET @char128 = concat(@char32, @char32, @char32, @char32);
+
+CREATE TABLE t1 (
+  a varchar(4) NOT NULL,
+  b int(11) NOT NULL,
+  c varchar(8) DEFAULT NULL,
+  PRIMARY KEY (a, b)
+) DEFAULT CHARSET utf8;
+
+INSERT INTO t1 VALUES ('a',    1, '654321');
+INSERT INTO t1 VALUES ('bc',   2, '7654321');
+INSERT INTO t1 VALUES ('defg', 3, '87654321');
+
+SELECT count(*) FROM t1 WHERE a BETWEEN 'bd' AND 'defgh';
+SELECT count(*) FROM t1 WHERE a BETWEEN '@char128' AND 'a';
+SELECT count(*) FROM t1 WHERE a BETWEEN 'defg' AND 'defghi';
+SELECT count(*) FROM t1 WHERE c BETWEEN '77' and '876543210000';
+
+# Final cleanup.
+DROP TABLE t1;

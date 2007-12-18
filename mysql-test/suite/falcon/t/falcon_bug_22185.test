@@ -1,0 +1,60 @@
+--source include/have_falcon.inc
+#--disable_abort_on_error
+#
+# Bug #22185: AUTO_INC Error in two concurrent transactions 
+#
+--echo *** Bug #22185 ***
+
+SET @@storage_engine = Falcon;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+
+--disable_warnings
+DROP TABLE IF EXISTS sbtest;
+--enable_warnings
+
+--echo # Establish connection conn1 (user = root)
+connect (conn1,localhost,root,,);
+SET @@storage_engine = Falcon;
+
+--echo # Switch to connection default
+connection default;
+CREATE TABLE sbtest (
+  id int(10) unsigned NOT NULL,
+  k int(10) unsigned NOT NULL DEFAULT 0,
+  c char(120) NOT NULL DEFAULT '',
+  pad char(60) NOT NULL DEFAULT '',
+  PRIMARY KEY (id),
+  KEY k (k)
+);
+INSERT INTO sbtest VALUES (10000, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+INSERT INTO sbtest VALUES (10001, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+INSERT INTO sbtest VALUES (10002, 0, '', 'qqqqqqwwwwwweeeeeerrrrrrtttttt');
+# Currently (2006-07-20) Falcon does not support SELECT .. FOR UPDATE
+# SELECT * FROM sbtest WHERE id = 10000 FOR UPDATE;
+BEGIN;
+UPDATE sbtest SET pad = 'qq' WHERE id = 10000;
+SELECT * FROM sbtest;
+
+--echo # Switch to connection conn1
+connection conn1;
+--send UPDATE sbtest SET pad = 'eee' WHERE id = 10000
+
+--echo # Switch to connection default
+connection default;
+--real_sleep 1
+COMMIT;
+SELECT * FROM sbtest;
+
+--echo # Switch to connection conn1
+connection conn1;
+--error 1020
+--reap
+SELECT * FROM sbtest;
+
+--echo # Switch to connection default
+connection default;
+
+# Final cleanup.
+disconnect conn1;
+DROP TABLE sbtest;

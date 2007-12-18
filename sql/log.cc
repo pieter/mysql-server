@@ -4577,6 +4577,7 @@ int TC_LOG_MMAP::open(const char *opt_name)
     pthread_mutex_init(&pg->lock, MY_MUTEX_INIT_FAST);
     pthread_cond_init (&pg->cond, 0);
     pg->start=(my_xid *)(data + i*tc_log_page_size);
+    pg->ptr=pg->start;
     pg->end=(my_xid *)(pg->start + tc_log_page_size);
     pg->size=pg->free=tc_log_page_size/sizeof(my_xid);
   }

@@ -1,0 +1,271 @@
+--source include/have_falcon.inc
+#--disable_abort_on_error
+
+#
+# Bug #22211 (Mantis bug #263: ROLLBACK fails with two interleaving transactions
+#
+--echo *** Bug #263 ***
+
+SET storage_engine = Falcon;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo # Establish connection 1 (REPEATABLE READ)
+connect (conn1,localhost,root,,);
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+select @@TX_ISOLATION;
+
+--echo # Establish connection 2 (READ COMMITTED)
+connect (conn2,localhost,root,,);
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+select @@TX_ISOLATION;
+
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+select @@TX_ISOLATION;
+CREATE TABLE t1 (a int, primary key (a)) ENGINE=falcon;
+INSERT INTO t1 VALUES (0);
+
+--echo ############################################################
+--echo # #1 -  make client 2 block on a previous pending record
+--echo ############################################################
+START TRANSACTION;
+UPDATE t1 SET a = 10 WHERE a = 0;
+SELECT * FROM t1;
+SAVEPOINT sp1;
+UPDATE t1 SET a = 100 WHERE a = 10;
+SELECT * FROM t1;
+SAVEPOINT sp2;
+--echo # This makes sure a change is not blocked by the same record.
+UPDATE t1 SET a = 0 WHERE a = 100;
+SELECT * FROM t1;
+ROLLBACK TO sp2;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+START TRANSACTION;
+SELECT * FROM t1;
+--echo # send INSERT (10) - This should block unitl 10 is committed.
+--send INSERT INTO t1 VALUES(10);
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+--echo # Rollback the value 100
+ROLLBACK TO SAVEPOINT sp1;
+--echo # Commit the value 10
+COMMIT;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+--echo # reap INSERT (10) - This should get an update conflict.
+--error S23000
+reap;
+SELECT * FROM t1;
+ROLLBACK;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+
+--echo ############################################################
+--echo # #2 - make client 2 succeed after the blocking 100 
+--echo # is rolled back and 10 is committed
+--echo ############################################################
+START TRANSACTION;
+UPDATE t1 SET a = 10 WHERE a = 0;
+SELECT * FROM t1;
+SAVEPOINT sp1;
+UPDATE t1 SET a = 100 WHERE a = 10;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+START TRANSACTION;
+SELECT * FROM t1;
+--echo # send INSERT (100) - This should SUCCEED after 100 is rolled back.
+--send INSERT INTO t1 VALUES(100);
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+--echo # Rollback the value 100
+ROLLBACK TO SAVEPOINT sp1;
+--echo # Commit the value 10
+COMMIT;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+--echo # reap - INSERT (100)
+reap;
+SELECT * FROM t1;
+ROLLBACK;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+
+
+--echo ############################################################
+--echo # #3 - client 2 (with InnoDB Compatibility) does not block on a vestigial record
+--echo ############################################################
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+START TRANSACTION;
+UPDATE t1 SET a = 10;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+START TRANSACTION;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+COMMIT;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+--echo # This trans still sees the vestigial record 0, but it does not
+--echo # block on it with InnoDB Compatibility Mode
+INSERT INTO t1 VALUES(0);
+SELECT * FROM t1;
+ROLLBACK;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+
+--echo ############################################################
+--echo # #4 - make sure client 2 does not block on a vestigial records 
+--echo # that were never committed.
+--echo ############################################################
+START TRANSACTION;
+UPDATE t1 SET a = 1;
+UPDATE t1 SET a = 2;
+UPDATE t1 SET a = 3;
+SAVEPOINT sp1;
+UPDATE t1 SET a = 4;
+UPDATE t1 SET a = 5;
+UPDATE t1 SET a = 6;
+SAVEPOINT sp2;
+UPDATE t1 SET a = 7;
+UPDATE t1 SET a = 8;
+UPDATE t1 SET a = 9;
+UPDATE t1 SET a = 10;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+START TRANSACTION;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+COMMIT;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+--echo # These INSERTs should succeed because these records were never committed.
+INSERT INTO t1 VALUES(1);
+INSERT INTO t1 VALUES(2);
+INSERT INTO t1 VALUES(3);
+INSERT INTO t1 VALUES(4);
+INSERT INTO t1 VALUES(5);
+INSERT INTO t1 VALUES(6);
+INSERT INTO t1 VALUES(7);
+INSERT INTO t1 VALUES(8);
+INSERT INTO t1 VALUES(9);
+SELECT * FROM t1;
+COMMIT;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+
+--echo ############################################################
+--echo # #5 - make sure client 2 blocks on a vestigial consistent read
+--echo # records and currently committed records, but not on records
+--echo # that were committed in between.
+--echo ############################################################
+START TRANSACTION;
+UPDATE t1 SET a = 1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+START TRANSACTION;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+COMMIT;
+SELECT * FROM t1;
+UPDATE t1 SET a = 2;
+SELECT * FROM t1;
+UPDATE t1 SET a = 3;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+SELECT * FROM t1;
+--echo # These INSERTs should SUCCEED because 1 & 2 were replaced.
+INSERT INTO t1 VALUES(1);
+SELECT * FROM t1;
+INSERT INTO t1 VALUES(2);
+SELECT * FROM t1;
+--echo # This INSERT should FAIL because 3 is the currently committed value
+--error S23000
+INSERT INTO t1 VALUES(3);
+SELECT * FROM t1;
+COMMIT;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+
+--echo ############################################################
+--echo # #6 - Do not get confused by an older READ COMMITTED transaction
+--echo # that changes a newer version of the record.
+--echo ############################################################
+--echo # Switch to connection default (REPEATABLE READ)
+START TRANSACTION;
+SELECT * FROM t1;
+--echo # Switch to connection 2  (READ COMMITTED)
+connection conn2;
+START TRANSACTION;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+START TRANSACTION;
+SELECT * FROM t1;
+--echo # Switch to connection default (REPEATABLE READ)
+connection default;
+UPDATE t1 SET a = 1;
+COMMIT;
+--echo # Switch to connection 2  (READ COMMITTED)
+connection conn2;
+SELECT * FROM t1;
+UPDATE t1 SET a = 2;
+COMMIT;
+SELECT * FROM t1;
+--echo # Switch to connection 1 (REPEATABLE READ)
+connection conn1;
+SELECT * FROM t1;
+--echo # This INSERT should SUCCEED because record value 1 is NOT current.
+INSERT INTO t1 VALUES(1);
+SELECT * FROM t1;
+--echo # This INSERT should FAIL because record value 2 IS current.
+--error S23000
+INSERT INTO t1 VALUES(2);
+SELECT * FROM t1;
+COMMIT;
+SELECT * FROM t1;
+--echo # Switch to connection default
+connection default;
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+
+--echo ############################################################
+--echo # Cleanup
+--echo ############################################################
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;

@@ -1,0 +1,21 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #23663: Falcon: decimal field has rounding errors
+#
+--echo *** Bug #23663 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  max_val  decimal(32, 15) DEFAULT NULL,
+  min_val  decimal(32, 15) DEFAULT NULL,
+  null_val decimal(32, 15) DEFAULT NULL
+);
+
+INSERT INTO t1 VALUES (0, -2147483648, 0);
+SELECT min_val FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;

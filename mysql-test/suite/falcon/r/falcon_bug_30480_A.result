@@ -1,0 +1,28 @@
+SET storage_engine = Falcon;
+*** Bug #30480 ***
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+CREATE TABLE t1 (s1 varchar(5) CHARACTER SET latin1);
+SET NAMES utf8;
+CREATE INDEX id on t1 (s1);
+INSERT INTO t1 VALUES (0x8e);
+INSERT INTO t1 VALUES ('AA');
+SELECT s1, HEX(s1) FROM t1;
+s1	HEX(s1)
+Ž	8E
+AA	4141
+CREATE TABLE t2 (s1 varchar(5) CHARACTER SET latin1) partition by key(s1);
+SET NAMES utf8;
+CREATE INDEX id on t2 (s1);
+INSERT INTO t2 VALUES (0x8e);
+INSERT INTO t2 VALUES ('AA');
+SELECT s1, HEX(s1) FROM t2;
+s1	HEX(s1)
+Ž	8E
+AA	4141
+SELECT s1, HEX(s1) FROM t1 WHERE s1 like 'A%';
+s1	HEX(s1)
+AA	4141
+SELECT s1, HEX(s1) FROM t2 WHERE s1 like 'A%';
+s1	HEX(s1)
+AA	4141

@@ -666,7 +666,8 @@ bool Select_materialize::send_fields(List<Item> &list, uint flags)
 {
   DBUG_ASSERT(table == 0);
   if (create_result_table(unit->thd, unit->get_unit_column_types(),
-                          FALSE, thd->options | TMP_TABLE_ALL_COLUMNS, ""))
+                          FALSE, thd->options | TMP_TABLE_ALL_COLUMNS, "",
+                          FALSE))
     return TRUE;
   return FALSE;
 }

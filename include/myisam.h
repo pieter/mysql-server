@@ -49,13 +49,14 @@ extern "C" {
 #define MI_MAX_KEY                  MAX_INDEXES         /* Max allowed keys */
 #endif
 
-#define MI_MAX_POSSIBLE_KEY_BUFF    (1024+6+6)      /* For myisam_chk */
 /*
   The following defines can be increased if necessary.
   But beware the dependency of MI_MAX_POSSIBLE_KEY_BUFF and MI_MAX_KEY_LENGTH.
 */
-#define MI_MAX_KEY_LENGTH           1000            /* Max length in bytes */
+#define MI_MAX_KEY_LENGTH           1332            /* Max length in bytes */
 #define MI_MAX_KEY_SEG              16              /* Max segments for key */
+
+#define MI_MAX_POSSIBLE_KEY_BUFF (MI_MAX_KEY_LENGTH + 6 + 6) /* For mi_check */
 
 #define MI_MAX_KEY_BUFF  (MI_MAX_KEY_LENGTH+MI_MAX_KEY_SEG*6+8+8)
 #define MI_MAX_MSG_BUF      1024 /* used in CHECK TABLE, REPAIR TABLE */
@@ -128,7 +129,7 @@ extern "C" {
                             (_to_)= (mi_get_mask_all_keys_active(_maxkeys_) & \
                                      (_from_))
 
-	/* Param to/from mi_info */
+	/* Param to/from mi_status */
 
 typedef struct st_mi_isaminfo		/* Struct from h_info */
 {

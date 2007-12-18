@@ -1,0 +1,558 @@
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+--source include/have_falcon.inc
+SET storage_engine=falcon;
+
+# Verify that setting storage engine worked
+create table t1 (a int);
+show create table t1;
+drop table t1;
+
+
+#
+# Testing BUG#12186: NULL VARCHAR UCS2 column in InnoDB table crashes server
+#
+--echo ***************** falcon_bugs2_001 *****************
+CREATE TABLE t1 (a varchar(8)) DEFAULT CHARSET ucs2;
+INSERT INTO t1 VALUES ();
+SELECT * FROM t1;
+
+# final cleanup
+DROP TABLE t1;
+
+
+#
+# Testing MANTIS#0000004: Inserting one row is blocking other connection
+#
+--echo ***************** falcon_bugs2_002 *****************
+
+SET @@tx_isolation="READ-COMMITTED";
+SET autocommit=0;
+
+CREATE TABLE t1 (a int);
+COMMIT;
+INSERT INTO t1 VALUES (1);
+
+connect (con1,localhost,root,,test);
+SET @@tx_isolation="READ-COMMITTED";
+SET autocommit=0;
+SELECT * FROM t1;
+
+connection default;
+--disconnect con1
+
+# final cleanup
+DROP TABLE t1;
+
+
+#
+# Testing MANTIS#0000009: COLLATE=latin1_bin breaks LIKE operator
+#
+--echo ***************** falcon_bugs2_003 *****************
+CREATE TABLE t1 (
+  a varchar(4) NOT NULL default ' ',
+  b varchar(4) NOT NULL default ' ',
+  c varchar(4) NOT NULL default '0000',
+  d varchar(1) NOT NULL default '',
+  PRIMARY KEY (a, b, c)
+) COLLATE latin1_bin;
+
+INSERT INTO t1 VALUES ('ZWEI', 'WRT', '0400', '');
+
+SELECT * FROM t1 WHERE b LIKE 'W%RT';
+SELECT count(*) FROM t1 WHERE b LIKE 'W%RT';
+
+ALTER TABLE t1 DROP COLUMN d;
+
+SELECT * FROM t1 WHERE b LIKE 'W%RT';
+SELECT count(*) FROM t1 WHERE b LIKE 'W%RT';
+SELECT * FROM t1;
+
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# Testing MANTIS#0000014: multiple rows with identical pk's
+#
+--echo ***************** falcon_bugs2_004 *****************
+SET autocommit=0;
+CREATE TABLE t1 (a int, b varchar(4), PRIMARY KEY(a));
+COMMIT;
+INSERT INTO t1 VALUES (1, 'foo');
+COMMIT;
+INSERT INTO t1 VALUES (2, 'oma');
+COMMIT;
+--error ER_DUP_ENTRY, ER_DUP_KEY
+INSERT INTO t1 VALUES (2, 'opa');
+COMMIT;
+SELECT * FROM t1;
+
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# Testing MANTIS#0000071: count(*) delivers wrong result
+# 
+--echo ***************** falcon_bugs2_005 *****************
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (2);
+DELETE FROM t1 WHERE a = 1;
+DELETE FROM t1 WHERE a = 2;
+SELECT * FROM t1;
+SELECT count(*) FROM t1;
+
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# Testing MANTIS#0000084: Crash on create table
+# 
+--echo ***************** falcon_bugs2_006 *****************
+CREATE TABLE t1 (
+  `id` int(10) unsigned NOT NULL auto_increment,
+  `name` varchar(64) NOT NULL default '',
+  `email` varchar(64) NOT NULL default '',
+  `password` varchar(64) NOT NULL default '',
+  `dob` date default NULL,
+  `address` varchar(128) NOT NULL default '',
+  `city` varchar(64) NOT NULL default '',
+  `state_id` tinyint(3) unsigned NOT NULL default '0',
+  `zip` varchar(8) NOT NULL default '',
+  `country_id` smallint(5) unsigned NOT NULL default '0',
+  `gender` enum('M','F') NOT NULL default 'M',
+  `account_type` varchar(32) NOT NULL default '',
+  `verified` tinyint(4) NOT NULL default '0',
+  `allow_mail` tinyint(3) unsigned NOT NULL default '0',
+  `parrent_account` int(10) unsigned NOT NULL default '0',
+  `closest_airport` varchar(3) NOT NULL default '',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  KEY `country_id` (`country_id`,`state_id`,`city`),
+  KEY `name` (`name`),
+  KEY `dob` (`dob`),
+  KEY `gender` (`gender`,`dob`),
+  KEY `verified` (`verified`),
+  KEY `country_id_2` (`country_id`,`gender`),
+  KEY `account_type` (`account_type`,`verified`),
+  KEY `zip` (`zip`),
+  KEY `city` (`city`,`address`(30)),
+  KEY `allow_mail` (`allow_mail`),
+  KEY `parrent_account` (`parrent_account`),
+  KEY `closest_airport` (`closest_airport`)
+);
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# Testing duplicate object names in different schemas 
+#
+--echo ***************** falcon_bugs2_007 *****************
+ 
+CREATE SCHEMA t1;
+CREATE SCHEMA t2;
+
+CREATE TABLE t1.t1 (a int);
+CREATE TABLE t2.t1 (a int);
+
+DROP SCHEMA t1;
+DROP SCHEMA t2;
+
+
+#
+# Testing solid bug (crash on insert) 
+# 
+--echo ***************** falcon_bugs2_008 *****************
+
+CREATE TABLE `AAB` (
+  `AA` varchar(1) collate latin1_bin NOT NULL default ' ',
+  `AB` varchar(30) collate latin1_bin NOT NULL default ' ',
+  `AC` varchar(80) collate latin1_bin NOT NULL default ' ',
+  PRIMARY KEY  (`AA`,`AB`)
+) DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+INSERT INTO `AAB` VALUES ('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcsw'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcsx'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcsy'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcsz'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcta'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctb'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctc'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctd'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcte'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctf'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctg'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcth'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcti'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctj'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFGZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctk'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctl'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctm'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctn'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcto'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctp'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctq'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctr'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcts'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctt'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctu'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctv'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctw'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctx'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcty'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxctz'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcua'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcub'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuc'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcud'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcue'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuf'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcug'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuh'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcui'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuj'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFHZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuk'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcul'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcum'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcun'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFID', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuo'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcup'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuq'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcur'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcus'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFII', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcut'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuu'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuv'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuw'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcux'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuy'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcuz'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcva'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvb'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvc'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvd'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcve'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvf'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvg'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvh'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvi'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvj'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFIZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvk'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvl'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvm'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvn'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvo'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvp'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvq'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvr'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvs'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvt'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvu'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvv'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvw'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvx'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvy'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcvz'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwa'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwb'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwc'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwd'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwe'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwf'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwg'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwh'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwi'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwj'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFJZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwk'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwl'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwm'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwn'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwo'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwp'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwq'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwr'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcws'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwt'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwu'),('F', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwv'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcww'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwx'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwy'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcwz'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxa'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxb'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxc'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxd'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxe'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxf'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxg'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxh'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxi'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxj'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFKZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxk'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxl'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxm'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxn'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxo'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxp'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxq'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxr'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxs'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxt'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxu'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxv'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxw'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxx'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxy'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcxz'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcya'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyb'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyc'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyd'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcye'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyf'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyg'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyh'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyi'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyj'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFLZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyk'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyl'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcym'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyn'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMD', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyo'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFME', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyp'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyq'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyr'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcys'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyt'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyu'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyv'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFML', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyw'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyx'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyy'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcyz'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcza'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczb'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczc'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczd'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxcze'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczf'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczg'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczh'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczi'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczj'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFMZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczk'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczl'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczm'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczn'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFND', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczo'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNE', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczp'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNF', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczq'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNG', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczr'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNH', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczs'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNI', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczt'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNJ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczu'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNK', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczv'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNL', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczw'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNM', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczx'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNN', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczy'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNO', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxczz'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNP', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdaa'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNQ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdab'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNR', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdac'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNS', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdad'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNT', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdae'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNU', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdaf'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNV', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdag'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNW', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdah'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNX', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdai'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNY', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdaj'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFNZ', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdak'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFOA', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdal'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFOB', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdam'),('J', 'AB_CD_EF_GHIJK_KJSLW_OEDCFOC', 'Alasd lsfjlas Apwdwenvzwdyzd dse aszafnc xdwqkkowdas dfxdan');
+SELECT 'Done' FROM DUAL;
+
+# Final cleanup
+DROP TABLE AAB;
+
+
+#
+# Testing bug (insert into select from) 
+# 
+--echo ***************** falcon_bugs2_009 *****************
+SET SQL_MODE="ANSI_QUOTES";
+CREATE TABLE t1 (
+  "a" varchar(40) collate latin1_bin NOT NULL default ' ',
+  "b" varchar(12) collate latin1_bin NOT NULL default ' ',
+  "c" varchar(40) collate latin1_bin NOT NULL default ' ',
+  "d" varchar(1) collate latin1_bin NOT NULL default ' ',
+  "e" varchar(1) collate latin1_bin NOT NULL default ' ',
+  "f" tinyint(3) unsigned NOT NULL default '0',
+  "g" varchar(12) collate latin1_bin NOT NULL default ' ',
+  "h" decimal(15,0) NOT NULL default '0',
+  "i" decimal(15,0) NOT NULL default '0',
+  PRIMARY KEY ("a","b","c","d","e")
+) ENGINE=MyISAM;
+
+CREATE TABLE t2 (
+  "a" varchar(40) collate latin1_bin NOT NULL default ' ',
+  "b" varchar(12) collate latin1_bin NOT NULL default ' ',
+  "c" varchar(40) collate latin1_bin NOT NULL default ' ',
+  "d" varchar(1) collate latin1_bin NOT NULL default ' ',
+  "e" varchar(1) collate latin1_bin NOT NULL default ' ',
+  "f" tinyint(3) unsigned NOT NULL default '0',
+  "g" varchar(12) collate latin1_bin NOT NULL default ' ',
+  "h" decimal(15,0) NOT NULL default '0',
+  "i" decimal(15,0) NOT NULL default '0',
+  PRIMARY KEY ("a","b","c","d","e")
+);
+
+INSERT INTO t2 SELECT * FROM t1;
+
+# Final cleanup
+DROP TABLE t1, t2;
+
+
+#
+# Isolation level test (read-committed) 
+#
+--echo ***************** falcon_bugs2_011 *****************
+
+set @@tx_isolation="READ-COMMITTED";
+SET autocommit=0;
+CREATE TABLE t1 (a int, b int);
+INSERT INTO t1 VALUES (1,1);
+COMMIT;
+SELECT * FROM t1;
+
+connect (con2,localhost,root,,test);
+set @@tx_isolation="READ-COMMITTED";
+SET autocommit=0;
+SELECT * FROM t1;
+UPDATE t1 SET b=2 WHERE a=1;
+COMMIT;
+SELECT * FROM t1;
+
+connection default;
+SELECT * FROM t1;
+
+# Final cleanup
+--disconnect con2
+DROP TABLE t1;
+
+
+#
+# Big int test
+#
+--echo ***************** falcon_bugs2_012 *****************
+
+CREATE TABLE t1 (a bigint);
+INSERT INTO t1 VALUES (4999999),(-23);
+SELECT * FROM t1;
+
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# t1 tests
+#
+--echo ***************** falcon_bugs2_013 *****************
+CREATE TABLE `t1` (
+  `a` VARBINARY(255) NOT NULL,
+  `b` VARBINARY(255) NOT NULL,
+  `c` varchar(4) collate latin1_bin NOT NULL default ' ',
+  `d` VARBINARY(255) ,
+  `e` int(11) NOT NULL default '0',
+  `f` int(11) NOT NULL default '0',
+  `g` varchar(255) collate latin1_bin NOT NULL default ' ',
+  `h` longtext collate latin1_bin,
+  `i` longblob,
+  `j` longtext collate latin1_bin,
+  PRIMARY KEY  (`a`(255), `b`(255), `c`)
+) DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+--disable_query_log
+INSERT INTO `t1` VALUES (0xB0B4E843F5A6783CE10000000A114455,0xB0B4E843F5A6783CE10000000A114455,' ',0xB0B4E843F5A6783CE10000000A114455,1,1,'','','','');
+INSERT INTO `t1` VALUES (0xB1B4E843F5A6783CE10000000A114455,0xB1B4E843F5A6783CE10000000A114455,' ',0xB1B4E843F5A6783CE10000000A114455,2,2,'0','','','');
+INSERT INTO `t1` VALUES (0xB1B4E843F5A6783CE10000000A114455,0xB2B4E843F5A6783CE10000000A114455,' ',0xB1B4E843F5A6783CE10000000A114455,2,3,'0','','','');
+INSERT INTO `t1` VALUES (0xB3B4E843F5A6783CE10000000A114455,0xB3B4E843F5A6783CE10000000A114455,' ',0xB3B4E843F5A6783CE10000000A114455,3,4,'01','','','');
+INSERT INTO `t1` VALUES (0xB3B4E843F5A6783CE10000000A114455,0xB4B4E843F5A6783CE10000000A114455,' ',0xB3B4E843F5A6783CE10000000A114455,3,5,'01','','','');
+INSERT INTO `t1` VALUES (0xB3B4E843F5A6783CE10000000A114455,0xB5B4E843F5A6783CE10000000A114455,' ',0xB3B4E843F5A6783CE10000000A114455,3,6,'01','','','');
+INSERT INTO `t1` VALUES (0xB6B4E843F5A6783CE10000000A114455,0xB6B4E843F5A6783CE10000000A114455,' ',0xB6B4E843F5A6783CE10000000A114455,4,7,'012','','','');
+INSERT INTO `t1` VALUES (0xB6B4E843F5A6783CE10000000A114455,0xB7B4E843F5A6783CE10000000A114455,' ',0xB6B4E843F5A6783CE10000000A114455,4,8,'012','','','');
+INSERT INTO `t1` VALUES (0xB6B4E843F5A6783CE10000000A114455,0xB8B4E843F5A6783CE10000000A114455,' ',0xB6B4E843F5A6783CE10000000A114455,4,9,'012','','','');
+INSERT INTO `t1` VALUES (0xB6B4E843F5A6783CE10000000A114455,0xB9B4E843F5A6783CE10000000A114455,' ',0xB6B4E843F5A6783CE10000000A114455,4,10,'012','','','');
+INSERT INTO `t1` VALUES (0xBAB4E843F5A6783CE10000000A114455,0xBAB4E843F5A6783CE10000000A114455,' ',0xBAB4E843F5A6783CE10000000A114455,5,11,'0123','','','');
+INSERT INTO `t1` VALUES (0xBAB4E843F5A6783CE10000000A114455,0xBBB4E843F5A6783CE10000000A114455,' ',0xBAB4E843F5A6783CE10000000A114455,5,12,'0123','','','');
+INSERT INTO `t1` VALUES (0xBAB4E843F5A6783CE10000000A114455,0xBCB4E843F5A6783CE10000000A114455,' ',0xBAB4E843F5A6783CE10000000A114455,5,13,'0123','','','');
+INSERT INTO `t1` VALUES (0xBAB4E843F5A6783CE10000000A114455,0xBDB4E843F5A6783CE10000000A114455,' ',0xBAB4E843F5A6783CE10000000A114455,5,14,'0123','','','');
+INSERT INTO `t1` VALUES (0xBAB4E843F5A6783CE10000000A114455,0xBEB4E843F5A6783CE10000000A114455,' ',0xBAB4E843F5A6783CE10000000A114455,5,15,'0123','','','');
+INSERT INTO `t1` VALUES (0xBFB4E843F5A6783CE10000000A114455,0xBFB4E843F5A6783CE10000000A114455,' ',0xBFB4E843F5A6783CE10000000A114455,6,16,'01234','','','');
+INSERT INTO `t1` VALUES (0xBFB4E843F5A6783CE10000000A114455,0xC0B4E843F5A6783CE10000000A114455,' ',0xBFB4E843F5A6783CE10000000A114455,6,17,'01234','','','');
+INSERT INTO `t1` VALUES (0xBFB4E843F5A6783CE10000000A114455,0xC1B4E843F5A6783CE10000000A114455,' ',0xBFB4E843F5A6783CE10000000A114455,6,18,'01234','','','');
+INSERT INTO `t1` VALUES (0xBFB4E843F5A6783CE10000000A114455,0xC2B4E843F5A6783CE10000000A114455,' ',0xBFB4E843F5A6783CE10000000A114455,6,19,'01234','','','');
+INSERT INTO `t1` VALUES (0xBFB4E843F5A6783CE10000000A114455,0xC3B4E843F5A6783CE10000000A114455,' ',0xBFB4E843F5A6783CE10000000A114455,6,20,'01234','','','');
+INSERT INTO `t1` VALUES (0xBFB4E843F5A6783CE10000000A114455,0xC4B4E843F5A6783CE10000000A114455,' ',0xBFB4E843F5A6783CE10000000A114455,6,21,'01234','','','');
+INSERT INTO `t1` VALUES (0xC5B4E843F5A6783CE10000000A114455,0xC5B4E843F5A6783CE10000000A114455,' ',0xC5B4E843F5A6783CE10000000A114455,7,22,'012345','','','');
+INSERT INTO `t1` VALUES (0xC5B4E843F5A6783CE10000000A114455,0xC6B4E843F5A6783CE10000000A114455,' ',0xC5B4E843F5A6783CE10000000A114455,7,23,'012345','','','');
+INSERT INTO `t1` VALUES (0xC5B4E843F5A6783CE10000000A114455,0xC7B4E843F5A6783CE10000000A114455,' ',0xC5B4E843F5A6783CE10000000A114455,7,24,'012345','','','');
+INSERT INTO `t1` VALUES (0xC5B4E843F5A6783CE10000000A114455,0xC8B4E843F5A6783CE10000000A114455,' ',0xC5B4E843F5A6783CE10000000A114455,7,25,'012345','','','');
+INSERT INTO `t1` VALUES (0xC5B4E843F5A6783CE10000000A114455,0xC9B4E843F5A6783CE10000000A114455,' ',0xC5B4E843F5A6783CE10000000A114455,7,26,'012345','','','');
+INSERT INTO `t1` VALUES (0xC5B4E843F5A6783CE10000000A114455,0xCAB4E843F5A6783CE10000000A114455,' ',0xC5B4E843F5A6783CE10000000A114455,7,27,'012345','','','');
+INSERT INTO `t1` VALUES (0xC5B4E843F5A6783CE10000000A114455,0xCBB4E843F5A6783CE10000000A114455,' ',0xC5B4E843F5A6783CE10000000A114455,7,28,'012345','','','');
+INSERT INTO `t1` VALUES (0xCCB4E843F5A6783CE10000000A114455,0xCCB4E843F5A6783CE10000000A114455,' ',0xCCB4E843F5A6783CE10000000A114455,8,29,'0123456','','','');
+INSERT INTO `t1` VALUES (0xCCB4E843F5A6783CE10000000A114455,0xCDB4E843F5A6783CE10000000A114455,' ',0xCCB4E843F5A6783CE10000000A114455,8,30,'0123456','','','');
+INSERT INTO `t1` VALUES (0xCCB4E843F5A6783CE10000000A114455,0xCEB4E843F5A6783CE10000000A114455,' ',0xCCB4E843F5A6783CE10000000A114455,8,31,'0123456','','','');
+INSERT INTO `t1` VALUES (0xCCB4E843F5A6783CE10000000A114455,0xCFB4E843F5A6783CE10000000A114455,' ',0xCCB4E843F5A6783CE10000000A114455,8,32,'0123456','','','');
+INSERT INTO `t1` VALUES (0xCCB4E843F5A6783CE10000000A114455,0xD0B4E843F5A6783CE10000000A114455,' ',0xCCB4E843F5A6783CE10000000A114455,8,33,'0123456','','','');
+INSERT INTO `t1` VALUES (0xCCB4E843F5A6783CE10000000A114455,0xD1B4E843F5A6783CE10000000A114455,' ',0xCCB4E843F5A6783CE10000000A114455,8,34,'0123456','','','');
+INSERT INTO `t1` VALUES (0xCCB4E843F5A6783CE10000000A114455,0xD2B4E843F5A6783CE10000000A114455,' ',0xCCB4E843F5A6783CE10000000A114455,8,35,'0123456','','','');
+INSERT INTO `t1` VALUES (0xCCB4E843F5A6783CE10000000A114455,0xD3B4E843F5A6783CE10000000A114455,' ',0xCCB4E843F5A6783CE10000000A114455,8,36,'0123456','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xD4B4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,37,'01234567','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xD5B4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,38,'01234567','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xD6B4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,39,'01234567','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xD7B4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,40,'01234567','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xD8B4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,41,'01234567','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xD9B4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,42,'01234567','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xDAB4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,43,'01234567','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xDBB4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,44,'01234567','','','');
+INSERT INTO `t1` VALUES (0xD4B4E843F5A6783CE10000000A114455,0xDCB4E843F5A6783CE10000000A114455,' ',0xD4B4E843F5A6783CE10000000A114455,9,45,'01234567','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xDDB4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,46,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xDEB4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,47,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xDFB4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,48,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xE0B4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,49,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xE1B4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,50,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xE2B4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,51,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xE3B4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,52,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xE4B4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,53,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xE5B4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,54,'012345678','','','');
+INSERT INTO `t1` VALUES (0xDDB4E843F5A6783CE10000000A114455,0xE6B4E843F5A6783CE10000000A114455,' ',0xDDB4E843F5A6783CE10000000A114455,10,55,'012345678','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xE7B4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,56,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xE8B4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,57,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xE9B4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,58,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xEAB4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,59,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xEBB4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,60,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xECB4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,61,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xEDB4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,62,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xEEB4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,63,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xEFB4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,64,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xF0B4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,65,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xE7B4E843F5A6783CE10000000A114455,0xF1B4E843F5A6783CE10000000A114455,' ',0xE7B4E843F5A6783CE10000000A114455,11,66,'0123456789','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xF2B4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,67,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xF3B4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,68,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xF4B4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,69,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xF5B4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,70,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xF6B4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,71,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xF7B4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,72,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xF8B4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,73,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xF9B4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,74,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xFAB4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,75,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xFBB4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,76,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xFCB4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,77,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xF2B4E843F5A6783CE10000000A114455,0xFDB4E843F5A6783CE10000000A114455,' ',0xF2B4E843F5A6783CE10000000A114455,12,78,'01234567890','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x00B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,81,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x01B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,82,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x02B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,83,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x03B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,84,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x04B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,85,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x05B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,86,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x06B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,87,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x07B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,88,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x08B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,89,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x09B5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,90,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0x0AB5E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,91,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0xFEB4E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,79,'012345678901','','','');
+INSERT INTO `t1` VALUES (0xFEB4E843F5A6783CE10000000A114455,0xFFB4E843F5A6783CE10000000A114455,' ',0xFEB4E843F5A6783CE10000000A114455,13,80,'012345678901','','','');
+--enable_query_log
+select COUNT(*) from t1 WHERE a=0xB1B4E843F5A6783CE10000000A114455 AND b=0xB1B4E843F5A6783CE10000000A114455 AND c=' ' AND f=2;
+
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# UPDATE ON DUPLICATE KEY bug (Mantis #74).
+#
+--echo ***************** falcon_bugs2_014 *****************
+CREATE TABLE t1 (a int not null primary key, b varchar(20));
+INSERT INTO t1 (a,b) VALUES (1,'foo') ON DUPLICATE KEY UPDATE a=3;
+INSERT INTO t1 (a,b) VALUES (1,'foo') ON DUPLICATE KEY UPDATE a=3;
+
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# LOB length with '\0'
+#
+--echo ***************** falcon_bugs2_015 *****************
+CREATE TABLE `M345F` (
+  `NIVBDUCL` varchar(40) collate latin1_bin NOT NULL default ' ',
+  `QNIUJAL` varchar(1) collate latin1_bin NOT NULL default ' ',
+  `FSNL` varchar(1) collate latin1_bin NOT NULL default ' ',
+  `RKVJTDI` int(11) NOT NULL default '0',
+  `RKVRKB` int(11) NOT NULL default '0',
+  `EMUF` varchar(8) collate latin1_bin NOT NULL default ' ',
+  `EFPCL` varchar(6) collate latin1_bin NOT NULL default ' ',
+  `RKVJTKB` int(11) NOT NULL default '0',
+  `RKVJT` text collate latin1_bin,
+  PRIMARY KEY  (`NIVBDUCL`,`QNIUJAL`,`FSNL`,`RKVJTDI`)
+) DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+--disable_query_log
+INSERT INTO `M345F` VALUES ('QUNYK_QF03D','L',' ',1,3549,'20041210','101618',3549,'39\0\0\0\0000001                 CKwfh huensfc                                                K\0\0\0\0\0\0000003                 CBwxw                                                        B\0\0\0\0\0\0000005                 CLqkuywqmaqx                                                 G\0\0\0\0\0\0000007                 CNaylwymfqpa                                                 N\0\0\0\0\0\0000008                 CFyfpa liqpxuwqe                                             F\0\0\0\0\0\0000009                 CEeay                                                        E\0\0\0\0\0\0000010                 CNywpaee wkaykuab                                            I\0\0\0\0\0\0UK08                001CQcexam-buha                                                 Q\0\0\0\0\0\0JUDJ                001CJfqpas                                                       \0\0\0\0\0\0JVKU                001PHiss epyaaq wq/wll                                          H\0\0\0\0\0\0JVKU                001CHiss epyaaq wq/wll                                          H\0\0\0\0\0\0JVKU                001OHiss epyaaq: Auha/Qdwb xyaa                                 H\0\0\0\0\0\0JVKKLJF             001CQxfyx Qxfxuexupe Jwssapxwy                                   \0\0\0\0\0\0JVKKLJF             001OCfqifs Qxfyx wl Jwssapxwy uq Rfpjgywiqh                      \0\0\0\0\0\0LDFI                001CLqxay                                                        \0\0\0\0\0\0LXPF                001CLrux                                                        X\0\0\0\0\0\0P_RUJT              001CNyakuwie kuab                                               G\0\0\0\0\0\0P_RUJT2             001CRfpj                                                        Z\0\0\0\0\0\0P_RUJT2             001ONyakuwie kuab                                               Z\0\0\0\0\0\0P_HVIY              001CDarx kuab                                                   D\0\0\0\0\0\0NIP                 001CNyuqx                                                        \0\0\0\0\0\0ILHI                001CIalyaed huensfc                                             I\0\0\0\0\0\0ILHI                001OIalyaed hfxf huyapxwyc fqh swfh hfxf lywm hfxfvfea          I\0\0\0\0\0\0QL30                001CURUN xyfpa                                                  U\0\0\0\0\0\0QC04                001CQasapxah uqexfqpa                                           U\0\0\0\0\0\0QC21                001CQcexam swg                                                  Q\0\0\0\0\0\0QC50                001CQasapxah uqexfqpa                                           U\0\0\0\0\0\0QC66                001CQcexam-buha                                                 Q\0\0\0\0\0\0QCPJC               001CPJCUD Fdyafhe                                               P\0\0\0\0\0\0QF01                001CQcexam xyfpa                                                Q\0\0\0\0\0\0QF02                001CI/3 villay fqfsceue                                         I\0\0\0\0\0\0QF03D               001CKwfh fqfsceue                                               K\0\0\0\0\0\0QF04                001CMfxfvfea fqfsceue                                           M\0\0\0\0\0\0QF05                001CQOK xyfpa                                                   O\0\0\0\0\0\0QF06                001CVnayfxuqg ecexam fqfsceue                                   L\0\0\0\0\0\0QF22                001CURUN himn fqfsceue                                          U\0\0\0\0\0\0QGEC                001PQfka kuab                                                   Q\0\0\0\0\0\0QGEC                001CQfka kuab                                                   Q\0\0\0\0\0\0QGEC                001OQfka piyyaqx ieay kuab fe uquxufs kuab                      Q'),('QNUC_MPQNKUS_JVKECD','M',' ',1,2002,'20050602','093310',2002,'22\0\0\0\0000001                 CNfpjfga                                                     N\0\0\0\0\0\0000002                 CRafyvauxaq                                                  R\0\0\0\0\0\0000003                 CQnyuqgaq                                                    Q\0\0\0\0\0\0000004                 CZieäxza                                                     Z\0\0\0\0\0\0000006                 CUqzauga                                                     U\0\0\0\0\0\0RUJT                001CZiyüpj                                                      Z\0\0\0\0\0\0JUDJLK              001CUvvyapdaq                                                   U\0\0\0\0\0\0JKVQL               001CYauxay                                                       \0\0\0\0\0\0JVKKUNQL            001CRfim jwmnyumuayaq                                           E\0\0\0\0\0\0LXPF                001CRaaqhaq                                                     R\0\0\0\0\0\0LXNUDM              001CRfim arnfqhuayaq                                            U\0\0\0\0\0\0KLBLDM              001PKagaqha                                                     K\0\0\0\0\0\0KLBLDM              001CKagaqha                                                     K\0\0\0\0\0\0KVB                 001CPmnwyxnywxwjwssa                                            P\0\0\0\0\0\0VRWLJFKPQF          001CVvtajxsuexa                                                 V\0\0\0\0\0\0OELEL               001POiaia                                                       O\0\0\0\0\0\0OELEL               001COiaia vayapdqaq                                             O\0\0\0\0\0\0QLUIJA              001PGayjqünliqg                                                 G\0\0\0\0\0\0QLUIJA              001CGayjqünliqg um Rfim eipdaq                                  G\0\0\0\0\0\0QFMFILL             001CRfim - Qxfqhfyhfqzauga                                      R\0\0\0\0\0\0ENMUFL              001PNfjax-Uxxyuvixa                                             N\0\0\0\0\0\0ENMUFL              001CNfjax-Uxxyuvixa qai sfhaq                                   N'),('QNUC_MPQNKUS_JVKECD','L',' ',1,2002,'20050602','093321',2002,'22\0\0\0\0000001                 CNfpjfga                                                     N\0\0\0\0\0\0000002                 CLhux                                                        L\0\0\0\0\0\0000003                 CBwxw                                                        B\0\0\0\0\0\0000004                 CLrxyfe                                                      U\0\0\0\0\0\0000006                 CGuab                                                        G\0\0\0\0\0\0RUJT                001CRfpj                                                        R\0\0\0\0\0\0JUDJLK              001CJfqpas                                                      U\0\0\0\0\0\0JKVQL               001CJwqxuqia                                                     \0\0\0\0\0\0JVKKUNQL            001CJwssfnea xyaa                                               J\0\0\0\0\0\0LXPF                001CLrux                                                        X\0\0\0\0\0\0LXNUDM              001CLrnfqh Fyaa                                                 U\0\0\0\0\0\0KLBLDM              001PKagaqh                                                      K\0\0\0\0\0\0KLBLDM              001CKagaqh                                                      K\0\0\0\0\0\0KVB                 001CPmnwyx Kwge                                                 P\0\0\0\0\0\0VRWLJFKPQF          001CVvtapx Kuex                                                 V\0\0\0\0\0\0OELEL               001POiaia                                                       O\0\0\0\0\0\0OELEL               001CJfspisfxa oiaia                                             O\0\0\0\0\0\0QLUIJA              001PIasfxuwqedun                                                Q\0\0\0\0\0\0QLUIJA              001CQafypd yasfxuwqedun uq xyaa                                 Q\0\0\0\0\0\0QFMFILL             001CFyaa - Qxfqhfyh kuab                                        F\0\0\0\0\0\0ENMUFL              001PNfpjfga fxxyuvixae                                          N\0\0\0\0\0\0ENMUFL              001CIaswfh nfpjfga fxxyuvixae                                   N'),('GLI02070','M','',1,1365,'20051008','133259',1365,'15\0\0\0\0UKKQ                001CUssa Qasajxuwqaq                                            K\0\0\0\0\0\0JJUD                001CUvvyapdaq                                                   U\0\0\0\0\0\0JILF                001CUielüdyaq                                                   U\0\0\0\0\0\0MLKU                001CQasajxuwqaq gfqz söepdaq                                    L\0\0\0\0\0\0MLKQ                001CQasajxuwqezaupdaq söepdaq                                   Q\0\0\0\0\0\0HLYQ                001CUiegabädsxa Qasajxuwqaq                                     E\0\0\0\0\0\0BLF                 001CGfyufqxa dwsaq...                                           G\0\0\0\0\0\0KGEG                001CRaqixzaykfyufvsaq...                                        R\0\0\0\0\0\0DVDL                001PNyülaq                                                       \0\0\0\0\0\0DVDL                001CLuqgfvaq Nyülaq                                              \0\0\0\0\0\0VNFP                001CQasajxuwqewnxuwqaq                                          V\0\0\0\0\0\0QJIA                001CAusla Qasajxuwqevush                                        A\0\0\0\0\0\0QNVQ                001CUse Gfyufqxa eupdayq...                                     K\0\0\0\0\0\0GMLK                001CGfyufqxa söepdaq...                                          \0\0\0\0\0\0GQAV                001CGfyufqxa fqzaugaq...                                        U'),('GLI02070','L','',1,1365,'20051008','133259',1365,'15\0\0\0\0UKKQ                001CUssa Qasajxuwqaq                                            K\0\0\0\0\0\0JJUD                001CUvvyapdaq                                                   U\0\0\0\0\0\0JILF                001CUielüdyaq                                                   U\0\0\0\0\0\0MLKU                001CQasajxuwqaq gfqz söepdaq                                    L\0\0\0\0\0\0MLKQ                001CQasajxuwqezaupdaq söepdaq                                   Q\0\0\0\0\0\0HLYQ                001CUiegabädsxa Qasajxuwqaq                                     E\0\0\0\0\0\0BLF                 001CGfyufqxa dwsaq...                                           G\0\0\0\0\0\0KGEG                001CRaqixzaykfyufvsaq...                                        R\0\0\0\0\0\0DVDL                001PNyülaq                                                       \0\0\0\0\0\0DVDL                001CLuqgfvaq Nyülaq                                              \0\0\0\0\0\0VNFP                001CQasajxuwqewnxuwqaq                                          V\0\0\0\0\0\0QJIA                001CAusla Qasajxuwqevush                                        A\0\0\0\0\0\0QNVQ                001CUse Gfyufqxa eupdayq...                                     K\0\0\0\0\0\0GMLK                001CGfyufqxa söepdaq...                                          \0\0\0\0\0\0GQAV                001CGfyufqxa fqzaugaq...                                        U'),('GLI02071','M','',1,2457,'20051008','133300',2457,'27\0\0\0\0000001                 CUvgyaqziqgaq                                                U\0\0\0\0\0\0000002                 CRafyvauxaq                                                  R\0\0\0\0\0\0000003                 CQnyuqgaq                                                    Q\0\0\0\0\0\0000004                 CGfyufqxaq                                                   G\0\0\0\0\0\0000005                 CZieäxza                                                     Z\0\0\0\0\0\0000006                 CEmlash                                                      E\0\0\0\0\0\0UKKQ                001CUssa Qasajxuwqaq                                            K\0\0\0\0\0\0JRUJ                001CZiyüpj                                                      Z\0\0\0\0\0\0JJUD                001CUvvyapdaq                                                   U\0\0\0\0\0\0JLDM                001CRaaqhaq                                                     R\0\0\0\0\0\0JILF                001CUielüdyaq                                                   U\0\0\0\0\0\0MLKU                001CQasajxuwqaq gfqz söepdaq                                    L\0\0\0\0\0\0MLKQ                001CQasajxuwqezaupdaq söepdaq                                   Q\0\0\0\0\0\0HLYQ                001CUiegabädsxa Qasajxuwqaq                                     E\0\0\0\0\0\0BLF                 001CGfyufqxa dwsaq...                                           G\0\0\0\0\0\0BLF                 002CAwsaq...                                                    A\0\0\0\0\0\0KGEG                001CRaqixzaykfyufvsaq...                                        R\0\0\0\0\0\0DVDL                001PNyülaq                                                       \0\0\0\0\0\0DVDL                001CLuqgfvaq Nyülaq                                              \0\0\0\0\0\0VNFP                001CQasajxuwqewnxuwqaq                                          V\0\0\0\0\0\0QJIA                001CAusla Qasajxuwqevush                                        A\0\0\0\0\0\0QNVQ                001CUse Gfyufqxa eupdayq...                                     K\0\0\0\0\0\0QNVQ                002CQupdayq                                                      \0\0\0\0\0\0GMLK                001CGfyufqxa söepdaq...                                          \0\0\0\0\0\0GMLK                002CKöepdaq...                                                  Ö\0\0\0\0\0\0GQAV                001CGfyufqxa fqzaugaq...                                        U\0\0\0\0\0\0GQAV                002CUqzaugaq...                                                 U'),('GLI02071','L','',1,2457,'20051008','133300',2457,'27\0\0\0\0000001                 CUvgyaqziqgaq                                                U\0\0\0\0\0\0000002                 CRafyvauxaq                                                  R\0\0\0\0\0\0000003                 CQnyuqgaq                                                    Q\0\0\0\0\0\0000004                 CGfyufqxaq                                                   G\0\0\0\0\0\0000005                 CZieäxza                                                     Z\0\0\0\0\0\0000006                 CEmlash                                                      E\0\0\0\0\0\0UKKQ                001CUssa Qasajxuwqaq                                            K\0\0\0\0\0\0JRUJ                001CZiyüpj                                                      Z\0\0\0\0\0\0JJUD                001CUvvyapdaq                                                   U\0\0\0\0\0\0JLDM                001CRaaqhaq                                                     R\0\0\0\0\0\0JILF                001CUielüdyaq                                                   U\0\0\0\0\0\0MLKU                001CQasajxuwqaq gfqz söepdaq                                    L\0\0\0\0\0\0MLKQ                001CQasajxuwqezaupdaq söepdaq                                   Q\0\0\0\0\0\0HLYQ                001CUiegabädsxa Qasajxuwqaq                                     E\0\0\0\0\0\0BLF                 001CGfyufqxa dwsaq...                                           G\0\0\0\0\0\0BLF                 002CAwsaq...                                                    A\0\0\0\0\0\0KGEG                001CRaqixzaykfyufvsaq...                                        R\0\0\0\0\0\0DVDL                001PNyülaq                                                       \0\0\0\0\0\0DVDL                001CLuqgfvaq Nyülaq                                              \0\0\0\0\0\0VNFP                001CQasajxuwqewnxuwqaq                                          V\0\0\0\0\0\0QJIA                001CAusla Qasajxuwqevush                                        A\0\0\0\0\0\0QNVQ                001CUse Gfyufqxa eupdayq...                                     K\0\0\0\0\0\0QNVQ                002CQupdayq                                                      \0\0\0\0\0\0GMLK                001CGfyufqxa söepdaq...                                          \0\0\0\0\0\0GMLK                002CKöepdaq...                                                  Ö\0\0\0\0\0\0GQAV                001CGfyufqxa fqzaugaq...                                        U\0\0\0\0\0\0GQAV                002CUqzaugaq...                                                 U'),('XMR24DLY','M',' ',1,12012,'20051005','213901',12012,'132\0\0\0%LX                 001CRaaqhaq                                                      \0\0\0\0\0\0%CK                 001CCfnna                                                       U\0\0\0\0\0\0%NJ                 001CKwjfsa Mfxau...                                             M\0\0\0\0\0\0%QJ                 001CQipdaq                                                      E\0\0\0\0\0\0%QJ+                001CYauxay eipdaq                                                \0\0\0\0\0\0%QK                 001CCfus-Lmnläqgay                                              C\0\0\0\0\0\0&URJ                001CURJ-Uqfscea                                                 U\0\0\0\0\0\0&UKK                001CUssae mfyjuayaq                                             C\0\0\0\0\0\0&UOY                001CFarxkayfyvauxiqg...                                         F\0\0\0\0\0\0&UEH                001CUilyuß laexsagaq...                                         E\0\0\0\0\0\0&UGL                001CQupdayq...                                                  Q\0\0\0\0\0\0&UGL                002CKfcwix eupdayq...                                            \0\0\0\0\0\0&UGI                001CCuxxasbayx                                                  C\0\0\0\0\0\0&JMH                001CHuruayiqg fildavaq                                          P\0\0\0\0\0\0&JHP                001CHuruayaq vue Qnfsxa                                         H\0\0\0\0\0\0&JIR                001CLyexa Qnfsxa                                                 \0\0\0\0\0\0&JIL                001CKaxzxa Qnfsxa                                                \0\0\0\0\0\0&JIK                001CQnfsxa suqje                                                 \0\0\0\0\0\0&JII                001CQnfsxa yapdxe                                                \0\0\0\0\0\0&MUE                001CFyaqqzaupdaq fixwmfxuepd                                    F\0\0\0\0\0\0&MVH                001CFyaqqzaupdaq ummay fie                                      L\0\0\0\0\0\0&MVD                001CFyaqqzaupdaq ummay auq                                      I\0\0\0\0\0\0&LR9                001CRayupdx filyilaq...                                         R\0\0\0\0\0\0&LKN                001CAusla                                                        \0\0\0\0\0\0&LIY                001CGaybfsxaq...                                                G\0\0\0\0\0\0&LFU                001CMaxfuse                                                      \0\0\0\0\0\0&H03                001CZiyüpj                                                      Z\0\0\0\0\0\0&H12                001CUvvyapdaq                                                   U\0\0\0\0\0\0&H15                001CRaaqhaq                                                     R\0\0\0\0\0\0&PJ1                001CUiebädsaq                                                    \0\0\0\0\0\0&PKM                001CHusxay söepdaq                                              K\0\0\0\0\0\0&PKF                001CHusxay eaxzaq                                               H\0\0\0\0\0\0&TVC                001CUiebädsaq...                                                U\0\0\0\0\0\0&KHV                001CKuexaqexfxie...                                             K\0\0\0\0\0\0&KHV                002CKuexaqexfxie...                                              \0\0\0\0\0\0&KPQ                001CByiqhsuexa                                                  B\0\0\0\0\0\0&CUX                001CCfrumim                                                     U\0\0\0\0\0\0&CPD                001CCuqumim                                                     P\0\0\0\0\0\0&DHV                001PQasajxuwqaq                                                 L\0\0\0\0\0\0&DHV                001CQasajxuwqaq...                                              L\0\0\0\0\0\0&DFL                001CUillyuepdaq                                                  \0\0\0\0\0\0&VUM                001CUiebädsaq...                                                E\0\0\0\0\0\0&VUM                002CKfcwix fiebädsaq...                                          \0\0\0\0\0\0&VMD                001CQwyxuayaq fvexaugaqh                                        V\0\0\0\0\0\0&VK0                001CKfcwix äqhayq...                                             \0\0\0\0\0\0&VKX                001CÄqhayq...                                                   Ä\0\0\0\0\0\0&VCN                001CTwmnyumuayaq                                                 \0\0\0\0\0\0&VNF                001CVnxumfsa Ryauxa                                             N\0\0\0\0\0\0&VEN                001CQwyxuayaq filexaug.                                         P\0\0\0\0\0\0&IDF                001CMyipjaq                                                     M\0\0\0\0\0\0&IDF_NILG           001CMyipjkwyepdfi                                               I\0\0\0\0\0\0&QUK                001CUssa Cfyj. söepdaq                                          T\0\0\0\0\0\0&QEC                001CZbuepdaqeimmaq...                                           Z\0\0\0\0\0\0&ECJ                001CQimma                                                       Q\0\0\0\0\0\0&XPDF               001CLybauxayxa Uvsfga hay QUN Oiayc                             L\0\0\0\0\0\0&XNU                001CLrnfqhuayaq                                                  \0\0\0\0\0\0&XXK                001CFfvassaqjfsjisfxuwq...                                      U\0\0\0\0\0\0000016                 C<Vvtajx>                                                     \0\0\0\0\0\0000017                 CRafyvauxaq                                                  R\0\0\0\0\0\0000018                 CQnyuqgaq                                                    Q\0\0\0\0\0\0000019                 CZieäxza                                                     Z\0\0\0\0\0\0000020                 CEmlash                                                      E\0\0\0\0\0\0000021                 CTwqlugiyfxuwq                                               T\0\0\0\0\0\0000022                 CQcexama fjxifsueuaya                                         \0\0\0\0\0\0000023                 CEmlash                                                      E\0\0\0\0\0\0000024                 CKuexa                                                       K\0\0\0\0\0\0000025                 CLrnwyxuayaq                                                 L\0\0\0\0\0\0000026                 CQaqhaq fq                                                   Q\0\0\0\0\0\0000027                 CRafyvauxaq                                                  R\0\0\0\0\0\0000028                 CRayapdqaq                                                   R\0\0\0\0\0\0000029                 CQnyuqgaq                                                    Q\0\0\0\0\0\0000030                 CLuqexassiqgaq                                               L\0\0\0\0\0\0000031                 CKfcwix                                                      U\0\0\0\0\0\0000032                 CQimmaqexilaq                                                Q\0\0\0\0\0\0000033                 CQnfsxaq                                                     N\0\0\0\0\0\01                   001CQcexama fqzuagaq                                             \0\0\0\0\0\0RUJT                001CZiyüpj                                                      Z\0\0\0\0\0\0JUDJLK              001PUvvyapdaq                                                   U\0\0\0\0\0\0JUDJLK              001CUvvyapdaq                                                   U\0\0\0\0\0\0JDB_QLFQ            001PÄqhayq                                                       \0\0\0\0\0\0JDB_QLFQ            001CIHJ_JAB                                                      \0\0\0\0\0\0JDB_QLFQ            001OQcexam äqhayq                                                \0\0\0\0\0\0JVDQ                001CTwqeuexaqz-Jdapj                                            T\0\0\0\0\0\0JEQF                001PLuqexassiqgaq                                               V\0\0\0\0\0\0JEQF                001CFwwsenazuluepda Luqexassiqgaq                               V\0\0\0\0\0\0J_MR13              001CMRU Luqnsfqiqgejfsaqhay (swjfs)                             M\0\0\0\0\0\0J_MR13              001OKwjfsay MRU Luqnsfqiqgejfsaqhay                             M\0\0\0\0\0\0J_MR13J             001CMRU Luqnsfqiqgejfsaqhay (yamwxa)                            R\0\0\0\0\0\0J_MR13J             001OLuqnsfqiqgejfsaqhay lüy aqxlayqxa Qcexama                   R\0\0\0\0\0\0MR13                001CMRU-Luqnsfqiqg                                               \0\0\0\0\0\0MLKL                001PPqjwqeuxaqzaq Köepdaq                                        \0\0\0\0\0\0MLKL                001CPqjwqeuxaqzaq Köepdaq                                        \0\0\0\0\0\0MLKL                001OKöepdaq hay uqjwqeuexaqxaq XMR-Luqxyäga                      \0\0\0\0\0\0LXPF                001CRaaqhaq                                                     R\0\0\0\0\0\0AFCK                001CFaex                                                         \0\0\0\0\0\0DLE                 001PUqsagaq                                                      \0\0\0\0\0\0DLE                 001CIHJ_DLY                                                      \0\0\0\0\0\0DLE                 001OQcexama duqzilügaq                                           \0\0\0\0\0\0VT                  001PVT                                                           \0\0\0\0\0\0VT                  001CVT                                                           \0\0\0\0\0\0VT                  001OÄqhayiqgaq Üvayqadmaq                                        \0\0\0\0\0\0N+                  001CDäpdexa Qauxa                                                \0\0\0\0\0\0N++                 001CKaxzxa Qauxa                                                 \0\0\0\0\0\0N-                  001CGwyuga Qauxa                                                 \0\0\0\0\0\0N--                 001CLyexa Qauxa                                                  \0\0\0\0\0\0NWVR                001CIawygfquefxuwq                                              I\0\0\0\0\0\0NWVR                001OXMR Luqxyäga zcjsuepd söepdaq                               I\0\0\0\0\0\0ILHI                001PUillyuepdaq                                                  \0\0\0\0\0\0ILHI                001CUillyuepdaq                                                  \0\0\0\0\0\0ILHI                001OMfxaq qai saeaq                                              \0\0\0\0\0\0IHJ_JAB             001PÄqhayq                                                       \0\0\0\0\0\0IHJ_JAB             001CIHJ_JAB                                                      \0\0\0\0\0\0IHJ_JAB             001OUqhayq                                                       \0\0\0\0\0\0IHJ_MUFU            001PMfxaq fqzaugaq                                               \0\0\0\0\0\0IHJ_MUFU            001CMfxaq fqzaugaq                                               \0\0\0\0\0\0IHJ_MUFU            001OXMR Mfxaq fie Iamwxa Qcexam fqzauga                          \0\0\0\0\0\0IHJ_MLK             001PQcexam söepdaq                                               \0\0\0\0\0\0IHJ_MLK             001CKöepdaq                                                      \0\0\0\0\0\0IHJ_MLK             001OQcexam söepdaq                                               \0\0\0\0\0\0IHJ_DLY             001PUqsagaq                                                      \0\0\0\0\0\0IHJ_DLY             001CIHJ_DLY                                                      \0\0\0\0\0\0IHJ_DLY             001OUqsagaq                                                      \0\0\0\0\0\0QUMM                001PIamwxa Qcexama                                              F\0\0\0\0\0\0QUMM                001CIamwxa Qcexama                                              F\0\0\0\0\0\0QUGL_QLFQ           001PQupdayq                                                      \0\0\0\0\0\0QUGL_QLFQ           001CQupdayq                                                      \0\0\0\0\0\0QUGL_QLFQ           001OLuqexassiqgaq eupdayq                                        \0\0\0\0\0\0QJAB                001CQcexama äqhayq                                              L\0\0\0\0\0\0QMLK                001CQcexama söepdaq                                             C\0\0\0\0\0\0QMPQ                001CQcexama fqzaugaq                                            Q\0\0\0\0\0\0QKVJ                001CKwjfsae Qcexam                                               \0\0\0\0\0\0QILH                001CQcexama fjxifsueuayaq                                       S'),('XMR24DLY','L',' ',1,12012,'20051005','213902',12012,'132\0\0\0%LX                 001CLrux                                                         \0\0\0\0\0\0%CK                 001CHwshay                                                      H\0\0\0\0\0\0%NJ                 001CKwpfs Husa...                                               K\0\0\0\0\0\0%QJ                 001CHuqh                                                        H\0\0\0\0\0\0%QJ+                001CHuqh Darx                                                    \0\0\0\0\0\0%QK                 001CCfus Iapunuaqx                                              C\0\0\0\0\0\0&URJ                001CURJ Uqfsceue                                                U\0\0\0\0\0\0&UKK                001CQasapx Uss                                                  Q\0\0\0\0\0\0&UOY                001CYwyh Nywpaeeuqg...                                          Y\0\0\0\0\0\0&UEH                001CMaluqa Ryafjhwbq...                                         M\0\0\0\0\0\0&UGL                001CQfka...                                                     Q\0\0\0\0\0\0&UGL                002CQfka Kfcwix...                                               \0\0\0\0\0\0&UGI                001CCafq Gfsia                                                  C\0\0\0\0\0\0&JMH                001CEqlyaaza Jwsimqe                                            E\0\0\0\0\0\0&JHP                001CHyaaza xw Jwsimq                                            H\0\0\0\0\0\0&JIR                001CHuyex Jwsimq                                                 \0\0\0\0\0\0&JIL                001CKfex Jwsimq                                                  \0\0\0\0\0\0&JIK                001CJwsimq Kalx                                                  \0\0\0\0\0\0&JII                001CJwsimq Iugdx                                                 \0\0\0\0\0\0&MUE                001CUixwmfxup Qanfyfxwy                                         F\0\0\0\0\0\0&MVH                001CQanfyfxwy Usbfce Vll                                        L\0\0\0\0\0\0&MVD                001CQanfyfxwy Usbfce Vq                                         I\0\0\0\0\0\0&LR9                001CJfss En Ianwyx...                                           R\0\0\0\0\0\0&LKN                001CAasn                                                         \0\0\0\0\0\0&LIY                001CUhmuquexyfxuwq                                              U\0\0\0\0\0\0&LFU                001CMaxfuse                                                      \0\0\0\0\0\0&H03                001CRfpj                                                        R\0\0\0\0\0\0&H12                001CJfqpas                                                      U\0\0\0\0\0\0&H15                001CLrux                                                        X\0\0\0\0\0\0&PJ1                001CJdwwea                                                       \0\0\0\0\0\0&PKM                001CMasaxa Husxay                                               K\0\0\0\0\0\0&PKF                001CQax Husxay                                                  L\0\0\0\0\0\0&TVC                001CJdwwea...                                                   J\0\0\0\0\0\0&KHV                001CKuex Qxfxie...                                              K\0\0\0\0\0\0&KHV                002CKuex Qxfxie...                                               \0\0\0\0\0\0&KPQ                001CRfeup Kuex                                                  R\0\0\0\0\0\0&CUX                001CCfrumim                                                     U\0\0\0\0\0\0&CPD                001CCuqumim                                                     P\0\0\0\0\0\0&DHV                001PQasapxuwqe                                                  L\0\0\0\0\0\0&DHV                001CQasapxuwqe...                                               L\0\0\0\0\0\0&DFL                001CIalyaed                                                      \0\0\0\0\0\0&VUM                001CJdwwea...                                                   A\0\0\0\0\0\0&VUM                002CQasapx Kfcwix...                                             \0\0\0\0\0\0&VMD                001CQwyx uq Maepaqhuqg Vyhay                                    V\0\0\0\0\0\0&VK0                001CJdfqga Kfcwix...                                             \0\0\0\0\0\0&VKX                001CJdfqga...                                                   J\0\0\0\0\0\0&VCN                001CJwssfnea                                                     \0\0\0\0\0\0&VNF                001CVnxumuza Yuhxd                                              N\0\0\0\0\0\0&VEN                001CQwyx uq Uepaqhuqg Vyhay                                     P\0\0\0\0\0\0&IDF                001CNyuqx                                                       N\0\0\0\0\0\0&IDF_NILG           001CNyuqx Nyakuab                                               I\0\0\0\0\0\0&QUK                001CMaeasapx Uss                                                M\0\0\0\0\0\0&QEC                001CQivxwxfse...                                                E\0\0\0\0\0\0&ECJ                001CFwxfs                                                       F\0\0\0\0\0\0&XPDF               001CUhhuxuwqfs Hiqpxuwqe wl QUN Oiayc                           L\0\0\0\0\0\0&XNU                001CLrnfqh                                                       \0\0\0\0\0\0&XXK                001CQnyafhedaax...                                              U\0\0\0\0\0\0000016                 C<Vvtapx>                                                     \0\0\0\0\0\0000017                 CLhux                                                        L\0\0\0\0\0\0000018                 CBwxw                                                        B\0\0\0\0\0\0000019                 CLrxyfe                                                      Z\0\0\0\0\0\0000020                 CLqkuywqmaqx                                                 E\0\0\0\0\0\0000021                 CJwqlugiyfxuwq                                               J\0\0\0\0\0\0000022                 CEnhfxa Qcexame                                               \0\0\0\0\0\0000023                 CLqkuywqmaqx                                                 G\0\0\0\0\0\0000024                 CKuex                                                        K\0\0\0\0\0\0000025                 CLrnwyx                                                      L\0\0\0\0\0\0000026                 CQaqh Fw                                                     Q\0\0\0\0\0\0000027                 CLhux                                                        L\0\0\0\0\0\0000028                 CJfspisfxa                                                   J\0\0\0\0\0\0000029                 CBwxw                                                        B\0\0\0\0\0\0000030                 CQaxxuqge                                                    Q\0\0\0\0\0\0000031                 CKfcwix                                                      U\0\0\0\0\0\0000032                 CQimmfxuwq Kakase                                            Q\0\0\0\0\0\0000033                 CJwsimqe                                                     J\0\0\0\0\0\01                   001CMuensfc Qcexame                                              \0\0\0\0\0\0RUJT                001CRfpj                                                        R\0\0\0\0\0\0JUDJLK              001PJfqpas                                                      U\0\0\0\0\0\0JUDJLK              001CJfqpas                                                      U\0\0\0\0\0\0JDB_QLFQ            001PJdfqga                                                       \0\0\0\0\0\0JDB_QLFQ            001CIHJ_JAB                                                      \0\0\0\0\0\0JDB_QLFQ            001OJdfqga Qcexam                                                \0\0\0\0\0\0JVDQ                001CJwqeuexaqpc pdapj                                           T\0\0\0\0\0\0JEQF                001PQaxxuqge                                                    V\0\0\0\0\0\0JEQF                001CFwws-Qnapulup Qaxxuqge                                      V\0\0\0\0\0\0J_MR13              001CMRU Nsfqquqg Jfsaqhfy (Kwpfs)                               M\0\0\0\0\0\0J_MR13              001OKwpfs MRU Nsfqquqg Jfsaqhfy                                 M\0\0\0\0\0\0J_MR13J             001CMRU Nsfqquqg Jfsaqhfy (Iamwxa)                              R\0\0\0\0\0\0J_MR13J             001OMRU Nsfqquqg Jfsaqhfy lwy Iamwxa Qcexame                    R\0\0\0\0\0\0MR13                001CMRU Nsfqquqg                                                 \0\0\0\0\0\0MLKL                001PMasaxa Pqpwqeuexaqpuae                                       \0\0\0\0\0\0MLKL                001CMasaxa Pqpwqeuexaqpuae                                       \0\0\0\0\0\0MLKL                001OMasaxa Pqpwqeuexaqx XMR Lqxyuae                              \0\0\0\0\0\0LXPF                001CLrux                                                        X\0\0\0\0\0\0AFCK                001CFaex                                                         \0\0\0\0\0\0DLE                 001PJyafxa                                                       \0\0\0\0\0\0DLE                 001CIHJ_DLY                                                      \0\0\0\0\0\0DLE                 001OUhh Qcexame                                                  \0\0\0\0\0\0VT                  001PVT                                                           \0\0\0\0\0\0VT                  001CVT                                                           \0\0\0\0\0\0VT                  001OUppanx Jdfqgae                                               \0\0\0\0\0\0N+                  001CDarx Nfga                                                    \0\0\0\0\0\0N++                 001CKfex Nfga                                                    \0\0\0\0\0\0N-                  001CNyakuwie Nfga                                                \0\0\0\0\0\0N--                 001CHuyex Nfga                                                   \0\0\0\0\0\0NWVR                001CIawygfquzfxuwq                                              I\0\0\0\0\0\0NWVR                001OMasaxa XMR Lqxyuae Jcpsupfssc                               I\0\0\0\0\0\0ILHI                001PIalyaed                                                      \0\0\0\0\0\0ILHI                001CIalyaed                                                      \0\0\0\0\0\0ILHI                001OIafh Dab Mfxf                                                \0\0\0\0\0\0IHJ_JAB             001PJdfqga                                                       \0\0\0\0\0\0IHJ_JAB             001CIHJ_JAB                                                      \0\0\0\0\0\0IHJ_JAB             001OJdfqga                                                       \0\0\0\0\0\0IHJ_MUFU            001PMuensfc Mfxf                                                 \0\0\0\0\0\0IHJ_MUFU            001CMuensfc Mfxf                                                 \0\0\0\0\0\0IHJ_MUFU            001OMuensfc XMR Mfxf lywm Iamwxa Qcexam                          \0\0\0\0\0\0IHJ_MLK             001PMasaxa ecexam                                                \0\0\0\0\0\0IHJ_MLK             001CMasaxa                                                       \0\0\0\0\0\0IHJ_MLK             001OMasaxa Qcexam                                                \0\0\0\0\0\0IHJ_DLY             001PJyafxa                                                       \0\0\0\0\0\0IHJ_DLY             001CIHJ_DLY                                                      \0\0\0\0\0\0IHJ_DLY             001OJyafxa                                                       \0\0\0\0\0\0QUMM                001PIamwxa Qcexame                                              F\0\0\0\0\0\0QUMM                001CIamwxa Qcexame                                              F\0\0\0\0\0\0QUGL_QLFQ           001PQfka                                                         \0\0\0\0\0\0QUGL_QLFQ           001CQfka                                                         \0\0\0\0\0\0QUGL_QLFQ           001OQfka Qaxxuqge                                                \0\0\0\0\0\0QJAB                001CJdfqga Qcexame                                              L\0\0\0\0\0\0QMLK                001CMasaxa Qcexame                                              C\0\0\0\0\0\0QMPQ                001CMuensfc Qcexame                                             Q\0\0\0\0\0\0QKVJ                001CKwpfs ecexam                                                 \0\0\0\0\0\0QILH                001CEnhfxa Qcexame                                              S');
+--enable_query_log
+select max(length(`RKVJT`)) FROM `M345F`;
+
+# Final cleanup
+DROP TABLE `M345F`;
+
+
+#
+# Falcon ALTER TABLE bug
+#
+--echo ***************** falcon_bugs2_016 *****************
+CREATE TABLE t1 (a int) ENGINE=MyISAM;
+ALTER TABLE t1 ENGINE=Falcon;
+SHOW CREATE TABLE t1;
+
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# Testing MANTIS#0000087: Compound key is not working
+#
+--echo ***************** falcon_bugs2_017 *****************
+CREATE TABLE t1 (a varchar(4), b varchar(1000), key (a, b(255)));
+INSERT INTO t1 VALUES (1, 0x6441F4);
+INSERT INTO t1 VALUES (2, 'andrushka');
+
+# Final cleanup
+DROP TABLE t1;
+
+
+#
+# Testing MANTIS#0000091: JStar doesn't support PK len > 255 bytes
+#
+--echo ***************** falcon_bugs2_018 ***************** 
+CREATE TABLE t1 (
+  C001 varchar(1000) character set latin1,
+  PRIMARY KEY (C001(255))
+);
+CREATE TABLE t2 (
+  C001 varchar(1000) character set utf8,
+  PRIMARY KEY (C001(255))
+);
+
+# Final cleanup
+DROP TABLE t1;
+DROP TABLE t2;
+
+
+#
+# Testing MANTIS#0000088: Can't drop schema
+#
+--echo ***************** falcon_bugs2_019 *****************
+CREATE SCHEMA jstar;
+CREATE TABLE jstar.t1(a int);
+DROP SCHEMA jstar;
+
+
+#
+# Testing MANTIS#0000094: Incorrect SELECT results
+#
+--echo ***************** falcon_bugs2_020 *****************
+CREATE TABLE `normal` (
+  `id` int(10) unsigned NOT NULL auto_increment,
+  `name` varchar(64) NOT NULL default '',
+  `email` varchar(64) NOT NULL default '',
+  `password` varchar(64) NOT NULL default '',
+  `dob` date default NULL,
+  `address` varchar(128) NOT NULL default '',
+  `city` varchar(64) NOT NULL default '',
+  `state_id` tinyint(3) unsigned NOT NULL default '0',
+  `zip` varchar(8) NOT NULL default '',
+  `country_id` smallint(5) unsigned NOT NULL default '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  KEY `country_id` (`country_id`,`state_id`,`city`)
+) DEFAULT CHARSET latin1;
+INSERT INTO normal (id,name,password,email,city,zip,dob,country_id,state_id) VALUES (2,'4leluys0vf1c10e9q2a5iog0hfubks5p','50ce8','wjrs2htec8@pb82n6mjh362j5663i6m.com','04k675wjvgbxjfsze182t5sm','pppbc','2006-06-27',131,8);
+SELECT * FROM `normal` WHERE country_id=131;
+
+# Final cleanup
+DROP TABLE `normal`;
+
+
+#
+# Testing MANTIS#0000085: Crash with SELECT on 2nd connection
+#
+--echo ***************** falcon_bugs2_021 *****************
+connect (con1,localhost,root,,test);
+
+connection default;
+SET autocommit=0;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+
+connection con1;
+SET autocommit=0;
+SELECT * FROM t1;
+
+# Final cleanup
+connection default;
+DROP TABLE t1;
+--disconnect con1
+
+#
+# Testing MANTIS#0000095: Second connection does not see changes 
+#                         made by first connection
+#
+--echo ***************** falcon_bugs2_022 *****************
+connect (con1,localhost,root,,test);
+
+connection default;
+SET autocommit=0;
+SET tx_isolation="READ-COMMITTED";
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+
+connection con1;
+SET autocommit=0;
+SET tx_isolation="READ-COMMITTED";
+SELECT * FROM t1;
+
+connection default;
+COMMIT;
+SELECT * FROM t1;
+
+connection con1;
+SELECT * FROM t1;
+
+# Final cleanup
+DROP TABLE t1;
+--disconnect con1
+
+#
+# Testing MANTIS#0000096: 
+#     CREATE TABLE + ALTER TABLE + close connection = crash in JStar
+#
+--echo ***************** falcon_bugs2_023 *****************
+
+connect (con1,localhost,root,,test);
+CREATE TABLE t1 (a int);
+ALTER TABLE t1 ADD PRIMARY KEY (a);
+--disconnect con1
+--sleep 5
+
+connection default;
+DROP TABLE t1;
+

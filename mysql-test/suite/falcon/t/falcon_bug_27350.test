@@ -1,0 +1,69 @@
+--source include/have_falcon.inc
+#
+# Bug #27350: Falcon: test-insert, Unexpected error; "Record has changed since last read in table"
+#   Testcase derived from sql-bench/test-insert
+--echo *** Bug #27350 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS bench1;
+--enable_warnings
+
+SET @@autocommit=1;
+
+CREATE TABLE bench1 (
+  id     int NOT NULL,
+  id2    int NOT NULL,
+  id3    int NOT NULL,
+  dummy1 char(30),
+  PRIMARY KEY (id,id2),
+  INDEX ix_id3 (id3)
+);
+
+INSERT INTO bench1 VALUES (10863, 10863, 10863, 'BCDEFGHIJK');
+INSERT INTO bench1 VALUES (10862, 10862, 10862, 'BCDEFGHIJK');
+INSERT INTO bench1 VALUES (10000, 10000, 10000, 'BCDEFGHIJK');
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+
+# Please do not focus on the fact that running many updates on one row
+# looks artificial and differs to a real world application.
+# The original "test-insert" benchmark runs on a table with ~ 300000 rows
+# and performs updates on many different rows, but harvests the same wrong
+# server response. The loop is only used to increase the probability that
+# we see the bug, when we are running with such a limited amount of rows
+# and different SQL statements.
+
+let $num=10000;
+--disable_query_log
+--disable_abort_on_error
+while ($num)
+{
+   UPDATE bench1 SET id3=-10862 WHERE id3=10862;
+   if ($mysql_errno)
+   {
+      --echo Got an unexpected error after 100000 + 1 - $num UPDATEs
+      --echo abort
+      exit;
+   }
+   dec $num;
+}
+--enable_abort_on_error
+--enable_query_log
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM bench1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE bench1;

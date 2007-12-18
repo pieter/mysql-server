@@ -1,0 +1,33 @@
+*** Bug #27722 ***
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+SET @@storage_engine = Falcon;
+SET @@autocommit = 0;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int) engine = Falcon;
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (5);
+INSERT INTO t1 VALUES (10);
+INSERT INTO t1 VALUES (15);
+# Establish connection conn1
+SET @@storage_engine = Falcon;
+SET @@autocommit = 0;
+# Switch to connection default
+BEGIN;
+UPDATE t1 SET a = 6 WHERE a = 5;
+# Switch to connection conn1
+BEGIN;
+UPDATE t1 SET a = 16 WHERE a = 15;
+# Switch to connection default
+COMMIT;
+# Switch to connection conn1
+COMMIT;
+SELECT * FROM t1;
+a
+1
+6
+10
+16
+# Switch to connection default
+DROP TABLE t1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

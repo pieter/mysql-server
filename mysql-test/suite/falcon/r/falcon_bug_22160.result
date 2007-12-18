@@ -1,0 +1,23 @@
+SET @@storage_engine = Falcon;
+*** Bug #22160 ***
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+DROP DATABASE IF EXISTS db64;
+CREATE DATABASE db64;
+SET @@storage_engine = Falcon;
+USE db64;
+USE db64;
+CREATE TABLE t1 (s1 int, primary key (s1));
+SET @@autocommit = 0;
+INSERT INTO t1 VALUES (1);
+SET @@autocommit = 0;
+SELECT * FROM t1;
+s1
+COMMIT;
+REPLACE INTO t1 VALUES (1);
+ERROR HY000: Record has changed since last read in table 't1'
+SELECT * FROM t1;
+s1
+COMMIT;
+DROP DATABASE db64;
+USE test;

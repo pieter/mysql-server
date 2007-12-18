@@ -211,6 +211,11 @@ COMMIT;
 COMMIT;
 SHOW TABLES;
 DROP SCHEMA IF EXISTS `mysqlslap`;
+CREATE SCHEMA mysqlslap;
+CREATE TABLE mysqlslap.t1 (id int, name varchar(64));
+SELECT count(*) from mysqlslap.t1;
+count(*)
+20
 #
 # Bug #29985: mysqlslap -- improper handling of resultsets in SPROCs
 #

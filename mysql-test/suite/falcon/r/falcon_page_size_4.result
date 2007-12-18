@@ -1,0 +1,16 @@
+SET @@storage_engine = Falcon;
+*** Bug #23220_4 ***
+DROP SCHEMA IF EXISTS page_4;
+SHOW VARIABLES LIKE 'falcon_page_size';
+Variable_name	Value
+falcon_page_size	4096
+CREATE SCHEMA page_4;
+USE page_4;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (4);
+SELECT count(*) FROM t1;
+count(*)
+1
+DROP TABLE t1;
+DROP SCHEMA page_4;
+USE test;

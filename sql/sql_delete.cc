@@ -54,7 +54,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
   table->map=1;
 
   if (mysql_prepare_delete(thd, table_list, &conds))
-    DBUG_RETURN(TRUE);
+    goto err;
 
   /* check ORDER BY even if it can be ignored */
   if (order && order->elements)
@@ -73,7 +73,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
     {
       delete select;
       free_underlaid_joins(thd, &thd->lex->select_lex);
-      DBUG_RETURN(TRUE);
+      goto err;
     }
   }
 
@@ -83,7 +83,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
   {
     my_message(ER_UPDATE_WITHOUT_KEY_IN_SAFE_MODE,
                ER(ER_UPDATE_WITHOUT_KEY_IN_SAFE_MODE), MYF(0));
-    DBUG_RETURN(TRUE);
+    goto err;
   }
 
   select_lex->no_error= thd->lex->ignore;
@@ -150,6 +150,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
   {
     free_underlaid_joins(thd, select_lex);
     thd->row_count_func= 0;
+    MYSQL_DELETE_END();
     send_ok(thd, (ha_rows) thd->row_count_func);  // No matching records
     DBUG_RETURN(0);
   }
@@ -161,12 +162,13 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
   table->quick_keys.clear_all();		// Can't use 'only index'
   select=make_select(table, 0, 0, conds, 0, &error);
   if (error)
-    DBUG_RETURN(TRUE);
+    goto err;
   if ((select && select->check_quick(thd, safe_update, limit)) || !limit)
   {
     delete select;
     free_underlaid_joins(thd, select_lex);
     thd->row_count_func= 0;
+    MYSQL_DELETE_END();
     send_ok(thd, (ha_rows) thd->row_count_func);
     /*
       We don't need to call reset_auto_increment in this case, because
@@ -186,7 +188,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
       free_underlaid_joins(thd, select_lex);
       my_message(ER_UPDATE_WITHOUT_KEY_IN_SAFE_MODE,
                  ER(ER_UPDATE_WITHOUT_KEY_IN_SAFE_MODE), MYF(0));
-      DBUG_RETURN(TRUE);
+      goto err;
     }
   }
   if (options & OPTION_QUICK)
@@ -215,7 +217,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
       {
         delete select;
         free_underlaid_joins(thd, &thd->lex->select_lex);
-        DBUG_RETURN(TRUE);
+        goto err;
       }
       /*
         Filesort has already found and selected the rows we want to delete,
@@ -232,7 +234,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
   {
     delete select;
     free_underlaid_joins(thd, select_lex);
-    DBUG_RETURN(TRUE);
+    goto err;
   }
   if (usable_index==MAX_KEY)
     init_read_record(&info,thd,table,select,1,1);
@@ -391,6 +393,7 @@ cleanup:
     mysql_unlock_tables(thd, thd->lock);
     thd->lock=0;
   }
+  MYSQL_DELETE_END();
   if (error < 0 || (thd->lex->ignore && !thd->is_fatal_error))
   {
     thd->row_count_func= deleted;
@@ -398,6 +401,10 @@ cleanup:
     DBUG_PRINT("info",("%ld records deleted",(long) deleted));
   }
   DBUG_RETURN(error >= 0 || thd->is_error());
+
+err:
+  MYSQL_DELETE_END();
+  DBUG_RETURN(TRUE);
 }
 
 
@@ -958,6 +965,8 @@ bool mysql_truncate(THD *thd, TABLE_LIST *table_list, bool dont_send_ok)
   {
     handlerton *table_type= table->s->db_type();
     TABLE_SHARE *share= table->s;
+    bool frm_only= (share->tmp_table == TMP_TABLE_FRM_FILE_ONLY);
+
     if (!ha_check_storage_engine_flag(table_type, HTON_CAN_RECREATE))
       goto trunc_by_del;
 
@@ -969,8 +978,9 @@ bool mysql_truncate(THD *thd, TABLE_LIST *table_list, bool dont_send_ok)
     // We don't need to call invalidate() because this table is not in cache
     if ((error= (int) !(open_temporary_table(thd, share->path.str,
                                              share->db.str,
-					     share->table_name.str, 1))))
-      (void) rm_temporary_table(table_type, path);
+					     share->table_name.str, 1,
+                                             OTM_OPEN))))
+      (void) rm_temporary_table(table_type, path, frm_only);
     free_table_share(share);
     my_free((char*) table,MYF(0));
     /*

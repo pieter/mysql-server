@@ -1,0 +1,20 @@
+--source include/have_falcon.inc
+#
+# Bug #22182: Renaming database doesn't work
+#
+--echo #---- Bug 22182 ----
+SET STORAGE_ENGINE='Falcon';
+--disable_warnings
+DROP DATABASE IF EXISTS falcon1;
+DROP DATABASE IF EXISTS falcon2;
+--enable_warnings
+
+CREATE DATABASE falcon1;
+USE falcon1;
+CREATE TABLE t (s1 int);
+RENAME DATABASE falcon1 to falcon2;
+INSERT INTO t VALUES (0);
+
+# Final cleanup
+DROP DATABASE falcon2;
+

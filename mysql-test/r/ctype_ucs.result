@@ -89,7 +89,17 @@ lpad(f1, 12, "-o-/")
 drop table t2;
 SET NAMES koi8r;
 SET character_set_connection=ucs2;
-create table t1 (a varchar(10) character set ucs2, key(a));
+select @@collation_connection;
+@@collation_connection
+ucs2_general_ci
+create table t1 as select repeat(' ',10) as a union select null;
+alter table t1 add key(a);
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` varchar(10) CHARACTER SET ucs2 DEFAULT NULL,
+  KEY `a` (`a`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1
 insert into t1 values ("a"),("abc"),("abcd"),("hello"),("test");
 explain select * from t1 where a like 'abc%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -985,3 +995,107 @@ select hex(char(0x41 using ucs2));
 hex(char(0x41 using ucs2))
 0041
 End of 5.0 tests
+set collation_connection=ucs2_general_ci;
+select @@collation_connection;
+@@collation_connection
+ucs2_general_ci
+select hex(weight_string('a'));
+hex(weight_string('a'))
+0041
+select hex(weight_string('A'));
+hex(weight_string('A'))
+0041
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+004100420043
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+00410042
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+004100420043
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+00410042004300200020
+select @@collation_connection;
+@@collation_connection
+ucs2_general_ci
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+0041
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+0041
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+004100420043
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+00410042
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+004100420043
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+00410042004300200020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+20002000430042004100
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+FFBEFFBDFFBCFFDFFFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFFFDFFFBCFFBDFFBEFF
+set collation_connection=ucs2_bin;
+select @@collation_connection;
+@@collation_connection
+ucs2_bin
+select hex(weight_string('a'));
+hex(weight_string('a'))
+0061
+select hex(weight_string('A'));
+hex(weight_string('A'))
+0041
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+006100620063
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+00610062
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+006100620063
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+00610062006300200020
+select @@collation_connection;
+@@collation_connection
+ucs2_bin
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+0061
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+0041
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+006100620063
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+00610062
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+006100620063
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+00610062006300200020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+20002000630062006100
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+FF9EFF9DFF9CFFDFFFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFFFDFFF9CFF9DFF9EFF

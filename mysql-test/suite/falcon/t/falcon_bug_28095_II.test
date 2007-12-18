@@ -1,0 +1,11 @@
+--source include/have_falcon.inc
+#
+# Mantis bug #126 second phase: Drop table causes crash
+# Mantis bug #123: Table cannot be read after restarting mysqld
+#
+--echo *** Bug #126: Second phase ***
+--echo *** Also test for bug #123 ***
+SET @@storage_engine = Falcon;
+
+SELECT * FROM t1;
+DROP TABLE t1, t2;

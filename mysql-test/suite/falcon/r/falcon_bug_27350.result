@@ -1,0 +1,19 @@
+*** Bug #27350 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS bench1;
+SET @@autocommit=1;
+CREATE TABLE bench1 (
+id     int NOT NULL,
+id2    int NOT NULL,
+id3    int NOT NULL,
+dummy1 char(30),
+PRIMARY KEY (id,id2),
+INDEX ix_id3 (id3)
+);
+INSERT INTO bench1 VALUES (10863, 10863, 10863, 'BCDEFGHIJK');
+INSERT INTO bench1 VALUES (10862, 10862, 10862, 'BCDEFGHIJK');
+INSERT INTO bench1 VALUES (10000, 10000, 10000, 'BCDEFGHIJK');
+SELECT count(*) FROM bench1;
+count(*)
+3
+DROP TABLE bench1;

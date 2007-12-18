@@ -1,0 +1,37 @@
+SET @@storage_engine = Falcon;
+#---- Bug 22164 ----
+DROP SCHEMA IF EXISTS testdb_2;
+CREATE SCHEMA testdb_2;
+# Establish connection session2 (root)
+connect(localhost,root,,test,MYSQL_PORT,MYSQL_SOCK);
+SET @@storage_engine = Falcon;
+USE testdb_2;
+#-------- Switch to connection default (root) --------
+CREATE TABLE t2 (COL5   BIGINT);
+GRANT UPDATE (COL5) ON t2 TO testdb_2@localhost;
+CREATE TABLE t1( f1 BIGINT);
+#-------- Switch to connection session2 (root) --------
+CREATE TABLE t3 (COL5  DECIMAL(7,2));
+GRANT ALL PRIVILEGES ON t3 TO root@localhost;
+#------- Switch to connection default (root) -------
+SET @@autocommit = 0;
+INSERT INTO testdb_2.t3 SET COL5 = 100.3;
+SELECT * FROM t1;
+f1
+INSERT INTO t1 VALUES( 1 );
+SELECT * FROM t1;
+f1
+1
+ROLLBACK WORK;
+# !!! ------- Why do I get a result set after ROLLBACK ? -------- !!!
+SELECT * FROM t1;
+f1
+#-------- Switch to connection session2 (root) --------
+REVOKE ALL PRIVILEGES ON t3 FROM root@localhost;
+#------- Switch to connection default (root) -------
+REVOKE ALL PRIVILEGES ON t2 FROM testdb_2@localhost;
+DROP USER testdb_2@localhost;
+DROP SCHEMA testdb_2;
+DROP TABLE t2;
+DROP TABLE t1;
+USE test;

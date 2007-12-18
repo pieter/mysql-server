@@ -1,0 +1,18 @@
+*** Bug #27962 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a decimal(19,10));
+INSERT INTO t1 VALUES (0.1),(0.01),(0.001);
+SELECT a FROM t1 WHERE a = 0.1;
+a
+0.1000000000
+SELECT a FROM t1 WHERE a = 0.01;
+a
+0.0100000000
+SELECT a FROM t1 WHERE a = 0.001;
+a
+0.0010000000
+SELECT count(*) FROM t1;
+count(*)
+3
+DROP TABLE t1;

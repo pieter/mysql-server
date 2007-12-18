@@ -35,12 +35,12 @@ attr2 INT,
 attr3 VARCHAR(10)
 ) ENGINE=ndbcluster;
 SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	pk1	A	0	NULL	NULL		BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	pk1	A	0	NULL	NULL		BTREE		
 INSERT INTO t1 VALUES (9410,9412, NULL, '9412'), (9411,9413, 17, '9413');
 SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	pk1	A	2	NULL	NULL		BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	pk1	A	2	NULL	NULL		BTREE		
 SELECT pk1 FROM t1 ORDER BY pk1;
 pk1
 9410
@@ -596,7 +596,7 @@ t1
 insert into t1 values (1,1),(2,1),(3,1),(4,1),(5,2),(6,1),(7,1);
 explain select * from t1 where a12345678901234567890123456789a1234567890=2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref	a12345678901234567890123456789a1234567890	a12345678901234567890123456789a1234567890	5	const	#	Using where with pushed condition
+1	SIMPLE	t1	ref	a12345678901234567890123456789a1234567890	a12345678901234567890123456789a1234567890	5	const	#	
 select * from t1 where a12345678901234567890123456789a1234567890=2;
 a1234567890123456789012345678901234567890	a12345678901234567890123456789a1234567890
 5	2

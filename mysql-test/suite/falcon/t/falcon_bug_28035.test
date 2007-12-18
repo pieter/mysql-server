@@ -1,0 +1,19 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #28035: Falcon Partial indexing failure
+#
+--echo *** Bug #28035 ***
+--disable_warnings
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+CREATE TABLE t2 (s1 varchar(5));
+CREATE INDEX i2 ON t2 (s1(1));
+INSERT INTO t2 VALUES ('b'),('ba');
+
+SELECT * FROM t2 WHERE s1 = 'b';
+SELECT * FROM t2 WHERE s1 = 'ba';
+
+# Final cleanup
+DROP TABLE t2;

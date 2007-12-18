@@ -16,6 +16,7 @@
 #include "mysql_priv.h"
 #include <m_ctype.h>
 #include <my_dir.h>
+#include <my_bit.h>
 #include "slave.h"
 #include "rpl_mi.h"
 #include "sql_repl.h"
@@ -169,25 +170,42 @@ int initgroups(const char *,unsigned int);
 #ifdef HAVE_FP_EXCEPT				// Fix type conflict
 typedef fp_except fp_except_t;
 #endif
+#endif /* __FreeBSD__ && HAVE_IEEEFP_H */
 
-/**
-  We can't handle floating point exceptions with threads, so disable
-  this on freebsd.
-*/
-inline void reset_floating_point_exceptions()
+#ifdef HAVE_FPU_CONTROL_H
+#include <fpu_control.h>
+#endif
+  
+inline void setup_fpu()
 {
-  /* Don't fall for overflow, underflow,divide-by-zero or loss of precision */
+#if defined(__FreeBSD__) && defined(HAVE_IEEEFP_H)
+  /*
+     We can't handle floating point exceptions with threads, so disable
+     this on freebsd.
+     Don't fall for overflow, underflow,divide-by-zero or loss of precision
+  */
 #if defined(__i386__)
   fpsetmask(~(FP_X_INV | FP_X_DNML | FP_X_OFL | FP_X_UFL | FP_X_DZ |
 	      FP_X_IMP));
 #else
- fpsetmask(~(FP_X_INV |             FP_X_OFL | FP_X_UFL | FP_X_DZ |
-	     FP_X_IMP));
-#endif
-}
-#else
-#define reset_floating_point_exceptions()
+  fpsetmask(~(FP_X_INV |             FP_X_OFL | FP_X_UFL | FP_X_DZ |
+              FP_X_IMP));
+#endif /* __i386__ */
 #endif /* __FreeBSD__ && HAVE_IEEEFP_H */
+
+  /*
+    x86 (32-bit) requires FPU precision to be explicitly set to 64 bit for
+    portable results of floating point operations
+  */
+#if defined(__i386__) && defined(HAVE_FPU_CONTROL_H) && defined(_FPU_DOUBLE)
+  fpu_control_t cw;
+  _FPU_GETCW(cw);
+  cw= (cw & ~_FPU_EXTENDED) | _FPU_DOUBLE;
+  _FPU_SETCW(cw);
+#elif defined(_WIN32) && !defined(_WIN64)
+  _control87(_PC_53, MCW_PC);
+#endif /* __i386__ && HAVE_FPU_CONTROL_H && _FPU_DOUBLE */
+}
 
 } /* cplusplus */
 
@@ -263,6 +281,25 @@ static const unsigned int sql_mode_names_len[]=
 TYPELIB sql_mode_typelib= { array_elements(sql_mode_names)-1,"",
 			    sql_mode_names,
                             (unsigned int *)sql_mode_names_len };
+
+
+static const char *optimizer_switch_names[]=
+{
+  "no_materialization", "no_semijoin",
+  NullS
+};
+
+/* Corresponding defines are named OPTIMIZER_SWITCH_XXX */
+static const unsigned int optimizer_switch_names_len[]=
+{
+  /*no_materialization*/          19,
+  /*no_semijoin*/                 11
+};
+
+TYPELIB optimizer_switch_typelib= { array_elements(optimizer_switch_names)-1,"",
+                                    optimizer_switch_names,
+                                    (unsigned int *)optimizer_switch_names_len };
+
 static const char *tc_heuristic_recover_names[]=
 {
   "COMMIT", "ROLLBACK", NullS
@@ -373,7 +410,6 @@ my_bool opt_local_infile, opt_slave_compressed_protocol;
 my_bool opt_safe_user_create = 0, opt_no_mix_types = 0;
 my_bool opt_show_slave_auth_info, opt_sql_bin_update = 0;
 my_bool opt_log_slave_updates= 0;
-bool slave_warning_issued = false; 
 
 /*
   Legacy global handlerton. These will be removed (please do not add more).
@@ -388,13 +424,17 @@ const char *opt_ndb_connectstring= 0;
 char opt_ndb_constrbuf[1024]= {0};
 unsigned opt_ndb_constrbuf_len= 0;
 my_bool	opt_ndb_shm, opt_ndb_optimized_node_selection;
-ulong opt_ndb_cache_check_time;
+ulong opt_ndb_cache_check_time, opt_ndb_wait_connected;
+ulong opt_ndb_cluster_connection_pool;
 const char *opt_ndb_mgmd;
 ulong opt_ndb_nodeid;
 ulong ndb_extra_logging;
 #ifdef HAVE_NDB_BINLOG
 ulong ndb_report_thresh_binlog_epoch_slip;
 ulong ndb_report_thresh_binlog_mem_usage;
+my_bool opt_ndb_log_update_as_write;
+my_bool opt_ndb_log_updated_only;
+my_bool opt_ndb_log_orig;
 #endif
 
 extern const char *ndb_distribution_names[];
@@ -445,6 +485,7 @@ ulong thread_stack, what_to_log;
 ulong query_buff_size, slow_launch_time, slave_open_temp_tables;
 ulong open_files_limit, max_binlog_size, max_relay_log_size;
 ulong slave_net_timeout, slave_trans_retries;
+my_bool slave_allow_batching;
 ulong thread_cache_size=0, thread_pool_size= 0;
 ulong binlog_cache_size=0, max_binlog_cache_size=0;
 ulong query_cache_size=0;
@@ -479,6 +520,40 @@ ulong slow_launch_threads = 0, sync_binlog_period;
 ulong expire_logs_days = 0;
 ulong rpl_recovery_rank=0;
 const char *log_output_str= "TABLE";
+
+const double log_10[] = {
+  1e000, 1e001, 1e002, 1e003, 1e004, 1e005, 1e006, 1e007, 1e008, 1e009,
+  1e010, 1e011, 1e012, 1e013, 1e014, 1e015, 1e016, 1e017, 1e018, 1e019,
+  1e020, 1e021, 1e022, 1e023, 1e024, 1e025, 1e026, 1e027, 1e028, 1e029,
+  1e030, 1e031, 1e032, 1e033, 1e034, 1e035, 1e036, 1e037, 1e038, 1e039,
+  1e040, 1e041, 1e042, 1e043, 1e044, 1e045, 1e046, 1e047, 1e048, 1e049,
+  1e050, 1e051, 1e052, 1e053, 1e054, 1e055, 1e056, 1e057, 1e058, 1e059,
+  1e060, 1e061, 1e062, 1e063, 1e064, 1e065, 1e066, 1e067, 1e068, 1e069,
+  1e070, 1e071, 1e072, 1e073, 1e074, 1e075, 1e076, 1e077, 1e078, 1e079,
+  1e080, 1e081, 1e082, 1e083, 1e084, 1e085, 1e086, 1e087, 1e088, 1e089,
+  1e090, 1e091, 1e092, 1e093, 1e094, 1e095, 1e096, 1e097, 1e098, 1e099,
+  1e100, 1e101, 1e102, 1e103, 1e104, 1e105, 1e106, 1e107, 1e108, 1e109,
+  1e110, 1e111, 1e112, 1e113, 1e114, 1e115, 1e116, 1e117, 1e118, 1e119,
+  1e120, 1e121, 1e122, 1e123, 1e124, 1e125, 1e126, 1e127, 1e128, 1e129,
+  1e130, 1e131, 1e132, 1e133, 1e134, 1e135, 1e136, 1e137, 1e138, 1e139,
+  1e140, 1e141, 1e142, 1e143, 1e144, 1e145, 1e146, 1e147, 1e148, 1e149,
+  1e150, 1e151, 1e152, 1e153, 1e154, 1e155, 1e156, 1e157, 1e158, 1e159,
+  1e160, 1e161, 1e162, 1e163, 1e164, 1e165, 1e166, 1e167, 1e168, 1e169,
+  1e170, 1e171, 1e172, 1e173, 1e174, 1e175, 1e176, 1e177, 1e178, 1e179,
+  1e180, 1e181, 1e182, 1e183, 1e184, 1e185, 1e186, 1e187, 1e188, 1e189,
+  1e190, 1e191, 1e192, 1e193, 1e194, 1e195, 1e196, 1e197, 1e198, 1e199,
+  1e200, 1e201, 1e202, 1e203, 1e204, 1e205, 1e206, 1e207, 1e208, 1e209,
+  1e210, 1e211, 1e212, 1e213, 1e214, 1e215, 1e216, 1e217, 1e218, 1e219,
+  1e220, 1e221, 1e222, 1e223, 1e224, 1e225, 1e226, 1e227, 1e228, 1e229,
+  1e230, 1e231, 1e232, 1e233, 1e234, 1e235, 1e236, 1e237, 1e238, 1e239,
+  1e240, 1e241, 1e242, 1e243, 1e244, 1e245, 1e246, 1e247, 1e248, 1e249,
+  1e250, 1e251, 1e252, 1e253, 1e254, 1e255, 1e256, 1e257, 1e258, 1e259,
+  1e260, 1e261, 1e262, 1e263, 1e264, 1e265, 1e266, 1e267, 1e268, 1e269,
+  1e270, 1e271, 1e272, 1e273, 1e274, 1e275, 1e276, 1e277, 1e278, 1e279,
+  1e280, 1e281, 1e282, 1e283, 1e284, 1e285, 1e286, 1e287, 1e288, 1e289,
+  1e290, 1e291, 1e292, 1e293, 1e294, 1e295, 1e296, 1e297, 1e298, 1e299,
+  1e300, 1e301, 1e302, 1e303, 1e304, 1e305, 1e306, 1e307, 1e308
+};
 
 time_t server_start_time, flush_status_time;
 
@@ -580,15 +655,11 @@ int mysqld_server_started= 0;
 File_parser_dummy_hook file_parser_dummy_hook;
 
 /* replication parameters, if master_host is not NULL, we are a slave */
-uint master_port= MYSQL_PORT, master_connect_retry = 60;
 uint report_port= MYSQL_PORT;
 ulong master_retry_count=0;
-char *master_user, *master_password, *master_host, *master_info_file;
+char *master_info_file;
 char *relay_log_info_file, *report_user, *report_password, *report_host;
 char *opt_relay_logname = 0, *opt_relaylog_index_name=0;
-my_bool master_ssl;
-char *master_ssl_key, *master_ssl_cert;
-char *master_ssl_ca, *master_ssl_capath, *master_ssl_cipher;
 char *opt_logname, *opt_slow_logname;
 
 /* Static variables */
@@ -2924,6 +2995,9 @@ static int init_common_variables(const char *conf_file_name, int argc,
   global_system_variables.character_set_results= default_charset_info;
   global_system_variables.character_set_client= default_charset_info;
 
+  global_system_variables.optimizer_use_mrr= 1;
+  global_system_variables.optimizer_switch= 0;
+
   if (!(character_set_filesystem= 
         get_charset_by_csname(character_set_filesystem_name,
                               MY_CS_PRIMARY, MYF(MY_WME))))
@@ -3228,7 +3302,7 @@ static int init_server_components()
   query_cache_init();
   query_cache_resize(query_cache_size);
   randominit(&sql_rand,(ulong) server_start_time,(ulong) server_start_time/2);
-  reset_floating_point_exceptions();
+  setup_fpu();
   init_thr_lock();
 #ifdef HAVE_REPLICATION
   init_slave_list();
@@ -3819,21 +3893,12 @@ int main(int argc, char **argv)
 
   if (opt_bin_log && !server_id)
   {
-    server_id= !master_host ? 1 : 2;
+    server_id= 1;
 #ifdef EXTRA_DEBUG
-    switch (server_id) {
-    case 1:
-      sql_print_warning("\
-You have enabled the binary log, but you haven't set server-id to \
-a non-zero value: we force server id to 1; updates will be logged to the \
-binary log, but connections from slaves will not be accepted.");
-      break;
-    case 2:
-      sql_print_warning("\
-You should set server-id to a non-0 value if master_host is set; \
-we force server id to 2, but this MySQL server will not act as a slave.");
-      break;
-    }
+    sql_print_warning("You have enabled the binary log, but you haven't set "
+                      "server-id to a non-zero value: we force server id to 1; "
+                      "updates will be logged to the binary log, but "
+                      "connections from slaves will not be accepted.");
 #endif
   }
 
@@ -4338,11 +4403,7 @@ void create_thread_to_handle_connection(THD *thd)
 
 static void create_new_thread(THD *thd)
 {
-  NET *net=&thd->net;
   DBUG_ENTER("create_new_thread");
-
-  if (protocol_version > 9)
-    net->return_errno=1;
 
   /* don't allow too many connections */
   if (thread_count - delayed_insert_threads >= max_connections+1 || abort_loop)
@@ -4949,13 +5010,8 @@ enum options_mysqld
   OPT_STORAGE_ENGINE,          OPT_INIT_FILE,
   OPT_DELAY_KEY_WRITE_ALL,     OPT_SLOW_QUERY_LOG,
   OPT_DELAY_KEY_WRITE,	       OPT_CHARSETS_DIR,
-  OPT_MASTER_HOST,             OPT_MASTER_USER,
-  OPT_MASTER_PASSWORD,         OPT_MASTER_PORT,
-  OPT_MASTER_INFO_FILE,        OPT_MASTER_CONNECT_RETRY,
+  OPT_MASTER_INFO_FILE,
   OPT_MASTER_RETRY_COUNT,      OPT_LOG_TC, OPT_LOG_TC_SIZE,
-  OPT_MASTER_SSL,              OPT_MASTER_SSL_KEY,
-  OPT_MASTER_SSL_CERT,         OPT_MASTER_SSL_CAPATH,
-  OPT_MASTER_SSL_CIPHER,       OPT_MASTER_SSL_CA,
   OPT_SQL_BIN_UPDATE_SAME,     OPT_REPLICATE_DO_DB,
   OPT_REPLICATE_IGNORE_DB,     OPT_LOG_SLAVE_UPDATES,
   OPT_BINLOG_DO_DB,            OPT_BINLOG_IGNORE_DB,
@@ -4978,6 +5034,8 @@ enum options_mysqld
   OPT_NDB_USE_EXACT_COUNT, OPT_NDB_USE_TRANSACTIONS,
   OPT_NDB_FORCE_SEND, OPT_NDB_AUTOINCREMENT_PREFETCH_SZ,
   OPT_NDB_SHM, OPT_NDB_OPTIMIZED_NODE_SELECTION, OPT_NDB_CACHE_CHECK_TIME,
+  OPT_NDB_WAIT_CONNECTED,
+  OPT_NDB_CLUSTER_CONNECTION_POOL,
   OPT_NDB_MGMD, OPT_NDB_NODEID,
   OPT_NDB_DISTRIBUTION,
   OPT_NDB_INDEX_STAT_ENABLE,
@@ -4985,6 +5043,8 @@ enum options_mysqld
   OPT_NDB_REPORT_THRESH_BINLOG_EPOCH_SLIP,
   OPT_NDB_REPORT_THRESH_BINLOG_MEM_USAGE,
   OPT_NDB_USE_COPYING_ALTER_TABLE,
+  OPT_NDB_LOG_UPDATE_AS_WRITE, OPT_NDB_LOG_UPDATED_ONLY,
+  OPT_NDB_LOG_ORIG,
   OPT_SKIP_SAFEMALLOC,
   OPT_TEMP_POOL, OPT_TX_ISOLATION, OPT_COMPLETION_TYPE,
   OPT_SKIP_STACK_TRACE, OPT_SKIP_SYMLINKS,
@@ -4997,7 +5057,7 @@ enum options_mysqld
   OPT_SLAVE_LOAD_TMPDIR, OPT_NO_MIX_TYPE,
   OPT_RPL_RECOVERY_RANK,OPT_INIT_RPL_ROLE,
   OPT_RELAY_LOG, OPT_RELAY_LOG_INDEX, OPT_RELAY_LOG_INFO_FILE,
-  OPT_SLAVE_SKIP_ERRORS, OPT_DES_KEY_FILE, OPT_LOCAL_INFILE,
+  OPT_SLAVE_SKIP_ERRORS, OPT_SLAVE_ALLOW_BATCHING, OPT_DES_KEY_FILE, OPT_LOCAL_INFILE,
   OPT_SSL_SSL, OPT_SSL_KEY, OPT_SSL_CERT, OPT_SSL_CA,
   OPT_SSL_CAPATH, OPT_SSL_CIPHER,
   OPT_BACK_LOG, OPT_BINLOG_CACHE_SIZE,
@@ -5423,60 +5483,15 @@ log and this option justs turns on --log-bin instead.",
    (uchar**) &global_system_variables.low_priority_updates,
    (uchar**) &max_system_variables.low_priority_updates,
    0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
-  {"master-connect-retry", OPT_MASTER_CONNECT_RETRY,
-   "The number of seconds the slave thread will sleep before retrying to connect to the master in case the master goes down or the connection is lost.",
-   (uchar**) &master_connect_retry, (uchar**) &master_connect_retry, 0, GET_UINT,
-   REQUIRED_ARG, 60, 0, 0, 0, 0, 0},
-  {"master-host", OPT_MASTER_HOST,
-   "Master hostname or IP address for replication. If not set, the slave thread will not be started. Note that the setting of master-host will be ignored if there exists a valid master.info file.",
-   (uchar**) &master_host, (uchar**) &master_host, 0, GET_STR, REQUIRED_ARG, 0, 0,
-   0, 0, 0, 0},
   {"master-info-file", OPT_MASTER_INFO_FILE,
    "The location and name of the file that remembers the master and where the I/O replication \
 thread is in the master's binlogs.",
    (uchar**) &master_info_file, (uchar**) &master_info_file, 0, GET_STR,
    REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
-  {"master-password", OPT_MASTER_PASSWORD,
-   "The password the slave thread will authenticate with when connecting to the master. If not set, an empty password is assumed.The value in master.info will take precedence if it can be read.",
-   (uchar**)&master_password, (uchar**)&master_password, 0,
-   GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
-  {"master-port", OPT_MASTER_PORT,
-   "The port the master is listening on. If not set, the compiled setting of MYSQL_PORT is assumed. If you have not tinkered with configure options, this should be 3306. The value in master.info will take precedence if it can be read.",
-   (uchar**) &master_port, (uchar**) &master_port, 0, GET_UINT, REQUIRED_ARG,
-   MYSQL_PORT, 0, 0, 0, 0, 0},
   {"master-retry-count", OPT_MASTER_RETRY_COUNT,
    "The number of tries the slave will make to connect to the master before giving up.",
    (uchar**) &master_retry_count, (uchar**) &master_retry_count, 0, GET_ULONG,
    REQUIRED_ARG, 3600*24, 0, 0, 0, 0, 0},
-  {"master-ssl", OPT_MASTER_SSL,
-   "Enable the slave to connect to the master using SSL.",
-   (uchar**) &master_ssl, (uchar**) &master_ssl, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0,
-   0, 0},
-  {"master-ssl-ca", OPT_MASTER_SSL_CA,
-   "Master SSL CA file. Only applies if you have enabled master-ssl.",
-   (uchar**) &master_ssl_ca, (uchar**) &master_ssl_ca, 0, GET_STR, OPT_ARG,
-   0, 0, 0, 0, 0, 0},
-  {"master-ssl-capath", OPT_MASTER_SSL_CAPATH,
-   "Master SSL CA path. Only applies if you have enabled master-ssl.",
-   (uchar**) &master_ssl_capath, (uchar**) &master_ssl_capath, 0, GET_STR, OPT_ARG,
-   0, 0, 0, 0, 0, 0},
-  {"master-ssl-cert", OPT_MASTER_SSL_CERT,
-   "Master SSL certificate file name. Only applies if you have enabled \
-master-ssl",
-   (uchar**) &master_ssl_cert, (uchar**) &master_ssl_cert, 0, GET_STR, OPT_ARG,
-   0, 0, 0, 0, 0, 0},
-  {"master-ssl-cipher", OPT_MASTER_SSL_CIPHER,
-   "Master SSL cipher. Only applies if you have enabled master-ssl.",
-   (uchar**) &master_ssl_cipher, (uchar**) &master_ssl_capath, 0, GET_STR, OPT_ARG,
-   0, 0, 0, 0, 0, 0},
-  {"master-ssl-key", OPT_MASTER_SSL_KEY,
-   "Master SSL keyfile name. Only applies if you have enabled master-ssl.",
-   (uchar**) &master_ssl_key, (uchar**) &master_ssl_key, 0, GET_STR, OPT_ARG,
-   0, 0, 0, 0, 0, 0},
-  {"master-user", OPT_MASTER_USER,
-   "The username the slave thread will use for authentication when connecting to the master. The user must have FILE privilege. If the master user is not set, user test is assumed. The value in master.info will take precedence if it can be read.",
-   (uchar**) &master_user, (uchar**) &master_user, 0, GET_STR, REQUIRED_ARG, 0, 0,
-   0, 0, 0, 0},
 #ifdef HAVE_REPLICATION
   {"max-binlog-dump-events", OPT_MAX_BINLOG_DUMP_EVENTS,
    "Option used by mysql-test for debugging and testing of replication.",
@@ -5548,6 +5563,27 @@ master-ssl",
    (uchar**) &ndb_report_thresh_binlog_mem_usage,
    (uchar**) &ndb_report_thresh_binlog_mem_usage,
    0, GET_ULONG, REQUIRED_ARG, 10, 0, 100, 0, 0, 0},
+  {"ndb-log-update-as-write", OPT_NDB_LOG_UPDATE_AS_WRITE,
+   "For efficiency log only after image as a write event."
+   "Ignore before image.  This may cause compatability problems if"
+   "replicating to other storage engines than ndbcluster",
+   (uchar**) &opt_ndb_log_update_as_write,
+   (uchar**) &opt_ndb_log_update_as_write,
+   0, GET_BOOL, OPT_ARG, 1, 0, 0, 0, 0, 0},
+  {"ndb-log-updated-only", OPT_NDB_LOG_UPDATED_ONLY,
+   "For efficiency log only updated columns. Columns are considered "
+   "as \"updated\" even if they are updated with the same value. "
+   "This may cause compatability problems if"
+   "replicating to other storage engines than ndbcluster",
+   (uchar**) &opt_ndb_log_updated_only,
+   (uchar**) &opt_ndb_log_updated_only,
+   0, GET_BOOL, OPT_ARG, 1, 0, 0, 0, 0, 0},
+  {"ndb-log-orig", OPT_NDB_LOG_ORIG,
+   "Log originating server id and epoch in ndb_binlog_index.  Each epoch may in this case have "
+   "multiple rows in ndb_binlog_index, one for each originating epoch.",
+   (uchar**) &opt_ndb_log_orig,
+   (uchar**) &opt_ndb_log_orig,
+   0, GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, 0},
 #endif
   {"ndb-use-exact-count", OPT_NDB_USE_EXACT_COUNT,
    "Use exact records count during query planning and for fast "
@@ -5590,13 +5626,22 @@ master-ssl",
    (uchar**) &global_system_variables.ndb_index_stat_enable,
    (uchar**) &max_system_variables.ndb_index_stat_enable,
    0, GET_BOOL, OPT_ARG, 0, 0, 1, 0, 0, 0},
-#endif
   {"ndb-use-copying-alter-table",
    OPT_NDB_USE_COPYING_ALTER_TABLE,
    "Force ndbcluster to always copy tables at alter table (should only be used if on-line alter table fails).",
    (uchar**) &global_system_variables.ndb_use_copying_alter_table,
    (uchar**) &global_system_variables.ndb_use_copying_alter_table,
    0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},  
+  { "ndb-wait-connected", OPT_NDB_WAIT_CONNECTED,
+    "Time (in seconds) for mysqld to wait for connection to cluster management and data nodes.",
+    (uchar**) &opt_ndb_wait_connected, (uchar**) &opt_ndb_wait_connected,
+    0, GET_ULONG, REQUIRED_ARG, 0, 0, LONG_TIMEOUT, 0, 0, 0},
+  { "ndb-cluster-connection-pool", OPT_NDB_CLUSTER_CONNECTION_POOL,
+    "Pool of cluster connections to cluster to be used by mysql server.",
+    (uchar**) &opt_ndb_cluster_connection_pool,
+    (uchar**) &opt_ndb_cluster_connection_pool,
+    0, GET_ULONG, REQUIRED_ARG, 1, 1, 63, 0, 0, 0},
+#endif
   {"new", 'n', "Use very new possible 'unsafe' functions.",
    (uchar**) &global_system_variables.new_mode,
    (uchar**) &max_system_variables.new_mode,
@@ -6108,11 +6153,6 @@ The minimum value for this variable is 4096.",
    (uchar**) &global_system_variables.min_examined_row_limit,
    (uchar**) &max_system_variables.min_examined_row_limit, 0, GET_ULONG,
   REQUIRED_ARG, 0, 0, ~0L, 0, 1L, 0},
-  {"multi_range_count", OPT_MULTI_RANGE_COUNT,
-   "Number of key ranges to request at once.",
-   (uchar**) &global_system_variables.multi_range_count,
-   (uchar**) &max_system_variables.multi_range_count, 0,
-   GET_ULONG, REQUIRED_ARG, 256, 1, ~0L, 0, 1, 0},
   {"myisam_block_size", OPT_MYISAM_BLOCK_SIZE,
    "Block size to be used for MyISAM index pages.",
    (uchar**) &opt_myisam_block_size,
@@ -6267,8 +6307,8 @@ The minimum value for this variable is 4096.",
    "When reading rows in sorted order after a sort, the rows are read through this buffer to avoid a disk seeks. If not set, then it's set to the value of record_buffer.",
    (uchar**) &global_system_variables.read_rnd_buff_size,
    (uchar**) &max_system_variables.read_rnd_buff_size, 0,
-   GET_ULONG, REQUIRED_ARG, 256*1024L, IO_SIZE*2+MALLOC_OVERHEAD,
-   INT_MAX32, MALLOC_OVERHEAD, IO_SIZE, 0},
+   GET_ULONG, REQUIRED_ARG, 256*1024L, 64 /*IO_SIZE*2+MALLOC_OVERHEAD*/ ,
+   INT_MAX32, MALLOC_OVERHEAD, 1 /* Small lower limit to be able to test MRR */, 0},
   {"record_buffer", OPT_RECORD_BUFFER,
    "Alias for read_buffer_size",
    (uchar**) &global_system_variables.read_buff_size,
@@ -6300,6 +6340,10 @@ The minimum value for this variable is 4096.",
    "before giving up and stopping.",
    (uchar**) &slave_trans_retries, (uchar**) &slave_trans_retries, 0,
    GET_ULONG, REQUIRED_ARG, 10L, 0L, (longlong) ULONG_MAX, 0, 1, 0},
+  {"slave-allow-batching", OPT_SLAVE_ALLOW_BATCHING,
+   "Allow slave to batch requests.",
+   (uchar**) &slave_allow_batching, (uchar**) &slave_allow_batching,
+   0, GET_BOOL, NO_ARG, 0, 0, 1, 0, 1, 0},
 #endif /* HAVE_REPLICATION */
   {"slow_launch_time", OPT_SLOW_LAUNCH_TIME,
    "If creating the thread takes longer than this value (in seconds), the Slow_launch_threads counter will be incremented.",
@@ -6767,7 +6811,6 @@ SHOW_VAR status_vars[]= {
   {"Com_alter_event",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ALTER_EVENT]), SHOW_LONG_STATUS},
   {"Com_alter_table",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ALTER_TABLE]), SHOW_LONG_STATUS},
   {"Com_analyze",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ANALYZE]), SHOW_LONG_STATUS},
-  {"Com_backup_table",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_BACKUP_TABLE]), SHOW_LONG_STATUS},
   {"Com_begin",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_BEGIN]), SHOW_LONG_STATUS},
   {"Com_call_procedure",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CALL]), SHOW_LONG_STATUS},
   {"Com_change_db",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_CHANGE_DB]), SHOW_LONG_STATUS},
@@ -6802,8 +6845,6 @@ SHOW_VAR status_vars[]= {
   {"Com_insert_select",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_INSERT_SELECT]), SHOW_LONG_STATUS},
   {"Com_kill",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_KILL]), SHOW_LONG_STATUS},
   {"Com_load",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_LOAD]), SHOW_LONG_STATUS},
-  {"Com_load_master_data",     (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_LOAD_MASTER_DATA]), SHOW_LONG_STATUS},
-  {"Com_load_master_table",    (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_LOAD_MASTER_TABLE]), SHOW_LONG_STATUS},
   {"Com_lock_tables",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_LOCK_TABLES]), SHOW_LONG_STATUS},
   {"Com_optimize",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_OPTIMIZE]), SHOW_LONG_STATUS},
   {"Com_preload_keys",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_PRELOAD_KEYS]), SHOW_LONG_STATUS},
@@ -6815,7 +6856,6 @@ SHOW_VAR status_vars[]= {
   {"Com_replace",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REPLACE]), SHOW_LONG_STATUS},
   {"Com_replace_select",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REPLACE_SELECT]), SHOW_LONG_STATUS},
   {"Com_reset",		       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_RESET]), SHOW_LONG_STATUS},
-  {"Com_restore_table",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_RESTORE_TABLE]), SHOW_LONG_STATUS},
   {"Com_revoke",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REVOKE]), SHOW_LONG_STATUS},
   {"Com_revoke_all",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_REVOKE_ALL]), SHOW_LONG_STATUS},
   {"Com_rollback",	       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_ROLLBACK]), SHOW_LONG_STATUS},
@@ -7150,12 +7190,8 @@ static void mysql_init_variables(void)
   mysql_data_home_len= 2;
 
   /* Replication parameters */
-  master_user= (char*) "test";
-  master_password= master_host= 0;
   master_info_file= (char*) "master.info",
     relay_log_info_file= (char*) "relay-log.info";
-  master_ssl_key= master_ssl_cert= master_ssl_ca= 
-    master_ssl_capath= master_ssl_cipher= 0;
   report_user= report_password = report_host= 0;	/* TO BE DELETED */
   opt_relay_logname= opt_relaylog_index_name= 0;
 
@@ -7577,29 +7613,6 @@ mysqld_get_one_option(int optid,
   case (int) OPT_STANDALONE:		/* Dummy option for NT */
     break;
 #endif
-  /*
-    The following change issues a deprecation warning if the slave
-    configuration is specified either in the my.cnf file or on
-    the command-line. See BUG#21490.
-  */
-  case OPT_MASTER_HOST:
-  case OPT_MASTER_USER:
-  case OPT_MASTER_PASSWORD:
-  case OPT_MASTER_PORT:
-  case OPT_MASTER_CONNECT_RETRY:
-  case OPT_MASTER_SSL:          
-  case OPT_MASTER_SSL_KEY:
-  case OPT_MASTER_SSL_CERT:       
-  case OPT_MASTER_SSL_CAPATH:
-  case OPT_MASTER_SSL_CIPHER:
-  case OPT_MASTER_SSL_CA:
-    if (!slave_warning_issued)                 //only show the warning once
-    {
-      slave_warning_issued = true;   
-      WARN_DEPRECATED(NULL, "5.2", "for replication startup options", 
-        "'CHANGE MASTER'");
-    }
-    break;
   case OPT_CONSOLE:
     if (opt_console)
       opt_error_log= 0;			// Force logs to stdout

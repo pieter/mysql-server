@@ -1,0 +1,31 @@
+SET storage_engine = Falcon;
+*** Bug #28057 ***
+DROP TABLE IF EXISTS t7;
+CREATE TABLE t7 (s1 int);
+CREATE INDEX it7 ON t7 (s1);
+INSERT INTO t7 VALUES (null),(0),(1);
+SELECT * FROM t7;
+s1
+NULL
+0
+1
+SELECT * FROM t7 WHERE s1 IS NULL OR s1 = 0 OR s1 = 1;
+s1
+NULL
+0
+1
+DROP TABLE t7;
+CREATE TABLE t7 (s1 varchar(5));
+CREATE INDEX it7 ON t7 (s1);
+INSERT INTO t7 VALUES (null),(''),(' ');
+SELECT * FROM t7;
+s1
+NULL
+
+ 
+SELECT * FROM t7 WHERE s1 >= '' OR s1 IS NULL;
+s1
+NULL
+
+ 
+DROP TABLE t7;

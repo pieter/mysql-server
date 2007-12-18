@@ -1,0 +1,48 @@
+--source include/have_falcon.inc
+SET storage_engine = Falcon;
+#
+# Bug #22154: Crash after 500 alters, 500 inserts, and a few updates
+#
+--echo *** Bug #22154 ***
+--disable_warnings
+DROP TABLE IF EXISTS tj9;
+DROP PROCEDURE IF EXISTS pj9;
+--enable_warnings
+
+delimiter //;
+
+create procedure pj9 ()
+begin
+  declare v int default 1;
+  drop table if exists tj9;
+  create table tj9 (s0 int);
+  while v < 500 do
+    select 'alter',v;
+    set @v = concat('alter table tj9 add column s',v,' char(64) default ''Hello World''');
+    prepare stmt1 from @v;
+    execute stmt1;
+    set v = v + 1;
+  end while;
+  set v = 1;
+  while v < 500 do
+    select 'insert',v;
+    insert into tj9 (s1) values (v);
+    set v = v + 1;
+  end while;
+  set v = 1;
+  while v < 500 do
+    select 'update',v;
+    set @v = concat('update tj9 set s',v,'=concat(s2,s1)');
+    prepare stmt1 from @v;
+    execute stmt1;
+    set v = v + 1;
+  end while;
+end//
+
+call pj9()//
+
+# Final cleanup
+DROP TABLE tj9//
+DROP PROCEDURE pj9//
+
+delimiter ;//

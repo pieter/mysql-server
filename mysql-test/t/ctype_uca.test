@@ -543,3 +543,19 @@ set collation_connection=ucs2_unicode_ci;
 set names utf8;
 
 -- echo End for 5.0 tests
+--echo End of 5.1 tests
+
+set collation_connection=ucs2_unicode_ci;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+
+set @@collation_connection=utf8_unicode_ci;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+
+set @@collation_connection=utf8_czech_ci;
+--source include/weight_string_chde.inc
+
+set @@collation_connection=ucs2_czech_ci;
+--source include/weight_string_chde.inc
+

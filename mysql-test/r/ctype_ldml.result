@@ -1,11 +1,14 @@
 drop table if exists t1;
+In the following tests we change the order of letter "b"
+making it equal to letter "a", and check that it works
+with all Unicode character sets
 set names utf8;
 show variables like 'character_sets_dir%';
 Variable_name	Value
 character_sets_dir	MYSQL_TEST_DIR/std_data/
 show collation like 'utf8_test_ci';
 Collation	Charset	Id	Default	Compiled	Sortlen
-utf8_test_ci	utf8	240			8
+utf8_test_ci	utf8	253			8
 create table t1 (c1 char(1) character set utf8 collate utf8_test_ci);
 insert into t1 values ('a');
 select * from t1 where c1='b';
@@ -14,16 +17,35 @@ a
 drop table t1;
 show collation like 'ucs2_test_ci';
 Collation	Charset	Id	Default	Compiled	Sortlen
-ucs2_test_ci	ucs2	241			8
+ucs2_test_ci	ucs2	158			8
 create table t1 (c1 char(1) character set ucs2 collate ucs2_test_ci);
 insert into t1 values ('a');
 select * from t1 where c1='b';
 c1
 a
 drop table t1;
+show collation like 'utf16_test_ci';
+Collation	Charset	Id	Default	Compiled	Sortlen
+utf16_test_ci	utf16	127			8
+create table t1 (c1 char(1) character set utf16 collate utf16_test_ci);
+insert into t1 values ('a');
+select * from t1 where c1='b';
+c1
+a
+drop table t1;
+show collation like 'utf32_test_ci';
+Collation	Charset	Id	Default	Compiled	Sortlen
+utf32_test_ci	utf32	191			8
+create table t1 (c1 char(1) character set utf32 collate utf32_test_ci);
+insert into t1 values ('a');
+select * from t1 where c1='b';
+c1
+a
+drop table t1;
+Vietnamese experimental collation
 show collation like 'ucs2_vn_ci';
 Collation	Charset	Id	Default	Compiled	Sortlen
-ucs2_vn_ci	ucs2	242			8
+ucs2_vn_ci	ucs2	159			8
 create table t1 (c1 char(1) character set ucs2 collate ucs2_vn_ci);
 insert into t1 values (0x0061),(0x0041),(0x00E0),(0x00C0),(0x1EA3),(0x1EA2),
 (0x00E3),(0x00C3),(0x00E1),(0x00C1),(0x1EA1),(0x1EA0);

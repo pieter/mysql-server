@@ -1,0 +1,23 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #23220: Falcon: Setting falcon_page_size to non-default size crashes Falcon
+#   Fifth part of six. We are testing page sizes of 1, 2, 4, 8, 16, and 32 KB.
+#
+--echo *** Bug #23220_16 ***
+--disable_warnings
+DROP SCHEMA IF EXISTS page_16;
+--enable_warnings
+
+SHOW VARIABLES LIKE 'falcon_page_size';
+CREATE SCHEMA page_16;
+USE page_16;
+
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (16);
+SELECT count(*) FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;
+DROP SCHEMA page_16;
+USE test;

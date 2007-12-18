@@ -1,0 +1,16 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #23682: Falcon: crash after two alters
+#
+--echo *** Bug #23682 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a char(5));
+ALTER TABLE t1 Engine MyISAM;
+ALTER TABLE t1 Engine Falcon;
+
+# Final cleanup.
+DROP TABLE t1;

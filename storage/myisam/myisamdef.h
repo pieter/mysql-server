@@ -164,6 +164,7 @@ typedef struct st_mi_isam_share {	/* Shared between opens */
   MI_COLUMNDEF *rec;			/* Pointer to field information */
   MI_PACK    pack;			/* Data about packed records */
   MI_BLOB    *blobs;			/* Pointer to blobs */
+  LIST *in_use;                         /* List of threads using this table */
   char  *unique_file_name;		/* realpath() of index file */
   char  *data_file_name,		/* Resolved path names from symlinks */
         *index_file_name;
@@ -231,6 +232,9 @@ typedef struct st_mi_bit_buff {		/* Used for packing of record */
   uint error;
 } MI_BIT_BUFF;
 
+
+typedef my_bool (*index_cond_func_t)(void *param);
+
 struct st_myisam_info {
   MYISAM_SHARE *s;			/* Shared between open:s */
   MI_STATUS_INFO *state,save_state;
@@ -241,6 +245,7 @@ struct st_myisam_info {
   DYNAMIC_ARRAY *ft1_to_ft2;            /* used only in ft1->ft2 conversion */
   MEM_ROOT      ft_memroot;             /* used by the parser               */
   MYSQL_FTPARSER_PARAM *ftparser_param; /* share info between init/deinit   */
+  LIST in_use;                          /* Thread using this table          */
   char *filename;			/* parameter to open filename       */
   uchar *buff,				/* Temp area for key                */
 	*lastkey,*lastkey2;		/* Last used search key             */
@@ -293,6 +298,9 @@ struct st_myisam_info {
   my_bool page_changed;		/* If info->buff can't be used for rnext */
   my_bool buff_used;		/* If info->buff has to be reread for rnext */
   my_bool once_flags;           /* For MYISAMMRG */
+
+  index_cond_func_t index_cond_func;   /* Index condition function */
+  void *index_cond_func_arg;           /* parameter for the func */
 #ifdef __WIN__
   my_bool owned_by_merge;                       /* This MyISAM table is part of a merge union */
 #endif
@@ -384,8 +392,10 @@ typedef struct st_mi_sort_param
 #define mi_putint(x,y,nod) { uint16 boh=(nod ? (uint16) 32768 : 0) + (uint16) (y);\
 			  mi_int2store(x,boh); }
 #define mi_test_if_nod(x) (x[0] & 128 ? info->s->base.key_reflength : 0)
+#define mi_report_crashed(A, B) _mi_report_crashed((A), (B), __FILE__, __LINE__)
 #define mi_mark_crashed(x) do{(x)->s->state.changed|= STATE_CRASHED; \
                               DBUG_PRINT("error", ("Marked table crashed")); \
+                              mi_report_crashed((x), 0); \
                            }while(0)
 #define mi_mark_crashed_on_repair(x) do{(x)->s->state.changed|= \
                                         STATE_CRASHED|STATE_CRASHED_ON_REPAIR; \
@@ -769,6 +779,10 @@ void mi_setup_functions(register MYISAM_SHARE *share);
 my_bool mi_dynmap_file(MI_INFO *info, my_off_t size);
 void mi_remap_file(MI_INFO *info, my_off_t size);
 
+int mi_check_index_cond(register MI_INFO *info, uint keynr, uchar *record);
+void _mi_report_crashed(MI_INFO *file, const char *message,
+                        const char *sfile, uint sline);
+
     /* Functions needed by mi_check */
 volatile int *killed_ptr(MI_CHECK *param);
 void mi_check_print_error _VARARGS((MI_CHECK *param, const char *fmt,...));
@@ -785,6 +799,8 @@ int flush_blocks(MI_CHECK *param, KEY_CACHE *key_cache, File file);
 int sort_write_record(MI_SORT_PARAM *sort_param);
 int _create_index_by_sort(MI_SORT_PARAM *info,my_bool no_messages, ulong);
 
+extern void mi_set_index_cond_func(MI_INFO *info, index_cond_func_t func,
+                                   void *func_arg);
 #ifdef __cplusplus
 }
 #endif

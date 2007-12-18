@@ -161,7 +161,6 @@ sp_get_flags_for_command(LEX *lex)
     }
     /* fallthrough */
   case SQLCOM_ANALYZE:
-  case SQLCOM_BACKUP_TABLE:
   case SQLCOM_OPTIMIZE:
   case SQLCOM_PRELOAD_KEYS:
   case SQLCOM_ASSIGN_TO_KEYCACHE:
@@ -207,7 +206,6 @@ sp_get_flags_for_command(LEX *lex)
   case SQLCOM_SHOW_VARIABLES:
   case SQLCOM_SHOW_WARNS:
   case SQLCOM_REPAIR:
-  case SQLCOM_RESTORE_TABLE:
     flags= sp_head::MULTI_RESULTS;
     break;
   /*
@@ -262,7 +260,6 @@ sp_get_flags_for_command(LEX *lex)
   case SQLCOM_COMMIT:
   case SQLCOM_ROLLBACK:
   case SQLCOM_LOAD:
-  case SQLCOM_LOAD_MASTER_DATA:
   case SQLCOM_LOCK_TABLES:
   case SQLCOM_CREATE_PROCEDURE:
   case SQLCOM_CREATE_SPFUNCTION:
@@ -448,13 +445,8 @@ check_routine_name(LEX_STRING *ident)
     my_error(ER_SP_WRONG_NAME, MYF(0), ident->str);
     return TRUE;
   }
-  if (check_string_char_length(ident, "", NAME_CHAR_LEN,
-                               system_charset_info, 1))
-  {
-    my_error(ER_TOO_LONG_IDENT, MYF(0), ident->str);
+  if (check_identifier_name(ident, ER_TOO_LONG_IDENT))
     return TRUE;
-  }
-
   return FALSE;
 }
 
@@ -2162,7 +2154,9 @@ sp_head::fill_field_definition(THD *thd, LEX *lex,
                       &lex->interval_list,
                       lex->charset ? lex->charset :
                                      thd->variables.collation_database,
-                      lex->uint_geom_type))
+                      lex->uint_geom_type,
+                      (enum ha_storage_media)0,
+                      (enum column_format_type)0))
     return TRUE;
 
   if (field_def->interval_list.elements)
@@ -3709,6 +3703,9 @@ typedef struct st_sp_table
   uint lock_count;
   uint query_lock_count;
   uint8 trg_event_map;
+  /* For transactional locking. */
+  int           lock_timeout;           /* NOWAIT or WAIT [X]               */
+  bool          lock_transactional;     /* If transactional lock requested. */
 } SP_TABLE;
 
 
@@ -3790,7 +3787,11 @@ sp_head::merge_table_list(THD *thd, TABLE_LIST *table, LEX *lex_for_tmp_check)
            tab->temp))
       {
         if (tab->lock_type < table->lock_type)
-          tab->lock_type= table->lock_type; // Use the table with the highest lock type
+          tab->lock_type= table->lock_type; // Use the highest lock type
+        if (tab->lock_timeout > table->lock_timeout)
+          tab->lock_timeout= table->lock_timeout; // Use the lowest timeout
+        if (!table->lock_transactional)
+          tab->lock_transactional= FALSE; // Non-transactional locks win
         tab->query_lock_count++;
         if (tab->query_lock_count > tab->lock_count)
           tab->lock_count++;
@@ -3815,6 +3816,8 @@ sp_head::merge_table_list(THD *thd, TABLE_LIST *table, LEX *lex_for_tmp_check)
         tab->table_name_length= table->table_name_length;
         tab->db_length= table->db_length;
         tab->lock_type= table->lock_type;
+        tab->lock_timeout= table->lock_timeout;
+        tab->lock_transactional= table->lock_transactional;
         tab->lock_count= tab->query_lock_count= 1;
         tab->trg_event_map= table->trg_event_map;
 	my_hash_insert(&m_sptabs, (uchar *)tab);
@@ -3890,6 +3893,8 @@ sp_head::add_used_tables_to_table_list(THD *thd,
       table->table_name_length= stab->table_name_length;
       table->alias= table->table_name + table->table_name_length + 1;
       table->lock_type= stab->lock_type;
+      table->lock_timeout= stab->lock_timeout;
+      table->lock_transactional= stab->lock_transactional;
       table->cacheable_table= 1;
       table->prelocking_placeholder= 1;
       table->belong_to_view= belong_to_view;
@@ -3936,6 +3941,8 @@ sp_add_to_query_tables(THD *thd, LEX *lex,
   table->table_name= thd->strmake(name, table->table_name_length);
   table->alias= thd->strdup(name);
   table->lock_type= locktype;
+  table->lock_timeout= -1;      /* default timeout */
+  table->lock_transactional= 1; /* allow transactional locks */
   table->select_lex= lex->current_select;
   table->cacheable_table= 1;
   

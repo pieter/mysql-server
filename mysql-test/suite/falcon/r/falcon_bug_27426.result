@@ -1,0 +1,22 @@
+*** Bug #27426 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a datetime);
+CREATE INDEX i1 on t1 (a);
+INSERT INTO t1 (a) VALUES ('1965-06-29 11:59:58');
+SELECT count(*) FROM t1 WHERE a < '9999-12-31 00:00:00';
+count(*)
+1
+SELECT count(*) FROM t1 WHERE a < '2000-06-29 12:59:50';
+count(*)
+1
+SELECT count(*) FROM t1 WHERE a > '1861-06-29 12:59:50';
+count(*)
+1
+SELECT count(*) FROM t1 WHERE a > '1761-06-29 12:59:50';
+count(*)
+1
+SELECT count(*) FROM t1;
+count(*)
+1
+DROP TABLE t1;

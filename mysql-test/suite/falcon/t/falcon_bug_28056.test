@@ -1,0 +1,25 @@
+--source include/have_falcon.inc
+#
+# Bug #28056: Falcon Updates miss rows
+#
+--echo #---- Bug 28056 ----
+SET STORAGE_ENGINE='Falcon';
+--disable_warnings
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+CREATE TABLE t2 (s1 int, key (s1));
+INSERT INTO t2 (s1) VALUES (1),(2),(3),(4),(5),(6),(7),(8);
+INSERT INTO t2 SELECT * FROM t2;
+INSERT INTO t2 SELECT * FROM t2;
+INSERT INTO t2 SELECT * FROM t2;
+INSERT INTO t2 SELECT * FROM t2;
+INSERT INTO t2 SELECT * FROM t2;
+INSERT INTO t2 SELECT * FROM t2;
+INSERT INTO t2 SELECT * FROM t2;
+UPDATE t2 SET s1 = 99 WHERE s1 = 2;
+SELECT s1,count(*) FROM t2 GROUP BY s1;
+
+# Final cleanup
+DROP TABLE t2;
+

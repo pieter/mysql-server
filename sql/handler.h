@@ -46,6 +46,60 @@
 #define HA_ADMIN_NEEDS_ALTER    -11
 #define HA_ADMIN_NEEDS_CHECK    -12
 
+/* Bits to show what an alter table will do */
+#include <sql_bitmap.h>
+
+#define HA_MAX_ALTER_FLAGS 39
+typedef Bitmap<HA_MAX_ALTER_FLAGS> HA_ALTER_FLAGS;
+
+#define HA_ADD_INDEX                  (0)
+#define HA_DROP_INDEX                 (1)
+#define HA_ALTER_INDEX                (2)
+#define HA_RENAME_INDEX               (3)
+#define HA_ADD_UNIQUE_INDEX           (4)
+#define HA_DROP_UNIQUE_INDEX          (5)
+#define HA_ALTER_UNIQUE_INDEX         (6)
+#define HA_RENAME_UNIQUE_INDEX        (7)
+#define HA_ADD_PK_INDEX               (8)
+#define HA_DROP_PK_INDEX              (9)
+#define HA_ALTER_PK_INDEX             (10)
+#define HA_ADD_COLUMN                 (11)
+#define HA_DROP_COLUMN                (12)
+#define HA_CHANGE_COLUMN              (13)
+#define HA_ALTER_COLUMN_NAME          (14)
+#define HA_ALTER_COLUMN_TYPE          (15)
+#define HA_ALTER_COLUMN_ORDER         (16)
+#define HA_ALTER_COLUMN_NULLABLE      (17)
+#define HA_COLUMN_DEFAULT_VALUE       (18)
+#define HA_COLUMN_STORAGE             (19)
+#define HA_COLUMN_FORMAT              (20)
+#define HA_ADD_FOREIGN_KEY            (21)
+#define HA_DROP_FOREIGN_KEY           (22)
+#define HA_ALTER_FOREIGN_KEY          (23)
+#define HA_ADD_CONSTRAINT             (24)
+#define HA_ADD_PARTITION              (25)
+#define HA_DROP_PARTITION             (26)
+#define HA_ALTER_PARTITION            (27)
+#define HA_COALESCE_PARTITION         (28)
+#define HA_REORGANIZE_PARTITION       (29)
+#define HA_CHANGE_CHARACTER_SET       (30)
+#define HA_SET_DEFAULT_CHARACTER_SET  (31)
+#define HA_CHANGE_AUTOINCREMENT_VALUE (32)
+#define HA_ALTER_STORAGE              (33)
+#define HA_ALTER_TABLESPACE           (34)
+#define HA_ALTER_ROW_FORMAT           (35)
+#define HA_RENAME_TABLE               (36)
+#define HA_ALTER_STORAGE_ENGINE       (37)
+#define HA_RECREATE                   (38)
+/* Remember to increase HA_MAX_ALTER_FLAGS when adding more flags! */
+
+/* Return values for check_if_supported_alter */
+
+#define HA_ALTER_ERROR               -1
+#define HA_ALTER_SUPPORTED_WAIT_LOCK  0
+#define HA_ALTER_SUPPORTED_NO_LOCK    1
+#define HA_ALTER_NOT_SUPPORTED        2
+
 /* Bits in table_flags() to show what database can do */
 
 #define HA_NO_TRANSACTIONS     (1 << 0) /* Doesn't support transactions */
@@ -117,12 +171,16 @@
 #define HA_HAS_RECORDS	       (LL(1) << 32) /* records() gives exact count*/
 /* Has it's own method of binlog logging */
 #define HA_HAS_OWN_BINLOGGING  (LL(1) << 33)
+#define HA_MRR_CANT_SORT       (LL(1) << 34)
+
 /*
   Engine is capable of row-format and statement-format logging,
   respectively
 */
-#define HA_BINLOG_ROW_CAPABLE  (LL(1) << 34)
-#define HA_BINLOG_STMT_CAPABLE (LL(1) << 35)
+#define HA_BINLOG_ROW_CAPABLE  (LL(1) << 35)
+#define HA_BINLOG_STMT_CAPABLE (LL(1) << 36)
+
+#define HA_ONLINE_ALTER        (LL(1) << 37)
 
 /*
   Set of all binlog flags. Currently only contain the capabilities
@@ -137,31 +195,15 @@
 #define HA_READ_RANGE           8       /* can find all records in a range */
 #define HA_ONLY_WHOLE_INDEX	16	/* Can't use part key searches */
 #define HA_KEYREAD_ONLY         64	/* Support HA_EXTRA_KEYREAD */
+/*
+  Index scan will not return records in rowid order. Not guaranteed to be
+  set for unordered (e.g. HASH) indexes.
+*/
+#define HA_KEY_SCAN_NOT_ROR     128 
+#define HA_DO_INDEX_COND_PUSHDOWN  256 /* Supports Index Condition Pushdown */
 
-/*
-  bits in alter_table_flags:
-*/
-/*
-  These bits are set if different kinds of indexes can be created
-  off-line without re-create of the table (but with a table lock).
-*/
-#define HA_ONLINE_ADD_INDEX_NO_WRITES           (1L << 0) /*add index w/lock*/
-#define HA_ONLINE_DROP_INDEX_NO_WRITES          (1L << 1) /*drop index w/lock*/
-#define HA_ONLINE_ADD_UNIQUE_INDEX_NO_WRITES    (1L << 2) /*add unique w/lock*/
-#define HA_ONLINE_DROP_UNIQUE_INDEX_NO_WRITES   (1L << 3) /*drop uniq. w/lock*/
-#define HA_ONLINE_ADD_PK_INDEX_NO_WRITES        (1L << 4) /*add prim. w/lock*/
-#define HA_ONLINE_DROP_PK_INDEX_NO_WRITES       (1L << 5) /*drop prim. w/lock*/
-/*
-  These are set if different kinds of indexes can be created on-line
-  (without a table lock). If a handler is capable of one or more of
-  these, it should also set the corresponding *_NO_WRITES bit(s).
-*/
-#define HA_ONLINE_ADD_INDEX                     (1L << 6) /*add index online*/
-#define HA_ONLINE_DROP_INDEX                    (1L << 7) /*drop index online*/
-#define HA_ONLINE_ADD_UNIQUE_INDEX              (1L << 8) /*add unique online*/
-#define HA_ONLINE_DROP_UNIQUE_INDEX             (1L << 9) /*drop uniq. online*/
-#define HA_ONLINE_ADD_PK_INDEX                  (1L << 10)/*add prim. online*/
-#define HA_ONLINE_DROP_PK_INDEX                 (1L << 11)/*drop prim. online*/
+
+
 /*
   HA_PARTITION_FUNCTION_SUPPORTED indicates that the function is
   supported at all.
@@ -187,15 +229,9 @@
   the storage engine. A typical engine to support this is NDB (through
   WL #2498).
 */
-#define HA_PARTITION_FUNCTION_SUPPORTED         (1L << 12)
-#define HA_FAST_CHANGE_PARTITION                (1L << 13)
-#define HA_PARTITION_ONE_PHASE                  (1L << 14)
-
-/*
-  Index scan will not return records in rowid order. Not guaranteed to be
-  set for unordered (e.g. HASH) indexes.
-*/
-#define HA_KEY_SCAN_NOT_ROR     128 
+#define HA_PARTITION_FUNCTION_SUPPORTED         (1L << 1)
+#define HA_FAST_CHANGE_PARTITION                (1L << 2)
+#define HA_PARTITION_ONE_PHASE                  (1L << 3)
 
 /* operations for disable/enable indexes */
 #define HA_KEY_SWITCH_NONUNIQ      0
@@ -229,7 +265,11 @@
 #define HA_BLOCK_LOCK		256	/* unlock when reading some records */
 #define HA_OPEN_TEMPORARY	512
 
-	/* Some key definitions */
+/* For transactional LOCK TABLE. handler::lock_table() */
+#define HA_LOCK_IN_SHARE_MODE      F_RDLCK
+#define HA_LOCK_IN_EXCLUSIVE_MODE  F_WRLCK
+
+/* Some key definitions */
 #define HA_KEY_NULL_LENGTH	1
 #define HA_KEY_BLOB_LENGTH	2
 
@@ -279,6 +319,11 @@ enum legacy_db_type
 enum row_type { ROW_TYPE_NOT_USED=-1, ROW_TYPE_DEFAULT, ROW_TYPE_FIXED,
 		ROW_TYPE_DYNAMIC, ROW_TYPE_COMPRESSED,
 		ROW_TYPE_REDUNDANT, ROW_TYPE_COMPACT, ROW_TYPE_PAGE };
+
+enum column_format_type { COLUMN_FORMAT_TYPE_NOT_USED= -1,
+                          COLUMN_FORMAT_TYPE_DEFAULT=   0,
+                          COLUMN_FORMAT_TYPE_FIXED=     1,
+                          COLUMN_FORMAT_TYPE_DYNAMIC=   2 };
 
 enum enum_binlog_func {
   BFN_RESET_LOGS=        1,
@@ -661,7 +706,7 @@ struct handlerton
    bool (*flush_logs)(handlerton *hton);
    bool (*show_status)(handlerton *hton, THD *thd, stat_print_fn *print, enum ha_stat_type stat);
    uint (*partition_flags)();
-   uint (*alter_table_flags)(uint flags);
+   uint (*alter_partition_flags)();
    int (*alter_tablespace)(handlerton *hton, THD *thd, st_alter_tablespace *ts_info);
    int (*fill_files_table)(handlerton *hton, THD *thd,
                            TABLE_LIST *tables,
@@ -761,7 +806,7 @@ typedef struct st_thd_trans
 } THD_TRANS;
 
 enum enum_tx_isolation { ISO_READ_UNCOMMITTED, ISO_READ_COMMITTED,
-			 ISO_REPEATABLE_READ, ISO_SERIALIZABLE};
+                         ISO_REPEATABLE_READ, ISO_SERIALIZABLE};
 
 
 enum ndb_distribution { ND_KEYHASH= 0, ND_LINHASH= 1 };
@@ -817,8 +862,19 @@ typedef struct st_ha_create_information
   bool table_existed;			/* 1 in create if table existed */
   bool frm_only;                        /* 1 if no ha_create_table() */
   bool varchar;                         /* 1 if table has a VARCHAR */
-  enum ha_storage_media storage_media;  /* DEFAULT, DISK or MEMORY */
+  enum ha_storage_media default_storage_media;  /* DEFAULT, DISK or MEMORY */
 } HA_CREATE_INFO;
+
+typedef struct st_ha_alter_information
+{
+  KEY  *key_info_buffer;
+  uint key_count;
+  uint index_drop_count;
+  uint *index_drop_buffer;
+  uint index_add_count;
+  uint *index_add_buffer;
+  void *data;
+} HA_ALTER_INFO;
 
 
 typedef struct st_key_create_information
@@ -826,6 +882,7 @@ typedef struct st_key_create_information
   enum ha_key_alg algorithm;
   ulong block_size;
   LEX_STRING parser_name;
+  LEX_STRING comment;
 } KEY_CREATE_INFO;
 
 
@@ -907,12 +964,149 @@ typedef struct st_ha_check_opt
 
 typedef struct st_handler_buffer
 {
-  const uchar *buffer;         /* Buffer one can start using */
-  const uchar *buffer_end;     /* End of buffer */
+  uchar *buffer;         /* Buffer one can start using */
+  uchar *buffer_end;     /* End of buffer */
   uchar *end_of_used_area;     /* End of area that was used by handler */
 } HANDLER_BUFFER;
 
 typedef struct system_status_var SSV;
+
+
+typedef void *range_seq_t;
+
+typedef struct st_range_seq_if
+{
+  /*
+    Initialize the traversal of range sequence
+    
+    SYNOPSIS
+      init()
+        init_params  The seq_init_param parameter 
+        n_ranges     The number of ranges obtained 
+        flags        A combination of HA_MRR_SINGLE_POINT, HA_MRR_FIXED_KEY
+
+    RETURN
+      An opaque value to be used as RANGE_SEQ_IF::next() parameter
+  */
+  range_seq_t (*init)(void *init_params, uint n_ranges, uint flags);
+
+
+  /*
+    Get the next range in the range sequence
+
+    SYNOPSIS
+      next()
+        seq    The value returned by RANGE_SEQ_IF::init()
+        range  OUT Information about the next range
+    
+    RETURN
+      0 - Ok, the range structure filled with info about the next range
+      1 - No more ranges
+  */
+  uint (*next) (range_seq_t seq, KEY_MULTI_RANGE *range);
+} RANGE_SEQ_IF;
+
+uint16 &mrr_persistent_flag_storage(range_seq_t seq, uint idx);
+char* &mrr_get_ptr_by_idx(range_seq_t seq, uint idx);
+
+class COST_VECT
+{ 
+public:
+  double io_count;     /* number of I/O                 */
+  double avg_io_cost;  /* cost of an average I/O oper.  */
+  double cpu_cost;     /* cost of operations in CPU     */
+  double mem_cost;     /* cost of used memory           */ 
+  double import_cost;  /* cost of remote operations     */
+  
+  enum { IO_COEFF=1 };
+  enum { CPU_COEFF=1 };
+  enum { MEM_COEFF=1 };
+  enum { IMPORT_COEFF=1 };
+
+  double total_cost() 
+  {
+    return IO_COEFF*io_count*avg_io_cost + CPU_COEFF * cpu_cost +
+           MEM_COEFF*mem_cost + IMPORT_COEFF*import_cost;
+  }
+
+  void zero()
+  {
+    avg_io_cost= 1.0;
+    io_count= cpu_cost= mem_cost= import_cost= 0.0;
+  }
+
+  void multiply(double m)
+  {
+    io_count *= m;
+    cpu_cost *= m;
+    import_cost *= m;
+    /* Don't multiply mem_cost */
+  }
+
+  void add(const COST_VECT* cost)
+  {
+    double io_count_sum= io_count + cost->io_count;
+    add_io(cost->io_count, cost->avg_io_cost);
+    io_count= io_count_sum;
+    cpu_cost += cost->cpu_cost;
+  }
+  void add_io(double add_io_cnt, double add_avg_cost)
+  {
+    double io_count_sum= io_count + add_io_cnt;
+    avg_io_cost= (io_count * avg_io_cost + 
+                  add_io_cnt * add_avg_cost) / io_count_sum;
+    io_count= io_count_sum;
+  }
+};
+
+void get_sweep_read_cost(TABLE *table, ha_rows nrows, bool interrupted, 
+                         COST_VECT *cost);
+
+/*
+  The below two are not used (and not handled) in this milestone of this WL
+  entry because there seems to be no use for them at this stage of
+  implementation.
+*/
+#define HA_MRR_SINGLE_POINT 1
+#define HA_MRR_FIXED_KEY  2
+
+/* 
+  Indicates that RANGE_SEQ_IF::next(&range) doesn't need to fill in the
+  'range' parameter.
+*/
+#define HA_MRR_NO_ASSOCIATION 4
+
+/* 
+  The MRR user will provide ranges in key order, and MRR implementation
+  must return rows in key order.
+*/
+#define HA_MRR_SORTED 8
+
+/* MRR implementation doesn't have to retrieve full records */
+#define HA_MRR_INDEX_ONLY 16
+
+/* 
+  The passed memory buffer is of maximum possible size, the caller can't
+  assume larger buffer.
+*/
+#define HA_MRR_LIMITS 32
+
+
+/*
+  Flag set <=> default MRR implementation is used
+  (The choice is made by **_info[_const]() function which may set this
+   flag. SQL layer remembers the flag value and then passes it to
+   multi_read_range_init().
+*/
+#define HA_MRR_USE_DEFAULT_IMPL 64
+
+/*
+  Used only as parameter to multi_range_read_info():
+  Flag set <=> the caller guarantees that the bounds of the scanned ranges
+  will not have NULL values.
+*/
+#define HA_MRR_NO_NULL_ENDPOINTS 128
+
 
 class ha_statistics
 {
@@ -963,11 +1157,55 @@ uint calculate_key_len(TABLE *, uint, const uchar *, key_part_map);
   The handler class is the interface for dynamically loadable
   storage engines. Do not add ifdefs and take care when adding or
   changing virtual functions to avoid vtable confusion
+
+  Functions in this class accept and return table columns data. Two data
+  representation formats are used:
+  1. TableRecordFormat - Used to pass [partial] table records to/from
+     storage engine
+
+  2. KeyTupleFormat - used to pass index search tuples (aka "keys") to
+     storage engine. See opt_range.cc for description of this format.
+
+  TableRecordFormat
+  =================
+  [Warning: this description is work in progress and may be incomplete]
+  The table record is stored in a fixed-size buffer:
+   
+    record: null_bytes, column1_data, column2_data, ...
+  
+  The offsets of the parts of the buffer are also fixed: every column has 
+  an offset to its column{i}_data, and if it is nullable it also has its own
+  bit in null_bytes. 
+
+  The record buffer only includes data about columns that are marked in the
+  relevant column set (table->read_set and/or table->write_set, depending on
+  the situation). 
+  <not-sure>It could be that it is required that null bits of non-present
+  columns are set to 1</not-sure>
+
+  VARIOUS EXCEPTIONS AND SPECIAL CASES
+
+  f the table has no nullable columns, then null_bytes is still 
+  present, its length is one byte <not-sure> which must be set to 0xFF 
+  at all times. </not-sure>
+  
+  If the table has columns of type BIT, then certain bits from those columns
+  may be stored in null_bytes as well. Grep around for Field_bit for
+  details.
+
+  For blob columns (see Field_blob), the record buffer stores length of the 
+  data, following by memory pointer to the blob data. The pointer is owned 
+  by the storage engine and is valid until the next operation.
+
+  If a blob column has NULL value, then its length and blob data pointer
+  must be set to 0.
+
  */
 
 class handler :public Sql_alloc
 {
   friend class ha_partition;
+  friend class DsMrr_impl;
   friend int ha_delete_table(THD*,handlerton*,const char*,const char*,
                              const char*,bool);
 
@@ -1005,18 +1243,34 @@ public:
   uchar *dup_ref;			/* Pointer to duplicate row */
 
   ha_statistics stats;
-
-  /* The following are for read_multi_range */
-  bool multi_range_sorted;
-  KEY_MULTI_RANGE *multi_range_curr;
-  KEY_MULTI_RANGE *multi_range_end;
-  HANDLER_BUFFER *multi_range_buffer;
+  
+  /* Multi range read implementation-used members: */
+  range_seq_t mrr_iter;    /* MRR range sequence iterator being traversed */
+  RANGE_SEQ_IF mrr_funcs;  /* Saved MRR range sequence traversal functions */
+  HANDLER_BUFFER *multi_range_buffer; /* Saved MRR buffer info */
+  uint ranges_in_seq; /* Total number of ranges in the traversed sequence */
+  /* TRUE <=> source MRR ranges and the output are ordered */
+  bool mrr_is_output_sorted;
+  
+  /* TRUE <=> we're currently traversing a range in mrr_cur_range. */
+  bool mrr_have_range;
+  /* Current range (the one we're now returning rows from) */
+  KEY_MULTI_RANGE mrr_cur_range;
+  
+  /* Default MRR implementation: */
+  //bool mrr_restore_scan; /* TRUE <=> we're restoring the scan */
+  //int mrr_restore_scan_res; /* iff mrr_restore_scan: return value of next call */
 
   /* The following are for read_range() */
   key_range save_end_range, *end_range;
   KEY_PART_INFO *range_key_part;
   int key_compare_result_on_equal;
   bool eq_range;
+  /* 
+    TRUE <=> the engine checks that returned records are within the range
+    being scanned.
+  */
+  bool in_range_check_pushed_down;
 
   uint errkey;				/* Last dup key */
   uint key_used_on_scan;
@@ -1054,7 +1308,8 @@ public:
   handler(handlerton *ht_arg, TABLE_SHARE *share_arg)
     :table_share(share_arg), table(0),
     estimation_rows_to_insert(0), ht(ht_arg),
-    ref(0), key_used_on_scan(MAX_KEY), active_index(MAX_KEY),
+    ref(0), /*mrr_restore_scan(FALSE), */ in_range_check_pushed_down(FALSE),
+    key_used_on_scan(MAX_KEY), active_index(MAX_KEY),
     ref_length(sizeof(my_off_t)),
     ft_handler(0), inited(NONE),
     locked(FALSE), implicit_emptied(0),
@@ -1083,10 +1338,26 @@ public:
     table= table_arg;
     table_share= share;
   }
+  /* Estimates calculation */
   virtual double scan_time()
   { return ulonglong2double(stats.data_file_length) / IO_SIZE + 2; }
   virtual double read_time(uint index, uint ranges, ha_rows rows)
   { return rows2double(ranges+rows); }
+
+  virtual double index_only_read_time(uint keynr, double records);
+  
+  virtual ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                              void *seq_init_param, 
+                                              uint n_ranges, uint *bufsz,
+                                              uint *flags, COST_VECT *cost);
+  virtual int multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                                    uint *bufsz, uint *flags, COST_VECT *cost);
+  virtual int multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
+                                    uint n_ranges, uint mode,
+                                    HANDLER_BUFFER *buf);
+  virtual int multi_range_read_next(char **range_info);
+
+
   virtual const key_map *keys_to_use_for_scanning() { return &key_map_empty; }
   bool has_transactions()
   { return (ha_table_flags() & HA_NO_TRANSACTIONS) == 0; }
@@ -1327,10 +1598,6 @@ public:
     uint key_len= calculate_key_len(table, active_index, key, keypart_map);
     return index_read_last(buf, key, key_len);
   }
-  virtual int read_multi_range_first(KEY_MULTI_RANGE **found_range_p,
-                                     KEY_MULTI_RANGE *ranges, uint range_count,
-                                     bool sorted, HANDLER_BUFFER *buffer);
-  virtual int read_multi_range_next(KEY_MULTI_RANGE **found_range_p);
   virtual int read_range_first(const key_range *start_key,
                                const key_range *end_key,
                                bool eq_range, bool sorted);
@@ -1349,11 +1616,7 @@ public:
     position() call doesn't work for some
     handlers for random position
   */
-  virtual int rnd_pos_by_record(uchar *record)
-    {
-      position(record);
-      return rnd_pos(record, ref);
-    }
+  virtual int rnd_pos_by_record(uchar *record);
   virtual int read_first_row(uchar *buf, uint primary_key);
   /*
     The following function is only needed for tables that may be temporary
@@ -1369,6 +1632,8 @@ public:
   virtual int info(uint)=0; // see my_base.h for full description
   virtual void get_dynamic_partition_info(PARTITION_INFO *stat_info,
                                           uint part_id);
+  virtual uint32 calculate_key_hash_value(Field **field_array)
+  { DBUG_ASSERT(0); return 0; }
   virtual int extra(enum ha_extra_function operation)
   { return 0; }
   virtual int extra_opt(enum ha_extra_function operation, ulong cache_size)
@@ -1467,15 +1732,6 @@ public:
   int check_old_types();
   /* to be actually called to get 'check()' functionality*/
   int ha_check(THD *thd, HA_CHECK_OPT *check_opt);
-   
-  virtual int backup(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
-  /*
-    restore assumes .frm file must exist, and that generate_table() has been
-    called; It will just copy the data file and run repair.
-  */
-  virtual int restore(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
 protected:
   virtual int repair(THD* thd, HA_CHECK_OPT* check_opt)
   { return HA_ADMIN_NOT_IMPLEMENTED; }
@@ -1492,7 +1748,6 @@ public:
   /* end of the list of admin commands */
 
   virtual bool check_and_repair(THD *thd) { return HA_ERR_WRONG_COMMAND; }
-  virtual int dump(THD* thd, int fd = -1) { return HA_ERR_WRONG_COMMAND; }
   virtual int disable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int enable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int indexes_are_disabled(void) {return 0;}
@@ -1508,7 +1763,6 @@ public:
   }
   virtual int discard_or_import_tablespace(my_bool discard)
   {return HA_ERR_WRONG_COMMAND;}
-  virtual int net_read_dump(NET* net) { return HA_ERR_WRONG_COMMAND; }
   virtual char *update_table_comment(const char * comment)
   { return (char*) comment;}
   virtual void append_create_info(String *packet) {}
@@ -1528,8 +1782,8 @@ public:
   { return FALSE; }
   virtual char* get_foreign_key_create_info()
   { return(NULL);}  /* gets foreign key create string from InnoDB */
-  virtual char* get_tablespace_name(THD *thd, char *name, uint name_len)
-  { return(NULL);}  /* gets tablespace name from handler */
+  /* gets tablespace name from handler */
+  const char* get_tablespace_name();
   /* used in ALTER TABLE; 1 if changing storage engine is allowed */
   virtual bool can_switch_engines() { return 1; }
   /* used in REPLACE; is > 0 if table is referred by a FOREIGN KEY */
@@ -1562,7 +1816,9 @@ public:
     *no_parts= 0;
     return 0;
   }
-  virtual void set_part_info(partition_info *part_info) {return;}
+  virtual void set_part_info(partition_info *part_info,
+                             bool early)
+  {return;}
 
   virtual ulong index_flags(uint idx, uint part, bool all_parts) const =0;
 
@@ -1611,7 +1867,6 @@ public:
 #define CHF_CREATE_FLAG 0
 #define CHF_DELETE_FLAG 1
 #define CHF_RENAME_FLAG 2
-#define CHF_INDEX_FLAG  3
 
   virtual int create_handler_files(const char *name, const char *old_name,
                                    int action_flag, HA_CREATE_INFO *info)
@@ -1646,8 +1901,8 @@ public:
     refer to a different thread if called from mysql_lock_abort_for_thread().
   */
   virtual THR_LOCK_DATA **store_lock(THD *thd,
-				     THR_LOCK_DATA **to,
-				     enum thr_lock_type lock_type)=0;
+                                     THR_LOCK_DATA **to,
+                                     enum thr_lock_type lock_type)=0;
 
   /* Type of table for caching query */
   virtual uint8 table_cache_type() { return HA_CACHE_TBL_NONTRANSACT; }
@@ -1732,17 +1987,124 @@ public:
    Calls to rnd_init/rnd_end, index_init/index_end etc do not affect the
    condition stack.
  */ 
- virtual const COND *cond_push(const COND *cond) { return cond; };
+ virtual const COND *cond_push(const COND *cond) { return cond; }
+ 
  /*
    Pop the top condition from the condition stack of the handler instance.
    SYNOPSIS
      cond_pop()
      Pops the top if condition stack, if stack is not empty
  */
- virtual void cond_pop() { return; };
+ virtual void cond_pop() { return; }
+
+ virtual Item *idx_cond_push(uint keyno, Item* idx_cond) { return idx_cond; }
+
+ /*
+    Part of old fast alter table, to be depricated
+  */
  virtual bool check_if_incompatible_data(HA_CREATE_INFO *create_info,
-					 uint table_changes)
+                                         uint table_changes)
  { return COMPATIBLE_DATA_NO; }
+
+
+ /*
+    On-line ALTER TABLE interface
+  */
+
+ /*
+    Check if a storage engine supports a particular alter table on-line
+    SYNOPSIS
+      check_if_supported_alter()
+        altered_table     A temporary table show what table is to change to
+        create_info       Information from the parsing phase about new
+                          table properties.
+        alter_flags       Bitmask that shows what will be changed
+        table_changes     Shows if table layout has changed (for backwards
+                          compatibility with check_if_incompatible_data
+    RETURN
+        HA_ALTER_ERROR                Unexpected error
+        HA_ALTER_SUPPORTED_WAIT_LOCK  Supported, but requires DDL lock
+        HA_ALTER_SUPPORTED_NO_LOCK    Supported
+        HA_ALTER_NOT_SUPPORTED        Not supported
+
+      
+    NOTES
+      The default implementation is implemented to support fast
+      alter table (storage engines that support some changes by
+      just changing the frm file) without any change in the handler
+      implementation.    
+  */
+ virtual int check_if_supported_alter(TABLE *altered_table,
+                                      HA_CREATE_INFO *create_info,
+                                      HA_ALTER_FLAGS *alter_flags,
+                                      uint table_changes)
+ {
+   DBUG_ENTER("check_if_supported_alter");
+   if (this->check_if_incompatible_data(create_info, table_changes)
+       == COMPATIBLE_DATA_NO)
+     DBUG_RETURN(HA_ALTER_NOT_SUPPORTED);
+   else
+     DBUG_RETURN(HA_ALTER_SUPPORTED_WAIT_LOCK);
+ }
+ /*
+    Tell storage engine to prepare for the on-line alter table (pre-alter)
+    SYNOPSIS
+      alter_table_phase1()
+        thd               The thread handle
+        altered_table     A temporary table show what table is to change to
+        alter_info        Storage place for data used during phase1 and phase2
+        alter_flags       Bitmask that shows what will be changed
+    RETURN
+      0      OK
+      error  error code passed from storage engine
+    NOTES
+  */
+ virtual int alter_table_phase1(THD *thd,
+                                TABLE *altered_table,
+                                HA_CREATE_INFO *create_info,
+                                HA_ALTER_INFO *alter_info,
+                                HA_ALTER_FLAGS *alter_flags)
+ {
+   return HA_ERR_UNSUPPORTED;
+ }
+ /*
+    Tell storage engine to perform the on-line alter table (alter)
+    SYNOPSIS
+      alter_table_phase2()
+        thd               The thread handle
+        altered_table     A temporary table show what table is to change to
+        alter_info        Storage place for data used during phase1 and phase2
+        alter_flags       Bitmask that shows what will be changed
+    RETURN
+      0      OK
+      error  error code passed from storage engine
+    NOTES
+      If check_if_supported_alter returns HA_ALTER_SUPPORTED_WAIT_LOCK
+      this call is to be wrapped with a DDL lock. This is currently NOT
+      supported.
+  */
+ virtual int alter_table_phase2(THD *thd,
+                                TABLE *altered_table,
+                                HA_CREATE_INFO *create_info,
+                                HA_ALTER_INFO *alter_info,
+                                HA_ALTER_FLAGS *alter_flags)
+ {
+   return HA_ERR_UNSUPPORTED;
+ }
+ /*
+    Tell storage engine that changed frm file is now on disk and table
+    has been re-opened (post-alter)
+    SYNOPSIS
+      alter_table_phase3()
+        thd               The thread handle
+        table             The altered table, re-opened
+    NOTES
+  */
+ virtual int alter_table_phase3(THD *thd, TABLE *table)
+ {
+   return HA_ERR_UNSUPPORTED;
+ }
+
 
  /* These are only called from sql_select for internal temporary tables */
   virtual int write_row(uchar *buf __attribute__((unused)))
@@ -1767,6 +2129,40 @@ public:
   */
   virtual void use_hidden_primary_key();
 
+  /*
+    Lock table.
+
+    SYNOPSIS
+      handler::lock_table()
+        thd                     Thread handle
+        lock_type               HA_LOCK_IN_SHARE_MODE     (F_RDLCK)
+                                HA_LOCK_IN_EXCLUSIVE_MODE (F_WRLCK)
+        lock_timeout            -1 default timeout
+                                0  no wait
+                                >0 wait timeout in milliseconds.
+
+    NOTE
+      lock_timeout >0 is not used by MySQL currently. If the storage
+      engine does not support NOWAIT (lock_timeout == 0) it should
+      return an error. But if it does not support WAIT X (lock_timeout
+      >0) it should treat it as lock_timeout == -1 and wait a default
+      (or even hard-coded) timeout.
+
+    RETURN
+      HA_ERR_WRONG_COMMAND      Storage engine does not support lock_table()
+      HA_ERR_UNSUPPORTED        Storage engine does not support NOWAIT
+      HA_ERR_LOCK_WAIT_TIMEOUT  Lock request timed out or
+                                lock conflict with NOWAIT option
+      HA_ERR_LOCK_DEADLOCK      Deadlock detected
+  */
+  virtual int lock_table(THD *thd         __attribute__((unused)),
+                         int lock_type    __attribute__((unused)),
+                         int lock_timeout __attribute__((unused)))
+  {
+    return HA_ERR_WRONG_COMMAND;
+  }
+
+  virtual void add_explain_extra_info(uint keyno, String *extra) {}
 private:
   /*
     Row-level primitives for storage engines.  These should be
@@ -1803,7 +2199,70 @@ private:
   }
 };
 
-	/* Some extern variables used with handlers */
+
+/*
+  A Disk-Sweep MRR interface implementation
+
+  This implementation makes range (and, in the future, 'ref') scans to read
+  table rows in disk sweeps. 
+  
+  Currently it is used by MyISAM and InnoDB. Potentially it can be used with
+  any table handler that has non-clustered indexes and on-disk rows.
+*/
+
+class DsMrr_impl
+{
+public:
+  typedef void (handler::*range_check_toggle_func_t)(bool on);
+
+  DsMrr_impl(range_check_toggle_func_t func)
+    : last_idx_tuple(NULL), range_check_toggle_func(func) {};
+
+  uchar *rowids_buf;       /* ROWIDs buffer */
+  uchar *rowids_buf_cur;   /* Current position when reading/writing */
+  uchar *rowids_buf_last;  /* Wen reading: end of used buffer space */
+  uchar *rowids_buf_end;   /* End of the buffer */
+  
+  KEY  *mrr_key;           /* Index to use */
+  uint mrr_keyno;          /* Number of the index */
+
+  uchar *last_idx_tuple; //TODO: remove 
+  bool dsmrr_eof;        //TODO: remove 
+
+  /* TRUE <=> need range association, buffer holds {rowid, range_id} pairs */
+  bool is_mrr_assoc; 
+
+  handler *h; /* Owner table handler */
+  handler *h2; /* Slave handler for doing rnd_pos(). */
+   
+  /* Bitmaps for the rnd_pos()-calling handler object */
+  MY_BITMAP row_access_bitmap;
+  MY_BITMAP *save_read_set, *save_write_set;
+
+  bool use_default_impl; /* TRUE <=> shortcut the calls to default MRR impl */
+  range_check_toggle_func_t range_check_toggle_func;
+
+
+  int dsmrr_init(handler *h, KEY *key, RANGE_SEQ_IF *seq_funcs, 
+                 void *seq_init_param, uint n_ranges, uint mode, 
+                 HANDLER_BUFFER *buf);
+  void dsmrr_close();
+  int dsmrr_fill_buffer(handler *h);
+  int dsmrr_next(handler *h, char **range_info);
+
+  int dsmrr_info(uint keyno, uint n_ranges, uint keys, uint *bufsz,
+                 uint *flags, COST_VECT *cost);
+
+  ha_rows dsmrr_info_const(uint keyno, RANGE_SEQ_IF *seq, 
+                            void *seq_init_param, uint n_ranges, uint *bufsz,
+                            uint *flags, COST_VECT *cost);
+private:
+  bool key_uses_partial_cols(uint keyno);
+  bool choose_mrr_impl(uint keyno, ha_rows rows, uint *flags, uint *bufsz, 
+                       COST_VECT *cost);
+  bool get_disk_sweep_mrr_cost(uint keynr, ha_rows rows, uint flags, 
+                               uint *buffer_size, COST_VECT *cost);
+};
 
 extern const char *ha_row_type[];
 extern const char *tx_isolation_names[];
@@ -1812,7 +2271,7 @@ extern TYPELIB tx_isolation_typelib;
 extern TYPELIB myisam_stats_method_typelib;
 extern ulong total_ha, total_ha_2pc;
 
-	/* Wrapper functions */
+/* Wrapper functions */
 #define ha_commit_stmt(thd) (ha_commit_trans((thd), FALSE))
 #define ha_rollback_stmt(thd) (ha_rollback_trans((thd), FALSE))
 #define ha_commit(thd) (ha_commit_trans((thd), TRUE))
@@ -1864,7 +2323,7 @@ void ha_drop_database(char* path);
 int ha_create_table(THD *thd, const char *path,
                     const char *db, const char *table_name,
                     HA_CREATE_INFO *create_info,
-		    bool update_create_info);
+                    bool update_create_info);
 int ha_delete_table(THD *thd, handlerton *db_type, const char *path,
                     const char *db, const char *alias, bool generate_warning);
 

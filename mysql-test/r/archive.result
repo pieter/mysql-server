@@ -1,5 +1,9 @@
 DROP TABLE if exists t1,t2,t3,t4,t5,t6;
 SET storage_engine=ARCHIVE;
+SET GLOBAL archive_aio=OFF;
+SHOW VARIABLES LIKE "archive_%";
+Variable_name	Value
+archive_aio	OFF
 CREATE TABLE t1 (
 Period smallint(4) unsigned zerofill DEFAULT '0000' NOT NULL,
 Varor_period smallint(4) unsigned DEFAULT '0' NOT NULL

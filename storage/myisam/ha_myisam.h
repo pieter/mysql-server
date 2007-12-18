@@ -33,6 +33,10 @@ extern ulong myisam_sort_buffer_size;
 extern TYPELIB myisam_recover_typelib;
 extern ulong myisam_recover_options;
 
+C_MODE_START
+my_bool index_cond_func_myisam(void *arg);
+C_MODE_END
+
 class ha_myisam: public handler
 {
   MI_INFO *file;
@@ -49,11 +53,14 @@ class ha_myisam: public handler
   const char *index_type(uint key_number);
   const char **bas_ext() const;
   ulonglong table_flags() const { return int_table_flags; }
+  int index_init(uint idx, bool sorted);
+  int index_end();
   ulong index_flags(uint inx, uint part, bool all_parts) const
   {
     return ((table_share->key_info[inx].algorithm == HA_KEY_ALG_FULLTEXT) ?
             0 : HA_READ_NEXT | HA_READ_PREV | HA_READ_RANGE |
-            HA_READ_ORDER | HA_KEYREAD_ONLY);
+            HA_READ_ORDER | HA_KEYREAD_ONLY | 
+            (keys_with_parts.is_set(inx)?0:HA_DO_INDEX_COND_PUSHDOWN));
   }
   uint max_supported_keys()          const { return MI_MAX_KEY; }
   uint max_supported_key_length()    const { return MI_MAX_KEY_LENGTH; }
@@ -124,15 +131,9 @@ class ha_myisam: public handler
   bool is_crashed() const;
   bool auto_repair() const { return myisam_recover_options != 0; }
   int optimize(THD* thd, HA_CHECK_OPT* check_opt);
-  int restore(THD* thd, HA_CHECK_OPT* check_opt);
-  int backup(THD* thd, HA_CHECK_OPT* check_opt);
   int assign_to_keycache(THD* thd, HA_CHECK_OPT* check_opt);
   int preload_keys(THD* thd, HA_CHECK_OPT* check_opt);
   bool check_if_incompatible_data(HA_CREATE_INFO *info, uint table_changes);
-#ifdef HAVE_REPLICATION
-  int dump(THD* thd, int fd);
-  int net_read_dump(NET* net);
-#endif
 #ifdef HAVE_QUERY_CACHE
   my_bool register_query_cache_table(THD *thd, char *table_key,
                                      uint key_length,
@@ -144,4 +145,37 @@ class ha_myisam: public handler
   {
     return file;
   }
+  int read_range_first(const key_range *start_key, const key_range *end_key,
+                       bool eq_range_arg, bool sorted);
+  int read_range_next();
+public:
+  /**
+   * Multi Range Read interface
+   */
+  int multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
+                            uint n_ranges, uint mode, HANDLER_BUFFER *buf);
+  int multi_range_read_next(char **range_info);
+  ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                      void *seq_init_param, 
+                                      uint n_ranges, uint *bufsz,
+                                      uint *flags, COST_VECT *cost);
+  int multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                            uint *bufsz, uint *flags, COST_VECT *cost);
+  
+  /* Index condition pushdown implementation */
+  Item *idx_cond_push(uint keyno, Item* idx_cond);
+
+  void add_explain_extra_info(uint keyno, String *extra);
+private:
+  uint cond_keyno;
+  Item *idx_cond;
+  DsMrr_impl ds_mrr;
+  key_map keys_with_parts;
+  bool in_range_read;
+  void toggle_range_check(bool on)
+  {
+    in_range_read= on;
+  }
+  friend my_bool index_cond_func_myisam(void *arg);
 };
+

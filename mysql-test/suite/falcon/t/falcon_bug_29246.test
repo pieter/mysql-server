@@ -1,0 +1,34 @@
+--source include/have_falcon.inc
+#
+# Bug #29246: Falcon: searches fail if prefix index on latin1_german2_ci column
+#
+--echo *** Bug #29246 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a varchar(2) CHARACTER SET latin1 COLLATE latin1_german2_ci);
+INSERT INTO t1 VALUES (0xdc);
+CREATE INDEX i1 ON t1 (a(1));
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1 WHERE a = 'ue';
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

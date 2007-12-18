@@ -1,0 +1,104 @@
+SELECT * FROM INFORMATION_SCHEMA.global_variables
+WHERE variable_name LiKE 'falcon_%';
+VARIABLE_NAME	VARIABLE_VALUE
+FALCON_CHECKPOINT_SCHEDULE	7 * * * * *
+FALCON_CONSISTENT_READ	ON
+FALCON_DEBUG_MASK	0
+FALCON_DEBUG_SERVER	OFF
+FALCON_DEBUG_TRACE	0
+FALCON_DIRECT_IO	1
+FALCON_GOPHER_THREADS	5
+FALCON_INDEX_CHILL_THRESHOLD	4
+FALCON_INITIAL_ALLOCATION	0
+FALCON_IO_THREADS	2
+FALCON_LARGE_BLOB_THRESHOLD	160000
+FALCON_LOCK_TIMEOUT	0
+FALCON_MAX_TRANSACTION_BACKLOG	150
+FALCON_PAGE_CACHE_SIZE	104857600
+FALCON_PAGE_SIZE	16384
+FALCON_RECORD_CHILL_THRESHOLD	5
+FALCON_RECORD_MEMORY_MAX	262144000
+FALCON_RECORD_SCAVENGE_FLOOR	50
+FALCON_RECORD_SCAVENGE_THRESHOLD	67
+FALCON_SCAVENGE_SCHEDULE	15,45 * * * * *
+FALCON_SERIAL_LOG_BLOCK_SIZE	0
+FALCON_SERIAL_LOG_BUFFERS	20
+FALCON_SERIAL_LOG_DIR	
+FALCON_SERIAL_LOG_PRIORITY	1
+FALCON_SUPPORT_XA	OFF
+FALCON_USE_DEFERRED_INDEX_HASH	OFF
+SELECT @@falcon_checkpoint_schedule;
+@@falcon_checkpoint_schedule
+7 * * * * *
+SELECT @@falcon_consistent_read;
+@@falcon_consistent_read
+1
+SELECT @@falcon_debug_mask;
+@@falcon_debug_mask
+0
+SELECT @@falcon_debug_server;
+@@falcon_debug_server
+0
+SELECT @@falcon_debug_trace;
+@@falcon_debug_trace
+0
+SELECT @@falcon_direct_io;
+@@falcon_direct_io
+1
+SELECT @@falcon_gopher_threads;
+@@falcon_gopher_threads
+5
+SELECT @@falcon_index_chill_threshold;
+@@falcon_index_chill_threshold
+4
+SELECT @@falcon_initial_allocation;
+@@falcon_initial_allocation
+0
+SELECT @@falcon_io_threads;
+@@falcon_io_threads
+2
+SELECT @@falcon_large_blob_threshold;
+@@falcon_large_blob_threshold
+160000
+SELECT @@falcon_lock_timeout;
+@@falcon_lock_timeout
+0
+SELECT @@falcon_max_transaction_backlog;
+@@falcon_max_transaction_backlog
+150
+SELECT @@falcon_page_cache_size;
+@@falcon_page_cache_size
+104857600
+SELECT @@falcon_page_size;
+@@falcon_page_size
+16384
+SELECT @@falcon_record_chill_threshold;
+@@falcon_record_chill_threshold
+5
+SELECT @@falcon_record_memory_max;
+@@falcon_record_memory_max
+262144000
+SELECT @@falcon_record_scavenge_floor;
+@@falcon_record_scavenge_floor
+50
+SELECT @@falcon_record_scavenge_threshold;
+@@falcon_record_scavenge_threshold
+67
+SELECT @@falcon_scavenge_schedule;
+@@falcon_scavenge_schedule
+15,45 * * * * *
+SELECT @@falcon_serial_log_block_size;
+@@falcon_serial_log_block_size
+0
+SELECT @@falcon_serial_log_buffers;
+@@falcon_serial_log_buffers
+20
+SELECT @@falcon_serial_log_dir;
+@@falcon_serial_log_dir
+NULL
+SELECT @@falcon_serial_log_priority;
+@@falcon_serial_log_priority
+1
+SELECT @@falcon_use_deferred_index_hash;
+@@falcon_use_deferred_index_hash
+0

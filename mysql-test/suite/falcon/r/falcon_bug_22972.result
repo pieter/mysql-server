@@ -1,0 +1,10 @@
+CREATE TABLE t1(a INT) ENGINE=Falcon;
+START TRANSACTION;
+INSERT INTO t1 VALUES(1);
+DROP TABLE t1;
+ERROR 42S02: Unknown table 't1'
+SHOW WARNINGS;
+Level	Code	Message
+Error	173	Can't execute the given command because you have active locked tables or an active transaction
+COMMIT;
+DROP TABLE t1;

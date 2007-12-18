@@ -1,0 +1,22 @@
+*** Bug #27767 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+CREATE INDEX i1 on t1 (a);
+INSERT INTO t1 VALUES (7);
+COMMIT;
+# Establish connection conn1
+SET storage_engine = 'Falcon';
+SET @@autocommit = 0;
+START TRANSACTION;
+SELECT * FROM t1 WHERE a = 7 FOR UPDATE;
+a
+7
+COMMIT;
+# Switch to connection default
+SELECT count(*) FROM t1;
+count(*)
+1
+DROP TABLE t1;
+USE test;

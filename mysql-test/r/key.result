@@ -148,12 +148,12 @@ a	2
 drop table t1;
 create table t1 (a int not null unique, b int unique, c int, d int not null primary key, key(c), e int not null unique);
 show keys from t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
-t1	0	PRIMARY	1	d	A	0	NULL	NULL		BTREE	
-t1	0	a	1	a	A	0	NULL	NULL		BTREE	
-t1	0	e	1	e	A	0	NULL	NULL		BTREE	
-t1	0	b	1	b	A	NULL	NULL	NULL	YES	BTREE	
-t1	1	c	1	c	A	NULL	NULL	NULL	YES	BTREE	
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_Comment
+t1	0	PRIMARY	1	d	A	0	NULL	NULL		BTREE		
+t1	0	a	1	a	A	0	NULL	NULL		BTREE		
+t1	0	e	1	e	A	0	NULL	NULL		BTREE		
+t1	0	b	1	b	A	NULL	NULL	NULL	YES	BTREE		
+t1	1	c	1	c	A	NULL	NULL	NULL	YES	BTREE		
 drop table t1;
 CREATE TABLE t1 (c CHAR(10) NOT NULL,i INT NOT NULL AUTO_INCREMENT,
 UNIQUE (c,i));
@@ -251,13 +251,13 @@ insert t1 values ('cccc', 'tttt'),
 (0xD0B1212223D0B1D0B1D0B1D0B1D0B1, 0xD0B1D0B1212223D0B1D0B1D0B1D0B1),
 (0xD0B1222123D0B1D0B1D0B1D0B1D0B1, 0xD0B1D0B1222123D0B1D0B1D0B1D0B1);
 insert t1 (c) values ('cc22');
-ERROR 23000: Duplicate entry 'cc22' for key 'c'
+ERROR 23000: Duplicate entry 'cc' for key 'c'
 insert t1 (t) values ('ttt22');
-ERROR 23000: Duplicate entry 'ttt22' for key 't'
+ERROR 23000: Duplicate entry 'ttt' for key 't'
 insert t1 (c) values (0xD0B1212322D0B1D0B1D0B1D0B1D0B1);
-ERROR 23000: Duplicate entry 'б!#"�' for key 'c'
+ERROR 23000: Duplicate entry 'б!' for key 'c'
 insert t1 (t) values (0xD0B1D0B1212322D0B1D0B1D0B1D0B1);
-ERROR 23000: Duplicate entry 'бб!#"б' for key 't'
+ERROR 23000: Duplicate entry 'бб!' for key 't'
 select c from t1 where c='cccc';
 c
 cccc
@@ -522,13 +522,6 @@ INSERT INTO t2 VALUES
 INSERT INTO t1 (b, c, d) VALUES
 (3388000, -553000, NULL),
 (3388000, -553000, NULL);
-SELECT *
-FROM t2 c JOIN t1 pa ON c.b = pa.a 
-WHERE c.c = 1
-ORDER BY c.b, c.d
-;
-a	b	c	d	e	f	g	h	i	j	a	b	c	d
-2	2	1	2004-11-30 12:00:00	1	0	0	0	0	0	2	3388000	-553000	NULL
 DROP TABLE t1, t2;
 create table t1(a int not null, key aa(a), 
 b char(10) not null, unique key bb(b(1)), 

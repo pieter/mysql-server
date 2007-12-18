@@ -1,0 +1,44 @@
+--source include/have_falcon.inc
+
+SHOW VARIABLES LIKE 'falcon_%';
+
+# Test that these server variables are READ ONLY.
+
+SELECT @@GLOBAL.falcon_debug_server;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET GLOBAL falcon_debug_server = TRUE;
+
+SELECT @@GLOBAL.falcon_serial_log_dir;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET GLOBAL falcon_serial_log_dir = '/foo';
+
+SELECT @@GLOBAL.falcon_page_cache_size;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET GLOBAL falcon_page_cache_size = 8M;
+
+SELECT @@GLOBAL.falcon_page_size;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET GLOBAL falcon_page_size = 1K;
+
+SELECT @@GLOBAL.falcon_serial_log_buffers;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET GLOBAL falcon_serial_log_buffers = 100;
+
+# These variables are r/w.
+SELECT @@GLOBAL.falcon_debug_mask;
+SET GLOBAL falcon_debug_mask = 4096;
+SELECT @@GLOBAL.falcon_debug_mask;
+
+SELECT @@GLOBAL.falcon_max_transaction_backlog;
+SET GLOBAL falcon_max_transaction_backlog = 10001;
+SELECT @@GLOBAL.falcon_max_transaction_backlog;
+
+SELECT @@GLOBAL.falcon_record_memory_max;
+SET GLOBAL falcon_record_memory_max = 1073741824;
+SELECT @@GLOBAL.falcon_record_memory_max;
+
+
+# Test INFORMATION_SCHEMA access to variables.
+--sorted_result
+SELECT * FROM INFORMATION_SCHEMA.global_variables
+  WHERE variable_name LIKE 'falcon%';

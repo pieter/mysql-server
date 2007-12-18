@@ -1,0 +1,5 @@
+*** Bug #24008 ***
+DROP TABLE IF EXISTS t1, t2;
+create table t1 (a integer) engine=Falcon;
+rename table t1 to t2;
+DROP TABLE t2;

@@ -1,0 +1,40 @@
+*** Bug #29151 ***
+SET @@storage_engine = 'Falcon';
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (
+a int,
+b int,
+c char(50),
+PRIMARY KEY (a)
+);
+SET @@autocommit = 0;
+# Establish connection conn1
+SET storage_engine = 'Falcon';
+SET @@autocommit = 0;
+INSERT INTO t1 VALUES(49990, 0, 'c1');
+COMMIT;
+# Switch to connection default
+BEGIN;
+UPDATE t1 SET b=b+1 WHERE a = 49990;
+DELETE FROM t1 WHERE a = 49990;
+INSERT INTO t1 VALUES(49990, 0, 'c1');
+# Switch to connection conn1
+BEGIN;
+SELECT * FROM t1;
+a	b	c
+49990	0	c1
+UPDATE t1 SET b=b+1 WHERE a = 49990;
+# Switch to connection default
+COMMIT;
+# Switch to connection conn1
+DELETE FROM t1 WHERE a = 49990;
+INSERT INTO t1 VALUES(49990, 0, 'c2');
+COMMIT;
+SELECT * FROM t1;
+a	b	c
+49990	0	c2
+COMMIT;
+# Switch to connection default
+DROP TABLE t1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

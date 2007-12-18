@@ -1,0 +1,39 @@
+*** Bug #28767 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+CREATE TABLE t1 (
+auto int not null auto_increment,
+fld1 int(6) unsigned zerofill DEFAULT '000000' NOT NULL,
+companynr tinyint(2) unsigned zerofill DEFAULT '00' NOT NULL,
+fld3 char(30) DEFAULT '' NOT NULL,
+fld4 char(35) DEFAULT '' NOT NULL,
+fld5 char(35) DEFAULT '' NOT NULL,
+fld6 char(4) DEFAULT '' NOT NULL,
+UNIQUE fld1 (fld1),
+KEY fld3 (fld3),
+PRIMARY KEY (auto)
+);
+INSERT INTO t1 (fld1, companynr) VALUES (999999,99);
+CREATE TABLE t2 (
+companynr tinyint(2) unsigned zerofill NOT NULL default '00',
+companyname char(30) NOT NULL default '',
+PRIMARY KEY (companynr),
+UNIQUE KEY companyname(companyname)
+) MAX_ROWS=50 PACK_KEYS=1 COMMENT='companynames';
+explain select t1.companynr,companyname from t1 left join t2 using (companynr) where t2.companynr is null;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	1200	
+1	SIMPLE	t2	eq_ref	PRIMARY	PRIMARY	1	test.t1.companynr	1	Using where; Not exists
+explain select t1.companynr,companyname from t2 left join t1 using (companynr) where t1.companynr is null;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	ALL	NULL	NULL	NULL	NULL	12	
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	1200	Using where; Not exists
+SELECT count(*) FROM t1;
+count(*)
+1200
+SELECT count(*) FROM t2;
+count(*)
+12
+DROP TABLE t1;
+DROP TABLE t2;

@@ -1,0 +1,20 @@
+--source include/have_falcon.inc
+--source include/have_innodb.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #23965: Falcon: ALTER TABLE fails with a fresh database
+#
+--echo *** Bug #23965 ***
+--disable_warnings
+DROP DATABASE IF EXISTS db1;
+--enable_warnings
+
+CREATE DATABASE db1;
+USE db1;
+
+CREATE TABLE t1 (a int) Engine InnoDB;
+ALTER TABLE t1 Engine Falcon;
+
+# Final cleanup.
+DROP DATABASE db1;
+USE test;

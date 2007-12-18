@@ -1,0 +1,23 @@
+*** Bug #24024 ***
+SET SESSION STORAGE_ENGINE = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(a INT NOT NULL, b INT, primary key(a));
+INSERT INTO t1(a) VALUES (1);
+COMMIT;
+SET AUTOCOMMIT = 0;
+UPDATE t1 SET b = 5 WHERE a = 1;
+# Establish session con1 (user=root)
+INSERT INTO t1(a) VALUES(7);
+COMMIT;
+SELECT * FROM t1;
+a	b
+1	NULL
+7	NULL
+DROP TABLE t1;
+!!! Error message has to be decided.
+!!! Something like "Cannot drop locked table" or similar would be fine.
+!!! But never the misleading    ERROR 42S02: Unknown table 't1'
+COMMIT;
+# Switch to session default and disconnect session con1
+COMMIT;
+DROP TABLE t1;

@@ -1,0 +1,38 @@
+--source include/have_falcon.inc
+#
+# Bug #27426: Falcon: searches fail if datetime column and index exists
+#
+--echo *** Bug #27426 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a datetime);
+CREATE INDEX i1 on t1 (a);
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+INSERT INTO t1 (a) VALUES ('1965-06-29 11:59:58');
+
+SELECT count(*) FROM t1 WHERE a < '9999-12-31 00:00:00';
+SELECT count(*) FROM t1 WHERE a < '2000-06-29 12:59:50';
+SELECT count(*) FROM t1 WHERE a > '1861-06-29 12:59:50';
+SELECT count(*) FROM t1 WHERE a > '1761-06-29 12:59:50';
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

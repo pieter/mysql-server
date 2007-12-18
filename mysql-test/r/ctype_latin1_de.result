@@ -344,3 +344,107 @@ select * from t1 where length(s1)=1 and s1='oe';
 s1
 ö
 drop table t1;
+End of 5.1 tests
+set @@collation_connection=latin1_german2_ci;
+select @@collation_connection;
+@@collation_connection
+latin1_german2_ci
+select hex(weight_string('a'));
+hex(weight_string('a'))
+41
+select hex(weight_string('A'));
+hex(weight_string('A'))
+41
+select hex(weight_string('abc'));
+hex(weight_string('abc'))
+414243
+select hex(weight_string('abc' as char(2)));
+hex(weight_string('abc' as char(2)))
+4142
+select hex(weight_string('abc' as char(3)));
+hex(weight_string('abc' as char(3)))
+414243
+select hex(weight_string('abc' as char(5)));
+hex(weight_string('abc' as char(5)))
+4142432020
+select @@collation_connection;
+@@collation_connection
+latin1_german2_ci
+select hex(weight_string('a' LEVEL 1));
+hex(weight_string('a' LEVEL 1))
+41
+select hex(weight_string('A' LEVEL 1));
+hex(weight_string('A' LEVEL 1))
+41
+select hex(weight_string('abc' LEVEL 1));
+hex(weight_string('abc' LEVEL 1))
+414243
+select hex(weight_string('abc' as char(2) LEVEL 1));
+hex(weight_string('abc' as char(2) LEVEL 1))
+4142
+select hex(weight_string('abc' as char(3) LEVEL 1));
+hex(weight_string('abc' as char(3) LEVEL 1))
+414243
+select hex(weight_string('abc' as char(5) LEVEL 1));
+hex(weight_string('abc' as char(5) LEVEL 1))
+4142432020
+select hex(weight_string('abc' as char(5) LEVEL 1 REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 REVERSE))
+2020434241
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC))
+BEBDBCDFDF
+select hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE));
+hex(weight_string('abc' as char(5) LEVEL 1 DESC REVERSE))
+DFDFBCBDBE
+select hex(weight_string('Ä'));
+hex(weight_string('Ä'))
+4145
+select hex(weight_string('ä'));
+hex(weight_string('ä'))
+4145
+select hex(weight_string('Ö'));
+hex(weight_string('Ö'))
+4F45
+select hex(weight_string('ö'));
+hex(weight_string('ö'))
+4F45
+select hex(weight_string('Ü'));
+hex(weight_string('Ü'))
+5545
+select hex(weight_string('ü'));
+hex(weight_string('ü'))
+5545
+select hex(weight_string('S'));
+hex(weight_string('S'))
+53
+select hex(weight_string('s'));
+hex(weight_string('s'))
+53
+select hex(weight_string('ß'));
+hex(weight_string('ß'))
+5353
+select hex(weight_string('ä' as char(1)));
+hex(weight_string('ä' as char(1)))
+41
+select hex(weight_string('ö' as char(1)));
+hex(weight_string('ö' as char(1)))
+4F
+select hex(weight_string('ü' as char(1)));
+hex(weight_string('ü' as char(1)))
+55
+select hex(weight_string('ß' as char(1)));
+hex(weight_string('ß' as char(1)))
+53
+select hex(weight_string('xä' as char(2)));
+hex(weight_string('xä' as char(2)))
+5841
+select hex(weight_string('xö' as char(2)));
+hex(weight_string('xö' as char(2)))
+584F
+select hex(weight_string('xü' as char(2)));
+hex(weight_string('xü' as char(2)))
+5855
+select hex(weight_string('xß' as char(2)));
+hex(weight_string('xß' as char(2)))
+5853

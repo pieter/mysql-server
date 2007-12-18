@@ -1,0 +1,47 @@
+--source include/have_falcon.inc
+#
+# Bug #30826: Falcon: crash if OPTIMIZE PARTITION and no records
+#
+--echo *** Bug #30826 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+SET @@storage_engine = Falcon;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# ----------------------------------------------------- #
+# --- Test 1 - optimize with records                --- #
+# ----------------------------------------------------- #
+--echo ------- Test 1 - optimize with records  -------
+CREATE TABLE  t1 (PRIMARY KEY  (`id`), 
+   `id` BIGINT NOT NULL  AUTO_INCREMENT ,
+   `field1` CHAR(50) NOT NULL)ENGINE = FALCON
+   PARTITION BY Hash (id) PARTITIONS 4;
+
+INSERT INTO t1 (`id`, `field1`) VALUES('3','value3');
+INSERT INTO t1 (`id`, `field1`) VALUES('5','value5');
+INSERT INTO t1 (`id`, `field1`) VALUES('7','value7');
+
+ALTER TABLE t1 OPTIMIZE PARTITION `p1`;
+
+# ----------------------------------------------------- #
+# --- Test 2 - optimize without records                --- #
+# ----------------------------------------------------- #
+--echo ------- Test 2 - optimize without records ------
+DROP TABLE t1;
+CREATE TABLE  t1 (PRIMARY KEY  (`id`), 
+   `id` BIGINT NOT NULL  AUTO_INCREMENT ,
+   `field1` CHAR(50) NOT NULL)ENGINE = FALCON
+   PARTITION BY Hash (id) PARTITIONS 4;
+
+# This caused Falcon to crash...
+ALTER TABLE t1 OPTIMIZE PARTITION `p1`;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

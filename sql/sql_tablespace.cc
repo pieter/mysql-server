@@ -43,28 +43,27 @@ int mysql_alter_tablespace(THD *thd, st_alter_tablespace *ts_info)
   {
     if ((error= hton->alter_tablespace(hton, thd, ts_info)))
     {
-      if (error == HA_ADMIN_NOT_IMPLEMENTED)
-      {
-        my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "");
-      }
-      else if (error == 1)
-      {
-        DBUG_RETURN(1);
-      }
-      else
-      {
-        my_error(error, MYF(0));
+      switch (error) {
+        case 1:
+          DBUG_RETURN(1);
+        case HA_ADMIN_NOT_IMPLEMENTED:
+          my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "");
+          break;
+        case HA_ERR_TABLESPACE_EXIST:
+          my_error(ER_TABLESPACE_EXIST, MYF(0), ts_info->tablespace_name);
+          break;
+        default:
+          my_error(error, MYF(0));
       }
       DBUG_RETURN(error);
     }
   }
   else
   {
-    push_warning_printf(thd, MYSQL_ERROR::WARN_LEVEL_ERROR,
-                        ER_ILLEGAL_HA_CREATE_OPTION,
-                        ER(ER_ILLEGAL_HA_CREATE_OPTION),
-                        ha_resolve_storage_engine_name(hton),
-                        "TABLESPACE or LOGFILE GROUP");
+    my_error(ER_ILLEGAL_HA_CREATE_OPTION, MYF(0),
+             ha_resolve_storage_engine_name(hton),
+             "TABLESPACE or LOGFILE GROUP");
+    DBUG_RETURN(HA_ADMIN_NOT_IMPLEMENTED);
   }
   write_bin_log(thd, FALSE, thd->query, thd->query_length);
   DBUG_RETURN(FALSE);

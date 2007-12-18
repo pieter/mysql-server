@@ -1210,3 +1210,19 @@ DROP TABLE t2;
 set names default;
 set character_set_database=default;
 set character_set_server=default;
+
+--echo End of 5.1 tests
+
+set names ujis;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+--source include/weight_string_A1A1.inc
+--source include/weight_string_8EA1.inc
+--source include/weight_string_8FA2C3.inc
+
+set collation_connection=ujis_bin;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+--source include/weight_string_A1A1.inc
+--source include/weight_string_8EA1.inc
+--source include/weight_string_8FA2C3.inc

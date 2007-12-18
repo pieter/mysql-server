@@ -1,0 +1,23 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #22168: Inserting bad early dates
+#
+--echo *** Bug #22168 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  a date,
+  b datetime
+);
+
+INSERT INTO t1 (a) VALUES ('0999-01-01');
+SELECT count(*) FROM t1 WHERE a = '0999-01-01';
+
+INSERT INTO t1 (b) VALUES ('0001-01-01 00:00:00');
+SELECT count(*) FROM t1 WHERE b = '0001-01-01 00:00:00';
+
+# Final cleanup.
+DROP TABLE t1;

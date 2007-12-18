@@ -920,10 +920,6 @@ CREATE TRIGGER tr1 BEFORE INSERT ON t1 FOR EACH ROW BEGIN DROP TRIGGER test1; EN
 ERROR HY000: Explicit or implicit commit is not allowed in stored function or trigger.
 CREATE FUNCTION bug_13627_f() returns int BEGIN DROP TRIGGER test1; return 1; END |
 ERROR HY000: Explicit or implicit commit is not allowed in stored function or trigger.
-CREATE TRIGGER tr1 BEFORE INSERT ON t1 FOR EACH ROW BEGIN load table t1 from master; END |
-ERROR 0A000: LOAD TABLE is not allowed in stored procedures
-CREATE FUNCTION bug_13627_f() returns int BEGIN load table t1 from master; return 1; END |
-ERROR 0A000: LOAD TABLE is not allowed in stored procedures
 CREATE TRIGGER tr1 BEFORE INSERT ON t1 FOR EACH ROW BEGIN create table t2 (a int); END |
 ERROR HY000: Explicit or implicit commit is not allowed in stored function or trigger.
 CREATE FUNCTION bug_13627_f() returns int BEGIN create table t2 (a int); return 1; END |
@@ -1110,18 +1106,6 @@ DROP FUNCTION IF EXISTS bug13012|
 CREATE FUNCTION bug13012() RETURNS INT
 BEGIN
 REPAIR TABLE t1;
-RETURN 1;
-END|
-ERROR 0A000: Not allowed to return a result set from a function
-CREATE FUNCTION bug13012() RETURNS INT
-BEGIN
-BACKUP TABLE t1 TO '/tmp';
-RETURN 1;
-END|
-ERROR 0A000: Not allowed to return a result set from a function
-CREATE FUNCTION bug13012() RETURNS INT
-BEGIN
-RESTORE TABLE t1 FROM '/tmp';
 RETURN 1;
 END|
 ERROR 0A000: Not allowed to return a result set from a function

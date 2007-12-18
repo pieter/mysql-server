@@ -26,6 +26,7 @@
 #endif
 #include "myisamdef.h"
 #include <m_ctype.h>
+#include <my_bit.h>
 
 #define STANDARD_LENGTH 37
 #define MYISAM_KEYS 6
@@ -1054,3 +1055,5 @@ static void copy_key(MI_INFO *info,uint inx,uchar *rec,uchar *key_buff)
   }
   return;
 }
+
+#include "mi_extrafunc.h"

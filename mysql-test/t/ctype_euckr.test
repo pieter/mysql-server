@@ -32,6 +32,17 @@ DROP TABLE t1;
 
 # End of 4.1 tests
 
+
+set names euckr;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+--source include/weight_string_A1A1.inc
+
+set collation_connection=euckr_bin;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+--source include/weight_string_A1A1.inc
+
 #
 #Bug #30315 Character sets: insertion of euckr code value 0xa141 fails
 #

@@ -1,0 +1,31 @@
+--source include/have_falcon.inc
+#
+# Bug #29511: Create new tablespace with existing datafile name destroys existing tablespace
+#
+--echo *** Bug #29511 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+
+--disable_warnings
+--error 0,65433
+DROP TABLESPACE tablespace1 Engine Falcon;
+--enable_warnings
+
+CREATE TABLESPACE tablespace1 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--error 1656
+CREATE TABLESPACE tablespace2 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLESPACE tablespace1 Engine Falcon;

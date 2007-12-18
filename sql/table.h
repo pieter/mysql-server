@@ -82,7 +82,7 @@ typedef struct st_grant_info
 enum tmp_table_type
 {
   NO_TMP_TABLE, NON_TRANSACTIONAL_TMP_TABLE, TRANSACTIONAL_TMP_TABLE,
-  INTERNAL_TMP_TABLE, SYSTEM_TMP_TABLE
+  INTERNAL_TMP_TABLE, SYSTEM_TMP_TABLE, TMP_TABLE_FRM_FILE_ONLY
 };
 
 /** Event on which trigger is invoked. */
@@ -309,6 +309,8 @@ typedef struct st_table_share
     return db_plugin ? plugin_data(db_plugin, handlerton*) : NULL;
   }
   enum row_type row_type;		/* How rows are stored */
+  enum ha_storage_media default_storage_media;
+  char *tablespace;
   enum tmp_table_type tmp_table;
   enum ha_choice transactional;
 
@@ -726,6 +728,7 @@ enum enum_schema_tables
   SCH_GLOBAL_VARIABLES,
   SCH_KEY_COLUMN_USAGE,
   SCH_OPEN_TABLES,
+  SCH_PARAMETERS,
   SCH_PARTITIONS,
   SCH_PLUGINS,
   SCH_PROCESSLIST,
@@ -887,6 +890,8 @@ public:
        (TABLE_LIST::natural_join != NULL)
        - JOIN ... USING
          (TABLE_LIST::join_using_fields != NULL)
+     - semi-join
+       ;
 */
 
 class Index_hint;
@@ -919,6 +924,16 @@ struct TABLE_LIST
   char		*db, *alias, *table_name, *schema_table_name;
   char          *option;                /* Used by cache index  */
   Item		*on_expr;		/* Used with outer join */
+  Item          *sj_on_expr;
+  /*
+    (Valid only for semi-join nests) Bitmap of tables that are within the
+    semi-join (this is different from bitmap of all nest's children because
+    tables that were pulled out of the semi-join nest remain listed as
+    nest's children).
+  */
+  table_map     sj_inner_tables;
+  /* Number of IN-compared expressions */
+  uint          sj_in_exprs; 
   /*
     The structure of ON expression presented in the member above
     can be changed during certain optimizations. This member
@@ -1098,7 +1113,9 @@ struct TABLE_LIST
     ... SELECT implementation).
   */
   bool          create;
-
+  /* For transactional locking. */
+  int           lock_timeout;           /* NOWAIT or WAIT [X]               */
+  bool          lock_transactional;     /* If transactional lock requested. */
 
   /* View creation context. */
 
@@ -1142,6 +1159,10 @@ struct TABLE_LIST
   int view_check_option(THD *thd, bool ignore_failure);
   bool setup_underlying(THD *thd);
   void cleanup_items();
+  /*
+    If you change placeholder(), please check the condition in
+    check_transactional_lock() too.
+  */
   bool placeholder()
   {
     return derived || view || schema_table || create && !table->db_stat ||
@@ -1355,8 +1376,16 @@ typedef struct st_nested_join
        by the join optimizer. 
     Before each use the counters are zeroed by reset_nj_counters.
   */
-  uint              counter;
+  uint              counter_;
   nested_join_map   nj_map;          /* Bit used to identify this nested join*/
+  /*
+    (Valid only for semi-join nests) Bitmap of tables outside the semi-join
+    that are used within the semi-join's ON condition.
+  */
+  table_map         sj_depends_on;
+  /* Outer non-trivially correlated tables */
+  table_map         sj_corr_tables;
+  List<Item>        sj_outer_expr_list;
 } NESTED_JOIN;
 
 

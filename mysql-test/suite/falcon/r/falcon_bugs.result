@@ -1,0 +1,3266 @@
+DROP TABLE IF EXISTS t1;
+SET @@storage_engine = Falcon;
+CREATE TABLE t1 (a int);
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL
+) ENGINE=Falcon DEFAULT CHARSET=latin1
+DROP TABLE t1;
+*** Bug #96 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+SET @@storage_engine = Falcon;
+CREATE TABLE t1 (a int);
+ALTER TABLE t1 ADD PRIMARY KEY(a);
+DROP TABLE t1;
+*** Bug #100 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 SELECT 'foo' FROM DUAL UNION SELECT 'bar' FROM DUAL;
+SELECT * FROM t1;
+foo
+foo
+bar
+DROP TABLE t1;
+*** Bug #85 ***
+SET @@storage_engine = Falcon;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+create table t1 (a int);
+insert into t1 values (1);
+select * from t1;
+a
+drop table t1;
+*** Bug #95 ***
+SET @@storage_engine = Falcon;
+SET @@storage_engine = Falcon;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (1);
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+SELECT * FROM t1;
+a
+COMMIT;
+SELECT * FROM t1;
+a
+1
+DROP TABLE t1;
+*** Bug #97 ***
+SET @@storage_engine = Falcon;
+create table t1 (
+a char(10) not null, 
+b int not null auto_increment, 
+primary key(b,a)
+);
+drop table t1;
+*** Bug #87 ***
+SET @@storage_engine = Falcon;
+create table t1 (a varchar(4), b varchar(1000), key (a, b(255)));
+insert into t1 values (1, 0x6441F4);
+insert into t1 values (1, 'foo');
+SELECT * FROM t1;
+a	b
+1	dA�
+1	foo
+drop table t1;
+*** Bug #102 ***
+SET @@storage_engine = Falcon;
+create schema my1;
+drop schema my1;
+create schema my1;
+create table my1.my1 (a int);
+drop schema my1;
+create schema my1;
+create table my1.my1 (a int);
+drop schema my1;
+*** Bug #88 ***
+SET @@storage_engine = Falcon;
+create schema mysqltest_1;
+create table mysqltest_1.t1 (a int);
+drop schema mysqltest_1;
+*** Bug #111 ***
+SET @@storage_engine = Falcon;
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+insert into t1 values (1),(2),(3),(4),(5);
+select * from t1;
+a
+1
+2
+3
+4
+5
+commit;
+update t1 set a=33 where a=3;
+select * from t1;
+a
+1
+2
+33
+4
+5
+select * from t1;
+a
+1
+2
+3
+4
+5
+SET @@autocommit = 0;
+select * from t1;
+a
+1
+2
+33
+4
+5
+commit;
+select * from t1;
+a
+1
+2
+3
+4
+5
+select * from t1;
+a
+1
+2
+33
+4
+5
+drop table t1;
+*** Bug #112 ***
+SET @@storage_engine = Falcon;
+CREATE TABLE t1 (a int not null auto_increment primary key);
+INSERT INTO t1 VALUES (0);
+ALTER TABLE t1 AUTO_INCREMENT=100;
+INSERT INTO t1 VALUES (0);
+SELECT a FROM t1;
+a
+1
+100
+DROP TABLE t1;
+*** Bug #94 ***
+SET @@storage_engine = Falcon;
+CREATE TABLE `t1` (
+`id` int(10) unsigned NOT NULL auto_increment,
+`name` varchar(64) NOT NULL default '',
+`email` varchar(64) NOT NULL default '',
+`password` varchar(64) NOT NULL default '',
+`dob` date default NULL,
+`address` varchar(128) NOT NULL default '',
+`city` varchar(64) NOT NULL default '',
+`state_id` tinyint(3) unsigned NOT NULL default '0',
+`zip` varchar(8) NOT NULL default '',
+`country_id` smallint(5) unsigned NOT NULL default '0',
+PRIMARY KEY (`id`),
+UNIQUE KEY `email` (`email`),
+KEY `country_id` (`country_id`,`state_id`,`city`)
+) DEFAULT CHARSET=latin1;
+INSERT INTO t1 (id,name,password,email,city,zip,dob,country_id,state_id) VALUES (2,'4leluys0vf1c10e9q2a5iog0hfubks5p','50ce8','wjrs2htec8@pb82n6mjh362j5663i6m.com','04k675wjvgbxjfsze182t5sm','pppbc','2006-04-20',131,8);
+select * from t1 where country_id=131;
+id	name	email	password	dob	address	city	state_id	zip	country_id
+2	4leluys0vf1c10e9q2a5iog0hfubks5p	wjrs2htec8@pb82n6mjh362j5663i6m.com	50ce8	2006-04-20		04k675wjvgbxjfsze182t5sm	8	pppbc	131
+drop table t1;
+*** Bug #91 ***
+SET @@storage_engine = Falcon;
+create table t1 (C001 VARCHAR(1000) CHARACTER SET utf8, PRIMARY KEY (C001(255)));
+DROP TABLE t1;
+*** Bug #122 ***
+SET @@storage_engine = Falcon;
+CREATE TABLE IF NOT EXISTS `falcon` (
+`id` int(10) unsigned NOT NULL,
+`f2` int(10) NOT NULL,
+`f3` int(10) NOT NULL,
+PRIMARY KEY (`id`),
+KEY `f3` (`f3`)
+);
+DROP TABLE falcon;
+*** Bug #115 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a varchar(8)) DEFAULT CHARSET ucs2;
+INSERT INTO t1 VALUES ();
+SELECT * FROM t1;
+a
+NULL
+DROP TABLE t1;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int);
+DROP TABLE t1;
+*** Bug #110 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int not null primary key, b varchar(20));
+INSERT INTO t1 (a,b) VALUES (1,'foo') ON DUPLICATE KEY UPDATE a=3;
+INSERT INTO t1 (a,b) VALUES (1,'foo') ON DUPLICATE KEY UPDATE a=3;
+SELECT * FROM t1;
+a	b
+3	foo
+DROP TABLE t1;
+*** Bug #129 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS T002_1;
+CREATE TABLE T002_1 (
+C001 INT NOT NULL,
+C002 VARBINARY(1800),
+C003 VARCHAR(255) CHARACTER SET latin1,
+C004 VARCHAR(255) CHARACTER SET latin1,
+C005 VARCHAR(255) CHARACTER SET latin1,
+C006 VARCHAR(255) CHARACTER SET latin1,
+C007 VARCHAR(255) CHARACTER SET latin1,
+C008 VARCHAR(255) CHARACTER SET latin1,
+C009 VARCHAR(255) CHARACTER SET latin1,
+C010 VARCHAR(255) CHARACTER SET latin1,
+C011 VARCHAR(255) CHARACTER SET latin1,
+C012 VARCHAR(255) CHARACTER SET latin1,
+C013 VARCHAR(255) CHARACTER SET latin1,
+C014 VARCHAR(255) CHARACTER SET latin1,
+C015 VARCHAR(255) CHARACTER SET latin1,
+C016 VARCHAR(255) CHARACTER SET latin1 
+);
+ALTER TABLE T002_1
+ADD PRIMARY KEY
+(C001,C002(60),C003(60),C004(60),C005(60),C006(60),C007(60),C008(60),C009(60),C010(60),C011(60),C012(60),C013(60),C014(60),C015(58));
+INSERT INTO T002_1 VALUES
+(1, REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), CONCAT(REPEAT('0',56),'1'), "0"),
+(1, REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), REPEAT('0',60), REPEAT('0',60), REPEAT('0',60),
+REPEAT('0',60), CONCAT(REPEAT('0',56),'2'), "0");
+DROP TABLE T002_1;
+*** Bug #154 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t2;
+CREATE TABLE t2 (s1 int, index (s1));
+INSERT INTO t2 VALUES (1),(null),(2),(2);
+SELECT * FROM t2 WHERE s1 IS NULL OR s1 = 2;
+s1
+2
+2
+NULL
+DROP TABLE t2;
+*** Bug #163 ***
+SET @@storage_engine = Falcon;
+DROP PROCEDURE IF EXISTS p56;
+DROP TABLE IF EXISTS t55;
+create procedure p56 ()
+begin
+set @@autocommit = 1;
+create table t55 (s1 int, s2 char(1), s3 blob);
+insert into t55 values (1,'a','x');
+update t55 set s1 = s1, s2='';
+select hex(left(s3,1)) from t55;
+end//
+call p56();
+hex(left(s3,1))
+78
+DROP TABLE t55;
+DROP PROCEDURE p56;
+*** Bug #152 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (s1 text);
+INSERT INTO t1 VALUES (repeat('a',16384));
+ALTER TABLE t1 MODIFY COLUMN s1 varchar(30000);
+SELECT character_length(s1) FROM t1;
+character_length(s1)
+16384
+DROP TABLE t1;
+*** Bug #156 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+create table t1 (s1 int, s3 varchar(1000), unique (s1,s3));
+start transaction;
+insert into t1 values (1,repeat('b',1000));
+rollback;
+start transaction;
+insert into t1 values (1,repeat('b',1000));
+rollback;
+start transaction;
+insert into t1 values (1,repeat('b',1000));
+commit;
+DROP TABLE t1;
+*** Bug #159 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS tia;
+DROP TABLE IF EXISTS tib;
+set @@autocommit = 0;
+create table tia (s2 char(1), unique(s2));
+insert into tia values ('a');
+create table tib (s2 char(1));
+create trigger tia_bi before insert on tia for each row insert into tib values (new.s2);
+insert into tia values ('a');
+ERROR 23000: Duplicate entry 'a' for key 's2'
+select * from tib;
+s2
+DROP TRIGGER tia_bi;
+DROP TABLE tia;
+DROP TABLE tib;
+*** Bug #137 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t4;
+DROP TABLE IF EXISTS t4a;
+create table t4 (s1 varbinary(3) primary key);
+insert into t4 values (0x41),(0x4100),(0x410000);
+rename table t4 to t4a;
+insert into t4a values (0x00);
+insert into t4a values (0x42);
+delete from t4a;
+DROP TABLE t4a;
+*** Bug #149 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (NUMKEY DECIMAL(3) NOT NULL UNIQUE, COL2 CHAR(2));
+INSERT INTO t1 VALUES(1,'A');
+INSERT INTO t1 VALUES(2,'B');
+DROP TABLE t1;
+*** Bug #162 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t;
+create table t (s1 int);
+create trigger t_bi before insert on t for each row set @a=5;
+insert into t values (0);
+insert into t values (0);
+select * from t;
+s1
+0
+0
+select @a;
+@a
+5
+DROP TRIGGER t_bi;
+DROP TABLE t;
+*** Bug #166 ***
+SET @@storage_engine = Falcon;
+SET @@sql_mode = 'ANSI_QUOTES';
+DROP TABLE IF EXISTS "aa";
+CREATE TABLE "aa" (
+"ba" varchar(8) collate latin1_bin NOT NULL default ' ',
+"bb" varchar(40) collate latin1_bin NOT NULL default ' ',
+"bc" varchar(3) collate latin1_bin NOT NULL default ' ',
+"bd" varchar(10) collate latin1_bin NOT NULL default ' ',
+"be" varchar(3) collate latin1_bin NOT NULL default ' ',
+"bf" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"bg" varchar(6) collate latin1_bin NOT NULL default '000000',
+"bh" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"bi" varchar(6) collate latin1_bin NOT NULL default '000000',
+"ak" varchar(6) collate latin1_bin NOT NULL default ' ',
+"al" int(11) NOT NULL default '0',
+"am" int(11) NOT NULL default '0',
+"an" int(11) NOT NULL default '0',
+"ao" int(11) NOT NULL default '0',
+"ap" int(11) NOT NULL default '0',
+"aq" int(11) NOT NULL default '0',
+"ar" int(11) NOT NULL default '0',
+"as" int(11) NOT NULL default '0',
+"at" int(11) NOT NULL default '0',
+"au" int(11) NOT NULL default '0',
+"av" varchar(16) collate latin1_bin NOT NULL default ' ',
+"aw" varchar(30) collate latin1_bin NOT NULL default ' ',
+"ax" varchar(40) collate latin1_bin NOT NULL default ' ',
+"ay" varchar(12) collate latin1_bin NOT NULL default ' ',
+"az" decimal(15,0) NOT NULL default '0',
+PRIMARY KEY ("ba","bb","bc","bd","be","bf","bg","bh","bi"));
+DROP TABLE "aa";
+*** Bug #175 ***
+SET @@storage_engine = Falcon;
+SET @@sql_mode = 'ANSI_QUOTES';
+DROP TABLE IF EXISTS "aa";
+CREATE TABLE "aa" (
+"gt" varchar(3) collate latin1_bin NOT NULL default '000',
+"fm" varchar(12) collate latin1_bin NOT NULL default ' ',
+"gn" varchar(2) collate latin1_bin NOT NULL default ' ',
+"gu" varchar(40) collate latin1_bin NOT NULL default ' ',
+"af" varchar(2) collate latin1_bin NOT NULL default ' ',
+"ag" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ah" varchar(12) collate latin1_bin NOT NULL default ' ',
+"ai" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"aj" varchar(12) collate latin1_bin NOT NULL default ' ',
+"ak" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"al" varchar(6) collate latin1_bin NOT NULL default '000000',
+"fq" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"an" varchar(12) collate latin1_bin NOT NULL default ' ',
+"ao" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ap" varchar(6) collate latin1_bin NOT NULL default '000000',
+"aq" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ar" varchar(6) collate latin1_bin NOT NULL default '000000',
+"as" varchar(5) collate latin1_bin NOT NULL default ' ',
+"ft" varchar(12) collate latin1_bin NOT NULL default ' ',
+"au" varchar(4) collate latin1_bin NOT NULL default ' ',
+"av" varchar(18) collate latin1_bin NOT NULL default ' ',
+"aw" varchar(4) collate latin1_bin NOT NULL default ' ',
+"ax" varchar(12) collate latin1_bin NOT NULL default ' ',
+"gm" varchar(18) collate latin1_bin NOT NULL default ' ',
+"az" varchar(2) collate latin1_bin NOT NULL default ' ',
+"ba" varchar(9) collate latin1_bin NOT NULL default ' ',
+"bb" varchar(18) collate latin1_bin NOT NULL default ' ',
+"bc" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bd" varchar(1) collate latin1_bin NOT NULL default ' ',
+"gd" varchar(10) collate latin1_bin NOT NULL default ' ',
+"bf" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bg" varchar(1) collate latin1_bin NOT NULL default ' ',
+"fp" varchar(22) collate latin1_bin NOT NULL default ' ',
+"bi" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"bj" varchar(6) collate latin1_bin NOT NULL default '000000',
+"bk" varchar(9) collate latin1_bin NOT NULL default ' ',
+"bl" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bm" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bn" varchar(1) collate latin1_bin NOT NULL default ' ',
+"bo" varchar(2) collate latin1_bin NOT NULL default ' ',
+"bp" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"bq" varchar(6) collate latin1_bin NOT NULL default '000000',
+"fw" varchar(10) collate latin1_bin NOT NULL default ' ',
+"bs" varchar(12) collate latin1_bin NOT NULL default ' ',
+"bt" varchar(10) collate latin1_bin NOT NULL default ' ',
+"bu" varchar(35) collate latin1_bin NOT NULL default ' ',
+"bv" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"gg" varchar(2) collate latin1_bin NOT NULL default ' ',
+"ge" varchar(4) collate latin1_bin NOT NULL default ' ',
+"gf" varchar(2) collate latin1_bin NOT NULL default ' ',
+"bz" varchar(10) collate latin1_bin NOT NULL default ' ',
+"ca" varchar(6) collate latin1_bin NOT NULL default '000000',
+"cb" varchar(6) collate latin1_bin NOT NULL default '000000',
+"go" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cd" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ce" varchar(8) collate latin1_bin NOT NULL default ' ',
+"cf" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cg" varchar(4) collate latin1_bin NOT NULL default ' ',
+"ch" varchar(4) collate latin1_bin NOT NULL default ' ',
+"gr" varchar(12) collate latin1_bin NOT NULL default '000000000000',
+"cj" varchar(10) collate latin1_bin NOT NULL default ' ',
+"ck" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cl" varchar(15) collate latin1_bin NOT NULL default ' ',
+"cm" varchar(10) collate latin1_bin NOT NULL default ' ',
+"cn" varchar(18) collate latin1_bin NOT NULL default ' ',
+"fx" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cp" varchar(3) collate latin1_bin NOT NULL default ' ',
+"cq" varchar(4) collate latin1_bin NOT NULL default ' ',
+"cr" varchar(12) collate latin1_bin NOT NULL default ' ',
+"cs" varchar(10) collate latin1_bin NOT NULL default '0000000000',
+"ct" varchar(10) collate latin1_bin NOT NULL default ' ',
+"cu" varchar(5) collate latin1_bin NOT NULL default '00000',
+"cv" varchar(4) collate latin1_bin NOT NULL default '0000',
+"cw" varchar(10) collate latin1_bin NOT NULL default ' ',
+"cx" varchar(4) collate latin1_bin NOT NULL default '0000',
+"cy" varchar(10) collate latin1_bin NOT NULL default ' ',
+"cz" varchar(6) collate latin1_bin NOT NULL default '000000',
+"da" varchar(10) collate latin1_bin NOT NULL default ' ',
+"db" varchar(6) collate latin1_bin NOT NULL default '000000',
+"dc" varchar(2) collate latin1_bin NOT NULL default ' ',
+"dd" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"de" varchar(4) collate latin1_bin NOT NULL default ' ',
+"df" varchar(8) collate latin1_bin NOT NULL default ' ',
+"dg" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"dh" decimal(13,3) NOT NULL default '0.000',
+"di" decimal(13,3) NOT NULL default '0.000',
+"dj" varchar(3) collate latin1_bin NOT NULL default ' ',
+"dk" decimal(13,3) NOT NULL default '0.000',
+"dl" decimal(13,3) NOT NULL default '0.000',
+"dm" decimal(13,3) NOT NULL default '0.000',
+"dn" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"do" varchar(12) collate latin1_bin NOT NULL default ' ',
+"dp" varchar(12) collate latin1_bin NOT NULL default ' ',
+"dq" varchar(20) collate latin1_bin NOT NULL default ' ',
+"dr" varchar(35) collate latin1_bin NOT NULL default ' ',
+"ds" varchar(35) collate latin1_bin NOT NULL default ' ',
+"dt" varchar(18) collate latin1_bin NOT NULL default ' ',
+"du" varchar(1) collate latin1_bin NOT NULL default ' ',
+"dv" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"dw" varchar(40) collate latin1_bin NOT NULL default ' ',
+"dx" varchar(4) collate latin1_bin NOT NULL default ' ',
+"dy" varchar(3) collate latin1_bin NOT NULL default ' ',
+"dz" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ea" varchar(12) collate latin1_bin NOT NULL default '000000000000',
+"eb" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ec" varchar(2) collate latin1_bin NOT NULL default ' ',
+"ed" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ee" varchar(22) collate latin1_bin NOT NULL default ' ',
+"ef" varchar(1) collate latin1_bin NOT NULL default ' ',
+"eg" varchar(10) collate latin1_bin NOT NULL default ' ',
+"eh" varchar(6) collate latin1_bin NOT NULL default ' ',
+"ei" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ej" varchar(4) collate latin1_bin NOT NULL default ' ',
+"ek" varchar(10) collate latin1_bin NOT NULL default ' ',
+"el" varchar(24) collate latin1_bin NOT NULL default '000000000000000000000000',
+"em" varchar(10) collate latin1_bin NOT NULL default ' ',
+"en" varchar(10) collate latin1_bin NOT NULL default ' ',
+"eo" varchar(10) collate latin1_bin NOT NULL default ' ',
+"ep" varchar(20) collate latin1_bin NOT NULL default ' ',
+"eq" varchar(10) collate latin1_bin NOT NULL default ' ',
+"er" varchar(1) collate latin1_bin NOT NULL default ' ',
+"es" varchar(10) collate latin1_bin NOT NULL default ' ',
+"et" varchar(10) collate latin1_bin NOT NULL default ' ',
+"eu" varchar(14) collate latin1_bin NOT NULL default '00000000000000',
+"ev" varchar(1) collate latin1_bin NOT NULL default ' ',
+"ew" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"ex" varchar(6) collate latin1_bin NOT NULL default '000000',
+"ey" varchar(8) collate latin1_bin NOT NULL default ' ',
+"ez" varchar(3) collate latin1_bin NOT NULL default '000',
+"fa" varchar(8) collate latin1_bin NOT NULL default '00000000',
+"fb" decimal(13,2) NOT NULL default '0.00',
+"fc" decimal(13,2) NOT NULL default '0.00',
+"fd" decimal(13,2) NOT NULL default '0.00',
+"fe" varchar(2) collate latin1_bin NOT NULL default '00',
+"ff" varchar(2) collate latin1_bin NOT NULL default ' ',
+"fg" varchar(12) collate latin1_bin NOT NULL default '000000000000',
+"fh" varchar(4) collate latin1_bin NOT NULL default ' ',
+"fi" varchar(22) collate latin1_bin NOT NULL default ' ',
+"fj" varchar(22) collate latin1_bin NOT NULL default ' ',
+"fk" varchar(1) collate latin1_bin NOT NULL default ' ',
+PRIMARY KEY ("gt","fm"),
+UNIQUE KEY "fn" ("gt","fp","fq"),
+KEY "fr" ("gt","ft"),
+KEY "fu" ("gt","fw","fx","gm","go","gn"),
+KEY "gb" ("gt","gd","ge","gf","gg","gm","go","gn"),
+KEY "gk" ("gt","gm","gn","go"),
+KEY "gp" ("gt","gr"),
+KEY "gs" ("gt","gu")
+);
+DROP TABLE "aa";
+*** Bug #164 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS tg;
+create table tg (s1 int);
+create unique index tgi2 on tg (s1);
+insert into tg values (1);
+insert into tg values (1);
+ERROR 23000: Duplicate entry '1' for key 'tgi2'
+create index tgi3 on tg (s1);
+insert into tg values (1);
+ERROR 23000: Duplicate entry '1' for key 'tgi2'
+DROP TABLE tg;
+*** Bug #143 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+create table t1 (id int);
+create table t2 (id int not null primary key, val int);
+insert into t1 values (1);
+insert into t2 values (1,1);
+select * from t1, t2 where t1.id=t2.id;
+id	id	val
+1	1	1
+DROP TABLE t1, t2;
+*** Bug #146 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+create table t1 (a int not null auto_increment primary key, val int);
+insert into t1 (val) values (1);
+update t1 set a=2 where a=1;
+insert into t1 (val) values (1);
+select * from t1;
+a	val
+2	1
+3	1
+DROP TABLE t1;
+*** Bug #145 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1,t3;
+create table t1 (libname varchar(21) not null, city text, primary key (libname));
+create table t3 (libname varchar(21) not null, city text, primary key (libname));
+insert into t1 values ('New York Public Libra','1');
+insert into t3 values ('New York Public Libra','3');
+select * from t3 where libname in (select libname from t1);
+libname	city
+New York Public Libra	3
+drop table t1;
+create table t1 (id int, key(id));
+insert into t1 values (1),(2),(3);
+select count(*) from t1 where id not in (1,2);
+count(*)
+1
+DROP TABLE t1,t3;
+*** Bug #144 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (id bigint auto_increment primary key, a int)
+auto_increment=9999999999;
+INSERT INTO t1 VALUES (null,1);
+SELECT * FROM t1;
+id	a
+9999999999	1
+DROP TABLE t1;
+*** Bug #165 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (s1 int);
+CREATE UNIQUE INDEX tgi2 ON t1 (s1);
+INSERT INTO t1 VALUES (null),(null);
+SELECT * FROM t1;
+s1
+NULL
+NULL
+DROP TABLE t1;
+*** Bug #157 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+SET @@autocommit = 0//
+create table t1 (s1 int)//
+create procedure p1 ()
+begin
+declare v int default 0;
+while v < 2000 do
+insert into t1 values (v);
+if mod(v,300)=0 then
+rollback;
+end if;
+set v = v + 1;
+end while;
+end//
+start transaction//
+call p1()//
+select count(*) from t1//
+count(*)
+199
+DROP PROCEDURE p1;
+DROP TABLE t1;
+*** Bug #177 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS `cq`;
+CREATE TABLE `cq` (
+`cj` varchar(3) collate latin1_bin NOT NULL default '000',
+`ck` varchar(50) collate latin1_bin NOT NULL default ' ',
+`cm` varchar(10) collate latin1_bin NOT NULL default '0000000000',
+`bd` varchar(3) collate latin1_bin NOT NULL default '000',
+`co` varchar(1) collate latin1_bin NOT NULL default ' ',
+`cl` varchar(3) collate latin1_bin NOT NULL default ' ',
+`bg` varchar(4) collate latin1_bin NOT NULL default '0000',
+`cf` varchar(30) collate latin1_bin default NULL,
+`cn` double default NULL,
+`ak` varchar(3) collate latin1_bin default NULL,
+`al` double default NULL,
+`am` varchar(3) collate latin1_bin default NULL,
+`an` varchar(1) collate latin1_bin NOT NULL default ' ',
+`ao` double default NULL,
+`ap` double default NULL,
+`aq` varchar(1) collate latin1_bin default NULL,
+`ar` double default NULL,
+`as` varchar(1) collate latin1_bin default NULL,
+`bj` varchar(12) collate latin1_bin default NULL,
+`cp` varchar(8) collate latin1_bin NOT NULL default '00000000',
+`av` varchar(1) collate latin1_bin NOT NULL default ' ',
+`aw` varchar(10) collate latin1_bin default NULL,
+`ax` varchar(3) collate latin1_bin default NULL,
+`ay` varchar(4) collate latin1_bin NOT NULL default '0000',
+`az` varchar(1) collate latin1_bin NOT NULL default ' ',
+PRIMARY KEY  (`cj`,`ck`,`cm`,`bd`,`co`,`cl`,`bg`),
+KEY `bh` (`cj`,`bj`),
+KEY `bk` (`cj`,`cl`,`cm`,`cf`,`ck`,`co`,`cp`),
+KEY `bs` (`cj`,`cl`,`cm`,`cn`,`ck`,`co`,`cp`),
+KEY `ca` (`cj`,`ck`,`cl`,`cm`,`cf`,`co`,`cp`),
+KEY `ci` (`cj`,`ck`,`cl`,`cm`,`cn`,`co`,`cp`)
+) DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+INSERT INTO `cq` VALUES ('900','ATO_KEYBOARDDE_00','0000000001','001','O','200','0000','DE',0,'',0,'','1',0,0,'',0,'','','00000000','','0000000000','000','0000','');
+DROP TABLE `cq`;
+*** Bug #213 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a decimal(20));
+DROP TABLE t1;
+*** Bug #219 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+create table t1(a date);
+create table t2(a date, key(a));
+insert into t1 values('2005-10-01');
+insert into t2 values('2005-10-01');
+select * from t1
+where t1.a between t1.a and t1.a;
+a
+2005-10-01
+select * from t1, t2
+where t2.a = t1.a;
+a	a
+2005-10-01	2005-10-01
+DROP TABLE t1, t2;
+*** Bug #212 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (c1 char(50));
+ALTER TABLE t1 ADD INDEX(c1(5));
+INSERT INTO t1 VALUES ('abcdefg'),('abcdefg'),('abcdefg');
+SELECT c1 FROM t1 WHERE c1 LIKE 'abcdef%';
+c1
+abcdefg
+abcdefg
+abcdefg
+DROP TABLE t1;
+*** Bug #214 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(
+Month date NOT NULL,
+Type tinyint(3) unsigned NOT NULL auto_increment,
+UNIQUE KEY Month (Type, Month)
+);
+INSERT INTO t1 VALUES
+(1, '2003-09-01'),
+(1, '2003-09-01'),
+(2, '2003-09-01'),
+(2, '2003-09-01'),
+(3, '2003-09-01');
+ERROR 23000: Duplicate entry '255-0000-00-00' for key 'Month'
+DROP TABLE t1;
+*** Bug #206 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t315;
+CREATE TABLE t315 (s1 varbinary(5));
+INSERT INTO t315 VALUES (0x0001020304);
+CREATE INDEX it315 ON t315 (s1);
+SELECT hex(s1) FROM t315 WHERE s1=0x0001020304;
+hex(s1)
+0001020304
+DROP TABLE t315;
+*** Bug #197 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t15;
+CREATE TABLE t15 (
+s1 enum('a','b','c','d')
+);
+INSERT INTO t15 VALUES ('a'),('b'),('c'),('d');
+SELECT * FROM t15 WHERE s1 = 'a' OR s1 = 'b' OR s1 = 'c' OR s1 = 'd';
+s1
+a
+b
+c
+d
+CREATE INDEX it15 ON t15 (s1);
+SELECT * FROM t15 WHERE s1 = 'a' OR s1 = 'b' OR s1 = 'c' OR s1 = 'd';
+s1
+a
+b
+c
+d
+DROP TABLE t15;
+*** Bug #196 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t14_1;
+CREATE TABLE t14_1 (f1 NUMERIC (64));
+INSERT INTO t14_1 SET f1 = 1;
+SELECT 1;
+1
+1
+SELECT * FROM t14_1;
+f1
+1
+DROP TABLE t14_1;
+*** Bug #205 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+*** Bug #209 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a bit);
+DROP TABLE t1;
+*** Bug #239 ***
+SET @@storage_engine = Falcon;
+DROP DATABASE IF EXISTS rechange;
+CREATE DATABASE rechange;
+USE rechange;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (239);
+DROP DATABASE rechange;
+USE test;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 VALUES (239);
+DROP TABLE t1;
+*** Bug #133 ***
+SET @@storage_engine = Falcon;
+DROP VIEW IF EXISTS v5y;
+CREATE VIEW v5y AS SELECT 1 AS ` `;
+ERROR 42000: Incorrect column name ' '
+*** Bug #27696 ***
+SET @@storage_engine = Falcon;
+SET names utf8;
+DROP TABLE IF EXISTS ä;
+DROP TABLE IF EXISTS ı;
+CREATE TABLE ä (ä int);
+CREATE TABLE ı (ı int);
+DROP TABLE ä;
+DROP TABLE ı;
+*** Bug #139 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t3;
+CREATE TABLE t3 (
+place_id int (10) unsigned,
+ts timestamp, 
+PRIMARY KEY (place_id, ts)
+);
+INSERT INTO t3 VALUES (1,20000928174434);
+SELECT * FROM t3 WHERE place_id = 1 AND ts>='2000-09-28 00:00:00';
+place_id	ts
+1	2000-09-28 17:44:34
+SELECT * FROM t3 WHERE place_id = 1 AND ts >= 20000928000000;
+place_id	ts
+1	2000-09-28 17:44:34
+DROP TABLE t3;
+*** Bug #140 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS ti;
+SET @@autocommit = 1;
+SELECT @@autocommit;
+@@autocommit
+1
+CREATE TABLE ti (s1 int);
+START TRANSACTION;
+INSERT INTO ti VALUES (0);
+ROLLBACK;
+SELECT count(*) FROM ti;
+count(*)
+0
+DROP TABLE ti;
+*** Bug #150 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (
+EMPNUM   CHAR(3) NOT NULL UNIQUE,
+EMPNAME  CHAR(20),
+GRADE    DECIMAL(4),
+CITY     CHAR(15)
+);
+INSERT INTO t1 VALUES ('E1','Alice',12,'Deale');
+SELECT EMPNUM,CITY FROM t1 WHERE EMPNUM='E1' OR NOT(EMPNUM='E1');
+EMPNUM	CITY
+E1	Deale
+DROP TABLE t1;
+*** Bug #155 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t2;
+CREATE TABLE t2 (s1 varchar(5));
+CREATE INDEX i2 ON t2 (s1(1));
+INSERT INTO t2 VALUES ('b'),('ba');
+SELECT * FROM t2 WHERE s1 = 'b';
+s1
+b
+SELECT * FROM t2 WHERE s1 = 'ba';
+s1
+ba
+DROP TABLE t2;
+*** Bug #186 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t;
+CREATE TABLE t (
+s2 int(11) DEFAULT NULL,
+s3 int(11) DEFAULT NULL,
+KEY s2 (s2),
+KEY s3 (s3)
+);
+INSERT INTO t VALUES (0,0),(1,1),(null,null);
+SELECT * FROM t WHERE s2 IS NULL or s3 IS NULL;
+s2	s3
+NULL	NULL
+DROP TABLE t;
+*** Bug #187 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS tj23;
+CREATE TABLE tj23 (
+s1 decimal(20)
+);
+INSERT INTO tj23 VALUES (12345678901234567890);
+SELECT * FROM tj23;
+s1
+12345678901234567890
+DROP TABLE tj23;
+*** Bug #188 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+# Establish connection con1 (root)
+SET @@storage_engine = Falcon;
+# Switch to connection default
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+CREATE TABLE t1 (
+s1 int,
+s2 int,
+PRIMARY KEY (s1)
+);
+INSERT INTO t1 VALUES (1,2);
+# Switch to connection con1
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+INSERT INTO t1 VALUES (1,2) ON DUPLICATE KEY UPDATE s2 = 5;
+# Switch to connection default
+COMMIT;
+# Switch to connection con1
+SELECT * FROM t1;
+s1	s2
+1	5
+COMMIT;
+DROP TABLE t1;
+*** Bug #190 ***
+SET @@storage_engine = Falcon;
+DROP DATABASE IF EXISTS test_db;
+CREATE DATABASE test_db;
+USE test_db;
+CREATE TABLE BASE_TESTREPORT (
+TESTNO CHAR(4),
+RESULT CHAR(4),
+TESTTYPE CHAR(3)
+);
+DROP DATABASE test_db;
+USE test;
+*** Bug #191 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (EMPNUM    CHAR(3) NOT NULL,
+EMPNAME  CHAR(20) DEFAULT NULL,
+GRADE DECIMAL(4) NOT NULL ,
+CITY   CHAR(15), PRIMARY KEY (GRADE));
+INSERT INTO t1 (EMPNUM,EMPNAME,GRADE)
+VALUES ('E3','Bill',151);
+SELECT * FROM t1;
+EMPNUM	EMPNAME	GRADE	CITY
+E3	Bill	151	NULL
+SELECT * FROM t1 WHERE GRADE= 151;
+EMPNUM	EMPNAME	GRADE	CITY
+E3	Bill	151	NULL
+ALTER TABLE t1 DROP PRIMARY KEY;
+SELECT * FROM t1;
+EMPNUM	EMPNAME	GRADE	CITY
+E3	Bill	151	NULL
+SELECT * FROM t1 WHERE GRADE= 151;
+EMPNUM	EMPNAME	GRADE	CITY
+E3	Bill	151	NULL
+DROP TABLE t1;
+*** Bug #192 ***
+SET @@storage_engine = Falcon;
+DROP PROCEDURE IF EXISTS falcon4.pf3;
+DROP DATABASE IF EXISTS falcon4;
+CREATE DATABASE falcon4//
+USE falcon4//
+CREATE TABLE tf3 (
+s1 int, 
+s2 varchar(200)
+)//
+CREATE PROCEDURE pf3 () 
+BEGIN 
+declare v int default 0; 
+while v < 2 
+do 
+alter table tf3 partition by range (s1) (partition p4 values less than maxvalue);
+alter table tf3 remove partitioning;
+set v = v + 1; 
+end while; 
+END//
+CALL falcon4.pf3()//
+DROP PROCEDURE falcon4.pf3;
+DROP DATABASE falcon4;
+USE test;
+*** Bug #234 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t315;
+CREATE TABLE t315 (s1 binary(5));
+CREATE INDEX it315 ON t315 (s1);
+INSERT INTO t315 VALUES (0x0001020300),(0x0001020300),(0x0001020300);
+SELECT hex(s1) FROM t315 WHERE s1=0x0001020300;
+hex(s1)
+0001020300
+0001020300
+0001020300
+DROP TABLE t315;
+*** Bug #230 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t7;
+CREATE TABLE t7 (s1 int);
+CREATE INDEX it7 ON t7 (s1);
+INSERT INTO t7 VALUES (null),(0),(1);
+SELECT * FROM t7;
+s1
+NULL
+0
+1
+SELECT * FROM t7 WHERE s1 IS NULL OR s1 = 0 OR s1 = 1;
+s1
+NULL
+0
+1
+DROP TABLE t7;
+CREATE TABLE t7 (s1 varchar(5));
+CREATE INDEX it7 ON t7 (s1);
+INSERT INTO t7 VALUES (null),(''),(' ');
+SELECT * FROM t7;
+s1
+NULL
+
+ 
+SELECT * FROM t7 WHERE s1 >= '' OR s1 IS NULL;
+s1
+NULL
+
+ 
+DROP TABLE t7;
+*** Bug #141 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 SELECT repeat('a',50) AS c1;
+INSERT INTO t1 VALUES ('aaa');
+SELECT * FROM t1 WHERE c1 LIKE 'aaa%';
+c1
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+aaa
+ALTER TABLE t1 ADD index(c1(5));
+SELECT * FROM t1 WHERE c1 LIKE 'aaa%';
+c1
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+aaa
+DROP TABLE t1;
+*** Bug #202 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+create table t1 (id int not null ,
+name char(20) not null,
+primary key (id));
+insert into t1 (id, name) values (1, 'Tim'), (2, 'Monty');
+select id, name from t1 order by id;
+id	name
+1	Tim
+2	Monty
+update ignore t1 set id = 8, name = 'Sinisa' where id < 3;
+select count(*) from t1 where name = 'Sinisa';
+count(*)
+1
+drop table t1;
+create table t1 (id int unsigned not null auto_increment,
+code tinyint unsigned not null, name char(20) not null,
+primary key (id), key (code), unique (name));
+insert into t1 (code, name) values (1, 'Tim'), (1, 'Monty');
+select id, code, name from t1 order by id;
+id	code	name
+1	1	Tim
+2	1	Monty
+update ignore t1 set id = 8, name = 'Sinisa' where id < 3;
+select count(*) from t1 where name = 'Sinisa';
+count(*)
+1
+DROP TABLE t1;
+*** Bug #200 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS testSavepoints;
+SET @@autocommit = 1;
+CREATE TABLE testSavepoints (field1 int);
+SET @@autocommit = 0;
+INSERT INTO testSavepoints VALUES (1);
+SAVEPOINT `afterInsert`;
+UPDATE testSavepoints SET field1=2;
+SAVEPOINT `afterUpdate`;
+DELETE FROM testSavepoints;
+SELECT count(*) FROM testSavepoints;
+count(*)
+0
+ROLLBACK TO SAVEPOINT afterUpdate;
+SELECT count(*) FROM testSavepoints;
+count(*)
+1
+DROP TABLE testSavepoints;
+*** Bug #201 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+# If I remove the auto_increment, the crash on the update disappers
+CREATE TABLE t1 (
+id BIGINT NOT NULL auto_increment,
+parent_id BIGINT,
+PRIMARY KEY (id)
+);
+INSERT INTO t1 VALUES (9,2),(24,4);
+# This UPDATE gets a crash
+update t1 set parent_id=parent_id+100;
+SELECT * FROM t1;
+id	parent_id
+9	102
+24	104
+DROP TABLE t1;
+CREATE TABLE t1 (
+id int(11) NOT NULL auto_increment,
+parent_id int(11) DEFAULT '0' NOT NULL,
+level tinyint(4) DEFAULT '0' NOT NULL,
+PRIMARY KEY (id),
+KEY parent_id (parent_id),
+KEY level (level)
+);
+INSERT INTO t1 VALUES (9,2,2),(24,4,2);
+# This UPDATE gets a crash
+update t1 set parent_id=parent_id+100;
+update t1 set id=24 where id=9;
+Got one of the listed errors
+SELECT * FROM t1;
+id	parent_id	level
+9	102	2
+24	104	2
+DROP TABLE t1;
+*** Bug #232 ***
+SET @@storage_engine = Falcon;
+DROP DATABASE IF EXISTS f12;
+SET @@storage_engine = Falcon;
+CREATE DATABASE f12;
+USE f12;
+SET @@autocommit = 0;
+CREATE TABLE tf2 (s2 char(50));
+COMMIT;
+START TRANSACTION;
+INSERT INTO tf2 VALUES ('The plain');
+SAVEPOINT a;
+UPDATE tf2 SET s2 = 'b';
+ROLLBACK TO SAVEPOINT a;
+SELECT * FROM tf2;
+s2
+The plain
+COMMIT;
+DROP DATABASE f12;
+USE test;
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (c1 int, c2 varchar(8));
+INSERT INTO t1 VALUES (1, 'AAAAAAAA');
+INSERT INTO t1 VALUES (2, 'BBBBBBBB');
+BEGIN;
+SELECT * FROM t1;
+c1	c2
+1	AAAAAAAA
+2	BBBBBBBB
+INSERT INTO t1 VALUES (3, 'CCCCCCCC');
+UPDATE t1 SET c2 = lower(c2);
+SAVEPOINT sp1;
+SELECT * FROM t1;
+c1	c2
+1	aaaaaaaa
+2	bbbbbbbb
+3	cccccccc
+UPDATE t1 SET c2 = upper(c2);
+UPDATE t1 SET c2 = right(c2, 6);
+SAVEPOINT sp2;
+SELECT * FROM t1;
+c1	c2
+1	AAAAAA
+2	BBBBBB
+3	CCCCCC
+UPDATE t1 SET c2 = lower(c2);
+UPDATE t1 SET c2 = right(c2, 4);
+DELETE FROM t1 WHERE c1 = 2;
+Savepoint sp3;
+SELECT * FROM t1;
+c1	c2
+1	aaaa
+3	cccc
+ROLLBACK TO SAVEPOINT sp1;
+SELECT * FROM t1;
+c1	c2
+1	aaaaaaaa
+2	bbbbbbbb
+3	cccccccc
+SAVEPOINT sp1;
+ROLLBACK;
+SELECT * FROM t1;
+c1	c2
+1	AAAAAAAA
+2	BBBBBBBB
+COMMIT;
+DROP TABLE t1;
+*** Bug #207 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p;
+SET @@autocommit = 0//
+create procedure p ()
+begin
+declare v int default 0;
+declare continue handler for sqlexception begin end;
+create table t1 (s1 int unique);
+while v < 1000 do
+insert into t1 values (v);
+update t1 set s1 = s1 * 2;
+select distinct v from t1;
+set v = v + 1;
+end while;
+end;
+//
+call p()//
+v
+0
+v
+1
+v
+2
+v
+3
+v
+4
+v
+5
+v
+6
+v
+7
+v
+8
+v
+9
+v
+10
+v
+11
+v
+12
+v
+13
+v
+14
+v
+15
+v
+16
+v
+17
+v
+18
+v
+19
+v
+20
+v
+21
+v
+22
+v
+23
+v
+24
+v
+25
+v
+26
+v
+27
+v
+28
+v
+29
+v
+30
+v
+31
+v
+32
+v
+33
+v
+34
+v
+35
+v
+36
+v
+37
+v
+38
+v
+39
+v
+40
+v
+41
+v
+42
+v
+43
+v
+44
+v
+45
+v
+46
+v
+47
+v
+48
+v
+49
+v
+50
+v
+51
+v
+52
+v
+53
+v
+54
+v
+55
+v
+56
+v
+57
+v
+58
+v
+59
+v
+60
+v
+61
+v
+62
+v
+63
+v
+64
+v
+65
+v
+66
+v
+67
+v
+68
+v
+69
+v
+70
+v
+71
+v
+72
+v
+73
+v
+74
+v
+75
+v
+76
+v
+77
+v
+78
+v
+79
+v
+80
+v
+81
+v
+82
+v
+83
+v
+84
+v
+85
+v
+86
+v
+87
+v
+88
+v
+89
+v
+90
+v
+91
+v
+92
+v
+93
+v
+94
+v
+95
+v
+96
+v
+97
+v
+98
+v
+99
+v
+100
+v
+101
+v
+102
+v
+103
+v
+104
+v
+105
+v
+106
+v
+107
+v
+108
+v
+109
+v
+110
+v
+111
+v
+112
+v
+113
+v
+114
+v
+115
+v
+116
+v
+117
+v
+118
+v
+119
+v
+120
+v
+121
+v
+122
+v
+123
+v
+124
+v
+125
+v
+126
+v
+127
+v
+128
+v
+129
+v
+130
+v
+131
+v
+132
+v
+133
+v
+134
+v
+135
+v
+136
+v
+137
+v
+138
+v
+139
+v
+140
+v
+141
+v
+142
+v
+143
+v
+144
+v
+145
+v
+146
+v
+147
+v
+148
+v
+149
+v
+150
+v
+151
+v
+152
+v
+153
+v
+154
+v
+155
+v
+156
+v
+157
+v
+158
+v
+159
+v
+160
+v
+161
+v
+162
+v
+163
+v
+164
+v
+165
+v
+166
+v
+167
+v
+168
+v
+169
+v
+170
+v
+171
+v
+172
+v
+173
+v
+174
+v
+175
+v
+176
+v
+177
+v
+178
+v
+179
+v
+180
+v
+181
+v
+182
+v
+183
+v
+184
+v
+185
+v
+186
+v
+187
+v
+188
+v
+189
+v
+190
+v
+191
+v
+192
+v
+193
+v
+194
+v
+195
+v
+196
+v
+197
+v
+198
+v
+199
+v
+200
+v
+201
+v
+202
+v
+203
+v
+204
+v
+205
+v
+206
+v
+207
+v
+208
+v
+209
+v
+210
+v
+211
+v
+212
+v
+213
+v
+214
+v
+215
+v
+216
+v
+217
+v
+218
+v
+219
+v
+220
+v
+221
+v
+222
+v
+223
+v
+224
+v
+225
+v
+226
+v
+227
+v
+228
+v
+229
+v
+230
+v
+231
+v
+232
+v
+233
+v
+234
+v
+235
+v
+236
+v
+237
+v
+238
+v
+239
+v
+240
+v
+241
+v
+242
+v
+243
+v
+244
+v
+245
+v
+246
+v
+247
+v
+248
+v
+249
+v
+250
+v
+251
+v
+252
+v
+253
+v
+254
+v
+255
+v
+256
+v
+257
+v
+258
+v
+259
+v
+260
+v
+261
+v
+262
+v
+263
+v
+264
+v
+265
+v
+266
+v
+267
+v
+268
+v
+269
+v
+270
+v
+271
+v
+272
+v
+273
+v
+274
+v
+275
+v
+276
+v
+277
+v
+278
+v
+279
+v
+280
+v
+281
+v
+282
+v
+283
+v
+284
+v
+285
+v
+286
+v
+287
+v
+288
+v
+289
+v
+290
+v
+291
+v
+292
+v
+293
+v
+294
+v
+295
+v
+296
+v
+297
+v
+298
+v
+299
+v
+300
+v
+301
+v
+302
+v
+303
+v
+304
+v
+305
+v
+306
+v
+307
+v
+308
+v
+309
+v
+310
+v
+311
+v
+312
+v
+313
+v
+314
+v
+315
+v
+316
+v
+317
+v
+318
+v
+319
+v
+320
+v
+321
+v
+322
+v
+323
+v
+324
+v
+325
+v
+326
+v
+327
+v
+328
+v
+329
+v
+330
+v
+331
+v
+332
+v
+333
+v
+334
+v
+335
+v
+336
+v
+337
+v
+338
+v
+339
+v
+340
+v
+341
+v
+342
+v
+343
+v
+344
+v
+345
+v
+346
+v
+347
+v
+348
+v
+349
+v
+350
+v
+351
+v
+352
+v
+353
+v
+354
+v
+355
+v
+356
+v
+357
+v
+358
+v
+359
+v
+360
+v
+361
+v
+362
+v
+363
+v
+364
+v
+365
+v
+366
+v
+367
+v
+368
+v
+369
+v
+370
+v
+371
+v
+372
+v
+373
+v
+374
+v
+375
+v
+376
+v
+377
+v
+378
+v
+379
+v
+380
+v
+381
+v
+382
+v
+383
+v
+384
+v
+385
+v
+386
+v
+387
+v
+388
+v
+389
+v
+390
+v
+391
+v
+392
+v
+393
+v
+394
+v
+395
+v
+396
+v
+397
+v
+398
+v
+399
+v
+400
+v
+401
+v
+402
+v
+403
+v
+404
+v
+405
+v
+406
+v
+407
+v
+408
+v
+409
+v
+410
+v
+411
+v
+412
+v
+413
+v
+414
+v
+415
+v
+416
+v
+417
+v
+418
+v
+419
+v
+420
+v
+421
+v
+422
+v
+423
+v
+424
+v
+425
+v
+426
+v
+427
+v
+428
+v
+429
+v
+430
+v
+431
+v
+432
+v
+433
+v
+434
+v
+435
+v
+436
+v
+437
+v
+438
+v
+439
+v
+440
+v
+441
+v
+442
+v
+443
+v
+444
+v
+445
+v
+446
+v
+447
+v
+448
+v
+449
+v
+450
+v
+451
+v
+452
+v
+453
+v
+454
+v
+455
+v
+456
+v
+457
+v
+458
+v
+459
+v
+460
+v
+461
+v
+462
+v
+463
+v
+464
+v
+465
+v
+466
+v
+467
+v
+468
+v
+469
+v
+470
+v
+471
+v
+472
+v
+473
+v
+474
+v
+475
+v
+476
+v
+477
+v
+478
+v
+479
+v
+480
+v
+481
+v
+482
+v
+483
+v
+484
+v
+485
+v
+486
+v
+487
+v
+488
+v
+489
+v
+490
+v
+491
+v
+492
+v
+493
+v
+494
+v
+495
+v
+496
+v
+497
+v
+498
+v
+499
+v
+500
+v
+501
+v
+502
+v
+503
+v
+504
+v
+505
+v
+506
+v
+507
+v
+508
+v
+509
+v
+510
+v
+511
+v
+512
+v
+513
+v
+514
+v
+515
+v
+516
+v
+517
+v
+518
+v
+519
+v
+520
+v
+521
+v
+522
+v
+523
+v
+524
+v
+525
+v
+526
+v
+527
+v
+528
+v
+529
+v
+530
+v
+531
+v
+532
+v
+533
+v
+534
+v
+535
+v
+536
+v
+537
+v
+538
+v
+539
+v
+540
+v
+541
+v
+542
+v
+543
+v
+544
+v
+545
+v
+546
+v
+547
+v
+548
+v
+549
+v
+550
+v
+551
+v
+552
+v
+553
+v
+554
+v
+555
+v
+556
+v
+557
+v
+558
+v
+559
+v
+560
+v
+561
+v
+562
+v
+563
+v
+564
+v
+565
+v
+566
+v
+567
+v
+568
+v
+569
+v
+570
+v
+571
+v
+572
+v
+573
+v
+574
+v
+575
+v
+576
+v
+577
+v
+578
+v
+579
+v
+580
+v
+581
+v
+582
+v
+583
+v
+584
+v
+585
+v
+586
+v
+587
+v
+588
+v
+589
+v
+590
+v
+591
+v
+592
+v
+593
+v
+594
+v
+595
+v
+596
+v
+597
+v
+598
+v
+599
+v
+600
+v
+601
+v
+602
+v
+603
+v
+604
+v
+605
+v
+606
+v
+607
+v
+608
+v
+609
+v
+610
+v
+611
+v
+612
+v
+613
+v
+614
+v
+615
+v
+616
+v
+617
+v
+618
+v
+619
+v
+620
+v
+621
+v
+622
+v
+623
+v
+624
+v
+625
+v
+626
+v
+627
+v
+628
+v
+629
+v
+630
+v
+631
+v
+632
+v
+633
+v
+634
+v
+635
+v
+636
+v
+637
+v
+638
+v
+639
+v
+640
+v
+641
+v
+642
+v
+643
+v
+644
+v
+645
+v
+646
+v
+647
+v
+648
+v
+649
+v
+650
+v
+651
+v
+652
+v
+653
+v
+654
+v
+655
+v
+656
+v
+657
+v
+658
+v
+659
+v
+660
+v
+661
+v
+662
+v
+663
+v
+664
+v
+665
+v
+666
+v
+667
+v
+668
+v
+669
+v
+670
+v
+671
+v
+672
+v
+673
+v
+674
+v
+675
+v
+676
+v
+677
+v
+678
+v
+679
+v
+680
+v
+681
+v
+682
+v
+683
+v
+684
+v
+685
+v
+686
+v
+687
+v
+688
+v
+689
+v
+690
+v
+691
+v
+692
+v
+693
+v
+694
+v
+695
+v
+696
+v
+697
+v
+698
+v
+699
+v
+700
+v
+701
+v
+702
+v
+703
+v
+704
+v
+705
+v
+706
+v
+707
+v
+708
+v
+709
+v
+710
+v
+711
+v
+712
+v
+713
+v
+714
+v
+715
+v
+716
+v
+717
+v
+718
+v
+719
+v
+720
+v
+721
+v
+722
+v
+723
+v
+724
+v
+725
+v
+726
+v
+727
+v
+728
+v
+729
+v
+730
+v
+731
+v
+732
+v
+733
+v
+734
+v
+735
+v
+736
+v
+737
+v
+738
+v
+739
+v
+740
+v
+741
+v
+742
+v
+743
+v
+744
+v
+745
+v
+746
+v
+747
+v
+748
+v
+749
+v
+750
+v
+751
+v
+752
+v
+753
+v
+754
+v
+755
+v
+756
+v
+757
+v
+758
+v
+759
+v
+760
+v
+761
+v
+762
+v
+763
+v
+764
+v
+765
+v
+766
+v
+767
+v
+768
+v
+769
+v
+770
+v
+771
+v
+772
+v
+773
+v
+774
+v
+775
+v
+776
+v
+777
+v
+778
+v
+779
+v
+780
+v
+781
+v
+782
+v
+783
+v
+784
+v
+785
+v
+786
+v
+787
+v
+788
+v
+789
+v
+790
+v
+791
+v
+792
+v
+793
+v
+794
+v
+795
+v
+796
+v
+797
+v
+798
+v
+799
+v
+800
+v
+801
+v
+802
+v
+803
+v
+804
+v
+805
+v
+806
+v
+807
+v
+808
+v
+809
+v
+810
+v
+811
+v
+812
+v
+813
+v
+814
+v
+815
+v
+816
+v
+817
+v
+818
+v
+819
+v
+820
+v
+821
+v
+822
+v
+823
+v
+824
+v
+825
+v
+826
+v
+827
+v
+828
+v
+829
+v
+830
+v
+831
+v
+832
+v
+833
+v
+834
+v
+835
+v
+836
+v
+837
+v
+838
+v
+839
+v
+840
+v
+841
+v
+842
+v
+843
+v
+844
+v
+845
+v
+846
+v
+847
+v
+848
+v
+849
+v
+850
+v
+851
+v
+852
+v
+853
+v
+854
+v
+855
+v
+856
+v
+857
+v
+858
+v
+859
+v
+860
+v
+861
+v
+862
+v
+863
+v
+864
+v
+865
+v
+866
+v
+867
+v
+868
+v
+869
+v
+870
+v
+871
+v
+872
+v
+873
+v
+874
+v
+875
+v
+876
+v
+877
+v
+878
+v
+879
+v
+880
+v
+881
+v
+882
+v
+883
+v
+884
+v
+885
+v
+886
+v
+887
+v
+888
+v
+889
+v
+890
+v
+891
+v
+892
+v
+893
+v
+894
+v
+895
+v
+896
+v
+897
+v
+898
+v
+899
+v
+900
+v
+901
+v
+902
+v
+903
+v
+904
+v
+905
+v
+906
+v
+907
+v
+908
+v
+909
+v
+910
+v
+911
+v
+912
+v
+913
+v
+914
+v
+915
+v
+916
+v
+917
+v
+918
+v
+919
+v
+920
+v
+921
+v
+922
+v
+923
+v
+924
+v
+925
+v
+926
+v
+927
+v
+928
+v
+929
+v
+930
+v
+931
+v
+932
+v
+933
+v
+934
+v
+935
+v
+936
+v
+937
+v
+938
+v
+939
+v
+940
+v
+941
+v
+942
+v
+943
+v
+944
+v
+945
+v
+946
+v
+947
+v
+948
+v
+949
+v
+950
+v
+951
+v
+952
+v
+953
+v
+954
+v
+955
+v
+956
+v
+957
+v
+958
+v
+959
+v
+960
+v
+961
+v
+962
+v
+963
+v
+964
+v
+965
+v
+966
+v
+967
+v
+968
+v
+969
+v
+970
+v
+971
+v
+972
+v
+973
+v
+974
+v
+975
+v
+976
+v
+977
+v
+978
+v
+979
+v
+980
+v
+981
+v
+982
+v
+983
+v
+984
+v
+985
+v
+986
+v
+987
+v
+988
+v
+989
+v
+990
+v
+991
+v
+992
+v
+993
+v
+994
+v
+995
+v
+996
+v
+997
+v
+998
+v
+999
+Warnings:
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's1' at row 2
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's1' at row 3
+DROP TABLE t1//
+DROP PROCEDURE p//
+*** Bug 216 ***
+SET @@storage_engine = Falcon;
+DROP TABLE IF EXISTS t1, t2;
+create table t1 (a int not null, b int, primary key (a));
+create table t2 (a int not null, b int, primary key (a));
+insert into t1 values (10, 20);
+insert into t2 values (10, 20);
+update t1, t2 set t1.b = 150, t2.b = t1.b where t2.a = t1.a and t1.a = 10;
+select count(*) from t1 where b = 150;
+count(*)
+1
+select count(*) from t2 where b = 150;
+count(*)
+1
+DROP TABLE t1, t2;

@@ -23,8 +23,8 @@ BUILT_SOURCES=		$(top_builddir)/include/mysqld_error.h \
                         $(top_builddir)/include/mysqld_ername.h
 pkginclude_HEADERS=	$(BUILT_SOURCES)
 DISTCLEANFILES =	$(BUILT_SOURCES)
-SUBDIRS =		@yassl_dir@
-DIST_SUBDIRS =		yassl
+SUBDIRS =		@yassl_dir@ @libevent_dir@
+DIST_SUBDIRS =		yassl libevent
 
 # This will build mysqld_error.h, mysqld_ername.h and sql_state.h
 # NOTE Built files should depend on their sources to avoid

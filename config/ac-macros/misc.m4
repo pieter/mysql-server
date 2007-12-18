@@ -160,7 +160,8 @@ fi
 ]
 )
 
-
+# Some OSes like Mac OS X have that as a replacement for pthread_yield()
+AC_CHECK_FUNC(pthread_yield_np)
 
 #---END:
 

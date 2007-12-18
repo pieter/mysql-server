@@ -1,0 +1,18 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #25160: Falcon: false uniqueness-violation errors for big decimals
+#
+--echo *** Bug #25160 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a decimal(25) UNIQUE);
+INSERT INTO t1 VALUES (1234567890123456789012344);
+INSERT INTO t1 VALUES (1234567890123456789012345);
+
+SELECT count(*) FROM t1;
+
+# Final cleanup.
+DROP TABLE t1;

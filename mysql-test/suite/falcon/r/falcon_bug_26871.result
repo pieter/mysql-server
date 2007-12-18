@@ -1,0 +1,31 @@
+*** Bug #26871 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+CREATE TABLE t1 (a int PRIMARY KEY);
+CREATE TABLE t2 (a char(10), b timestamp);
+INSERT INTO t1 VALUES (1);
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+# Establish connection conn1
+SET storage_engine = 'Falcon';
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+# Switch to connection default
+# Switch to connection conn1
+# Switch to connection default
+# Switch to connection conn1
+a
+1
+COMMIT;
+# Switch to connection default
+SELECT b into @t1 FROM t2 WHERE a = 'timestamp1';
+SELECT b into @t2 FROM t2 WHERE a = 'timestamp2';
+SELECT b into @t3 FROM t2 WHERE a = 'timestamp3';
+SELECT @t1 < @t2 AND @t2 < @t3;
+@t1 < @t2 AND @t2 < @t3
+1
+# Switch to connection conn1;
+# Switch to connection default
+DROP TABLE t1;
+DROP TABLE t2;

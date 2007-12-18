@@ -902,6 +902,7 @@ libmysql_r/.libs/libmysqlclient_r.so.15.0.0
 libmysql_r/acconfig.h
 libmysql_r/client_settings.h
 libmysql_r/conf_to_src
+libmysql_r/link_sources
 libmysql_r/my_static.h
 libmysql_r/mysys_priv.h
 libmysql_r/vio_priv.h
@@ -1137,6 +1138,7 @@ libmysqld/rpl_filter.cc
 libmysqld/rpl_injector.cc
 libmysqld/rpl_record.cc
 libmysqld/rpl_record_old.cc
+libmysqld/scheduler.cc
 libmysqld/set_var.cc
 libmysqld/simple-test
 libmysqld/slave.cc
@@ -1153,6 +1155,7 @@ libmysqld/sql_builtin.cc
 libmysqld/sql_cache.cc
 libmysqld/sql_class.cc
 libmysqld/sql_command
+libmysqld/sql_connect.cc
 libmysqld/sql_crypt.cc
 libmysqld/sql_cursor.cc
 libmysqld/sql_cursor.h
@@ -1183,6 +1186,7 @@ libmysqld/sql_show.cc
 libmysqld/sql_state.c
 libmysqld/sql_string.cc
 libmysqld/sql_table.cc
+libmysqld/sql_tablespace.cc
 libmysqld/sql_test.cc
 libmysqld/sql_trigger.cc
 libmysqld/sql_udf.cc
@@ -1275,6 +1279,7 @@ mysql-5.0.2-alpha.tar.gz
 mysql-max-4.0.2-alpha-pc-linux-gnu-i686.tar.gz
 mysql-test/*.ds?
 mysql-test/*.vcproj
+mysql-test/dump.txt
 mysql-test/gmon.out
 mysql-test/install_test_db
 mysql-test/lib/init_db.sql
@@ -1366,6 +1371,9 @@ mysql-test/r/udf.log
 mysql-test/rpl.log
 mysql-test/share/mysql
 mysql-test/std_data/*.pem
+mysql-test/suite/funcs_1/r/falcon_subquery2.result
+mysql-test/suite/funcs_1/r/falcon_subquery3.result
+mysql-test/suite/funcs_1/r/falcon_subquery4.result
 mysql-test/suite/funcs_1/r/innodb_trig_03e.warnings
 mysql-test/suite/funcs_1/r/innodb_views.warnings
 mysql-test/suite/funcs_1/r/memory_trig_03e.warnings
@@ -1841,6 +1849,7 @@ scripts/make_binary_distribution
 scripts/make_sharedlib_distribution
 scripts/make_win_binary_distribution
 scripts/make_win_src_distribution
+scripts/make_win_src_distribution_old
 scripts/msql2mysql
 scripts/mysql_config
 scripts/mysql_convert_table_format
@@ -2077,11 +2086,13 @@ sql/.libs/udf_example.lai
 sql/.libs/udf_example.so.0
 sql/.libs/udf_example.so.0.0.0
 sql/client.c
+sql/cscope.out
 sql/f.c
 sql/gen_lex_hash
 sql/gmon.out
 sql/handlerton.cc
 sql/lex_hash.h
+sql/link_sources
 sql/max/*
 sql/message.h
 sql/message.mc
@@ -2133,8 +2144,10 @@ storage/archive/.deps/ha_archive_la-azio.Plo
 storage/archive/.deps/ha_archive_la-ha_archive.Plo
 storage/archive/.deps/libarchive_a-azio.Po
 storage/archive/.deps/libarchive_a-ha_archive.Po
+storage/archive/archive_performance
 storage/archive/archive_reader
 storage/archive/archive_test
+storage/archive/concurrency_test
 storage/bdb/*.ds?
 storage/bdb/*.vcproj
 storage/bdb/README
@@ -2686,6 +2699,7 @@ storage/ndb/src/kernel/blocks/dbdict/ndb_print_schema_file
 storage/ndb/src/kernel/blocks/dbdih/libdbdih.dsp
 storage/ndb/src/kernel/blocks/dbdih/ndb_print_sys_file
 storage/ndb/src/kernel/blocks/dblqh/libdblqh.dsp
+storage/ndb/src/kernel/blocks/dblqh/ndbd_redo_log_reader
 storage/ndb/src/kernel/blocks/dbtc/libdbtc.dsp
 storage/ndb/src/kernel/blocks/dbtup/libdbtup.dsp
 storage/ndb/src/kernel/blocks/dbtup/test_varpage
@@ -3005,3 +3019,4 @@ win/vs71cache.txt
 win/vs8cache.txt
 zlib/*.ds?
 zlib/*.vcproj
+client/dtoa.c

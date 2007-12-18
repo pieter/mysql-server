@@ -1,0 +1,44 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = 'Falcon';
+#
+# Savepoint tests. Inspired by Kevin.
+#
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (c1 int, c2 varchar(8));
+INSERT INTO t1 VALUES (1, 'AAAAAAAA');
+INSERT INTO t1 VALUES (2, 'BBBBBBBB');
+
+BEGIN;
+SELECT * FROM t1;
+INSERT INTO t1 VALUES (3, 'CCCCCCCC');
+UPDATE t1 SET c2 = lower(c2);
+
+SAVEPOINT sp1;
+SELECT * FROM t1;
+UPDATE t1 SET c2 = upper(c2);
+UPDATE t1 SET c2 = right(c2, 6);
+
+SAVEPOINT sp2;
+SELECT * FROM t1;
+UPDATE t1 SET c2 = lower(c2);
+UPDATE t1 SET c2 = right(c2, 4);
+DELETE FROM t1 WHERE c1 = 2;
+
+Savepoint sp3;
+SELECT * FROM t1;
+
+ROLLBACK TO SAVEPOINT sp1;
+SELECT * FROM t1;
+
+# This should release sp1 and reset it and not give a SQL error
+# about a bad savepoint.
+SAVEPOINT sp1;
+ROLLBACK;
+SELECT * FROM t1;
+COMMIT;
+
+# Final cleanup.
+DROP TABLE t1;

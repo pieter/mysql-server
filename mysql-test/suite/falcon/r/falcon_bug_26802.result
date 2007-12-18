@@ -1,0 +1,13 @@
+SET @@storage_engine = Falcon;
+*** Bug #26802 ***
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int unsigned);
+INSERT INTO t1 VALUES (4294967295), (4294967294);
+CREATE UNIQUE INDEX i1 ON t1 (a);
+UPDATE t1 SET a = a + 1;
+ERROR 23000: Duplicate entry '4294967295' for key 'i1'
+SELECT * FROM t1 ORDER BY a;
+a
+4294967294
+4294967295
+DROP TABLE t1;

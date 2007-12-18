@@ -1,0 +1,145 @@
+SET @@storage_engine = Falcon;
+*** Bug #26433 ***
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+SET @a = 909;
+CREATE PROCEDURE p1 ()
+BEGIN
+DECLARE v int default 0;
+DECLARE v500 int;
+DECLARE v499  int;
+DECLARE v255  int;
+DECLARE v99   int;
+DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+BEGIN
+DECLARE vx int;
+SELECT 'error, probably 1025';
+DROP TABLE t1;
+SELECT '1';
+CREATE TABLE t1 (
+a int,
+b varchar(500) character set latin1,
+c varchar(500) character set latin2
+);
+SET vx = 0;
+WHILE vx < 20 do
+INSERT INTO t1 VALUES (vx, null, null);
+SET vx = vx + 1;
+END WHILE;
+SELECT '2';
+CREATE INDEX i1 ON t1 (b, a);
+CREATE INDEX i2 ON t1 (c, a);
+SELECT '3';
+END;
+SELECT 'a';
+CREATE TABLE t1 (
+a int,
+b varchar(500) character set latin1,
+c varchar(500) character set latin2
+);
+SELECT 'b';
+SET v = 0;
+WHILE v < 20 do
+INSERT INTO t1 VALUES (v, null, null);
+SET v = v + 1;
+END WHILE;
+SELECT 'c';
+CREATE INDEX i1 ON t1 (b, a);
+CREATE INDEX i2 ON t1 (c, a);
+select 'd';
+SET v = 0;
+while v < 500 do
+SET v500 = rand(@a) * 500;
+SET v499  = rand(@a) * 499;
+SET v255  = rand(@a) * 255;
+SET v99   = rand(@a) * 99;
+SET @x = concat('update t1 set b = repeat(0x', hex(v500),',',v499,'), a =', v,', c = repeat(0x', hex(v255), ',',v99,')');
+/* SELECT v, @x; */
+PREPARE stmt1 FROM @x;
+EXECUTE stmt1;
+IF v mod 2 = 0 THEN
+ALTER TABLE t1 MODIFY COLUMN b varchar(500) character set latin2;
+ALTER TABLE t1 MODIFY COLUMN c varchar(500) character set latin1;
+ELSE
+ALTER TABLE t1 MODIFY COLUMN b varchar(500) character set latin1;
+ALTER TABLE t1 MODIFY COLUMN c varchar(500) character set latin2;
+END IF;
+SET v = v + 1;
+END WHILE;
+END//
+CALL p1()//
+a
+a
+b
+b
+c
+c
+d
+d
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 20
+Warning	1265	Data truncated for column 'b' at row 21
+Warning	1265	Data truncated for column 'b' at row 22
+Warning	1265	Data truncated for column 'b' at row 23
+Warning	1265	Data truncated for column 'b' at row 24
+Warning	1265	Data truncated for column 'b' at row 25
+Warning	1265	Data truncated for column 'b' at row 26
+Warning	1265	Data truncated for column 'b' at row 27
+Warning	1265	Data truncated for column 'b' at row 28
+Warning	1265	Data truncated for column 'b' at row 29
+Warning	1265	Data truncated for column 'b' at row 30
+Warning	1265	Data truncated for column 'b' at row 31
+Warning	1265	Data truncated for column 'b' at row 32
+Warning	1265	Data truncated for column 'b' at row 33
+Warning	1265	Data truncated for column 'b' at row 34
+Warning	1265	Data truncated for column 'b' at row 35
+Warning	1265	Data truncated for column 'b' at row 36
+Warning	1265	Data truncated for column 'b' at row 37
+Warning	1265	Data truncated for column 'b' at row 38
+Warning	1265	Data truncated for column 'b' at row 39
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 1
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 2
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 3
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 4
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 5
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 6
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 7
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 8
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 9
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 10
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 11
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 12
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 13
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 14
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 15
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 16
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 17
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 18
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 19
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 20
+Warning	1265	Data truncated for column 'b' at row 20
+Warning	1265	Data truncated for column 'b' at row 21
+Warning	1265	Data truncated for column 'b' at row 22
+Warning	1265	Data truncated for column 'b' at row 23
+Warning	1265	Data truncated for column 'b' at row 24
+Warning	1265	Data truncated for column 'b' at row 25
+Warning	1265	Data truncated for column 'b' at row 26
+Warning	1265	Data truncated for column 'b' at row 27
+Warning	1265	Data truncated for column 'b' at row 28
+Warning	1265	Data truncated for column 'b' at row 29
+Warning	1265	Data truncated for column 'b' at row 30
+Warning	1265	Data truncated for column 'b' at row 31
+Warning	1265	Data truncated for column 'b' at row 32
+Warning	1265	Data truncated for column 'b' at row 33
+Warning	1265	Data truncated for column 'b' at row 34
+Warning	1265	Data truncated for column 'b' at row 35
+Warning	1265	Data truncated for column 'b' at row 36
+Warning	1265	Data truncated for column 'b' at row 37
+Warning	1265	Data truncated for column 'b' at row 38
+Warning	1265	Data truncated for column 'b' at row 39
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 1
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 2
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 3
+Warning	1366	Incorrect string value: '\x92\x92\x92\x92\x92\x92...' for column 'c' at row 4
+DROP TABLE t1;
+DROP PROCEDURE p1;

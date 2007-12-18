@@ -1,0 +1,14 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE='Falcon';
+#
+# Bug #28051: Falcon LIKE searches fail if partial indexes exist
+#
+--echo #---- Bug 28051 ----
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+create table t1 (c1 char(50));
+alter table t1 add index(c1(5));
+insert into t1 values ('abcdefg'),('abcdefg'),('abcdefg');
+select c1 from t1 where c1 like 'abcdef%';
+DROP TABLE t1;

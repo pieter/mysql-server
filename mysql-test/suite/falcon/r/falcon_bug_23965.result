@@ -1,0 +1,9 @@
+SET STORAGE_ENGINE = Falcon;
+*** Bug #23965 ***
+DROP DATABASE IF EXISTS db1;
+CREATE DATABASE db1;
+USE db1;
+CREATE TABLE t1 (a int) Engine InnoDB;
+ALTER TABLE t1 Engine Falcon;
+DROP DATABASE db1;
+USE test;

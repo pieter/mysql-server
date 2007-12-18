@@ -397,7 +397,7 @@ THD::THD()
   catalog= (char*)"std"; // the only catalog we have for now
   main_security_ctx.init();
   security_ctx= &main_security_ctx;
-  locked=some_tables_deleted=no_errors=password= 0;
+  some_tables_deleted=no_errors=password= 0;
   query_start_used= 0;
   count_cuted_fields= CHECK_FIELD_IGNORE;
   killed= NOT_KILLED;
@@ -712,6 +712,28 @@ void THD::cleanup(void)
   cleanup_done=1;
   DBUG_VOID_RETURN;
 }
+
+
+/*
+   Set the proc_info field.
+   Do not use this method directly, use THD_SET_PROC_INFO instead.
+ */
+#ifndef DBUG_OFF
+void THD::set_proc_info(const char* file, int line, const char* info)
+{
+  /*
+     Implementation note:
+     file and line correspond to the __FILE__ and __LINE__ where
+     THD_SET_PROC_INFO was called.
+     These two parameters are provided to help instrumenting the code.
+   */
+
+  DBUG_PRINT("info", ("THD::set_proc_info(%s, %d, %s)",
+                      file, line, (info ? info : NullS)));
+
+  proc_info= info;
+}
+#endif
 
 
 THD::~THD()
@@ -1188,8 +1210,11 @@ int THD::send_explain_fields(select_result *result)
   item->maybe_null=1;
   field_list.push_back(item=new Item_empty_string("key", NAME_CHAR_LEN, cs));
   item->maybe_null=1;
-  field_list.push_back(item=new Item_empty_string("key_len",
-						  NAME_CHAR_LEN*MAX_KEY));
+  field_list.push_back(item=
+    new Item_empty_string("key_len",
+                          MAX_KEY *
+                          (MAX_KEY_LENGTH_DECIMAL_WIDTH + 1 /* for comma */),
+                          cs));
   item->maybe_null=1;
   field_list.push_back(item=new Item_empty_string("ref",
                                                   NAME_CHAR_LEN*MAX_REF_PARTS,
@@ -1311,13 +1336,17 @@ bool select_result::check_simple_select() const
 static String default_line_term("\n",default_charset_info);
 static String default_escaped("\\",default_charset_info);
 static String default_field_term("\t",default_charset_info);
+static String default_xml_row_term("<row>", default_charset_info);
 
-sql_exchange::sql_exchange(char *name,bool flag)
+sql_exchange::sql_exchange(char *name, bool flag,
+                           enum enum_filetype filetype_arg)
   :file_name(name), opt_enclosed(0), dumpfile(flag), skip_lines(0)
 {
+  filetype= filetype_arg;
   field_term= &default_field_term;
   enclosed=   line_start= &my_empty_string;
-  line_term=  &default_line_term;
+  line_term=  filetype == FILETYPE_CSV ?
+              &default_line_term : &default_xml_row_term;
   escaped=    &default_escaped;
   cs= NULL;
 }
@@ -2428,6 +2457,7 @@ void TMP_TABLE_PARAM::init()
   quick_group= 1;
   table_charset= 0;
   precomputed_group_by= 0;
+  bit_fields_as_long= 0;
   DBUG_VOID_RETURN;
 }
 

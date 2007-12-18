@@ -1,0 +1,37 @@
+--source include/have_falcon.inc
+#
+# Bug #27962: Falcon: lost post-decimal digits
+# @tags decimal, wrong result
+#
+--echo *** Bug #27962 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a decimal(19,10));
+
+INSERT INTO t1 VALUES (0.1),(0.01),(0.001);
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+SELECT a FROM t1 WHERE a = 0.1;
+SELECT a FROM t1 WHERE a = 0.01;
+SELECT a FROM t1 WHERE a = 0.001;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

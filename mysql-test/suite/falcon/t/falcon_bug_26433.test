@@ -1,0 +1,87 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #26433: Falcon: crash in procedure after error 1025
+#
+--echo *** Bug #26433 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+--enable_warnings
+
+# Seed for rand() to get more predictable code path.
+# Seed of 707 passes now.
+SET @a = 909;
+
+DELIMITER //;
+CREATE PROCEDURE p1 ()
+BEGIN
+  DECLARE v int default 0;
+  DECLARE v500 int;
+  DECLARE v499  int;
+  DECLARE v255  int;
+  DECLARE v99   int;
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+  BEGIN
+    DECLARE vx int;
+    SELECT 'error, probably 1025';
+    DROP TABLE t1;
+    SELECT '1';
+    CREATE TABLE t1 (
+      a int,
+      b varchar(500) character set latin1,
+      c varchar(500) character set latin2
+    );
+    SET vx = 0;
+    WHILE vx < 20 do
+      INSERT INTO t1 VALUES (vx, null, null);
+      SET vx = vx + 1;
+    END WHILE;
+    SELECT '2';
+    CREATE INDEX i1 ON t1 (b, a);
+    CREATE INDEX i2 ON t1 (c, a);
+    SELECT '3';
+  END;
+  SELECT 'a';
+  CREATE TABLE t1 (
+    a int,
+    b varchar(500) character set latin1,
+    c varchar(500) character set latin2
+  );
+  SELECT 'b';
+  SET v = 0;
+  WHILE v < 20 do
+    INSERT INTO t1 VALUES (v, null, null);
+    SET v = v + 1;
+  END WHILE;
+  SELECT 'c';
+  CREATE INDEX i1 ON t1 (b, a);
+  CREATE INDEX i2 ON t1 (c, a);
+  select 'd';
+  SET v = 0;
+  while v < 500 do
+    SET v500 = rand(@a) * 500;
+    SET v499  = rand(@a) * 499;
+    SET v255  = rand(@a) * 255;
+    SET v99   = rand(@a) * 99;
+    SET @x = concat('update t1 set b = repeat(0x', hex(v500),',',v499,'), a =', v,', c = repeat(0x', hex(v255), ',',v99,')');
+    /* SELECT v, @x; */
+    PREPARE stmt1 FROM @x;
+    EXECUTE stmt1;
+    IF v mod 2 = 0 THEN
+      ALTER TABLE t1 MODIFY COLUMN b varchar(500) character set latin2;
+      ALTER TABLE t1 MODIFY COLUMN c varchar(500) character set latin1;
+    ELSE
+      ALTER TABLE t1 MODIFY COLUMN b varchar(500) character set latin1;
+      ALTER TABLE t1 MODIFY COLUMN c varchar(500) character set latin2;
+    END IF;
+    SET v = v + 1;
+  END WHILE;
+END//
+
+CALL p1()//
+
+# Final cleanup.
+DELIMITER ;//
+DROP TABLE t1;
+DROP PROCEDURE p1;

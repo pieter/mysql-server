@@ -1,0 +1,34 @@
+--source include/have_falcon.inc
+#
+# Bug #26058: Falcon: warnings with yen sign and overline in ujis
+#
+--echo *** Bug #26058 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+SET NAMES utf8;
+CREATE TABLE t1 (a varchar(5) character set ujis);
+INSERT INTO t1 values ('¥'),('‾');
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1 WHERE a IS NOT NULL;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

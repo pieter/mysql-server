@@ -30,7 +30,8 @@ class sys_var_pluginvar; /* opaque */
 typedef struct system_variables SV;
 typedef struct my_locale_st MY_LOCALE;
 
-extern TYPELIB bool_typelib, delay_key_write_typelib, sql_mode_typelib;
+extern TYPELIB bool_typelib, delay_key_write_typelib, sql_mode_typelib,
+               optimizer_switch_typelib;
 
 typedef int (*sys_check_func)(THD *,  set_var *);
 typedef bool (*sys_update_func)(THD *, set_var *);
@@ -452,6 +453,25 @@ public:
 };
 
 
+
+class sys_var_thd_optimizer_switch :public sys_var_thd_enum
+{
+public:
+  sys_var_thd_optimizer_switch(sys_var_chain *chain, const char *name_arg, 
+                               ulong SV::*offset_arg)
+    :sys_var_thd_enum(chain, name_arg, offset_arg, &optimizer_switch_typelib)
+  {}
+  bool check(THD *thd, set_var *var)
+  {
+    return check_set(thd, var, enum_names);
+  }
+  void set_default(THD *thd, enum_var_type type);
+  uchar *value_ptr(THD *thd, enum_var_type type, LEX_STRING *base);
+  static bool symbolic_mode_representation(THD *thd, ulonglong sql_mode,
+                                           LEX_STRING *rep);
+};
+
+
 extern void fix_sql_mode_var(THD *thd, enum_var_type type);
 
 class sys_var_thd_sql_mode :public sys_var_thd_enum
@@ -491,18 +511,6 @@ public:
   void set_default(THD *thd, enum_var_type type);
   bool update(THD *thd, set_var *var);
   uchar *value_ptr(THD *thd, enum_var_type type, LEX_STRING *base);
-};
-
-class sys_var_thd_table_type :public sys_var_thd_storage_engine
-{
-public:
-  sys_var_thd_table_type(sys_var_chain *chain, const char *name_arg, 
-                         plugin_ref SV::*offset_arg)
-    :sys_var_thd_storage_engine(chain, name_arg, offset_arg)
-  {}
-  void warn_deprecated(THD *thd);
-  void set_default(THD *thd, enum_var_type type);
-  bool update(THD *thd, set_var *var);
 };
 
 class sys_var_thd_bit :public sys_var_thd
@@ -958,7 +966,6 @@ public:
   void set_default(THD *thd, enum_var_type type);
   bool update(THD *thd, set_var *var);
 };
-
 
 /**
   Handler for setting the system variable --read-only.

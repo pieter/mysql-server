@@ -1,0 +1,13 @@
+SET STORAGE_ENGINE = Falcon;
+*** Bug #23663 ***
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (
+max_val  decimal(32, 15) DEFAULT NULL,
+min_val  decimal(32, 15) DEFAULT NULL,
+null_val decimal(32, 15) DEFAULT NULL
+);
+INSERT INTO t1 VALUES (0, -2147483648, 0);
+SELECT min_val FROM t1;
+min_val
+-2147483648.000000000000000
+DROP TABLE t1;

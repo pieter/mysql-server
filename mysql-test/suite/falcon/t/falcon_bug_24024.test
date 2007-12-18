@@ -1,0 +1,36 @@
+#
+# Bug#24024 wrong error message when drop table (used by pending transaction) fails
+#
+# This test is a derivate of a subtestcase in mix2.inc.
+# Therefore please delete this test when mix2_falcon is pushed.
+#
+
+--echo *** Bug #24024 ***
+
+
+--source include/have_falcon.inc
+SET SESSION STORAGE_ENGINE = Falcon;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1(a INT NOT NULL, b INT, primary key(a));
+INSERT INTO t1(a) VALUES (1);
+COMMIT;
+SET AUTOCOMMIT = 0;
+UPDATE t1 SET b = 5 WHERE a = 1;
+--echo # Establish session con1 (user=root)
+connect (con1,localhost,root);
+INSERT INTO t1(a) VALUES(7);
+COMMIT;
+SELECT * FROM t1;
+
+--disable_abort_on_error
+DROP TABLE t1;
+COMMIT;
+
+--echo # Switch to session default and disconnect session con1
+connection default;
+disconnect con1;
+COMMIT;
+DROP TABLE t1;

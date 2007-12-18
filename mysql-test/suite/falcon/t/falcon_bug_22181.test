@@ -1,0 +1,63 @@
+--source include/have_falcon.inc
+SET STORAGE_ENGINE = Falcon;
+#
+# Bug #22181: Query cache becomes obsolete with two
+#                  interleaving transactions
+#
+# We should test this when query cache gets enabled in Falcon again (2006-7-11)
+#
+--echo #---- Bug 22181 ----
+--disable_warnings
+DROP DATABASE IF EXISTS falcon4;
+--enable_warnings
+CREATE DATABASE falcon4;
+
+# Establish connection1
+connect (connection1,localhost,root,,falcon4);
+SET STORAGE_ENGINE = Falcon;
+USE falcon4;
+
+
+connection default;
+USE falcon4;
+# This should be 'YES'.
+SHOW VARIABLES LIKE 'have_query_cache';
+
+# There should be no warnings.
+SET GLOBAL query_cache_size = 200000;
+SET @@autocommit=0;
+CREATE TABLE t2 (s1 int, s2 varchar(1000), key(s1));
+INSERT INTO t2 VALUES (1,repeat('a',1000)),(2,repeat('a',1000));
+COMMIT;
+START TRANSACTION;
+UPDATE t2 SET s2 = 'w' WHERE s1 = 10;
+SELECT sql_cache count(*) FROM t2 WHERE s2 = 'w';
+
+
+connection connection1;
+COMMIT;
+USE falcon4;
+START TRANSACTION;
+
+# Matches T1's SELECT condition.
+INSERT INTO t2 VALUES (-1,'w');
+COMMIT;
+
+
+connection default;
+SELECT sql_cache count(*) FROM t2 WHERE s2 = 'w';
+COMMIT;
+
+# The result is 0. With engine=innodb, the result would be 1.
+SELECT sql_cache count(*) FROM t2 WHERE s2 = 'w';
+
+
+connection connection1;
+# The result is 0. With engine=innodb, the result would be 1.
+SELECT sql_cache count(*) FROM t2 WHERE s2 = 'w';
+
+
+# Final cleanup
+connection default;
+DROP DATABASE falcon4;
+disconnect connection1;

@@ -1,0 +1,71 @@
+--source include/have_falcon.inc
+#
+# Bug #28026: Falcon: crash if partitions and select for update
+#
+--echo *** Bug #28026 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int)
+  PARTITION BY LIST (a) (
+  PARTITION p8 VALUES in (8,88),
+  PARTITION p9 VALUES in (9,99)
+);
+INSERT INTO t1 VALUES (8);
+INSERT INTO t1 VALUES (9);
+COMMIT;
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@autocommit = 0;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+SELECT * FROM t1 WHERE a = 8 FOR UPDATE;
+
+--echo # Switch to connection conn1
+connection conn1;
+SELECT * FROM t1 WHERE a = 9 FOR UPDATE;
+
+--echo # Switch to connection default
+connection default;
+--send SELECT * FROM t1 WHERE a = 9 FOR UPDATE
+
+--echo # Switch to connection conn1
+connection conn1;
+--real_sleep 1
+--error ER_LOCK_DEADLOCK
+SELECT * FROM t1 WHERE a = 8 FOR UPDATE;
+ROLLBACK;
+
+--echo # Switch to connection default
+connection default;
+--reap
+UPDATE t1 SET a = 88 WHERE a = 8;
+UPDATE t1 SET a = 99 WHERE a = 9;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT * FROM t1 ORDER BY a;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+disconnect conn1;
+DROP TABLE t1;

@@ -1,0 +1,43 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+#
+# Bug #25537: Running UPDATEs reveals memory leak
+#      Adapted from falcon_bug_23818_A.test.
+#      Run this test with loop count of 1 million and
+#       five concurrent clients.
+--echo *** Bug #25537 ***
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+--enable_warnings
+
+CREATE TABLE t1 (a int, b varchar(500));
+INSERT INTO t1 VALUES (0,null),(0,null),(0,null);
+CREATE INDEX i1 ON t1 (b);
+
+DELIMITER //;
+CREATE PROCEDURE p1 ()
+BEGIN
+  DECLARE a int DEFAULT 32710;
+  DECLARE b int DEFAULT 0;
+  DECLARE c int DEFAULT 0;
+  DECLARE v int DEFAULT 0;
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
+  while v < 1000 do
+    START TRANSACTION;
+    SELECT a + 1 into a;
+    SELECT rand(a) * DEGREES(a) into b;
+    SELECT FLOOR(MOD(b,255)) into c;
+    UPDATE t1 SET b = repeat(hex(c), rand(c) * 250);
+    COMMIT;
+    /* SELECT v; */
+    SET v = v + 1;
+  end while;
+END//
+
+DELIMITER ;//
+CALL p1();
+
+# Final cleanup.
+DROP TABLE t1;
+DROP PROCEDURE p1;

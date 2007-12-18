@@ -1,0 +1,9 @@
+# This test was derived from innodb_deadlock.test.
+
+-- source include/have_falcon.inc
+let $engine_type = Falcon;
+
+# Can't test this with embedded server
+-- source include/not_embedded.inc
+
+--source include/deadlock.inc

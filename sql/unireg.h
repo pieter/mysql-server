@@ -52,7 +52,8 @@
 #define MAX_SYS_VAR_LENGTH 32
 #define MAX_KEY MAX_INDEXES                     /* Max used keys */
 #define MAX_REF_PARTS 16			/* Max parts used as ref */
-#define MAX_KEY_LENGTH 3072			/* max possible key */
+#define MAX_KEY_LENGTH 4096			/* max possible key */
+#define MAX_KEY_LENGTH_DECIMAL_WIDTH 4          /* strlen("4096") */
 #if SIZEOF_OFF_T > 4
 #define MAX_REFLENGTH 8				/* Max length for record ref */
 #else
@@ -60,7 +61,7 @@
 #endif
 #define MAX_HOSTNAME  61			/* len+1 in mysql.user */
 
-#define MAX_MBWIDTH		3		/* Max multibyte sequence */
+#define MAX_MBWIDTH		4		/* Max multibyte sequence */
 #define MAX_FIELD_CHARLENGTH	255
 #define MAX_FIELD_VARCHARLENGTH	65535
 #define CONVERT_IF_BIGGER_TO_BLOB 512		/* Used for CREATE ... SELECT */
@@ -189,11 +190,19 @@
 */
 #define OPTIMIZE_I_S_TABLE     OPEN_VIEW_FULL*2
 
+/*
+  The flag means that we need to process trigger files only.
+*/
+#define OPEN_TRIGGER_ONLY      OPTIMIZE_I_S_TABLE*2
+
 #define SC_INFO_LENGTH 4		/* Form format constant */
 #define TE_INFO_LENGTH 3
 #define MTYP_NOEMPTY_BIT 128
 
 #define FRM_VER_TRUE_VARCHAR (FRM_VER+4) /* 10 */
+#define MYSQL_VERSION_TABLESPACE_IN_FRM 50205
+#define MYSQL_VERSION_TABLESPACE_IN_FRM_STR "50205"
+
 /*
   Minimum length pattern before Turbo Boyer-Moore is used
   for SELECT "text" LIKE "%pattern%", excluding the two
@@ -208,9 +217,12 @@
 */
 
 #define BIN_LOG_HEADER_SIZE    4 
-#define FLOATING_POINT_BUFFER 331
 
 #define DEFAULT_KEY_CACHE_NAME "default"
+
+#define STORAGE_TYPE_MASK 7
+#define COLUMN_FORMAT_MASK 7
+#define COLUMN_FORMAT_SHIFT 3
 
 /* Include prototypes for unireg */
 

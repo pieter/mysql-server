@@ -1,0 +1,56 @@
+--source include/have_falcon.inc
+#
+# Bug #29240: Falcon: duplicate-key error when there's no duplicate key
+#
+--echo *** Bug #29240 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a int unique);
+SET @@autocommit = 0;
+INSERT INTO t1 VALUES (1);
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@autocommit = 0;
+
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--send INSERT INTO t1 VALUES (1)
+
+--echo # Switch to connection default
+connection default;
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES (1);
+DELETE FROM t1;
+COMMIT;
+
+--echo # Switch to connection conn1
+connection conn1;
+--reap
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;

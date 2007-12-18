@@ -1,3 +1,5 @@
+#ifndef _SQL_BITMAP_H_
+#define _SQL_BITMAP_H_
 /* Copyright (C) 2003 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
@@ -61,12 +63,69 @@ public:
   void subtract(Bitmap& map2) { bitmap_subtract(&map, &map2.map); }
   void merge(Bitmap& map2) { bitmap_union(&map, &map2.map); }
   my_bool is_set(uint n) const { return bitmap_is_set(&map, n); }
+  my_bool is_set() const { return !bitmap_is_clear_all(&map); }
   my_bool is_prefix(uint n) const { return bitmap_is_prefix(&map, n); }
   my_bool is_clear_all() const { return bitmap_is_clear_all(&map); }
   my_bool is_set_all() const { return bitmap_is_set_all(&map); }
   my_bool is_subset(const Bitmap& map2) const { return bitmap_is_subset(&map, &map2.map); }
   my_bool is_overlapping(const Bitmap& map2) const { return bitmap_is_overlapping(&map, map2.map); }
   my_bool operator==(const Bitmap& map2) const { return bitmap_cmp(&map, &map2.map); }
+  my_bool operator!=(const Bitmap& map2) const { return !bitmap_cmp(&map, &map2.map); }
+  Bitmap operator&=(uint n)
+  {
+    if (bitmap_is_set(&map, n))
+    {
+      bitmap_clear_all(&map);
+      bitmap_set_bit(&map, n);
+    }
+    else
+      bitmap_clear_all(&map);
+    return *this;
+  }
+  Bitmap operator&=(const Bitmap& map2)
+  {
+    bitmap_intersect(&map, &map2.map);
+    return *this;
+  }
+  Bitmap operator&(uint n)
+  {
+    Bitmap bm(*this);
+    bm&= n;
+    return bm;
+  }
+  Bitmap operator&(const Bitmap& map2)
+  {
+    Bitmap bm(*this);
+    bm&= map2;
+    return bm;
+  }
+  Bitmap operator|=(uint n)
+  {
+    bitmap_set_bit(&map, n);
+    return *this;
+  }
+  Bitmap operator|=(const Bitmap& map2)
+  {
+    bitmap_union(&map, &map2.map);
+  }
+  Bitmap operator|(uint n)
+  {
+    Bitmap bm(*this);
+    bm|= n;
+    return bm;
+  }
+  Bitmap operator|(const Bitmap& map2)
+  {
+    Bitmap bm(*this);
+    bm|= map2;
+    return bm;
+  }
+  Bitmap operator~()
+  {
+    Bitmap bm(*this);
+    bitmap_invert(&bm.map);
+    return bm;
+  }
   char *print(char *buf) const
   {
     char *s=buf;
@@ -138,3 +197,61 @@ public:
   ulonglong to_ulonglong() const { return map; }
 };
 
+
+/* An iterator to quickly walk over bits in unlonglong bitmap. */
+class Table_map_iterator
+{
+  ulonglong bmp;
+  uint no;
+public:
+  Table_map_iterator(ulonglong t) : bmp(t), no(0) {}
+  int next_bit()
+  {
+    static const char last_bit[16]= {32, 0, 1, 0, 
+                                      2, 0, 1, 0, 
+                                      3, 0, 1, 0,
+                                      2, 0, 1, 0};
+    uint bit;
+    while ((bit= last_bit[bmp & 0xF]) == 32)
+    {
+      no += 4;
+      bmp= bmp >> 4;
+      if (!bmp)
+        return BITMAP_END;
+    }
+    bmp &= ~(1LL << bit);
+    return no + bit;
+  }
+  enum { BITMAP_END= 64 };
+};
+
+
+#if 0
+void print_bits(table_map bmp)
+{
+  Table_map_iterator it(bmp);
+  int i, first= 1;
+  fprintf(stderr, "0x%llx = ", bmp);
+  while ((i= it.next_bit()) != Table_map_iterator::BITMAP_END)
+  {
+    fprintf(stderr, " %s 2^%d", (first?"":"+"), i);
+    if (first)
+      first= 0;
+  }
+  fprintf(stderr, "\n");
+}
+
+int main()
+{
+  print_bits(1024);
+  print_bits(3);
+  print_bits(0xF);
+  print_bits(0xF0);
+  print_bits(35);
+  print_bits(1LL<<63);
+  print_bits(0);
+  print_bits(-1LL);
+}
+#endif
+
+#endif /* _SQL_BITMAP_H_ */

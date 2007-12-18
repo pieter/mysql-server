@@ -1,0 +1,88 @@
+--source include/have_falcon.inc
+#
+# Bug #26871: Falcon: SELECT ... FOR UPDATE results in wrong error message
+#
+--echo *** Bug #26871 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+CREATE TABLE t1 (a int PRIMARY KEY);
+CREATE TABLE t2 (a char(10), b timestamp);
+
+INSERT INTO t1 VALUES (1);
+
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@tx_isolation = 'READ-COMMITTED';
+SET @@autocommit = 0;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--disable_result_log
+--disable_query_log
+
+--echo # Switch to connection default
+connection default;
+BEGIN;
+SELECT a FROM t1 WHERE a = 1 FOR UPDATE;
+INSERT INTO t2 (a) VALUES ('timestamp1');
+--real_sleep 2
+
+--echo # Switch to connection conn1
+connection conn1;
+# This SELECT ... FOR UPDATE has to wait until
+# default connection commits or rolls back.
+--send SELECT a FROM t1 WHERE a = 1 FOR UPDATE; INSERT INTO t2 (a) VALUES ('timestamp3')
+
+--echo # Switch to connection default
+connection default;
+INSERT INTO t2 (a) VALUES ('timestamp2');
+--real_sleep 2
+COMMIT;
+
+--enable_query_log
+--enable_result_log
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection conn1
+connection conn1;
+--reap
+COMMIT;
+
+--echo # Switch to connection default
+connection default;
+# If the SELECT ... FOR UPDATE was handled correctly, then
+# the timestamps have to be t1 < t2 < t3.
+SELECT b into @t1 FROM t2 WHERE a = 'timestamp1';
+SELECT b into @t2 FROM t2 WHERE a = 'timestamp2';
+SELECT b into @t3 FROM t2 WHERE a = 'timestamp3';
+
+SELECT @t1 < @t2 AND @t2 < @t3;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection conn1;
+connection conn1;
+
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;
+DROP TABLE t2;

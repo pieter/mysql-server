@@ -363,10 +363,10 @@ uint my_instr_mb(CHARSET_INFO *cs,
 
 /* BINARY collations handlers for MB charsets */
 
-static int my_strnncoll_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
-				const uchar *s, size_t slen,
-				const uchar *t, size_t tlen,
-                                my_bool t_is_prefix)
+int my_strnncoll_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
+                        const uchar *s, size_t slen,
+                        const uchar *t, size_t tlen,
+                        my_bool t_is_prefix)
 {
   size_t len=min(slen,tlen);
   int cmp= memcmp(s,t,len);
@@ -399,10 +399,10 @@ static int my_strnncoll_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
     0 if strings are equal
 */
 
-static int my_strnncollsp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
-                                 const uchar *a, size_t a_length, 
-                                 const uchar *b, size_t b_length,
-                                 my_bool diff_if_only_endspace_difference)
+int my_strnncollsp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
+                          const uchar *a, size_t a_length,
+                          const uchar *b, size_t b_length,
+                          my_bool diff_if_only_endspace_difference)
 {
   const uchar *end;
   size_t length;
@@ -446,26 +446,122 @@ static int my_strnncollsp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
 }
 
 
-static size_t my_strnxfrm_mb_bin(CHARSET_INFO *cs __attribute__((unused)),
-                                 uchar *dest, size_t dstlen,
-                                 const uchar *src, size_t srclen)
-{
-  if (dest != src)
-    memcpy(dest, src, min(dstlen, srclen));
-  if (dstlen > srclen)
-    bfill(dest + srclen, dstlen - srclen, ' ');
-  return dstlen;
+/*
+  Copy one non-ascii character.
+  "dst" must have enough room for the character.
+  Note, we don't use sort_order[] in this macros.
+  This is correct even for case insensitive collations:
+  - basic Latin letters are processed outside this macros;
+  - for other characters sort_order[x] is equal to x.
+*/
+#define my_strnxfrm_mb_non_ascii_char(cs, dst, src, se)                  \
+{                                                                        \
+  switch (cs->cset->ismbchar(cs, (const char*) src, (const char*) se)) { \
+  case 4:                                                                \
+    *dst++= *src++;                                                      \
+    /* fall through */                                                   \
+  case 3:                                                                \
+    *dst++= *src++;                                                      \
+    /* fall through */                                                   \
+  case 2:                                                                \
+    *dst++= *src++;                                                      \
+    /* fall through */                                                   \
+  case 0:                                                                \
+    *dst++= *src++; /* byte in range 0x80..0xFF which is not MB head */  \
+  }                                                                      \
 }
 
 
-static int my_strcasecmp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
-		      const char *s, const char *t)
+/*
+  For character sets with two or three byte multi-byte
+  characters having multibyte weights *equal* to their codes:
+  cp932, euckr, gb2312, sjis, eucjpms, ujis.
+*/
+size_t
+my_strnxfrm_mb(CHARSET_INFO *cs,
+               uchar *dst, size_t dstlen, uint nweights,
+               const uchar *src, size_t srclen, uint flags)
+{
+  uchar *d0= dst;
+  uchar *de= dst + dstlen;
+  const uchar *se= src + srclen;
+  const uchar *sort_order= cs->sort_order;
+
+  DBUG_ASSERT(cs->mbmaxlen <= 4);
+
+  /*
+    If "srclen" is smaller than both "dstlen" and "nweights"
+    then we can run a simplified loop -
+    without checking "nweights" and "de".
+  */
+  if (dstlen >= srclen && nweights >= srclen)
+  {
+    if (sort_order)
+    {
+      /* Optimized version for a case insensitive collation */
+      for (; src < se; nweights--)
+      {
+        if (*src < 128) /* quickly catch ASCII characters */
+          *dst++= sort_order[*src++];
+        else
+          my_strnxfrm_mb_non_ascii_char(cs, dst, src, se);
+      }
+    }
+    else
+    {
+      /* Optimized version for a case sensitive collation (no sort_order) */
+      for (; src < se; nweights--)
+      {
+        if (*src < 128) /* quickly catch ASCII characters */
+          *dst++= *src++;
+        else
+          my_strnxfrm_mb_non_ascii_char(cs, dst, src, se);
+      }
+    }
+    goto pad;
+  }
+
+  /*
+    A thourough loop, checking all possible limits:
+    "se", "nweights" and "de".
+  */
+  for (; src < se && nweights; nweights--)
+  {
+    int chlen;
+    if (*src < 128 ||
+        !(chlen= cs->cset->ismbchar(cs, (const char*) src, (const char*) se)))
+    {
+      /* Single byte character */
+      if (dst >= de)
+        break;
+      *dst++= sort_order ? sort_order[*src++] : *src++;
+    }
+    else
+    {
+      /* Multi-byte character */
+      if (dst + chlen > de)
+        break;
+      *dst++= *src++;
+      *dst++= *src++;
+      if (chlen == 3)
+        *dst++= *src++;
+    }
+  }
+
+pad:
+  return my_strxfrm_pad_desc_and_reverse(cs, d0, dst, de, nweights, flags, 0);
+}
+
+
+int my_strcasecmp_mb_bin(CHARSET_INFO * cs __attribute__((unused)),
+                         const char *s, const char *t)
 {
   return strcmp(s,t);
 }
 
-static void my_hash_sort_mb_bin(CHARSET_INFO *cs __attribute__((unused)),
-		      const uchar *key, size_t len,ulong *nr1, ulong *nr2)
+
+void my_hash_sort_mb_bin(CHARSET_INFO *cs __attribute__((unused)),
+                         const uchar *key, size_t len,ulong *nr1, ulong *nr2)
 {
   const uchar *pos = key;
   
@@ -686,10 +782,10 @@ fill_max_and_min:
 }
 
 
-static int my_wildcmp_mb_bin(CHARSET_INFO *cs,
-		  const char *str,const char *str_end,
-		  const char *wildstr,const char *wildend,
-		  int escape, int w_one, int w_many)
+int my_wildcmp_mb_bin(CHARSET_INFO *cs,
+                      const char *str,const char *str_end,
+                      const char *wildstr,const char *wildend,
+                      int escape, int w_one, int w_many)
 {
   int result= -1;				/* Not found, using wildcards */
 
@@ -1009,9 +1105,14 @@ size_t my_numcells_mb(CHARSET_INFO *cs, const char *b, const char *e)
   {
     int mb_len;
     uint pg;
-    if ((mb_len= cs->cset->mb_wc(cs, &wc, (uchar*) b, (uchar*) e)) <= 0)
+    if ((mb_len= cs->cset->mb_wc(cs, &wc, (uchar*) b, (uchar*) e)) <= 0 ||
+        wc > 0xFFFF)
     {
-      mb_len= 1; /* Let's think a wrong sequence takes 1 dysplay cell */
+      /*
+        Let's think a wrong sequence takes 1 dysplay cell.
+        Also, consider supplementary characters as taking one cell.
+      */
+      mb_len= 1;
       b++;
       continue;
     }
@@ -1029,7 +1130,7 @@ int my_mb_ctype_mb(CHARSET_INFO *cs, int *ctype,
 {
   my_wc_t wc;
   int res= cs->cset->mb_wc(cs, &wc, s, e);
-  if (res <= 0)
+  if (res <= 0 || wc > 0xFFFF)
     *ctype= 0;
   else
     *ctype= my_uni_ctype[wc>>8].ctype ?
@@ -1041,10 +1142,10 @@ int my_mb_ctype_mb(CHARSET_INFO *cs, int *ctype,
 
 MY_COLLATION_HANDLER my_collation_mb_bin_handler =
 {
-    NULL,		/* init */
+    NULL,              /* init */
     my_strnncoll_mb_bin,
     my_strnncollsp_mb_bin,
-    my_strnxfrm_mb_bin,
+    my_strnxfrm_mb,
     my_strnxfrmlen_simple,
     my_like_range_mb,
     my_wildcmp_mb_bin,
@@ -1053,6 +1154,5 @@ MY_COLLATION_HANDLER my_collation_mb_bin_handler =
     my_hash_sort_mb_bin,
     my_propagate_simple
 };
-
 
 #endif

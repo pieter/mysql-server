@@ -21,6 +21,7 @@
 
 #ifdef HAVE_REPLICATION
 
+#define DEFAULT_CONNECT_RETRY 60
 
 // Defined in slave.cc
 int init_intvar_from_file(int* var, IO_CACHE* f, int default_val);
@@ -29,9 +30,9 @@ int init_strvar_from_file(char *var, int max_size, IO_CACHE *f,
 
 Master_info::Master_info()
   :Slave_reporting_capability("I/O"),
-   ssl(0), fd(-1),  io_thd(0), inited(0),
-   abort_slave(0),slave_running(0),
-   ssl_verify_server_cert(0), slave_run_id(0)
+   ssl(0), fd(-1),  io_thd(0), port(MYSQL_PORT),
+   connect_retry(DEFAULT_CONNECT_RETRY), inited(0), abort_slave(0),
+   slave_running(0),  ssl_verify_server_cert(0), slave_run_id(0)
 {
   host[0] = 0; user[0] = 0; password[0] = 0;
   ssl_ca[0]= 0; ssl_capath[0]= 0; ssl_cert[0]= 0;
@@ -55,35 +56,12 @@ Master_info::~Master_info()
 }
 
 
-void init_master_info_with_options(Master_info* mi)
+void init_master_log_pos(Master_info* mi)
 {
-  DBUG_ENTER("init_master_info_with_options");
+  DBUG_ENTER("init_master_log_pos");
 
   mi->master_log_name[0] = 0;
   mi->master_log_pos = BIN_LOG_HEADER_SIZE;             // skip magic number
-
-  if (master_host)
-    strmake(mi->host, master_host, sizeof(mi->host) - 1);
-  if (master_user)
-    strmake(mi->user, master_user, sizeof(mi->user) - 1);
-  if (master_password)
-    strmake(mi->password, master_password, MAX_PASSWORD_LENGTH);
-  mi->port = master_port;
-  mi->connect_retry = master_connect_retry;
-
-  mi->ssl= master_ssl;
-  if (master_ssl_ca)
-    strmake(mi->ssl_ca, master_ssl_ca, sizeof(mi->ssl_ca)-1);
-  if (master_ssl_capath)
-    strmake(mi->ssl_capath, master_ssl_capath, sizeof(mi->ssl_capath)-1);
-  if (master_ssl_cert)
-    strmake(mi->ssl_cert, master_ssl_cert, sizeof(mi->ssl_cert)-1);
-  if (master_ssl_cipher)
-    strmake(mi->ssl_cipher, master_ssl_cipher, sizeof(mi->ssl_cipher)-1);
-  if (master_ssl_key)
-    strmake(mi->ssl_key, master_ssl_key, sizeof(mi->ssl_key)-1);
-  /* Intentionally init ssl_verify_server_cert to 0, no option available  */
-  mi->ssl_verify_server_cert= 0;
   DBUG_VOID_RETURN;
 }
 
@@ -97,6 +75,7 @@ enum {
   /* Number of lines currently used when saving master info file */
   LINES_IN_MASTER_INFO= LINE_FOR_MASTER_SSL_VERIFY_SERVER_CERT
 };
+
 
 int init_master_info(Master_info* mi, const char* master_info_fname,
                      const char* slave_info_fname,
@@ -170,7 +149,7 @@ file '%s')", fname);
     }
 
     mi->fd = fd;
-    init_master_info_with_options(mi);
+    init_master_log_pos(mi);
 
   }
   else // file exists
@@ -242,37 +221,34 @@ file '%s')", fname);
       lines= 7;
 
     if (init_intvar_from_file(&master_log_pos, &mi->file, 4) ||
-        init_strvar_from_file(mi->host, sizeof(mi->host), &mi->file,
-                              master_host) ||
-        init_strvar_from_file(mi->user, sizeof(mi->user), &mi->file,
-                              master_user) ||
+        init_strvar_from_file(mi->host, sizeof(mi->host), &mi->file, 0) ||
+        init_strvar_from_file(mi->user, sizeof(mi->user), &mi->file, "test") ||
         init_strvar_from_file(mi->password, SCRAMBLED_PASSWORD_CHAR_LENGTH+1,
-                              &mi->file, master_password) ||
-        init_intvar_from_file(&port, &mi->file, master_port) ||
-        init_intvar_from_file(&connect_retry, &mi->file,
-                              master_connect_retry))
+                              &mi->file, 0 ) ||
+        init_intvar_from_file(&port, &mi->file, MYSQL_PORT) ||
+        init_intvar_from_file(&connect_retry, &mi->file, DEFAULT_CONNECT_RETRY))
       goto errwithmsg;
 
     /*
-       If file has ssl part use it even if we have server without
-       SSL support. But these option will be ignored later when
-       slave will try connect to master, so in this case warning
-       is printed.
-     */
+      If file has ssl part use it even if we have server without
+      SSL support. But these option will be ignored later when
+      slave will try connect to master, so in this case warning
+      is printed.
+    */
     if (lines >= LINES_IN_MASTER_INFO_WITH_SSL)
     {
-      if (init_intvar_from_file(&ssl, &mi->file, master_ssl) ||
+      if (init_intvar_from_file(&ssl, &mi->file, 0) ||
           init_strvar_from_file(mi->ssl_ca, sizeof(mi->ssl_ca),
-                                &mi->file, master_ssl_ca) ||
+                                &mi->file, 0) ||
           init_strvar_from_file(mi->ssl_capath, sizeof(mi->ssl_capath),
-                                &mi->file, master_ssl_capath) ||
+                                &mi->file, 0) ||
           init_strvar_from_file(mi->ssl_cert, sizeof(mi->ssl_cert),
-                                &mi->file, master_ssl_cert) ||
+                                &mi->file, 0) ||
           init_strvar_from_file(mi->ssl_cipher, sizeof(mi->ssl_cipher),
-                                &mi->file, master_ssl_cipher) ||
+                                &mi->file, 0) ||
           init_strvar_from_file(mi->ssl_key, sizeof(mi->ssl_key),
-                                &mi->file, master_ssl_key))
-        goto errwithmsg;
+                               &mi->file, 0))
+      goto errwithmsg;
 
       /*
         Starting from 5.1.16 ssl_verify_server_cert might be
@@ -287,8 +263,8 @@ file '%s')", fname);
 #ifndef HAVE_OPENSSL
     if (ssl)
       sql_print_warning("SSL information in the master info file "
-                      "('%s') are ignored because this MySQL slave was compiled "
-                      "without SSL support.", fname);
+                      "('%s') are ignored because this MySQL slave was "
+                      "compiled without SSL support.", fname);
 #endif /* HAVE_OPENSSL */
 
     /*

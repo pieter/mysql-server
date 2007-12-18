@@ -1,0 +1,36 @@
+*** SELECT ... FOR UPDATE ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a int PRIMARY KEY);
+SET @@autocommit = 0;
+INSERT INTO t1 VALUES (1), (2), (3);
+COMMIT;
+# Establish connection conn1
+SET storage_engine = 'Falcon';
+SET @@autocommit = 0;
+# Switch to connection default
+SELECT a FROM t1 WHERE a = 1 FOR UPDATE;
+a
+1
+# Switch to connection conn1
+SELECT a FROM t1 WHERE a = 2 FOR UPDATE;
+a
+2
+# Switch to connection default
+SELECT a FROM t1 WHERE a = 2 FOR UPDATE;
+# Switch to connection conn1
+SELECT a FROM t1 WHERE a = 1 FOR UPDATE;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
+# Switch to connection default
+a
+2
+COMMIT;
+# Switch to connection conn1
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+3
+COMMIT;
+# Switch to connection default
+DROP TABLE t1;

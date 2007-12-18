@@ -1,0 +1,34 @@
+SET @@storage_engine = Falcon;
+*** Bug #22183 ***
+DROP DATABASE IF EXISTS falcon6;
+CREATE DATABASE falcon6;
+USE falcon6;
+SET @@autocommit = 0;
+CREATE TABLE t (s1 int primary key, s2 varchar(10000), s3 blob);
+INSERT INTO t VALUES (3,'a','a');
+# Establish connection conn1 (user = root)
+SET @@storage_engine = Falcon;
+USE falcon6;
+ALTER TABLE t DROP PRIMARY KEY;
+ERROR HY000: Can't lock file (errno: 212)
+SET @@autocommit = 0;
+START TRANSACTION;
+INSERT INTO t VALUES (3,'b','b');
+# Switch to connection default
+ALTER TABLE t ADD PRIMARY KEY (s1);
+ERROR 42000: Multiple primary key defined
+COMMIT;
+# Switch to connection conn1
+ERROR 23000: Duplicate entry '3' for key 'PRIMARY'
+COMMIT;
+ALTER TABLE t DROP PRIMARY KEY;
+# Switch to connection default
+SELECT * FROM t;
+s1	s2	s3
+3	a	a
+COMMIT;
+# Switch to connection conn1
+COMMIT;
+# Switch to connection default
+DROP DATABASE falcon6;
+USE test;

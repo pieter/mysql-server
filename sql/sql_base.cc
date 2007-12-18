@@ -99,10 +99,6 @@ static int open_unireg_entry(THD *thd, TABLE *entry, TABLE_LIST *table_list,
                              char *cache_key, uint cache_key_length,
 			     MEM_ROOT *mem_root, uint flags);
 static void free_cache_entry(TABLE *entry);
-static bool open_new_frm(THD *thd, TABLE_SHARE *share, const char *alias,
-                         uint db_stat, uint prgflag,
-                         uint ha_open_flags, TABLE *outparam,
-                         TABLE_LIST *table_desc, MEM_ROOT *mem_root);
 static void close_old_data_files(THD *thd, TABLE *table, bool morph_locks,
                                  bool send_refresh);
 static bool
@@ -1921,8 +1917,13 @@ void close_temporary(TABLE *table, bool free_share, bool delete_table)
 
   free_io_cache(table);
   closefrm(table, 0);
+  /*
+     Check that temporary table has not been created with
+     frm_only because it has then not been created in any storage engine
+   */
   if (delete_table)
-    rm_temporary_table(table_type, table->s->path.str);
+    rm_temporary_table(table_type, table->s->path.str, 
+                       table->s->tmp_table == TMP_TABLE_FRM_FILE_ONLY);
   if (free_share)
   {
     free_table_share(table->s);
@@ -3824,7 +3825,7 @@ retry:
                                                HA_TRY_READ_ONLY),
                                        (READ_KEYINFO | COMPUTE_TYPES |
                                         EXTRA_RECORD),
-                                       thd->open_options, entry, FALSE)))
+                                       thd->open_options, entry, OTM_OPEN)))
   {
     if (error == 7)                             // Table def changed
     {
@@ -3887,7 +3888,7 @@ retry:
                                        HA_TRY_READ_ONLY),
                                READ_KEYINFO | COMPUTE_TYPES | EXTRA_RECORD,
                                ha_open_options | HA_OPEN_FOR_REPAIR,
-                               entry, FALSE) || ! entry->file ||
+                               entry, OTM_OPEN) || ! entry->file ||
  	(entry->file->is_crashed() && entry->file->check_and_repair(thd)))
      {
        /* Give right error message */
@@ -5274,7 +5275,8 @@ void close_tables_for_reopen(THD *thd, TABLE_LIST **tables)
 */
 
 TABLE *open_temporary_table(THD *thd, const char *path, const char *db,
-			    const char *table_name, bool link_in_list)
+			    const char *table_name, bool link_in_list,
+                            open_table_mode open_mode)
 {
   TABLE *tmp_table;
   TABLE_SHARE *share;
@@ -5308,11 +5310,15 @@ TABLE *open_temporary_table(THD *thd, const char *path, const char *db,
 
   if (open_table_def(thd, share, 0) ||
       open_table_from_share(thd, share, table_name,
+                            (open_mode == OTM_ALTER) ? 0 :
                             (uint) (HA_OPEN_KEYFILE | HA_OPEN_RNDFILE |
                                     HA_GET_INDEX),
-                            READ_KEYINFO | COMPUTE_TYPES | EXTRA_RECORD,
+                            (open_mode == OTM_ALTER) ?
+                              (READ_KEYINFO | COMPUTE_TYPES | EXTRA_RECORD |
+                               OPEN_FRM_FILE_ONLY)
+                            : (READ_KEYINFO | COMPUTE_TYPES | EXTRA_RECORD),
                             ha_open_options,
-                            tmp_table, FALSE))
+                            tmp_table, open_mode))
   {
     /* No need to lock share->mutex as this is not needed for tmp tables */
     free_table_share(share);
@@ -5321,8 +5327,17 @@ TABLE *open_temporary_table(THD *thd, const char *path, const char *db,
   }
 
   tmp_table->reginfo.lock_type= TL_WRITE;	 // Simulate locked
-  share->tmp_table= (tmp_table->file->has_transactions() ? 
-                     TRANSACTIONAL_TMP_TABLE : NON_TRANSACTIONAL_TMP_TABLE);
+  if (open_mode == OTM_ALTER)
+  {
+    /*
+       Temporary table has been created with frm_only
+       and has not been created in any storage engine
+    */
+    share->tmp_table= TMP_TABLE_FRM_FILE_ONLY;
+  }
+  else
+    share->tmp_table= (tmp_table->file->has_transactions() ?
+                       TRANSACTIONAL_TMP_TABLE : NON_TRANSACTIONAL_TMP_TABLE);
 
   if (link_in_list)
   {
@@ -5342,7 +5357,7 @@ TABLE *open_temporary_table(THD *thd, const char *path, const char *db,
 }
 
 
-bool rm_temporary_table(handlerton *base, char *path)
+bool rm_temporary_table(handlerton *base, char *path, bool frm_only)
 {
   bool error=0;
   handler *file;
@@ -5354,7 +5369,7 @@ bool rm_temporary_table(handlerton *base, char *path)
     error=1; /* purecov: inspected */
   *ext= 0;				// remove extension
   file= get_new_handler((TABLE_SHARE*) 0, current_thd->mem_root, base);
-  if (file && file->delete_table(path))
+  if (!frm_only && file && file->delete_table(path))
   {
     error=1;
     sql_print_warning("Could not remove temporary table: '%s', error: %d",
@@ -7663,6 +7678,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
   SELECT_LEX *select_lex= thd->lex->current_select;
   Query_arena *arena= thd->stmt_arena, backup;
   TABLE_LIST *table= NULL;	// For HP compilers
+  void *save_thd_marker= thd->thd_marker;
   /*
     it_is_update set to TRUE when tables of primary SELECT_LEX (SELECT_LEX
     which belong to LEX, i.e. most up SELECT) will be updated by
@@ -7693,6 +7709,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
       goto err_no_arena;
   }
 
+  thd->thd_marker= (void*)1;
   if (*conds)
   {
     thd->where="where clause";
@@ -7700,6 +7717,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
 	(*conds)->check_cols(1))
       goto err_no_arena;
   }
+  thd->thd_marker= save_thd_marker;
 
   /*
     Apply fix_fields() to all ON clauses at all levels of nesting,
@@ -7715,6 +7733,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
       if (embedded->on_expr)
       {
         /* Make a join an a expression */
+        thd->thd_marker= (void*)embedded;
         thd->where="on clause";
         if (!embedded->on_expr->fixed &&
             embedded->on_expr->fix_fields(thd, &embedded->on_expr) ||
@@ -7739,6 +7758,7 @@ int setup_conds(THD *thd, TABLE_LIST *tables, TABLE_LIST *leaves,
       }
     }
   }
+  thd->thd_marker= save_thd_marker;
 
   if (!thd->stmt_arena->is_conventional())
   {
@@ -8313,7 +8333,7 @@ int init_ftfuncs(THD *thd, SELECT_LEX *select_lex, bool no_order)
     mem_root	  temporary MEM_ROOT for parsing
 */
 
-static bool
+bool
 open_new_frm(THD *thd, TABLE_SHARE *share, const char *alias,
              uint db_stat, uint prgflag,
 	     uint ha_open_flags, TABLE *outparam, TABLE_LIST *table_desc,

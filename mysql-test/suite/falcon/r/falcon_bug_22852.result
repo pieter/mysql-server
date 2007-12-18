@@ -1,0 +1,44 @@
+*** Bug #22852 ***
+SET storage_engine = Falcon;
+SET @@autocommit = 0;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+# Establish connection conn1 (user = root)
+SET storage_engine = Falcon;
+SET @@autocommit = 0;
+# Switch to connection default
+CREATE TABLE t1 (
+a binary(1) NOT NULL,
+b varbinary(3) NOT NULL,
+c longblob
+);
+INSERT INTO t1 VALUES (0x01, 0x02, 'm');
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+INSERT INTO t1 SELECT * FROM t1;
+create procedure p1 ()
+begin
+/* declare continue handler for sqlexception select 'handled'; */
+update t1 set c = 'm';
+end//
+COMMIT;
+CALL p1();
+INSERT INTO t1 SELECT * FROM t1;
+# Switch to connection conn1
+SET @@autocommit = 0;
+call p1();
+# Switch to connection default
+COMMIT;
+# Switch to connection conn1
+INSERT INTO t1 SELECT * FROM t1;
+COMMIT;
+# Switch to connection default
+SELECT count(*) FROM t1;
+count(*)
+32
+COMMIT;
+DROP TABLE t1;
+DROP PROCEDURE p1;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;

@@ -1,0 +1,13 @@
+SET storage_engine = Falcon;
+*** Bug #28035 ***
+DROP TABLE IF EXISTS t2;
+CREATE TABLE t2 (s1 varchar(5));
+CREATE INDEX i2 ON t2 (s1(1));
+INSERT INTO t2 VALUES ('b'),('ba');
+SELECT * FROM t2 WHERE s1 = 'b';
+s1
+b
+SELECT * FROM t2 WHERE s1 = 'ba';
+s1
+ba
+DROP TABLE t2;

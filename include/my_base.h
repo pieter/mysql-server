@@ -98,6 +98,14 @@ enum ha_key_alg {
   HA_KEY_ALG_FULLTEXT=	4		/* FULLTEXT (MyISAM tables) */
 };
 
+	/* Index and table build methods */
+
+enum ha_build_method { 
+  HA_BUILD_DEFAULT, 
+  HA_BUILD_ONLINE,
+  HA_BUILD_OFFLINE 
+};
+
         /* Storage media types */ 
 
 enum ha_storage_media {
@@ -257,6 +265,7 @@ enum ha_base_keytype {
 #define HA_SPACE_PACK_USED	 4	/* Test for if SPACE_PACK used */
 #define HA_VAR_LENGTH_KEY	 8
 #define HA_NULL_PART_KEY	 64
+#define HA_USES_COMMENT          4096
 #define HA_USES_PARSER           16384  /* Fulltext index uses [pre]parser */
 #define HA_USES_BLOCK_SIZE	 ((uint) 32768)
 #define HA_SORT_ALLOWS_SAME      512    /* Intern bit when sorting records */
@@ -417,9 +426,11 @@ enum ha_base_keytype {
 
 #define HA_ERR_LOGGING_IMPOSSIBLE 170    /* It is not possible to log this
                                             statement */
-#define HA_ERR_CORRUPT_EVENT      171    /* The event was corrupt, leading to
+#define HA_ERR_TABLESPACE_EXIST   171
+#define HA_ERR_CORRUPT_EVENT      172    /* The event was corrupt, leading to
                                             illegal data being read */
-#define HA_ERR_LAST              171     /*Copy last error nr.*/
+#define HA_ERR_LOCK_OR_ACTIVE_TRANSACTION 173
+#define HA_ERR_LAST               173    /*Copy last error nr.*/
 /* Add error numbers before HA_ERR_LAST and change it accordingly. */
 #define HA_ERR_ERRORS            (HA_ERR_LAST - HA_ERR_FIRST + 1)
 
@@ -489,14 +500,40 @@ enum data_file_type {
 
 /* For key ranges */
 
+/* from -inf */
 #define NO_MIN_RANGE	1
+
+/* to +inf */
 #define NO_MAX_RANGE	2
+
+/*  X < key, i.e. not including the left endpoint */
 #define NEAR_MIN	4
+
+/* X > key, i.e. not including the right endpoint */
 #define NEAR_MAX	8
+
+/* 
+  This flag means that index is a unique index, and the interval is 
+  equivalent to "AND(keypart_i = const_i)", where all of const_i are not NULLs.
+*/
 #define UNIQUE_RANGE	16
+
+/* 
+  This flag means that the interval is equivalent to 
+  "AND(keypart_i = const_i)", where not all key parts may be used but all of 
+  const_i are not NULLs.
+*/
 #define EQ_RANGE	32
+
+/*
+  This flag has the same meaning as UNIQUE_RANGE, except that for at least
+  one keypart the condition is "keypart IS NULL". 
+*/
 #define NULL_RANGE	64
+
 #define GEOM_FLAG      128
+
+/* Deprecated, currently used only by NDB at row retrieval */
 #define SKIP_RANGE     256
 
 typedef struct st_key_range

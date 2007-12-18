@@ -499,3 +499,5 @@ main()
 }
 
 #endif /* __NETWARE__ */
+
+#include "mi_extrafunc.h"

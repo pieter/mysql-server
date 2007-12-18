@@ -70,49 +70,7 @@ drop table t2;
 
 SET NAMES koi8r;
 SET character_set_connection=ucs2;
-
-create table t1 (a varchar(10) character set ucs2, key(a));
-insert into t1 values ("a"),("abc"),("abcd"),("hello"),("test");
-explain select * from t1 where a like 'abc%';
-explain select * from t1 where a like concat('abc','%');
-select * from t1 where a like "abc%";
-select * from t1 where a like concat("abc","%");
-select * from t1 where a like "ABC%";
-select * from t1 where a like "test%";
-select * from t1 where a like "te_t";
-select * from t1 where a like "%a%";
-select * from t1 where a like "%abcd%";
-select * from t1 where a like "%abc\d%";
-drop table t1;
-
-#
-# More LIKE test: bug#2619
-#
-select 'AA' like 'AA'; 
-select 'AA' like 'A%A';
-select 'AA' like 'A%%A';
-select 'AA' like 'AA%';
-select 'AA' like '%AA%';
-select 'AA' like '%A';
-select 'AA' like '%AA';
-select 'AA' like 'A%A%';
-select 'AA' like '_%_%';
-select 'AA' like '%A%A';
-select 'AAA'like 'A%A%A';
-
-select 'AZ' like 'AZ'; 
-select 'AZ' like 'A%Z';
-select 'AZ' like 'A%%Z';
-select 'AZ' like 'AZ%';
-select 'AZ' like '%AZ%';
-select 'AZ' like '%Z';
-select 'AZ' like '%AZ';
-select 'AZ' like 'A%Z%';
-select 'AZ' like '_%_%';
-select 'AZ' like '%A%Z';
-select 'AZ' like 'A_';
-select 'AZ' like '_Z';
-select 'AMZ'like 'A%M%Z';
+--source include/ctype_like.inc
 
 CREATE TABLE t1 (a VARCHAR(10) CHARACTER SET ucs2);
 INSERT INTO t1 VALUES ('ÆÙ×Á'),('æÙ×Á'),('Æù×Á'),('ÆÙ÷Á'),('ÆÙ×á'),('æù÷á');
@@ -680,3 +638,12 @@ set names latin1;
 select hex(char(0x41 using ucs2));
 
 --echo End of 5.0 tests
+
+
+set collation_connection=ucs2_general_ci;
+--source include/weight_string.inc
+--source include/weight_string_l1.inc
+
+set collation_connection=ucs2_bin;
+-- source include/weight_string.inc
+--source include/weight_string_l1.inc

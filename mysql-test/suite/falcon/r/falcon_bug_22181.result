@@ -1,0 +1,36 @@
+SET STORAGE_ENGINE = Falcon;
+#---- Bug 22181 ----
+DROP DATABASE IF EXISTS falcon4;
+CREATE DATABASE falcon4;
+SET STORAGE_ENGINE = Falcon;
+USE falcon4;
+USE falcon4;
+SHOW VARIABLES LIKE 'have_query_cache';
+Variable_name	Value
+have_query_cache	YES
+SET GLOBAL query_cache_size = 200000;
+SET @@autocommit=0;
+CREATE TABLE t2 (s1 int, s2 varchar(1000), key(s1));
+INSERT INTO t2 VALUES (1,repeat('a',1000)),(2,repeat('a',1000));
+COMMIT;
+START TRANSACTION;
+UPDATE t2 SET s2 = 'w' WHERE s1 = 10;
+SELECT sql_cache count(*) FROM t2 WHERE s2 = 'w';
+count(*)
+0
+COMMIT;
+USE falcon4;
+START TRANSACTION;
+INSERT INTO t2 VALUES (-1,'w');
+COMMIT;
+SELECT sql_cache count(*) FROM t2 WHERE s2 = 'w';
+count(*)
+0
+COMMIT;
+SELECT sql_cache count(*) FROM t2 WHERE s2 = 'w';
+count(*)
+1
+SELECT sql_cache count(*) FROM t2 WHERE s2 = 'w';
+count(*)
+1
+DROP DATABASE falcon4;

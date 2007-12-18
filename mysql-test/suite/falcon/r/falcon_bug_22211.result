@@ -1,0 +1,337 @@
+*** Bug #263 ***
+SET storage_engine = Falcon;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+DROP TABLE IF EXISTS t1;
+# Establish connection 1 (REPEATABLE READ)
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+select @@TX_ISOLATION;
+@@TX_ISOLATION
+REPEATABLE-READ
+# Establish connection 2 (READ COMMITTED)
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+select @@TX_ISOLATION;
+@@TX_ISOLATION
+READ-COMMITTED
+# Switch to connection default (REPEATABLE READ)
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+select @@TX_ISOLATION;
+@@TX_ISOLATION
+REPEATABLE-READ
+CREATE TABLE t1 (a int, primary key (a)) ENGINE=falcon;
+INSERT INTO t1 VALUES (0);
+############################################################
+# #1 -  make client 2 block on a previous pending record
+############################################################
+START TRANSACTION;
+UPDATE t1 SET a = 10 WHERE a = 0;
+SELECT * FROM t1;
+a
+10
+SAVEPOINT sp1;
+UPDATE t1 SET a = 100 WHERE a = 10;
+SELECT * FROM t1;
+a
+100
+SAVEPOINT sp2;
+# This makes sure a change is not blocked by the same record.
+UPDATE t1 SET a = 0 WHERE a = 100;
+SELECT * FROM t1;
+a
+0
+ROLLBACK TO sp2;
+SELECT * FROM t1;
+a
+100
+# Switch to connection 1 (REPEATABLE READ)
+START TRANSACTION;
+SELECT * FROM t1;
+a
+0
+# send INSERT (10) - This should block unitl 10 is committed.
+INSERT INTO t1 VALUES(10);;
+# Switch to connection default (REPEATABLE READ)
+# Rollback the value 100
+ROLLBACK TO SAVEPOINT sp1;
+# Commit the value 10
+COMMIT;
+SELECT * FROM t1;
+a
+10
+# Switch to connection 1 (REPEATABLE READ)
+# reap INSERT (10) - This should get an update conflict.
+ERROR 23000: Duplicate entry '10' for key 'PRIMARY'
+SELECT * FROM t1;
+a
+0
+ROLLBACK;
+SELECT * FROM t1;
+a
+10
+# Switch to connection default (REPEATABLE READ)
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+############################################################
+# #2 - make client 2 succeed after the blocking 100 
+# is rolled back and 10 is committed
+############################################################
+START TRANSACTION;
+UPDATE t1 SET a = 10 WHERE a = 0;
+SELECT * FROM t1;
+a
+10
+SAVEPOINT sp1;
+UPDATE t1 SET a = 100 WHERE a = 10;
+SELECT * FROM t1;
+a
+100
+# Switch to connection 1 (REPEATABLE READ)
+START TRANSACTION;
+SELECT * FROM t1;
+a
+0
+# send INSERT (100) - This should SUCCEED after 100 is rolled back.
+INSERT INTO t1 VALUES(100);;
+# Switch to connection default (REPEATABLE READ)
+# Rollback the value 100
+ROLLBACK TO SAVEPOINT sp1;
+# Commit the value 10
+COMMIT;
+SELECT * FROM t1;
+a
+10
+# Switch to connection 1 (REPEATABLE READ)
+# reap - INSERT (100)
+SELECT * FROM t1;
+a
+0
+100
+ROLLBACK;
+SELECT * FROM t1;
+a
+10
+# Switch to connection default (REPEATABLE READ)
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+############################################################
+# #3 - client 2 (with InnoDB Compatibility) does not block on a vestigial record
+############################################################
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+START TRANSACTION;
+UPDATE t1 SET a = 10;
+SELECT * FROM t1;
+a
+10
+# Switch to connection 1 (REPEATABLE READ)
+START TRANSACTION;
+SELECT * FROM t1;
+a
+0
+# Switch to connection default (REPEATABLE READ)
+COMMIT;
+SELECT * FROM t1;
+a
+10
+# Switch to connection 1 (REPEATABLE READ)
+# This trans still sees the vestigial record 0, but it does not
+# block on it with InnoDB Compatibility Mode
+INSERT INTO t1 VALUES(0);
+SELECT * FROM t1;
+a
+0
+0
+ROLLBACK;
+SELECT * FROM t1;
+a
+10
+# Switch to connection default (REPEATABLE READ)
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+############################################################
+# #4 - make sure client 2 does not block on a vestigial records 
+# that were never committed.
+############################################################
+START TRANSACTION;
+UPDATE t1 SET a = 1;
+UPDATE t1 SET a = 2;
+UPDATE t1 SET a = 3;
+SAVEPOINT sp1;
+UPDATE t1 SET a = 4;
+UPDATE t1 SET a = 5;
+UPDATE t1 SET a = 6;
+SAVEPOINT sp2;
+UPDATE t1 SET a = 7;
+UPDATE t1 SET a = 8;
+UPDATE t1 SET a = 9;
+UPDATE t1 SET a = 10;
+SELECT * FROM t1;
+a
+10
+# Switch to connection 1 (REPEATABLE READ)
+START TRANSACTION;
+SELECT * FROM t1;
+a
+0
+# Switch to connection default (REPEATABLE READ)
+COMMIT;
+SELECT * FROM t1;
+a
+10
+# Switch to connection 1 (REPEATABLE READ)
+# These INSERTs should succeed because these records were never committed.
+INSERT INTO t1 VALUES(1);
+INSERT INTO t1 VALUES(2);
+INSERT INTO t1 VALUES(3);
+INSERT INTO t1 VALUES(4);
+INSERT INTO t1 VALUES(5);
+INSERT INTO t1 VALUES(6);
+INSERT INTO t1 VALUES(7);
+INSERT INTO t1 VALUES(8);
+INSERT INTO t1 VALUES(9);
+SELECT * FROM t1;
+a
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+COMMIT;
+SELECT * FROM t1;
+a
+10
+1
+2
+3
+4
+5
+6
+7
+8
+9
+# Switch to connection default (REPEATABLE READ)
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+############################################################
+# #5 - make sure client 2 blocks on a vestigial consistent read
+# records and currently committed records, but not on records
+# that were committed in between.
+############################################################
+START TRANSACTION;
+UPDATE t1 SET a = 1;
+# Switch to connection 1 (REPEATABLE READ)
+START TRANSACTION;
+SELECT * FROM t1;
+a
+0
+# Switch to connection default (REPEATABLE READ)
+COMMIT;
+SELECT * FROM t1;
+a
+1
+UPDATE t1 SET a = 2;
+SELECT * FROM t1;
+a
+2
+UPDATE t1 SET a = 3;
+SELECT * FROM t1;
+a
+3
+# Switch to connection 1 (REPEATABLE READ)
+SELECT * FROM t1;
+a
+0
+# These INSERTs should SUCCEED because 1 & 2 were replaced.
+INSERT INTO t1 VALUES(1);
+SELECT * FROM t1;
+a
+0
+1
+INSERT INTO t1 VALUES(2);
+SELECT * FROM t1;
+a
+0
+1
+2
+# This INSERT should FAIL because 3 is the currently committed value
+INSERT INTO t1 VALUES(3);
+ERROR 23000: Duplicate entry '3' for key 'PRIMARY'
+SELECT * FROM t1;
+a
+0
+1
+2
+COMMIT;
+SELECT * FROM t1;
+a
+3
+1
+2
+# Switch to connection default (REPEATABLE READ)
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+############################################################
+# #6 - Do not get confused by an older READ COMMITTED transaction
+# that changes a newer version of the record.
+############################################################
+# Switch to connection default (REPEATABLE READ)
+START TRANSACTION;
+SELECT * FROM t1;
+a
+0
+# Switch to connection 2  (READ COMMITTED)
+START TRANSACTION;
+SELECT * FROM t1;
+a
+0
+# Switch to connection 1 (REPEATABLE READ)
+START TRANSACTION;
+SELECT * FROM t1;
+a
+0
+# Switch to connection default (REPEATABLE READ)
+UPDATE t1 SET a = 1;
+COMMIT;
+# Switch to connection 2  (READ COMMITTED)
+SELECT * FROM t1;
+a
+1
+UPDATE t1 SET a = 2;
+COMMIT;
+SELECT * FROM t1;
+a
+2
+# Switch to connection 1 (REPEATABLE READ)
+SELECT * FROM t1;
+a
+0
+# This INSERT should SUCCEED because record value 1 is NOT current.
+INSERT INTO t1 VALUES(1);
+SELECT * FROM t1;
+a
+0
+1
+# This INSERT should FAIL because record value 2 IS current.
+INSERT INTO t1 VALUES(2);
+ERROR 23000: Duplicate entry '2' for key 'PRIMARY'
+SELECT * FROM t1;
+a
+0
+1
+COMMIT;
+SELECT * FROM t1;
+a
+2
+1
+# Switch to connection default
+DELETE FROM t1;
+INSERT INTO t1 VALUES (0);
+############################################################
+# Cleanup
+############################################################
+# Switch to connection default
+DROP TABLE t1;

@@ -1,0 +1,6 @@
+SET STORAGE_ENGINE = Falcon;
+*** Bug #22166 ***
+DROP TABLE IF EXISTS t,T;
+CREATE TABLE t(id int);
+CREATE TABLE T(id int);
+DROP TABLE t,T;

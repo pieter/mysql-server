@@ -1,0 +1,7 @@
+#### suite/funcs_1/t/falcon_storedproc.test
+# created: 2007-11-02 by hhunger
+#
+
+let $engine_type= falcon;
+
+--source suite/funcs_1/storedproc/storedproc_master.inc

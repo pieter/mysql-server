@@ -1,0 +1,124 @@
+--source include/have_falcon.inc
+#
+# Bug #28026: Falcon: crash if partitions and select for update
+#
+--echo *** Bug #28026 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+# ----------------------------------------------------- #
+# --- Test 1 - with indexes                         --- #
+# ----------------------------------------------------- #
+--echo ------- Test 1 - with indexes -------
+CREATE TABLE t1 (a int, PRIMARY KEY (a))  engine = falcon;
+INSERT INTO t1 VALUES (8);
+INSERT INTO t1 VALUES (9);
+
+BEGIN;
+INSERT INTO t1 VALUES (1);
+SELECT * FROM t1 ORDER BY a;
+SELECT * FROM t1 WHERE a = 8 FOR UPDATE;
+
+--echo # Establish and Switch to connection conn1
+connect (conn1,localhost,root,,);
+connection conn1;
+BEGIN;
+INSERT INTO t1 VALUES (2);
+SELECT * FROM t1 ORDER BY a;
+SELECT * FROM t1 WHERE a = 9 FOR UPDATE;
+# This select should wait since the default connection already locked it.
+--send SELECT * FROM t1 WHERE a = 8 FOR UPDATE
+
+
+--echo # Switch to connection default
+connection default;
+# This select should fail immediately with a deadlock since the other 
+# transaction is already wating on this.
+--real_sleep 1
+--error ER_LOCK_DEADLOCK
+SELECT * FROM t1 WHERE a = 9 FOR UPDATE;
+# Innodb automatically does a rollback. Falcon does not.
+SELECT * FROM t1 ORDER BY a;
+ROLLBACK;
+SELECT * FROM t1 ORDER BY a;
+
+
+--echo # Switch to connection conn1
+connection conn1;
+--real_sleep 1
+# This transaction should have both 8 and 9 locked
+UPDATE t1 SET a = 88 WHERE a = 8;
+UPDATE t1 SET a = 99 WHERE a = 9;
+SELECT * FROM t1 ORDER BY a;
+COMMIT;
+
+--echo # Switch to connection default
+connection default;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Test 2 - with partitions                      --- #
+# ----------------------------------------------------- #
+--echo ------- Test 2 - with partitions ------
+CREATE TABLE t2 (a int) ENGINE = 'Falcon'
+   PARTITION BY LIST (a) (
+   PARTITION p8 VALUES in (1,8,88),
+   PARTITION p9 VALUES in (2,9,99));
+INSERT INTO t2 VALUES (8);
+INSERT INTO t2 VALUES (9);
+
+BEGIN;
+INSERT INTO t2 VALUES (1);
+SELECT * FROM t2 ORDER BY a;
+SELECT * FROM t2 WHERE a = 8 FOR UPDATE;
+
+--echo # Switch to connection conn1
+connection conn1;
+BEGIN;
+INSERT INTO t2 VALUES (2);
+SELECT * FROM t2 ORDER BY a;
+SELECT * FROM t2 WHERE a = 9 FOR UPDATE;
+# This select should wait since the default connection already locked it.
+--send SELECT * FROM t2 WHERE a = 8 FOR UPDATE
+
+
+--echo # Switch to connection default
+connection default;
+# This select should fail immediately with a deadlock since the other 
+# transaction is already wating on this.
+--real_sleep 1
+--error ER_LOCK_DEADLOCK
+SELECT * FROM t2 WHERE a = 9 FOR UPDATE;
+# Innodb automatically does a rollback. Falcon does not.
+SELECT * FROM t2 ORDER BY a;
+ROLLBACK;
+SELECT * FROM t2 ORDER BY a;
+
+
+--echo # Switch to connection conn1
+connection conn1;
+--real_sleep 1
+# This transaction should have both 8 and 9 locked
+UPDATE t2 SET a = 88 WHERE a = 8;
+UPDATE t2 SET a = 99 WHERE a = 9;
+SELECT * FROM t2 ORDER BY a;
+COMMIT;
+
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+disconnect conn1;
+DROP TABLE t1;
+DROP TABLE t2;

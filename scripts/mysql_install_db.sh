@@ -19,6 +19,7 @@
 # All unrecognized arguments to this script are passed to mysqld.
 
 basedir=""
+builddir=""
 ldata="@localstatedir@"
 srcdir=""
 
@@ -37,6 +38,9 @@ usage()
   cat <<EOF
 Usage: $0 [OPTIONS]
   --basedir=path       The path to the MySQL installation directory.
+  --builddir=path      If using --srcdir with out-of-directory builds, you
+                       will need to set this to the location of the build
+                       directory where built files reside.
   --datadir=path       The path to the MySQL data directory.
   --force              Causes mysql_install_db to run even if DNS does not
                        work.  In that case, grant table entries that normally
@@ -95,6 +99,7 @@ parse_arguments()
     case "$arg" in
       --force) force=1 ;;
       --basedir=*) basedir=`parse_arg "$arg"` ;;
+      --builddir=*) builddir=`parse_arg "$arg"` ;;
       --srcdir=*)  srcdir=`parse_arg "$arg"` ;;
       --ldata=*|--datadir=*) ldata=`parse_arg "$arg"` ;;
       --user=*)
@@ -189,9 +194,18 @@ parse_arguments PICK-ARGS-FROM-ARGV "$@"
 #
 # or default to compiled-in locations.
 #
+if test -n "$srcdir" && test -n "$basedir"
+then
+  echo "ERROR: Specify either --basedir or --srcdir, not both."
+  exit 1
+fi
 if test -n "$srcdir"
 then
-  print_defaults="$srcdir/extra/my_print_defaults"
+  if test -z "$builddir"
+  then
+    builddir="$srcdir"
+  fi
+  print_defaults="$builddir/extra/my_print_defaults"
 elif test -n "$basedir"
 then
   print_defaults=`find_in_basedir my_print_defaults bin extra`
@@ -213,10 +227,10 @@ parse_arguments PICK-ARGS-FROM-ARGV "$@"
 # Configure paths to support files
 if test -n "$srcdir"
 then
-  basedir="$srcdir"
-  bindir="$srcdir/client"
-  extra_bindir="$srcdir/extra"
-  mysqld="$srcdir/sql/mysqld"
+  basedir="$builddir"
+  bindir="$basedir/client"
+  extra_bindir="$basedir/extra"
+  mysqld="$basedir/sql/mysqld"
   mysqld_opt="--language=$srcdir/sql/share/english"
   pkgdatadir="$srcdir/scripts"
   scriptdir="$srcdir/scripts"

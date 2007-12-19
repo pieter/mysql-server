@@ -1,0 +1,44 @@
+source include/master-slave.inc;
+
+--echo **** On Master **** 
+
+CREATE DATABASE tpcb;
+USE tpcb;
+
+SET BINLOG_FORMAT = 'ROW';
+
+CREATE TABLE account (id INT, bid INT, balance DECIMAL(10,2), 
+             filler BLOB, PRIMARY KEY(id)) ENGINE=falcon;
+
+SHOW CREATE TABLE account;
+
+INSERT INTO account VALUES (1, 2, 1.2, "FRESH ACCOUNT");
+INSERT INTO account VALUES (2, 5, 1.2, "FRESH ACCOUNT");
+INSERT INTO account VALUES (3, 2, 1.2, "FRESH ACCOUNT");
+INSERT INTO account VALUES (4, 2, 1.2, "FRESH ACCOUNT");
+
+SELECT * FROM account;
+
+--echo **** On Slave **** 
+sync_slave_with_master;
+USE tpcb;
+SELECT * FROM account;
+
+--echo **** On Master **** 
+connection master;
+UPDATE account SET balance = 3.5 WHERE id = 3;
+UPDATE account SET filler = 'Updated' WHERE id = 2;
+UPDATE account SET balance = 9.2, bid = 21, 
+                   filler = 'Updated' WHERE id = 4;
+
+SELECT * FROM account;
+
+--echo **** On Slave **** 
+sync_slave_with_master;
+SELECT * FROM account;
+
+--echo **** On Master **** 
+connection master;
+DROP DATABASE tpcb;
+--echo **** On Slave **** 
+sync_slave_with_master;

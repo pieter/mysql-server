@@ -414,7 +414,6 @@ public:
   JOIN_TAB *join_tab,**best_ref;
   JOIN_TAB **map2table;    ///< mapping between table indexes and JOIN_TABs
   JOIN_TAB *join_tab_save; ///< saved join_tab for subquery reexecution
-  JOIN_TAB *join_tab_save; ///< saved join_tab for subquery reexecution
   TABLE    **table,**all_tables;
   /**
     The table which has an index that allows to produce the requried ordering.

@@ -5238,6 +5238,7 @@ set_position(JOIN *join,uint idx,JOIN_TAB *table,KEYUSE *key)
 }
 
 
+/*
   Given a semi-join nest, find out which of the IN-equalities are bound
 
   SYNOPSIS
@@ -5278,7 +5279,6 @@ ulonglong get_bound_sj_equalities(TABLE_LIST *sj_nest,
 }
 
 
-/*
 /**
   Find the best access path for an extension of a partial execution
   plan and add this path to the plan.

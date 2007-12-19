@@ -699,7 +699,8 @@ ha_ndbcluster::request_hidden_key(uchar *mask)
 }
 
 /**
-  Instruct NDB to set the value of the hidden primary key.
+  Check if MySQL field type forces var part in ndb storage.
+*/
 static bool field_type_forces_var_part(enum_field_types type)
 {
   switch (type) {

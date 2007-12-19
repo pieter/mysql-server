@@ -710,5 +710,11 @@ flush tables;
 check table t1;
 drop table t1;
 
+#
+# Test basic regex functionality
+#
+set collation_connection=utf32_general_ci;
+--source include/ctype_regex.inc
+set names latin1;
 
 # TODO: add tests for all engines

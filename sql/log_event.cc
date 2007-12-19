@@ -491,9 +491,9 @@ static void print_set_option(IO_CACHE* file, uint32 bits_changed,
   Log_event::get_type_str()
 */
 
-const char* Log_event::get_type_str()
+const char* Log_event::get_type_str(Log_event_type type)
 {
-  switch(get_type_code()) {
+  switch(type) {
   case START_EVENT_V3:  return "Start_v3";
   case STOP_EVENT:   return "Stop";
   case QUERY_EVENT:  return "Query";
@@ -511,6 +511,9 @@ const char* Log_event::get_type_str()
   case USER_VAR_EVENT: return "User var";
   case FORMAT_DESCRIPTION_EVENT: return "Format_desc";
   case TABLE_MAP_EVENT: return "Table_map";
+  case PRE_GA_WRITE_ROWS_EVENT: return "Write_rows_event_old";
+  case PRE_GA_UPDATE_ROWS_EVENT: return "Update_rows_event_old";
+  case PRE_GA_DELETE_ROWS_EVENT: return "Delete_rows_event_old";
   case WRITE_ROWS_EVENT: return "Write_rows";
   case UPDATE_ROWS_EVENT: return "Update_rows";
   case DELETE_ROWS_EVENT: return "Delete_rows";
@@ -519,6 +522,11 @@ const char* Log_event::get_type_str()
   case INCIDENT_EVENT: return "Incident";
   default: return "Unknown";				/* impossible */
   }
+}
+
+const char* Log_event::get_type_str()
+{
+  return get_type_str(get_type_code());
 }
 
 
@@ -1036,6 +1044,8 @@ Log_event* Log_event::read_log_event(const char* buf, uint event_len,
   DBUG_ENTER("Log_event::read_log_event(char*,...)");
   DBUG_ASSERT(description_event != 0);
   DBUG_PRINT("info", ("binlog_version: %d", description_event->binlog_version));
+  DBUG_DUMP("data", (unsigned char*) buf, event_len);
+
   /* Check the integrity */
   if (event_len < EVENT_LEN_OFFSET ||
       buf[EVENT_TYPE_OFFSET] >= ENUM_END_EVENT ||
@@ -1045,94 +1055,111 @@ Log_event* Log_event::read_log_event(const char* buf, uint event_len,
     DBUG_RETURN(NULL); // general sanity check - will fail on a partial read
   }
 
-  switch(buf[EVENT_TYPE_OFFSET]) {
-  case QUERY_EVENT:
-    ev  = new Query_log_event(buf, event_len, description_event, QUERY_EVENT);
-    break;
-  case LOAD_EVENT:
-    ev = new Load_log_event(buf, event_len, description_event);
-    break;
-  case NEW_LOAD_EVENT:
-    ev = new Load_log_event(buf, event_len, description_event);
-    break;
-  case ROTATE_EVENT:
-    ev = new Rotate_log_event(buf, event_len, description_event);
-    break;
-#ifdef HAVE_REPLICATION
-  case SLAVE_EVENT: /* can never happen (unused event) */
-    ev = new Slave_log_event(buf, event_len);
-    break;
-#endif /* HAVE_REPLICATION */
-  case CREATE_FILE_EVENT:
-    ev = new Create_file_log_event(buf, event_len, description_event);
-    break;
-  case APPEND_BLOCK_EVENT:
-    ev = new Append_block_log_event(buf, event_len, description_event);
-    break;
-  case DELETE_FILE_EVENT:
-    ev = new Delete_file_log_event(buf, event_len, description_event);
-    break;
-  case EXEC_LOAD_EVENT:
-    ev = new Execute_load_log_event(buf, event_len, description_event);
-    break;
-  case START_EVENT_V3: /* this is sent only by MySQL <=4.x */
-    ev = new Start_log_event_v3(buf, description_event);
-    break;
-  case STOP_EVENT:
-    ev = new Stop_log_event(buf, description_event);
-    break;
-  case INTVAR_EVENT:
-    ev = new Intvar_log_event(buf, description_event);
-    break;
-  case XID_EVENT:
-    ev = new Xid_log_event(buf, description_event);
-    break;
-  case RAND_EVENT:
-    ev = new Rand_log_event(buf, description_event);
-    break;
-  case USER_VAR_EVENT:
-    ev = new User_var_log_event(buf, description_event);
-    break;
-  case FORMAT_DESCRIPTION_EVENT:
-    ev = new Format_description_log_event(buf, event_len, description_event); 
-    break;
-#if defined(HAVE_REPLICATION) 
-  case PRE_GA_WRITE_ROWS_EVENT:
-    ev = new Write_rows_log_event_old(buf, event_len, description_event);
-    break;
-  case PRE_GA_UPDATE_ROWS_EVENT:
-    ev = new Update_rows_log_event_old(buf, event_len, description_event);
-    break;
-  case PRE_GA_DELETE_ROWS_EVENT:
-    ev = new Delete_rows_log_event_old(buf, event_len, description_event);
-    break;
-  case WRITE_ROWS_EVENT:
-    ev = new Write_rows_log_event(buf, event_len, description_event);
-    break;
-  case UPDATE_ROWS_EVENT:
-    ev = new Update_rows_log_event(buf, event_len, description_event);
-    break;
-  case DELETE_ROWS_EVENT:
-    ev = new Delete_rows_log_event(buf, event_len, description_event);
-    break;
-  case TABLE_MAP_EVENT:
-    ev = new Table_map_log_event(buf, event_len, description_event);
-    break;
-#endif
-  case BEGIN_LOAD_QUERY_EVENT:
-    ev = new Begin_load_query_log_event(buf, event_len, description_event);
-    break;
-  case EXECUTE_LOAD_QUERY_EVENT:
-    ev= new Execute_load_query_log_event(buf, event_len, description_event);
-    break;
-  case INCIDENT_EVENT:
-    ev = new Incident_log_event(buf, event_len, description_event);
-    break;
-  default:
-    DBUG_PRINT("error",("Unknown event code: %d",
-                        (int) buf[EVENT_TYPE_OFFSET]));
+  uint event_type= buf[EVENT_TYPE_OFFSET];
+  if (event_type > description_event->number_of_event_types &&
+      event_type != FORMAT_DESCRIPTION_EVENT)
+  {
+    /*
+      It is unsafe to use the description_event if its post_header_len
+      array does not include the event type.
+    */
+    DBUG_PRINT("error", ("event type %d found, but the current "
+                         "Format_description_log_event supports only %d event "
+                         "types", event_type,
+                         description_event->number_of_event_types));
     ev= NULL;
-    break;
+  }
+  else
+  {
+    switch(event_type) {
+    case QUERY_EVENT:
+      ev  = new Query_log_event(buf, event_len, description_event, QUERY_EVENT);
+      break;
+    case LOAD_EVENT:
+      ev = new Load_log_event(buf, event_len, description_event);
+      break;
+    case NEW_LOAD_EVENT:
+      ev = new Load_log_event(buf, event_len, description_event);
+      break;
+    case ROTATE_EVENT:
+      ev = new Rotate_log_event(buf, event_len, description_event);
+      break;
+#ifdef HAVE_REPLICATION
+    case SLAVE_EVENT: /* can never happen (unused event) */
+      ev = new Slave_log_event(buf, event_len);
+      break;
+#endif /* HAVE_REPLICATION */
+    case CREATE_FILE_EVENT:
+      ev = new Create_file_log_event(buf, event_len, description_event);
+      break;
+    case APPEND_BLOCK_EVENT:
+      ev = new Append_block_log_event(buf, event_len, description_event);
+      break;
+    case DELETE_FILE_EVENT:
+      ev = new Delete_file_log_event(buf, event_len, description_event);
+      break;
+    case EXEC_LOAD_EVENT:
+      ev = new Execute_load_log_event(buf, event_len, description_event);
+      break;
+    case START_EVENT_V3: /* this is sent only by MySQL <=4.x */
+      ev = new Start_log_event_v3(buf, description_event);
+      break;
+    case STOP_EVENT:
+      ev = new Stop_log_event(buf, description_event);
+      break;
+    case INTVAR_EVENT:
+      ev = new Intvar_log_event(buf, description_event);
+      break;
+    case XID_EVENT:
+      ev = new Xid_log_event(buf, description_event);
+      break;
+    case RAND_EVENT:
+      ev = new Rand_log_event(buf, description_event);
+      break;
+    case USER_VAR_EVENT:
+      ev = new User_var_log_event(buf, description_event);
+      break;
+    case FORMAT_DESCRIPTION_EVENT:
+      ev = new Format_description_log_event(buf, event_len, description_event);
+      break;
+#if defined(HAVE_REPLICATION) 
+    case PRE_GA_WRITE_ROWS_EVENT:
+      ev = new Write_rows_log_event_old(buf, event_len, description_event);
+      break;
+    case PRE_GA_UPDATE_ROWS_EVENT:
+      ev = new Update_rows_log_event_old(buf, event_len, description_event);
+      break;
+    case PRE_GA_DELETE_ROWS_EVENT:
+      ev = new Delete_rows_log_event_old(buf, event_len, description_event);
+      break;
+    case WRITE_ROWS_EVENT:
+      ev = new Write_rows_log_event(buf, event_len, description_event);
+      break;
+    case UPDATE_ROWS_EVENT:
+      ev = new Update_rows_log_event(buf, event_len, description_event);
+      break;
+    case DELETE_ROWS_EVENT:
+      ev = new Delete_rows_log_event(buf, event_len, description_event);
+      break;
+    case TABLE_MAP_EVENT:
+      ev = new Table_map_log_event(buf, event_len, description_event);
+      break;
+#endif
+    case BEGIN_LOAD_QUERY_EVENT:
+      ev = new Begin_load_query_log_event(buf, event_len, description_event);
+      break;
+    case EXECUTE_LOAD_QUERY_EVENT:
+      ev= new Execute_load_query_log_event(buf, event_len, description_event);
+      break;
+    case INCIDENT_EVENT:
+      ev = new Incident_log_event(buf, event_len, description_event);
+      break;
+    default:
+      DBUG_PRINT("error",("Unknown event code: %d",
+                          (int) buf[EVENT_TYPE_OFFSET]));
+      ev= NULL;
+      break;
+    }
   }
 
   DBUG_PRINT("read_event", ("%s(type_code: %d; event_len: %d)",
@@ -1669,6 +1696,7 @@ Query_log_event::Query_log_event(THD* thd_arg, const char* query_arg,
   DBUG_ASSERT(thd_arg->variables.character_set_client->number < 256*256);
   DBUG_ASSERT(thd_arg->variables.collation_connection->number < 256*256);
   DBUG_ASSERT(thd_arg->variables.collation_server->number < 256*256);
+  DBUG_ASSERT(thd_arg->variables.character_set_client->mbminlen == 1);
   int2store(charset, thd_arg->variables.character_set_client->number);
   int2store(charset+2, thd_arg->variables.collation_connection->number);
   int2store(charset+4, thd_arg->variables.collation_server->number);
@@ -2171,7 +2199,7 @@ void Query_log_event::print(FILE* file, PRINT_EVENT_INFO* print_event_info)
 
   print_query_header(&cache, print_event_info);
   my_b_write(&cache, (uchar*) query, q_len);
-  my_b_printf(&cache, "%s\n", print_event_info->delimiter);
+  my_b_printf(&cache, "\n%s\n", print_event_info->delimiter);
 }
 #endif /* MYSQL_CLIENT */
 
@@ -2597,6 +2625,14 @@ void Start_log_event_v3::print(FILE* file, PRINT_EVENT_INFO* print_event_info)
 #else
     my_b_printf(&cache,"ROLLBACK%s\n", print_event_info->delimiter);
 #endif
+  }
+  if (temp_buf &&
+      print_event_info->base64_output_mode != BASE64_OUTPUT_NEVER &&
+      !print_event_info->short_form)
+  {
+    my_b_printf(&cache, "BINLOG '\n");
+    print_base64(&cache, print_event_info, FALSE);
+    print_event_info->printed_fd_event= TRUE;
   }
   DBUG_VOID_RETURN;
 }
@@ -4286,6 +4322,7 @@ Xid_log_event(const char* buf,
 #ifndef MYSQL_CLIENT
 bool Xid_log_event::write(IO_CACHE* file)
 {
+  DBUG_EXECUTE_IF("do_not_write_xid", return 0;);
   return write_header(file, sizeof(xid)) ||
          my_b_safe_write(file, (uchar*) &xid, sizeof(xid));
 }
@@ -5043,7 +5080,7 @@ Create_file_log_event::Create_file_log_event(const char* buf, uint len,
                    Load_log_event::get_data_size() +
                    create_file_header_len + 1);
     if (len < block_offset)
-      return;
+      DBUG_VOID_RETURN;
     block = (char*)buf + block_offset;
     block_len = len - block_offset;
   }
@@ -5750,12 +5787,12 @@ void Execute_load_query_log_event::print(FILE* file,
       my_b_printf(&cache, " REPLACE");
     my_b_printf(&cache, " INTO");
     my_b_write(&cache, (uchar*) query + fn_pos_end, q_len-fn_pos_end);
-    my_b_printf(&cache, "%s\n", print_event_info->delimiter);
+    my_b_printf(&cache, "\n%s\n", print_event_info->delimiter);
   }
   else
   {
     my_b_write(&cache, (uchar*) query, q_len);
-    my_b_printf(&cache, "%s\n", print_event_info->delimiter);
+    my_b_printf(&cache, "\n%s\n", print_event_info->delimiter);
   }
 
   if (!print_event_info->short_form)

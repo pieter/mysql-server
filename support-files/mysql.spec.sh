@@ -327,8 +327,13 @@ BuildMySQL "--enable-shared \
 		--with-example-storage-engine \
 		--with-blackhole-storage-engine \
 		--with-federated-storage-engine \
-	        --with-partition \
-	        --with-big-tables \
+%ifarch i386 x86_64
+		--with-falcon \
+%else
+		--without-falcon \
+%endif
+		--with-partition \
+		--with-big-tables \
 		--with-comment=\"MySQL Community Server - Debug (GPL)\"")
 
 # We might want to save the config log file
@@ -356,9 +361,14 @@ BuildMySQL "--enable-shared \
 		--with-example-storage-engine \
 		--with-blackhole-storage-engine \
 		--with-federated-storage-engine \
-	        --with-partition \
+%ifarch i386 x86_64
+		--with-falcon \
+%else
+		--without-falcon \
+%endif
+		--with-partition \
 		--with-embedded-server \
-	        --with-big-tables \
+		--with-big-tables \
 		--with-comment=\"MySQL Community Server (GPL)\"")
 # We might want to save the config log file
 if test -n "$MYSQL_CONFLOG_DEST"
@@ -725,6 +735,10 @@ fi
 # itself - note that they must be ordered by date (important when
 # merging BK trees)
 %changelog
+* Thu Dec 06 2007 Jonathan Perkin <jperkin@mysql.com>
+
+- Enabled the "Falcon" storage engine on i386/x86_64.
+
 * Wed May 02 2007 Joerg Bruehe <joerg@mysql.com>
 
 - "ndb_size.tmpl" is not needed any more, 

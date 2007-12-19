@@ -33,7 +33,7 @@ flexBench
 
 #define MAXATTR 4
 #define MAXTABLES 4
-#define PAGESIZE 8192
+#define NDB_PAGESIZE 8192
 #define OVERHEAD 0.02
 #define NUMBEROFRECORDS 10
 #define PKSIZE 1
@@ -189,7 +189,7 @@ createTable_SBMCALL ( Ndb* pMyNdb )
     // Createtable
 
     Uint32 tablesize=(recordsize*NUMBEROFRECORDS + OVERHEAD * NUMBEROFRECORDS)/1024;
-    Uint32 noPages=(pksize*NUMBEROFRECORDS)/PAGESIZE;
+    Uint32 noPages=(pksize*NUMBEROFRECORDS)/NDB_PAGESIZE;
     
     ndbout << "table size " << tablesize << "for table name " << tname << endl;
     
@@ -326,7 +326,7 @@ createTable_RPACCT(Ndb*pMyNdb)
    // Createtable
    
    Uint32 tablesize=(recordsize*NUMBEROFRECORDS + OVERHEAD * NUMBEROFRECORDS)/1024;
-   Uint32 noPages=(pksize*NUMBEROFRECORDS)/PAGESIZE;
+   Uint32 noPages=(pksize*NUMBEROFRECORDS)/NDB_PAGESIZE;
    
    ndbout << "table size " << tablesize << "for table name " << tname << endl;
    
@@ -751,7 +751,7 @@ createTable_IPACCT(Ndb* pMyNdb)
     // Createtable
 
     Uint32 tablesize=(recordsize*NUMBEROFRECORDS + OVERHEAD * NUMBEROFRECORDS)/1024;
-    Uint32 noPages=(pksize*NUMBEROFRECORDS)/PAGESIZE;
+    Uint32 noPages=(pksize*NUMBEROFRECORDS)/NDB_PAGESIZE;
     
     ndbout << "table size " << tablesize << "for table name " << tname << endl;
     
@@ -1000,7 +1000,7 @@ createTable_TODACCT(Ndb* pMyNdb)
     // Createtable
     
     Uint32 tablesize=(recordsize*NUMBEROFRECORDS + OVERHEAD * NUMBEROFRECORDS)/1024;
-    Uint32 noPages=(pksize*NUMBEROFRECORDS)/PAGESIZE;
+    Uint32 noPages=(pksize*NUMBEROFRECORDS)/NDB_PAGESIZE;
     
     ndbout << "table size " << tablesize << "for table name " << tname << endl;
     

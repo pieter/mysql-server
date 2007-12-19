@@ -40,6 +40,7 @@ fi
 
 # Make sure to enable all features that affect "make dist"
 ./configure \
+  --with-embedded-server \
   --with-falcon \
   --with-ndbcluster
 make

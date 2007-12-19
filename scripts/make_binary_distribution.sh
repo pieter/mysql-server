@@ -23,7 +23,8 @@
 #  Note that the structure created by this script is slightly different from
 #  what a normal "make install" would produce. No extra "mysql" sub directory
 #  will be created, i.e. no "$prefix/include/mysql", "$prefix/lib/mysql" or
-#  "$prefix/share/mysql".
+#  "$prefix/share/mysql".  This is because the build system explicitly calls
+#  make with pkgdatadir=<datadir>, etc.
 #
 #  In GNU make/automake terms
 #
@@ -252,6 +253,12 @@ if [ x"$BASE_SYSTEM" != x"netware" ] ; then
   # Create empty data directories, set permission (FIXME why?)
   mkdir       $DEST/data $DEST/data/mysql $DEST/data/test
   chmod o-rwx $DEST/data $DEST/data/mysql $DEST/data/test
+
+  # FIXME mysqld-debug is handled seperately (see phase_save_server() in
+  # Do-compile)
+  if [ -f sql/mysqld-debug ] ; then
+    cp sql/mysqld-debug $DEST/bin/
+  fi
 
   # ----------------------------------------------------------------------
   # Create the result tar file

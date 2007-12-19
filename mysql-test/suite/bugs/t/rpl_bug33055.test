@@ -1,14 +1,25 @@
-source include/master-slave.inc;
+--source include/have_falcon.inc
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
 
---echo **** On Master **** 
+--echo **** On Master ****
+
+--disable_warnings
+DROP DATABASE IF EXISTS tpcb;
+--enable_warnings
 
 CREATE DATABASE tpcb;
 USE tpcb;
 
 SET BINLOG_FORMAT = 'ROW';
 
-CREATE TABLE account (id INT, bid INT, balance DECIMAL(10,2), 
-             filler BLOB, PRIMARY KEY(id)) ENGINE=falcon;
+CREATE TABLE account (
+  id int,
+  bid int,
+  balance decimal(10,2),
+  filler blob,
+  PRIMARY KEY(id)
+) ENGINE=Falcon;
 
 SHOW CREATE TABLE account;
 

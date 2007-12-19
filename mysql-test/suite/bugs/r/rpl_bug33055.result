@@ -4,19 +4,25 @@ reset master;
 reset slave;
 drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t9;
 start slave;
-**** On Master **** 
+**** On Master ****
+DROP DATABASE IF EXISTS tpcb;
 CREATE DATABASE tpcb;
 USE tpcb;
 SET BINLOG_FORMAT = 'ROW';
-CREATE TABLE account (id INT, bid INT, balance DECIMAL(10,2), 
-filler CHAR(255), PRIMARY KEY(id)) ENGINE=falcon;
+CREATE TABLE account (
+id int,
+bid int,
+balance decimal(10,2),
+filler blob,
+PRIMARY KEY(id)
+) ENGINE=Falcon;
 SHOW CREATE TABLE account;
 Table	Create Table
 account	CREATE TABLE `account` (
   `id` int(11) NOT NULL DEFAULT '0',
   `bid` int(11) DEFAULT NULL,
   `balance` decimal(10,2) DEFAULT NULL,
-  `filler` char(255) DEFAULT NULL,
+  `filler` blob,
   PRIMARY KEY (`id`)
 ) ENGINE=Falcon DEFAULT CHARSET=latin1
 INSERT INTO account VALUES (1, 2, 1.2, "FRESH ACCOUNT");

@@ -1,4 +1,6 @@
 --source include/have_falcon.inc
+--source include/have_partition.inc
+
 SET STORAGE_ENGINE='Falcon';
 #
 # Bug #28042: Falcon Partitions: crash after a few alters

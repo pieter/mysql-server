@@ -9,6 +9,8 @@ DROP TABLE IF EXISTS t1;
 --enable_warnings
 
 --source include/have_falcon.inc
+--source include/have_partition.inc
+
 SET @@storage_engine = Falcon;
 
 # Verify that setting storage engine worked.

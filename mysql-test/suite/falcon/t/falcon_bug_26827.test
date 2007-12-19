@@ -1,4 +1,6 @@
 --source include/have_falcon.inc
+--source include/have_partition.inc
+
 SET @@storage_engine = Falcon;
 #
 # Bug #26827: Falcon: column is null after update of a different column

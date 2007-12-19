@@ -22,6 +22,7 @@
 #include <time.h>
 #include <memory.h>
 #include <errno.h>
+#include <limits.h>
 #include "Engine.h"
 #include "Database.h"
 #include "Dbb.h"

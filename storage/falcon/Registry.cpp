@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 #endif
 
 #include <stdio.h>
@@ -39,9 +40,6 @@
 #include "DecodeTransform.h"
 #include "TransformUtil.h"
 
-#ifndef PATH_MAX
-#define PATH_MAX		256
-#endif
 
 #ifdef _DEBUG
 #undef THIS_FILE

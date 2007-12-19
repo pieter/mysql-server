@@ -1,4 +1,6 @@
 --source include/have_falcon.inc
+--source include/have_partition.inc
+
 SET @@storage_engine = Falcon;
 #
 # Bug #26828: Falcon: crash with two connections and partitions

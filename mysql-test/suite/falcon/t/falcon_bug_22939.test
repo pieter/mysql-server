@@ -1,4 +1,6 @@
 --source include/have_falcon.inc
+--source include/have_partition.inc
+
 SET storage_engine = Falcon;
 #
 # Bug #22939: Falcon: searches for negative numbers fail if index 

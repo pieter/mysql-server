@@ -27,6 +27,7 @@ DEFS =			-DEMBEDDED_LIBRARY -DMYSQL_SERVER \
 			-DDEFAULT_MYSQL_HOME="\"$(MYSQLBASEdir)\"" \
 			-DDATADIR="\"$(MYSQLDATAdir)\"" \
 			-DSHAREDIR="\"$(MYSQLSHAREdir)\"" \
+			@DEFS@ \
 			-DLIBDIR="\"$(MYSQLLIBdir)\""
 INCLUDES=		-I$(top_builddir)/include -I$(top_srcdir)/include \
 			-I$(top_builddir)/sql -I$(top_srcdir)/sql \
@@ -46,6 +47,7 @@ noinst_HEADERS =	embedded_priv.h emb_qcache.h
 
 sqlsources = derror.cc field.cc field_conv.cc strfunc.cc filesort.cc \
 	     ha_ndbcluster.cc ha_ndbcluster_cond.cc \
+	ha_ndbcluster_connection.cc \
 	ha_ndbcluster_binlog.cc ha_partition.cc \
 	handler.cc sql_handler.cc \
 	hostname.cc init.cc password.c \
@@ -53,6 +55,7 @@ sqlsources = derror.cc field.cc field_conv.cc strfunc.cc filesort.cc \
 	item_func.cc item_strfunc.cc item_sum.cc item_timefunc.cc \
 	item_geofunc.cc item_subselect.cc item_row.cc\
 	item_xmlfunc.cc \
+	sha2.cc des_key_file.cc \
 	key.cc lock.cc log.cc sql_state.c \
 	log_event.cc rpl_record.cc \
 	log_event_old.cc rpl_record_old.cc \
@@ -114,6 +117,9 @@ ha_ndbcluster_cond.o:ha_ndbcluster_cond.cc
 		$(CXXCOMPILE) @ndbcluster_includes@ $(LM_CFLAGS) -c $<
 
 ha_ndbcluster_binlog.o: ha_ndbcluster_binlog.cc
+		$(CXXCOMPILE) @ndbcluster_includes@ $(LM_CFLAGS) -c $<
+
+ha_ndbcluster_connection.o: ha_ndbcluster_connection.cc
 		$(CXXCOMPILE) @ndbcluster_includes@ $(LM_CFLAGS) -c $<
 
 # Until we can remove dependency on ha_ndbcluster.h

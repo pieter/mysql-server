@@ -4257,7 +4257,7 @@ void do_connect(struct st_command *command)
     mysql_options(&con_slot->mysql, MYSQL_SET_CHARSET_DIR,
                   opt_charsets_dir);
 
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
   if (opt_use_ssl || con_ssl)
   {
     mysql_ssl_set(&con_slot->mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
@@ -5009,7 +5009,7 @@ static struct my_option my_long_options[] =
    "Don't use the memory allocation checking.", 0, 0, 0, GET_NO_ARG, NO_ARG,
    0, 0, 0, 0, 0, 0},
   {"sleep", 'T', "Sleep always this many seconds on sleep commands.",
-   (uchar**) &opt_sleep, (uchar**) &opt_sleep, 0, GET_INT, REQUIRED_ARG, -1, 0, 0,
+   (uchar**) &opt_sleep, (uchar**) &opt_sleep, 0, GET_INT, REQUIRED_ARG, -1, -1, 0,
    0, 0, 0},
   {"socket", 'S', "Socket file to use for connection.",
    (uchar**) &unix_sock, (uchar**) &unix_sock, 0, GET_STR, REQUIRED_ARG, 0, 0, 0,
@@ -6786,7 +6786,7 @@ int main(int argc, char **argv)
     mysql_options(&cur_con->mysql, MYSQL_SET_CHARSET_DIR,
                   opt_charsets_dir);
 
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 
   if (opt_use_ssl)
   {
@@ -7974,7 +7974,6 @@ REPLACE *init_replace(char * *from, char * *to,uint count,
     if (!len)
     {
       errno=EINVAL;
-      my_message(0,"No to-string for last from-string",MYF(ME_BELL));
       DBUG_RETURN(0);
     }
     states+=len+1;

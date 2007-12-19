@@ -1,7 +1,7 @@
 # Turn on ssl between the client and server
 # and run a number of tests
 
--- source include/have_ssl.inc
+-- source include/have_ssl_communication.inc
 
 connect (ssl_con,localhost,root,,,,,SSL);
 
@@ -15,3 +15,5 @@ SHOW STATUS LIKE 'Ssl_cipher';
 SHOW STATUS LIKE 'Ssl_cipher';
 
 
+##  This test file is for testing encrypted communication only, not other
+##  encryption routines that the SSL library happens to provide!

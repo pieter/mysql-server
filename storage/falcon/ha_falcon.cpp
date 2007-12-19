@@ -20,6 +20,7 @@
 #endif
 
 #include "mysql_priv.h"
+#include "falcon_probes.h"
 
 #ifdef _WIN32
 #pragma pack()
@@ -417,6 +418,8 @@ int StorageInterface::open(const char *name, int mode, uint test_if_locked)
 {
 	DBUG_ENTER("StorageInterface::open");
 
+        FALCON_OPEN();
+
 	if (!mySqlThread)
 		mySqlThread = current_thd;
 
@@ -486,6 +489,8 @@ int StorageInterface::close(void)
 
 	if (storageTable)
 		storageTable->clearTruncateLock();
+
+        FALCON_CLOSE();
 
 	DBUG_RETURN(0);
 }

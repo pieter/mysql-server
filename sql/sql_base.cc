@@ -3935,7 +3935,7 @@ retry:
                                READ_KEYINFO | COMPUTE_TYPES | EXTRA_RECORD,
                                ha_open_options | HA_OPEN_FOR_REPAIR,
                                entry, OTM_OPEN) || ! entry->file ||
- 	(entry->file->is_crashed() && entry->file->check_and_repair(thd)))
+        (entry->file->is_crashed() && entry->file->ha_check_and_repair(thd)))
      {
        /* Give right error message */
        thd->clear_error();
@@ -5415,7 +5415,7 @@ bool rm_temporary_table(handlerton *base, char *path, bool frm_only)
     error=1; /* purecov: inspected */
   *ext= 0;				// remove extension
   file= get_new_handler((TABLE_SHARE*) 0, current_thd->mem_root, base);
-  if (!frm_only && file && file->delete_table(path))
+  if (!frm_only && file && file->ha_delete_table(path))
   {
     error=1;
     sql_print_warning("Could not remove temporary table: '%s', error: %d",
@@ -8090,7 +8090,7 @@ my_bool mysql_rm_tmp_tables(void)
               ((handler_file= get_new_handler(&share, thd->mem_root,
                                               share.db_type()))))
           {
-            handler_file->delete_table(filePathCopy);
+            handler_file->ha_delete_table(filePathCopy);
             delete handler_file;
           }
           free_table_share(&share);

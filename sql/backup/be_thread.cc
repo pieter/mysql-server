@@ -225,10 +225,10 @@ Locking_thread_st::~Locking_thread_st()
     it is finished so that we can destroy the mutexes safely knowing
     the locking thread won't access them.
   */
+  kill_locking_thread();
+  pthread_mutex_lock(&THR_LOCK_caller);
   if (lock_state != LOCK_DONE)
   {
-    kill_locking_thread();
-    pthread_mutex_lock(&THR_LOCK_caller);
     m_thd->enter_cond(&COND_caller_wait, &THR_LOCK_caller,
                     "Locking thread: waiting until locking thread is done");
     while (lock_state != LOCK_DONE)
@@ -237,6 +237,8 @@ Locking_thread_st::~Locking_thread_st()
 
     DBUG_PRINT("info",("Locking thread's locking thread terminated"));
   }
+  else
+    pthread_mutex_unlock(&THR_LOCK_caller);
 
   /*
     Destroy the thread mutexes and cond variables.

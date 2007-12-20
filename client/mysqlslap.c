@@ -2110,7 +2110,7 @@ pthread_handler_t run_task(void *p)
 
   commit_counter= 0;
   if (commit_rate)
-    run_query(mysql, "SET AUTOCOMMIT=0", strlen("SET AUTOCOMMIT=0"));
+    run_query(&mysql, "SET AUTOCOMMIT=0", strlen("SET AUTOCOMMIT=0"));
 
 limit_not_met:
     for (ptr= con->stmt, detach_counter= 0; 
@@ -2188,7 +2188,7 @@ limit_not_met:
       if (commit_rate && (++commit_counter == commit_rate))
       {
         commit_counter= 0;
-        run_query(mysql, "COMMIT", strlen("COMMIT"));
+        run_query(&mysql, "COMMIT", strlen("COMMIT"));
       }
 
       /* If the timer is set, and the alarm is not active then end */

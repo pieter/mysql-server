@@ -2606,32 +2606,6 @@ handler::ha_reset_auto_increment(ulonglong value)
 
 
 /**
-  Backup table: public interface.
-
-  @sa handler::backup()
-*/
-
-int
-handler::ha_backup(THD* thd, HA_CHECK_OPT* check_opt)
-{
-  return backup(thd, check_opt);
-}
-
-
-/**
-  Restore table: public interface.
-
-  @sa handler::restore()
-*/
-
-int
-handler::ha_restore(THD* thd, HA_CHECK_OPT* check_opt)
-{
-  return restore(thd, check_opt);
-}
-
-
-/**
   Optimize table: public interface.
 
   @sa handler::optimize()

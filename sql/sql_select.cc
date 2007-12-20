@@ -13359,7 +13359,8 @@ int do_sj_dups_weedout(THD *thd, SJ_TMP_TABLE *sjtbl)
     }
   }
 
-  if ((error= sjtbl->tmp_table->file->write_row(sjtbl->tmp_table->record[0])))
+  error= sjtbl->tmp_table->file->ha_write_row(sjtbl->tmp_table->record[0]);
+  if (error)
   {
     /* create_myisam_from_heap will generate error if needed */
     if (sjtbl->tmp_table->file->is_fatal_error(error, HA_CHECK_DUP) &&
@@ -13380,7 +13381,7 @@ int do_sj_dups_weedout(THD *thd, SJ_TMP_TABLE *sjtbl)
 int do_sj_reset(SJ_TMP_TABLE *sj_tbl)
 {
   if (sj_tbl->tmp_table)
-    return sj_tbl->tmp_table->file->delete_all_rows();
+    return sj_tbl->tmp_table->file->ha_delete_all_rows();
   return 0;
 }
 

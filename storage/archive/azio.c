@@ -759,15 +759,16 @@ int azread_init(azio_stream *s)
   if (returnable == -1)
     return returnable;
 
-#ifdef NOT_YET
   /* Put one in the chamber */
   if (s->method != AZ_METHOD_BLOCK)
   {
     do_aio_cleanup(s);
-    if (!(azio_read(s, s->buffer1, s->pos)))
-      s->aio_inited= 1;
+    s->container.offset= s->pos;
+    s->container.buffer= (unsigned char *)s->buffer1;
+    azio_read(s);
+    s->aio_inited= 1;
   }
-#endif
+
 
   return returnable;
 }
@@ -938,7 +939,6 @@ int azclose (azio_stream *s)
   }
 
   returnable= destroy(s);
-  assert(s->aio_read_active == 0);
 
   switch (s->method)
   {
@@ -1039,22 +1039,12 @@ static void do_aio_cleanup(azio_stream *s)
 static void get_block(azio_stream *s)
 {
 #ifdef AZIO_AIO
-  if (s->method == AZ_METHOD_AIO && s->mode == 'r' && s->pos < s->check_point)
+  if (s->method == AZ_METHOD_AIO && s->mode == 'r' 
+      && s->pos < s->check_point
+      && s->aio_inited)
   {
-    if (!s->aio_inited)
-    {
-      do_aio_cleanup(s);
-      s->container.offset= s->pos;
-      s->container.buffer= (unsigned char *)s->buffer1;
-      if (azio_read(s))
-        goto use_pread;
-      s->aio_read_active++;
-      s->aio_inited= 1;
-    }
-
     azio_ready(s);
     s->stream.avail_in= (unsigned int)azio_return(s);
-    s->aio_read_active--;
     if ((int)(s->stream.avail_in) == -1)
       goto use_pread;
     else if ((int)(s->stream.avail_in) == 0)
@@ -1072,12 +1062,7 @@ static void get_block(azio_stream *s)
     }
     s->container.buffer= (s->container.buffer == s->buffer2) ? s->buffer1 : s->buffer2;
     s->container.offset= s->pos;
-    if (azio_read(s))
-    {
-      /* If we can't use AIO, set it up so the next query tries before reading */
-      s->aio_inited= 0;
-    }
-    s->aio_read_active++;
+    azio_read(s);
   }
   else
 #endif

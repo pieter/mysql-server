@@ -276,7 +276,6 @@ typedef struct azio_stream {
   unsigned int frm_length;   /* Position for start of FRM */
   unsigned int comment_start_pos;   /* Position for start of comment */
   unsigned int comment_length;   /* Position for start of comment */
-  unsigned long long aio_read_active;
 #ifdef AZIO_AIO
   azio_container_st container;
 #endif

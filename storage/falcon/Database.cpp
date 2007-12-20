@@ -78,6 +78,10 @@
 #include "PriorityScheduler.h"
 #include "Sequence.h"
 
+#ifdef _WIN32
+#define PATH_MAX			_MAX_PATH
+#endif
+
 #ifndef STORAGE_ENGINE
 #include "Applications.h"
 #include "Application.h"

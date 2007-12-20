@@ -34,6 +34,7 @@
 #define SEEK_OFFSET	int64
 #define MKDIR(dir)			mkdir(dir)
 #define O_SYNC				0
+#define PATH_MAX			_MAX_PATH
 #else
 #include <sys/types.h>
 #include <unistd.h>

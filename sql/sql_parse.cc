@@ -427,7 +427,7 @@ pthread_handler_t handle_bootstrap(void *arg)
                                           QUERY_CACHE_FLAGS_SIZE);
     thd->query[length] = '\0';
     DBUG_PRINT("query",("%-.4096s",thd->query));
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
     thd->profiling.set_query_source(thd->query, length);
 #endif
 
@@ -654,7 +654,7 @@ bool do_command(THD *thd)
   net_new_transaction(net);
 
   packet_length= my_net_read(net);
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
   thd->profiling.start_new_query();
 #endif
   if (packet_length == packet_error)
@@ -714,7 +714,7 @@ bool do_command(THD *thd)
   return_value= dispatch_command(command, thd, packet+1, (uint) (packet_length-1));
 
 out:
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
   thd->profiling.finish_current_query();
 #endif
   DBUG_RETURN(return_value);
@@ -1014,7 +1014,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
     general_log_write(thd, command, thd->query, thd->query_length);
     DBUG_PRINT("query",("%-.4096s",thd->query));
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
     thd->profiling.set_query_source(thd->query, thd->query_length);
 #endif
 
@@ -1044,7 +1044,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
         length--;
       }
 
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
       thd->profiling.finish_current_query();
       thd->profiling.start_new_query("continuing");
       thd->profiling.set_query_source(beginning_of_next_stmt, length);
@@ -1551,7 +1551,7 @@ int prepare_schema_table(THD *thd, LEX *lex, Table_ident *table_ident,
       Mark this current profiling record to be discarded.  We don't
       wish to have SHOW commands show up in profiling.
     */
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
     thd->profiling.discard_current_query();
 #endif
     break;
@@ -2040,7 +2040,7 @@ mysql_execute_command(THD *thd)
   }
   case SQLCOM_SHOW_PROFILES:
   {
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
     thd->profiling.discard_current_query();
     res= thd->profiling.show_profiles();
     if (res)

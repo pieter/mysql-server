@@ -602,7 +602,7 @@ static sys_var_thd_bit	sys_unique_checks(&vars, "unique_checks", 0,
 					  set_option_bit,
 					  OPTION_RELAXED_UNIQUE_CHECKS,
 					  1);
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
 static sys_var_thd_bit  sys_profiling(&vars, "profiling", NULL, 
                                       set_option_bit,
                                       ulonglong(OPTION_PROFILING));

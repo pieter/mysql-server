@@ -1546,7 +1546,7 @@ public:
   uint	     warn_count[(uint) MYSQL_ERROR::WARN_LEVEL_END];
   uint	     total_warn_count;
   Diagnostics_area main_da;
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
   PROFILING  profiling;
 #endif
 

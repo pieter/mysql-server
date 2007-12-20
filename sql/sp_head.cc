@@ -1161,7 +1161,7 @@ sp_head::execute(THD *thd)
   */
   thd->spcont->callers_arena= &backup_arena;
 
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
   /* Discard the initial part of executing routines. */
   thd->profiling.discard_current_query();
 #endif
@@ -1170,7 +1170,7 @@ sp_head::execute(THD *thd)
     sp_instr *i;
     uint hip;			// Handler ip
 
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
     /* 
      Treat each "instr" of a routine as discrete unit that could be profiled.
      Profiling only records information for segments of code that set the
@@ -1183,7 +1183,7 @@ sp_head::execute(THD *thd)
     i = get_instr(ip);	// Returns NULL when we're done.
     if (i == NULL)
     {
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
       thd->profiling.discard_current_query();
 #endif
       break;
@@ -1262,7 +1262,7 @@ sp_head::execute(THD *thd)
     }
   } while (!err_status && !thd->killed);
 
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
   thd->profiling.finish_current_query();
   thd->profiling.start_new_query("tail end of routine");
 #endif
@@ -2777,7 +2777,7 @@ sp_instr_stmt::execute(THD *thd, uint *nextp)
 
   query= thd->query;
   query_length= thd->query_length;
-#if defined(ENABLED_PROFILING) && defined(COMMUNITY_SERVER)
+#if defined(ENABLED_PROFILING)
   /* This s-p instr is profilable and will be captured. */
   thd->profiling.set_query_source(m_query.str, m_query.length);
 #endif

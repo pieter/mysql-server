@@ -57,7 +57,7 @@ DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (
   `dir_code` char(4),
   `building` char(6)
-) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
 
 USE empty_db;
 

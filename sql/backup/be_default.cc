@@ -671,6 +671,8 @@ uint Restore::unpack(byte *packed_row)
     /* Potential buffer on the stack for the bitmap */
     uint32 bitbuf[BITMAP_STACKBUF_SIZE/sizeof(uint32)];
     uint n_fields= cur_table->s->fields;
+    /* Restore a default record -- MyISAM needs this to work properly. */
+    restore_record(cur_table, s->default_values);
     my_bool use_bitbuf= n_fields <= sizeof(bitbuf) * 8;
     error= bitmap_init(&cols, use_bitbuf ? bitbuf : NULL, (n_fields + 7) & ~7UL, FALSE);
     bitmap_set_all(&cols);
@@ -887,7 +889,9 @@ result_t Restore::send_data(Buffer &buf)
     }
     if (write_row)
     {
-      last_write_res = hdl->write_row(cur_table->record[0]);
+      last_write_res = hdl->ha_write_row(cur_table->record[0]);
+      DBUG_PRINT("backup_default_write", ("%d", last_write_res));
+
       /*
         Free the blob pointers used.
       */

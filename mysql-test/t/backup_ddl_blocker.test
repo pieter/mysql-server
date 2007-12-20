@@ -54,7 +54,6 @@
 --source include/have_innodb.inc
 --source include/have_debug.inc
 --source include/not_embedded.inc
---source include/not_valgrind.inc
 
 #
 # Remove backup files (if they exist)
@@ -1075,7 +1074,7 @@ CREATE DATABASE bup_ddl_blocker_4;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
 
 --echo con1: Loading data
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
@@ -1261,7 +1260,7 @@ CREATE DATABASE bup_ddl_blocker_4;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
 
 --echo con1: Loading data
 INSERT INTO bup_ddl_blocker_2.t1 VALUES ("01 Some data to test");
@@ -1436,7 +1435,7 @@ CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
 
 --echo con1: Loading data
 
@@ -1636,7 +1635,7 @@ CREATE DATABASE bup_ddl_blocker_4 CHARACTER SET latin1;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker_2.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE bup_ddl_blocker_4.t1 (col_a CHAR(40)) ENGINE=MYISAM;
 
 --echo con1: Loading data
 
@@ -2245,7 +2244,7 @@ DROP TABLE IF EXISTS bup_ddl_blocker.t1, bup_ddl_blocker.t3;
 # Create transaction tables and load them with data.
 --echo con1: Creating tables
 CREATE TABLE bup_ddl_blocker.t1 (col_a CHAR(40)) ENGINE=INNODB;
-CREATE TABLE test.t2 (col_a CHAR(40)) ENGINE=MEMORY;
+CREATE TABLE test.t2 (col_a CHAR(40)) ENGINE=MYISAM;
 CREATE TABLE bup_ddl_blocker.t3 (col_a CHAR(40)) ENGINE=MEMORY;
 
 --echo con1: Loading data

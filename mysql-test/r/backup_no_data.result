@@ -57,7 +57,7 @@ Note	1051	Unknown table 't1'
 CREATE TABLE t1 (
 `dir_code` char(4),
 `building` char(6)
-) ENGINE=MEMORY DEFAULT CHARSET=latin1;
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
 USE empty_db;
 DROP VIEW IF EXISTS v1;
 CREATE VIEW v1 AS SELECT * FROM other_db.t1;

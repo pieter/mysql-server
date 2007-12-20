@@ -105,8 +105,10 @@ DROP DATABASE db2;
 
 USE mysql;
 
---replace_column 1 # 2 # 3 # 4 # 10 # 11 # 12 #
---query_vertical RESTORE FROM 'test.ba'
+--replace_column 1 #
+RESTORE FROM 'test.ba';
+
+--remove_file $MYSQLTEST_VARDIR/master-data/test.ba
 
 SHOW CREATE DATABASE db1;
 SHOW CREATE DATABASE db2;

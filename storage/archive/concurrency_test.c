@@ -51,7 +51,7 @@ pthread_mutex_t row_lock;
 /* Prototypes */
 void *run_task(void *p);
 void *timer_thread(void *p);
-void scheduler(unsigned int use_aio);
+void scheduler(az_method use_aio);
 void create_data_file(azio_stream *write_handler, unsigned long long rows);
 unsigned int write_row(azio_stream *s);
 
@@ -59,7 +59,7 @@ typedef struct thread_context_st thread_context_st;
 struct thread_context_st {
   unsigned int how_often_to_write;
   unsigned long long counter;
-  unsigned int use_aio;
+  az_method use_aio;
   azio_stream *writer;
 };
 
@@ -81,6 +81,7 @@ static void get_random_string(char *buffer, size_t size)
 int main(int argc, char *argv[])
 {
 
+  az_method method;
   my_init();
 
   MY_INIT(argv[0]);
@@ -101,8 +102,8 @@ int main(int argc, char *argv[])
   VOID(pthread_cond_init(&timer_alarm_threshold, NULL));
   VOID(pthread_mutex_init(&row_lock, NULL));
 
-  scheduler(0);
-  scheduler(1);
+  for (method= AZ_METHOD_BLOCK; method < AZ_METHOD_MAX; method++)
+    scheduler(method);
 
   (void)pthread_mutex_destroy(&counter_mutex);
   (void)pthread_cond_destroy(&count_threshhold);
@@ -115,7 +116,7 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-void scheduler(unsigned int use_aio)
+void scheduler(az_method use_aio)
 {
   unsigned int x;
   unsigned long long total;
@@ -152,7 +153,7 @@ void scheduler(unsigned int use_aio)
     context[x].how_often_to_write= random()%1000;
     context[x].writer= &writer_handle;
     context[x].counter= 0;
-    context[x].counter= use_aio;
+    context[x].use_aio= use_aio;
 
     /* now you create the thread */
     if (pthread_create(&mainthread, &attr, run_task,
@@ -263,14 +264,12 @@ void *run_task(void *p)
     exit(1);
   }
 
-  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY)))
+  if (!(ret= azopen(&reader_handle, TEST_FILENAME, O_RDONLY|O_BINARY,
+                    context->use_aio)))
   {
     printf("Could not open test file\n");
     return 0;
   }
-
-  if (context->use_aio)
-    azio_enable_aio(&reader_handle);
 
   pthread_mutex_lock(&sleeper_mutex);
   while (master_wakeup)
@@ -283,7 +282,7 @@ void *run_task(void *p)
   count= 0;
   while (1)
   {
-    azrewind(&reader_handle);
+    azread_init(&reader_handle);
     while ((ret= azread_row(&reader_handle, &error)))
       context->counter++;
 
@@ -313,7 +312,8 @@ void create_data_file(azio_stream *write_handler, unsigned long long rows)
   int ret;
   unsigned long long x;
 
-  if (!(ret= azopen(write_handler, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY)))
+  if (!(ret= azopen(write_handler, TEST_FILENAME, O_CREAT|O_RDWR|O_TRUNC|O_BINARY,
+                    AZ_METHOD_BLOCK)))
   {
     printf("Could not create test file\n");
     exit(1);

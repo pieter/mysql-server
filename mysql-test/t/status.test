@@ -50,7 +50,7 @@ update t1 set n = 3;
 
 connection con2;
 # wait for the other query to start executing
-let $wait_condition= select 1 from INFORMATION_SCHEMA.PROCESSLIST where ID = $ID and STATE = "Locked";
+let $wait_condition= select 1 from INFORMATION_SCHEMA.PROCESSLIST where ID = $ID and STATE = "Table lock";
 # Immediate = 14 + $wait_condition_reps ($wait_timeout is 0, so no extra select
 # is done inside wait_condition.inc)
 --source include/wait_condition.inc

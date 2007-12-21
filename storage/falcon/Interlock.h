@@ -55,7 +55,7 @@ extern "C"
 	long  InterlockedDecrement(long* lpAddend);
 	long  InterlockedExchange(long* volatile addend, long value);
 	long  InterlockedExchangeAdd(long* volatile addend, long value);
-	long  InterlockedCompareExchange(volatile int *Destination, int Exchange, int Comperand);
+	long  InterlockedCompareExchange(volatile long *Destination, long Exchange, long Comperand);
 	//void* InterlockedCompareExchangePointer(void *volatile* *Destination, void *Exchange, void *Comperand);
 	}
 #endif /* __MACHINEX64 */
@@ -80,7 +80,11 @@ extern "C"
 inline int inline_cas (volatile int *target, int compare, int exchange)
 {
 #ifdef _WIN32
-	return COMPARE_EXCHANGE(target, compare, exchange);
+	/*
+	   Windows 64 bit model is LLP64, longs are still 4 bytes like ints.
+	   Need to perform explicit type casting to make the compiler happy.
+	*/
+	return COMPARE_EXCHANGE((volatile long *) target, compare, exchange);
 #elif defined(__i386) || defined(__x86_64__)
 	char ret;
 	__asm__ __volatile__ (

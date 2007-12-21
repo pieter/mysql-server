@@ -3025,3 +3025,5 @@ win/vs8cache.txt
 ylwrap
 zlib/*.ds?
 zlib/*.vcproj
+libmysqld/des_key_file.cc
+libmysqld/sql_profile.cc

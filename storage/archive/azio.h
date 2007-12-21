@@ -225,7 +225,6 @@ typedef enum {
 typedef enum {
   AZ_METHOD_BLOCK,
   AZ_METHOD_AIO,
-//  AZ_METHOD_THREAD, 
   AZ_METHOD_MAX,
 } az_method;
 

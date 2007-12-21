@@ -19,6 +19,13 @@
 #include <tap.h>
 #include <lf.h>
 
+/* at least gcc 3.4.5 and 3.4.6 (but not 3.2.3) on RHEL */
+#if __GNUC__ == 3 && __GNUC_MINOR__ == 4
+#define GCC_BUG_WORKAROUND volatile
+#else
+#define GCC_BUG_WORKAROUND
+#endif
+
 volatile uint32 a32,b32;
 volatile int32  c32, N;
 my_atomic_rwlock_t rwl;
@@ -35,7 +42,7 @@ size_t stacksize= 0;
 pthread_handler_t test_atomic_add_handler(void *arg)
 {
   int    m= (*(int *)arg)/2;
-  int32 x;
+  GCC_BUG_WORKAROUND int32 x;
   for (x= ((int)(intptr)(&m)); m ; m--)
   {
     x= (x*m+0x87654321) & INT_MAX32;
@@ -106,7 +113,7 @@ pthread_handler_t test_atomic_fas_handler(void *arg)
 pthread_handler_t test_atomic_cas_handler(void *arg)
 {
   int    m= (*(int *)arg)/2, ok= 0;
-  int32 x, y;
+  GCC_BUG_WORKAROUND int32 x, y;
   for (x= ((int)(intptr)(&m)); m ; m--)
   {
     my_atomic_rwlock_wrlock(&rwl);

@@ -671,7 +671,7 @@ bool do_command(THD *thd)
 
     if (net->error != 3)
     {
-      return_value= TRUE;			// We have to close it.
+      return_value= TRUE;                       // We have to close it.
       goto out;
     }
 
@@ -720,7 +720,6 @@ out:
   DBUG_RETURN(return_value);
 }
 #endif  /* EMBEDDED_LIBRARY */
-
 
 /**
   Determine if an attempt to update a non-temporary table while the
@@ -811,9 +810,8 @@ static my_bool deny_updates_if_read_only_option(THD *thd,
     0   ok
   @retval
     1   request of thread shutdown, i. e. if command is
-    COM_QUIT/COM_SHUTDOWN
+        COM_QUIT/COM_SHUTDOWN
 */
-
 bool dispatch_command(enum enum_server_command command, THD *thd,
 		      char* packet, uint packet_length)
 {
@@ -1476,7 +1474,7 @@ void log_slow_statement(THD *thd)
     0                 success
   @retval
     1                 out of memory or SHOW commands are not allowed
-    in this version of the server.
+                      in this version of the server.
 */
 
 int prepare_schema_table(THD *thd, LEX *lex, Table_ident *table_ident,
@@ -1589,7 +1587,7 @@ int prepare_schema_table(THD *thd, LEX *lex, Table_ident *table_ident,
   Read query from packet and store in thd->query.
   Used in COM_QUERY and COM_STMT_PREPARE.
 
-  Sets the following THD variables:
+    Sets the following THD variables:
   - query
   - query_length
 
@@ -4646,11 +4644,11 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables)
 /**
   Check grants for commands which work only with one table.
 
-  @param thd			Thread handler
-  @param privilege		requested privilege
-  @param all_tables		global table list of query
+  @param thd                    Thread handler
+  @param privilege              requested privilege
+  @param all_tables             global table list of query
   @param no_errors              FALSE/TRUE - report/don't report error to
-                                the client (using my_error() call).
+                            the client (using my_error() call).
 
   @retval
     0   OK
@@ -4965,7 +4963,7 @@ static bool check_show_access(THD *thd, TABLE_LIST *table)
   @param want_access  Privileges requested
   @param tables       List of tables to be checked
   @param no_errors    FALSE/TRUE - report/don't report error to
-                      the client (using my_error() call).
+                   the client (using my_error() call).
 
   @note
     Table privileges are cached in the table list for GRANT checking.
@@ -5217,11 +5215,11 @@ bool my_yyoverflow(short **yyss, YYSTYPE **yyvs, ulong *yystacksize)
 
 
 /**
-  Reset THD part responsible for command processing state.
+ Reset THD part responsible for command processing state.
 
-  This needs to be called before execution of every statement
-  (prepared or conventional).
-  It is not called by substatements of routines.
+   This needs to be called before execution of every statement
+   (prepared or conventional).
+   It is not called by substatements of routines.
 
   @todo
    Make it a method of THD and align its name with the rest of
@@ -5728,7 +5726,7 @@ bool add_to_list(THD *thd, SQL_LIST &list,Item *item,bool asc)
   @param ignore_index	List of indexed used in IGNORE INDEX
 
   @retval
-    0	Error
+      0		Error
   @retval
     \#	Pointer to TABLE_LIST element added to the total table list
 */
@@ -5963,7 +5961,7 @@ TABLE_LIST *st_select_lex::end_nested_join(THD *thd)
 /**
   Nest last join operation.
 
-  The function nest last join operation as if it was enclosed in braces.
+    The function nest last join operation as if it was enclosed in braces.
 
   @param thd         current thread
 
@@ -6050,17 +6048,17 @@ void st_select_lex::add_joined_table(TABLE_LIST *table)
 
   EXAMPLES
   @verbatim
-     SELECT * FROM t1 RIGHT JOIN t2 ON on_expr =>
-       SELECT * FROM t2 LEFT JOIN t1 ON on_expr
+    SELECT * FROM t1 RIGHT JOIN t2 ON on_expr =>
+      SELECT * FROM t2 LEFT JOIN t1 ON on_expr
 
-     SELECT * FROM t1,t2 RIGHT JOIN t3 ON on_expr =>
-       SELECT * FROM t1,t3 LEFT JOIN t2 ON on_expr
+    SELECT * FROM t1,t2 RIGHT JOIN t3 ON on_expr =>
+      SELECT * FROM t1,t3 LEFT JOIN t2 ON on_expr
 
-     SELECT * FROM t1,t2 RIGHT JOIN (t3,t4) ON on_expr =>
-       SELECT * FROM t1,(t3,t4) LEFT JOIN t2 ON on_expr
+    SELECT * FROM t1,t2 RIGHT JOIN (t3,t4) ON on_expr =>
+      SELECT * FROM t1,(t3,t4) LEFT JOIN t2 ON on_expr
 
-     SELECT * FROM t1 LEFT JOIN t2 ON on_expr1 RIGHT JOIN t3  ON on_expr2 =>
-       SELECT * FROM t3 LEFT JOIN (t1 LEFT JOIN t2 ON on_expr2) ON on_expr1
+    SELECT * FROM t1 LEFT JOIN t2 ON on_expr1 RIGHT JOIN t3  ON on_expr2 =>
+      SELECT * FROM t3 LEFT JOIN (t1 LEFT JOIN t2 ON on_expr2) ON on_expr1
    @endverbatim
 
   @param thd         current thread
@@ -6125,7 +6123,7 @@ void st_select_lex::set_lock_for_tables(thr_lock_type lock_type)
     @varbatim
     (SELECT ... ORDER BY LIMIT n) ORDER BY ...
     @endvarbatim
-
+  
   @param thd_arg		   thread handle
 
   @note
@@ -6214,7 +6212,7 @@ push_new_name_resolution_context(THD *thd,
 /**
   Add an ON condition to the second operand of a JOIN ... ON.
 
-  Add an ON condition to the right operand of a JOIN ... ON clause.
+    Add an ON condition to the right operand of a JOIN ... ON clause.
 
   @param b     the second operand of a JOIN ... ON
   @param expr  the condition to be added to the ON clause
@@ -6260,17 +6258,17 @@ void add_join_on(TABLE_LIST *b, Item *expr)
 
   EXAMPLE
   @verbatim
-     SELECT * FROM t1 NATURAL LEFT JOIN t2
-      <=>
-     SELECT * FROM t1 LEFT JOIN t2 ON (t1.i=t2.i and t1.j=t2.j ... )
+    SELECT * FROM t1 NATURAL LEFT JOIN t2
+     <=>
+    SELECT * FROM t1 LEFT JOIN t2 ON (t1.i=t2.i and t1.j=t2.j ... )
 
-     SELECT * FROM t1 NATURAL JOIN t2 WHERE <some_cond>
-      <=>
-     SELECT * FROM t1, t2 WHERE (t1.i=t2.i and t1.j=t2.j and <some_cond>)
+    SELECT * FROM t1 NATURAL JOIN t2 WHERE <some_cond>
+     <=>
+    SELECT * FROM t1, t2 WHERE (t1.i=t2.i and t1.j=t2.j and <some_cond>)
 
-     SELECT * FROM t1 JOIN t2 USING(j) WHERE <some_cond>
-      <=>
-     SELECT * FROM t1, t2 WHERE (t1.j=t2.j and <some_cond>)
+    SELECT * FROM t1 JOIN t2 USING(j) WHERE <some_cond>
+     <=>
+    SELECT * FROM t1, t2 WHERE (t1.j=t2.j and <some_cond>)
    @endverbatim
 
   @param a		  Left join argument
@@ -7061,7 +7059,7 @@ Item *negate_expression(THD *thd, Item *expr)
 /**
   Set the specified definer to the default value, which is the
   current user in the thread.
-
+ 
   @param[in]  thd       thread handler
   @param[out] definer   definer
 */

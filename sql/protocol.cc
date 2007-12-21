@@ -30,12 +30,8 @@
 static const unsigned int PACKET_BUFFER_EXTRA_ALLOC= 1024;
 /* Declared non-static only because of the embedded library. */
 void net_send_error_packet(THD *thd, uint sql_errno, const char *err);
-void
-net_send_ok(THD *thd,
-            uint server_status, uint total_warn_count,
-            ha_rows affected_rows, ulonglong id, const char *message);
-void
-net_send_eof(THD *thd, uint server_status, uint total_warn_count);
+void net_send_ok(THD *, uint, uint, ha_rows, ulonglong, const char *);
+void net_send_eof(THD *thd, uint server_status, uint total_warn_count);
 #ifndef EMBEDDED_LIBRARY
 static void write_eof_packet(THD *thd, NET *net,
                              uint server_status, uint total_warn_count);
@@ -252,7 +248,7 @@ static uchar eof_buff[1]= { (uchar) 254 };      /* Marker for end of fields */
   @param thd		Thread handler
   @param no_flush	Set to 1 if there will be more data to the client,
                     like in send_fields().
-*/
+*/    
 
 void
 net_send_eof(THD *thd, uint server_status, uint total_warn_count)
@@ -307,13 +303,13 @@ static void write_eof_packet(THD *thd, NET *net,
 
 /**
   Please client to send scrambled_password in old format.
-
+     
   @param thd thread handle
 
   @retval
-    0   ok
+    0  ok
   @retval
-    !0  error
+   !0  error
 */
 
 bool send_old_password_request(THD *thd)
@@ -980,8 +976,8 @@ bool Protocol_text::store(Field *field)
 
 /**
   @todo
-  Second_part format ("%06") needs to change when 
-  we support 0-6 decimals for time.
+    Second_part format ("%06") needs to change when 
+    we support 0-6 decimals for time.
 */
 
 bool Protocol_text::store(MYSQL_TIME *tm)
@@ -1023,8 +1019,8 @@ bool Protocol_text::store_date(MYSQL_TIME *tm)
 
 /**
   @todo 
-  Second_part format ("%06") needs to change when 
-  we support 0-6 decimals for time.
+    Second_part format ("%06") needs to change when 
+    we support 0-6 decimals for time.
 */
 
 bool Protocol_text::store_time(MYSQL_TIME *tm)

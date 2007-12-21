@@ -29,8 +29,7 @@
 #include <m_ctype.h>
 #include "sql_select.h"
 
-static bool convert_constant_item(THD *thd, Item_field *field_item,
-                                  Item **item);
+static bool convert_constant_item(THD *, Item_field *, Item **);
 
 static Item_result item_store_type(Item_result a, Item *item,
                                    my_bool unsigned_flag)
@@ -379,9 +378,9 @@ longlong Item_func_nop_all::val_int()
     table that has not been populated yet.
 
   @retval
-    0	Can't convert item
+    0  Can't convert item
   @retval
-    1	Item was replaced with an integer version of the item
+    1  Item was replaced with an integer version of the item
 */
 
 static bool convert_constant_item(THD *thd, Item_field *field_item,
@@ -1088,11 +1087,11 @@ int Arg_comparator::compare_string()
   Compare strings byte by byte. End spaces are also compared.
 
   @retval
-    <0	*a < *b
+    <0  *a < *b
   @retval
-    0	*b == *b
+     0  *b == *b
   @retval
-    >0	*a > *b
+    >0  *a > *b
 */
 
 int Arg_comparator::compare_binary_string()
@@ -4027,20 +4026,20 @@ bool Item_cond::walk(Item_processor processor, bool walk_subquery, uchar *arg)
 
 /**
   Transform an Item_cond object with a transformer callback function.
-
+  
     The function recursively applies the transform method to each
-    member item of the condition list.
+     member item of the condition list.
     If the call of the method for a member item returns a new item
     the old item is substituted for a new one.
     After this the transformer is applied to the root node
-    of the Item_cond object.
- 
+    of the Item_cond object. 
+     
   @param transformer   the transformer callback function to be applied to
                        the nodes of the tree of the object
   @param arg           parameter to be passed to the transformer
 
   @return
-    Item returned as the result of transformation of the root node
+    Item returned as the result of transformation of the root node 
 */
 
 Item *Item_cond::transform(Item_transformer transformer, uchar *arg)
@@ -4071,7 +4070,7 @@ Item *Item_cond::transform(Item_transformer transformer, uchar *arg)
 /**
   Compile Item_cond object with a processor and a transformer
   callback functions.
-
+  
     First the function applies the analyzer to the root node of
     the Item_func object. Then if the analyzer succeeeds (returns TRUE)
     the function recursively applies the compile method to member
@@ -4080,7 +4079,7 @@ Item *Item_cond::transform(Item_transformer transformer, uchar *arg)
     the old item is substituted for a new one.
     After this the transformer is applied to the root node
     of the Item_cond object. 
-
+     
   @param analyzer      the analyzer callback function to be applied to the
                        nodes of the tree of the object
   @param[in,out] arg_p parameter to be passed to the analyzer
@@ -4089,7 +4088,7 @@ Item *Item_cond::transform(Item_transformer transformer, uchar *arg)
   @param arg_t         parameter to be passed to the transformer
 
   @return
-    Item returned as the result of transformation of the root node
+    Item returned as the result of transformation of the root node 
 */
 
 Item *Item_cond::compile(Item_analyzer analyzer, uchar **arg_p,
@@ -4237,7 +4236,7 @@ void Item_cond::neg_arguments(THD *thd)
     1  If all expressions are true
   @retval
     0  If all expressions are false or if we find a NULL expression and
-    'abort_on_null' is set.
+       'abort_on_null' is set.
   @retval
     NULL if all expression are either 1 or NULL
 */
@@ -4286,8 +4285,8 @@ longlong Item_cond_or::val_int()
   @param a	expression or NULL
   @param b    	expression.
   @param org_item	Don't modify a if a == *org_item.
-                       If a == NULL, org_item is set to point at b,
-                       to ensure that future calls will not modify b.
+                        If a == NULL, org_item is set to point at b,
+                        to ensure that future calls will not modify b.
 
   @note
     This will not modify item pointed to by org_item or b
@@ -4805,7 +4804,7 @@ void Item_func_like::turboBM_compute_good_suffix_shifts(int *suff)
 
 
 /**
-  Precomputation dependent on pattern_len.
+   Precomputation dependent on pattern_len.
 */
 
 void Item_func_like::turboBM_compute_bad_character_shifts()
@@ -5163,7 +5162,7 @@ uint Item_equal::members()
   @retval
     1       if nultiple equality contains a reference to field
   @retval
-    0       otherwise
+    0       otherwise    
 */
 
 bool Item_equal::contains(Field *field)
@@ -5181,7 +5180,7 @@ bool Item_equal::contains(Field *field)
 
 /**
   Join members of another Item_equal object.
-
+  
     The function actually merges two multiple equalities.
     After this operation the Item_equal object additionally contains
     the field items of another item of the type Item_equal.
@@ -5210,15 +5209,15 @@ void Item_equal::merge(Item_equal *item)
 /**
   Order field items in multiple equality according to a sorting criteria.
 
-    The function perform ordering of the field items in the Item_equal
-    object according to the criteria determined by the cmp callback parameter.
-    If cmp(item_field1,item_field2,arg)<0 than item_field1 must be
-    placed after item_fiel2.
+  The function perform ordering of the field items in the Item_equal
+  object according to the criteria determined by the cmp callback parameter.
+  If cmp(item_field1,item_field2,arg)<0 than item_field1 must be
+  placed after item_fiel2.
 
-    The function sorts field items by the exchange sort algorithm.
-    The list of field items is looked through and whenever two neighboring
-    members follow in a wrong order they are swapped. This is performed
-    again and again until we get all members in a right order.
+  The function sorts field items by the exchange sort algorithm.
+  The list of field items is looked through and whenever two neighboring
+  members follow in a wrong order they are swapped. This is performed
+  again and again until we get all members in a right order.
 
   @param cmp          function to compare field item
   @param arg          context extra parameter for the cmp function
@@ -5259,11 +5258,11 @@ void Item_equal::sort(Item_field_cmpfunc cmp, void *arg)
 /**
   Check appearance of new constant items in the multiple equality object.
 
-    The function checks appearance of new constant items among
-    the members of multiple equalities. Each new constant item is
-    compared with the designated constant item if there is any in the
-    multiple equality. If there is none the first new constant item
-    becomes designated.
+  The function checks appearance of new constant items among
+  the members of multiple equalities. Each new constant item is
+  compared with the designated constant item if there is any in the
+  multiple equality. If there is none the first new constant item
+  becomes designated.
 */
 
 void Item_equal::update_const()

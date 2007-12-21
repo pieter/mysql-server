@@ -6405,7 +6405,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
      */ 
 
     DBUG_PRINT_BITSET("debug", "Setting table's write_set from: %s", &m_cols);
-    
+
     bitmap_set_all(table->read_set);
     bitmap_set_all(table->write_set);
     if (!get_flags(COMPLETE_ROWS_F))
@@ -7849,12 +7849,6 @@ int Rows_log_event::find_row(const Relay_log_info *rli)
 
   // We can't use position() - try other methods.
   
-  /* 
-    We need to retrieve all fields
-    TODO: Move this out from this function to main loop 
-   */
-  table->use_all_columns();
-
   /*
     Save copy of the record in table->record[1]. It might be needed 
     later if linear search is used to find exact match.
@@ -8031,10 +8025,8 @@ int Rows_log_event::find_row(const Relay_log_info *rli)
     goto err;
   }
 ok:
-  table->default_column_bitmaps();
   DBUG_RETURN(0);
 err:
-  table->default_column_bitmaps();
   DBUG_RETURN(error);
 }
 

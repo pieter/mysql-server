@@ -1,0 +1,9 @@
+#! /bin/sh
+
+path=`dirname $0`
+. "$path/SETUP.sh"
+
+extra_flags="$sparc_cflags $debug_cflags -O3"
+extra_configs="$debug_configs $max_no_ndb_configs"
+
+. "$path/FINISH.sh"

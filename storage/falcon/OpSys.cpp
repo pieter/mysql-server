@@ -53,10 +53,13 @@ void OpSys::logParameters()
 				  usage.ru_majflt,
 				  usage.ru_nswap);
 
+#ifdef RLIMIT_AS
+
 	if (getrlimit (RLIMIT_AS, &size) == 0 && size.rlim_cur != (rlim_t) -1)
 		Log::log ("size %d/%d\n",
 				  size.rlim_cur,
 				  size.rlim_max);
 
+#endif
 #endif
 }

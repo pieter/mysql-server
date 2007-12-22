@@ -34,7 +34,7 @@
 void* _InterlockedCompareExchangePointer(void *volatile *Destination, void *Exchange, void *Comperand);
 #else /* _WIN64 */
 #define COMPARE_EXCHANGE_POINTER(target,compare,exchange)\
-	(InterlockedCompareExchange((volatile int*) target,(int)exchange,(int)compare)==(int)compare)
+	(InterlockedCompareExchange((volatile long*) target,(long)exchange,(long)compare)==(long)compare)
 #endif /* _WIN64 */
 
 #define InterlockedIncrement				_InterlockedIncrement

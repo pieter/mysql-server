@@ -26,7 +26,9 @@
 
 #include "SynchronizationObject.h"
 
-#ifndef INTERLOCK_TYPE
+#if !defined(INTERLOCK_TYPE) && defined(_WIN32)
+#define INTERLOCK_TYPE	long
+#elif !defined(INTERLOCK_TYPE)
 #define INTERLOCK_TYPE	int
 #endif
 

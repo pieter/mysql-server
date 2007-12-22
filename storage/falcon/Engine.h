@@ -91,10 +91,9 @@ typedef unsigned int	uint;
 typedef __int64				IPTR;
 typedef unsigned __int64	UIPTR;
 #define HAVE_IPTR
-#define INTERLOCK_TYPE		long
-#else
-#define INTERLOCK_TYPE		int
 #endif
+
+#define INTERLOCK_TYPE		long
 
 #else
 

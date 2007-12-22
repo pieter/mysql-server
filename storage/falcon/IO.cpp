@@ -33,7 +33,6 @@
 #define LSEEK				_lseeki64
 #define SEEK_OFFSET	int64
 #define MKDIR(dir)			mkdir(dir)
-#define O_SYNC				0
 #define PATH_MAX			_MAX_PATH
 #else
 #include <sys/types.h>
@@ -56,6 +55,10 @@
 #define O_BINARY		0
 #define O_RANDOM		0
 #define MKDIR(dir)			mkdir(dir, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)
+#endif
+
+#ifndef O_SYNC
+#define O_SYNC		0
 #endif
 
 #ifndef LSEEK

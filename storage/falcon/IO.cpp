@@ -115,6 +115,7 @@ IO::IO()
 	priorReads = priorWrites = priorFetches = priorFakes = priorFlushWrites = 0;
 	writesSinceSync = 0;
 	dbb = NULL;
+	forceFsync = true;
 	fatalError = false;
 	memset(writeTypes, 0, sizeof(writeTypes));
 }
@@ -128,7 +129,17 @@ IO::~IO()
 bool IO::openFile(const char * name, bool readOnly)
 {
 	fileName = name;
-	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(0) | O_RDWR | O_BINARY);
+	
+	for (int attempt = 0; attempt < 3; ++attempt)
+		{
+		fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(0) | O_RDWR | O_BINARY);
+		
+		if (fileId >= 0)
+			break;
+		
+		if (attempt == 1)
+			forceFsync = true;
+		}
 
 	if (fileId < 0)
 		fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(1) | O_RDWR | O_BINARY);
@@ -514,6 +525,11 @@ int IO::pwrite(int64 offset, int length, const UCHAR* buffer)
 	ret = (int) ::write (fileId, buffer, length);
 #endif
 
+#ifndef _WIN32
+	if (forceFsync)
+		fsync(fileId);
+#endif
+		
 	DEBUG_FREEZE;
 
 	return ret;
@@ -614,5 +630,8 @@ int IO::getWriteMode(int attempt)
 		return O_DIRECT;
 #endif
 
-	return O_SYNC;
+	if (attempt == 1)
+		return O_SYNC;
+	
+	return 0;
 }

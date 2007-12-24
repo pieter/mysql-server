@@ -278,8 +278,13 @@ int RepositoryVolume::makeKey(int64 value, IndexKey *indexKey)
 	UCHAR *key = indexKey->key;
 	UCHAR *p = key;
 
+#ifdef _BIG_ENDIAN
+	for (UCHAR *q = stuff.chars; q < stuff.chars + 8; )
+		*p++ = *q++;
+#else
 	for (UCHAR *q = stuff.chars + 8; q > stuff.chars; )
 		*p++ = *--q;
+#endif
 
 	while (p > key && p [-1] == 0)
 		--p;
@@ -296,8 +301,13 @@ int64 RepositoryVolume::reverseKey(UCHAR *key)
 		UCHAR	chars [8];
 		} stuff;
 
+#ifdef _BIG_ENDIAN
+	for (UCHAR *q =stuff.chars, *p = key; q < stuff.chars + 8;)
+		*q++ = *p++;
+#else
 	for (UCHAR *q =stuff.chars + 8, *p = key; q > stuff.chars;)
 		*--q = *p++;
+#endif
 
 	stuff.quad ^= QUAD_CONSTANT (0x8000000000000000);
 

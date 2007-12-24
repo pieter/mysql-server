@@ -117,8 +117,13 @@ void Btn::printKey(const char * msg, int length, UCHAR * key, int prefix, bool i
 			
 		stuff.quad = 0;
 
+#ifdef _BIG_ENDIAN
+		for (UCHAR *q = stuff.chars, *p = key; p < key + length; )
+			*q++ = *p++;
+#else
 		for (UCHAR *q = stuff.chars + 8, *p = key; p < key + length; )
 			*--q = *p++;
+#endif
 
 		if (stuff.quad < 0)
 			stuff.quad ^= QUAD_CONSTANT(0x8000000000000000);

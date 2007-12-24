@@ -20,9 +20,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #ifndef _WIN32
 #include <unistd.h>
+#else
+#define PATH_MAX			_MAX_PATH
 #endif
 
 #ifdef __FreeBSD__

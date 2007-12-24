@@ -22,6 +22,7 @@
 #include <time.h>
 #include <memory.h>
 #include <errno.h>
+#include <limits.h>
 #include "Engine.h"
 #include "Database.h"
 #include "Dbb.h"
@@ -76,6 +77,10 @@
 #include "SyncTest.h"
 #include "PriorityScheduler.h"
 #include "Sequence.h"
+
+#ifdef _WIN32
+#define PATH_MAX			_MAX_PATH
+#endif
 
 #ifndef STORAGE_ENGINE
 #include "Applications.h"

@@ -27,9 +27,6 @@
 #include "JString.h"
 #include "SyncObject.h"
 
-#ifndef PATH_MAX
-#define PATH_MAX		256
-#endif
 
 static const int WRITE_TYPE_FORCE		= 0;
 static const int WRITE_TYPE_PRECEDENCE	= 1;
@@ -104,6 +101,7 @@ public:
 	uint		writeTypes[WRITE_TYPE_MAX];
 	bool		fatalError;
 	bool		isReadOnly;
+	bool		forceFsync;
 
 //private:
 	Dbb			*dbb;						// this is a crock and should be phased out

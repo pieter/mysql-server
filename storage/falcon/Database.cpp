@@ -1299,15 +1299,15 @@ Table* Database::getTable(int tableId)
 
 Table* Database::loadTable(ResultSet * resultSet)
 {
-	Sync sync (&syncTables, "Database::loadTable");
+	Sync sync(&syncTables, "Database::loadTable");
 
 	if (!resultSet->next())
 		return NULL;
 
-	const char *name = getString (resultSet->getString(1));
-	int version = resultSet->getInt (5);
-	const char *schemaName = getString (resultSet->getString(6));
-	const char *tableSpaceName = getString (resultSet->getString(9));
+	const char *name = getString(resultSet->getString(1));
+	int version = resultSet->getInt(5);
+	const char *schemaName = getString(resultSet->getString(6));
+	const char *tableSpaceName = getString(resultSet->getString(9));
 	TableSpace *tableSpace = NULL;
 
 	if (tableSpaceName[0])
@@ -1315,35 +1315,37 @@ Table* Database::loadTable(ResultSet * resultSet)
 
 	Table *table = new Table(this, schemaName, name, resultSet->getInt(2), version, resultSet->getLong(8), tableSpace);
 
-	int dataSection = resultSet->getInt (3);
-
-	if (dataSection)
+	int dataSection = resultSet->getInt(3);
+	int blobSection = resultSet->getInt(4);
+	
+	if (dataSection || blobSection)
 		{
-		table->setDataSection (dataSection);
-		table->setBlobSection (resultSet->getInt (4));
+		table->setDataSection(dataSection);
+		table->setBlobSection(blobSection);
 		}
 	else
 		{
-		const char *viewDef = resultSet->getString (7);
+		const char *viewDef = resultSet->getString(7);
+		
 		if (viewDef [0])
 			{
-			CompiledStatement statement (systemConnection);
+			CompiledStatement statement(systemConnection);
 			JString string;
 			
 			// Do a little backward compatibility
 			
-			if (strncmp (viewDef, "create view ", strlen("create view ")) == 0)
+			if (strncmp(viewDef, "create view ", strlen("create view ")) == 0)
 				string = viewDef;
 			else
-				string.Format ("create view %s.%s %s", schemaName, name, viewDef);
+				string.Format("create view %s.%s %s", schemaName, name, viewDef);
 				
-			table->setView (statement.getView (string));
+			table->setView(statement.getView (string));
 			}
 		}
 
 	table->loadStuff();
-	sync.lock (Exclusive);
-	addTable (table);
+	sync.lock(Exclusive);
+	addTable(table);
 
 	return table;
 }

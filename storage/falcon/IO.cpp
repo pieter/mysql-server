@@ -629,7 +629,7 @@ void IO::reportWrites(void)
 int IO::getWriteMode(int attempt)
 {
 #ifdef O_DIRECT
-	if (attempt == 0 && falcon_direct_io > 0))
+	if (attempt == 0 && falcon_direct_io > 0)
 		return O_DIRECT;
 #endif
 

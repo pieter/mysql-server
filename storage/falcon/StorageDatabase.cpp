@@ -290,6 +290,8 @@ int StorageDatabase::nextRow(StorageTable* storageTable, int recordNumber, bool 
 				return StorageErrorOutOfRecordMemory;
 			case DEADLOCK:
 				return StorageErrorDeadlock;
+			case LOCK_TIMEOUT:
+				return StorageErrorLockTimeout;
 			}
 
 		return StorageErrorRecordNotFound;
@@ -349,6 +351,8 @@ int StorageDatabase::fetch(StorageConnection *storageConnection, StorageTable* s
 				return StorageErrorOutOfRecordMemory;
 			case DEADLOCK:
 				return StorageErrorDeadlock;
+			case LOCK_TIMEOUT:
+				return StorageErrorLockTimeout;
 			}
 
 		return StorageErrorRecordNotFound;
@@ -425,6 +429,8 @@ int StorageDatabase::nextIndexed(StorageTable *storageTable, void* recordBitmap,
 				return StorageErrorOutOfRecordMemory;
 			case DEADLOCK:
 				return StorageErrorDeadlock;
+			case LOCK_TIMEOUT:
+				return StorageErrorLockTimeout;
 			}
 
 		return StorageErrorRecordNotFound;
@@ -601,6 +607,10 @@ int StorageDatabase::deleteRow(StorageConnection *storageConnection, Table* tabl
 			{
 			case DEADLOCK:
 				code = StorageErrorDeadlock;
+				break;
+
+			case LOCK_TIMEOUT:
+				code = StorageErrorLockTimeout;
 				break;
 
 			case UPDATE_CONFLICT:
@@ -897,8 +907,8 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		case HA_KEYTYPE_SHORT_INT:
 			{
 			short temp = (int16)
-                        	(((short) ((UCHAR) ptr[0])) +
-                                 ((short) ((short) ptr[1]) << 8));
+				(((short) ((UCHAR) ptr[0])) +
+				((short) ((short) ptr[1]) << 8));
 			value->setValue(temp);
 			}
 			break;
@@ -908,13 +918,13 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 			{
 			int64 temp = (int64)
 				((uint64)(((uint32) ((UCHAR) ptr[0])) +
-					 (((uint32) ((UCHAR) ptr[1])) << 8) +
-					 (((uint32) ((UCHAR) ptr[2])) << 16) +
-					 (((uint32) ((UCHAR) ptr[3])) << 24)) +
+					(((uint32) ((UCHAR) ptr[1])) << 8) +
+					(((uint32) ((UCHAR) ptr[2])) << 16) +
+					(((uint32) ((UCHAR) ptr[3])) << 24)) +
 				(((uint64)(((uint32) ((UCHAR) ptr[4])) +
-					  (((uint32) ((UCHAR) ptr[5])) << 8) +
-					  (((uint32) ((UCHAR) ptr[6])) << 16) +
-					  (((uint32) ((UCHAR) ptr[7])) << 24)))
+					(((uint32) ((UCHAR) ptr[5])) << 8) +
+					(((uint32) ((UCHAR) ptr[6])) << 16) +
+					(((uint32) ((UCHAR) ptr[7])) << 24)))
 				<< 32));
 			value->setValue(temp);
 			}
@@ -1026,8 +1036,8 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		case HA_KEYTYPE_USHORT_INT:
 			{
 			unsigned short temp = (unsigned short)
-                        	(((uint16) ((UCHAR) ptr[0])) +
-                                 ((uint16) ((UCHAR) ptr[1]) << 8));
+				(((uint16) ((UCHAR) ptr[0])) +
+				((uint16) ((UCHAR) ptr[1]) << 8));
 			value->setValue(temp);
 			}
 			break;
@@ -1035,9 +1045,9 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		case HA_KEYTYPE_UINT24:
 			{
 			uint32 temp = (uint32)
-                        	(((uint32) ((UCHAR) ptr[0])) +
-                                 ((uint32) ((UCHAR) ptr[1]) << 8) +
-				 ((uint32) ((UCHAR) ptr[2]) << 16));
+				(((uint32) ((UCHAR) ptr[0])) +
+				((uint32) ((UCHAR) ptr[1]) << 8) +
+				((uint32) ((UCHAR) ptr[2]) << 16));
 			value->setValue((int32) temp);
 			}
 			break;
@@ -1045,13 +1055,13 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		case HA_KEYTYPE_INT24:
 			{
 			int32 temp = (int32)
-                        	((((UCHAR) ptr[2]) & 128) ?
+				((((UCHAR) ptr[2]) & 128) ?
 				 (((uint32) ((UCHAR) ptr[0])) +
-                                  ((uint32) ((UCHAR) ptr[1]) << 8) +
+				  ((uint32) ((UCHAR) ptr[1]) << 8) +
 				  ((uint32) ((UCHAR) ptr[2]) << 16) |
 				  ((uint32) 255L << 24)) :
 				 (((uint32) ((UCHAR) ptr[0])) +
-                                  ((uint32) ((UCHAR) ptr[1]) << 8) +
+				  ((uint32) ((UCHAR) ptr[1]) << 8) +
 				  ((uint32) ((UCHAR) ptr[2]) << 16)));
 			value->setValue(temp);
 			}

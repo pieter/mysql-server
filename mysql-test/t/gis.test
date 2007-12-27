@@ -362,7 +362,7 @@ t1 where object_id=85998;
 # Expected results are -114.87787186923313 and 36.33101763469049, but IA64 
 # returns -114.87787186923326 and 36.33101763469043 due to fused multiply-add
 # instructions.
---replace result -114.87787186923326 -114.87787186923313 36.33101763469043 36.33101763469049
+--replace_result -114.87787186923326 -114.87787186923313 36.33101763469043 36.33101763469049
 select object_id, geometrytype(geo), ISSIMPLE(GEO), ASTEXT(centroid(geo)) from
 t1 where object_id=85984;
 

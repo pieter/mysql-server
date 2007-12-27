@@ -597,8 +597,7 @@ bool IndexRootPage::splitIndexPage(Dbb * dbb, int32 indexId, Bdb * bdb, TransId 
 		bdb = findRoot(dbb, indexId, 0, Exclusive, transId);
 		BDB_HISTORY(bdb);
 		page = (IndexPage*) bdb->buffer;
-
-		bdb = IndexPage::findLevel(dbb, bdb, level, &splitKey, splitRecordNumber);
+		bdb = IndexPage::findLevel(dbb, indexId, bdb, level, &splitKey, splitRecordNumber);
 		BDB_HISTORY(bdb);
 		bdb->mark(transId);
 		page = (IndexPage*) bdb->buffer;

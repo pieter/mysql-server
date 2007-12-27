@@ -12,7 +12,7 @@ FALCON_INDEX_CHILL_THRESHOLD	4
 FALCON_INITIAL_ALLOCATION	0
 FALCON_IO_THREADS	2
 FALCON_LARGE_BLOB_THRESHOLD	160000
-FALCON_LOCK_TIMEOUT	0
+FALCON_LOCK_WAIT_TIMEOUT	50
 FALCON_MAX_TRANSACTION_BACKLOG	150
 FALCON_PAGE_CACHE_SIZE	104857600
 FALCON_PAGE_SIZE	16384
@@ -60,9 +60,9 @@ SELECT @@falcon_io_threads;
 SELECT @@falcon_large_blob_threshold;
 @@falcon_large_blob_threshold
 160000
-SELECT @@falcon_lock_timeout;
-@@falcon_lock_timeout
-0
+SELECT @@falcon_lock_wait_timeout;
+@@falcon_lock_wait_timeout
+50
 SELECT @@falcon_max_transaction_backlog;
 @@falcon_max_transaction_backlog
 150

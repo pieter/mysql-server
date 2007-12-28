@@ -21,9 +21,6 @@
 */
 
 #include "vio_priv.h"
-#include <sys/socket.h>
-#include <netdb.h>
-
 
 int vio_errno(Vio *vio __attribute__((unused)))
 {

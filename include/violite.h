@@ -194,7 +194,7 @@ struct st_vio
   int     (*viokeepalive)(Vio*, my_bool);
   int     (*fastsend)(Vio*);
   my_bool (*peer_addr)(Vio*, char *, uint16*, size_t);
-  void    (*in_addr)(Vio*, struct in_addr*);
+  void    (*in_addr)(Vio*, struct sockaddr_storage*);
   my_bool (*should_retry)(Vio*);
   my_bool (*was_interrupted)(Vio*);
   int     (*vioclose)(Vio*);

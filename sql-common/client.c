@@ -2018,8 +2018,9 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
         DBUG_PRINT("info",("IPV6 getaddrinfo error %s", gai_strerror(gai_errno)));
       net->last_errno= CR_UNKNOWN_HOST;
       strmov(net->sqlstate, unknown_sqlstate);
-      set_mysql_extended_error(mysql, CR_IPSOCK_ERROR, unknown_sqlstate,
-                               ER(CR_IPSOCK_ERROR), socket_errno);
+      set_mysql_extended_error(mysql, CR_UNKNOWN_HOST, unknown_sqlstate,
+                               ER(CR_UNKNOWN_HOST), host, errno);
+
       goto error;
     }
 
@@ -2028,15 +2029,13 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
     /* We only look at the first item (something to think about changing in the future) */
     t_res= res_lst; 
     {
-      sock= socket(t_res->ai_family, t_res->ai_socktype, t_res->ai_protocol);
-      if (sock < 0) 
+      if ((sock= socket(t_res->ai_family, t_res->ai_socktype, t_res->ai_protocol)) == SOCKET_ERROR)
       {
-        net->last_errno= CR_IPSOCK_ERROR;
-        strmov(net->sqlstate, unknown_sqlstate);
-        my_snprintf(net->last_error,sizeof(net->last_error)-1,
-                    ER(net->last_errno),socket_errno);
+        set_mysql_extended_error(mysql, CR_IPSOCK_ERROR, unknown_sqlstate,
+                                 ER(CR_IPSOCK_ERROR), socket_errno);
 
-        goto error; 
+        freeaddrinfo(res_lst);
+        goto error;
       }
 
       net->vio= vio_new(sock, VIO_TYPE_TCPIP, VIO_BUFFERED_READ);
@@ -2046,6 +2045,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
         set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
         close(sock);
         sock=-1;
+        freeaddrinfo(res_lst);
 
         goto error; 
       }
@@ -2053,26 +2053,21 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
       if (my_connect(sock, t_res->ai_addr, t_res->ai_addrlen, 
                      mysql->options.connect_timeout)) 
       {
-        DBUG_PRINT("error",("Got error %d on connect to '%s'", socket_errno,
+        DBUG_PRINT("error",("Got error %d on connect to '%s'",socket_errno,
                             host));
-        net->last_errno= CR_CONN_HOST_ERROR;
-        strmov(net->sqlstate, unknown_sqlstate);
-        my_snprintf(net->last_error, sizeof(net->last_error)-1,
-                    ER(CR_CONN_HOST_ERROR), host, socket_errno);
+        set_mysql_extended_error(mysql, CR_CONN_HOST_ERROR, unknown_sqlstate,
+                                 ER(CR_CONN_HOST_ERROR), host, socket_errno);
         vio_delete(net->vio);
         net->vio = 0;
         close(sock);
         sock=-1;
+        freeaddrinfo(res_lst);
 
         goto error; 
       }
     }
 
     freeaddrinfo(res_lst);
-
-    if (sock < 0)
-      goto error;
-
   }
 
   if (!net->vio)

@@ -816,13 +816,20 @@ THR_LOCK_DATA **StorageInterface::store_lock(THD *thd, THR_LOCK_DATA **to,
 		{
 		/*
 		  Here is where we get into the guts of a row level lock.
-		  If TL_UNLOCK is set
-		  If we are not doing a LOCK TABLE or DISCARD/IMPORT
-		  TABLESPACE, then allow multiple writers
+		  MySQL server will serialize write access to tables unless 
+		  we tell it differently.  Falcon can handle concurrent changes
+		  for most operations.  But allow the server to set its own 
+		  lock type for certain SQL commands.
 		*/
 
-		if ( (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE) &&
-		     !thd_in_lock_tables(thd))
+		const uint sql_command = thd_sql_command(thd);
+		if (    (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE)
+		    && !(thd_in_lock_tables(thd) && sql_command == SQLCOM_LOCK_TABLES)
+		    && !(thd_tablespace_op(thd))
+		    //&&  (sql_command != SQLCOM_TRUNCATE)	// we can serialize this.
+		    &&  (sql_command != SQLCOM_OPTIMIZE)
+		    &&  (sql_command != SQLCOM_CREATE_TABLE)
+		   )
 			lock_type = TL_WRITE_ALLOW_WRITE;
 
 		/*

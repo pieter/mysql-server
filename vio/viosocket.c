@@ -21,6 +21,9 @@
 */
 
 #include "vio_priv.h"
+#include <sys/socket.h>
+#include <netdb.h>
+
 
 int vio_errno(Vio *vio __attribute__((unused)))
 {
@@ -306,11 +309,11 @@ my_socket vio_fd(Vio* vio)
   return vio->sd;
 }
 
-
-my_bool vio_peer_addr(Vio * vio, char *buf, uint16 *port)
+my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen)
 {
   DBUG_ENTER("vio_peer_addr");
   DBUG_PRINT("enter", ("sd: %d", vio->sd));
+
   if (vio->localhost)
   {
     strmov(buf,"127.0.0.1");
@@ -318,15 +321,27 @@ my_bool vio_peer_addr(Vio * vio, char *buf, uint16 *port)
   }
   else
   {
+    int error;
+    char port_buf[NI_MAXSERV];
     size_socket addrLen = sizeof(vio->remote);
     if (getpeername(vio->sd, (struct sockaddr *) (&vio->remote),
-		    &addrLen) != 0)
+                    &addrLen) != 0)
     {
       DBUG_PRINT("exit", ("getpeername gave error: %d", socket_errno));
       DBUG_RETURN(1);
     }
-    my_inet_ntoa(vio->remote.sin_addr,buf);
-    *port= ntohs(vio->remote.sin_port);
+
+    if ((error= getnameinfo((struct sockaddr *)(&vio->remote), 
+                            sizeof(struct sockaddr_storage),
+                            buf, buflen,
+                            port_buf, NI_MAXSERV, NI_NUMERICHOST|NI_NUMERICSERV)))
+    {
+      DBUG_PRINT("exit", ("getnameinfo gave error: %s", 
+                          gai_strerror(error)));
+      DBUG_RETURN(1);
+    }
+
+    *port= strtol(port_buf, (char **)NULL, 10);
   }
   DBUG_PRINT("exit", ("addr: %s", buf));
   DBUG_RETURN(0);
@@ -344,17 +359,15 @@ my_bool vio_peer_addr(Vio * vio, char *buf, uint16 *port)
   NOTES
     one must call vio_peer_addr() before calling this one
 */
-
-void vio_in_addr(Vio *vio, struct in_addr *in)
+void vio_in_addr(Vio *vio, struct sockaddr_storage *in)
 {
   DBUG_ENTER("vio_in_addr");
   if (vio->localhost)
-    bzero((char*) in, sizeof(*in));
+    bzero((char*) in, sizeof(struct sockaddr_storage));
   else
-    *in=vio->remote.sin_addr;
+    memcpy(in, &(vio->remote), sizeof(struct sockaddr_storage));
   DBUG_VOID_RETURN;
 }
-
 
 /* Return 0 if there is data to be read */
 

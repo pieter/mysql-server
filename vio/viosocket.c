@@ -338,7 +338,7 @@ my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen)
       DBUG_RETURN(1);
     }
 
-    *port= strtol(port_buf, (char **)NULL, 10);
+    *port= (uint16)strtol(port_buf, (char **)NULL, 10);
   }
   DBUG_PRINT("exit", ("addr: %s", buf));
   DBUG_RETURN(0);

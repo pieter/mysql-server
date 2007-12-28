@@ -19,7 +19,6 @@
 */
 
 #include "mysql_priv.h"
-#include <netdb.h>
 
 #ifdef HAVE_OPENSSL
 /*

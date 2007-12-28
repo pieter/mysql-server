@@ -38,6 +38,13 @@
 
 #include "mysql.h"
 
+/* Windows lacks a netdb.h */
+#ifdef __WIN__
+#include <Ws2tcpip.h>
+#else
+#include <netdb.h>
+#endif
+
 /* Remove client convenience wrappers */
 #undef max_allowed_packet
 #undef net_buffer_length

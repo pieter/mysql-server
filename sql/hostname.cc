@@ -29,7 +29,6 @@ extern "C" {					// Because of SCO 3.2V4.2
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
 #endif
-#include <netdb.h>
 #include <sys/utsname.h>
 #endif // __WIN__
 #ifdef	__cplusplus
@@ -183,7 +182,7 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
   gxi_error= getnameinfo((struct sockaddr *)in, sizeof(struct sockaddr_storage),
                          hostname_buff, NI_MAXHOST,
                          NULL, 0, NI_NAMEREQD);
-  if (gai_error != 0)
+  if (gxi_error != 0)
   {
     DBUG_PRINT("error",("getnameinfo returned %d", gxi_error));
     goto add_wrong_ip_and_return;

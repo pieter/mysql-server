@@ -46,6 +46,13 @@
 #endif
 #include "probes.h"
 
+/* Windows lacks a netdb.h */
+#ifdef __WIN__
+#include <Ws2tcpip.h>
+#else
+#include <netdb.h>
+#endif
+
 /* TODO convert all these three maps to Bitmap classes */
 typedef ulonglong table_map;          /* Used for table bits in join */
 #if MAX_INDEXES <= 64

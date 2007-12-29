@@ -2005,9 +2005,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
         For DBUG we are keeping the right message but for client we default to
         historical error message.
       */
-        DBUG_PRINT("info",("IPV6 getaddrinfo error %s", gai_strerror(gai_errno)));
-      net->last_errno= CR_UNKNOWN_HOST;
-      strmov(net->sqlstate, unknown_sqlstate);
+      DBUG_PRINT("info",("IPV6 getaddrinfo error %s", gai_strerror(gai_errno)));
       set_mysql_extended_error(mysql, CR_UNKNOWN_HOST, unknown_sqlstate,
                                ER(CR_UNKNOWN_HOST), host, errno);
 

@@ -46,6 +46,13 @@
 #endif
 #include "probes.h"
 
+/* Windows lacks a netdb.h */
+#ifdef __WIN__
+#include <Ws2tcpip.h>
+#else
+#include <netdb.h>
+#endif
+
 /* TODO convert all these three maps to Bitmap classes */
 typedef ulonglong table_map;          /* Used for table bits in join */
 #if MAX_INDEXES <= 64
@@ -2225,10 +2232,9 @@ uint build_table_shadow_filename(char *buff, size_t bufflen,
 #define NO_FRM_RENAME   (1 << 2)
 
 /* from hostname.cc */
-struct in_addr;
-char * ip_to_hostname(struct in_addr *in,uint *errors);
-void inc_host_errors(struct in_addr *in);
-void reset_host_errors(struct in_addr *in);
+char *ip_to_hostname(struct sockaddr_storage *in, uint *errors);
+void inc_host_errors(struct sockaddr_storage *in);
+void reset_host_errors(struct sockaddr_storage *in);
 bool hostname_cache_init();
 void hostname_cache_free();
 void hostname_cache_refresh(void);

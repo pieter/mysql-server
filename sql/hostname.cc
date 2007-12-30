@@ -174,7 +174,7 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
   }
 
   bzero(&hints, sizeof (struct addrinfo));
-  hints.ai_family= AI_PASSIVE | AI_ADDRCONFIG;
+  hints.ai_family= AI_PASSIVE;
   hints.ai_socktype= SOCK_STREAM;  
 
   bzero(hostname_buff, NI_MAXHOST);
@@ -218,7 +218,15 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
       that attempted to connect during the outage) unable to connect
       indefinitely.
     */
+    /* 
+      When this code was written there were issues with winsock in pusbuild, 
+      this define is in this place for this reason.
+    */
+#if defined( __WIN__)
+    if (gxi_error == EAI_NODATA )
+#else
     if (gxi_error == EAI_ADDRFAMILY || gxi_error == EAI_NODATA )
+#endif
       add_wrong_ip(in);
     freeaddrinfo(res_lst);
     DBUG_RETURN(0);

@@ -1993,7 +1993,6 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
     memset(&hints, 0, sizeof(hints));
     hints.ai_family= AF_INET;
     hints.ai_socktype= SOCK_STREAM;
-    hints.ai_flags= AI_ADDRCONFIG;
 
     DBUG_PRINT("info",("IPV6 getaddrinfo %s", host));
     my_snprintf(port_buf, NI_MAXSERV, "%d", port);
@@ -2005,7 +2004,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
         For DBUG we are keeping the right message but for client we default to
         historical error message.
       */
-      DBUG_PRINT("info",("IPV6 getaddrinfo error %s", gai_strerror(gai_errno)));
+      DBUG_PRINT("info",("IPV6 getaddrinfo error %d", gai_errno));
       set_mysql_extended_error(mysql, CR_UNKNOWN_HOST, unknown_sqlstate,
                                ER(CR_UNKNOWN_HOST), host, errno);
 

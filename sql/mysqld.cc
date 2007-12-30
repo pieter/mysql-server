@@ -1584,7 +1584,7 @@ static void network_init(void)
 
     bzero(&hints, sizeof (hints));
     hints.ai_family= AF_INET;
-    hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG;
+    hints.ai_flags = AI_PASSIVE;
     hints.ai_socktype = SOCK_STREAM;
 
     my_snprintf(port_buf, NI_MAXSERV, "%d", mysqld_port);

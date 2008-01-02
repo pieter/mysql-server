@@ -145,15 +145,18 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
   *errors=0;
 
   /* Historical comparison for 127.0.0.1 */
+  gxi_error= getnameinfo((struct sockaddr *)in, sizeof(struct sockaddr_storage),
+                         hostname_buff, NI_MAXHOST,
+                         NULL, 0, NI_NUMERICHOST);
+  if (gxi_error)
   {
-    gxi_error= getnameinfo((struct sockaddr *)in, sizeof(struct sockaddr_storage),
-                           hostname_buff, NI_MAXHOST,
-                           NULL, 0, NI_NUMERICHOST);
-    if (gxi_error == 0)
-      if (!memcmp(hostname_buff, "127.0.0.1", sizeof("127.0.0.1")))
-      {
-        DBUG_RETURN((char *)my_localhost);
-      }
+    DBUG_PRINT("error",("getnameinfo returned %d", gxi_error));
+    DBUG_RETURN(0);
+  }
+
+  if (!memcmp(hostname_buff, "127.0.0.1", sizeof("127.0.0.1")))
+  {
+    DBUG_RETURN((char *)my_localhost);
   }
 
   /* Check first if we have name in cache */
@@ -171,21 +174,6 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
       DBUG_RETURN(name);
     }
     VOID(pthread_mutex_unlock(&hostname_cache->lock));
-  }
-
-  bzero(&hints, sizeof (struct addrinfo));
-  hints.ai_family= AI_PASSIVE;
-  hints.ai_socktype= SOCK_STREAM;  
-
-  bzero(hostname_buff, NI_MAXHOST);
-
-  gxi_error= getnameinfo((struct sockaddr *)in, sizeof(struct sockaddr_storage),
-                         hostname_buff, NI_MAXHOST,
-                         NULL, 0, NI_NAMEREQD);
-  if (gxi_error != 0)
-  {
-    DBUG_PRINT("error",("getnameinfo returned %d", gxi_error));
-    goto add_wrong_ip_and_return;
   }
 
   if (!(name= my_strdup(hostname_buff,MYF(0))))
@@ -208,8 +196,12 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
   }
   DBUG_PRINT("info",("resolved: %s",name));
 
+  bzero(&hints, sizeof (struct addrinfo));
+  hints.ai_family= AI_PASSIVE;
+  hints.ai_socktype= SOCK_STREAM;  
+
   gxi_error= getaddrinfo(hostname_buff, NULL, &hints, &res_lst);
-  if (gxi_error != 0)
+  if (gxi_error)
   {
     DBUG_PRINT("error",("getaddrinfo returned %d",gxi_error));
     /*

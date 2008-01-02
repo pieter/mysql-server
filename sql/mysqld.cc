@@ -1579,7 +1579,7 @@ static void network_init(void)
   {
     struct addrinfo *ai;
     struct addrinfo hints;
-    int e;
+    int error;
     DBUG_PRINT("general",("IP Socket is %d",mysqld_port));
 
     bzero(&hints, sizeof (hints));
@@ -1588,10 +1588,10 @@ static void network_init(void)
     hints.ai_socktype = SOCK_STREAM;
 
     my_snprintf(port_buf, NI_MAXSERV, "%d", mysqld_port);
-    e= getaddrinfo(my_bind_addr_str, port_buf, &hints, &ai);
-    if (e != 0)
+    error= getaddrinfo(my_bind_addr_str, port_buf, &hints, &ai);
+    if (error != 0)
     {
-      DBUG_PRINT("error",("Got error: %d from getaddrinfo()", e));
+      DBUG_PRINT("error",("Got error: %d from getaddrinfo()", error));
       sql_perror(ER(ER_IPSOCK_ERROR));		/* purecov: tested */
       unireg_abort(1);				/* purecov: tested */
     }
@@ -7582,12 +7582,6 @@ mysqld_get_one_option(int optid,
     my_use_symdir=0;
     break;
   case (int) OPT_BIND_ADDRESS:
-    struct addrinfo *res_lst, hints;    
-
-    bzero(&hints, sizeof(struct addrinfo));
-    hints.ai_family= AF_INET;
-    hints.ai_socktype= SOCK_STREAM;
-
     if (argument[0])
     {
       char myhostname[NI_MAXHOST];
@@ -7600,6 +7594,12 @@ mysqld_get_one_option(int optid,
     }
     else
     {
+      struct addrinfo *res_lst, hints;    
+
+      bzero(&hints, sizeof(struct addrinfo));
+      hints.ai_family= AF_INET;
+      hints.ai_socktype= SOCK_STREAM;
+
       if (getaddrinfo(argument, NULL, &hints, &res_lst) != 0) 
       {
         sql_perror("Can't start server: cannot resolve hostname!");

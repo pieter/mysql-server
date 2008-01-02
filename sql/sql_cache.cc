@@ -661,16 +661,14 @@ Query_cache::insert(Query_cache_tls *query_cache_tls,
     return;
   }
 
-  if (query_cache_size == 0 || flush_in_progress)
-  {
-    STRUCT_UNLOCK(&structure_guard_mutex);
-    DBUG_VOID_RETURN;
-  }
-
   Query_cache_block *query_block = query_cache_tls->first_query_block;
   if (query_block == NULL)
   {
-    STRUCT_UNLOCK(&structure_guard_progress);
+    /*
+      The writer has been dropped; nothing left to do.
+    */
+    STRUCT_UNLOCK(&structure_guard_mutex);
+    DBUG_VOID_RETURN;
   }
   Query_cache_query *header= query_block->query();
   Query_cache_block *result= header->result();
@@ -758,7 +756,7 @@ void Query_cache::end_of_result(THD *thd)
 
   if (thd->killed)
   {
-    query_cache_abort(&thd->net);
+    query_cache_abort(&thd->query_cache_tls);
     DBUG_VOID_RETURN;
   }
 

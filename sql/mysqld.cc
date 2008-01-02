@@ -2702,7 +2702,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
           str= ER(error);
         thd->main_da.set_error_status(thd, error, str);
       }
-      query_cache_abort(&thd->net);
+      query_cache_abort(&thd->query_cache_tls);
     }
     /*
       If a continue handler is found, the error message will be cleared

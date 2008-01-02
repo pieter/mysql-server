@@ -145,7 +145,7 @@ MYSQL_ERROR *push_warning(THD *thd, MYSQL_ERROR::enum_warning_level level,
   {
     DBUG_RETURN(NULL);
   }
-  query_cache_abort(&thd->net);
+  query_cache_abort(&thd->query_cache_tls);
 
 
   if (thd->warn_list.elements < thd->variables.max_error_count)

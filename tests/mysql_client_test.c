@@ -12317,17 +12317,17 @@ static void test_bug6081()
     die(__FILE__, __LINE__, "COM_DROP_DB failed");   /* purecov: inspected */
   }
   rc= simple_command(mysql, COM_DROP_DB, (uchar*) current_db,
-                     (ulong)strlen(current_db), 0);
+                     (ulong)strlen(current_db), 0U);
   myquery_r(rc);
   rc= simple_command(mysql, COM_CREATE_DB, (uchar*) current_db,
-                     (ulong)strlen(current_db), 0);
+                     (ulong)strlen(current_db), 0U);
   if (rc == 0 && mysql_errno(mysql) != ER_UNKNOWN_COM_ERROR)
   {
     myerror(NULL);                                   /* purecov: inspected */
     die(__FILE__, __LINE__, "COM_CREATE_DB failed"); /* purecov: inspected */
   }
   rc= simple_command(mysql, COM_CREATE_DB, (uchar*) current_db,
-                     (ulong)strlen(current_db), 0);
+                     (ulong)strlen(current_db), 0U);
   myquery_r(rc);
   rc= mysql_select_db(mysql, current_db);
   myquery(rc);
@@ -17539,6 +17539,7 @@ static struct my_tests_st my_tests[]= {
   { "test_bug20023", test_bug20023 },
   { "test_bug31418", test_bug31418 },
   { "test_bug31669", test_bug31669 },
+  { "test_change_user", test_change_user },
   { 0, 0 }
 };
 

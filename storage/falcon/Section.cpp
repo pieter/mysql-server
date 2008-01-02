@@ -554,6 +554,8 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 				ASSERT(index->page == 0 && index->line == 0);
 				VALIDATE_SPACE_SLOTS(locatorPage);
 				}
+			else
+				dataBdb->release(REL_HISTORY);
 
 			bdb->release(REL_HISTORY);
 

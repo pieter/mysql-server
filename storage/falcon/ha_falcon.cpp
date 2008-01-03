@@ -573,7 +573,8 @@ int StorageInterface::info(uint what)
 #endif
 
 	if (what & HA_STATUS_AUTO)
-		stats.auto_increment_value = storageShare->getSequenceValue(0);
+		// Return the next number to use.  Falcon stores the last number used.
+		stats.auto_increment_value = storageShare->getSequenceValue(0) + 1;
 
 	if (what & HA_STATUS_ERRKEY)
 		errkey = indexErrorId;

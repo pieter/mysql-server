@@ -30,6 +30,9 @@ public:
 	
 	int64	recoveryBlock;
 	int64	checkpointBlock;
+	virtual void pass1(void);
+	virtual void pass2(void);
+	virtual void redo(void);
 };
 
 #endif

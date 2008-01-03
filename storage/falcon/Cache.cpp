@@ -42,7 +42,7 @@
 
 extern uint falcon_io_threads;
 
-//#define STOP_PAGE		109
+//#define STOP_PAGE		55
 #define TRACE_FILE	"cache.trace"
 
 static FILE			*traceFile;
@@ -288,8 +288,8 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 		throw SQLError (DATABASE_CORRUPTION, "page %d wrong page type, expected %d got %d\n",
 						pageNumber, pageType, page->pageType);
 		***/
-		FATAL ("page %d wrong page type, expected %d got %d\n",
-				 bdb->pageNumber, pageType, page->pageType);
+		FATAL ("page %d/%d wrong page type, expected %d got %d\n",
+				 bdb->pageNumber, dbb->tableSpaceId, pageType, page->pageType);
 		}
 
 	// If buffer has moved out of the upper "fraction" of the LRU queue, move it back up

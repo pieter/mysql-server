@@ -752,7 +752,11 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 	DBUG_PRINT("info",("incrementValue = " I64FORMAT, (long long int)incrementValue));
 
 	if ((ret = storageTable->create(gen.getString(), incrementValue)))
+		{
+		storageTable->deleteTable();
+		
 		DBUG_RETURN(error(ret));
+		}
 
 	for (n = 0; n < form->s->keys; ++n)
 		if (n != form->s->primary_key)

@@ -164,7 +164,8 @@ void StorageTableShare::cleanupFieldName(const char* name, char* buffer, int buf
 	const char *p = name;
 	
 	for (; *p && q < end; ++p)
-		*q++ = UPPER(*p);
+		if (*p != '"')
+			*q++ = UPPER(*p);
 	
 	*q = 0;
 }

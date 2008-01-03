@@ -82,7 +82,7 @@ void SRLFreePage::redo()
 
 void SRLFreePage::print()
 {
-	logPrint("Free Page %d/%d\n", pageNumber, tableSpaceId);
+	logPrint("Free Page %d  tableSpaceId %d\n", pageNumber, tableSpaceId);
 }
 
 void SRLFreePage::commit(void)

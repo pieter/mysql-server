@@ -1114,17 +1114,15 @@ void SerialLog::copyClone(JString fileRoot, int logOffset, int logLength)
 
 bool SerialLog::bumpPageIncarnation(int32 pageNumber, int tableSpaceId, int state)
 {
+	if (pageNumber == tracePage)
+		printf("bumpPageIncarnation; page %d\n", tracePage);
+
 	bool ret = recoveryPages->bumpIncarnation(pageNumber, tableSpaceId, state, pass1);
-	Dbb *dbb = getDbb(tableSpaceId);
 	
-	if (ret)
+	if (ret && pass1)
 		{
-		if (pass1)
-			dbb->reallocPage(pageNumber);
-		else if (pageNumber == tracePage)
-			{
-			//printf("trace page %d\n", tracePage);
-			}
+		Dbb *dbb = getDbb(tableSpaceId);
+		dbb->reallocPage(pageNumber);
 		}
 
 	return ret;

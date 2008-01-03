@@ -162,11 +162,22 @@ void StorageTableShare::cleanupFieldName(const char* name, char* buffer, int buf
 	char *q = buffer;
 	char *end = buffer + bufferLength - 1;
 	const char *p = name;
+	bool quotes = false;
 	
 	for (; *p && q < end; ++p)
-		if (*p != '"')
+		{
+		if (*p == '"')
+			{
 			*q++ = UPPER(*p);
+			quotes = !quotes;
+			}
 	
+		if (quotes)
+			*q++ = *p;
+		else
+			*q++ = UPPER(*p);
+		}
+
 	*q = 0;
 }
 

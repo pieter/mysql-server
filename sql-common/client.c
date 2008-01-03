@@ -1991,7 +1991,6 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
 #endif
 
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family= AF_INET;
     hints.ai_socktype= SOCK_STREAM;
 
     DBUG_PRINT("info",("IPV6 getaddrinfo %s", host));
@@ -2030,7 +2029,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
       {
         DBUG_PRINT("error",("Unknow protocol %d ", mysql->options.protocol));
         set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
-        close(sock);
+        close((int)sock);
         sock=-1;
         freeaddrinfo(res_lst);
 
@@ -2046,7 +2045,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
                                  ER(CR_CONN_HOST_ERROR), host, socket_errno);
         vio_delete(net->vio);
         net->vio = 0;
-        close(sock);
+        close((int)sock);
         sock=-1;
         freeaddrinfo(res_lst);
 

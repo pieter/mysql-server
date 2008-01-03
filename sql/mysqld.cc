@@ -358,7 +358,6 @@ static my_bool opt_short_log_format= 0;
 static uint kill_cached_threads, wake_thread;
 static ulong killed_threads, thread_created;
 static ulong max_used_connections;
-static struct sockaddr_storage my_bind_addr;		/* the address we bind to */
 static volatile ulong cached_thread_count= 0;
 static const char *sql_mode_str= "OFF";
 static char *mysqld_user, *mysqld_chroot, *log_error_file_ptr;
@@ -1583,7 +1582,6 @@ static void network_init(void)
     DBUG_PRINT("general",("IP Socket is %d",mysqld_port));
 
     bzero(&hints, sizeof (hints));
-    hints.ai_family= AF_INET;
     hints.ai_flags = AI_PASSIVE;
     hints.ai_socktype = SOCK_STREAM;
 
@@ -1632,6 +1630,7 @@ static void network_init(void)
       this_wait= retry * retry / 3 + 1;
       sleep(this_wait);
     }
+    freeaddrinfo(ai);
     if (ret < 0)
     {
       DBUG_PRINT("error",("Got error: %d from bind",socket_errno));
@@ -7597,7 +7596,6 @@ mysqld_get_one_option(int optid,
       struct addrinfo *res_lst, hints;    
 
       bzero(&hints, sizeof(struct addrinfo));
-      hints.ai_family= AF_INET;
       hints.ai_socktype= SOCK_STREAM;
 
       if (getaddrinfo(argument, NULL, &hints, &res_lst) != 0) 

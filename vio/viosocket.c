@@ -313,7 +313,7 @@ my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen)
 
   if (vio->localhost)
   {
-    strmov(buf,"127.0.0.1");
+    strmov(buf, "127.0.0.1");
     *port= 0;
   }
   else
@@ -339,6 +339,16 @@ my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen)
     }
 
     *port= (uint16)strtol(port_buf, (char **)NULL, 10);
+
+    /*
+      A lot of users do not have IPv6 loopback resolving to localhost
+      correctly setup. Should this exist? No. If we do not do it though
+      we will be getting a lot of support questions from users who
+      have bad setups. This code should be removed by say... 2012.
+        -Brian
+    */
+    if (!memcmp(buf, "::ffff:127.0.0.1", sizeof("::ffff:127.0.0.1")))
+      strmov(buf, "127.0.0.1");
   }
   DBUG_PRINT("exit", ("addr: %s", buf));
   DBUG_RETURN(0);

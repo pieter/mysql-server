@@ -134,7 +134,7 @@ void reset_host_errors(struct sockaddr_storage *in)
 
 char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
 {
-  char *name= NULL;
+  char *name;
 
   struct addrinfo hints,*res_lst,*t_res;
   int gxi_error;
@@ -153,8 +153,18 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
     DBUG_PRINT("error",("getnameinfo returned %d", gxi_error));
     DBUG_RETURN(0);
   }
+  DBUG_PRINT("info",("resolved: %s", hostname_buff));
 
+  /* The next three compares are to solve historical solutions with localhost */
   if (!memcmp(hostname_buff, "127.0.0.1", sizeof("127.0.0.1")))
+  {
+    DBUG_RETURN((char *)my_localhost);
+  }
+  if (!memcmp(hostname_buff, "::ffff:127.0.0.1", sizeof("::ffff:127.0.0.1")))
+  {
+    DBUG_RETURN((char *)my_localhost);
+  }
+  if (!memcmp(hostname_buff, "::1", sizeof("::1")))
   {
     DBUG_RETURN((char *)my_localhost);
   }
@@ -167,6 +177,8 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
     {
       if (entry->hostname)
         name= my_strdup(entry->hostname, MYF(0));
+      else
+        name= NULL;
 
       DBUG_PRINT("info",("cached data %s", name ? name : "null" ));
       *errors= entry->errors;
@@ -176,10 +188,10 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
     VOID(pthread_mutex_unlock(&hostname_cache->lock));
   }
 
-  if (!(name= my_strdup(hostname_buff,MYF(0))))
+  if (!(name= my_strdup(hostname_buff, MYF(0))))
   {
     DBUG_PRINT("error",("out of memory"));
-    goto add_wrong_ip_and_return;
+    DBUG_RETURN(0);
   }
 
   /* Don't accept hostnames that starts with digits because they may be
@@ -194,16 +206,14 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
       goto add_wrong_ip_and_return;
     }
   }
-  DBUG_PRINT("info",("resolved: %s",name));
 
   bzero(&hints, sizeof (struct addrinfo));
-  hints.ai_family= AI_PASSIVE;
+  hints.ai_flags= AI_PASSIVE;
   hints.ai_socktype= SOCK_STREAM;  
 
   gxi_error= getaddrinfo(hostname_buff, NULL, &hints, &res_lst);
   if (gxi_error)
   {
-    DBUG_PRINT("error",("getaddrinfo returned %d",gxi_error));
     /*
       Don't cache responses when the DSN server is down, as otherwise
       transient DNS failure may leave any number of clients (those
@@ -215,11 +225,15 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
       this define is in this place for this reason.
     */
 #if defined( __WIN__)
+    DBUG_PRINT("error",("getaddrinfo returned %d", gxi_error));
     if (gxi_error == EAI_NODATA )
 #else
+    DBUG_PRINT("error",("getaddrinfo returned %s", gai_strerror(gxi_error)));
     if (gxi_error == EAI_ADDRFAMILY || gxi_error == EAI_NODATA )
 #endif
       add_wrong_ip(in);
+
+    my_free(name,MYF(0));
     freeaddrinfo(res_lst);
     DBUG_RETURN(0);
   }
@@ -235,13 +249,11 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
       DBUG_RETURN(name);
     }
   }
+  freeaddrinfo(res_lst);
   DBUG_PRINT("error",("Couldn't verify hostname with getaddrinfo"));
 
-  freeaddrinfo(res_lst);
-
 add_wrong_ip_and_return:
-  if (name)
-    my_free(name,MYF(0));
+  my_free(name,MYF(0));
   add_wrong_ip(in);
   DBUG_RETURN(0);
 }

@@ -1126,7 +1126,6 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
   Query_cache_block_table *block_table, *block_table_end;
   ulong tot_length;
   Query_cache_query_flags flags;
-  Query_cache_tls *query_cache_tls= &thd->query_cache_tls;
   DBUG_ENTER("Query_cache::send_result_to_client");
 
   /*

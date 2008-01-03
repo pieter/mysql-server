@@ -222,7 +222,7 @@ public:
   Query_cache_tls -- query cache thread local data.
 */
 
-class Query_cache_block;
+struct Query_cache_block;
 
 struct Query_cache_tls
 {

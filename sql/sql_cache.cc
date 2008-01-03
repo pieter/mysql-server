@@ -933,7 +933,7 @@ ulong Query_cache::resize(ulong query_cache_size_arg)
            Drop the writer; this will cancel any attempts to store 
            the processed statement associated with this writer.
          */
-        query->writer()->query_cache_query= 0;
+        query->writer()->first_query_block= NULL;
         query->writer(0);
         refused++;
       }
@@ -1238,12 +1238,6 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
     DBUG_PRINT("qcache",("query cache disabled"));
     goto err_unlock;
   }
-
-  /*
-    Check that we haven't forgot to reset the query cache variables;
-    make sure there are no attached query cache writer to this thread.
-   */
-  DBUG_ASSERT(query_cache_tls->first_query_block == NULL);
 
   Query_cache_block *query_block;
 

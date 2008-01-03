@@ -85,14 +85,13 @@ int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED,
 						                       TRANSACTION_READ_COMMITTED,
 						                       TRANSACTION_CONSISTENT_READ, // TRANSACTION_WRITE_COMMITTED, // This is repeatable read
 						                       TRANSACTION_SERIALIZABLE};
-						                       
+
 static const ulonglong	default_table_flags = (	  HA_REC_NOT_IN_SEQ
 												| HA_NULL_IN_KEY
 												| HA_PARTIAL_COLUMN_READ
 												| HA_CAN_GEOMETRY
 												//| HA_AUTO_PART_KEY
 												| HA_BINLOG_ROW_CAPABLE);
-						                       
 
 static struct st_mysql_show_var falconStatus[]=
 {
@@ -826,7 +825,7 @@ THR_LOCK_DATA **StorageInterface::store_lock(THD *thd, THR_LOCK_DATA **to,
 		if (    (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE)
 		    && !(thd_in_lock_tables(thd) && sql_command == SQLCOM_LOCK_TABLES)
 		    && !(thd_tablespace_op(thd))
-		    //&&  (sql_command != SQLCOM_TRUNCATE)	// we can serialize this.
+		    &&  (sql_command != SQLCOM_TRUNCATE)
 		    &&  (sql_command != SQLCOM_OPTIMIZE)
 		    &&  (sql_command != SQLCOM_CREATE_TABLE)
 		   )

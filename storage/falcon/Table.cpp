@@ -2381,18 +2381,6 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 
 		state = transaction->getRelativeState(dup, DO_NOT_WAIT);
 
-		// If we waited on an active transaction, we must start looking again from the top
-		
-		if (state == WasActive)
-			{
-			rec->release();
-			
-			if (activeTransaction)
-				activeTransaction->release();
-				
-			return checkUniqueWaited;
-			}
-
 		if (dup->state == recChilled)
 			dup->getRecordData();
 

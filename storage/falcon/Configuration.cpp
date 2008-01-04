@@ -55,6 +55,8 @@
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
 
+extern uint64		max_memory_address;
+
 extern uint64		falcon_record_memory_max;
 extern uint64		falcon_initial_allocation;
 extern uint			falcon_allocation_extent;
@@ -73,6 +75,10 @@ extern char*		falcon_serial_log_dir;
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
 
+// Determine the largest memory address, assume 64-bits max
+
+static const ulonglong MSB = ULL(1) << ((sizeof(void *)*8 - 1) & 63));
+static ulonglong max_memory_address = MSB | (MSB - 1);
 #endif
 
 #ifdef _DEBUG
@@ -160,6 +166,7 @@ Configuration::Configuration(const char *configFile)
 	maxTransactionBacklog		= MAX_TRANSACTION_BACKLOG;
 #endif
 
+	maxMemoryAddress = max_memory_address;
 	javaInitialAllocation = 0;
 	javaSecondaryAllocation = 0;
 	maxThreads = 0;
@@ -424,10 +431,8 @@ void Configuration::setRecordScavengeFloor(int floor)
 
 void Configuration::setRecordMemoryMax(uint64 value)
 {
-	uint64 totalMemory = getPhysicalMemory();
-	
 	recordMemoryMax = MAX(value, MIN_RECORD_MEMORY);
-	recordMemoryMax = MIN(value, totalMemory);
+	recordMemoryMax = MIN(value, maxMemoryAddress);
 	
 	setRecordScavengeThreshold(recordScavengeThresholdPct);
 	

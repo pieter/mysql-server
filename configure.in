@@ -935,12 +935,6 @@ AC_CHECK_TYPES([int8, uint8, int16, uint16, int32, uint32, int64, uint64,
                 uchar, uint, ulong],[],[], [
 #include <sys/types.h>
 ])
-AC_CHECK_TYPES([in_addr_t], [], [], [
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-])
 AC_CHECK_TYPES([fp_except], [], [], [
 #include <sys/types.h>
 #include <ieeefp.h>

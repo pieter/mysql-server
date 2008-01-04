@@ -4430,7 +4430,7 @@ restart:
 
   if (ndb_extra_logging)
     sql_print_information("NDB Binlog: ndb tables writable");
-  close_cached_tables((THD*) 0, 0, (TABLE_LIST*) 0, FALSE, FALSE);
+  close_cached_tables((THD*) 0, (TABLE_LIST*) 0, FALSE, FALSE, FALSE);
 
   {
     static char db[]= "";

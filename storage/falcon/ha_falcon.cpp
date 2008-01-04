@@ -70,30 +70,36 @@ static StorageHandler	*storageHandler;
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
 
-unsigned long long		falcon_record_memory_max;
-unsigned long long		falcon_initial_allocation;
-uint					falcon_allocation_extent;
-unsigned long long		falcon_page_cache_size;
-char*					falcon_serial_log_dir;
-char*					falcon_checkpoint_schedule;
-char*					falcon_scavenge_schedule;
-//uint					falcon_debug_mask;
-//uint					falcon_debug_trace;
-FILE					*falcon_log_file;
+ulonglong	falcon_record_memory_max;
+ulonglong	falcon_initial_allocation;
+uint		falcon_allocation_extent;
+ulonglong	falcon_page_cache_size;
+char*		falcon_serial_log_dir;
+char*		falcon_checkpoint_schedule;
+char*		falcon_scavenge_schedule;
+//uint		falcon_debug_mask;
+//uint		falcon_debug_trace;
+FILE		*falcon_log_file;
 
-int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
-						                       TRANSACTION_READ_COMMITTED,
-						                       TRANSACTION_CONSISTENT_READ, // TRANSACTION_WRITE_COMMITTED, // This is repeatable read
-						                       TRANSACTION_SERIALIZABLE};
+// Determine the largest memory address, assume 64-bits max
 
-static const ulonglong	default_table_flags = (	  HA_REC_NOT_IN_SEQ
+static const ulonglong MSB = ULL(1) << ((sizeof(void *)*8 - 1) & 63);
+ulonglong max_memory_address = MSB | (MSB - 1);
+
+
+int	isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
+	                       TRANSACTION_READ_COMMITTED,
+	                       TRANSACTION_CONSISTENT_READ, // TRANSACTION_WRITE_COMMITTED, // This is repeatable read
+	                       TRANSACTION_SERIALIZABLE};
+
+static const ulonglong default_table_flags = (	  HA_REC_NOT_IN_SEQ
 												| HA_NULL_IN_KEY
 												| HA_PARTIAL_COLUMN_READ
 												| HA_CAN_GEOMETRY
 												//| HA_AUTO_PART_KEY
 												| HA_BINLOG_ROW_CAPABLE);
 
-static struct st_mysql_show_var falconStatus[]=
+static struct st_mysql_show_var falconStatus[] =
 {
   //{"static",     (char*)"just a static text",     SHOW_CHAR},
   //{"called",     (char*)&number_of_calls, SHOW_LONG},
@@ -3015,7 +3021,7 @@ void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_v
 
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
-	falcon_record_memory_max = *(unsigned long long*) save;
+	falcon_record_memory_max = *(ulonglong*) save;
 
 	if (storageHandler)
 		storageHandler->setRecordMemoryMax(falcon_record_memory_max);
@@ -3097,7 +3103,7 @@ static MYSQL_SYSVAR_STR(scavenge_schedule, falcon_scavenge_schedule,
 static MYSQL_SYSVAR_ULONGLONG(record_memory_max, falcon_record_memory_max,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
   "The maximum size of the record memory cache.",
-  NULL, StorageInterface::updateRecordMemoryMax, LL(250)<<20, 0, (ulonglong) ~0, LL(1)<<20);
+  NULL, StorageInterface::updateRecordMemoryMax, LL(250)<<20, 0, (ulonglong) max_memory_address, LL(1)<<20);
 
 static MYSQL_SYSVAR_ULONGLONG(initial_allocation, falcon_initial_allocation,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,

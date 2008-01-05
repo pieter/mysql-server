@@ -7581,17 +7581,6 @@ mysqld_get_one_option(int optid,
     my_use_symdir=0;
     break;
   case (int) OPT_BIND_ADDRESS:
-    if (argument[0])
-    {
-      char myhostname[NI_MAXHOST];
-
-      if (gethostname(myhostname, NI_MAXHOST) < 0)
-      {
-        sql_perror("Can't start server: cannot get my own hostname!");
-        exit(1);
-      }
-    }
-    else
     {
       struct addrinfo *res_lst, hints;    
 
@@ -7600,7 +7589,13 @@ mysqld_get_one_option(int optid,
 
       if (getaddrinfo(argument, NULL, &hints, &res_lst) != 0) 
       {
-        sql_perror("Can't start server: cannot resolve hostname!");
+        sql_print_error("Can't start server: cannot resolve hostname!");
+        exit(1);
+      }
+
+      if (res_lst->ai_next)
+      {
+        sql_print_error("Can't start server: bind-address refers to multiple interfaces!");
         exit(1);
       }
       freeaddrinfo(res_lst);

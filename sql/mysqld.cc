@@ -1582,8 +1582,9 @@ static void network_init(void)
     DBUG_PRINT("general",("IP Socket is %d",mysqld_port));
 
     bzero(&hints, sizeof (hints));
-    hints.ai_flags = AI_PASSIVE;
-    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags= AI_PASSIVE;
+    hints.ai_socktype= SOCK_STREAM;
+    hints.ai_family= AF_UNSPEC;
 
     my_snprintf(port_buf, NI_MAXSERV, "%d", mysqld_port);
     error= getaddrinfo(my_bind_addr_str, port_buf, &hints, &ai);

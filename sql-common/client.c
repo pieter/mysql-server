@@ -1992,6 +1992,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_socktype= SOCK_STREAM;
+    hints.ai_family= AF_UNSPEC;
 
     DBUG_PRINT("info",("IPV6 getaddrinfo %s", host));
     my_snprintf(port_buf, NI_MAXSERV, "%d", port);

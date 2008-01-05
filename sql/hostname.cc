@@ -210,6 +210,7 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
   bzero(&hints, sizeof (struct addrinfo));
   hints.ai_flags= AI_PASSIVE;
   hints.ai_socktype= SOCK_STREAM;  
+  hints.ai_family= AF_UNSPEC;
 
   gxi_error= getaddrinfo(hostname_buff, NULL, &hints, &res_lst);
   if (gxi_error)

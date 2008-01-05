@@ -1,14 +1,14 @@
 *** Bug #29452 - Wait Lock Timout ***
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
-SELECT @@falcon_lock_timeout INTO @previous_lock_timeout;
-SHOW VARIABLES LIKE 'FALCON_LOCK_TIMEOUT';
+SELECT @@falcon_lock_wait_timeout INTO @previous_lock_wait_timeout;
+SHOW VARIABLES LIKE 'FALCON_LOCK_WAIT_TIMEOUT';
 Variable_name	Value
-falcon_lock_timeout	0
-SET GLOBAL FALCON_LOCK_TIMEOUT = 2000;
-SHOW VARIABLES LIKE 'FALCON_LOCK_TIMEOUT';
+falcon_lock_wait_timeout	50
+SET GLOBAL FALCON_LOCK_WAIT_TIMEOUT = 2;
+SHOW VARIABLES LIKE 'FALCON_LOCK_WAIT_TIMEOUT';
 Variable_name	Value
-falcon_lock_timeout	2000
+falcon_lock_wait_timeout	2
 # Establish connection conn1
 # Switch to connection default
 CREATE TABLE t1 (a varchar(50), PRIMARY KEY (a)) engine = falcon;
@@ -33,7 +33,7 @@ INSERT INTO t1 VALUES('inserted by client 1');
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction
 # Switch to connection default
 DROP TABLE t1;
-SET GLOBAL FALCON_LOCK_TIMEOUT = @previous_lock_timeout;
-SHOW VARIABLES LIKE 'FALCON_LOCK_TIMEOUT';
+SET GLOBAL FALCON_LOCK_WAIT_TIMEOUT = @previous_lock_wait_timeout;
+SHOW VARIABLES LIKE 'FALCON_LOCK_WAIT_TIMEOUT';
 Variable_name	Value
-falcon_lock_timeout	0
+falcon_lock_wait_timeout	50

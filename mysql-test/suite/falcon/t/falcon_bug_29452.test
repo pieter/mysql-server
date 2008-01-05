@@ -10,10 +10,10 @@ DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
 --enable_warnings
 
-SELECT @@falcon_lock_timeout INTO @previous_lock_timeout;
-SHOW VARIABLES LIKE 'FALCON_LOCK_TIMEOUT';
-SET GLOBAL FALCON_LOCK_TIMEOUT = 2000;
-SHOW VARIABLES LIKE 'FALCON_LOCK_TIMEOUT';
+SELECT @@falcon_lock_wait_timeout INTO @previous_lock_wait_timeout;
+SHOW VARIABLES LIKE 'FALCON_LOCK_WAIT_TIMEOUT';
+SET GLOBAL FALCON_LOCK_WAIT_TIMEOUT = 2;
+SHOW VARIABLES LIKE 'FALCON_LOCK_WAIT_TIMEOUT';
 
 --echo # Establish connection conn1
 connect (conn1,localhost,root,,);
@@ -40,6 +40,6 @@ INSERT INTO t1 VALUES('inserted by client 1');
 connection default;
 disconnect conn1;
 DROP TABLE t1;
-SET GLOBAL FALCON_LOCK_TIMEOUT = @previous_lock_timeout;
-SHOW VARIABLES LIKE 'FALCON_LOCK_TIMEOUT';
+SET GLOBAL FALCON_LOCK_WAIT_TIMEOUT = @previous_lock_wait_timeout;
+SHOW VARIABLES LIKE 'FALCON_LOCK_WAIT_TIMEOUT';
 

@@ -42,7 +42,7 @@
 #include "Format.h"
 #include "LogLock.h"
 
-extern uint		falcon_lock_timeout;
+extern uint		falcon_lock_wait_timeout;
 
 static const char *stateNames [] = {
 	"Active",
@@ -971,7 +971,7 @@ void Transaction::waitForTransaction()
 	***/
 	
 	Sync sync(&syncActive, "Transaction::waitForTransaction");
-	sync.lock(Shared, falcon_lock_timeout);
+	sync.lock(Shared, falcon_lock_wait_timeout * 1000);
 }
 
 void Transaction::addRef()

@@ -496,15 +496,36 @@ Bdb* IndexPage::createNewLevel(Dbb * dbb, int level, int version, int32 page1, i
 	return parentBdb;
 }
 
-Bdb* IndexPage::findLevel(Dbb * dbb, Bdb *bdb, int level, IndexKey *indexKey, int32 recordNumber)
+Bdb* IndexPage::findLevel(Dbb * dbb, int32 indexId, Bdb *bdb, int level, IndexKey *indexKey, int32 recordNumber)
 {
 	IndexPage *page = (IndexPage*) bdb->buffer;
 	
 	while (page->level > level)
 		{
 		IndexNode node (page->findNodeInBranch(indexKey, recordNumber));
+
+		int32 pageNumber = node.getNumber();
 		int32 parentPageNumber = bdb->pageNumber;
-		bdb = dbb->handoffPage (bdb, node.getNumber(), PAGE_btree, Exclusive);
+		
+		if (pageNumber == END_BUCKET)
+			{
+			if (dbb->debug & (DEBUG_PAGES | DEBUG_FIND_LEVEL))
+				{
+				Log::debug("\n***** findLevel(%d, %d) - node.number = %d\n", recordNumber, indexId, pageNumber);
+				page->printPage(page, 0, true, false);
+				}
+			pageNumber = page->nextPage;
+			}
+			
+		if (pageNumber == 0)
+			{
+			page->printPage (bdb, false);
+			//node.parseNode(page->findNodeInBranch (indexKey, recordNumber));	// try again for debugging
+			bdb->release(REL_HISTORY);
+			throw SQLError (DATABASE_CORRUPTION, "index %d damaged", indexId);
+			}
+		
+		bdb = dbb->handoffPage (bdb, pageNumber, PAGE_btree, Exclusive);
 		BDB_HISTORY(bdb);
 		page = (IndexPage*) bdb->buffer;
 

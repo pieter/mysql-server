@@ -554,6 +554,8 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 				ASSERT(index->page == 0 && index->line == 0);
 				VALIDATE_SPACE_SLOTS(locatorPage);
 				}
+			else
+				dataBdb->release(REL_HISTORY);
 
 			bdb->release(REL_HISTORY);
 
@@ -636,7 +638,7 @@ int Section::deleteLine(Bdb * bdb, int line, int32 sectionPageNumber, TransId tr
 	for (int n = 0; n < locatorPage->maxLine; ++n)
 		if (n != locatorLine && locatorPage->elements[n].page == bdb->pageNumber)
 			{
-			//ASSERT(false);
+			bdb->release(REL_HISTORY);
 			Log::debug("Section::deleteLine -- locator page %d line %d points to empty data page %d:%d\n",
 						sectionPageNumber, n, locatorPage->elements[n].page, locatorPage->elements[n].line);
 					

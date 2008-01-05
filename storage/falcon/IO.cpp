@@ -56,6 +56,10 @@
 #define MKDIR(dir)			mkdir(dir, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)
 #endif
 
+#ifndef O_SYNC
+#define O_SYNC		0
+#endif
+
 #ifndef LSEEK
 #define LSEEK		lseek
 #define SEEK_OFFSET	off_t
@@ -110,6 +114,7 @@ IO::IO()
 	priorReads = priorWrites = priorFetches = priorFakes = priorFlushWrites = 0;
 	writesSinceSync = 0;
 	dbb = NULL;
+	forceFsync = true;
 	fatalError = false;
 	memset(writeTypes, 0, sizeof(writeTypes));
 }
@@ -123,11 +128,18 @@ IO::~IO()
 bool IO::openFile(const char * name, bool readOnly)
 {
 	fileName = name;
-	fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(0) | O_RDWR | O_BINARY);
-
-	if (fileId < 0)
-		fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(1) | O_RDWR | O_BINARY);
 	
+	for (int attempt = 0; attempt < 3; ++attempt)
+		{
+		fileId = ::open (fileName, (readOnly) ? O_RDONLY | O_BINARY : getWriteMode(attempt) | O_RDWR | O_BINARY);
+		
+		if (fileId >= 0)
+			break;
+		
+		if (attempt == 1)
+			forceFsync = true;
+		}
+
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
 							name, strerror (errno), errno);
@@ -156,14 +168,20 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 	Log::debug("IO::createFile: creating file \"%s\"\n", name);
 
 	fileName = name;
-	fileId = ::open (fileName,
-					getWriteMode(0) | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
-					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
+	
+	for (int attempt = 0; attempt < 3; ++attempt)
+		{
+		fileId = ::open (fileName,
+						getWriteMode(attempt) | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
+						S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
 
-	if (fileId < 0)
-	fileId = ::open (fileName,
-					getWriteMode(1) | O_CREAT | O_RDWR | O_RANDOM | O_TRUNC | O_BINARY,
-					S_IREAD | S_IWRITE | S_IRGRP | S_IWGRP);
+		if (fileId >= 0)
+			break;
+		
+		if (attempt == 1)
+			forceFsync = true;
+		}
+
 	if (fileId < 0)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't create file \"%s\", %s (%d)", 
 								name, strerror (errno), errno);
@@ -509,6 +527,11 @@ int IO::pwrite(int64 offset, int length, const UCHAR* buffer)
 	ret = (int) ::write (fileId, buffer, length);
 #endif
 
+#ifndef _WIN32
+	if (forceFsync)
+		fsync(fileId);
+#endif
+		
 	DEBUG_FREEZE;
 
 	return ret;
@@ -605,9 +628,12 @@ void IO::reportWrites(void)
 int IO::getWriteMode(int attempt)
 {
 #ifdef O_DIRECT
-	if ((attempt == 0 && falcon_direct_io > 0) || falcon_direct_io > 1)
+	if (attempt == 0 && falcon_direct_io > 0)
 		return O_DIRECT;
 #endif
 
-	return O_SYNC;
+	if (attempt <= 1)
+		return O_SYNC;
+	
+	return 0;
 }

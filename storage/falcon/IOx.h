@@ -104,6 +104,7 @@ public:
 	uint		writeTypes[WRITE_TYPE_MAX];
 	bool		fatalError;
 	bool		isReadOnly;
+	bool		forceFsync;
 
 //private:
 	Dbb			*dbb;						// this is a crock and should be phased out

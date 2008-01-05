@@ -574,7 +574,8 @@ int StorageInterface::info(uint what)
 #endif
 
 	if (what & HA_STATUS_AUTO)
-		stats.auto_increment_value = storageShare->getSequenceValue(0);
+		// Return the next number to use.  Falcon stores the last number used.
+		stats.auto_increment_value = storageShare->getSequenceValue(0) + 1;
 
 	if (what & HA_STATUS_ERRKEY)
 		errkey = indexErrorId;
@@ -752,7 +753,11 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 	DBUG_PRINT("info",("incrementValue = " I64FORMAT, (long long int)incrementValue));
 
 	if ((ret = storageTable->create(gen.getString(), incrementValue)))
+		{
+		storageTable->deleteTable();
+		
 		DBUG_RETURN(error(ret));
+		}
 
 	for (n = 0; n < form->s->keys; ++n)
 		if (n != form->s->primary_key)
@@ -816,13 +821,20 @@ THR_LOCK_DATA **StorageInterface::store_lock(THD *thd, THR_LOCK_DATA **to,
 		{
 		/*
 		  Here is where we get into the guts of a row level lock.
-		  If TL_UNLOCK is set
-		  If we are not doing a LOCK TABLE or DISCARD/IMPORT
-		  TABLESPACE, then allow multiple writers
+		  MySQL server will serialize write access to tables unless 
+		  we tell it differently.  Falcon can handle concurrent changes
+		  for most operations.  But allow the server to set its own 
+		  lock type for certain SQL commands.
 		*/
 
-		if ( (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE) &&
-		     !thd_in_lock_tables(thd))
+		const uint sql_command = thd_sql_command(thd);
+		if (    (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE)
+		    && !(thd_in_lock_tables(thd) && sql_command == SQLCOM_LOCK_TABLES)
+		    && !(thd_tablespace_op(thd))
+		    &&  (sql_command != SQLCOM_TRUNCATE)
+		    &&  (sql_command != SQLCOM_OPTIMIZE)
+		    &&  (sql_command != SQLCOM_CREATE_TABLE)
+		   )
 			lock_type = TL_WRITE_ALLOW_WRITE;
 
 		/*

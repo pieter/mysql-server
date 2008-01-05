@@ -290,6 +290,8 @@ int StorageDatabase::nextRow(StorageTable* storageTable, int recordNumber, bool 
 				return StorageErrorOutOfRecordMemory;
 			case DEADLOCK:
 				return StorageErrorDeadlock;
+			case LOCK_TIMEOUT:
+				return StorageErrorLockTimeout;
 			}
 
 		return StorageErrorRecordNotFound;
@@ -349,6 +351,8 @@ int StorageDatabase::fetch(StorageConnection *storageConnection, StorageTable* s
 				return StorageErrorOutOfRecordMemory;
 			case DEADLOCK:
 				return StorageErrorDeadlock;
+			case LOCK_TIMEOUT:
+				return StorageErrorLockTimeout;
 			}
 
 		return StorageErrorRecordNotFound;
@@ -425,6 +429,8 @@ int StorageDatabase::nextIndexed(StorageTable *storageTable, void* recordBitmap,
 				return StorageErrorOutOfRecordMemory;
 			case DEADLOCK:
 				return StorageErrorDeadlock;
+			case LOCK_TIMEOUT:
+				return StorageErrorLockTimeout;
 			}
 
 		return StorageErrorRecordNotFound;
@@ -601,6 +607,10 @@ int StorageDatabase::deleteRow(StorageConnection *storageConnection, Table* tabl
 			{
 			case DEADLOCK:
 				code = StorageErrorDeadlock;
+				break;
+
+			case LOCK_TIMEOUT:
+				code = StorageErrorLockTimeout;
 				break;
 
 			case UPDATE_CONFLICT:

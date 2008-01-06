@@ -2232,7 +2232,7 @@ uint build_table_shadow_filename(char *buff, size_t bufflen,
 #define NO_FRM_RENAME   (1 << 2)
 
 /* from hostname.cc */
-char *ip_to_hostname(struct sockaddr_storage *in, uint *errors);
+char *ip_to_hostname(struct sockaddr_storage *in, int addrLen, uint *errors);
 void inc_host_errors(struct sockaddr_storage *in);
 void reset_host_errors(struct sockaddr_storage *in);
 bool hostname_cache_init();

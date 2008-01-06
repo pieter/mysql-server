@@ -181,6 +181,7 @@ struct st_vio
   int			fcntl_mode;	/* Buffered fcntl(sd,F_GETFL) */
   struct sockaddr_storage	local;		/* Local internet address */
   struct sockaddr_storage	remote;		/* Remote internet address */
+  int addrLen;                          /* Length of remote address */
   enum enum_vio_type	type;		/* Type of connection */
   char			desc[30];	/* String description */
   char                  *read_buffer;   /* buffer for vio_read_buff */

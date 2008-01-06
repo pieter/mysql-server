@@ -692,7 +692,7 @@ static int check_connection(THD *thd)
     {
       vio_in_addr(net->vio, &thd->remote);
       thd->main_security_ctx.host=
-        ip_to_hostname(&thd->remote, &connect_errors);
+        ip_to_hostname(&net->vio->remote, net->vio->addrLen, &connect_errors);
       /* Cut very long hostnames to avoid possible overflows */
       if (thd->main_security_ctx.host)
       {

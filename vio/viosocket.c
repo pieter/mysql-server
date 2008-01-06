@@ -327,9 +327,10 @@ my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen)
       DBUG_PRINT("exit", ("getpeername gave error: %d", socket_errno));
       DBUG_RETURN(1);
     }
+    vio->addrLen= (int)addrLen;
 
     if ((error= getnameinfo((struct sockaddr *)(&vio->remote), 
-                            sizeof(struct sockaddr_storage),
+                            addrLen,
                             buf, buflen,
                             port_buf, NI_MAXSERV, NI_NUMERICHOST|NI_NUMERICSERV)))
     {

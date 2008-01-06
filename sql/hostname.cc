@@ -132,7 +132,7 @@ void reset_host_errors(struct sockaddr_storage *in)
 }
 
 
-char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
+char *ip_to_hostname(struct sockaddr_storage *in, int addrLen, uint *errors)
 {
   char *name;
 
@@ -145,7 +145,7 @@ char *ip_to_hostname(struct sockaddr_storage *in, uint *errors)
   *errors=0;
 
   /* Historical comparison for 127.0.0.1 */
-  gxi_error= getnameinfo((struct sockaddr *)in, sizeof(struct sockaddr_storage),
+  gxi_error= getnameinfo((struct sockaddr *)in, addrLen,
                          hostname_buff, NI_MAXHOST,
                          NULL, 0, NI_NUMERICHOST);
   if (gxi_error)

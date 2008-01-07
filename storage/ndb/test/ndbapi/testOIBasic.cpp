@@ -551,6 +551,10 @@ Chs::Chs(CHARSET_INFO* cs) :
     // check no proper prefix wellformed
     ok = true;
     for (unsigned j = 1; j < size; j++) {
+      if (j < m_cs->mbminlen) {
+        // utf32 assert
+        continue;
+      }
       if ((*cs->cset->well_formed_len)(cs, sbytes, sbytes + j, 1, &not_used) == j) {
         ok = false;
         break;
@@ -563,7 +567,7 @@ Chs::Chs(CHARSET_INFO* cs) :
     // normalize
     memset(xbytes, 0, sizeof(xbytes));
     // currently returns buffer size always
-    int xlen = (*cs->coll->strnxfrm)(cs, xbytes, m_xmul * size, bytes, size);
+    int xlen = (*cs->coll->strnxfrm)(cs, xbytes, m_xmul * size, m_xmul * size, bytes, size, MY_STRXFRM_PAD_WITH_SPACE);
     // check we got something
     ok = false;
     for (unsigned j = 0; j < xlen; j++) {

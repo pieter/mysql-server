@@ -13,6 +13,28 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA */
 
+/****************************************************************
+
+  This file incorporates work covered by the following copyright and
+  permission notice:
+
+  The author of this software is David M. Gay.
+
+  Copyright (c) 1991, 2000, 2001 by Lucent Technologies.
+
+  Permission to use, copy, modify, and distribute this software for any
+  purpose without fee is hereby granted, provided that this entire notice
+  is included in all copies of any software which is or includes a copy
+  or modification of this software and in all copies of the supporting
+  documentation for such software.
+
+  THIS SOFTWARE IS BEING PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED
+  WARRANTY.  IN PARTICULAR, NEITHER THE AUTHOR NOR LUCENT MAKES ANY
+  REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
+  OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
+
+ ***************************************************************/
+
 #include <my_base.h> /* for EOVERFLOW on Windows */
 #include <my_global.h>
 #include <m_string.h>  /* for memcpy and NOT_FIXED_DEC */

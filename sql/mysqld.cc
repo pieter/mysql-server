@@ -6655,14 +6655,6 @@ static int show_starttime(THD *thd, SHOW_VAR *var, char *buff)
   return 0;
 }
 
-static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff)
-{
-  var->type= SHOW_LONG;
-  var->value= buff;
-  *((long *)buff)= (long) (thd->query_start() - flush_status_time);
-  return 0;
-}
-
 #ifdef COMMUNITY_SERVER
 static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff)
 {

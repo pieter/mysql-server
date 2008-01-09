@@ -138,10 +138,6 @@ select  @tr_var_b4_118, @tr_var_b4_121, @tr_var_b4_122,
 @tr_var_b4_136, @tr_var_b4_163;
 @tr_var_b4_118	@tr_var_b4_121	@tr_var_b4_122	@tr_var_b4_136	@tr_var_b4_163
 a	NULL	Test 3.5.9.3	8	123.170000000000000000000000000000
-select  @tr_var_af_118, @tr_var_af_121, @tr_var_af_122, 
-@tr_var_af_136, @tr_var_af_163;
-@tr_var_af_118	@tr_var_af_121	@tr_var_af_122	@tr_var_af_136	@tr_var_af_163
-a	NULL	Test 3.5.9.3	8	123.170000000000000000000000000000
 drop trigger trg2_a;
 drop trigger trg2_b;
 drop trigger trg2_c;

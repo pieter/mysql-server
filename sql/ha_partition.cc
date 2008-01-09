@@ -2715,7 +2715,7 @@ int ha_partition::write_row(uchar * buf)
       use autoincrement_lock variable to avoid unnecessary locks.
       Probably not an ideal solution.
     */
-    if (table_share->tmp_table == NO_TMP_TABLE)
+    if (table_share->tmp_table == NO_TMP_TABLE && m_innodb)
     {
       /*
         Bug#30878 crash when alter table from non partitioned table

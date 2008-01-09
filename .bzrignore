@@ -1284,6 +1284,8 @@ mysql-test/*.ds?
 mysql-test/*.vcproj
 mysql-test/.DS_Store
 mysql-test/dump.txt
+mysql-test/funcs_1.log
+mysql-test/funcs_1.tar
 mysql-test/gmon.out
 mysql-test/install_test_db
 mysql-test/lib/init_db.sql
@@ -1375,6 +1377,7 @@ mysql-test/r/udf.log
 mysql-test/rpl.log
 mysql-test/share/mysql
 mysql-test/std_data/*.pem
+mysql-test/suite/funcs_1.tar.gz
 mysql-test/suite/funcs_1/r/falcon_subquery2.result
 mysql-test/suite/funcs_1/r/falcon_subquery3.result
 mysql-test/suite/funcs_1/r/falcon_subquery4.result

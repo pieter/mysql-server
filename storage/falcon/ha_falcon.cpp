@@ -1980,10 +1980,16 @@ void StorageInterface::logger(int mask, const char* text, void* arg)
 {
 	if (mask & falcon_debug_mask)
 		{
-		printf ("%s", text);
+		printf("%s", text);
+		if (falcon_debug_autoflush)
+			fflush(stdout);
 
 		if (falcon_log_file)
+			{
 			fprintf(falcon_log_file, "%s", text);
+				if (falcon_debug_autoflush)
+					fflush(falcon_log_file);
+			}
 		}
 }
 

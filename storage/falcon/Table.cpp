@@ -2447,33 +2447,41 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 
 				if (sync)
 					sync->unlock();
-					
+				
 				state = transaction->getRelativeState(dup, WAIT_IF_ACTIVE);
-				rec->release();
-				
-				if (activeTransaction)
-					activeTransaction->release();
-				
-				return checkUniqueWaited;
+
+				if (state != Deadlock)
+					{
+					rec->release();
+					
+					if (activeTransaction)
+						activeTransaction->release();
+					
+					return checkUniqueWaited;
+					}
 				}
 
-			if (activeTransaction)
+			else if (activeTransaction)
 				{
 				if (sync)
 					sync->unlock();
 				
 				state = transaction->getRelativeState(activeTransaction,
 						activeTransaction->transactionId, WAIT_IF_ACTIVE);
-				activeTransaction->release();
-				rec->release();
-				
-				return checkUniqueWaited;
+
+				if (state != Deadlock)
+					{
+					activeTransaction->release();
+					rec->release();
+
+					return checkUniqueWaited;
+					}
 				}
 
-			// Found a duplicate conflict.
+			// Found a duplicate conflict or a deadlock.
 
 			rec->release();
-			
+
 			if (activeTransaction)
 				activeTransaction->release();
 
@@ -2485,7 +2493,7 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 				text = "deadlock on key %s in table %s.%s";
 				code = DEADLOCK;
 				}
-				
+
 			SQLEXCEPTION exception(code, text,
 									(const char*) index->name, 
 									(const char*) schemaName,

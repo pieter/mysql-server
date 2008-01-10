@@ -36,7 +36,8 @@ libbackup_la_SOURCES = \
   be_snapshot.cc \
   buffer_iterator.cc \
   be_thread.cc \
-  backup_progress.cc
+  backup_progress.cc \
+  si_objects.cc
 
 libbackup_la_LIBADD = libbackupstream.la
 

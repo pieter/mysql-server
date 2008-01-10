@@ -16,6 +16,8 @@
   and permitting an isolation layer for the client (caller).
  */ 
 
+#include "mysql_priv.h"
+
 /*
   Object Service: Create info methods
 

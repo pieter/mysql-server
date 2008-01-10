@@ -976,12 +976,10 @@ ha_innobase::ha_innobase(handlerton *hton, TABLE_SHARE *table_arg)
                      value here because it doesn't matter if we return the
                      HA_DO_INDEX_COND_PUSHDOWN bit from those "early" calls */
   start_of_scan(0),
-  num_write_row(0),
-  ds_mrr((DsMrr_impl::range_check_toggle_func_t)
-         &ha_innobase::toggle_range_check),
-  cond_keyno(MAX_KEY)
+  num_write_row(0)
 {
-  ds_mrr.h= this;
+//  ds_mrr.init(this, table, (DsMrr_impl::range_check_toggle_func_t)
+//                            &ha_innobase::toggle_range_check);
 }
 
 /*************************************************************************
@@ -3127,9 +3125,12 @@ build_template(
 	prebuilt->templ_contains_blob = FALSE;
 
 
-        if (file->active_index == file->cond_keyno && 
-            file->active_index != MAX_KEY && 
-            file->active_index != 0 /* file->primary_key psergey-todo:!*/)
+        /*
+          Setup index condition pushdown (note: we don't need to check if
+          this is a scan on primary key as that is checked in idx_cond_push)
+        */
+        if (file->active_index == file->pushed_idx_cond_keyno && 
+            file->active_index != MAX_KEY)
           do_idx_cond_push= need_second_pass= TRUE;
 
         /* 
@@ -3263,7 +3264,7 @@ skip_field:
           prebuilt->idx_cond_func= NULL;
           prebuilt->n_index_fields= n_requested_fields;
         }
-        file->in_range_read= FALSE;
+       // file->in_range_read= FALSE;
 
 	if (index != clust_index && prebuilt->need_to_access_clustered) {
 		/* Change rec_field_no's to correspond to the clustered index
@@ -3991,7 +3992,8 @@ ha_innobase::index_end(void)
 	int	error	= 0;
 	DBUG_ENTER("index_end");
 	active_index=MAX_KEY;
-        in_range_check_pushed_down= FALSE;
+	in_range_check_pushed_down= FALSE;
+	ds_mrr.dsmrr_close();
 	DBUG_RETURN(error);
 }
 
@@ -4606,6 +4608,10 @@ ha_innobase::position(
 
 	ut_a(prebuilt->trx == thd_to_trx(ha_thd()));
 
+        /*if (ds_mrr.call_position_for != this) {
+                ((ha_innobase*)ds_mrr.call_position_for)->position(record);
+                return;
+        }*/
 	if (prebuilt->clust_index_was_generated) {
 		/* No primary key was defined for the table and we
 		generated the clustered index from row id: the
@@ -6289,10 +6295,10 @@ ha_innobase::extra(
 			reset_template(prebuilt);
 
                         /* Reset index condition pushdown state */
-                        cond_keyno= MAX_KEY;
-                        in_range_read= FALSE;
+                        pushed_idx_cond= FALSE;
+                        pushed_idx_cond_keyno= MAX_KEY;
+                        //in_range_read= FALSE;
                         prebuilt->idx_cond_func= NULL;
-                        cond_keyno= MAX_KEY;
 			break;
 		case HA_EXTRA_NO_KEYREAD:
 			prebuilt->read_just_key = 0;
@@ -6337,11 +6343,10 @@ int ha_innobase::reset()
   }
   reset_template(prebuilt);
   /* Reset index condition pushdown state */
-  cond_keyno= MAX_KEY;
-  in_range_read= FALSE;
+  pushed_idx_cond_keyno= MAX_KEY;
+  pushed_idx_cond= NULL;
+  //in_range_read= FALSE;
   prebuilt->idx_cond_func= NULL;
-
-  cond_keyno= MAX_KEY;
   return 0;
 }
 
@@ -8206,6 +8211,8 @@ ha_rows ha_innobase::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
                                                  uint *flags, 
                                                  COST_VECT *cost)
 {
+  /* See comments in ha_myisam::multi_range_read_info_const */
+  ds_mrr.init(this, table);
   return ds_mrr.dsmrr_info_const(keyno, seq, seq_init_param, n_ranges, bufsz,
                                  flags, cost);
 }
@@ -8213,6 +8220,7 @@ ha_rows ha_innobase::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
 int ha_innobase::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
                           uint *bufsz, uint *flags, COST_VECT *cost)
 {
+  ds_mrr.init(this, table);
   return ds_mrr.dsmrr_info(keyno, n_ranges, keys, bufsz, flags, cost);
 }
 
@@ -8229,12 +8237,12 @@ C_MODE_START
 static my_bool index_cond_func_innodb(void *arg)
 {
   ha_innobase *h= (ha_innobase*)arg;
-  if (h->in_range_read)
+  if (h->end_range) //was: h->in_range_read
   {
-    if (h->compare_key(h->end_range) > 0)
+    if (h->compare_key2(h->end_range) > 0)
       return 2; /* caller should return HA_ERR_END_OF_FILE already */
   }
-  return (my_bool)h->idx_cond->val_int();
+  return (my_bool)h->pushed_idx_cond->val_int();
 }
 
 C_MODE_END
@@ -8244,19 +8252,12 @@ Item *ha_innobase::idx_cond_push(uint keyno_arg, Item* idx_cond_arg)
 {
   if (keyno_arg != primary_key)
   {
-    cond_keyno= keyno_arg;
-    idx_cond= idx_cond_arg;
-    return NULL; /* Table handler will check the entire condition */
+    pushed_idx_cond_keyno= keyno_arg;
+    pushed_idx_cond= idx_cond_arg;
     in_range_check_pushed_down= TRUE;
+    return NULL; /* Table handler will check the entire condition */
   }
   return idx_cond_arg; /* Table handler will not make any checks */
-}
-
-
-void ha_innobase::add_explain_extra_info(uint keyno, String *extra)
-{
-  if (cond_keyno != MAX_KEY && idx_cond && keyno==cond_keyno)
-    extra->append(STRING_WITH_LEN("; Using index condition"));
 }
 
 
@@ -8266,11 +8267,11 @@ int ha_innobase::read_range_first(const key_range *start_key,
                                 bool sorted /* ignored */)
 {
   int res;
-  if (!eq_range_arg)
-    in_range_read= TRUE;
+  //if (!eq_range_arg)
+    //in_range_read= TRUE;
   res= handler::read_range_first(start_key, end_key, eq_range_arg, sorted);
-  if (res)
-    in_range_read= FALSE;
+  //if (res)
+  //  in_range_read= FALSE;
   return res;
 }
 
@@ -8278,8 +8279,8 @@ int ha_innobase::read_range_first(const key_range *start_key,
 int ha_innobase::read_range_next()
 {
   int res= handler::read_range_next();
-  if (res)
-    in_range_read= FALSE;
+  //if (res)
+  //  in_range_read= FALSE;
   return res;
 }
 

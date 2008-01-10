@@ -15,7 +15,7 @@ user_limits     : Bug#23921 random failure of user_limits.test
 concurrent_innodb        : BUG#21579 2006-08-11 mleich innodb_concurrent random failures with varying differences
 ctype_big5               : BUG#26711 2007-06-21 Lars Test has never worked on Double Whopper
 
-order_by             : WL#2475: spetrunia producing ordered streams is not handled correctly
+##order_by             : WL#2475: spetrunia producing ordered streams is not handled correctly
 federated_transactions   : Bug#29523 Transactions do not work
 locktrans_innodb     : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock tables used in triggers
 rpl_locktrans_innodb : Bug#29929 2007-07-20 ingo LOCK TABLES does not pre-lock tables used in triggers

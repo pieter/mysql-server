@@ -3583,8 +3583,6 @@ ulong fix_sql_mode(ulong sql_mode)
 }
 
 
-//psergey-todo: think if we can join this with thd_sql_mode one
-
 bool
 sys_var_thd_optimizer_switch::
 symbolic_mode_representation(THD *thd, ulonglong val, LEX_STRING *rep)

@@ -2,7 +2,7 @@
 #define SI_OBJECTS_H_
 
 /**
-   @file si_objects.h
+   @file
  
    This file defines the API for the following object services:
      - getting CREATE statements for objects
@@ -206,5 +206,163 @@ int get_create_info_constraint(LEX_STRING db,
                                LEX_STRING constraint,
                                String *string);
 
+/*
+  Object Service: Enumerating
+
+  List various kinds of objects present in the server instance. The methods
+  collect list of object names and store it in the DYNAMIC_ARRAY provided by 
+  the caller. The array consists of LEX_STRING entries and should be deallocated
+  by the caller.
+*/
+
+
+/**
+  List all databases present in the instance.
+  
+  @param[out]  dbs  array where names should be stored.
+  
+  @return 0 on success, error code if error.
+ */
+int get_databases(DYNAMIC_ARRAY *dbs);
+
+/**
+  List all tables belonging to a given database.
+  
+  @param[in]  db     database name
+  @param[out] tables array where table names should be stored
+ 
+  @note The returned list should contain only base tables, not views.  
+
+  @return 0 on success, error code if error.
+ */
+int get_tables(LEX_STRING db, DYNAMIC_ARRAY *tables);
+
+/**
+  List all views belonging to a given database.
+  
+  @param[in]  db    database name
+  @param[out] views array where view names should be stored
+
+  @return 0 on success, error code if error.
+ */
+int get_views(LEX_STRING db, DYNAMIC_ARRAY *views);
+
+/**
+  List all stored procedures belonging to a given database.
+  
+  @param[in]  db    database name
+  @param[out] procs array where procedure names should be stored
+
+  @return 0 on success, error code if error.
+ */
+int get_procedures(LEX_STRING db, DYNAMIC_ARRAY *procs);
+
+/**
+  List all stored functions belonging to a given database.
+  
+  @param[in]  db    database name
+  @param[out] funcs array where function names should be stored
+
+  @return 0 on success, error code if error.
+ */
+int get_functions(LEX_STRING db, DYNAMIC_ARRAY *funcs);
+
+/**
+  List all triggers belonging to a given database.
+  
+  @param[in]  db       database name
+  @param[out] triggers array where trigger names should be stored
+
+  @return 0 on success, error code if error.
+ */
+int get_triggers(LEX_STRING db, DYNAMIC_ARRAY *triggers);
+
+/**
+  List all events belonging to a given database.
+  
+  @param[in]  db      database name
+  @param[out] events  array where event names should be stored
+
+  @return 0 on success, error code if error.
+ */
+int get_events(LEX_STRING db, DYNAMIC_ARRAY *events);
+
+/**
+  List indexes of a given tbale.
+  
+  @param[in]  db      database name
+  @param[in]  table   table name
+  @param[out] indexes array where index names should be stored
+
+  @return 0 on success, error code if error.
+ */
+int get_indexes(LEX_STRING db, LEX_STRING table, DYNAMIC_ARRAY *indexes);
+
+/**
+  List constraints defined in a given tbale.
+  
+  This should list names of all constraints explicitly created using CONSTRAINT
+  clauses.
+  
+  @param[in]  db          database name
+  @param[in]  table       table name
+  @param[out] constraints array where constraint names should be stored
+
+  @return 0 on success, error code if error.
+ */
+int get_constraints(LEX_STRING db, LEX_STRING table, DYNAMIC_ARRAY *constraints);
+
+/*
+ Object service: Dependencies for views
+
+ Notes:
+ 
+ - The functions only return the direct dependencies, they do not calculate the 
+   transitive closure.
+ - One needs to call both functions to get the complete list of views and tables.
+*/
+
+/**
+  Return list of tables used by a view.
+  
+  @param[in]  db     database name
+  @param[in]  view   view name
+  @param[out] tables array where table names should be stored
+  
+  @note Only base tables are listed, not views.
+  
+  @return 0 on success, error code if error.
+ */ 
+int get_underlying_tables(LEX_STRING db, LEX_STRING view, DYNAMIC_ARRAY *tables);
+
+/**
+  Return list of other views used by a given view.
+  
+  @param[in]  db     database name
+  @param[in]  view   view name
+  @param[out] views  array where view names should be stored
+  
+  @return 0 on success, error code if error.
+ */ 
+int get_underlying_views(LEX_STRING db, LEX_STRING view, DYNAMIC_ARRAY *views);
+
+/*
+ Object service: Executor (mainly for create/drop)
+
+ Notes:
+ - This will probably be improved in the future
+ - We need to ensure that error handling from mysql_parse is handled
+   correctly.
+*/
+
+/*
+  Execute given SQL statement ignoring the result set (if any).
+  
+  @param[in,out]  thd     execution context
+  @param[in]      stmt    SQL statement to execute 
+ 
+  @return 0 on success, error code if error.
+ */ 
+int execute_sql(THD *thd, LEX_STRING stmt);
 
 #endif /*SI_OBJECTS_H_*/

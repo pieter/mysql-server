@@ -1,5 +1,5 @@
 /**
-   @file si_objects.cc
+   @file
  
    This file defines the API for the following object services:
      - getting CREATE statements for objects

@@ -65,7 +65,8 @@ noinst_HEADERS = \
   be_thread.h \
   backup_progress.h \
   stream_v1.h \
-  stream_v1_services.h
+  stream_v1_services.h \
+  si_objects.h
 
 DEFS = \
   -DMYSQL_SERVER \

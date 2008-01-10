@@ -1,368 +1,479 @@
 #ifndef SI_OBJECTS_H_
 #define SI_OBJECTS_H_
 
-/**
-   @file
- 
-   This file defines the API for the following object services:
-     - getting CREATE statements for objects
-     - generating GRANT statments for objects
-     - enumerating objects
-     - finding dependencies for objects
-     - executor for SQL statments
-     - wrappers for controlling the DDL Blocker
-
-  The methods defined below are used to provide server functionality to
-  and permitting an isolation layer for the client (caller).
- */ 
-
-#include "mysql_priv.h"
-
-/*
-  Object Service: Create info methods
-
-  Provide create info for different objects
-
-  Assumptions:
-    - We get the stings in UTF8.
-
-  Open issues:
-    - What type should the string be (LEX_STRING or char*)?
-    - Should get_create_info_table have substrings for constraints and index?
-    - What to do about patterns in grants?
-
-  Comments:
-    - get_create_info_table and get_create_info_view use same code
-    - get_create_info_procedure, get_create_info_function use same code
-*/
-
-/**
-   Get the CREATE statement for a table.
-   
-   This method generates a SQL statement that permits the creation of a
-   table.
-
-   @param[in]  LEX_STRING db      database name
-   @param[in]  LEX_STRING table   table name
-   @param[out] STRING *string     the SQL for the CREATE command
-
-   @note Currently generates a SQL command like what is returned by 
-         SHOW CREATE TABLE.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_table(LEX_STRING db,
-                          LEX_STRING table,
-                          String *string);
-
-/**
-   Get the CREATE statement for a view.
-   
-   This method generates a SQL statement that permits the creation of a
-   view.
-
-   @param[in]  LEX_STRING db      database name
-   @param[in]  LEX_STRING view    table name
-   @param[out] STRING *string     the SQL for the CREATE command
-  
-   @note Currently generates a SQL command like what is returned by 
-         SHOW CREATE VIEW.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_view(LEX_STRING db,
-                         LEX_STRING view,
-                         String *string);
-
-/**
-   Get the CREATE statement for a database.
-   
-   This method generates a SQL statement that permits the creation of a
-   database.
-
-   @param[in]  LEX_STRING db      database name
-   @param[out] STRING *string     the SQL for the CREATE command
-  
-   @note Currently generates a SQL command like what is returned by 
-         SHOW CREATE DATABASE.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_database(LEX_STRING db,
-                             String *string);
-
-/**
-   Get the CREATE statement for a stored procedure.
-   
-   This method generates a SQL statement that permits the creation of a
-   procedure.
-
-   @param[in]  LEX_STRING db      database name
-   @param[in]  LEX_STRING proc    procedure name
-   @param[out] STRING *string     the SQL for the CREATE command
-  
-   @note Currently generates a SQL command like what is returned by 
-         SHOW CREATE PROCEDURE.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_procedure(LEX_STRING db,
-                              LEX_STRING proc,
-                              String *string);
-
-/**
-   Get the CREATE statement for a function.
-   
-   This method generates a SQL statement that permits the creation of a
-   function.
-
-   @param[in]  LEX_STRING db      database name
-   @param[in]  LEX_STRING func    function name
-   @param[out] STRING *string     the SQL for the CREATE command
-  
-   @note Currently generates a SQL command like what is returned by 
-         SHOW CREATE FUNCTION.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_function(LEX_STRING db,
-                             LEX_STRING func,
-                             String *string);
-
-/**
-   Get the CREATE statement for a trigger.
-   
-   This method generates a SQL statement that permits the creation of a
-   trigger.
-
-   @param[in]  LEX_STRING db      database name
-   @param[in]  LEX_STRING trigger trigger name
-   @param[out] STRING *string     the SQL for the CREATE command
-  
-   @note Currently generates a SQL command like what is returned by 
-         SHOW CREATE TRIGGER.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_trigger(LEX_STRING db,
-                            LEX_STRING trigger,
-                            String *string);
-
-/**
-   Get the CREATE statement for an event.
-   
-   This method generates a SQL statement that permits the creation of a
-   event.
-
-   @param[in]  LEX_STRING db      database name
-   @param[in]  LEX_STRING ev      event name
-   @param[out] STRING *string     the SQL for the CREATE command
-  
-   @note Currently generates a SQL command like what is returned by 
-         SHOW CREATE EVENT.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_event(LEX_STRING db,
-                          LEX_STRING ev,
-                          String *string);
-
-/**
-   Get the CREATE statement for an index.
-   
-   This method generates a CREATE INDEX command.
-
-   @param[in]  LEX_STRING db      database name
-   @param[in]  LEX_STRING table   table name
-   @param[in]  LEX_STRING index   index name
-   @param[out] STRING *string     the SQL for the CREATE command
-
-   @Note There is no corresponding SHOW CREATE INDEX command.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_index(LEX_STRING db,
-                          LEX_STRING table,
-                          LEX_STRING index,
-                          String *string);
-
-/**
-   Get the CREATE statement for a constraint.
-   
-   This method generates the ALTER TABLE statement that would create the
-   constraint on the table.
-
-   @param[in]  LEX_STRING db         database name
-   @param[in]  LEX_STRING table      table name
-   @param[in]  LEX_STRING constraint constraint name
-   @param[out] STRING *string        the SQL for the CREATE command
-
-   @Note There is no corresponding SHOW CREATE CONSTRAINT command.
-
-   @returns int 0 = success, error code if error.
-  */
-int get_create_info_constraint(LEX_STRING db,
-                               LEX_STRING table,
-                               LEX_STRING constraint,
-                               String *string);
-
-/*
-  Object Service: Enumerating
-
-  List various kinds of objects present in the server instance. The methods
-  collect list of object names and store it in the DYNAMIC_ARRAY provided by 
-  the caller. The array consists of LEX_STRING entries and should be deallocated
-  by the caller.
-*/
-
-
-/**
-  List all databases present in the instance.
-  
-  @param[out]  dbs  array where names should be stored.
-  
-  @return 0 on success, error code if error.
- */
-int get_databases(DYNAMIC_ARRAY *dbs);
-
-/**
-  List all tables belonging to a given database.
-  
-  @param[in]  db     database name
-  @param[out] tables array where table names should be stored
- 
-  @note The returned list should contain only base tables, not views.  
-
-  @return 0 on success, error code if error.
- */
-int get_tables(LEX_STRING db, DYNAMIC_ARRAY *tables);
-
-/**
-  List all views belonging to a given database.
-  
-  @param[in]  db    database name
-  @param[out] views array where view names should be stored
-
-  @return 0 on success, error code if error.
- */
-int get_views(LEX_STRING db, DYNAMIC_ARRAY *views);
-
-/**
-  List all stored procedures belonging to a given database.
-  
-  @param[in]  db    database name
-  @param[out] procs array where procedure names should be stored
-
-  @return 0 on success, error code if error.
- */
-int get_procedures(LEX_STRING db, DYNAMIC_ARRAY *procs);
-
-/**
-  List all stored functions belonging to a given database.
-  
-  @param[in]  db    database name
-  @param[out] funcs array where function names should be stored
-
-  @return 0 on success, error code if error.
- */
-int get_functions(LEX_STRING db, DYNAMIC_ARRAY *funcs);
-
-/**
-  List all triggers belonging to a given database.
-  
-  @param[in]  db       database name
-  @param[out] triggers array where trigger names should be stored
-
-  @return 0 on success, error code if error.
- */
-int get_triggers(LEX_STRING db, DYNAMIC_ARRAY *triggers);
-
-/**
-  List all events belonging to a given database.
-  
-  @param[in]  db      database name
-  @param[out] events  array where event names should be stored
-
-  @return 0 on success, error code if error.
- */
-int get_events(LEX_STRING db, DYNAMIC_ARRAY *events);
-
-/**
-  List indexes of a given tbale.
-  
-  @param[in]  db      database name
-  @param[in]  table   table name
-  @param[out] indexes array where index names should be stored
-
-  @return 0 on success, error code if error.
- */
-int get_indexes(LEX_STRING db, LEX_STRING table, DYNAMIC_ARRAY *indexes);
-
-/**
-  List constraints defined in a given tbale.
-  
-  This should list names of all constraints explicitly created using CONSTRAINT
-  clauses.
-  
-  @param[in]  db          database name
-  @param[in]  table       table name
-  @param[out] constraints array where constraint names should be stored
-
-  @return 0 on success, error code if error.
- */
-int get_constraints(LEX_STRING db, LEX_STRING table, DYNAMIC_ARRAY *constraints);
-
-/*
- Object service: Dependencies for views
-
- Notes:
- 
- - The functions only return the direct dependencies, they do not calculate the 
-   transitive closure.
- - One needs to call both functions to get the complete list of views and tables.
-*/
-
-/**
-  Return list of tables used by a view.
-  
-  @param[in]  db     database name
-  @param[in]  view   view name
-  @param[out] tables array where table names should be stored
-  
-  @note Only base tables are listed, not views.
-  
-  @return 0 on success, error code if error.
- */ 
-int get_underlying_tables(LEX_STRING db, LEX_STRING view, DYNAMIC_ARRAY *tables);
-
-/**
-  Return list of other views used by a given view.
-  
-  @param[in]  db     database name
-  @param[in]  view   view name
-  @param[out] views  array where view names should be stored
-  
-  @return 0 on success, error code if error.
- */ 
-int get_underlying_views(LEX_STRING db, LEX_STRING view, DYNAMIC_ARRAY *views);
-
-/*
- Object service: Executor (mainly for create/drop)
-
- Notes:
- - This will probably be improved in the future
- - We need to ensure that error handling from mysql_parse is handled
-   correctly.
-*/
-
-/*
-  Execute given SQL statement ignoring the result set (if any).
-  
-  @param[in,out]  thd     execution context
-  @param[in]      stmt    SQL statement to execute 
- 
-  @return 0 on success, error code if error.
- */ 
-int execute_sql(THD *thd, LEX_STRING stmt);
-
-#endif /*SI_OBJECTS_H_*/
+namespace obs {
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Public interface.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+// TODO:
+//  - document it (doxygen);
+//  - merge with the existing comments.
+
+class Obj
+{
+public:
+  virtual bool serialize(THD *thd, String *serialialization) = 0;
+
+  virtual bool materialize(uint serialization_version,
+                          const String *serialialization) = 0;
+
+  virtual bool execute() = 0;
+
+public:
+  virtual ~Obj()
+  { }
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class ObjIterator
+{
+public:
+  virtual Obj *next() = 0;
+  // User is responsible for destroying the returned object.
+
+public:
+  virtual ~ObjIterator()
+  { }
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+// User is responsible for destroying the returned object.
+
+Obj *get_database(const LEX_STRING db_name);
+Obj *get_table(const LEX_STRING db_name, const LEX_STRING table_name);
+Obj *get_view(const LEX_STRING db_name, const LEX_STRING view_name);
+Obj *get_trigger(const LEX_STRING db_name, const LEX_STRING trigger_name);
+Obj *get_stored_procedure(const LEX_STRING db_name, const LEX_STRING sp_name);
+Obj *get_stored_function(const LEX_STRING db_name, const LEX_STRING sf_name);
+Obj *get_event(const LEX_STRING db_name, const LEX_STRING event_name);
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Enumeration.
+//
+
+// User is responsible for destroying the returned iterator.
+
+ObjIterator *get_databases();
+ObjIterator *get_db_tables(const LEX_STRING db_name);
+ObjIterator *get_db_views(const LEX_STRING db_name);
+ObjIterator *get_db_triggers(const LEX_STRING db_name);
+ObjIterator *get_db_stored_procedures(const LEX_STRING db_name);
+ObjIterator *get_db_stored_functions(const LEX_STRING db_name);
+ObjIterator *get_db_events(const LEX_STRING db_name);
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Dependecies.
+//
+
+ObjIterator* get_view_base_tables(const LEX_STRING db_name,
+                                  const LEX_STRING view_name);
+
+///////////////////////////////////////////////////////////////////////////
+
+enum ObjectType
+{
+  OT_DATABASE,
+  OT_TABLE,
+  OT_VIEW,
+  OT_TRIGGER,
+  OT_STORED_PROCEDURE,
+  OT_STORED_FUNCTION,
+  OT_EVENT
+};
+
+Obj *create_object(ObjectType object_type,
+                   const String *serialialization);
+
+///////////////////////////////////////////////////////////////////////////
+
+
+//
+// Implementation: iterator impl classes.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+#if 0
+class DatabaseListIterator : public ObjIterator
+{
+public:
+  DatabaseIterator();
+
+public:
+  virtual DatabaseObj *next();
+};
+
+class DbTablesIterator : public ObjIterator
+{
+public:
+  DbTablesIterator(const LEX_STRING db_name);
+
+public:
+  virtual TableObj *next();
+};
+
+class DbViewIterator : public ObjIterator
+{
+public:
+  DbViewIterator(const LEX_STRING db_name);
+
+public:
+  virtual TableObj *next();
+}
+
+class DbTriggerIterator : public ObjIterator
+{
+public:
+  DbTriggerIterator(const LEX_STRING db_name);
+
+publbic:
+  virtual TriggerObj *next();
+};
+
+class DbStoredProcIterator : public ObjIterator
+{
+public:
+  DbStoredProcIterator(const LEX_STRING db_name);
+
+public:
+  virtual StoredProcObj *next();
+};
+
+class DbStoredFuncIterator : public ObjIterator
+{
+public:
+  DbStoredFuncIterator(const LEX_STRING db_name);
+
+public:
+  virtual StoredFuncObj *next();
+}
+
+class DbEventIterator : public ObjIterator
+{
+public:
+  DbEventbIterator(const LEX_STRING db_name);
+
+public:
+  virtual EventObj *next();
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: DatabaseIterator class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+ObjIterator *get_databases()
+{
+  return new DatabaseIterator();
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: object impl classes.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+class DatabaseObj : public Obj
+{
+public:
+  DatabaseObj(const LEX_STRING db_name);
+
+public:
+  virtual bool serialize(THD *thd, String *serialialization);
+
+  virtual bool materialize(uint serialization_version,
+                          const String *serialialization);
+
+  virtual bool execute();
+
+private:
+  // These attributes are to be used only for serialialization.
+  LEX_STRING m_db_name;
+
+private:
+  // These attributes are to be used only for materialization.
+  LEX_STRING m_create_stmt;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class TableObj : public Obj
+{
+public:
+  TableObj(const LEX_STRING db_name,
+           const LEX_STRING table_name,
+           bool table_is_view);
+
+public:
+  virtual bool serialize(THD *thd, String *serialialization);
+
+  virtual bool materialize(uint serialization_version,
+                           const String *serialialization);
+
+  virtual bool execute();
+
+private:
+  // These attributes are to be used only for serialialization.
+  LEX_STRING m_db_name;
+  LEX_STRING m_table_name;
+  bool m_table_is_view;
+
+private:
+  // These attributes are to be used only for materialization.
+  LEX_STRING m_create_stmt;
+
+private:
+  bool serialize_table(THD *thd, String *serialialization);
+  bool serialize_view(THD *thd, String *serialialization);
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class TriggerObj : public Obj
+{
+public:
+  TriggerObj(const LEX_STRING db_name,
+             const LEX_STRING trigger_name);
+
+public:
+  virtual bool serialize(THD *thd, String *serialialization);
+
+  virtual bool materialize(uint serialization_version,
+                          const String *serialialization);
+
+  virtual bool execute();
+
+private:
+  // These attributes are to be used only for serialialization.
+  LEX_STRING m_db_name;
+  LEX_STRING m_trigger_name;
+
+private:
+  // These attributes are to be used only for materialization.
+  LEX_STRING m_create_stmt;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class StoredProcObj : public Obj
+{
+public:
+  StoredProcObj(const LEX_STRING db_name,
+                const LEX_STRING stored_proc_name);
+
+public:
+  virtual bool serialize(THD *thd, String *serialialization);
+
+  virtual bool materialize(uint serialization_version,
+                          const String *serialialization);
+
+  virtual bool execute();
+
+private:
+  // These attributes are to be used only for serialialization.
+  LEX_STRING m_db_name;
+  LEX_STRING m_stored_proc_name;
+
+private:
+  // These attributes are to be used only for materialization.
+  LEX_STRING m_create_stmt;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class StoredFuncObj : public Obj
+{
+public:
+  StoredFuncObj(const LEX_STRING db_name,
+                const LEX_STRING stored_func_name);
+
+public:
+  virtual bool serialize(THD *thd, String *serialialization);
+
+  virtual bool materialize(uint serialization_version,
+                          const String *serialialization);
+
+  virtual bool execute();
+
+private:
+  // These attributes are to be used only for serialialization.
+  LEX_STRING m_db_name;
+  LEX_STRING m_stored_func_name;
+
+private:
+  // These attributes are to be used only for materialization.
+  LEX_STRING m_create_stmt;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class EventObj : public Obj
+{
+public:
+  EventObj(const LEX_STRING db_name,
+           const LEX_STRING event_name);
+
+public:
+  virtual bool serialize(THD *thd, String *serialialization);
+
+  virtual bool materialize(uint serialization_version,
+                          const String *serialialization);
+
+  virtual bool execute();
+
+private:
+  // These attributes are to be used only for serialialization.
+  LEX_STRING m_db_name;
+  LEX_STRING m_event_name;
+
+private:
+  // These attributes are to be used only for materialization.
+  LEX_STRING m_create_stmt;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: DatabaseObj class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+DatabaseObj::DatabaseObj(const LEX_STRING db_name) :
+  m_db_name(*db_name)
+{
+  // TODO: return an error for pseudo-databases|tables or "mysql".
+}
+
+bool DatabaseObj::serialize(THD *thd, String *serialialization)
+{
+  // XXX: this is a copy & paste of mysql_show_create_database().
+
+  HA_CREATE_INFO create;
+
+// debug  if (!my_strcasecmp(system_charset_info, m_db_name.str,
+// debug                     INFORMATION_SCHEMA_NAME.str))
+// debug  {
+// debug    m_db_name.str= INFORMATION_SCHEMA_NAME.str;
+// debug    create.default_table_charset= system_charset_info;
+// debug  }
+// debug  else
+
+    if (check_db_dir_existence(m_db_name.str))
+    {
+      my_error(ER_BAD_DB_ERROR, MYF(0), m_db_name.str);
+      return -1;
+    }
+
+    load_db_opt_by_name(thd, m_db_name.str, &create);
+
+  serialialization->append(STRING_WITH_LEN("CREATE DATABASE "));
+  append_identifier(thd, serialialization, m_db_name.str, m_db_name.length);
+
+  if (create.default_table_charset)
+  {
+    serialialization->append(STRING_WITH_LEN(" DEFAULT CHARACTER SET "));
+    serialialization->append(create.default_table_charset->csname);
+    if (!(create.default_table_charset->state & MY_CS_PRIMARY))
+    {
+      serialialization->append(STRING_WITH_LEN(" COLLATE "));
+      serialialization->append(create.default_table_charset->name);
+    }
+  }
+
+  return 0;
+}
+
+bool DatabaseObj::materialize(uint serialization_version,
+                             const String *serialialization)
+{
+  // XXX: take serialization_version into account.
+
+  m_create_stmt= *serialialization;
+}
+
+bool DatabaseObj::execute()
+{
+  // TODO.
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: TableObj class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+TableObj::TableObj(const LEX_STRING db_name.
+                   const LEX_STRING table_name,
+                   bool table_is_view) :
+  m_db_name(*db_name),
+  m_table_name(*table_name),
+  m_table_is_view(table_is_view)
+{
+  // TODO: return an error for pseudo-databases|tables or "mysql".
+}
+
+bool TableObj::serialize(THD *thd, String *serialialization)
+{
+  // XXX: this is a copy & paste from mysqld_show_create() and
+  // store_create_info().
+
+  // NOTE: we don't care about 1) privilege checking; 2) meta-data locking
+  // here.
+
+  // XXX: we don't add version-specific comment here. materialize()
+  // function should know how to materialize the information.
+
+  return m_table_is_view ?
+         serialize_table(thd, serialialization) :
+         serialize_view(thd, serialialization);
+}
+
+bool TableObj::serialize_table(THD *thd, String *serialialization)
+{
+  return 0;
+}
+
+bool TableObj::serialize_view(THD *thd, String *serialialization)
+{
+  return 0;
+}
+
+bool TableObj::materialize(uint serialization_version,
+                          const String *serialialization)
+{
+  // XXX: take serialization_version into account.
+
+  m_create_stmt= *serialialization;
+}
+
+bool TableObj::execute()
+{
+  // TODO.
+}
+#endif
+
+///////////////////////////////////////////////////////////////////////////
+
+}
+
+#endif // SI_OBJECTS_H_

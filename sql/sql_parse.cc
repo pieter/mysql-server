@@ -30,6 +30,10 @@
 #include <ddl_blocker.h>
 #include "backup/debug.h"
 
+#ifdef BACKUP_TEST
+#include "backup/backup_test.h"
+#endif
+
 /**
   @defgroup Runtime_Environment Runtime Environment
   @{
@@ -1956,6 +1960,23 @@ mysql_execute_command(THD *thd)
     res = mysql_show_binlog_events(thd);
     break;
   }
+#endif
+
+
+#ifdef BACKUP_TEST
+  case SQLCOM_BACKUP_TEST:
+#ifdef EMBEDDED_LIBRARY
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "BACKUP");
+    goto error;
+#else
+    /*
+      Note: execute_backup_test_command() sends a correct response to the client
+      (either ok, result set or error message).
+     */  
+    if (execute_backup_test_command(thd, &lex->db_list)) 
+      goto error;
+    break;
+#endif
 #endif
 
   case SQLCOM_SHOW_ARCHIVE:

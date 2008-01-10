@@ -589,7 +589,12 @@ static SYMBOL symbols[] = {
   { "YEAR",		SYM(YEAR_SYM)},
   { "YEAR_MONTH",	SYM(YEAR_MONTH_SYM)},
   { "ZEROFILL",		SYM(ZEROFILL)},
+#ifdef BACKUP_TEST
+  { "||",		SYM(OR_OR_SYM)},
+  { "TEST",	        SYM(TEST)}
+#else
   { "||",		SYM(OR_OR_SYM)}
+#endif
 };
 
 

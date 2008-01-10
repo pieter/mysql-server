@@ -119,6 +119,9 @@ enum enum_sql_command {
   SQLCOM_ALTER_DB_UPGRADE,
   SQLCOM_SHOW_ARCHIVE,
   SQLCOM_BACKUP, SQLCOM_RESTORE,
+#ifdef BACKUP_TEST
+  SQLCOM_BACKUP_TEST,
+#endif
   /* This should be the last !!! */
 
   SQLCOM_END

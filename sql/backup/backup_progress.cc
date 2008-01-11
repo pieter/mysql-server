@@ -77,7 +77,7 @@ Locking_thread_st *open_backup_progress_table(const char *table_name,
   */
   while (locking_thd && (locking_thd->lock_state != LOCK_ACQUIRED) &&
          (locking_thd->lock_state != LOCK_ERROR))
-    sleep(0);
+    my_sleep(1);
   if (locking_thd->lock_state == LOCK_ERROR)
   {
     delete locking_thd;
@@ -113,7 +113,7 @@ int close_backup_progress_table(Locking_thread_st *locking_thd)
   */
   while (locking_thd && (locking_thd->lock_state != LOCK_DONE) &&
          (locking_thd->lock_state != LOCK_ERROR))
-    sleep(0);
+    my_sleep(1);
   if (locking_thd->lock_state == LOCK_ERROR)
     DBUG_RETURN(1);
   my_free(locking_thd->tables_in_backup, MYF(0));

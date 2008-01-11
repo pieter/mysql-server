@@ -48,7 +48,7 @@ public:
 // User is responsible for destroying the returned object.
 
 Obj *get_database(const LEX_STRING db_name);
-Obj *get_table(const LEX_STRING db_name, const LEX_STRING table_name);
+Obj *get_table(const LEX_STRING db_name, const LEX_STRING table_name, bool view);
 Obj *get_view(const LEX_STRING db_name, const LEX_STRING view_name);
 Obj *get_trigger(const LEX_STRING db_name, const LEX_STRING trigger_name);
 Obj *get_stored_procedure(const LEX_STRING db_name, const LEX_STRING sp_name);

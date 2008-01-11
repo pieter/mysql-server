@@ -16,6 +16,7 @@
 #include "mysql_priv.h"
 #include "si_objects.h"
 #include <ddl_blocker.h>
+#include "sql_show.h"
 
 extern DDL_blocker_class *DDL_blocker;
 
@@ -82,15 +83,15 @@ public:
   DatabaseObj(const LEX_STRING db_name) : m_db_name(db_name) {}
 
 public:
-  virtual bool serialize(THD *thd, String *serialialization);
+  virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialialization);
+                          const String *serialization);
 
   virtual bool execute(THD *thd);
 
 private:
-  // These attributes are to be used only for serialialization.
+  // These attributes are to be used only for serialization.
   LEX_STRING m_db_name;
 
 private:
@@ -113,10 +114,11 @@ private:
 
    @returns bool 0 = SUCCESS
   */
-bool DatabaseObj::serialize(THD *thd, String *serialialization)
+bool DatabaseObj::serialize(THD *thd, String *serialization)
 {
   HA_CREATE_INFO create;
   DBUG_ENTER("DatabaseObj::serialize()");
+  DBUG_PRINT("DatabaseObj::serialize", ("name: %s", m_db_name.str));
 
   if ((my_strcasecmp(system_charset_info, m_db_name.str, 
       INFORMATION_SCHEMA_NAME.str) == 0) ||
@@ -135,17 +137,17 @@ bool DatabaseObj::serialize(THD *thd, String *serialialization)
 
   load_db_opt_by_name(thd, m_db_name.str, &create);
 
-  serialialization->append(STRING_WITH_LEN("CREATE DATABASE "));
-  append_identifier(thd, serialialization, m_db_name.str, m_db_name.length);
+  serialization->append(STRING_WITH_LEN("CREATE DATABASE "));
+  append_identifier(thd, serialization, m_db_name.str, m_db_name.length);
 
   if (create.default_table_charset)
   {
-    serialialization->append(STRING_WITH_LEN(" DEFAULT CHARACTER SET "));
-    serialialization->append(create.default_table_charset->csname);
+    serialization->append(STRING_WITH_LEN(" DEFAULT CHARACTER SET "));
+    serialization->append(create.default_table_charset->csname);
     if (!(create.default_table_charset->state & MY_CS_PRIMARY))
     {
-      serialialization->append(STRING_WITH_LEN(" COLLATE "));
-      serialialization->append(create.default_table_charset->name);
+      serialization->append(STRING_WITH_LEN(" COLLATE "));
+      serialization->append(create.default_table_charset->name);
     }
   }
   DBUG_RETURN(0);
@@ -164,10 +166,10 @@ bool DatabaseObj::serialize(THD *thd, String *serialialization)
    @returns bool 0 = SUCCESS
   */
 bool DatabaseObj::materialize(uint serialization_version,
-                             const String *serialialization)
+                             const String *serialization)
 {
   DBUG_ENTER("DatabaseObj::materialize()");
-  m_create_stmt= (String *)serialialization;
+  m_create_stmt= (String *)serialization;
   DBUG_RETURN(0);
 }
 
@@ -192,8 +194,152 @@ Obj *get_database(const LEX_STRING db_name)
   return dbo;
 }
 
+/**
+   @class TableObj
 
-} // obs namespace
+   This class provides an abstraction to a table object for creation and
+   capture of the creation data.  
+  */
+class TableObj : public Obj
+{
+public:
+  TableObj(const LEX_STRING db_name,
+           const LEX_STRING table_name,
+           bool table_is_view) : 
+    m_db_name(db_name), 
+    m_table_name(table_name), 
+    m_table_is_view(table_is_view) {}
+
+public:
+  virtual bool serialize(THD *thd, String *serialization);
+
+  virtual bool materialize(uint serialization_version,
+                           const String *serialization);
+
+  virtual bool execute(THD *thd);
+
+private:
+  // These attributes are to be used only for serialization.
+  LEX_STRING m_db_name;
+  LEX_STRING m_table_name;
+  bool m_table_is_view;
+
+private:
+  // These attributes are to be used only for materialization.
+  String *m_create_stmt;
+
+private:
+  bool serialize_table(THD *thd, String *serialization);
+  bool serialize_view(THD *thd, String *serialization);
+};
+
+/**
+   serialize the object
+
+   This method produces the data necessary for materializing the object
+   on restore (creates object). 
+   
+   @param[in]  thd            current thread
+   @param[out] serialization  the data needed to recreate this object
+
+   @returns bool 0 = SUCCESS
+  */
+bool TableObj::serialize(THD *thd, String *serialization)
+{
+  bool ret= 0;
+  DBUG_ENTER("TableObj::serialize()");
+  DBUG_PRINT("TableObj::serialize", ("name: %s@%s", m_db_name.str,
+             m_table_name.str));
+
+  DBUG_ASSERT(serialization);
+  serialization->length(0);
+  Table_ident *name_id= new Table_ident(m_table_name);
+  name_id->db= m_db_name;
+
+  /*
+    Add the view to the table list and set the thd to look at views only.
+    Note: derived from sql_yacc.yy.
+  */
+  thd->lex->select_lex.add_table_to_list(thd, name_id, NULL, 0);
+  TABLE_LIST *table_list= (TABLE_LIST*)thd->lex->select_lex.table_list.first;
+  thd->lex->sql_command = SQLCOM_SHOW_CREATE; 
+
+  /*
+    Setup view specific variables and settings
+  */
+  if (m_table_is_view)
+  {
+    thd->lex->only_view= 1;
+    thd->lex->view_prepare_mode= TRUE; // use prepare mode
+    table_list->skip_temporary= 1;     // skip temporary tables
+  }
+
+  /*
+    Open the view and its base tables or views
+  */
+  if (open_normal_and_derived_tables(thd, table_list, 0))
+    DBUG_RETURN(-1);
+
+  /*
+    Setup view specific variables and settings
+  */
+  if (m_table_is_view)
+  {
+    table_list->view_db= m_db_name;
+    serialization->set_charset(table_list->view_creation_ctx->get_client_cs());
+  }
+
+  /*
+    Get the create statement and close up shop.
+  */
+  ret= m_table_is_view ? 
+    view_store_create_info(thd, table_list, serialization) :
+    store_create_info(thd, table_list, serialization, NULL);
+  close_thread_tables(thd);
+
+  DBUG_RETURN(0);
+}
+
+/**
+   Materialize the serialization string.
+
+   This method saves serialization string into a member variable.
+
+   @param[in]  serialization_version   version number of this interface
+   @param[in]  serialization           the string from serialize()
+
+   @todo take serialization_version into account
+
+   @returns bool 0 = SUCCESS
+  */
+bool TableObj::materialize(uint serialization_version,
+                             const String *serialization)
+{
+  DBUG_ENTER("TableObj::materialize()");
+  m_create_stmt= (String *)serialization;
+  DBUG_RETURN(0);
+}
+
+/**
+   Create the object.
+   
+   This method uses serialization string in a query and executes it.
+
+   @param[in]  thd  current thread
+
+   @returns bool 0 = SUCCESS
+  */
+bool TableObj::execute(THD *thd)
+{
+  DBUG_ENTER("TableObj::execute()");
+  DBUG_RETURN(silent_exec(thd, m_create_stmt));
+}
+
+Obj *get_table(const LEX_STRING db_name, const LEX_STRING table_name, bool view)
+{
+  TableObj *dbo= new TableObj(db_name, table_name, view);
+  return dbo;
+}
 
 /*
   DDL Blocker methods
@@ -257,6 +403,8 @@ void ddl_blocker_exception_off(THD *thd)
   thd->DDL_exception= FALSE;
   DBUG_VOID_RETURN;
 }
+
+} // obs namespace
 
 //
 // Implementation: iterator impl classes.
@@ -341,38 +489,6 @@ ObjIterator *get_databases()
 
 ///////////////////////////////////////////////////////////////////////////
 
-class TableObj : public Obj
-{
-public:
-  TableObj(const LEX_STRING db_name,
-           const LEX_STRING table_name,
-           bool table_is_view);
-
-public:
-  virtual bool serialize(THD *thd, String *serialialization);
-
-  virtual bool materialize(uint serialization_version,
-                           const String *serialialization);
-
-  virtual bool execute();
-
-private:
-  // These attributes are to be used only for serialialization.
-  LEX_STRING m_db_name;
-  LEX_STRING m_table_name;
-  bool m_table_is_view;
-
-private:
-  // These attributes are to be used only for materialization.
-  LEX_STRING m_create_stmt;
-
-private:
-  bool serialize_table(THD *thd, String *serialialization);
-  bool serialize_view(THD *thd, String *serialialization);
-};
-
-///////////////////////////////////////////////////////////////////////////
-
 class TriggerObj : public Obj
 {
 public:
@@ -380,15 +496,15 @@ public:
              const LEX_STRING trigger_name);
 
 public:
-  virtual bool serialize(THD *thd, String *serialialization);
+  virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialialization);
+                          const String *serialization);
 
   virtual bool execute();
 
 private:
-  // These attributes are to be used only for serialialization.
+  // These attributes are to be used only for serialization.
   LEX_STRING m_db_name;
   LEX_STRING m_trigger_name;
 
@@ -406,15 +522,15 @@ public:
                 const LEX_STRING stored_proc_name);
 
 public:
-  virtual bool serialize(THD *thd, String *serialialization);
+  virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialialization);
+                          const String *serialization);
 
   virtual bool execute();
 
 private:
-  // These attributes are to be used only for serialialization.
+  // These attributes are to be used only for serialization.
   LEX_STRING m_db_name;
   LEX_STRING m_stored_proc_name;
 
@@ -432,15 +548,15 @@ public:
                 const LEX_STRING stored_func_name);
 
 public:
-  virtual bool serialize(THD *thd, String *serialialization);
+  virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialialization);
+                          const String *serialization);
 
   virtual bool execute();
 
 private:
-  // These attributes are to be used only for serialialization.
+  // These attributes are to be used only for serialization.
   LEX_STRING m_db_name;
   LEX_STRING m_stored_func_name;
 
@@ -458,15 +574,15 @@ public:
            const LEX_STRING event_name);
 
 public:
-  virtual bool serialize(THD *thd, String *serialialization);
+  virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialialization);
+                          const String *serialization);
 
   virtual bool execute();
 
 private:
-  // These attributes are to be used only for serialialization.
+  // These attributes are to be used only for serialization.
   LEX_STRING m_db_name;
   LEX_STRING m_event_name;
 
@@ -493,7 +609,7 @@ TableObj::TableObj(const LEX_STRING db_name.
   // TODO: return an error for pseudo-databases|tables or "mysql".
 }
 
-bool TableObj::serialize(THD *thd, String *serialialization)
+bool TableObj::serialize(THD *thd, String *serialization)
 {
   // XXX: this is a copy & paste from mysqld_show_create() and
   // store_create_info().
@@ -505,26 +621,26 @@ bool TableObj::serialize(THD *thd, String *serialialization)
   // function should know how to materialize the information.
 
   return m_table_is_view ?
-         serialize_table(thd, serialialization) :
-         serialize_view(thd, serialialization);
+         serialize_table(thd, serialization) :
+         serialize_view(thd, serialization);
 }
 
-bool TableObj::serialize_table(THD *thd, String *serialialization)
+bool TableObj::serialize_table(THD *thd, String *serialization)
 {
   return 0;
 }
 
-bool TableObj::serialize_view(THD *thd, String *serialialization)
+bool TableObj::serialize_view(THD *thd, String *serialization)
 {
   return 0;
 }
 
 bool TableObj::materialize(uint serialization_version,
-                          const String *serialialization)
+                          const String *serialization)
 {
   // XXX: take serialization_version into account.
 
-  m_create_stmt= *serialialization;
+  m_create_stmt= *serialization;
 }
 
 bool TableObj::execute()

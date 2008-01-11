@@ -591,7 +591,8 @@ static SYMBOL symbols[] = {
   { "ZEROFILL",		SYM(ZEROFILL)},
 #ifdef BACKUP_TEST
   { "||",		SYM(OR_OR_SYM)},
-  { "TEST",	        SYM(TEST)}
+  { "BACKUP_TEST",	        SYM(BACKUP_TEST_SYM)},
+  { "BT",	        SYM(BACKUP_TEST_SYM)}
 #else
   { "||",		SYM(OR_OR_SYM)}
 #endif

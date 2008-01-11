@@ -1097,7 +1097,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  YEAR_MONTH_SYM
 %token  YEAR_SYM                      /* SQL-2003-R */
 %token  ZEROFILL
-%token  TEST
+%token  BACKUP_TEST_SYM
 
 %left   JOIN_SYM INNER_SYM STRAIGHT_JOIN CROSS LEFT RIGHT
 /* A dummy token to force the priority of table_ref production in a join. */
@@ -6038,7 +6038,7 @@ backup:
           {
             Lex->backup_dir = $6; 
           }
-          | BACKUP_SYM TEST
+          | BACKUP_TEST_SYM 
           {
 #ifdef BACKUP_TEST
             Lex->sql_command = SQLCOM_BACKUP_TEST;
@@ -10371,6 +10371,7 @@ keyword:
           keyword_sp            {}
         | ASCII_SYM             {}
         | BACKUP_SYM            {}
+        | BACKUP_TEST_SYM       {}
         | BEGIN_SYM             {}
         | BYTE_SYM              {}
         | CACHE_SYM             {}

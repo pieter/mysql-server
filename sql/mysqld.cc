@@ -365,7 +365,7 @@ static pthread_cond_t COND_thread_cache, COND_flush_thread_cache;
 
 /* Global variables */
 
-DDL_blocker_class *DDL_blocker= NULL;
+extern DDL_blocker_class *DDL_blocker;
 bool opt_update_log, opt_bin_log;
 my_bool opt_log, opt_slow_log;
 ulong log_output_options;

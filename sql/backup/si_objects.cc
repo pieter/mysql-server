@@ -18,7 +18,7 @@
 #include <ddl_blocker.h>
 #include "sql_show.h"
 
-extern DDL_blocker_class *DDL_blocker;
+DDL_blocker_class *DDL_blocker= NULL;
 
 namespace obs {
 

@@ -23,7 +23,7 @@ public:
   virtual bool materialize(uint serialization_version,
                           const String *serialialization) = 0;
 
-  virtual bool execute() = 0;
+  virtual bool execute(THD *thd) = 0;
 
 public:
   virtual ~Obj()
@@ -97,6 +97,48 @@ Obj *create_object(ObjectType object_type,
                    const String *serialialization);
 
 ///////////////////////////////////////////////////////////////////////////
+
+/*
+  DDL blocker methods.
+*/
+
+/**
+   Turn on the ddl blocker
+
+   This method is used to start the ddl blocker blocking DDL commands.
+
+   @param[in] thd  current thread
+
+   @retval my_bool success = TRUE, error = FALSE
+  */
+my_bool ddl_blocker_enable(THD *thd); 
+
+/**
+   Turn off the ddl blocker
+
+   This method is used to stop the ddl blocker from blocking DDL commands.
+  */
+void ddl_blocker_disable(); 
+
+/**
+   Turn on the ddl blocker exception
+
+   This method is used to allow the exception allowing a restore operation to
+   perform DDL operations while the ddl blocker blocking DDL commands.
+
+   @param[in] thd  current thread
+  */
+void ddl_blocker_exception_on(THD *thd);
+
+/**
+   Turn off the ddl blocker exception
+
+   This method is used to suspend the exception allowing a restore operation to
+   perform DDL operations while the ddl blocker blocking DDL commands.
+
+   @param[in] thd  current thread
+  */
+void ddl_blocker_exception_off(THD *thd);
 
 }
 

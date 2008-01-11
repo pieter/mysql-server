@@ -6038,13 +6038,15 @@ backup:
           {
             Lex->backup_dir = $6; 
           }
-          | BACKUP_SYM TEST database_list
+          | BACKUP_SYM TEST
           {
 #ifdef BACKUP_TEST
             Lex->sql_command = SQLCOM_BACKUP_TEST;
             Lex->db_list.empty();
 #endif
           }
+          database_list
+          { }
         ;
 
 database_list:

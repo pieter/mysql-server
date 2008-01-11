@@ -21,50 +21,80 @@ using namespace obs;
 int execute_backup_test_command(THD *thd, List<LEX_STRING> *db_list)
 {
   int res= 0; 
+
   DBUG_ENTER("execute_backup_command");
   DBUG_ASSERT(thd);
 
-  List_iterator<LEX_STRING> dbl(*db_list);
-  LEX_STRING *db_name;
-  String serialized;
-  String db_query;
-  Obj *dbo;
+  Protocol *protocol= thd->protocol;    // client comms
+  List<Item> field_list;                // list of fields to send
+  String     op_str;                    // operations string
+  String str;
+  Item *i;
 
-  // Database object test
-  while (db_name= dbl++)
-  {
-    serialized.length(0);
-    dbo= get_database(*db_name);
-    dbo->serialize(thd, &serialized);
-    printf("serialized string for database %s:\n%s\n", db_name->str, serialized.c_ptr());
-    db_query.length(0);
-    db_query.append("DROP DATABASE ");
-    db_query.append(db_name->str);
-    backup::silent_exec_query(thd, db_query);
-    printf("database %s dropped.\n", db_name->str);
-    dbo->materialize(0, &serialized);
-    dbo->execute(thd);
-    printf("database created.\n");
-  }
 
-  // Table object test
-  serialized.length(0);
-  LEX_STRING db, tbl;
-  db.str= new char[128];
-  memcpy(db.str, "sakila", 6);
-  db.str[6]= 0;
-  db.length= 6;
-  tbl.str= new char[128];
-  memcpy(tbl.str, "store", 5);
-  tbl.str[5]= 0;
-  tbl.length= 5;
-  dbo= get_table(db, tbl, FALSE);
-  dbo->serialize(thd, &serialized);
-  printf("serialized string for table %s.%s:\n%s\n", db.str, tbl.str, serialized.c_ptr());
+  /*
+    Send field list.
+  */
+  field_list.push_back(i= new Item_empty_string("db",2));
+  field_list.push_back(new Item_empty_string("table",5));
+  field_list.push_back(new Item_empty_string("type",4));
+  protocol->send_fields(&field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+
+  obs::ObjIterator *it= obs::get_databases(thd);
   
-  delete db.str;
-  delete tbl.str;
-  send_ok(thd);
+  if (it)
+  {
+    obs::Obj *db;
+    
+    while ((db= it->next()))
+    {
+      obs::ObjIterator *tit= obs::get_db_tables(thd,db->get_name());
+      
+      if (tit)
+      {
+        obs::Obj *table;
+        
+        while ((table= tit->next()))
+        {
+          protocol->prepare_for_resend();
+          protocol->store(const_cast<String*>(db->get_name()));
+          protocol->store(const_cast<String*>(table->get_name()));
+          protocol->store("TABLE",5,system_charset_info);
+          protocol->write();
+          
+          delete table;
+        }
+      }
+
+      tit= obs::get_db_views(thd,db->get_name());
+      
+        
+      if (tit)
+      {
+        obs::Obj *table;
+        
+        while ((table= tit->next()))
+        {
+          protocol->prepare_for_resend();
+          protocol->store(const_cast<String*>(db->get_name()));
+          protocol->store(const_cast<String*>(table->get_name()));
+          protocol->store("VIEW",5,system_charset_info);
+          protocol->write();
+          
+          delete table;
+        }
+        
+        delete tit;      
+      }
+      
+      delete db;
+    }
+  }    
+  
+  delete it;
+  
+  send_eof(thd);
+//  delete i;
   DBUG_RETURN(res);
 }
 

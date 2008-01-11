@@ -23,7 +23,8 @@ public:
   virtual bool materialize(uint serialization_version,
                           const String *serialialization) = 0;
 
-  virtual bool execute(THD *thd) = 0;
+  
+  virtual const String* get_name() = 0;
 
 public:
   virtual ~Obj()
@@ -34,7 +35,13 @@ public:
 
 class ObjIterator
 {
+protected:
+  bool is_valid;  ///< Indicates if iterator has been constructed successfully.
 public:
+
+  ObjIterator(): is_valid(FALSE)
+  { }
+
   virtual Obj *next() = 0;
   // User is responsible for destroying the returned object.
 
@@ -63,9 +70,9 @@ Obj *get_event(const LEX_STRING db_name, const LEX_STRING event_name);
 
 // User is responsible for destroying the returned iterator.
 
-ObjIterator *get_databases();
-ObjIterator *get_db_tables(const LEX_STRING db_name);
-ObjIterator *get_db_views(const LEX_STRING db_name);
+ObjIterator *get_databases(THD *thd);
+ObjIterator *get_db_tables(THD *thd, const String *db_name);
+ObjIterator *get_db_views(THD *thd, const String *db_name);
 ObjIterator *get_db_triggers(const LEX_STRING db_name);
 ObjIterator *get_db_stored_procedures(const LEX_STRING db_name);
 ObjIterator *get_db_stored_functions(const LEX_STRING db_name);
@@ -140,6 +147,6 @@ void ddl_blocker_exception_on(THD *thd);
   */
 void ddl_blocker_exception_off(THD *thd);
 
-}
+} // obs namespace
 
 #endif // SI_OBJECTS_H_

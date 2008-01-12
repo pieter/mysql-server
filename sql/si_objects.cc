@@ -17,6 +17,7 @@
 #include "si_objects.h"
 #include "ddl_blocker.h"
 #include "sql_show.h"
+#include "sp_head.h" // for sp_add_to_query_tables().
 
 TABLE *create_schema_table(THD *thd, TABLE_LIST *table_list); // defined in sql_show.cc
 
@@ -129,6 +130,46 @@ TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
   return t;
 }
 
+///////////////////////////////////////////////////////////////////////////
+
+struct Table_name_key
+{
+  Table_name_key(const char *db_name_str,
+                 uint db_name_length,
+                 const char *table_name_str,
+                 uint table_name_length)
+  {
+    db_name.copy(db_name_str, db_name_length, system_charset_info);
+    table_name.copy(table_name_str, table_name_length, system_charset_info);
+
+    key.length(0);
+    key.append(db_name);
+    key.append(".");
+    key.append(table_name);
+  }
+
+  String db_name;
+  String table_name;
+
+  String key;
+};
+
+uchar *
+get_table_name_key(const uchar *record,
+                   size_t *key_length,
+                   my_bool not_used __attribute__((unused)))
+{
+  Table_name_key *tnk= (Table_name_key *) record;
+  *key_length= tnk->key.length();
+  return (uchar *) tnk->key.c_ptr_safe();
+}
+
+void delete_table_name_key(void *data)
+{
+  Table_name_key *tnk= (Table_name_key *) data;
+  delete tnk;
+}
+
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -165,6 +206,11 @@ public:
   const String* get_name()
   { return &m_db_name; }
 
+  const String *get_db_name()
+  {
+    return &m_db_name;
+  }
+
 private:
   // These attributes are to be used only for serialization.
   String m_db_name;
@@ -199,6 +245,11 @@ public:
 
   const String* get_name()
   { return &m_table_name; }
+
+  const String *get_db_name()
+  {
+    return &m_db_name;
+  }
 
 private:
   // These attributes are to be used only for serialization.
@@ -444,6 +495,36 @@ private:
   friend class DbTablesIterator;
 };
 
+///////////////////////////////////////////////////////////////////////////
+
+class ViewBaseObjectsIterator : public ObjIterator
+{
+public:
+  enum IteratorType
+  {
+    GET_BASE_TABLES,
+    GET_BASE_VIEWS
+  };
+
+public:
+  static ViewBaseObjectsIterator *create(THD *thd,
+                                         const String *db_name,
+                                         const String *view_name,
+                                         IteratorType iterator_type );
+
+public:
+  virtual ~ViewBaseObjectsIterator();
+
+public:
+  virtual TableObj *next();
+
+private:
+  ViewBaseObjectsIterator(HASH *table_names);
+
+private:
+  HASH *m_table_names;
+  uint m_cur_idx;
+};
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -678,6 +759,122 @@ TableObj *DbViewsIterator::create_table_obj(const String *db_name,
 ///////////////////////////////////////////////////////////////////////////
 
 //
+// Implementation: ViewBaseObjectsIterator class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+ViewBaseObjectsIterator *
+ViewBaseObjectsIterator::create(THD *thd,
+                               const String *db_name,
+                               const String *view_name,
+                               IteratorType iterator_type)
+{
+  THD *my_thd= new THD();
+
+  my_thd->security_ctx= thd->security_ctx;
+
+  my_thd->thread_stack= (char*) &my_thd;
+  my_thd->store_globals();
+  lex_start(my_thd);
+
+  TABLE_LIST *tl =
+    sp_add_to_query_tables(my_thd,
+                           my_thd->lex,
+                           ((String *) db_name)->c_ptr_safe(),
+                           ((String *) view_name)->c_ptr_safe(),
+                           TL_READ);
+
+  if (open_and_lock_tables(my_thd, tl))
+  {
+    delete my_thd;
+    thd->store_globals();
+
+    return NULL;
+  }
+
+  HASH *table_names = new HASH();
+
+  hash_init(table_names, system_charset_info, 16, 0, 0,
+            get_table_name_key,
+            delete_table_name_key,
+            MYF(0));
+
+  if (tl->view_tables)
+  {
+    List_iterator_fast<TABLE_LIST> it(*tl->view_tables);
+    TABLE_LIST *tl2;
+
+    while ((tl2 = it++))
+    {
+      Table_name_key *tnk=
+        new Table_name_key(tl2->db, tl2->db_length,
+                           tl2->table_name, tl2->table_name_length);
+
+      if (iterator_type == GET_BASE_TABLES && tl2->view ||
+          iterator_type == GET_BASE_VIEWS && !tl2->view)
+        continue;
+
+      if (!hash_search(table_names,
+                       (uchar *) tnk->key.c_ptr_safe(),
+                       tnk->key.length()))
+      {
+        my_hash_insert(table_names, (uchar *) tnk);
+      }
+    }
+  }
+
+  delete my_thd;
+
+  thd->store_globals();
+
+  return new ViewBaseObjectsIterator(table_names);
+}
+
+ViewBaseObjectsIterator::ViewBaseObjectsIterator(HASH *table_names) :
+  m_table_names(table_names),
+  m_cur_idx(0)
+{
+}
+
+ViewBaseObjectsIterator::~ViewBaseObjectsIterator()
+{
+  hash_free(m_table_names);
+  delete m_table_names;
+}
+
+TableObj *ViewBaseObjectsIterator::next()
+{
+  if (m_cur_idx >= m_table_names->records)
+    return NULL;
+
+  Table_name_key *tnk=
+    (Table_name_key *) hash_element(m_table_names, m_cur_idx);
+
+  ++m_cur_idx;
+
+  return new TableObj(&tnk->db_name, &tnk->table_name, false);
+}
+
+ObjIterator* get_view_base_tables(THD *thd,
+                                  const String *db_name,
+                                  const String *view_name)
+{
+  return ViewBaseObjectsIterator::create(
+    thd, db_name, view_name, ViewBaseObjectsIterator::GET_BASE_TABLES);
+}
+
+ObjIterator* get_view_base_views(THD *thd,
+                                 const String *db_name,
+                                 const String *view_name)
+{
+  return ViewBaseObjectsIterator::create(
+    thd, db_name, view_name, ViewBaseObjectsIterator::GET_BASE_VIEWS);
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
 // Implementation: DatabaseObj class.
 //
 
@@ -847,73 +1044,82 @@ bool TableObj::execute(THD *thd)
 ///////////////////////////////////////////////////////////////////////////
 
 Obj *materialize_database(const String *db_name,
+                          uint serialization_version,
                           const String *serialialization)
 {
   Obj *obj= new DatabaseObj(db_name);
-  obj->materialize(serialialization);
+  obj->materialize(serialization_version, serialialization);
 
   return obj;
 }
 
 Obj *materialize_table(const String *db_name,
                        const String *table_name,
+                       uint serialization_version,
                        const String *serialialization)
 {
-  Obj *obj= new TableObj(db_name, table_name);
-  obj->materialize(serialialization);
+  Obj *obj= new TableObj(db_name, table_name, false);
+  obj->materialize(serialization_version, serialialization);
 
   return obj;
 }
 
 Obj *materialize_view(const String *db_name,
                       const String *view_name,
+                      uint serialization_version,
                       const String *serialialization)
 {
-  Obj *obj= new ViewObj(db_name, view_name);
-  obj->materialize(serialialization);
+  Obj *obj= new TableObj(db_name, view_name, true);
+  obj->materialize(serialization_version, serialialization);
 
   return obj;
 }
 
+#if 0
 Obj *materialize_trigger(const String *db_name,
                          const String *trigger_name,
+                         uint serialization_version,
                          const String *serialialization)
 {
   Obj *obj= new TriggerObj(db_name, trigger_name);
-  obj->materialize(serialialization);
+  obj->materialize(serialization_version, serialialization);
 
   return obj;
 }
 
 Obj *materialize_stored_procedure(const String *db_name,
                                   const String *stored_proc_name,
+                                  uint serialization_version,
                                   const String *serialialization)
 {
   Obj *obj= new StoredProcObj(db_name, stored_proc_name);
-  obj->materialize(serialialization);
+  obj->materialize(serialization_version, serialialization);
 
   return obj;
 }
 
 Obj *materialize_stored_function(const String *db_name,
                                  const String *stored_func_name,
+                                 uint serialization_version,
                                  const String *serialialization);
 {
   Obj *obj= new StoredFuncObj(db_name, stored_func_name);
-  obj->materialize(serialialization);
+  obj->materialize(serialization_version, serialialization);
 
   return obj;
 }
 
 Obj *materialize_event(const String *db_name,
                        const String *event_name,
+                       uint serialization_version,
                        const String *serialialization);
 {
   Obj *obj= new EventObj(db_name, event_name);
-  obj->materialize(serialialization);
+  obj->materialize(serialization_version, serialialization);
 
   return obj;
 }
+#endif
 
 ///////////////////////////////////////////////////////////////////////////
 

@@ -51,6 +51,13 @@ class Obj { public:
   virtual const String *get_name() = 0;
 
   /**
+    Return the database name of the object.
+
+    @note this is a subject to remove.
+  */
+  virtual const String *get_db_name() = 0;
+
+  /**
     Create the object in the database.
 
     @param[in] thd              Server thread context.
@@ -82,26 +89,32 @@ private:
 
 private:
   friend Obj *materialize_database(const String *,
+                                   uint,
                                    const String *);
 
   friend Obj *materialize_table(const String *,
                                 const String *,
+                                uint,
                                 const String *);
 
   friend Obj *materialize_view(const String *,
                                const String *,
+                               uint,
                                const String *);
 
   friend Obj *materialize_trigger(const String *,
                                   const String *,
+                                  uint,
                                   const String *);
 
   friend Obj *materialize_stored_procedure(const String *,
                                            const String *,
+                                           uint,
                                            const String *);
 
   friend Obj *materialize_stored_function(const String *,
                                           const String *,
+                                          uint,
                                           const String *);
 };
 
@@ -399,8 +412,23 @@ ObjIterator *get_db_events(const LEX_STRING db_name);
             a pseudo-database.
 */
 
-ObjIterator* get_view_base_tables(const LEX_STRING db_name,
-                                  const LEX_STRING view_name);
+ObjIterator* get_view_base_tables(THD *thd,
+                                  const String *db_name,
+                                  const String *view_name);
+
+/**
+  Create an iterator overl all base tables in the particular view.
+
+  The client is responsible to destroy the returned iterator.
+
+  @return a pointer to an iterator object.
+    @retval NULL if db_name specifies the system database or
+            a pseudo-database.
+*/
+
+ObjIterator* get_view_base_views(THD *thd,
+                                 const String *db_name,
+                                 const String *view_name);
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -410,30 +438,37 @@ ObjIterator* get_view_base_tables(const LEX_STRING db_name,
 // The client is responsible for destroying the returned iterator.
 
 Obj *materialize_database(const String *db_name,
+                          uint serialization_version,
                           const String *serialialization);
 
 Obj *materialize_table(const String *db_name,
                        const String *table_name,
+                       uint serialization_version,
                        const String *serialialization);
 
 Obj *materialize_view(const String *db_name,
                       const String *view_name,
+                      uint serialization_version,
                       const String *serialialization);
 
 Obj *materialize_trigger(const String *db_name,
                          const String *trigger_name,
+                         uint serialization_version,
                          const String *serialialization);
 
 Obj *materialize_stored_procedure(const String *db_name,
                                   const String *stored_proc_name,
+                                  uint serialization_version,
                                   const String *serialialization);
 
 Obj *materialize_stored_function(const String *db_name,
                                  const String *stored_func_name,
+                                 uint serialization_version,
                                  const String *serialialization);
 
 Obj *materialize_event(const String *db_name,
                        const String *event_name,
+                       uint serialization_version,
                        const String *serialialization);
 
 ///////////////////////////////////////////////////////////////////////////

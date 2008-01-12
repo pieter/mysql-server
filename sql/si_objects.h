@@ -161,30 +161,22 @@ public:
   Construct an instance of Obj representing a database.
 
   No actual actions are performed in the server. An object can be created
-  even for invalid database name or for non-existing database. One check however
-  is performed: an object can not be created for the system database
-  (mysql) and for pseudo-databases like INFORMATION_SCHEMA or
-  PERFORMANCE_SCHEMA.
+  even for invalid database name or for non-existing database.
 
   The client is responsible to destroy the created object.
 
   @param[in] db_name Database name.
 
   @return a pointer to an instance of Obj representing given database.
-    @retval NULL if db_name specifies the system database or the
-            pseudo-database.
 */
 
-Obj *get_database(const LEX_STRING db_name);
+Obj *get_database(const String *db_name);
 
 /**
   Construct an instance of Obj representing a table.
 
   No actual actions are performed in the server. An object can be created
-  even for invalid database/table name or for non-existing table. One check
-  however is performed: an object can not be created for a table in the
-  system database (mysql) or in pseudo-databases like INFORMATION_SCHEMA or
-  PERFORMANCE_SCHEMA.
+  even for invalid database/table name or for non-existing table.
 
   The client is responsible to destroy the created object.
 
@@ -192,20 +184,15 @@ Obj *get_database(const LEX_STRING db_name);
   @param[in] table_name Table name.
 
   @return a pointer to an instance of Obj representing given table.
-    @retval NULL if db_name specifies the system database or the
-            pseudo-database.
 */
 
-Obj *get_table(const LEX_STRING db_name, const LEX_STRING table_name);
+Obj *get_table(const String *db_name, const String *table_name);
 
 /**
   Construct an instance of Obj representing a view.
 
   No actual actions are performed in the server. An object can be created
-  even for invalid database/view name or for non-existing view. One check
-  however is performed: an object can not be created for a view in the
-  system database (mysql) or in pseudo-databases like INFORMATION_SCHEMA or
-  PERFORMANCE_SCHEMA.
+  even for invalid database/view name or for non-existing view.
 
   The client is responsible to destroy the created object.
 
@@ -213,20 +200,15 @@ Obj *get_table(const LEX_STRING db_name, const LEX_STRING table_name);
   @param[in] view_name View name.
 
   @return a pointer to an instance of Obj representing given view.
-    @retval NULL if db_name specifies the system database or the
-            pseudo-database.
 */
 
-Obj *get_view(const LEX_STRING db_name, const LEX_STRING view_name);
+Obj *get_view(const String *db_name, const String *view_name);
 
 /**
   Construct an instance of Obj representing a trigger.
 
   No actual actions are performed in the server. An object can be created
-  even for invalid database/trigger name or for non-existing trigger. One
-  check however is performed: an object can not be created for a trigger in
-  the system database (mysql) or in pseudo-databases like
-  INFORMATION_SCHEMA or PERFORMANCE_SCHEMA.
+  even for invalid database/trigger name or for non-existing trigger.
 
   The client is responsible to destroy the created object.
 
@@ -234,20 +216,16 @@ Obj *get_view(const LEX_STRING db_name, const LEX_STRING view_name);
   @param[in] trigger_name Trigger name.
 
   @return a pointer to an instance of Obj representing given trigger.
-    @retval NULL if db_name specifies the system database or the
-            pseudo-database.
 */
 
-Obj *get_trigger(const LEX_STRING db_name, const LEX_STRING trigger_name);
+Obj *get_trigger(const String *db_name, const String *trigger_name);
 
 /**
   Construct an instance of Obj representing a stored procedure.
 
   No actual actions are performed in the server. An object can be created
   even for invalid database/procedure name or for non-existing stored
-  procedure. One check however is performed: an object can not be created
-  for a stored procedure in the system database (mysql) or in
-  pseudo-databases like INFORMATION_SCHEMA or PERFORMANCE_SCHEMA.
+  procedure.
 
   The client is responsible to destroy the created object.
 
@@ -256,20 +234,16 @@ Obj *get_trigger(const LEX_STRING db_name, const LEX_STRING trigger_name);
 
   @return a pointer to an instance of Obj representing given stored
   procedure.
-    @retval NULL if db_name specifies the system database or the
-            pseudo-database.
 */
 
-Obj *get_stored_procedure(const LEX_STRING db_name, const LEX_STRING sp_name);
+Obj *get_stored_procedure(const String *db_name, const String *sp_name);
 
 /**
   Construct an instance of Obj representing a stored function.
 
   No actual actions are performed in the server. An object can be created
   even for invalid database/function name or for non-existing stored
-  function. One check however is performed: an object can not be created
-  for a stored function in the system database (mysql) or in
-  pseudo-databases like INFORMATION_SCHEMA or PERFORMANCE_SCHEMA.
+  function.
 
   The client is responsible to destroy the created object.
 
@@ -278,20 +252,15 @@ Obj *get_stored_procedure(const LEX_STRING db_name, const LEX_STRING sp_name);
 
   @return a pointer to an instance of Obj representing given stored
   function.
-    @retval NULL if db_name specifies the system database or the
-            pseudo-database.
 */
 
-Obj *get_stored_function(const LEX_STRING db_name, const LEX_STRING sf_name);
+Obj *get_stored_function(const String *db_name, const String *sf_name);
 
 /**
   Construct an instance of Obj representing an event.
 
   No actual actions are performed in the server. An object can be created
-  even for invalid database/event name or for non-existing event.  One
-  check however is performed: an object can not be created for a event in
-  the system database (mysql) or in pseudo-databases like
-  INFORMATION_SCHEMA or PERFORMANCE_SCHEMA.
+  even for invalid database/event name or for non-existing event.
 
   The client is responsible to destroy the created object.
 
@@ -299,11 +268,9 @@ Obj *get_stored_function(const LEX_STRING db_name, const LEX_STRING sf_name);
   @param[in] event_name Event name.
 
   @return a pointer to an instance of Obj representing given event.
-    @retval NULL if db_name specifies the system database or the
-            pseudo-database.
 */
 
-Obj *get_event(const LEX_STRING db_name, const LEX_STRING event_name);
+Obj *get_event(const String *db_name, const String *event_name);
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -313,9 +280,7 @@ Obj *get_event(const LEX_STRING db_name, const LEX_STRING event_name);
 // The client is responsible for destroying the returned iterator.
 
 /**
-  Create an iterator over all databases in the server excluding the system
-  database (mysql) and pseudo-databases like INFORMATION_SCHEMA and
-  PERFORMANCE_SCHEMA.
+  Create an iterator over all databases in the server.
 
   The client is responsible to destroy the returned iterator.
 
@@ -330,8 +295,7 @@ ObjIterator *get_databases(THD *thd);
   The client is responsible to destroy the returned iterator.
 
   @return a pointer to an iterator object.
-    @retval NULL if db_name specifies the system database or
-            a pseudo-database.
+    @retval NULL in case of error.
 */
 
 ObjIterator *get_db_tables(THD *thd, const String *db_name);
@@ -342,8 +306,7 @@ ObjIterator *get_db_tables(THD *thd, const String *db_name);
   The client is responsible to destroy the returned iterator.
 
   @return a pointer to an iterator object.
-    @retval NULL if db_name specifies the system database or
-            a pseudo-database.
+    @retval NULL in case of error.
 */
 
 ObjIterator *get_db_views(THD *thd, const String *db_name);
@@ -354,11 +317,10 @@ ObjIterator *get_db_views(THD *thd, const String *db_name);
   The client is responsible to destroy the returned iterator.
 
   @return a pointer to an iterator object.
-    @retval NULL if db_name specifies the system database or
-            a pseudo-database.
+    @retval NULL in case of error.
 */
 
-ObjIterator *get_db_triggers(const LEX_STRING db_name);
+ObjIterator *get_db_triggers(THD *thd, const String *db_name);
 
 /**
   Create an iterator over all stored procedures in the particular database.
@@ -366,11 +328,10 @@ ObjIterator *get_db_triggers(const LEX_STRING db_name);
   The client is responsible to destroy the returned iterator.
 
   @return a pointer to an iterator object.
-    @retval NULL if db_name specifies the system database or
-            a pseudo-database.
+    @retval NULL in case of error.
 */
 
-ObjIterator *get_db_stored_procedures(const LEX_STRING db_name);
+ObjIterator *get_db_stored_procedures(THD *thd, const String *db_name);
 
 /**
   Create an iterator over all stored functions in the particular database.
@@ -378,11 +339,10 @@ ObjIterator *get_db_stored_procedures(const LEX_STRING db_name);
   The client is responsible to destroy the returned iterator.
 
   @return a pointer to an iterator object.
-    @retval NULL if db_name specifies the system database or
-            a pseudo-database.
+    @retval NULL in case of error.
 */
 
-ObjIterator *get_db_stored_functions(const LEX_STRING db_name);
+ObjIterator *get_db_stored_functions(THD *thd, const String *db_name);
 
 /**
   Create an iterator over all events in the particular database.
@@ -390,11 +350,10 @@ ObjIterator *get_db_stored_functions(const LEX_STRING db_name);
   The client is responsible to destroy the returned iterator.
 
   @return a pointer to an iterator object.
-    @retval NULL if db_name specifies the system database or
-            a pseudo-database.
+    @retval NULL in case of error.
 */
 
-ObjIterator *get_db_events(const LEX_STRING db_name);
+ObjIterator *get_db_events(THD *thd, const String *db_name);
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -408,8 +367,7 @@ ObjIterator *get_db_events(const LEX_STRING db_name);
   The client is responsible to destroy the returned iterator.
 
   @return a pointer to an iterator object.
-    @retval NULL if db_name specifies the system database or
-            a pseudo-database.
+    @retval NULL in case of error.
 */
 
 ObjIterator* get_view_base_tables(THD *thd,
@@ -422,8 +380,7 @@ ObjIterator* get_view_base_tables(THD *thd,
   The client is responsible to destroy the returned iterator.
 
   @return a pointer to an iterator object.
-    @retval NULL if db_name specifies the system database or
-            a pseudo-database.
+    @retval NULL in case of error.
 */
 
 ObjIterator* get_view_base_views(THD *thd,

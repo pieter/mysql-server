@@ -405,9 +405,6 @@ private:
 class DatabaseIterator : public ObjIterator
 {
 public:
-  static DatabaseIterator *create(THD *thd);
-
-public:
   virtual ~DatabaseIterator();
 
 public:
@@ -423,6 +420,8 @@ private:
   friend ObjIterator* get_databases(THD*);
 
 private:
+  static DatabaseIterator *create(THD *thd);
+
   DatabaseIterator(THD *thd,
                    TABLE *is_schemata,
                    handler *ha,
@@ -434,8 +433,6 @@ private:
 class DbTablesIterator : public ObjIterator
 {
 public:
-  static DbTablesIterator *create(THD *thd, const String *db_name);
-
 public:
   virtual ~DbTablesIterator();
 
@@ -443,9 +440,6 @@ public:
   virtual TableObj *next();
 
 protected:
-  template<typename T>
-  static T *create_impl(THD *thd, const String *db_name);
-
   DbTablesIterator(THD *thd,
                    const String *db_name,
                    TABLE *is_tables,
@@ -466,16 +460,18 @@ private:
   my_bitmap_map *m_old_map;
 
 private:
+  template<typename T>
+  static T *create(THD *thd, const String *db_name);
+
+private:
   friend ObjIterator *get_db_tables(THD*, const String*);
+  friend ObjIterator *get_db_views(THD*, const String*);
 };
 
 ///////////////////////////////////////////////////////////////////////////
 
 class DbViewsIterator : public DbTablesIterator
 {
-public:
-  static DbViewsIterator *create(THD *thd, const String *db_name);
-
 protected:
   DbViewsIterator(THD *thd,
                   const String *db_name,
@@ -507,16 +503,16 @@ public:
   };
 
 public:
-  static ViewBaseObjectsIterator *create(THD *thd,
-                                         const String *db_name,
-                                         const String *view_name,
-                                         IteratorType iterator_type );
-
-public:
   virtual ~ViewBaseObjectsIterator();
 
 public:
   virtual TableObj *next();
+
+private:
+  static ViewBaseObjectsIterator *create(THD *thd,
+                                         const String *db_name,
+                                         const String *view_name,
+                                         IteratorType iterator_type );
 
 private:
   ViewBaseObjectsIterator(HASH *table_names);
@@ -524,6 +520,15 @@ private:
 private:
   HASH *m_table_names;
   uint m_cur_idx;
+
+private:
+  friend ObjIterator *get_view_base_tables(THD *,
+                                           const String *,
+                                           const String *);
+
+  friend ObjIterator *get_view_base_views(THD *,
+                                          const String *,
+                                          const String *);
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -533,11 +538,6 @@ private:
 //
 
 ///////////////////////////////////////////////////////////////////////////
-
-ObjIterator *get_databases(THD *thd)
-{
-  return DatabaseIterator::create(thd);
-}
 
 DatabaseIterator *DatabaseIterator::create(THD *thd)
 {
@@ -614,23 +614,11 @@ DatabaseObj* DatabaseIterator::next()
 
 ///////////////////////////////////////////////////////////////////////////
 
-ObjIterator *get_db_tables(THD *thd, const String *db_name)
-{
-  return DbTablesIterator::create(thd, db_name);
-}
-
-ObjIterator *get_db_views(THD *thd, const String *db_name)
-{
-  return DbViewsIterator::create(thd, db_name);
-}
-
-DbTablesIterator *DbTablesIterator::create(THD *thd, const String *db_name)
-{
-  return create_impl<DbTablesIterator>(thd, db_name);
-}
+template DbTablesIterator *
+DbTablesIterator::create(THD *thd, const String *db_name);
 
 template <typename T>
-T *DbTablesIterator::create_impl(THD *thd, const String *db_name)
+T *DbTablesIterator::create(THD *thd, const String *db_name)
 {
   TABLE *is_tables= open_schema_table(thd, get_schema_table(SCH_TABLES));
 
@@ -657,9 +645,6 @@ T *DbTablesIterator::create_impl(THD *thd, const String *db_name)
 
   return new T(thd, db_name, is_tables, ha, old_map);
 }
-
-template DbTablesIterator *DbTablesIterator::create_impl(THD *thd,
-                                                         const String *db_name);
 
 DbTablesIterator::DbTablesIterator(THD *thd,
                                    const String *db_name,
@@ -736,13 +721,8 @@ TableObj *DbTablesIterator::create_table_obj(const String *db_name,
 
 ///////////////////////////////////////////////////////////////////////////
 
-template DbViewsIterator *DbTablesIterator::create_impl(THD *thd,
-                                                        const String *db_name);
-
-DbViewsIterator *DbViewsIterator::create(THD *thd, const String *db_name)
-{
-  return create_impl<DbViewsIterator>(thd, db_name);
-}
+template DbViewsIterator *
+DbTablesIterator::create(THD *thd, const String *db_name);
 
 bool DbViewsIterator::is_type_accepted(const String *type) const
 {
@@ -821,6 +801,10 @@ ViewBaseObjectsIterator::create(THD *thd,
       {
         my_hash_insert(table_names, (uchar *) tnk);
       }
+      else
+      {
+        delete tnk;
+      }
     }
   }
 
@@ -855,6 +839,57 @@ TableObj *ViewBaseObjectsIterator::next()
 
   return new TableObj(&tnk->db_name, &tnk->table_name, false);
 }
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: enumeration functions.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+ObjIterator *get_databases(THD *thd)
+{
+  return DatabaseIterator::create(thd);
+}
+
+ObjIterator *get_db_tables(THD *thd, const String *db_name)
+{
+  return DbTablesIterator::create<DbTablesIterator>(thd, db_name);
+}
+
+ObjIterator *get_db_views(THD *thd, const String *db_name)
+{
+  return DbTablesIterator::create<DbViewsIterator>(thd, db_name);
+}
+
+ObjIterator *get_db_triggers(THD *thd, const String *db_name)
+{
+  return NULL;
+}
+
+ObjIterator *get_db_stored_procedures(THD *thd, const String *db_name)
+{
+  return NULL;
+}
+
+ObjIterator *get_db_stored_functions(THD *thd, const String *db_name)
+{
+  return NULL;
+}
+
+ObjIterator *get_db_events(THD *thd, const String *db_name)
+{
+  return NULL;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: dependency functions.
+//
+
+///////////////////////////////////////////////////////////////////////////
 
 ObjIterator* get_view_base_tables(THD *thd,
                                   const String *db_name,
@@ -1040,6 +1075,47 @@ bool TableObj::execute(THD *thd)
   DBUG_ENTER("TableObj::execute()");
   DBUG_RETURN(silent_exec(thd, &m_create_stmt));
 }
+
+///////////////////////////////////////////////////////////////////////////
+
+Obj *get_database(const String *db_name)
+{
+  return new DatabaseObj(db_name);
+}
+
+Obj *get_table(const String *db_name,
+               const String *table_name)
+{
+  return new TableObj(db_name, table_name, false);
+}
+
+Obj *get_view(const String *db_name,
+              const String *view_name)
+{
+  return new TableObj(db_name, view_name, true);
+}
+
+#if 0
+Obj *get_trigger(const String *db_name,
+                 const String *trigger_name)
+{
+}
+
+Obj *get_stored_procedure(const String *db_name,
+                          const String *sp_name)
+{
+}
+
+Obj *get_stored_function(const String *db_name,
+                         const String *sf_name)
+{
+}
+
+Obj *get_event(const String *db_name,
+               const String *event_name)
+{
+}
+#endif
 
 ///////////////////////////////////////////////////////////////////////////
 

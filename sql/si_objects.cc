@@ -1,21 +1,21 @@
 /**
    @file
- 
+
    This file defines the API for the following object services:
-     - getting CREATE statements for objects
-     - generating GRANT statments for objects
-     - enumerating objects
-     - finding dependencies for objects
-     - executor for SQL statments
-     - wrappers for controlling the DDL Blocker
+     - serialize database objects into a string;
+     - materialize (deserialize) object from a string;
+     - enumerating objects;
+     - finding dependencies for objects;
+     - executor for SQL statements;
+     - wrappers for controlling the DDL Blocker;
 
   The methods defined below are used to provide server functionality to
   and permitting an isolation layer for the client (caller).
- */ 
+*/
 
 #include "mysql_priv.h"
 #include "si_objects.h"
-#include <ddl_blocker.h>
+#include "ddl_blocker.h"
 #include "sql_show.h"
 
 TABLE *create_schema_table(THD *thd, TABLE_LIST *table_list); // defined in sql_show.cc
@@ -82,7 +82,7 @@ int silent_exec(THD *thd, String *query)
    @class DatabaseObj
 
    This class provides an abstraction to a database object for creation and
-   capture of the creation data.  
+   capture of the creation data.
   */
 class DatabaseObj : public Obj
 {
@@ -93,12 +93,12 @@ public:
   virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialization);
+                           const String *serialization);
 
   virtual bool execute(THD *thd);
-  
+
   const String* get_name()
-  { return &m_db_name; } 
+  { return &m_db_name; }
 
 private:
   // These attributes are to be used only for serialization.
@@ -113,7 +113,7 @@ private:
    @class TableObj
 
    This class provides an abstraction to a table object for creation and
-   capture of the creation data.  
+   capture of the creation data.
   */
 class TableObj : public Obj
 {
@@ -131,7 +131,7 @@ public:
   virtual bool execute(THD *thd);
 
   const String* get_name()
-  { return &m_table_name; } 
+  { return &m_table_name; }
 
 private:
   // These attributes are to be used only for serialization.
@@ -161,7 +161,7 @@ public:
   virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialization);
+                           const String *serialization);
 
   virtual bool execute();
 
@@ -187,7 +187,7 @@ public:
   virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialization);
+                           const String *serialization);
 
   virtual bool execute();
 
@@ -213,7 +213,7 @@ public:
   virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialization);
+                           const String *serialization);
 
   virtual bool execute();
 
@@ -239,7 +239,7 @@ public:
   virtual bool serialize(THD *thd, String *serialization);
 
   virtual bool materialize(uint serialization_version,
-                          const String *serialization);
+                           const String *serialization);
 
   virtual bool execute();
 
@@ -269,7 +269,7 @@ public:
 
 public:
   virtual DatabaseObj *next();
-  
+
 private:
 
   THD    *m_thd;
@@ -296,11 +296,11 @@ private:
   TABLE *is_tables;
   handler *ha;
   my_bitmap_map *old_map;
-  
+
 protected:
 
   bool enumerate_views;
-  
+
   friend ObjIterator *get_db_tables(THD*, const String*);
 };
 
@@ -331,7 +331,7 @@ DatabaseIterator::DatabaseIterator(THD *thd):
   m_thd(thd), is_schemata(NULL)
 {
   DBUG_ASSERT(m_thd);
-  
+
   is_schemata = open_schema_table(m_thd, get_schema_table(SCH_SCHEMATA));
 
   if (!is_schemata)
@@ -349,7 +349,7 @@ DatabaseIterator::DatabaseIterator(THD *thd):
     ha= NULL;
     return;
   }
-  
+
   is_valid= TRUE;
 }
 
@@ -359,7 +359,7 @@ DatabaseIterator::~DatabaseIterator()
    ha->ha_rnd_end();
 
   DBUG_ASSERT(m_thd);
-  
+
   if (is_schemata)
   {
     dbug_tmp_restore_column_map(is_schemata->read_set, old_map);
@@ -371,13 +371,13 @@ DatabaseObj* DatabaseIterator::next()
 {
   if (!is_valid)
     return NULL;
-    
+
   DBUG_ASSERT(ha);
   DBUG_ASSERT(is_schemata);
-  
+
   if (ha->rnd_next(is_schemata->record[0]))
     return NULL;
-    
+
   String name;
 
   is_schemata->field[1]->val_str(&name);
@@ -408,13 +408,13 @@ ObjIterator *get_db_views(THD *thd, const String *db_name)
 }
 
 DbTablesIterator::DbTablesIterator(THD *thd, const String *db_name):
-  m_thd(thd), m_db_name(*db_name), 
+  m_thd(thd), m_db_name(*db_name),
   is_tables(NULL), ha(NULL), old_map(NULL),
   enumerate_views(FALSE)
 {
   DBUG_ASSERT(m_thd);
   m_db_name.copy();
-  
+
   is_tables = open_schema_table(m_thd, get_schema_table(SCH_TABLES));
 
   if (!is_tables)
@@ -432,7 +432,7 @@ DbTablesIterator::DbTablesIterator(THD *thd, const String *db_name):
     ha= NULL;
     return;
   }
-  
+
   is_valid= TRUE;
 }
 
@@ -442,7 +442,7 @@ DbTablesIterator::~DbTablesIterator()
    ha->ha_rnd_end();
 
   DBUG_ASSERT(m_thd);
-  
+
   if (is_tables)
   {
     dbug_tmp_restore_column_map(is_tables->read_set, old_map);
@@ -454,10 +454,10 @@ TableObj* DbTablesIterator::next()
 {
   if (!is_valid)
     return NULL;
-    
+
   DBUG_ASSERT(ha);
   DBUG_ASSERT(is_tables);
-  
+
   while (!ha->rnd_next(is_tables->record[0]))
   {
     String table_name;
@@ -471,17 +471,17 @@ TableObj* DbTablesIterator::next()
     // skip tables not from the given database
     if (db_name != m_db_name)
       continue;
-      
+
     // skip tables/views depending on enumerate_views flag
     if (type != ( enumerate_views ? String("VIEW", system_charset_info) :
                                     String("BASE TABLE", system_charset_info)) )
       continue;
 
-    DBUG_PRINT("DbTablesIterator::next", (" Found table %s.%s", 
+    DBUG_PRINT("DbTablesIterator::next", (" Found table %s.%s",
                                           db_name.ptr(), table_name.ptr()));
     return new TableObj(&db_name,&table_name,enumerate_views);
   }
-  
+
   return NULL;
 }
 
@@ -503,13 +503,13 @@ DatabaseObj::DatabaseObj(const String *db_name) :
    serialize the object
 
    This method produces the data necessary for materializing the object
-   on restore (creates object). 
-   
+   on restore (creates object).
+
    @param[in]  thd            current thread
    @param[out] serialization  the data needed to recreate this object
 
    @note this method will return an error if the db_name is either
-         mysql or information_schema as these are not objects that 
+         mysql or information_schema as these are not objects that
          should be recreated using this interface.
 
    @returns bool 0 = SUCCESS
@@ -565,7 +565,7 @@ bool DatabaseObj::serialize(THD *thd, String *serialization)
    @returns bool 0 = SUCCESS
   */
 bool DatabaseObj::materialize(uint serialization_version,
-                             const String *serialization)
+                              const String *serialization)
 {
   DBUG_ENTER("DatabaseObj::materialize()");
   m_create_stmt= *serialization;
@@ -575,7 +575,7 @@ bool DatabaseObj::materialize(uint serialization_version,
 
 /**
    Create the object.
-   
+
    This method uses serialization string in a query and executes it.
 
    @param[in]  thd  current thread
@@ -622,8 +622,8 @@ bool TableObj::serialize_view(THD *thd, String *serialization)
    serialize the object
 
    This method produces the data necessary for materializing the object
-   on restore (creates object). 
-   
+   on restore (creates object).
+
    @param[in]  thd            current thread
    @param[out] serialization  the data needed to recreate this object
 
@@ -652,7 +652,7 @@ bool TableObj::serialize(THD *thd, String *serialization)
   */
   thd->lex->select_lex.add_table_to_list(thd, name_id, NULL, 0);
   TABLE_LIST *table_list= (TABLE_LIST*)thd->lex->select_lex.table_list.first;
-  thd->lex->sql_command = SQLCOM_SHOW_CREATE; 
+  thd->lex->sql_command = SQLCOM_SHOW_CREATE;
 
   /*
     Setup view specific variables and settings
@@ -682,7 +682,7 @@ bool TableObj::serialize(THD *thd, String *serialization)
   /*
     Get the create statement and close up shop.
   */
-  ret= m_table_is_view ? 
+  ret= m_table_is_view ?
     view_store_create_info(thd, table_list, serialization) :
     store_create_info(thd, table_list, serialization, NULL);
   close_thread_tables(thd);
@@ -703,7 +703,7 @@ bool TableObj::serialize(THD *thd, String *serialization)
    @returns bool 0 = SUCCESS
   */
 bool TableObj::materialize(uint serialization_version,
-                             const String *serialization)
+                           const String *serialization)
 {
   DBUG_ENTER("TableObj::materialize()");
   m_create_stmt= *serialization;
@@ -713,7 +713,7 @@ bool TableObj::materialize(uint serialization_version,
 
 /**
    Create the object.
-   
+
    This method uses serialization string in a query and executes it.
 
    @param[in]  thd  current thread
@@ -885,6 +885,5 @@ TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
 
   return t;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////

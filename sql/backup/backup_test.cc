@@ -38,6 +38,7 @@ int execute_backup_test_command(THD *thd, List<LEX_STRING> *db_list)
   field_list.push_back(i= new Item_empty_string("db",2));
   field_list.push_back(new Item_empty_string("table",5));
   field_list.push_back(new Item_empty_string("type",4));
+  field_list.push_back(new Item_empty_string("serialization",13));
   protocol->send_fields(&field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
 
   obs::ObjIterator *it= obs::get_databases(thd);
@@ -56,10 +57,14 @@ int execute_backup_test_command(THD *thd, List<LEX_STRING> *db_list)
         
         while ((table= tit->next()))
         {
+          String serial;
+          serial.length(0);
           protocol->prepare_for_resend();
           protocol->store(const_cast<String*>(db->get_name()));
           protocol->store(const_cast<String*>(table->get_name()));
           protocol->store("TABLE",5,system_charset_info);
+          table->serialize(thd, &serial);
+          protocol->store(&serial);
           protocol->write();
           
           delete table;
@@ -75,10 +80,14 @@ int execute_backup_test_command(THD *thd, List<LEX_STRING> *db_list)
         
         while ((table= tit->next()))
         {
+          String serial;
+          serial.length(0);
           protocol->prepare_for_resend();
           protocol->store(const_cast<String*>(db->get_name()));
           protocol->store(const_cast<String*>(table->get_name()));
           protocol->store("VIEW",5,system_charset_info);
+          table->serialize(thd, &serial);
+          protocol->store(&serial);
           protocol->write();
           
           delete table;

@@ -19,14 +19,17 @@
 #include "sql_show.h"
 
 TABLE *create_schema_table(THD *thd, TABLE_LIST *table_list); // defined in sql_show.cc
-static TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st);
 
 DDL_blocker_class *DDL_blocker= NULL;
 
-namespace obs {
+///////////////////////////////////////////////////////////////////////////
 
-/*
-  Executes the SQL string passed.
+namespace {
+
+/**
+  Execute the SQL string passed.
+
+  This is a private helper function to the implementation.
 */
 int silent_exec(THD *thd, String *query)
 {
@@ -74,16 +77,78 @@ int silent_exec(THD *thd, String *query)
   return 0;
 }
 
+/**
+  Open given table in @c INFORMATION_SCHEMA database.
+
+  This is a private helper function to the implementation.
+*/
+TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
+{
+  TABLE *t;
+  TABLE_LIST arg;
+  my_bitmap_map *old_map;
+
+  bzero( &arg, sizeof(TABLE_LIST) );
+
+  // set context for create_schema_table call
+  arg.schema_table= st;
+  arg.alias=        NULL;
+  arg.select_lex=   NULL;
+
+  t= create_schema_table(thd,&arg); // Note: callers must free t.
+
+  if( !t ) return NULL; // error!
+
+  /*
+   Temporarily set thd->lex->wild to NULL to keep st->fill_table
+   happy.
+  */
+  ::String *wild= thd->lex->wild;
+  ::enum_sql_command command= thd->lex->sql_command;
+
+  thd->lex->wild = NULL;
+  thd->lex->sql_command = enum_sql_command(0);
+
+  // context for fill_table
+  arg.table= t;
+
+  old_map= tmp_use_all_columns(t, t->read_set);
+
+  /*
+    Question: is it correct to fill I_S table each time we use it or should it
+    be filled only once?
+   */
+  st->fill_table(thd,&arg,NULL);  // NULL = no select condition
+
+  tmp_restore_column_map(t->read_set, old_map);
+
+  // undo changes to thd->lex
+  thd->lex->wild= wild;
+  thd->lex->sql_command= command;
+
+  return t;
+}
+
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+namespace obs {
+
+///////////////////////////////////////////////////////////////////////////
+
 //
 // Implementation: object impl classes.
 //
+
+///////////////////////////////////////////////////////////////////////////
 
 /**
    @class DatabaseObj
 
    This class provides an abstraction to a database object for creation and
    capture of the creation data.
-  */
+*/
 class DatabaseObj : public Obj
 {
 public:
@@ -109,12 +174,14 @@ private:
   String m_create_stmt;
 };
 
+///////////////////////////////////////////////////////////////////////////
+
 /**
    @class TableObj
 
    This class provides an abstraction to a table object for creation and
    capture of the creation data.
-  */
+*/
 class TableObj : public Obj
 {
 public:
@@ -150,12 +217,17 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////
 
+/**
+  @class TriggerObj
 
+  This class provides an abstraction to a trigger object for creation and
+  capture of the creation data.
+*/
 class TriggerObj : public Obj
 {
 public:
-  TriggerObj(const LEX_STRING db_name,
-             const LEX_STRING trigger_name);
+  TriggerObj(const String *db_name,
+             const String *trigger_name);
 
 public:
   virtual bool serialize(THD *thd, String *serialization);
@@ -167,21 +239,27 @@ public:
 
 private:
   // These attributes are to be used only for serialization.
-  LEX_STRING m_db_name;
-  LEX_STRING m_trigger_name;
+  String m_db_name;
+  String m_trigger_name;
 
 private:
   // These attributes are to be used only for materialization.
-  LEX_STRING m_create_stmt;
+  String m_create_stmt;
 };
 
 ///////////////////////////////////////////////////////////////////////////
 
+/**
+  @class StoredProcObj
+
+  This class provides an abstraction to a stored procedure object for creation
+  and capture of the creation data.
+*/
 class StoredProcObj : public Obj
 {
 public:
-  StoredProcObj(const LEX_STRING db_name,
-                const LEX_STRING stored_proc_name);
+  StoredProcObj(const String *db_name,
+                const String *stored_proc_name);
 
 public:
   virtual bool serialize(THD *thd, String *serialization);
@@ -193,21 +271,27 @@ public:
 
 private:
   // These attributes are to be used only for serialization.
-  LEX_STRING m_db_name;
-  LEX_STRING m_stored_proc_name;
+  String m_db_name;
+  String m_stored_proc_name;
 
 private:
   // These attributes are to be used only for materialization.
-  LEX_STRING m_create_stmt;
+  String m_create_stmt;
 };
 
 ///////////////////////////////////////////////////////////////////////////
 
+/**
+  @class StoredProcObj
+
+  This class provides an abstraction to a stored function object for creation
+  and capture of the creation data.
+*/
 class StoredFuncObj : public Obj
 {
 public:
-  StoredFuncObj(const LEX_STRING db_name,
-                const LEX_STRING stored_func_name);
+  StoredFuncObj(const String *db_name,
+                const String *stored_func_name);
 
 public:
   virtual bool serialize(THD *thd, String *serialization);
@@ -219,21 +303,27 @@ public:
 
 private:
   // These attributes are to be used only for serialization.
-  LEX_STRING m_db_name;
-  LEX_STRING m_stored_func_name;
+  String m_db_name;
+  String m_stored_func_name;
 
 private:
   // These attributes are to be used only for materialization.
-  LEX_STRING m_create_stmt;
+  String m_create_stmt;
 };
 
 ///////////////////////////////////////////////////////////////////////////
 
+/**
+  @class EventObj
+
+  This class provides an abstraction to a event object for creation and capture
+  of the creation data.
+*/
 class EventObj : public Obj
 {
 public:
-  EventObj(const LEX_STRING db_name,
-           const LEX_STRING event_name);
+  EventObj(const String *db_name,
+           const String  event_name);
 
 public:
   virtual bool serialize(THD *thd, String *serialization);
@@ -245,12 +335,12 @@ public:
 
 private:
   // These attributes are to be used only for serialization.
-  LEX_STRING m_db_name;
-  LEX_STRING m_event_name;
+  String m_db_name;
+  String m_event_name;
 
 private:
   // These attributes are to be used only for materialization.
-  LEX_STRING m_create_stmt;
+  String m_create_stmt;
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -265,7 +355,7 @@ class DatabaseIterator : public ObjIterator
 {
 public:
   DatabaseIterator(THD *thd);
-  ~DatabaseIterator();
+  virtual ~DatabaseIterator();
 
 public:
   virtual DatabaseObj *next();
@@ -280,11 +370,13 @@ private:
   friend ObjIterator* get_databases(THD*);
 };
 
+///////////////////////////////////////////////////////////////////////////
+
 class DbTablesIterator : public ObjIterator
 {
 public:
   DbTablesIterator(THD *thd, const String *db_name);
-  ~DbTablesIterator();
+  virtual ~DbTablesIterator();
 
 public:
   virtual TableObj *next();
@@ -304,15 +396,22 @@ protected:
   friend ObjIterator *get_db_tables(THD*, const String*);
 };
 
+///////////////////////////////////////////////////////////////////////////
+
 class DbViewsIterator : public DbTablesIterator
 {
 public:
-  DbViewsIterator(THD *thd, const String *db_name): DbTablesIterator(thd,db_name)
-  { enumerate_views= TRUE; }
+  DbViewsIterator(THD *thd, const String *db_name):
+    DbTablesIterator(thd,db_name)
+  {
+    enumerate_views= TRUE;
+  }
 
   friend ObjIterator *get_db_views(THD*, const String*);
 };
 
+
+///////////////////////////////////////////////////////////////////////////
 
 //
 // Implementation: DatabaseIterator class.
@@ -386,6 +485,8 @@ DatabaseObj* DatabaseIterator::next()
 
   return new DatabaseObj(&name);
 }
+
+///////////////////////////////////////////////////////////////////////////
 
 //
 // Implementation: DbTablesIterator class.
@@ -499,21 +600,6 @@ DatabaseObj::DatabaseObj(const String *db_name) :
   m_db_name.copy(); // copy name string to newly allocated memory
 }
 
-/**
-   serialize the object
-
-   This method produces the data necessary for materializing the object
-   on restore (creates object).
-
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
-
-   @note this method will return an error if the db_name is either
-         mysql or information_schema as these are not objects that
-         should be recreated using this interface.
-
-   @returns bool 0 = SUCCESS
-  */
 bool DatabaseObj::serialize(THD *thd, String *serialization)
 {
   HA_CREATE_INFO create;
@@ -552,18 +638,6 @@ bool DatabaseObj::serialize(THD *thd, String *serialization)
   DBUG_RETURN(0);
 }
 
-/**
-   Materialize the serialization string.
-
-   This method saves serialization string into a member variable.
-
-   @param[in]  serialization_version   version number of this interface
-   @param[in]  serialization           the string from serialize()
-
-   @todo take serialization_version into account
-
-   @returns bool 0 = SUCCESS
-  */
 bool DatabaseObj::materialize(uint serialization_version,
                               const String *serialization)
 {
@@ -573,15 +647,6 @@ bool DatabaseObj::materialize(uint serialization_version,
   DBUG_RETURN(0);
 }
 
-/**
-   Create the object.
-
-   This method uses serialization string in a query and executes it.
-
-   @param[in]  thd  current thread
-
-   @returns bool 0 = SUCCESS
-  */
 bool DatabaseObj::execute(THD *thd)
 {
   DBUG_ENTER("DatabaseObj::execute()");
@@ -589,7 +654,6 @@ bool DatabaseObj::execute(THD *thd)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-
 
 //
 // Implementation: TableObj class.
@@ -618,17 +682,6 @@ bool TableObj::serialize_view(THD *thd, String *serialization)
   return 0;
 }
 
-/**
-   serialize the object
-
-   This method produces the data necessary for materializing the object
-   on restore (creates object).
-
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
-
-   @returns bool 0 = SUCCESS
-  */
 bool TableObj::serialize(THD *thd, String *serialization)
 {
   bool ret= 0;
@@ -690,18 +743,6 @@ bool TableObj::serialize(THD *thd, String *serialization)
   DBUG_RETURN(0);
 }
 
-/**
-   Materialize the serialization string.
-
-   This method saves serialization string into a member variable.
-
-   @param[in]  serialization_version   version number of this interface
-   @param[in]  serialization           the string from serialize()
-
-   @todo take serialization_version into account
-
-   @returns bool 0 = SUCCESS
-  */
 bool TableObj::materialize(uint serialization_version,
                            const String *serialization)
 {
@@ -711,35 +752,21 @@ bool TableObj::materialize(uint serialization_version,
   DBUG_RETURN(0);
 }
 
-/**
-   Create the object.
-
-   This method uses serialization string in a query and executes it.
-
-   @param[in]  thd  current thread
-
-   @returns bool 0 = SUCCESS
-  */
 bool TableObj::execute(THD *thd)
 {
   DBUG_ENTER("TableObj::execute()");
   DBUG_RETURN(silent_exec(thd, &m_create_stmt));
 }
 
-/*
-  DDL Blocker methods
-*/
+///////////////////////////////////////////////////////////////////////////
 
-/**
-   Turn on the ddl blocker
+//
+// Implementation: DDL Blocker.
+//
 
-   This method is used to start the ddl blocker blocking DDL commands.
+///////////////////////////////////////////////////////////////////////////
 
-   @param[in] thd  current thread
-
-   @retval my_bool success = TRUE, error = FALSE
-  */
-my_bool ddl_blocker_enable(THD *thd)
+bool ddl_blocker_enable(THD *thd)
 {
   DBUG_ENTER("ddl_blocker_enable()");
   if (!DDL_blocker->block_DDL(thd))
@@ -747,11 +774,6 @@ my_bool ddl_blocker_enable(THD *thd)
   DBUG_RETURN(TRUE);
 }
 
-/**
-   Turn off the ddl blocker
-
-   This method is used to stop the ddl blocker from blocking DDL commands.
-  */
 void ddl_blocker_disable()
 {
   DBUG_ENTER("ddl_blocker_disable()");
@@ -759,14 +781,6 @@ void ddl_blocker_disable()
   DBUG_VOID_RETURN;
 }
 
-/**
-   Turn on the ddl blocker exception
-
-   This method is used to allow the exception allowing a restore operation to
-   perform DDL operations while the ddl blocker blocking DDL commands.
-
-   @param[in] thd  current thread
-  */
 void ddl_blocker_exception_on(THD *thd)
 {
   DBUG_ENTER("ddl_blocker_exception_on()");
@@ -774,14 +788,6 @@ void ddl_blocker_exception_on(THD *thd)
   DBUG_VOID_RETURN;
 }
 
-/**
-   Turn off the ddl blocker exception
-
-   This method is used to suspend the exception allowing a restore operation to
-   perform DDL operations while the ddl blocker blocking DDL commands.
-
-   @param[in] thd  current thread
-  */
 void ddl_blocker_exception_off(THD *thd)
 {
   DBUG_ENTER("ddl_blocker_exception_off()");
@@ -789,6 +795,7 @@ void ddl_blocker_exception_off(THD *thd)
   DBUG_VOID_RETURN;
 }
 
+///////////////////////////////////////////////////////////////////////////
 
 #if 0
 
@@ -831,59 +838,8 @@ public:
 
 ///////////////////////////////////////////////////////////////////////////
 
-
-
 #endif
 
 } // obs namespace
-
-
-/// Open given table in @c INFORMATION_SCHEMA database.
-TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
-{
-  TABLE *t;
-  TABLE_LIST arg;
-  my_bitmap_map *old_map;
-
-  bzero( &arg, sizeof(TABLE_LIST) );
-
-  // set context for create_schema_table call
-  arg.schema_table= st;
-  arg.alias=        NULL;
-  arg.select_lex=   NULL;
-
-  t= create_schema_table(thd,&arg); // Note: callers must free t.
-
-  if( !t ) return NULL; // error!
-
-  /*
-   Temporarily set thd->lex->wild to NULL to keep st->fill_table
-   happy.
-  */
-  ::String *wild= thd->lex->wild;
-  ::enum_sql_command command= thd->lex->sql_command;
-
-  thd->lex->wild = NULL;
-  thd->lex->sql_command = enum_sql_command(0);
-
-  // context for fill_table
-  arg.table= t;
-
-  old_map= tmp_use_all_columns(t, t->read_set);
-
-  /*
-    Question: is it correct to fill I_S table each time we use it or should it
-    be filled only once?
-   */
-  st->fill_table(thd,&arg,NULL);  // NULL = no select condition
-
-  tmp_restore_column_map(t->read_set, old_map);
-
-  // undo changes to thd->lex
-  thd->lex->wild= wild;
-  thd->lex->sql_command= command;
-
-  return t;
-}
 
 ///////////////////////////////////////////////////////////////////////////

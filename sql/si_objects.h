@@ -19,13 +19,11 @@ namespace obs {
   Obj defines the basic set of operations for each database object.
 */
 
-class Obj
-{
-public:
+class Obj { public:
   /**
-    This operation serializes object state into a buffer. The buffer
-    actually should be a binary buffer. String class is used here just
-    because we don't have convenient primitive for binary buffers.
+    Serialize object state into a buffer. The buffer actually should be a
+    binary buffer. String class is used here just because we don't have
+    convenient primitive for binary buffers.
 
     Serialization format is opaque to the client, i.e. the client should
     not make any assumptions about the format or the content of the
@@ -45,8 +43,8 @@ public:
   virtual bool serialize(THD *thd, String *serialialization) = 0;
 
   /**
-    This operation reads the object state from a given buffer and restores
-    object state to the point, where it can be executed.
+    Read the object state from a given buffer and restores object state to
+    the point, where it can be executed.
 
     @param[in] serialialization_version The version of the serialization format.
     @param[in] serialialization         Buffer contained serialized object.
@@ -58,14 +56,16 @@ public:
   virtual bool materialize(uint serialization_version,
                            const String *serialialization) = 0;
 
-  
-  /**
-   TODO
-  */
-  virtual const String* get_name() = 0;
 
   /**
-    Creates the object in the database.
+    Return the name of the object.
+
+    @return object name.
+  */
+  virtual const String *get_name() = 0;
+
+  /**
+    Create the object in the database.
 
     @param[in] thd              Server thread context.
 
@@ -88,11 +88,10 @@ public:
 
 class ObjIterator
 {
-protected:
-  bool is_valid;  ///< Indicates if iterator has been constructed successfully.
 public:
 
-  ObjIterator(): is_valid(FALSE)
+  ObjIterator():
+    is_valid(FALSE)
   { }
 
   /**
@@ -109,6 +108,10 @@ public:
 public:
   virtual ~ObjIterator()
   { }
+
+protected:
+  bool is_valid;  /// Indicates if iterator has been constructed successfully.
+
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -409,46 +412,48 @@ Obj *create_object(ObjectType object_type,
 
 ///////////////////////////////////////////////////////////////////////////
 
-/*
-  DDL blocker methods.
+//
+// DDL blocker methods.
+//
+
+/**
+  Turn on the ddl blocker.
+
+  This method is used to start the ddl blocker blocking DDL commands.
+
+  @param[in] thd  Thread context.
+
+  @return error status.
+    @retval FALSE on success.
+    @retval TRUE on error.
 */
+bool ddl_blocker_enable(THD *thd);
 
 /**
-   Turn on the ddl blocker
+  Turn off the ddl blocker.
 
-   This method is used to start the ddl blocker blocking DDL commands.
-
-   @param[in] thd  current thread
-
-   @retval my_bool success = TRUE, error = FALSE
-  */
-my_bool ddl_blocker_enable(THD *thd); 
+  This method is used to stop the ddl blocker from blocking DDL commands.
+*/
+void ddl_blocker_disable();
 
 /**
-   Turn off the ddl blocker
+  Turn on the ddl blocker exception
 
-   This method is used to stop the ddl blocker from blocking DDL commands.
-  */
-void ddl_blocker_disable(); 
+  This method is used to allow the exception allowing a restore operation to
+  perform DDL operations while the ddl blocker blocking DDL commands.
 
-/**
-   Turn on the ddl blocker exception
-
-   This method is used to allow the exception allowing a restore operation to
-   perform DDL operations while the ddl blocker blocking DDL commands.
-
-   @param[in] thd  current thread
-  */
+  @param[in] thd  Thread context.
+*/
 void ddl_blocker_exception_on(THD *thd);
 
 /**
-   Turn off the ddl blocker exception
+  Turn off the ddl blocker exception.
 
-   This method is used to suspend the exception allowing a restore operation to
-   perform DDL operations while the ddl blocker blocking DDL commands.
+  This method is used to suspend the exception allowing a restore operation to
+  perform DDL operations while the ddl blocker blocking DDL commands.
 
-   @param[in] thd  current thread
-  */
+  @param[in] thd  Thread context.
+*/
 void ddl_blocker_exception_off(THD *thd);
 
 } // obs namespace

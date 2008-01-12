@@ -13,6 +13,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#if defined(__i386__) || defined(_M_IX86) || defined(HAVE_GCC_ATOMIC_BUILTINS)
 #if defined(__i386__) || defined(_MSC_VER) || defined(__x86_64__)
 
 #  ifdef MY_ATOMIC_MODE_DUMMY
@@ -21,6 +22,9 @@
 #    define LOCK_prefix "lock"
 #  endif
 
+#ifdef HAVE_GCC_ATOMIC_BUILTINS
+#include "gcc_builtins.h"
+#elif __GNUC__
 #  ifdef __GNUC__
 #    include "x86-gcc.h"
 #  elif defined(_MSC_VER)

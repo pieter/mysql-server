@@ -90,8 +90,7 @@ class ObjIterator
 {
 public:
 
-  ObjIterator():
-    is_valid(FALSE)
+  ObjIterator()
   { }
 
   /**
@@ -108,9 +107,6 @@ public:
 public:
   virtual ~ObjIterator()
   { }
-
-protected:
-  bool is_valid;  /// Indicates if iterator has been constructed successfully.
 
 };
 

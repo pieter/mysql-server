@@ -354,20 +354,28 @@ private:
 class DatabaseIterator : public ObjIterator
 {
 public:
-  DatabaseIterator(THD *thd);
+  static DatabaseIterator *create(THD *thd);
+
+public:
   virtual ~DatabaseIterator();
 
 public:
   virtual DatabaseObj *next();
 
 private:
+  THD *m_thd;
+  TABLE *m_is_schemata;
+  handler *m_ha;
+  my_bitmap_map *m_old_map;
 
-  THD    *m_thd;
-  TABLE  *is_schemata;
-  handler *ha;
-  my_bitmap_map *old_map;
-
+private:
   friend ObjIterator* get_databases(THD*);
+
+private:
+  DatabaseIterator(THD *thd,
+                   TABLE *is_schemata,
+                   handler *ha,
+                   my_bitmap_map *old_map);
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -375,24 +383,38 @@ private:
 class DbTablesIterator : public ObjIterator
 {
 public:
-  DbTablesIterator(THD *thd, const String *db_name);
+  static DbTablesIterator *create(THD *thd, const String *db_name);
+
+public:
   virtual ~DbTablesIterator();
 
 public:
   virtual TableObj *next();
 
-private:
+protected:
+  template<typename T>
+  static T *create_impl(THD *thd, const String *db_name);
 
-  THD   *m_thd;
-  String m_db_name;
-  TABLE *is_tables;
-  handler *ha;
-  my_bitmap_map *old_map;
+  DbTablesIterator(THD *thd,
+                   const String *db_name,
+                   TABLE *is_tables,
+                   handler *ha,
+                   my_bitmap_map *old_map);
 
 protected:
+  virtual bool is_type_accepted(const String *type) const;
 
-  bool enumerate_views;
+  virtual TableObj *create_table_obj(const String *db_name,
+                                     const String *table_name) const;
 
+private:
+  THD *m_thd;
+  String m_db_name;
+  TABLE *m_is_tables;
+  handler *m_ha;
+  my_bitmap_map *m_old_map;
+
+private:
   friend ObjIterator *get_db_tables(THD*, const String*);
 };
 
@@ -401,13 +423,25 @@ protected:
 class DbViewsIterator : public DbTablesIterator
 {
 public:
-  DbViewsIterator(THD *thd, const String *db_name):
-    DbTablesIterator(thd,db_name)
-  {
-    enumerate_views= TRUE;
-  }
+  static DbViewsIterator *create(THD *thd, const String *db_name);
 
-  friend ObjIterator *get_db_views(THD*, const String*);
+protected:
+  DbViewsIterator(THD *thd,
+                  const String *db_name,
+                  TABLE *is_tables,
+                  handler *ha,
+                  my_bitmap_map *old_map)
+    : DbTablesIterator(thd, db_name, is_tables, ha, old_map)
+  { }
+
+protected:
+  virtual bool is_type_accepted(const String *type) const;
+
+  virtual TableObj *create_table_obj(const String *db_name,
+                                     const String *table_name) const;
+
+private:
+  friend class DbTablesIterator;
 };
 
 
@@ -421,65 +455,70 @@ public:
 
 ObjIterator *get_databases(THD *thd)
 {
-  DatabaseIterator *it= new DatabaseIterator(thd);
-
-  return it && it->is_valid ? it : NULL;
+  return DatabaseIterator::create(thd);
 }
 
-DatabaseIterator::DatabaseIterator(THD *thd):
-  m_thd(thd), is_schemata(NULL)
+DatabaseIterator *DatabaseIterator::create(THD *thd)
 {
-  DBUG_ASSERT(m_thd);
+  DBUG_ASSERT(thd);
 
-  is_schemata = open_schema_table(m_thd, get_schema_table(SCH_SCHEMATA));
+  TABLE *is_schemata = open_schema_table(thd, get_schema_table(SCH_SCHEMATA));
 
   if (!is_schemata)
-    return;
+    return NULL;
 
-  ha = is_schemata->file;
+  handler *ha = is_schemata->file;
 
   if (!ha)
-    return;
+  {
+    free_tmp_table(thd, is_schemata);
+    return NULL;
+  }
 
-  old_map= dbug_tmp_use_all_columns(is_schemata, is_schemata->read_set);
+  my_bitmap_map *old_map=
+    dbug_tmp_use_all_columns(is_schemata, is_schemata->read_set);
 
   if (ha->ha_rnd_init(TRUE))
   {
-    ha= NULL;
-    return;
+    dbug_tmp_restore_column_map(is_schemata->read_set, old_map);
+    free_tmp_table(thd, is_schemata);
+    return NULL;
   }
 
-  is_valid= TRUE;
+  return new DatabaseIterator(thd, is_schemata, ha, old_map);
+}
+
+DatabaseIterator::DatabaseIterator(THD *thd,
+                                   TABLE *is_schemata,
+                                   handler *ha,
+                                   my_bitmap_map *old_map) :
+  m_thd(thd),
+  m_is_schemata(is_schemata),
+  m_ha(ha),
+  m_old_map(old_map)
+{
+  DBUG_ASSERT(m_thd);
+  DBUG_ASSERT(m_is_schemata);
+  DBUG_ASSERT(m_ha);
+  DBUG_ASSERT(m_old_map);
 }
 
 DatabaseIterator::~DatabaseIterator()
 {
-  if (ha)
-   ha->ha_rnd_end();
+  m_ha->ha_rnd_end();
 
-  DBUG_ASSERT(m_thd);
-
-  if (is_schemata)
-  {
-    dbug_tmp_restore_column_map(is_schemata->read_set, old_map);
-    free_tmp_table(m_thd, is_schemata);
-  }
+  dbug_tmp_restore_column_map(m_is_schemata->read_set, m_old_map);
+  free_tmp_table(m_thd, m_is_schemata);
 }
 
 DatabaseObj* DatabaseIterator::next()
 {
-  if (!is_valid)
-    return NULL;
-
-  DBUG_ASSERT(ha);
-  DBUG_ASSERT(is_schemata);
-
-  if (ha->rnd_next(is_schemata->record[0]))
+  if (m_ha->rnd_next(m_is_schemata->record[0]))
     return NULL;
 
   String name;
 
-  is_schemata->field[1]->val_str(&name);
+  m_is_schemata->field[1]->val_str(&name);
 
   DBUG_PRINT("DatabaseIterator::next", (" Found database %s", name.ptr()));
 
@@ -496,94 +535,144 @@ DatabaseObj* DatabaseIterator::next()
 
 ObjIterator *get_db_tables(THD *thd, const String *db_name)
 {
-  DbTablesIterator *it= new DbTablesIterator(thd, db_name);
-
-  return it && it->is_valid ? it : NULL;
+  return DbTablesIterator::create(thd, db_name);
 }
 
 ObjIterator *get_db_views(THD *thd, const String *db_name)
 {
-  DbViewsIterator *it= new DbViewsIterator(thd, db_name);
-
-  return it && it->is_valid ? it : NULL;
+  return DbViewsIterator::create(thd, db_name);
 }
 
-DbTablesIterator::DbTablesIterator(THD *thd, const String *db_name):
-  m_thd(thd), m_db_name(*db_name),
-  is_tables(NULL), ha(NULL), old_map(NULL),
-  enumerate_views(FALSE)
+DbTablesIterator *DbTablesIterator::create(THD *thd, const String *db_name)
 {
-  DBUG_ASSERT(m_thd);
-  m_db_name.copy();
+  return create_impl<DbTablesIterator>(thd, db_name);
+}
 
-  is_tables = open_schema_table(m_thd, get_schema_table(SCH_TABLES));
+template <typename T>
+T *DbTablesIterator::create_impl(THD *thd, const String *db_name)
+{
+  TABLE *is_tables= open_schema_table(thd, get_schema_table(SCH_TABLES));
 
   if (!is_tables)
-    return;
+    return NULL;
 
-  ha = is_tables->file;
+  handler *ha= is_tables->file;
 
   if (!ha)
-    return;
+  {
+    free_tmp_table(thd, is_tables);
+    return NULL;
+  }
 
-  old_map= dbug_tmp_use_all_columns(is_tables, is_tables->read_set);
+  my_bitmap_map *old_map=
+    dbug_tmp_use_all_columns(is_tables, is_tables->read_set);
 
   if (ha->ha_rnd_init(TRUE))
   {
-    ha= NULL;
-    return;
+    dbug_tmp_restore_column_map(is_tables->read_set, old_map);
+    free_tmp_table(thd, is_tables);
+    return NULL;
   }
 
-  is_valid= TRUE;
+  return new T(thd, db_name, is_tables, ha, old_map);
+}
+
+template DbTablesIterator *DbTablesIterator::create_impl(THD *thd,
+                                                         const String *db_name);
+
+DbTablesIterator::DbTablesIterator(THD *thd,
+                                   const String *db_name,
+                                   TABLE *is_tables,
+                                   handler *ha,
+                                   my_bitmap_map *old_map) :
+  m_thd(thd),
+  m_is_tables(is_tables),
+  m_ha(ha),
+  m_old_map(old_map)
+{
+  DBUG_ASSERT(thd);
+  DBUG_ASSERT(db_name);
+  DBUG_ASSERT(is_tables);
+  DBUG_ASSERT(ha);
+  DBUG_ASSERT(old_map);
+
+  m_db_name.copy(*db_name);
 }
 
 DbTablesIterator::~DbTablesIterator()
 {
-  if (ha)
-   ha->ha_rnd_end();
+  m_ha->ha_rnd_end();
 
-  DBUG_ASSERT(m_thd);
-
-  if (is_tables)
-  {
-    dbug_tmp_restore_column_map(is_tables->read_set, old_map);
-    free_tmp_table(m_thd, is_tables);
-  }
+  dbug_tmp_restore_column_map(m_is_tables->read_set, m_old_map);
+  free_tmp_table(m_thd, m_is_tables);
 }
 
 TableObj* DbTablesIterator::next()
 {
-  if (!is_valid)
-    return NULL;
-
-  DBUG_ASSERT(ha);
-  DBUG_ASSERT(is_tables);
-
-  while (!ha->rnd_next(is_tables->record[0]))
+  while (!m_ha->rnd_next(m_is_tables->record[0]))
   {
     String table_name;
     String db_name;
     String type;
 
-    is_tables->field[1]->val_str(&db_name);
-    is_tables->field[2]->val_str(&table_name);
-    is_tables->field[3]->val_str(&type);
+    m_is_tables->field[1]->val_str(&db_name);
+    m_is_tables->field[2]->val_str(&table_name);
+    m_is_tables->field[3]->val_str(&type);
 
     // skip tables not from the given database
     if (db_name != m_db_name)
       continue;
 
     // skip tables/views depending on enumerate_views flag
-    if (type != ( enumerate_views ? String("VIEW", system_charset_info) :
-                                    String("BASE TABLE", system_charset_info)) )
+    if (!is_type_accepted(&type))
       continue;
 
     DBUG_PRINT("DbTablesIterator::next", (" Found table %s.%s",
                                           db_name.ptr(), table_name.ptr()));
-    return new TableObj(&db_name,&table_name,enumerate_views);
+    return create_table_obj(&db_name, &table_name);
   }
 
   return NULL;
+}
+
+bool DbTablesIterator::is_type_accepted(const String *type) const
+{
+  return my_strcasecmp(system_charset_info,
+                       ((String *) type)->c_ptr_safe(), "BASE TABLE");
+}
+
+TableObj *DbTablesIterator::create_table_obj(const String *db_name,
+                                             const String *table_name) const
+{
+  return new TableObj(db_name, table_name, false);
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: DbViewsIterator class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+template DbViewsIterator *DbTablesIterator::create_impl(THD *thd,
+                                                        const String *db_name);
+
+DbViewsIterator *DbViewsIterator::create(THD *thd, const String *db_name)
+{
+  return create_impl<DbViewsIterator>(thd, db_name);
+}
+
+bool DbViewsIterator::is_type_accepted(const String *type) const
+{
+  return my_strcasecmp(system_charset_info,
+                       ((String *) type)->c_ptr_safe(), "VIEW");
+}
+
+TableObj *DbViewsIterator::create_table_obj(const String *db_name,
+                                            const String *table_name) const
+{
+  return new TableObj(db_name, table_name, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -594,10 +683,9 @@ TableObj* DbTablesIterator::next()
 
 ///////////////////////////////////////////////////////////////////////////
 
-DatabaseObj::DatabaseObj(const String *db_name) :
-  m_db_name(*db_name)
+DatabaseObj::DatabaseObj(const String *db_name)
 {
-  m_db_name.copy(); // copy name string to newly allocated memory
+  m_db_name.copy(*db_name);
 }
 
 bool DatabaseObj::serialize(THD *thd, String *serialization)
@@ -664,12 +752,10 @@ bool DatabaseObj::execute(THD *thd)
 TableObj::TableObj(const String *db_name,
                    const String *table_name,
                    bool table_is_view) :
-  m_db_name(*db_name),
-  m_table_name(*table_name),
   m_table_is_view(table_is_view)
 {
-  m_db_name.copy();
-  m_table_name.copy();
+  m_db_name.copy(*db_name);
+  m_table_name.copy(*table_name);
 }
 
 bool TableObj::serialize_table(THD *thd, String *serialization)

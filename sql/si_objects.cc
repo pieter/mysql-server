@@ -846,6 +846,77 @@ bool TableObj::execute(THD *thd)
 
 ///////////////////////////////////////////////////////////////////////////
 
+Obj *materialize_database(const String *db_name,
+                          const String *serialialization)
+{
+  Obj *obj= new DatabaseObj(db_name);
+  obj->materialize(serialialization);
+
+  return obj;
+}
+
+Obj *materialize_table(const String *db_name,
+                       const String *table_name,
+                       const String *serialialization)
+{
+  Obj *obj= new TableObj(db_name, table_name);
+  obj->materialize(serialialization);
+
+  return obj;
+}
+
+Obj *materialize_view(const String *db_name,
+                      const String *view_name,
+                      const String *serialialization)
+{
+  Obj *obj= new ViewObj(db_name, view_name);
+  obj->materialize(serialialization);
+
+  return obj;
+}
+
+Obj *materialize_trigger(const String *db_name,
+                         const String *trigger_name,
+                         const String *serialialization)
+{
+  Obj *obj= new TriggerObj(db_name, trigger_name);
+  obj->materialize(serialialization);
+
+  return obj;
+}
+
+Obj *materialize_stored_procedure(const String *db_name,
+                                  const String *stored_proc_name,
+                                  const String *serialialization)
+{
+  Obj *obj= new StoredProcObj(db_name, stored_proc_name);
+  obj->materialize(serialialization);
+
+  return obj;
+}
+
+Obj *materialize_stored_function(const String *db_name,
+                                 const String *stored_func_name,
+                                 const String *serialialization);
+{
+  Obj *obj= new StoredFuncObj(db_name, stored_func_name);
+  obj->materialize(serialialization);
+
+  return obj;
+}
+
+Obj *materialize_event(const String *db_name,
+                       const String *event_name,
+                       const String *serialialization);
+{
+  Obj *obj= new EventObj(db_name, event_name);
+  obj->materialize(serialialization);
+
+  return obj;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
 //
 // Implementation: DDL Blocker.
 //

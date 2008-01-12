@@ -42,20 +42,6 @@ class Obj { public:
   */
   virtual bool serialize(THD *thd, String *serialialization) = 0;
 
-  /**
-    Read the object state from a given buffer and restores object state to
-    the point, where it can be executed.
-
-    @param[in] serialialization_version The version of the serialization format.
-    @param[in] serialialization         Buffer contained serialized object.
-
-    @return error status.
-      @retval FALSE on success.
-      @retval TRUE on error.
-  */
-  virtual bool materialize(uint serialization_version,
-                           const String *serialialization) = 0;
-
 
   /**
     Return the name of the object.
@@ -78,6 +64,45 @@ class Obj { public:
 public:
   virtual ~Obj()
   { }
+
+private:
+  /**
+    Read the object state from a given buffer and restores object state to
+    the point, where it can be executed.
+
+    @param[in] serialialization_version The version of the serialization format.
+    @param[in] serialialization         Buffer contained serialized object.
+
+    @return error status.
+      @retval FALSE on success.
+      @retval TRUE on error.
+  */
+  virtual bool materialize(uint serialization_version,
+                           const String *serialialization) = 0;
+
+private:
+  friend Obj *materialize_database(const String *,
+                                   const String *);
+
+  friend Obj *materialize_table(const String *,
+                                const String *,
+                                const String *);
+
+  friend Obj *materialize_view(const String *,
+                               const String *,
+                               const String *);
+
+  friend Obj *materialize_trigger(const String *,
+                                  const String *,
+                                  const String *);
+
+  friend Obj *materialize_stored_procedure(const String *,
+                                           const String *,
+                                           const String *);
+
+  friend Obj *materialize_stored_function(const String *,
+                                          const String *,
+                                          const String *);
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -379,32 +404,37 @@ ObjIterator* get_view_base_tables(const LEX_STRING db_name,
 
 ///////////////////////////////////////////////////////////////////////////
 
-/**
-  ObjectType enumerates all the possible object types in the server.
-*/
+// The functions in this section provides a way to materialize objects from
+// the serialized form.
+//
+// The client is responsible for destroying the returned iterator.
 
-enum ObjectType
-{
-  OT_DATABASE,
-  OT_TABLE,
-  OT_VIEW,
-  OT_TRIGGER,
-  OT_STORED_PROCEDURE,
-  OT_STORED_FUNCTION,
-  OT_EVENT
-};
+Obj *materialize_database(const String *db_name,
+                          const String *serialialization);
 
-/**
-  Create an instance of Obj class representing serialized object.
+Obj *materialize_table(const String *db_name,
+                       const String *table_name,
+                       const String *serialialization);
 
-  This is the main function to materialize objects from a serialized form.
+Obj *materialize_view(const String *db_name,
+                      const String *view_name,
+                      const String *serialialization);
 
-  @return a pointer to the newly create instance.
-    @retval NULL if something went wrong.
-*/
+Obj *materialize_trigger(const String *db_name,
+                         const String *trigger_name,
+                         const String *serialialization);
 
-Obj *create_object(ObjectType object_type,
-                   const String *serialialization);
+Obj *materialize_stored_procedure(const String *db_name,
+                                  const String *stored_proc_name,
+                                  const String *serialialization);
+
+Obj *materialize_stored_function(const String *db_name,
+                                 const String *stored_func_name,
+                                 const String *serialialization);
+
+Obj *materialize_event(const String *db_name,
+                       const String *event_name,
+                       const String *serialialization);
 
 ///////////////////////////////////////////////////////////////////////////
 

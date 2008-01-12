@@ -13,6 +13,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#define MY_ATOMIC_MODE "atomic_builtins"
+
 #define make_atomic_add_body(S)                     \
   v= __sync_fetch_and_add(a, v);
 #define make_atomic_swap_body(S)                    \

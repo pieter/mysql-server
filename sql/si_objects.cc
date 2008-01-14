@@ -704,7 +704,7 @@ TableObj* DbTablesIterator::next()
 bool DbTablesIterator::is_type_accepted(const String *type) const
 {
   return my_strcasecmp(system_charset_info,
-                       ((String *) type)->c_ptr_safe(), "BASE TABLE");
+                       ((String *) type)->c_ptr_safe(), "BASE TABLE") == 0;
 }
 
 TableObj *DbTablesIterator::create_table_obj(const String *db_name,

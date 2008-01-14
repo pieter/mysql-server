@@ -257,12 +257,12 @@ bool drop_object(THD *thd, const char *obj_name, String *name1, String *name2)
   cmd.append("DROP ");
   cmd.append(obj_name);
   cmd.append(" IF EXISTS ");
-  if (name1->length() > 0)
+  if (name1 && (name1->length() > 0))
   {
     append_identifier(thd, &cmd, name1->c_ptr(), name1->length());  
     cmd.append(".");
   }
-  cmd.append(name2->c_ptr());
+  append_identifier(thd, &cmd, name2->c_ptr(), name2->length());  
   DBUG_RETURN(silent_exec(thd, &cmd));
 }
 
@@ -1259,6 +1259,7 @@ bool DatabaseObj::materialize(uint serialization_version,
 bool DatabaseObj::execute(THD *thd)
 {
   DBUG_ENTER("DatabaseObj::execute()");
+  drop(thd);
   DBUG_RETURN(silent_exec(thd, &m_create_stmt));
 }
 

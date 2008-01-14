@@ -724,6 +724,8 @@ protected:
 
   virtual bool is_type_accepted(const String *type) const;
 
+  virtual bool is_engine_accepted(const String *engine) const;
+
   virtual TableObj *create_table_obj(const String *db_name,
                                      const String *table_name) const;
 
@@ -746,6 +748,11 @@ public:
 
 protected:
   virtual bool is_type_accepted(const String *type) const;
+
+  virtual bool is_engine_accepted(const String *engine) const
+  {
+    return true;
+  }
 
   virtual TableObj *create_table_obj(const String *db_name,
                                      const String *table_name) const;
@@ -977,10 +984,12 @@ TableObj* DbTablesIterator::create_obj(TABLE *t)
   String table_name;
   String db_name;
   String type;
+  String engine;
 
   t->field[1]->val_str(&db_name);
   t->field[2]->val_str(&table_name);
   t->field[3]->val_str(&type);
+  t->field[5]->val_str(&engine);
 
   // Skip tables not from the given database.
 
@@ -990,6 +999,13 @@ TableObj* DbTablesIterator::create_obj(TABLE *t)
   // Skip tables/views depending on enumerate_views flag.
 
   if (!is_type_accepted(&type))
+    return NULL;
+
+  // TODO: actually, Backup Kernel needs to know also tables with
+  // invalid/empty engines. It is required so that Backup Kernel can throw
+  // a warning to the user.
+
+  if (!is_engine_accepted(&engine))
     return NULL;
 
   DBUG_PRINT("DbTablesIterator::next", (" Found table %s.%s",
@@ -1002,6 +1018,11 @@ bool DbTablesIterator::is_type_accepted(const String *type) const
 {
   return my_strcasecmp(system_charset_info,
                        ((String *) type)->c_ptr_safe(), "BASE TABLE") == 0;
+}
+
+bool DbTablesIterator::is_engine_accepted(const String *engine) const
+{
+  return engine->length() > 0;
 }
 
 TableObj *DbTablesIterator::create_table_obj(const String *db_name,

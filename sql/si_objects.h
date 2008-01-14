@@ -87,6 +87,17 @@ private:
   virtual bool materialize(uint serialization_version,
                            const String *serialialization) = 0;
 
+  /**
+    Drop the object.
+
+    @param[in] thd              Server thread context.
+
+    @return error status.
+      @retval FALSE on success.
+      @retval TRUE on error.
+  */
+  virtual bool drop(THD *thd) = 0;
+
 private:
   friend Obj *materialize_database(const String *,
                                    uint,
@@ -116,6 +127,12 @@ private:
                                           const String *,
                                           uint,
                                           const String *);
+
+  friend Obj *materialize_event(const String *,
+                                const String *,
+                                uint,
+                                const String *);
+
 };
 
 ///////////////////////////////////////////////////////////////////////////

@@ -7256,7 +7256,7 @@ static TABLE_LIST *get_trigger_table_impl(
   @return TABLE_LIST object corresponding to the base table.
 */
 
-static TABLE_LIST *get_trigger_table(THD *thd, const sp_name *trg_name)
+TABLE_LIST *get_trigger_table(THD *thd, const sp_name *trg_name)
 {
   /* Acquire LOCK_open (stop the server). */
 

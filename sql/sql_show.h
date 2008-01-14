@@ -40,4 +40,6 @@ int view_store_create_info(THD *thd, TABLE_LIST *table, String *buff);
 
 int copy_event_to_schema_table(THD *thd, TABLE *sch_table, TABLE *event_table);
 
+TABLE_LIST *get_trigger_table(THD *thd, const sp_name *trg_name);
+
 #endif /* SQL_SHOW_H */

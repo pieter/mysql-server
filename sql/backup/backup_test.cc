@@ -50,8 +50,7 @@ int execute_backup_test_command(THD *thd, List<LEX_STRING> *db_list)
     while ((db= it->next()))
     {
 
-      if (is_system_db(db->get_db_name()) ||
-          is_pseudo_db(db->get_db_name()))
+      if (is_internal_db_name(db->get_db_name()))
           continue;
 
       //

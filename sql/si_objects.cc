@@ -2336,17 +2336,12 @@ Obj *materialize_event(const String *db_name,
 
 ///////////////////////////////////////////////////////////////////////////
 
-bool is_system_db(const String *db_name)
+bool is_internal_db_name(const String *db_name)
 {
   return
     my_strcasecmp(system_charset_info,
                   ((String *) db_name)->c_ptr_safe(),
-                  "mysql") == 0;
-}
-
-bool is_pseudo_db(const String *db_name)
-{
-  return
+                  "mysql") == 0 ||
     my_strcasecmp(system_charset_info,
                   ((String *) db_name)->c_ptr_safe(),
                   "information_schema") == 0 ||

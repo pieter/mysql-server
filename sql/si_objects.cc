@@ -69,7 +69,7 @@ int silent_exec(THD *thd, String *query)
   thd->DDL_exception= TRUE;
 
   /*
-    Note: This is a copy and paste from the code in sql_parse.cc. 
+    Note: This is a copy and paste from the code in sql_parse.cc.
           See "case COM_QUERY:".
   */
   const char *found_semicolon= thd->query;
@@ -129,7 +129,7 @@ int serialize_routine(THD *thd,
   sp_name *routine_name;
   LEX_STRING sql_mode;
   DBUG_ENTER("serialize_routine");
-  DBUG_PRINT("serialize_routine", ("name: %s@%s", db_name.c_ptr(), 
+  DBUG_PRINT("serialize_routine", ("name: %s@%s", db_name.c_ptr(),
              r_name.c_ptr()));
 
   DBUG_ASSERT(type == TYPE_ENUM_PROCEDURE || type == TYPE_ENUM_FUNCTION);
@@ -148,7 +148,7 @@ int serialize_routine(THD *thd,
     thd->variables.max_sp_recursion_depth++;
   if ((sp= sp_find_routine(thd, type, routine_name, cache, FALSE)))
   {
-    sys_var_thd_sql_mode::symbolic_mode_representation(thd, 
+    sys_var_thd_sql_mode::symbolic_mode_representation(thd,
       sp->m_sql_mode, &sql_mode);
     Stored_program_creation_ctx *sp_ctx= sp->get_creation_ctx();
 
@@ -635,83 +635,98 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////
 
-class DatabaseIterator : public ObjIterator
+class InformationSchemaIterator : public ObjIterator
 {
 public:
-  virtual ~DatabaseIterator();
+  static bool prepare_is_table(
+    THD *thd,
+    TABLE **is_table,
+    handler **ha,
+    my_bitmap_map **orig_columns,
+    enum_schema_tables is_table_idx);
 
 public:
-  virtual DatabaseObj *next();
+  InformationSchemaIterator(THD *thd,
+                            TABLE *is_table,
+                            handler *ha,
+                            my_bitmap_map *orig_columns)
+    :
+      m_thd(thd),
+      m_is_table(is_table),
+      m_ha(ha),
+      m_orig_columns(orig_columns)
+  { }
+
+  virtual ~InformationSchemaIterator();
+
+public:
+  virtual Obj *next();
+
+protected:
+  virtual Obj *create_obj(TABLE *t) = 0;
 
 private:
   THD *m_thd;
-  TABLE *m_is_schemata;
+  TABLE *m_is_table;
   handler *m_ha;
-  my_bitmap_map *m_old_map;
+  my_bitmap_map *m_orig_columns;
 
-private:
-  friend ObjIterator* get_databases(THD*);
-
-private:
-  static DatabaseIterator *create(THD *thd);
-
-  DatabaseIterator(THD *thd,
-                   TABLE *is_schemata,
-                   handler *ha,
-                   my_bitmap_map *old_map);
 };
 
 ///////////////////////////////////////////////////////////////////////////
 
-class DbTablesIterator : public ObjIterator
+class DatabaseIterator : public InformationSchemaIterator
 {
 public:
-public:
-  virtual ~DbTablesIterator();
-
-public:
-  virtual TableObj *next();
+  DatabaseIterator(THD *thd,
+                   TABLE *is_table,
+                   handler *ha,
+                   my_bitmap_map *orig_columns) :
+    InformationSchemaIterator(thd, is_table, ha, orig_columns)
+  { }
 
 protected:
+  virtual DatabaseObj *create_obj(TABLE *t);
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class DbTablesIterator : public InformationSchemaIterator
+{
+public:
   DbTablesIterator(THD *thd,
                    const String *db_name,
-                   TABLE *is_tables,
+                   TABLE *is_table,
                    handler *ha,
-                   my_bitmap_map *old_map);
+                   my_bitmap_map *orig_columns) :
+    InformationSchemaIterator(thd, is_table, ha, orig_columns)
+  {
+    m_db_name.copy(*db_name);
+  }
 
 protected:
+  virtual TableObj *create_obj(TABLE *t);
+
   virtual bool is_type_accepted(const String *type) const;
 
   virtual TableObj *create_table_obj(const String *db_name,
                                      const String *table_name) const;
 
 private:
-  THD *m_thd;
   String m_db_name;
-  TABLE *m_is_tables;
-  handler *m_ha;
-  my_bitmap_map *m_old_map;
-
-private:
-  template<typename T>
-  static T *create(THD *thd, const String *db_name);
-
-private:
-  friend ObjIterator *get_db_tables(THD*, const String*);
-  friend ObjIterator *get_db_views(THD*, const String*);
 };
 
 ///////////////////////////////////////////////////////////////////////////
 
 class DbViewsIterator : public DbTablesIterator
 {
-protected:
+public:
   DbViewsIterator(THD *thd,
                   const String *db_name,
                   TABLE *is_tables,
                   handler *ha,
-                  my_bitmap_map *old_map)
-    : DbTablesIterator(thd, db_name, is_tables, ha, old_map)
+                  my_bitmap_map *orig_columns)
+    : DbTablesIterator(thd, db_name, is_tables, ha, orig_columns)
   { }
 
 protected:
@@ -719,9 +734,97 @@ protected:
 
   virtual TableObj *create_table_obj(const String *db_name,
                                      const String *table_name) const;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class DbTriggerIterator : public InformationSchemaIterator
+{
+public:
+  DbTriggerIterator(THD *thd,
+                    const String *db_name,
+                    TABLE *is_table,
+                    handler *ha,
+                    my_bitmap_map *orig_columns) :
+    InformationSchemaIterator(thd, is_table, ha, orig_columns)
+  {
+    m_db_name.copy(*db_name);
+  }
+
+protected:
+  virtual TriggerObj *create_obj(TABLE *t);
 
 private:
-  friend class DbTablesIterator;
+  String m_db_name;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class DbStoredProcIterator : public InformationSchemaIterator
+{
+public:
+  DbStoredProcIterator(THD *thd,
+                       const String *db_name,
+                       TABLE *is_table,
+                       handler *ha,
+                       my_bitmap_map *orig_columns) :
+    InformationSchemaIterator(thd, is_table, ha, orig_columns)
+  {
+    m_db_name.copy(*db_name);
+  }
+
+protected:
+  virtual Obj *create_obj(TABLE *t);
+
+  virtual bool check_type(const String *sr_type) const;
+
+  virtual Obj *create_sr_object(const String *db_name,
+                                const String *sr_name);
+
+private:
+  String m_db_name;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class DbStoredFuncIterator : public DbStoredProcIterator
+{
+public:
+  DbStoredFuncIterator(THD *thd,
+                       const String *db_name,
+                       TABLE *is_table,
+                       handler *ha,
+                       my_bitmap_map *orig_columns) :
+    DbStoredProcIterator(thd, db_name, is_table, ha, orig_columns)
+  { }
+
+protected:
+  virtual bool check_type(const String *sr_type) const;
+
+  virtual Obj *create_sr_object(const String *db_name,
+                                const String *sr_name);
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class DbEventIterator : public InformationSchemaIterator
+{
+public:
+  DbEventIterator(THD *thd,
+                  const String *db_name,
+                  TABLE *is_table,
+                  handler *ha,
+                  my_bitmap_map *orig_columns) :
+    InformationSchemaIterator(thd, is_table, ha, orig_columns)
+  {
+    m_db_name.copy(*db_name);
+  }
+
+protected:
+  virtual EventObj *create_obj(TABLE *t);
+
+private:
+  String m_db_name;
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -767,72 +870,79 @@ private:
 ///////////////////////////////////////////////////////////////////////////
 
 //
+// Implementation: InformationSchemaIterator class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+bool InformationSchemaIterator::prepare_is_table(
+  THD *thd,
+  TABLE **is_table,
+  handler **ha,
+  my_bitmap_map **orig_columns,
+  enum_schema_tables is_table_idx)
+{
+  *is_table= open_schema_table(thd, get_schema_table(is_table_idx));
+
+  if (!*is_table)
+    return TRUE;
+
+  *ha= (*is_table)->file;
+
+  if (!*ha)
+  {
+    free_tmp_table(thd, *is_table);
+    return TRUE;
+  }
+
+  *orig_columns=
+    dbug_tmp_use_all_columns(*is_table, (*is_table)->read_set);
+
+  if ((*ha)->ha_rnd_init(TRUE))
+  {
+    dbug_tmp_restore_column_map((*is_table)->read_set, *orig_columns);
+    free_tmp_table(thd, *is_table);
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+InformationSchemaIterator::~InformationSchemaIterator()
+{
+  m_ha->ha_rnd_end();
+
+  dbug_tmp_restore_column_map(m_is_table->read_set, m_orig_columns);
+  free_tmp_table(m_thd, m_is_table);
+}
+
+Obj *InformationSchemaIterator::next()
+{
+  while (true)
+  {
+    if (m_ha->rnd_next(m_is_table->record[0]))
+      return NULL;
+
+    Obj *obj= create_obj(m_is_table);
+
+    if (obj)
+      return obj;
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
 // Implementation: DatabaseIterator class.
 //
 
 ///////////////////////////////////////////////////////////////////////////
 
-DatabaseIterator *DatabaseIterator::create(THD *thd)
+DatabaseObj* DatabaseIterator::create_obj(TABLE *t)
 {
-  DBUG_ASSERT(thd);
-
-  TABLE *is_schemata = open_schema_table(thd, get_schema_table(SCH_SCHEMATA));
-
-  if (!is_schemata)
-    return NULL;
-
-  handler *ha = is_schemata->file;
-
-  if (!ha)
-  {
-    free_tmp_table(thd, is_schemata);
-    return NULL;
-  }
-
-  my_bitmap_map *old_map=
-    dbug_tmp_use_all_columns(is_schemata, is_schemata->read_set);
-
-  if (ha->ha_rnd_init(TRUE))
-  {
-    dbug_tmp_restore_column_map(is_schemata->read_set, old_map);
-    free_tmp_table(thd, is_schemata);
-    return NULL;
-  }
-
-  return new DatabaseIterator(thd, is_schemata, ha, old_map);
-}
-
-DatabaseIterator::DatabaseIterator(THD *thd,
-                                   TABLE *is_schemata,
-                                   handler *ha,
-                                   my_bitmap_map *old_map) :
-  m_thd(thd),
-  m_is_schemata(is_schemata),
-  m_ha(ha),
-  m_old_map(old_map)
-{
-  DBUG_ASSERT(m_thd);
-  DBUG_ASSERT(m_is_schemata);
-  DBUG_ASSERT(m_ha);
-  DBUG_ASSERT(m_old_map);
-}
-
-DatabaseIterator::~DatabaseIterator()
-{
-  m_ha->ha_rnd_end();
-
-  dbug_tmp_restore_column_map(m_is_schemata->read_set, m_old_map);
-  free_tmp_table(m_thd, m_is_schemata);
-}
-
-DatabaseObj* DatabaseIterator::next()
-{
-  if (m_ha->rnd_next(m_is_schemata->record[0]))
-    return NULL;
-
   String name;
 
-  m_is_schemata->field[1]->val_str(&name);
+  t->field[1]->val_str(&name);
 
   DBUG_PRINT("DatabaseIterator::next", (" Found database %s", name.ptr()));
 
@@ -847,91 +957,30 @@ DatabaseObj* DatabaseIterator::next()
 
 ///////////////////////////////////////////////////////////////////////////
 
-template DbTablesIterator *
-DbTablesIterator::create(THD *thd, const String *db_name);
-
-template <typename T>
-T *DbTablesIterator::create(THD *thd, const String *db_name)
+TableObj* DbTablesIterator::create_obj(TABLE *t)
 {
-  TABLE *is_tables= open_schema_table(thd, get_schema_table(SCH_TABLES));
+  String table_name;
+  String db_name;
+  String type;
 
-  if (!is_tables)
+  t->field[1]->val_str(&db_name);
+  t->field[2]->val_str(&table_name);
+  t->field[3]->val_str(&type);
+
+  // Skip tables not from the given database.
+
+  if (db_name != m_db_name)
     return NULL;
 
-  handler *ha= is_tables->file;
+  // Skip tables/views depending on enumerate_views flag.
 
-  if (!ha)
-  {
-    free_tmp_table(thd, is_tables);
+  if (!is_type_accepted(&type))
     return NULL;
-  }
 
-  my_bitmap_map *old_map=
-    dbug_tmp_use_all_columns(is_tables, is_tables->read_set);
+  DBUG_PRINT("DbTablesIterator::next", (" Found table %s.%s",
+                                        db_name.ptr(), table_name.ptr()));
 
-  if (ha->ha_rnd_init(TRUE))
-  {
-    dbug_tmp_restore_column_map(is_tables->read_set, old_map);
-    free_tmp_table(thd, is_tables);
-    return NULL;
-  }
-
-  return new T(thd, db_name, is_tables, ha, old_map);
-}
-
-DbTablesIterator::DbTablesIterator(THD *thd,
-                                   const String *db_name,
-                                   TABLE *is_tables,
-                                   handler *ha,
-                                   my_bitmap_map *old_map) :
-  m_thd(thd),
-  m_is_tables(is_tables),
-  m_ha(ha),
-  m_old_map(old_map)
-{
-  DBUG_ASSERT(thd);
-  DBUG_ASSERT(db_name);
-  DBUG_ASSERT(is_tables);
-  DBUG_ASSERT(ha);
-  DBUG_ASSERT(old_map);
-
-  m_db_name.copy(*db_name);
-}
-
-DbTablesIterator::~DbTablesIterator()
-{
-  m_ha->ha_rnd_end();
-
-  dbug_tmp_restore_column_map(m_is_tables->read_set, m_old_map);
-  free_tmp_table(m_thd, m_is_tables);
-}
-
-TableObj* DbTablesIterator::next()
-{
-  while (!m_ha->rnd_next(m_is_tables->record[0]))
-  {
-    String table_name;
-    String db_name;
-    String type;
-
-    m_is_tables->field[1]->val_str(&db_name);
-    m_is_tables->field[2]->val_str(&table_name);
-    m_is_tables->field[3]->val_str(&type);
-
-    // skip tables not from the given database
-    if (db_name != m_db_name)
-      continue;
-
-    // skip tables/views depending on enumerate_views flag
-    if (!is_type_accepted(&type))
-      continue;
-
-    DBUG_PRINT("DbTablesIterator::next", (" Found table %s.%s",
-                                          db_name.ptr(), table_name.ptr()));
-    return create_table_obj(&db_name, &table_name);
-  }
-
-  return NULL;
+  return create_table_obj(&db_name, &table_name);
 }
 
 bool DbTablesIterator::is_type_accepted(const String *type) const
@@ -954,9 +1003,6 @@ TableObj *DbTablesIterator::create_table_obj(const String *db_name,
 
 ///////////////////////////////////////////////////////////////////////////
 
-template DbViewsIterator *
-DbTablesIterator::create(THD *thd, const String *db_name);
-
 bool DbViewsIterator::is_type_accepted(const String *type) const
 {
   return my_strcasecmp(system_charset_info,
@@ -967,6 +1013,119 @@ TableObj *DbViewsIterator::create_table_obj(const String *db_name,
                                             const String *table_name) const
 {
   return new TableObj(db_name, table_name, true);
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: DbTriggerIterator class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+TriggerObj *DbTriggerIterator::create_obj(TABLE *t)
+{
+  String db_name;
+  String trigger_name;
+
+  t->field[1]->val_str(&db_name);
+  t->field[2]->val_str(&trigger_name);
+
+  // Skip triggers not from the given database.
+
+  if (db_name != m_db_name)
+    return NULL;
+
+  return new TriggerObj(&db_name, &trigger_name);
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: DbStoredProcIterator class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+Obj *DbStoredProcIterator::create_obj(TABLE *t)
+{
+  String db_name;
+  String sr_name;
+  String sr_type;
+
+  t->field[2]->val_str(&db_name);
+  t->field[3]->val_str(&sr_name);
+  t->field[4]->val_str(&sr_type);
+
+  // Skip triggers not from the given database.
+
+  if (db_name != m_db_name)
+    return NULL;
+
+  if (!check_type(&sr_type))
+    return NULL;
+
+  return create_sr_object(&db_name, &sr_name);
+}
+
+bool DbStoredProcIterator::check_type(const String *sr_type) const
+{
+  return
+    my_strcasecmp(system_charset_info,
+                  ((String *) sr_type)->c_ptr_safe(),
+                  "PROCEDURE") == 0;
+}
+
+Obj *DbStoredProcIterator::create_sr_object(const String *db_name,
+                                            const String *sr_name)
+{
+  return new StoredProcObj(db_name, sr_name);
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: DbStoredFuncIterator class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+bool DbStoredFuncIterator::check_type(const String *sr_type) const
+{
+  return
+    my_strcasecmp(system_charset_info,
+                  ((String *) sr_type)->c_ptr_safe(),
+                  "FUNCTION") == 0;
+}
+
+Obj *DbStoredFuncIterator::create_sr_object(const String *db_name,
+                                            const String *sr_name)
+{
+  return new StoredFuncObj(db_name, sr_name);
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: DbEventIterator class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
+EventObj *DbEventIterator::create_obj(TABLE *t)
+{
+  String db_name;
+  String event_name;
+
+  t->field[1]->val_str(&db_name);
+  t->field[2]->val_str(&event_name);
+
+  // Skip triggers not from the given database.
+
+  if (db_name != m_db_name)
+    return NULL;
+
+  return new EventObj(&db_name, &event_name);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1083,38 +1242,87 @@ TableObj *ViewBaseObjectsIterator::next()
 
 ObjIterator *get_databases(THD *thd)
 {
-  return DatabaseIterator::create(thd);
+  TABLE *is_table;
+  handler *ha;
+  my_bitmap_map *orig_columns;
+
+  if (InformationSchemaIterator::prepare_is_table(
+      thd, &is_table, &ha, &orig_columns, SCH_SCHEMATA))
+    return NULL;
+
+  return new DatabaseIterator(thd, is_table, ha, orig_columns);
 }
+
+template <typename Iterator>
+Iterator *create_is_iterator(THD *thd,
+                             enum_schema_tables is_table_idx,
+                             const String *db_name)
+{
+  TABLE *is_table;
+  handler *ha;
+  my_bitmap_map *orig_columns;
+
+  if (InformationSchemaIterator::prepare_is_table(
+      thd, &is_table, &ha, &orig_columns, is_table_idx))
+    return NULL;
+
+  return new Iterator(thd, db_name, is_table, ha, orig_columns);
+}
+
+template
+DbTablesIterator *
+create_is_iterator(THD *, enum_schema_tables, const String *);
+
+template
+DbViewsIterator *
+create_is_iterator(THD *, enum_schema_tables, const String *);
+
+template
+DbTriggerIterator *
+create_is_iterator(THD *, enum_schema_tables, const String *);
+
+template
+DbStoredProcIterator *
+create_is_iterator(THD *, enum_schema_tables, const String *);
+
+template
+DbStoredFuncIterator *
+create_is_iterator(THD *, enum_schema_tables, const String *);
+
+template
+DbEventIterator *
+create_is_iterator(THD *, enum_schema_tables, const String *);
 
 ObjIterator *get_db_tables(THD *thd, const String *db_name)
 {
-  return DbTablesIterator::create<DbTablesIterator>(thd, db_name);
+  return create_is_iterator<DbTablesIterator>(thd, SCH_TABLES, db_name);
 }
 
 ObjIterator *get_db_views(THD *thd, const String *db_name)
 {
-  return DbTablesIterator::create<DbViewsIterator>(thd, db_name);
+  return create_is_iterator<DbViewsIterator>(thd, SCH_TABLES, db_name);
 }
 
 ObjIterator *get_db_triggers(THD *thd, const String *db_name)
 {
-  return NULL;
+  return create_is_iterator<DbTriggerIterator>(thd, SCH_TRIGGERS, db_name);
 }
 
 ObjIterator *get_db_stored_procedures(THD *thd, const String *db_name)
 {
-  return NULL;
+  return create_is_iterator<DbStoredProcIterator>(thd, SCH_PROCEDURES, db_name);
 }
 
 ObjIterator *get_db_stored_functions(THD *thd, const String *db_name)
 {
-  return NULL;
+  return create_is_iterator<DbStoredFuncIterator>(thd, SCH_PROCEDURES, db_name);
 }
 
 ObjIterator *get_db_events(THD *thd, const String *db_name)
 {
-  return NULL;
+  return create_is_iterator<DbEventIterator>(thd, SCH_EVENTS, db_name);
 }
+
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -1148,31 +1356,28 @@ ObjIterator* get_view_base_views(THD *thd,
 
 ///////////////////////////////////////////////////////////////////////////
 
-/*
- Implementation: DatabaseObj class.
-*/
 DatabaseObj::DatabaseObj(const String *db_name)
-:
-  m_db_name(*db_name)
 {
   m_db_name.copy(*db_name); // copy name string to newly allocated memory
 }
 
 /**
-   serialize the object
+  Serialize the object.
 
-   This method produces the data necessary for materializing the object
-   on restore (creates object). 
-   
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  This method produces the data necessary for materializing the object
+  on restore (creates object).
 
-   @note this method will return an error if the db_name is either
-         mysql or information_schema as these are not objects that 
-         should be recreated using this interface.
+  @param[in]  thd            Thread context.
+  @param[out] serialization  The data needed to recreate this object.
 
-   @returns bool 0 = SUCCESS
-  */
+  @note this method will return an error if the db_name is either
+        mysql or information_schema as these are not objects that
+        should be recreated using this interface.
+
+  @returns Error status.
+   @retval FALSE on success
+   @retval TRUE on error
+*/
 bool DatabaseObj::serialize(THD *thd, String *serialization)
 {
   HA_CREATE_INFO create;
@@ -1213,34 +1418,38 @@ bool DatabaseObj::serialize(THD *thd, String *serialization)
 }
 
 /**
-   Materialize the serialization string.
+  Materialize the serialization string.
 
-   This method saves serialization string into a member variable.
+  This method saves serialization string into a member variable.
 
-   @param[in]  serialization_version   version number of this interface
-   @param[in]  serialization           the string from serialize()
+  @param[in]  serialization_version   version number of this interface
+  @param[in]  serialization           the string from serialize()
 
-   @todo take serialization_version into account
+  @todo take serialization_version into account
 
-   @returns bool 0 = SUCCESS
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
   */
 bool DatabaseObj::materialize(uint serialization_version,
                              const String *serialization)
 {
   DBUG_ENTER("DatabaseObj::materialize()");
   m_create_stmt.copy(*serialization);
-  DBUG_RETURN(0);
+  DBUG_RETURN(FALSE);
 }
 
 /**
-   Create the object.
-   
-   This method uses serialization string in a query and executes it.
+  Create the object.
 
-   @param[in]  thd  current thread
+  This method uses serialization string in a query and executes it.
 
-   @returns bool 0 = SUCCESS
-  */
+  @param[in]  thd  Thread context.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool DatabaseObj::execute(THD *thd)
 {
   DBUG_ENTER("DatabaseObj::execute()");
@@ -1248,27 +1457,37 @@ bool DatabaseObj::execute(THD *thd)
 }
 
 /**
-   Drops the object.
+  Drop the object.
 
-   This method calls the silent_exec method to execute the query.
+  This method calls the silent_exec method to execute the query.
 
-   @note This uses "IF EXISTS" and does not return error if
-         object does not exist.
+  @note This uses "IF EXISTS" and does not return error if
+        object does not exist.
 
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+        @param[in]  thd            Thread context.
+  @param[out] serialization  the data needed to recreate this object
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool DatabaseObj::drop(THD *thd)
 {
   DBUG_ENTER("DatabaseObj::drop()");
-  DBUG_RETURN(drop_object(thd, "DATABASE", 0, &m_db_name));
+  DBUG_RETURN(drop_object(thd,
+                          (char *) "DATABASE",
+                          0,
+                          &m_db_name));
 }
 
-/*
- Implementation: TableObj class.
-*/
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: TableObj class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
 TableObj::TableObj(const String *db_name,
                    const String *table_name,
                    bool table_is_view) :
@@ -1289,16 +1508,18 @@ bool TableObj::serialize_view(THD *thd, String *serialization)
 }
 
 /**
-   serialize the object
+  Serialize the object.
 
-   This method produces the data necessary for materializing the object
-   on restore (creates object). 
-   
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  This method produces the data necessary for materializing the object
+  on restore (creates object).
 
-   @returns bool 0 = SUCCESS
-  */
+  @param[in]  thd            Thread context.
+  @param[out] serialization  The data needed to recreate this object.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool TableObj::serialize(THD *thd, String *serialization)
 {
   bool ret= 0;
@@ -1321,7 +1542,7 @@ bool TableObj::serialize(THD *thd, String *serialization)
   */
   thd->lex->select_lex.add_table_to_list(thd, name_id, NULL, 0);
   TABLE_LIST *table_list= (TABLE_LIST*)thd->lex->select_lex.table_list.first;
-  thd->lex->sql_command = SQLCOM_SHOW_CREATE; 
+  thd->lex->sql_command = SQLCOM_SHOW_CREATE;
 
   /*
     Setup view specific variables and settings
@@ -1351,7 +1572,7 @@ bool TableObj::serialize(THD *thd, String *serialization)
   /*
     Get the create statement and close up shop.
   */
-  ret= m_table_is_view ? 
+  ret= m_table_is_view ?
     view_store_create_info(thd, table_list, serialization) :
     store_create_info(thd, table_list, serialization, NULL);
   close_thread_tables(thd);
@@ -1360,34 +1581,38 @@ bool TableObj::serialize(THD *thd, String *serialization)
 }
 
 /**
-   Materialize the serialization string.
+  Materialize the serialization string.
 
-   This method saves serialization string into a member variable.
+  This method saves serialization string into a member variable.
 
-   @param[in]  serialization_version   version number of this interface
-   @param[in]  serialization           the string from serialize()
+  @param[in]  serialization_version   version number of this interface
+  @param[in]  serialization           the string from serialize()
 
-   @todo take serialization_version into account
+  @todo take serialization_version into account
 
-   @returns bool 0 = SUCCESS
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
   */
 bool TableObj::materialize(uint serialization_version,
-                             const String *serialization)
+                           const String *serialization)
 {
   DBUG_ENTER("TableObj::materialize()");
   m_create_stmt.copy(*serialization);
-  DBUG_RETURN(0);
+  DBUG_RETURN(FALSE);
 }
 
 /**
-   Create the object.
-   
-   This method uses serialization string in a query and executes it.
+  Create the object represented by TableObj in the database.
 
-   @param[in]  thd  current thread
+  This method uses serialization string in a query and executes it.
 
-   @returns bool 0 = SUCCESS
-  */
+  @param[in]  thd  Thread context.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool TableObj::execute(THD *thd)
 {
   DBUG_ENTER("TableObj::execute()");
@@ -1396,50 +1621,61 @@ bool TableObj::execute(THD *thd)
 }
 
 /**
-   Drops the object.
+  Drop the object.
 
-   This method calls the silent_exec method to execute the query.
+  This method calls the silent_exec method to execute the query.
 
-   @note This uses "IF EXISTS" and does not return error if
-         object does not exist.
+  @note This uses "IF EXISTS" and does not return error if
+        object does not exist.
 
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  @param[in]  thd            Thread context.
+  @param[out] serialization  The data needed to recreate this object.
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool TableObj::drop(THD *thd)
 {
   DBUG_ENTER("TableObj::drop()");
-  DBUG_RETURN(drop_object(thd, "TABLE", &m_db_name, &m_table_name));
+  DBUG_RETURN(drop_object(thd,
+                          (char *) "TABLE",
+                          &m_db_name,
+                          &m_table_name));
 }
 
-/*
- Implementation: TriggerObj class.
-*/
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: TriggerObj class.
+//
+///////////////////////////////////////////////////////////////////////////
+
 TriggerObj::TriggerObj(const String *db_name,
                              const String *trigger_name)
 {
   // copy strings to newly allocated memory
-  m_db_name.copy(*db_name); 
-  m_trigger_name.copy(*trigger_name); 
+  m_db_name.copy(*db_name);
+  m_trigger_name.copy(*trigger_name);
 }
 
 /**
-   serialize the object
+  Serialize the object.
 
-   This method produces the data necessary for materializing the object
-   on restore (creates object). 
-   
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  This method produces the data necessary for materializing the object
+  on restore (creates object).
 
-   @note this method will return an error if the db_name is either
-         mysql or information_schema as these are not objects that 
-         should be recreated using this interface.
+  @param[in]  thd            Thread handler.
+  @param[out] serialization  The data needed to recreate this object.
 
-   @returns bool 0 = SUCCESS
-  */
+  @note this method will return an error if the db_name is either
+        mysql or information_schema as these are not objects that
+        should be recreated using this interface.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool TriggerObj::serialize(THD *thd, String *serialization)
 {
   bool ret= false;
@@ -1455,22 +1691,22 @@ bool TriggerObj::serialize(THD *thd, String *serialization)
   CHARSET_INFO *trg_client_cs;
   DBUG_ENTER("TriggerObj::serialize()");
 
-  DBUG_PRINT("TriggerObj::serialize", ("name: %s in %s", 
+  DBUG_PRINT("TriggerObj::serialize", ("name: %s in %s",
              m_trigger_name.c_ptr(), m_db_name.c_ptr()));
 
   serialization->length(0);
   LEX_STRING db;
   db.str= m_db_name.c_ptr();
   db.length= m_db_name.length();
-  LEX_STRING t_name; 
+  LEX_STRING t_name;
   t_name.str= m_trigger_name.c_ptr();
-  t_name.length= m_trigger_name.length(); 
+  t_name.length= m_trigger_name.length();
   trig_name= new sp_name(db, t_name, true);
   trig_name->init_qname(thd);
   TABLE_LIST *lst= get_trigger_table(thd, trig_name);
   if (!lst)
     DBUG_RETURN(FALSE);
-  
+
   if (open_tables(thd, &lst, &num_tables, 0))
     DBUG_RETURN(FALSE);
 
@@ -1533,17 +1769,19 @@ bool TriggerObj::serialize(THD *thd, String *serialization)
 }
 
 /**
-   Materialize the serialization string.
+  Materialize the serialization string.
 
-   This method saves serialization string into a member variable.
+  This method saves serialization string into a member variable.
 
-   @param[in]  serialization_version   version number of this interface
-   @param[in]  serialization           the string from serialize()
+  @param[in]  serialization_version   version number of this interface
+  @param[in]  serialization           the string from serialize()
 
-   @todo take serialization_version into account
+  @todo take serialization_version into account
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool TriggerObj::materialize(uint serialization_version,
                              const String *serialization)
 {
@@ -1553,14 +1791,16 @@ bool TriggerObj::materialize(uint serialization_version,
 }
 
 /**
-   Create the object.
-   
-   This method uses serialization string in a query and executes it.
+  Create the object.
 
-   @param[in]  thd  current thread
+  This method uses serialization string in a query and executes it.
 
-   @returns bool 0 = SUCCESS
-  */
+  @param[in]  thd  Thread context.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool TriggerObj::execute(THD *thd)
 {
   DBUG_ENTER("TriggerObj::execute()");
@@ -1569,27 +1809,37 @@ bool TriggerObj::execute(THD *thd)
 }
 
 /**
-   Drops the object.
+  Drop the object.
 
-   This method calls the silent_exec method to execute the query.
+  This method calls the silent_exec method to execute the query.
 
-   @note This uses "IF EXISTS" and does not return error if
-         object does not exist.
+  @note This uses "IF EXISTS" and does not return error if
+        object does not exist.
 
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  @param[in]  thd            Thread context.
+  @param[out] serialization  The data needed to recreate this object.
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool TriggerObj::drop(THD *thd)
 {
   DBUG_ENTER("TriggerObj::drop()");
-  DBUG_RETURN(drop_object(thd, "TRIGGER", &m_db_name, &m_trigger_name));
+  DBUG_RETURN(drop_object(thd,
+                          (char *) "TRIGGER",
+                          &m_db_name,
+                          &m_trigger_name));
 }
 
-/*
- Implementation: StoredProcObj class.
-*/
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: StoredProcObj class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
 StoredProcObj::StoredProcObj(const String *db_name,
                              const String *stored_proc_name)
 {
@@ -1599,25 +1849,25 @@ StoredProcObj::StoredProcObj(const String *db_name,
 }
 
 /**
-   serialize the object
+  Serialize the object.
 
-   This method produces the data necessary for materializing the object
-   on restore (creates object). 
-   
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  This method produces the data necessary for materializing the object
+  on restore (creates object).
 
-   @note this method will return an error if the db_name is either
-         mysql or information_schema as these are not objects that 
-         should be recreated using this interface.
+  @param[in]  thd            Thread context.
+  @param[out] serialization  The data needed to recreate this object.
 
-   @returns bool 0 = SUCCESS
-  */
+  @note this method will return an error if the db_name is either
+        mysql or information_schema as these are not objects that
+        should be recreated using this interface.
+
+  @returns Error status.
+*/
 bool StoredProcObj::serialize(THD *thd, String *serialization)
 {
   bool ret= false;
   DBUG_ENTER("StoredProcObj::serialize()");
-  DBUG_PRINT("StoredProcObj::serialize", ("name: %s in %s", 
+  DBUG_PRINT("StoredProcObj::serialize", ("name: %s in %s",
              m_stored_proc_name.c_ptr(), m_db_name.c_ptr()));
   serialization->length(0);
   ret= serialize_routine(thd, TYPE_ENUM_PROCEDURE, m_db_name,
@@ -1626,17 +1876,19 @@ bool StoredProcObj::serialize(THD *thd, String *serialization)
 }
 
 /**
-   Materialize the serialization string.
+  Materialize the serialization string.
 
-   This method saves serialization string into a member variable.
+  This method saves serialization string into a member variable.
 
-   @param[in]  serialization_version   version number of this interface
-   @param[in]  serialization           the string from serialize()
+  @param[in]  serialization_version   version number of this interface
+  @param[in]  serialization           the string from serialize()
 
-   @todo take serialization_version into account
+  @todo take serialization_version into account
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool StoredProcObj::materialize(uint serialization_version,
                              const String *serialization)
 {
@@ -1646,14 +1898,16 @@ bool StoredProcObj::materialize(uint serialization_version,
 }
 
 /**
-   Create the object.
-   
-   This method uses serialization string in a query and executes it.
+  Create the object.
 
-   @param[in]  thd  current thread
+  This method uses serialization string in a query and executes it.
 
-   @returns bool 0 = SUCCESS
-  */
+  @param[in]  thd  current thread
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool StoredProcObj::execute(THD *thd)
 {
   DBUG_ENTER("StoredProcObj::execute()");
@@ -1662,74 +1916,88 @@ bool StoredProcObj::execute(THD *thd)
 }
 
 /**
-   Drops the object.
+  Drop the object.
 
-   This method calls the silent_exec method to execute the query.
+  This method calls the silent_exec method to execute the query.
 
-   @note This uses "IF EXISTS" and does not return error if
-         object does not exist.
+  @note This uses "IF EXISTS" and does not return error if
+        object does not exist.
 
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  @param[in]  thd            current thread
+  @param[out] serialization  the data needed to recreate this object
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool StoredProcObj::drop(THD *thd)
 {
   DBUG_ENTER("StoredProcObj::drop()");
-  DBUG_RETURN(drop_object(thd, "PROCEDURE", &m_db_name, &m_stored_proc_name));
+  DBUG_RETURN(drop_object(thd,
+                          (char *) "PROCEDURE",
+                          &m_db_name,
+                          &m_stored_proc_name));
 }
 
-/*
- Implementation: StoredFuncObj class.
-*/
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: StoredFuncObj class.
+//
+
+///////////////////////////////////////////////////////////////////////////
+
 StoredFuncObj::StoredFuncObj(const String *db_name,
                              const String *stored_func_name)
 {
   // copy strings to newly allocated memory
   m_db_name.copy(*db_name);
-  m_stored_func_name.copy(*stored_func_name); 
+  m_stored_func_name.copy(*stored_func_name);
 }
 
 /**
-   serialize the object
+  Serialize the object.
 
-   This method produces the data necessary for materializing the object
-   on restore (creates object). 
-   
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  This method produces the data necessary for materializing the object
+  on restore (creates object).
 
-   @note this method will return an error if the db_name is either
-         mysql or information_schema as these are not objects that 
-         should be recreated using this interface.
+  @param[in]  thd            Thread context.
+  @param[out] serialization  The data needed to recreate this object.
 
-   @returns bool 0 = SUCCESS
-  */
-bool StoredFuncObj::serialize(THD *thd, String *serialization)
+  @note this method will return an error if the db_name is either
+        mysql or information_schema as these are not objects that
+        should be recreated using this interface.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+ */
+bool  StoredFuncObj::serialize(THD *thd, String *serialization)
 {
   bool ret= false;
   DBUG_ENTER("StoredFuncObj::serialize()");
-  DBUG_PRINT("StoredProcObj::serialize", ("name: %s in %s", 
-             m_stored_func_name.c_ptr(), m_db_name.c_ptr()));
+  DBUG_PRINT("StoredProcObj::serialize", ("name: %s in %s",
+              m_stored_func_name.c_ptr(), m_db_name.c_ptr()));
   serialization->length(0);
   ret= serialize_routine(thd, TYPE_ENUM_FUNCTION, m_db_name,
-                         m_stored_func_name, serialization);
+                          m_stored_func_name, serialization);
   DBUG_RETURN(ret);
 }
 
 /**
-   Materialize the serialization string.
+  Materialize the serialization string.
 
-   This method saves serialization string into a member variable.
+  This method saves serialization string into a member variable.
 
-   @param[in]  serialization_version   version number of this interface
-   @param[in]  serialization           the string from serialize()
+  @param[in]  serialization_version   version number of this interface
+  @param[in]  serialization           the string from serialize()
 
-   @todo take serialization_version into account
+  @todo take serialization_version into account
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool StoredFuncObj::materialize(uint serialization_version,
                              const String *serialization)
 {
@@ -1739,14 +2007,16 @@ bool StoredFuncObj::materialize(uint serialization_version,
 }
 
 /**
-   Create the object.
-   
-   This method uses serialization string in a query and executes it.
+  Create the object.
 
-   @param[in]  thd  current thread
+  This method uses serialization string in a query and executes it.
 
-   @returns bool 0 = SUCCESS
-  */
+  @param[in]  thd  Thread context.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool StoredFuncObj::execute(THD *thd)
 {
   DBUG_ENTER("StoredFuncObj::execute()");
@@ -1755,50 +2025,62 @@ bool StoredFuncObj::execute(THD *thd)
 }
 
 /**
-   Drops the object.
+  Drop the object.
 
-   This method calls the silent_exec method to execute the query.
+  This method calls the silent_exec method to execute the query.
 
-   @note This uses "IF EXISTS" and does not return error if
-         object does not exist.
+  @note This uses "IF EXISTS" and does not return error if
+        object does not exist.
 
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  @param[in]  thd            Thread context.
+  @param[out] serialization  The data needed to recreate this object.
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool StoredFuncObj::drop(THD *thd)
 {
   DBUG_ENTER("StoredFuncObj::drop()");
-  DBUG_RETURN(drop_object(thd, "FUNCTION", &m_db_name, &m_stored_func_name));
+  DBUG_RETURN(drop_object(thd,
+                          (char *) "FUNCTION",
+                          &m_db_name,
+                          &m_stored_func_name));
 }
 
-/*
- Implementation: EventObj class.
-*/
+///////////////////////////////////////////////////////////////////////////
+
+//
+// Implementation: EventObj class.
+//
+
+/////////////////////////////////////////////////////////////////////////////
+
 EventObj::EventObj(const String *db_name,
                    const String *event_name)
 {
   // copy strings to newly allocated memory
-  m_db_name.copy(*db_name); 
-  m_event_name.copy(*event_name); 
+  m_db_name.copy(*db_name);
+  m_event_name.copy(*event_name);
 }
 
 /**
-   serialize the object
+  Serialize the object.
 
-   This method produces the data necessary for materializing the object
-   on restore (creates object). 
-   
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  This method produces the data necessary for materializing the object
+  on restore (creates object).
 
-   @note this method will return an error if the db_name is either
-         mysql or information_schema as these are not objects that 
-         should be recreated using this interface.
+  @param[in]  thd            Thread context.
+  @param[out] serialization  The data needed to recreate this object.
 
-   @returns bool 0 = SUCCESS
-  */
+  @note this method will return an error if the db_name is either
+        mysql or information_schema as these are not objects that
+        should be recreated using this interface.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool EventObj::serialize(THD *thd, String *serialization)
 {
   bool ret= false;
@@ -1820,7 +2102,7 @@ bool EventObj::serialize(THD *thd, String *serialization)
   ev.length= m_event_name.length();
   ret= db_repository->load_named_event(thd, db, ev, &et);
   thd->restore_backup_open_tables_state(&open_tables_backup);
-  if (sys_var_thd_sql_mode::symbolic_mode_representation(thd, 
+  if (sys_var_thd_sql_mode::symbolic_mode_representation(thd,
     et.sql_mode, &sql_mode))
     DBUG_RETURN(TRUE);
   if (!ret)
@@ -1832,7 +2114,7 @@ bool EventObj::serialize(THD *thd, String *serialization)
     serialization->append(sql_mode.str);
     serialization->append("'; ");
 
-    /* 
+    /*
       append time zone information
     */
     serialization->append("SET TIME_ZONE = '");
@@ -1868,17 +2150,19 @@ bool EventObj::serialize(THD *thd, String *serialization)
 }
 
 /**
-   Materialize the serialization string.
+  Materialize the serialization string.
 
-   This method saves serialization string into a member variable.
+  This method saves serialization string into a member variable.
 
-   @param[in]  serialization_version   version number of this interface
-   @param[in]  serialization           the string from serialize()
+  @param[in]  serialization_version   version number of this interface
+  @param[in]  serialization           the string from serialize()
 
-   @todo take serialization_version into account
+  @todo take serialization_version into account
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool EventObj::materialize(uint serialization_version,
                              const String *serialization)
 {
@@ -1888,14 +2172,16 @@ bool EventObj::materialize(uint serialization_version,
 }
 
 /**
-   Create the object.
-   
-   This method uses serialization string in a query and executes it.
+  Create the object.
 
-   @param[in]  thd  current thread
+  This method uses serialization string in a query and executes it.
 
-   @returns bool 0 = SUCCESS
-  */
+  @param[in]  thd  Thread context.
+
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool EventObj::execute(THD *thd)
 {
   DBUG_ENTER("EventObj::execute()");
@@ -1904,22 +2190,27 @@ bool EventObj::execute(THD *thd)
 }
 
 /**
-   Drops the object.
+  Drop the object.
 
-   This method calls the silent_exec method to execute the query.
+  This method calls the silent_exec method to execute the query.
 
-   @note This uses "IF EXISTS" and does not return error if
-         object does not exist.
+  @note This uses "IF EXISTS" and does not return error if
+        object does not exist.
 
-   @param[in]  thd            current thread
-   @param[out] serialization  the data needed to recreate this object
+  @param[in]  thd            Thread context.
+  @param[out] serialization  the data needed to recreate this object
 
-   @returns bool 0 = SUCCESS
-  */
+  @returns Error status.
+    @retval FALSE on success
+    @retval TRUE on error
+*/
 bool EventObj::drop(THD *thd)
 {
   DBUG_ENTER("EventObj::drop()");
-  DBUG_RETURN(drop_object(thd, "EVENT", &m_db_name, &m_event_name));
+  DBUG_RETURN(drop_object(thd,
+                          (char *) "EVENT",
+                          &m_db_name,
+                          &m_event_name));
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -2045,6 +2336,27 @@ Obj *materialize_event(const String *db_name,
 
 ///////////////////////////////////////////////////////////////////////////
 
+bool is_system_db(const String *db_name)
+{
+  return
+    my_strcasecmp(system_charset_info,
+                  ((String *) db_name)->c_ptr_safe(),
+                  "mysql") == 0;
+}
+
+bool is_pseudo_db(const String *db_name)
+{
+  return
+    my_strcasecmp(system_charset_info,
+                  ((String *) db_name)->c_ptr_safe(),
+                  "information_schema") == 0 ||
+    my_strcasecmp(system_charset_info,
+                  ((String *) db_name)->c_ptr_safe(),
+                  "performance_schema") == 0;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
 //
 // Implementation: DDL Blocker.
 //
@@ -2113,52 +2425,6 @@ void ddl_blocker_exception_off(THD *thd)
   thd->DDL_exception= FALSE;
   DBUG_VOID_RETURN;
 }
-
-
-///////////////////////////////////////////////////////////////////////////
-
-#if 0
-
-
-class DbTriggerIterator : public ObjIterator
-{
-public:
-  DbTriggerIterator(const LEX_STRING db_name);
-
-publbic:
-  virtual TriggerObj *next();
-};
-
-class DbStoredProcIterator : public ObjIterator
-{
-public:
-  DbStoredProcIterator(const LEX_STRING db_name);
-
-public:
-  virtual StoredProcObj *next();
-};
-
-class DbStoredFuncIterator : public ObjIterator
-{
-public:
-  DbStoredFuncIterator(const LEX_STRING db_name);
-
-public:
-  virtual StoredFuncObj *next();
-};
-
-class DbEventIterator : public ObjIterator
-{
-public:
-  DbEventbIterator(const LEX_STRING db_name);
-
-public:
-  virtual EventObj *next();
-};
-
-///////////////////////////////////////////////////////////////////////////
-
-#endif
 
 } // obs namespace
 

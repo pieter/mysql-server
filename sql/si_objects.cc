@@ -1057,7 +1057,7 @@ Obj *DbStoredProcIterator::create_obj(TABLE *t)
   t->field[3]->val_str(&sr_name);
   t->field[4]->val_str(&sr_type);
 
-  // Skip triggers not from the given database.
+  // Skip stored procedure not from the given database.
 
   if (db_name != m_db_name)
     return NULL;
@@ -1120,7 +1120,7 @@ EventObj *DbEventIterator::create_obj(TABLE *t)
   t->field[1]->val_str(&db_name);
   t->field[2]->val_str(&event_name);
 
-  // Skip triggers not from the given database.
+  // Skip event not from the given database.
 
   if (db_name != m_db_name)
     return NULL;

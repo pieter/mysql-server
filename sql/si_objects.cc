@@ -2372,6 +2372,13 @@ bool is_internal_db_name(const String *db_name)
 
 ///////////////////////////////////////////////////////////////////////////
 
+bool check_db_existence(const String *db_name)
+{
+  return check_db_dir_existence(((String *) db_name)->c_ptr_safe());
+}
+
+///////////////////////////////////////////////////////////////////////////
+
 //
 // Implementation: DDL Blocker.
 //

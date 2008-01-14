@@ -31,6 +31,10 @@ int execute_backup_test_command(THD *thd, List<LEX_STRING> *db_list)
   String str;
   Item *i;
 
+  {
+    String tmp_db_name("qqq", 3, system_charset_info);
+    DBUG_ASSERT(obs::check_db_existence(&tmp_db_name));
+  }
 
   /*
     Send field list.
@@ -52,6 +56,8 @@ int execute_backup_test_command(THD *thd, List<LEX_STRING> *db_list)
 
       if (is_internal_db_name(db->get_db_name()))
           continue;
+
+      DBUG_ASSERT(!obs::check_db_existence(db->get_db_name()));
 
       //
       // List tables..

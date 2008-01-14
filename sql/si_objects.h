@@ -451,6 +451,17 @@ bool is_internal_db_name(const String *db_name);
 
 ///////////////////////////////////////////////////////////////////////////
 
+/**
+  Check if the given directory actually exists.
+
+  @return Error status.
+    @retval FALSE on success (the database exists and accessible).
+    @retval TRUE on error (the database either not exists, or not accessible).
+*/
+bool check_db_existence(const String *db_name);
+
+///////////////////////////////////////////////////////////////////////////
+
 //
 // DDL blocker methods.
 //

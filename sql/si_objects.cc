@@ -135,7 +135,6 @@ int serialize_routine(THD *thd,
   DBUG_ASSERT(type == TYPE_ENUM_PROCEDURE || type == TYPE_ENUM_FUNCTION);
   sp_cache **cache = type == TYPE_ENUM_PROCEDURE ?
                      &thd->sp_proc_cache : &thd->sp_func_cache;
-  string->length(0);
   LEX_STRING db;
   db.str= db_name.c_ptr();
   db.length= db_name.length();
@@ -250,7 +249,7 @@ bool execute_with_ctx(THD *thd, String *query, bool save_timezone)
   name1 is the db name  (blank for database objects)
   name2 is the name of the object
 */
-bool drop_object(THD *thd, char *obj_name, String *name1, String *name2)
+bool drop_object(THD *thd, const char *obj_name, String *name1, String *name2)
 {
   DBUG_ENTER("Obj::drop_object()");
   String cmd;
@@ -260,7 +259,7 @@ bool drop_object(THD *thd, char *obj_name, String *name1, String *name2)
   cmd.append(" IF EXISTS ");
   if (name1->length() > 0)
   {
-    cmd.append(name1->c_ptr());
+    append_identifier(thd, &cmd, name1->c_ptr(), name1->length());  
     cmd.append(".");
   }
   cmd.append(name2->c_ptr());
@@ -317,6 +316,22 @@ TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
   thd->lex->sql_command= command;
 
   return t;
+}
+
+/*
+  Prepend the USE DB <obj> command.
+*/
+void prepend_db(THD *thd, String *serialization, String *db_name)
+{
+  DBUG_ENTER("Obj::prepend_db()");
+  /*
+    prepend "USE db" statement
+  */
+  serialization->length(0);
+  serialization->append("USE ");
+  append_identifier(thd, serialization, db_name->c_ptr(), db_name->length());  
+  serialization->append("; ");
+  DBUG_VOID_RETURN;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1528,7 +1543,7 @@ bool TableObj::serialize(THD *thd, String *serialization)
   DBUG_PRINT("TableObj::serialize", ("name: %s@%s", m_db_name.c_ptr(),
              m_table_name.c_ptr()));
 
-  serialization->length(0);
+  prepend_db(thd, serialization, &m_db_name);
   tname.str= m_table_name.c_ptr();
   tname.length= m_table_name.length();
   dbname.str= m_db_name.c_ptr();
@@ -1576,6 +1591,7 @@ bool TableObj::serialize(THD *thd, String *serialization)
     view_store_create_info(thd, table_list, serialization) :
     store_create_info(thd, table_list, serialization, NULL);
   close_thread_tables(thd);
+  serialization->set_charset(system_charset_info);
   thd->lex->select_lex.table_list.empty();
   DBUG_RETURN(FALSE);
 }
@@ -1694,7 +1710,7 @@ bool TriggerObj::serialize(THD *thd, String *serialization)
   DBUG_PRINT("TriggerObj::serialize", ("name: %s in %s",
              m_trigger_name.c_ptr(), m_db_name.c_ptr()));
 
-  serialization->length(0);
+  prepend_db(thd, serialization, &m_db_name);
   LEX_STRING db;
   db.str= m_db_name.c_ptr();
   db.length= m_db_name.length();
@@ -1765,6 +1781,7 @@ bool TriggerObj::serialize(THD *thd, String *serialization)
     serialization->append(trg_sql_original_stmt.str);
   close_thread_tables(thd);
   thd->lex->select_lex.table_list.empty();
+  serialization->set_charset(system_charset_info);
   DBUG_RETURN(ret);
 }
 
@@ -1869,9 +1886,10 @@ bool StoredProcObj::serialize(THD *thd, String *serialization)
   DBUG_ENTER("StoredProcObj::serialize()");
   DBUG_PRINT("StoredProcObj::serialize", ("name: %s in %s",
              m_stored_proc_name.c_ptr(), m_db_name.c_ptr()));
-  serialization->length(0);
+  prepend_db(thd, serialization, &m_db_name);
   ret= serialize_routine(thd, TYPE_ENUM_PROCEDURE, m_db_name,
                          m_stored_proc_name, serialization);
+  serialization->set_charset(system_charset_info);
   DBUG_RETURN(ret);
 }
 
@@ -1978,9 +1996,10 @@ bool  StoredFuncObj::serialize(THD *thd, String *serialization)
   DBUG_ENTER("StoredFuncObj::serialize()");
   DBUG_PRINT("StoredProcObj::serialize", ("name: %s in %s",
               m_stored_func_name.c_ptr(), m_db_name.c_ptr()));
-  serialization->length(0);
+  prepend_db(thd, serialization, &m_db_name);
   ret= serialize_routine(thd, TYPE_ENUM_FUNCTION, m_db_name,
-                          m_stored_func_name, serialization);
+                         m_stored_func_name, serialization);
+  serialization->set_charset(system_charset_info);
   DBUG_RETURN(ret);
 }
 
@@ -2091,7 +2110,7 @@ bool EventObj::serialize(THD *thd, String *serialization)
   DBUG_PRINT("EventObj::serialize", ("name: %s.%s", m_db_name.c_ptr(),
              m_event_name.c_ptr()));
 
-  serialization->length(0);
+  prepend_db(thd, serialization, &m_db_name);
   Event_db_repository *db_repository= Events::get_db_repository();
   thd->reset_n_backup_open_tables_state(&open_tables_backup);
   LEX_STRING db;
@@ -2146,6 +2165,7 @@ bool EventObj::serialize(THD *thd, String *serialization)
     if (et.get_create_event(thd, serialization))
       DBUG_RETURN(0);
   }
+  serialization->set_charset(system_charset_info);
   DBUG_RETURN(0);
 }
 

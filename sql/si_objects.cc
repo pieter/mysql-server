@@ -960,7 +960,7 @@ DbTablesIterator::create(THD *thd, const String *db_name);
 bool DbViewsIterator::is_type_accepted(const String *type) const
 {
   return my_strcasecmp(system_charset_info,
-                       ((String *) type)->c_ptr_safe(), "VIEW");
+                       ((String *) type)->c_ptr_safe(), "VIEW") == 0;
 }
 
 TableObj *DbViewsIterator::create_table_obj(const String *db_name,

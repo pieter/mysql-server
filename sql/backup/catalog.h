@@ -1,10 +1,10 @@
 #ifndef CATALOG_H_
 #define CATALOG_H_
 
+#include <si_objects.h>
 #include "stream_services.h"
 #include "stream.h"
 #include "backup_aux.h"
-#include <meta_data.h>
 
 namespace backup {
 
@@ -60,16 +60,17 @@ class Image_info: public st_bstream_image_header
    void save_vp_time(const time_t time)
    { save_time(time, vp_time); }
 
- protected:
-
   class Db_ref;
   class Table_ref;
+
+ protected:
 
   /**
    Provides storage for the list of databases stored in the catalogue.
   */
   class Databases
   {
+    // Note: when Dynamic_array goes away, it destructs all objects it contains
     Dynamic_array<Db_item> m_dbs;
 
    public:
@@ -177,9 +178,9 @@ class Tables: public Table_list
   uint count() const
   { return m_tables.size(); }
 
-  Image_info::Table_item* add_table(const Table_ref&, unsigned long int);
+  Image_info::Table_item* add_table(const Image_info::Table_ref&, unsigned long int);
 
-  Image_info::Table_item* add_table(const Table_ref &t)
+  Image_info::Table_item* add_table(const Image_info::Table_ref &t)
   {
     return add_table(t,count());
   }
@@ -269,12 +270,12 @@ class Snapshot_info
 
   // Methods for adding and accessing tables stored in the table list.
 
-  Image_info::Table_item* add_table(const Table_ref &t, unsigned long int pos)
+  Image_info::Table_item* add_table(const Image_info::Table_ref &t, unsigned long int pos)
   {
     return m_tables.add_table(t,pos);
   }
 
-  Image_info::Table_item* add_table(const Table_ref &t)
+  Image_info::Table_item* add_table(const Image_info::Table_ref &t)
   {
     return add_table(t,m_tables.count());
   }
@@ -288,6 +289,25 @@ class Snapshot_info
 };
 
 
+/// Base for X_ref classes
+class Obj_ref_base
+{
+ protected:
+ 
+  obs::Obj *m_obj; ///< Pointer to server object instance 
+
+  Obj_ref_base(obs::Obj *obj): m_obj(obj)
+  {}
+  
+ public:
+ 
+  virtual ~Obj_ref_base()
+  {}
+  
+  obs::Obj *obj_ptr() const
+  { return m_obj; }
+};
+
 /*
   Classes @c Image_info::Db_ref and @c Image_info::Table give access to
   protected constructors so that instances of these objects can be created.
@@ -296,20 +316,31 @@ class Snapshot_info
   needed to implement the base classes.
  */
 
-class Image_info::Db_ref: public backup::Db_ref
+class Image_info::Db_ref: public backup::Db_ref, public Obj_ref_base
 {
   public:
 
-  Db_ref(const String &name): backup::Db_ref(name)
+  Db_ref(const String &name): backup::Db_ref(name), Obj_ref_base(NULL)
+  {}
+  
+  Db_ref(obs::Obj *db): backup::Db_ref(*db->get_name()), Obj_ref_base(db)
   {}
 };
 
-class Image_info::Table_ref: public backup::Table_ref
+class Image_info::Table_ref: public backup::Table_ref, public Obj_ref_base
 {
   public:
 
+  Table_ref(const String &db_name, const String &name):
+   backup::Table_ref(db_name,name), Obj_ref_base(NULL)
+  {}
+
   Table_ref(const backup::Db_ref &db, const String &name):
-   backup::Table_ref(db.name(),name)
+   backup::Table_ref(db.name(),name), Obj_ref_base(NULL)
+  {}
+
+  Table_ref(const backup::Db_ref &db, obs::Obj *table):
+   backup::Table_ref(db.name(),*table->get_name()), Obj_ref_base(table)
   {}
 };
 
@@ -333,22 +364,7 @@ class Image_info::Item
 
   virtual const st_bstream_item_info* info() const =0;
 
-  /**
-    Tells to which database belongs this object.
-
-    Returns NULL for global objects which don't belong to any database.
-  */
-  virtual const Db_ref *in_db(void)
-  { return NULL; }
-
-  virtual result_t get_create_stmt(::String &buf)
-  { return meta().get_create_stmt(buf); }
-
-  result_t drop(THD *thd)
-  { return meta().drop(thd); }
-
-  result_t create(THD *thd, ::String &query, byte *begin, byte *end)
-  { return meta().create(thd,query,begin,end); }
+  result_t get_serialization(THD*, ::String&);
 
  protected:
 
@@ -358,10 +374,22 @@ class Image_info::Item
 
  private:
 
-  /// Returns reference to the corresponding @c meta::Item instance.
-  virtual meta::Item& meta() =0;
+  /// Return pointer to Obj instance stored in the item (NULL if not stored). 
+  virtual obs::Obj *obj_ptr() =0;
+  
+  /** 
+    Create corresponding @c Obj instance from given serialization string.
+    
+    If successfuly created, pointer to @c Obj instance is stored in this
+    item.
+    
+    @param[in] ver    version of serialization string
+    @param[in] sdata  the serialization string
+   */
+  virtual obs::Obj *obj_ptr(uint ver, ::String &sdata) =0;
 
   friend class Image_info;
+  friend class Restore_info;
 };
 
 /**
@@ -370,7 +398,6 @@ class Image_info::Item
 class Image_info::Db_item
  : public st_bstream_db_info,
    public Image_info::Item,
-   public meta::Db,
    public Db_ref
 {
   Table_item *m_tables;
@@ -386,8 +413,18 @@ class Image_info::Db_item
     base.type= BSTREAM_IT_DB;
   }
 
-  const char* sql_name() const
-  { return (const char*)base.name.begin; }
+  obs::Obj* obj_ptr()
+  { return Db_ref::obj_ptr(); }
+  
+  obs::Obj* obj_ptr(uint ver, ::String &sdata)  // unit ver, ::String &sdata)
+  { 
+    obs::Obj *obj= obs::materialize_database(&name(), ver, &sdata); 
+    
+    if (!m_obj)
+      m_obj= obj;
+      
+    return obj;
+  }
 
   /// Store information about database @c db.
   Db_item& operator=(const Db_ref &db)
@@ -399,10 +436,9 @@ class Image_info::Db_item
      */
     base.name.begin= (byte*) Image_info::Item::m_name.ptr();
     base.name.end= base.name.begin + Image_info::Item::m_name.length();
+    m_obj= db.obj_ptr();
     return *this;
   }
-
-  meta::Item& meta() { return *this; }
 
   const st_bstream_item_info* info() const { return &base; }
   const st_bstream_db_info* db_info() const { return this; }
@@ -410,7 +446,6 @@ class Image_info::Db_item
   result_t add_table(Table_item &t);
 
   friend class Ditem_iterator;
-
   friend int ::bcat_add_item(st_bstream_image_header*, struct st_bstream_item_info*);
 };
 
@@ -421,8 +456,7 @@ class Image_info::Db_item
 class Image_info::Table_item
  : public st_bstream_table_info,
    public Image_info::Item,
-   public meta::Table,
-   public backup::Table_ref
+   public Table_ref
 {
   Table_item *next_table;
   String m_db_name;  // FIXME
@@ -437,10 +471,18 @@ class Image_info::Table_item
     base.base.type= BSTREAM_IT_TABLE;
   }
 
-  const char* sql_name() const
-  { return (const char*)base.base.name.begin; }
+  obs::Obj* obj_ptr()
+  { return Table_ref::obj_ptr(); }
 
-  meta::Item& meta() { return *this; }
+  obs::Obj* obj_ptr(uint ver, ::String &sdata)  // unit ver, ::String &sdata)
+  { 
+    obs::Obj *obj= obs::materialize_table(&db().name(), &name(), ver, &sdata); 
+    
+    if (!m_obj)
+      m_obj= obj;
+      
+    return obj;
+  }
 
   /// Store information about table @c t.
   Table_item& operator=(const Table_ref &t)
@@ -453,36 +495,15 @@ class Image_info::Table_item
      */
     base.base.name.begin= (byte*) Image_info::Item::m_name.ptr();
     base.base.name.end= base.base.name.begin + Image_info::Item::m_name.length();
+    
+    m_obj= t.obj_ptr();
     return *this;
   }
 
   const st_bstream_item_info* info() const { return &base.base; }
   const st_bstream_table_info* t_info() const { return this; }
 
-  const Db_ref *in_db(void)
-  {
-    return static_cast<Db_item*>(base.db);
-  }
-
   String  create_stmt;    ///< buffer to store table's CREATE statement
-
-  /// Build CREATE statement for the table and store it in @c create_stmt
-  result_t get_create_stmt()
-  {
-    if (tl_entry)
-      return meta::Table::get_create_stmt(create_stmt);
-    return ERROR;
-  }
-
-  /// Put in @c buf a CREATE statement for the table.
-  result_t get_create_stmt(::String &buf)
-  {
-    if (create_stmt.is_empty() && tl_entry)
-      get_create_stmt();
-
-    buf= create_stmt;
-    return OK;
-  }
 
  private:
 
@@ -615,7 +636,7 @@ Image_info::Databases::add_db(const Db_ref &db, uint pos)
 */
 inline
 Image_info::Table_item*
-Tables::add_table(const Table_ref &t, unsigned long int pos)
+Tables::add_table(const Image_info::Table_ref &t, unsigned long int pos)
 {
   Image_info::Table_item *it= m_tables.get_entry(pos);
 

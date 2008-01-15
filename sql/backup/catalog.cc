@@ -60,9 +60,33 @@ Image_info::~Image_info()
 
   for (uint no=0; no<256; ++no)
   {
-   if (m_snap[no])
-    delete m_snap[no];
-   m_snap[no]= NULL;
+    Snapshot_info *snap= m_snap[no];
+    
+    if (!snap)
+      continue;
+    
+    for (uint i=0; i < snap->table_count(); ++i)
+    {
+      Table_item *t= snap->get_table(i);
+      
+      if (!t)
+        continue;
+        
+      delete t->obj_ptr();
+    }
+    
+    delete snap;
+    m_snap[no]= NULL;
+  }
+  
+  // delete server object instances as we own them.
+
+  for (uint i=0; i < db_count(); ++i)
+  {
+    Db_item *db= m_db[i];
+    
+    if (db)
+      delete db->obj_ptr();
   }
 }
 
@@ -77,6 +101,18 @@ void Image_info::save_time(const time_t t, bstream_time_t &buf)
   buf.hour= time.tm_hour;
   buf.min= time.tm_min;
   buf.sec= time.tm_sec;  
+}
+
+result_t Image_info::Item::get_serialization(THD *thd, ::String &buf)
+{
+  obs::Obj *obj= obj_ptr();
+  
+  DBUG_ASSERT(obj);
+  
+  if (!obj)
+    return ERROR;
+    
+  return obj->serialize(thd, &buf) ? ERROR : OK;
 }
 
 /// Add table to database's table list.

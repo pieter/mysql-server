@@ -23,3 +23,5 @@ ndb_dd_restore_compat : Bug#29940 2007-07-20 ndb_dd_restore_compat fails on 5.2
 subselect2 : BUG#31464 SergeyP will fix
 log_tables : BUG#31580 1007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
 show_check	: Bug #32682  	Test show_check fails in 6.0
+ctype_latin2_ch	: BUG #33791 2008-01-18 mats Wrong ORDER BY with latin2_czech_cs
+

@@ -101,6 +101,7 @@ protected:
 	SyncObject	syncFlush;
 	SyncObject	syncDirty;
 	SyncObject	syncThreads;
+	SyncObject	syncWait;
 	PagePrecedence	*freePrecedence;
 	time_t		flushStart;
 	int			flushPages;
@@ -112,6 +113,8 @@ protected:
 	int			numberDirtyPages;
 	int			numberIoThreads;
 	volatile int bufferAge;
+public:
+	void flushWait(void);
 };
 
 #endif // !defined(AFX_CACHE_H__6A019C1F_A340_11D2_AB5A_0000C01D2301__INCLUDED_)

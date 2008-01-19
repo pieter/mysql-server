@@ -395,7 +395,9 @@ void SerialLog::recover()
 		
 	recovering = false;
 	lastFlushBlock = writeBlock->blockNumber;
-	checkpoint(true);
+	//checkpoint(true);
+	database->flush(lastBlockWritten);
+	database->flushWait();
 	
 	for (TableSpaceInfo *info = tableSpaceInfo; info; info = info->next)
 		{

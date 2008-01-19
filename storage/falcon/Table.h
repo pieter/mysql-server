@@ -187,7 +187,13 @@ public:
 	void		checkAncestor(Record* current, Record* oldRecord);
 	int64		estimateCardinality(void);
 	void		optimize(Connection *connection);
+	void		findSections(void);
+	bool		validateUpdate(int32 recordNumber, TransId transactionId);
 	
+	RecordVersion*	allocRecordVersion(Format* format, Transaction* transaction, Record* priorVersion);
+	Record*			allocRecord(int recordNumber, Stream* stream);
+	void			inventoryRecords(RecordScavenge* recordScavenge);
+	Format*			getCurrentFormat(void);
 	Record*			fetchForUpdate(Transaction* transaction, Record* record, bool usingIndex);
 	RecordVersion*	lockRecord(Record* record, Transaction* transaction);
 	void			unlockRecord(int recordNumber);
@@ -250,11 +256,6 @@ public:
 
 protected:
 	const char		*type;
-public:
-	RecordVersion* allocRecordVersion(Format* format, Transaction* transaction, Record* priorVersion);
-	Record* allocRecord(int recordNumber, Stream* stream);
-	void inventoryRecords(RecordScavenge* recordScavenge);
-	Format* getCurrentFormat(void);
 };
 
 #endif // !defined(AFX_TABLE_H__02AD6A42_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

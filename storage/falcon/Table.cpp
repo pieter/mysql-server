@@ -55,6 +55,7 @@
 #include "Collation.h"
 #include "TableSpace.h"
 #include "RecordScavenge.h"
+#include "Section.h"
 
 #ifndef STORAGE_ENGINE
 #include "Trigger.h"
@@ -286,7 +287,7 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		}
 
 	if (!dataSection)
-		dataSection = dbb->findSection(dataSectionId);
+		findSections();
 
 	RecordVersion *record = NULL;
 	bool inserted = false;
@@ -468,7 +469,7 @@ Record* Table::fetchNext(int32 start)
 		throw SQLEXCEPTION(BUG_CHECK, "attempted physical access to view");
 
 	if (!dataSection)
-		dataSection = dbb->findSection(dataSectionId);
+		findSections();
 
 	Stream stream;
 	Sync sync(&syncObject, "Table::fetchNext");
@@ -604,7 +605,7 @@ Record* Table::databaseFetch(int32 recordNumber)
 	ageGroup = database->currentGeneration;
 
 	if (!dataSection)
-		dataSection = dbb->findSection(dataSectionId);
+		findSections();
 
 	if (!dbb->fetchRecord (dataSection, recordNumber, &stream))
 		{
@@ -1470,9 +1471,7 @@ void Table::truncate(Transaction *transaction)
 	
 	dataSectionId = dbb->createSection(TRANSACTION_ID(transaction));
 	blobSectionId = dbb->createSection(TRANSACTION_ID(transaction));
-
-	dataSection = dbb->findSection(dataSectionId);
-	blobSection = dbb->findSection(dataSectionId);
+	findSections();
 
 	emptySections->clear();
 	recordBitmap->clear();
@@ -2846,7 +2845,7 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 	int32 recordNumber = -1;
 
 	if (!dataSection)
-		dataSection = dbb->findSection(dataSectionId);
+		findSections();
 
 	try
 		{
@@ -3499,4 +3498,46 @@ Record* Table::allocRecord(int recordNumber, Stream* stream)
 Format* Table::getCurrentFormat(void)
 {
 	return getFormat(formatVersion);;
+}
+
+void Table::findSections(void)
+{
+	if (!dataSection)
+		{
+		dataSection = dbb->findSection(dataSectionId);
+		dataSection->table = this;
+		}
+
+	if (!blobSection)
+		blobSection = dbb->findSection(blobSectionId);
+}
+
+bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
+{
+	Record *record = fetch(recordNumber);
+	
+	while (record)
+		{
+		if (record->getTransactionId() == transactionId)
+			{
+			record->release();
+			
+			return true;
+			}
+		
+		Transaction *transaction = record->getTransaction();
+		
+		if (transaction && transaction->state == Committed)
+			{
+			record->release();
+			
+			return false;
+			}
+		
+		Record *next = record->getPriorVersion();
+		record->release();
+		record = next;
+		}
+	
+	ASSERT(false);
 }

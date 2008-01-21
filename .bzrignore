@@ -1032,6 +1032,7 @@ libmysqld/client_settings.h
 libmysqld/cmake_dummy.c
 libmysqld/convert.cc
 libmysqld/derror.cc
+libmysqld/des_key_file.cc
 libmysqld/discover.cc
 libmysqld/emb_qcache.cpp
 libmysqld/errmsg.c
@@ -3027,4 +3028,3 @@ win/vs8cache.txt
 ylwrap
 zlib/*.ds?
 zlib/*.vcproj
-libmysqld/des_key_file.cc

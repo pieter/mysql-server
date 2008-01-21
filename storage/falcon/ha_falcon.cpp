@@ -644,6 +644,16 @@ const char **StorageInterface::bas_ext(void) const
 	DBUG_RETURN(falcon_extensions);
 }
 
+void StorageInterface::update_create_info(HA_CREATE_INFO* create_info)
+{
+	DBUG_ENTER("StorageInterface::update_create_info");
+	if (!(create_info->used_fields & HA_CREATE_USED_AUTO)) 
+		{
+		StorageInterface::info(HA_STATUS_AUTO);
+		create_info->auto_increment_value = stats.auto_increment_value;
+		}
+	DBUG_VOID_RETURN;
+}
 
 ulonglong StorageInterface::table_flags(void) const
 {

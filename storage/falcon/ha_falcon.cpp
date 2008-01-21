@@ -830,7 +830,7 @@ THR_LOCK_DATA **StorageInterface::store_lock(THD *thd, THR_LOCK_DATA **to,
 		if (    (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE)
 		    && !(thd_in_lock_tables(thd) && sql_command == SQLCOM_LOCK_TABLES)
 		    && !(thd_tablespace_op(thd))
-		    &&  (sql_command != SQLCOM_TRUNCATE)
+		  //  &&  (sql_command != SQLCOM_TRUNCATE)
 		    &&  (sql_command != SQLCOM_OPTIMIZE)
 		    &&  (sql_command != SQLCOM_CREATE_TABLE)
 		   )

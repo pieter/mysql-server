@@ -1437,6 +1437,7 @@ void Database::truncateTable(Table *table, Transaction *transaction)
 	
 	// No access until truncate completes
 	
+	table->deleting = true;
 	Sync syncObj(&table->syncObject, "Database::truncateTable");
 	syncObj.lock(Exclusive);
 	
@@ -2452,3 +2453,8 @@ int	Database::recoverGetNextLimbo(int xidSize, unsigned char *xid)
 	return 0;
 	}
 
+
+void Database::flushWait(void)
+	{
+	cache->flushWait();
+	}

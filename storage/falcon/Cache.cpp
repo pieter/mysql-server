@@ -83,6 +83,7 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 	syncObject.setName("Cache::syncObject");
 	syncDirty.setName("Cache::syncDirty");
 	syncFlush.setName("Cache::syncFlush");
+	syncWait.setName("Cache::syncWait");
 	flushBitmap = new Bitmap;
 	numberIoThreads = falcon_io_threads;
 	ioThreads = new Thread*[numberIoThreads];
@@ -359,6 +360,7 @@ void Cache::flush(int64 arg)
 	if (flushing)
 		return;
 
+	syncWait.lock(NULL, Exclusive);
 	sync.lock(Shared);
 	//Log::debug(%d: "Initiating flush\n", dbb->deltaTime);
 	flushArg = arg;
@@ -1089,6 +1091,7 @@ void Cache::ioThread(void)
 				time_t delta = database->timestamp - flushStart;
 				flushing = false;
 				flushLock.unlock();
+				syncWait.unlock();
 				
 				if (writes > 0 && Log::isActive(LogInfo))
 					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
@@ -1222,4 +1225,10 @@ void Cache::closeTraceFile(void)
 		traceFile = NULL;
 		}
 #endif
+}
+
+void Cache::flushWait(void)
+{
+	Sync sync(&syncWait, "Cache::flushWait");
+	sync.lock(Shared);
 }

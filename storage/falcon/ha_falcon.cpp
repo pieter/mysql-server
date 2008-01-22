@@ -650,6 +650,16 @@ const char **StorageInterface::bas_ext(void) const
 	DBUG_RETURN(falcon_extensions);
 }
 
+void StorageInterface::update_create_info(HA_CREATE_INFO* create_info)
+{
+	DBUG_ENTER("StorageInterface::update_create_info");
+	if (!(create_info->used_fields & HA_CREATE_USED_AUTO)) 
+		{
+		StorageInterface::info(HA_STATUS_AUTO);
+		create_info->auto_increment_value = stats.auto_increment_value;
+		}
+	DBUG_VOID_RETURN;
+}
 
 ulonglong StorageInterface::table_flags(void) const
 {
@@ -836,7 +846,7 @@ THR_LOCK_DATA **StorageInterface::store_lock(THD *thd, THR_LOCK_DATA **to,
 		if (    (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE)
 		    && !(thd_in_lock_tables(thd) && sql_command == SQLCOM_LOCK_TABLES)
 		    && !(thd_tablespace_op(thd))
-		    &&  (sql_command != SQLCOM_TRUNCATE)
+		  //  &&  (sql_command != SQLCOM_TRUNCATE)
 		    &&  (sql_command != SQLCOM_OPTIMIZE)
 		    &&  (sql_command != SQLCOM_CREATE_TABLE)
 		   )

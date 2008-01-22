@@ -77,6 +77,7 @@ Section::Section(Dbb *pDbb, int32 id, TransId transId)
 	level = -1;
 	reservedRecordNumbers = NULL;
 	freeLines = NULL;
+	table = NULL;
 	syncObject.setName("Section::syncObject");
 	syncInsert.setName("Section::syncInsert");
 }

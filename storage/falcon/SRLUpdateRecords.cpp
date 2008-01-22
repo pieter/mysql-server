@@ -335,7 +335,7 @@ void SRLUpdateRecords::commit(void)
 				{
 				Stream stream;
 				stream.putSegment(length, (const char*) p, false);
-				dbb->updateRecord(sectionId, recordNumber, &stream, transactionId, false);
+				dbb->validateAndUpdateRecord(sectionId, recordNumber, &stream, transactionId, false);
 				}
 			else
 				dbb->updateRecord(sectionId, recordNumber, NULL, transactionId, false);

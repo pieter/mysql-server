@@ -2,11 +2,9 @@
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
---enable_warnings
-
---disable_errors
+--error 0,ER_NO_SUCH_TABLESPACE
 DROP TABLESPACE ts1 ENGINE=falcon;
---enable_errors
+--enable_warnings
 
 #
 # BUG#31110 - falcon: missing engine check while dropping tablespace
@@ -53,3 +51,10 @@ CREATE TABLE t1(a INT) ENGINE=falcon TABLESPACE `ts 1`;
 SHOW CREATE TABLE t1;
 DROP TABLE t1;
 DROP TABLESPACE `ts 1` ENGINE=falcon;
+
+#
+# BUG#33212 - DROP TABLESPACE does not fail on non-existing Falcon
+#             tablespace
+#
+--error ER_NO_SUCH_TABLESPACE
+DROP TABLESPACE ts1 ENGINE=falcon;

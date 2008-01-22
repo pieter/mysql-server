@@ -171,6 +171,7 @@ public:
 	bool			hasLocks;
 	SyncObject		syncActive;
 	SyncObject		syncIndexes;
+	SyncObject		syncObject;
 	uint64			totalRecordData;	// total bytes of record data for this transaction (unchilled + thawed)
 	uint32			totalRecords;		// total record count
 	uint32			chilledRecords;		// total chilled record count

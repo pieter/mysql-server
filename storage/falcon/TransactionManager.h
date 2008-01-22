@@ -54,7 +54,7 @@ public:
 	TransId			transactionSequence;
 	Database		*database;
 	SyncObject		syncObject;
-	SyncObject		syncInitialize;
+	//SyncObject	syncInitialize;
 	Transaction		*rolledBackTransaction;
 	int				committed;
 	int				rolledBack;

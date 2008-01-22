@@ -52,7 +52,7 @@ TransactionManager::TransactionManager(Database *db)
 	rolledBackTransaction->state = RolledBack;
 	rolledBackTransaction->inList = false;
 	syncObject.setName("TransactionManager::syncObject");
-	syncInitialize.setName("TransactionManager::syncInitialize");
+	//syncInitialize.setName("TransactionManager::syncInitialize");
 }
 
 TransactionManager::~TransactionManager(void)
@@ -99,14 +99,14 @@ Transaction* TransactionManager::startTransaction(Connection* connection)
 {
 	Sync sync (&activeTransactions.syncObject, "Database::startTransaction");
 	sync.lock (Shared);
-	Sync syncInit(&syncInitialize, "TransactionManager::startTransaction");
+	//Sync syncInit(&syncInitialize, "TransactionManager::startTransaction");
 	Transaction *transaction;
 	
 	for (transaction = activeTransactions.first; transaction; transaction = transaction->next)
 		if (transaction->state == Available && transaction->dependencies == 0)
 			if (COMPARE_EXCHANGE(&transaction->state, Available, Initializing))
 				{
-				syncInit.lock(Exclusive);
+				//syncInit.lock(Exclusive);
 				transaction->initialize(connection, ++transactionSequence);
 				
 				return transaction;
@@ -114,10 +114,10 @@ Transaction* TransactionManager::startTransaction(Connection* connection)
 				
 	sync.unlock();
 	sync.lock(Exclusive);
-	syncInit.lock(Exclusive);
+	//syncInit.lock(Exclusive);
 	transaction = new Transaction (connection, ++transactionSequence);
 	activeTransactions.append(transaction);
-	syncInit.unlock();
+	//syncInit.unlock();
 
 	// And, just for yucks, add another 10 Available transactions
 	
@@ -369,7 +369,8 @@ void TransactionManager::removeCommittedTransaction(Transaction* transaction)
 
 void TransactionManager::expungeTransaction(Transaction *transaction)
 {
-	Sync sync(&syncInitialize, "TransactionManager::expungeTransaction");
+	//Sync sync(&syncInitialize, "TransactionManager::expungeTransaction");
+	Sync sync(&activeTransactions.syncObject, "TransactionManager::removeTransaction");
 	sync.lock(Shared);
 
 	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
@@ -379,7 +380,7 @@ void TransactionManager::expungeTransaction(Transaction *transaction)
 
 Transaction* TransactionManager::findTransaction(TransId transactionId)
 {
-	Sync sync(&committedTransactions.syncObject, "TransactionManager::findTransaction");
+	Sync sync(&activeTransactions.syncObject, "TransactionManager::findTransaction");
 	sync.lock(Shared);
 	Transaction *transaction;
 
@@ -388,7 +389,7 @@ Transaction* TransactionManager::findTransaction(TransId transactionId)
 			return transaction;
 	
 	sync.unlock();
-	Sync syncCommitted(&committedTransactions.syncObject, "TransactionManager::findTransaction");
+	Sync syncCommitted(&committedTransactions.syncObject, "TransactionManager::findTransaction(2)");
 	syncCommitted.lock(Shared);
 
 	for (transaction = committedTransactions.first; transaction; transaction = transaction->next)

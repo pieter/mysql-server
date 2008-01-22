@@ -3535,6 +3535,7 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 			}
 		
 		Record *next = record->getPriorVersion();
+		next->addRef();
 		record->release();
 		record = next;
 		}

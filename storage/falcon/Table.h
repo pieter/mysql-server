@@ -249,6 +249,7 @@ public:
 	bool			markedForDelete;
 	bool			activeVersions;
 	bool			alterIsActive;
+	bool			deleting;					// dropping or truncating.
 	int32			highWater;
 	int32			ageGroup;
 	uint32			debugThawedRecords;

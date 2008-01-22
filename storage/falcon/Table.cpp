@@ -809,6 +809,7 @@ void Table::init(int id, const char *schema, const char *tableName, TableSpace *
 	formatVersion = 0;
 	format = NULL;
 	changed = false;
+	deleting = false;
 	foreignKeys = NULL;
 	records = NULL;
 	highWater = 0;
@@ -1463,6 +1464,8 @@ void Table::drop(Transaction *transaction)
 
 void Table::truncate(Transaction *transaction)
 {
+	deleting = true;
+	
 	// Delete data and blob sections
 	
 	expunge(transaction);
@@ -1503,6 +1506,7 @@ void Table::truncate(Transaction *transaction)
 	debugThawedRecords = 0;
 	debugThawedBytes = 0;
 	alterIsActive = false;
+	deleting = false;
 }
 
 void Table::checkNullable(Record * record)
@@ -3514,6 +3518,9 @@ void Table::findSections(void)
 
 bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 {
+	if (deleting)
+		return false;
+
 	Record *record = fetch(recordNumber);
 	
 	while (record)

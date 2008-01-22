@@ -27,6 +27,4 @@ ctype_create         : Bug#32965 main.ctype_create fails
 status               : Bug#32966 main.status fails
 ps_ddl               : Bug#12093 2007-12-14 pending WL#4165 / WL#4166
 user_limits          : Bug#23921 2007-12-16 random failure of user_limits.test
-ctype_big5               : BUG#26711 2007-06-21 Lars Test has never worked on Double Whopper
-kill                 : Bug#29149: Test "kill" fails on Windows
 csv_alter_table      : Bug#33696 2008-01-21 pcrews no .result file - bug allows NULL columns in CSV tables

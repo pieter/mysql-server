@@ -1,4 +1,3 @@
-/* Force BK merge conflict */
 --source include/have_partition.inc
 --source include/have_innodb.inc
 

@@ -1720,6 +1720,9 @@ int StorageInterface::getMySqlError(int storageError)
 			return (HA_ERR_TO_BIG_ROW);
 			
 		case StorageErrorTableSpaceNotExist:
+			DBUG_PRINT("info", ("StorageErrorTableSpaceNotExist"));
+			return (HA_ERR_NO_SUCH_TABLESPACE);
+
 		case StorageErrorTableSpaceExist:
 			DBUG_PRINT("info", ("StorageErrorTableSpaceExist"));
 			return (HA_ERR_TABLESPACE_EXIST);
@@ -1954,9 +1957,6 @@ int StorageInterface::alter_tablespace(handlerton* hton, THD* thd, st_alter_tabl
 
 		case DROP_TABLESPACE:
 			ret = storageHandler->deleteTablespace(ts_info->tablespace_name);
-			
-			if (ret == StorageErrorTableSpaceNotExist)
-				ret = 0;
 			break;
 
 		default:

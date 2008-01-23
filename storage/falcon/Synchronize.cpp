@@ -136,15 +136,15 @@ bool Synchronize::sleep(int milliseconds)
 #endif
 
 #ifdef _PTHREADS
-	struct timeval microTime;
-	int ret = gettimeofday(&microTime, NULL);
-	int64 nanos = (int64) microTime.tv_sec * NANO + microTime.tv_usec * 1000 +
-				 (int64) milliseconds * 1000000;
+	int ret = pthread_mutex_lock (&mutex);
+	CHECK_RET("pthread_mutex_lock failed, errno %d", errno);
 	struct timespec nanoTime;
+	ret = clock_gettime(CLOCK_REALTIME, nanoTime);
+	CHECK_RET("clock_gettime failed, errno %d", errno);
+	int64 nanos = (int64) nanoTime.tv_sec * NANO + nanoTime.tv_nsec + 
+				  (int64) milliseconds * 1000000;
 	nanoTime.tv_sec = nanos / NANO;
 	nanoTime.tv_nsec = nanos % NANO;
-	ret = pthread_mutex_lock (&mutex);
-	CHECK_RET("pthread_mutex_lock failed, errno %d", errno);
 
 	while (!wakeup)
 		{

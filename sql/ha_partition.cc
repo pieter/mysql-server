@@ -4088,7 +4088,8 @@ int ha_partition::handle_unordered_scan_next_partition(uchar * buf)
     switch (m_index_scan_type) {
     case partition_read_range:
       DBUG_PRINT("info", ("read_range_first on partition %d", i));
-      error= file->read_range_first(&m_start_key, end_range, eq_range, FALSE);
+      error= file->read_range_first(m_start_key.key? &m_start_key: NULL, 
+                                    end_range, eq_range, FALSE);
       break;
     case partition_index_read:
       DBUG_PRINT("info", ("index_read on partition %d", i));

@@ -139,7 +139,7 @@ bool Synchronize::sleep(int milliseconds)
 	int ret = pthread_mutex_lock (&mutex);
 	CHECK_RET("pthread_mutex_lock failed, errno %d", errno);
 	struct timespec nanoTime;
-	ret = clock_gettime(CLOCK_REALTIME, nanoTime);
+	ret = clock_gettime(CLOCK_REALTIME, &nanoTime);
 	CHECK_RET("clock_gettime failed, errno %d", errno);
 	int64 nanos = (int64) nanoTime.tv_sec * NANO + nanoTime.tv_nsec + 
 				  (int64) milliseconds * 1000000;
@@ -151,7 +151,16 @@ bool Synchronize::sleep(int milliseconds)
 		ret = pthread_cond_timedwait(&condition, &mutex, &nanoTime);
 		
 		if (ret == ETIMEDOUT)
+			{
+			clock_gettime(CLOCK_REALTIME, &nanoTime);
+			int64 delta = (int64) nanoTime.tv_sec * NANO + nanoTime.tv_nsec - nanos;
+			int millis = delta / 1000000;
+			
+			if (millis < milliseconds)
+				Log::debug("Timeout after %d milliseconds (expected %d)\n", millis, milliseconds);
+				
 			break;
+			}
 			
 		if (!wakeup)
 #ifdef ENGINE

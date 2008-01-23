@@ -81,6 +81,8 @@ Transaction::Transaction(Connection *cnct, TransId seq)
 
 void Transaction::initialize(Connection* cnct, TransId seq)
 {
+	Sync sync(&syncObject, "Transaction::initialize");
+	sync.lock(Exclusive);
 	ASSERT(savePoints == NULL);
 	ASSERT(freeSavePoints == NULL);
 	connection = cnct;
@@ -120,6 +122,9 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	blockedBy = 0;
 	inList = true;
 	thread = NULL;
+	syncObject.setName("Transaction::syncObject");
+	syncActive.setName("Transaction::syncActive");
+	syncIndexes.setName("Transaction::syncIndexes");
 	//scavenged = false;
 	
 	if (seq == 0)
@@ -239,6 +244,8 @@ void Transaction::commit()
 		return;
 		}
 
+	Sync sync(&syncObject, "Transaction::commit");
+	sync.lock(Exclusive);
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 
@@ -311,12 +318,15 @@ void Transaction::commit()
 	
 	// Add ourselves to the list of lingering committed transactions
 	
+	sync.unlock();
 	release();
 }
 
 
 void Transaction::commitNoUpdates(void)
 {
+	Sync sync(&syncObject, "Transaction::commitNoUpdates");
+	sync.lock(Exclusive);
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 	ASSERT(!deferredIndexes);
@@ -336,8 +346,8 @@ void Transaction::commitNoUpdates(void)
 	syncActiveTransactions.lock(Shared);
 	releaseDependencies();
 	Thread *thread = NULL;
-	Sync syncInit(&transactionManager->syncInitialize, "Transaction::commitNoUpdate");
-	syncInit.lock(Shared);
+	//Sync syncInit(&transactionManager->syncInitialize, "Transaction::commitNoUpdate");
+	//syncInit.lock(Shared);
 	state = CommittingReadOnly;
 
 	for (int n = 0; dependencies && n < 10; ++n)
@@ -386,7 +396,8 @@ void Transaction::commitNoUpdates(void)
 		
 	state = Available;
 	writePending = false;
-	syncInit.unlock();
+	//syncInit.unlock();
+	sync.unlock();
 	syncActiveTransactions.unlock();
 	syncActive.unlock();
 	release();
@@ -400,12 +411,16 @@ void Transaction::rollback()
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
+	Sync sync(&syncObject, "Transaction::rollback");
+	sync.lock(Exclusive);
+	
 	if (deferredIndexes)
 		{
 		Sync sync(&syncIndexes, "Transaction::rollback");
 		sync.lock(Exclusive);
 		releaseDeferredIndexes();
 		}
+		
 	releaseSavePoints();
 	TransactionManager *transactionManager = database->transactionManager;
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
@@ -456,8 +471,8 @@ void Transaction::rollback()
 	xid = NULL;
 	xidLength = 0;
 	
-	Sync sync (&transactionManager->activeTransactions.syncObject, "Transaction::rollback");
-	sync.lock (Exclusive);
+	Sync syncActiveTransactions (&transactionManager->activeTransactions.syncObject, "Transaction::rollback");
+	syncActiveTransactions.lock (Exclusive);
 	++transactionManager->rolledBack;
 	
 	while (dependencies)
@@ -466,6 +481,7 @@ void Transaction::rollback()
 	ASSERT(dependencies == 0);
 	inList = false;
 	transactionManager->activeTransactions.remove(this);
+	syncActiveTransactions.unlock();
 	sync.unlock();
 	release();
 }

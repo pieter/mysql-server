@@ -244,8 +244,6 @@ void Transaction::commit()
 		return;
 		}
 
-	Sync sync(&syncObject, "Transaction::commit");
-	sync.lock(Exclusive);
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 
@@ -257,7 +255,7 @@ void Transaction::commit()
 		sync.lock(Shared);
 		
 		for (DeferredIndex *deferredIndex= deferredIndexes; deferredIndex;  
-			deferredIndex = deferredIndex->nextInTransaction)
+			 deferredIndex = deferredIndex->nextInTransaction)
 			if (deferredIndex->index)
 				database->dbb->logIndexUpdates(deferredIndex);
 		
@@ -291,6 +289,7 @@ void Transaction::commit()
 	database->flushInversion(this);
 	syncActiveTransactions.lock(Exclusive);
 	transactionManager->activeTransactions.remove(this);
+	syncActiveTransactions.unlock();
 	
 	for (RecordVersion *record = firstRecord; record; record = record->nextInTrans)
 		if (!record->priorVersion)
@@ -298,7 +297,6 @@ void Transaction::commit()
 		else if (record->state == recDeleted && record->format->table->cardinality > 0)
 			--record->format->table->cardinality;
 			
-	syncActiveTransactions.unlock();
 	Sync syncCommitted(&transactionManager->committedTransactions.syncObject, "Transaction::commit");
 	syncCommitted.lock(Exclusive);
 	transactionManager->committedTransactions.append(this);
@@ -318,15 +316,14 @@ void Transaction::commit()
 	
 	// Add ourselves to the list of lingering committed transactions
 	
-	sync.unlock();
 	release();
 }
 
 
 void Transaction::commitNoUpdates(void)
 {
-	Sync sync(&syncObject, "Transaction::commitNoUpdates");
-	sync.lock(Exclusive);
+	//Sync sync(&syncObject, "Transaction::commitNoUpdates");
+	//sync.lock(Exclusive);
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 	ASSERT(!deferredIndexes);
@@ -397,7 +394,7 @@ void Transaction::commitNoUpdates(void)
 	state = Available;
 	writePending = false;
 	//syncInit.unlock();
-	sync.unlock();
+	//sync.unlock();
 	syncActiveTransactions.unlock();
 	syncActive.unlock();
 	release();
@@ -411,8 +408,8 @@ void Transaction::rollback()
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
-	Sync sync(&syncObject, "Transaction::rollback");
-	sync.lock(Exclusive);
+	//Sync sync(&syncObject, "Transaction::rollback");
+	//sync.lock(Exclusive);
 	
 	if (deferredIndexes)
 		{
@@ -482,7 +479,7 @@ void Transaction::rollback()
 	inList = false;
 	transactionManager->activeTransactions.remove(this);
 	syncActiveTransactions.unlock();
-	sync.unlock();
+	//sync.unlock();
 	release();
 }
 

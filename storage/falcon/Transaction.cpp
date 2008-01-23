@@ -159,12 +159,13 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 		}
 	
 	if (count)
-		{
 		for (Transaction *transaction = transactionManager->activeTransactions.first; transaction; transaction = transaction->next)
 			if (transaction->isActive() && 
 				 !transaction->systemTransaction &&
 				 transaction->transactionId < transactionId)
 				{
+				Sync syncDependency(&transaction->syncObject, "Transaction::initialize");
+				syncDependency.lock(Shared);
 				transaction->addRef();
 				INTERLOCKED_INCREMENT(transaction->dependencies);
 
@@ -186,7 +187,6 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 					transaction->release();
 					}
 				}
-		}
 
 	state = Active;
 }

@@ -16,7 +16,7 @@ use Carp;
 use FindBin;
 
 
-my $mysql_version = "5.1";
+my $mysql_version = "6.0";
 
 # These addresses must be kept current in all MySQL versions.
 # See the wiki page InnoDBandOracle.

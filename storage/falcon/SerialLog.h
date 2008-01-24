@@ -154,6 +154,7 @@ public:
 	void			unblockUpdates(void);
 	void			blockUpdates(void);
 	int				getBlockSize(void);
+	SerialLogWindow* setWindowInterest(void);
 	
 	TableSpaceManager	*tableSpaceManager;
 	SerialLogFile		*file1;

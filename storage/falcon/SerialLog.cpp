@@ -573,7 +573,8 @@ void SerialLog::createNewWindow(void)
 
 	while (   (firstWindow->lastBlockNumber < lastReadBlock)
 	       && (firstWindow->inUse == 0)
-	       && (firstWindow->useCount == 0))
+	       && (firstWindow->useCount == 0)
+	       && (firstWindow->interestCount == 0))
 		{
 		release(firstWindow);
 		}
@@ -1541,7 +1542,7 @@ int SerialLog::getBlockSize(void)
 }
 
 int	SerialLog::recoverGetNextLimbo(int xidSize, unsigned char *xid)
-	{
+{
 	SerialLogTransaction *transaction = nextLimboTransaction;
 
 	if (!transaction)
@@ -1558,3 +1559,11 @@ int	SerialLog::recoverGetNextLimbo(int xidSize, unsigned char *xid)
 	return 1;
 }
 
+
+SerialLogWindow* SerialLog::setWindowInterest(void)
+{
+	SerialLogWindow *window = writeWindow;
+	window->setInterest();
+	
+	return window;
+}

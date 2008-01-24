@@ -53,7 +53,10 @@ public:
 	uint64			getVirtualOffset();
 	void			write (SerialLogBlock *block);
 	void			print(void);
-	bool			 validate(SerialLogBlock* block);
+	bool			validate(SerialLogBlock* block);
+	bool			validate(const UCHAR* pointer);
+	void			setInterest(void);
+	void			clearInterest(void);
 
 	inline SerialLogBlock* firstBlock()
 		{ return (SerialLogBlock*) buffer; }
@@ -76,7 +79,7 @@ public:
 	int				inUse;
 	int				useCount;
 	uint64			virtualOffset;
-	bool validate(const UCHAR* pointer);
+	volatile INTERLOCK_TYPE	interestCount;
 };
 
 #endif // !defined(AFX_SERIALLOGWINDOW_H__F95E772E_C70C_4968_8F84_A82959AC0237__INCLUDED_)

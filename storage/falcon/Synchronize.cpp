@@ -46,7 +46,7 @@
 INTERLOCK_TYPE synchronizeFreeze;
 #endif
 
-#define NANO		1000000000
+#define NANO		QUAD_CONSTANT(1000000000)
 #define MICRO		1000000
 
 //////////////////////////////////////////////////////////////////////
@@ -141,9 +141,9 @@ bool Synchronize::sleep(int milliseconds)
 	struct timespec nanoTime;
 	ret = clock_gettime(CLOCK_REALTIME, &nanoTime);
 	CHECK_RET("clock_gettime failed, errno %d", errno);
-	int64 nanos = (int64) nanoTime.tv_sec * NANO + nanoTime.tv_nsec + 
-				  (int64) milliseconds * 1000000;
-	nanoTime.tv_sec = nanos / NANO;
+	int64 start = nanoTime.tv_sec * NANO + nanoTime.tv_nsec;
+	int64 nanos = nanoTime.tv_nsec + (int64) milliseconds * 1000000;
+	nanoTime.tv_sec += nanos / NANO;
 	nanoTime.tv_nsec = nanos % NANO;
 
 	while (!wakeup)
@@ -153,7 +153,7 @@ bool Synchronize::sleep(int milliseconds)
 		if (ret == ETIMEDOUT)
 			{
 			clock_gettime(CLOCK_REALTIME, &nanoTime);
-			int64 delta = (int64) nanoTime.tv_sec * NANO + nanoTime.tv_nsec - nanos;
+			int64 delta = (int64) nanoTime.tv_sec * NANO + nanoTime.tv_nsec - start;
 			int millis = delta / 1000000;
 			
 			if (millis < milliseconds)

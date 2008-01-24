@@ -51,6 +51,10 @@ void SRLUpdateIndex::append(DeferredIndex* deferredIndex)
 	uint64 virtualOffset = 0;
 	uint64 virtualOffsetAtEnd = 0;
 	
+	SerialLogTransaction *srlTrans = log->getTransaction(transaction->transactionId);
+	srlTrans->setTransaction(transaction);
+	ASSERT(transaction->writePending);
+
 	// Remember where this is logged
 	
 	virtualOffset = log->writeWindow->getNextVirtualOffset();
@@ -59,9 +63,6 @@ void SRLUpdateIndex::append(DeferredIndex* deferredIndex)
 		{
 		START_RECORD(srlUpdateIndex, "SRLUpdateIndex::append");
 		log->updateIndexUseVector(indexId, tableSpaceId, 1);
-		SerialLogTransaction *srlTrans = log->getTransaction(transaction->transactionId);
-		srlTrans->setTransaction(transaction);
-		ASSERT(transaction->writePending);
 		putInt(tableSpaceId);
 		putInt(transaction->transactionId);
 		putInt(indexId);
@@ -226,7 +227,7 @@ void SRLUpdateIndex::thaw(DeferredIndex* deferredIndex)
 	
 	if (window == NULL)
 		{
-		Log::log("A window for DeferredIndex::virtualOffset=%8llx could not be found.\n",
+		Log::log("A window for DeferredIndex::virtualOffset=" I64FORMAT " could not be found.\n",
 		         deferredIndex->virtualOffset);
 		log->printWindows();
 		

@@ -379,8 +379,7 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 					}
 			
 			mutex.unlock();
-			
-			throw SQLError(LOCK_TIMEOUT, "lock timed out after %d milliseconds\n", timeout);
+			timedout(timeout);
 			}
 		
 		
@@ -695,4 +694,9 @@ void SyncObject::setName(const char* string)
 #ifdef TRACE_SYNC_OBJECTS
 	name = string;
 #endif
+}
+
+void SyncObject::timedout(int timeout)
+{
+	throw SQLError(LOCK_TIMEOUT, "lock timed out after %d milliseconds\n", timeout);
 }

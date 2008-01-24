@@ -46,7 +46,7 @@
 INTERLOCK_TYPE synchronizeFreeze;
 #endif
 
-#define NANO		1000000000
+#define NANO		QUAD_CONSTANT(1000000000)
 #define MICRO		1000000
 
 //////////////////////////////////////////////////////////////////////
@@ -136,22 +136,31 @@ bool Synchronize::sleep(int milliseconds)
 #endif
 
 #ifdef _PTHREADS
-	struct timeval microTime;
-	int ret = gettimeofday(&microTime, NULL);
-	int64 nanos = (int64) microTime.tv_sec * NANO + microTime.tv_usec * 1000 +
-				 (int64) milliseconds * 1000000;
-	struct timespec nanoTime;
-	nanoTime.tv_sec = nanos / NANO;
-	nanoTime.tv_nsec = nanos % NANO;
-	ret = pthread_mutex_lock (&mutex);
+	int ret = pthread_mutex_lock (&mutex);
 	CHECK_RET("pthread_mutex_lock failed, errno %d", errno);
+	struct timespec nanoTime;
+	ret = clock_gettime(CLOCK_REALTIME, &nanoTime);
+	CHECK_RET("clock_gettime failed, errno %d", errno);
+	int64 start = nanoTime.tv_sec * NANO + nanoTime.tv_nsec;
+	int64 nanos = nanoTime.tv_nsec + (int64) milliseconds * 1000000;
+	nanoTime.tv_sec += nanos / NANO;
+	nanoTime.tv_nsec = nanos % NANO;
 
 	while (!wakeup)
 		{
 		ret = pthread_cond_timedwait(&condition, &mutex, &nanoTime);
 		
 		if (ret == ETIMEDOUT)
+			{
+			clock_gettime(CLOCK_REALTIME, &nanoTime);
+			int64 delta = (int64) nanoTime.tv_sec * NANO + nanoTime.tv_nsec - start;
+			int millis = delta / 1000000;
+			
+			if (millis < milliseconds)
+				Log::debug("Timeout after %d milliseconds (expected %d)\n", millis, milliseconds);
+				
 			break;
+			}
 			
 		if (!wakeup)
 #ifdef ENGINE

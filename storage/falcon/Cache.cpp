@@ -353,7 +353,7 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 
 void Cache::flush(int64 arg)
 {
-	Sync flushLock(&syncFlush, "Cache::ioThread");
+	Sync flushLock(&syncFlush, "Cache::flush");
 	Sync sync(&syncDirty, "Cache::ioThread");
 	flushLock.lock(Exclusive);
 	
@@ -946,7 +946,7 @@ void Cache::ioThread(void)
 	
 	// This is the main loop.  Write blocks until there's nothing to do, then sleep
 	
-	while (!thread->shutdownInProgress)
+	for (;;)
 		{
 		int32 pageNumber = flushBitmap->nextSet(0);
 		int count;
@@ -1102,6 +1102,9 @@ void Cache::ioThread(void)
 			else
 				flushLock.unlock();
 			
+			if (thread->shutdownInProgress)
+				break;
+
 			thread->sleep();
 			flushLock.lock(Exclusive);
 			}

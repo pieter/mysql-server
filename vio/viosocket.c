@@ -356,27 +356,6 @@ my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen)
 }
 
 
-/*
-  Get in_addr for a TCP/IP connection
-
-  SYNOPSIS
-    vio_in_addr()
-    vio		vio handle
-    in		put in_addr here
-
-  NOTES
-    one must call vio_peer_addr() before calling this one
-*/
-void vio_in_addr(Vio *vio, struct sockaddr_storage *in)
-{
-  DBUG_ENTER("vio_in_addr");
-  if (vio->localhost)
-    bzero((char*) in, sizeof(struct sockaddr_storage));
-  else
-    memcpy(in, &(vio->remote), sizeof(struct sockaddr_storage));
-  DBUG_VOID_RETURN;
-}
-
 /* Return 0 if there is data to be read */
 
 my_bool vio_poll_read(Vio *vio,uint timeout)

@@ -85,8 +85,6 @@ int	vio_errno(Vio*vio);
 my_socket vio_fd(Vio*vio);
 /* Remote peer's address and name in text form */
 my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen);
-/* Remotes in_addr */
-void vio_in_addr(Vio *vio, struct sockaddr_storage *in);
 my_bool	vio_poll_read(Vio *vio,uint timeout);
 
 #ifdef HAVE_OPENSSL

@@ -50,10 +50,6 @@ void SRLUpdateIndex::append(DeferredIndex* deferredIndex)
 	int tableSpaceId = deferredIndex->index->dbb->tableSpaceId;
 	uint64 virtualOffset = 0;
 	uint64 virtualOffsetAtEnd = 0;
-	
-	SerialLogTransaction *srlTrans = log->getTransaction(transaction->transactionId);
-	srlTrans->setTransaction(transaction);
-	ASSERT(transaction->writePending);
 
 	// Remember where this is logged
 	
@@ -63,6 +59,9 @@ void SRLUpdateIndex::append(DeferredIndex* deferredIndex)
 		{
 		START_RECORD(srlUpdateIndex, "SRLUpdateIndex::append");
 		log->updateIndexUseVector(indexId, tableSpaceId, 1);
+		SerialLogTransaction *srlTrans = log->getTransaction(transaction->transactionId);
+		srlTrans->setTransaction(transaction);
+		ASSERT(transaction->writePending);
 		putInt(tableSpaceId);
 		putInt(transaction->transactionId);
 		putInt(indexId);

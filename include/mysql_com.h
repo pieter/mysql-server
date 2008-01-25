@@ -213,24 +213,23 @@ typedef struct st_net {
   unsigned int *return_status;
   unsigned char reading_or_writing;
   char save_char;
-  my_bool unused0; /* Please remove with the next incompatible ABI change. */
-  my_bool unused; /* Please remove with the next incompatible ABI change */
-  my_bool compress;
   my_bool unused1; /* Please remove with the next incompatible ABI change. */
+  my_bool unused2; /* Please remove with the next incompatible ABI change */
+  my_bool compress;
+  my_bool unused3; /* Please remove with the next incompatible ABI change. */
   /*
     Pointer to query object in query cache, do not equal NULL (0) for
     queries in cache that have not stored its results yet
   */
 #endif
   /*
-    'query_cache_query' should be accessed only via query cache
-    functions and methods to maintain proper locking.
+    Unused, please remove with the next incompatible ABI change.
   */
-  unsigned char *query_cache_query;
+  unsigned char *unused;
   unsigned int client_last_errno;
   unsigned char error; 
-  my_bool unused2; /* Please remove with the next incompatible ABI change. */
-  my_bool unused3; /* Please remove with the next incompatible ABI change. */
+  my_bool unused4; /* Please remove with the next incompatible ABI change. */
+  my_bool unused5; /* Please remove with the next incompatible ABI change. */
   /** Client library error message buffer. Actually belongs to struct MYSQL. */
   char client_last_error[MYSQL_ERRMSG_SIZE];
   /** Client library sqlstate buffer. Set along with the error message. */

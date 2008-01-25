@@ -1199,16 +1199,11 @@ uint calculate_key_len(TABLE *, uint, const uchar *, key_part_map);
 
   If a blob column has NULL value, then its length and blob data pointer
   must be set to 0.
-
- */
+*/
 
 class handler :public Sql_alloc
 {
-  friend class ha_partition;
   friend class DsMrr_impl;
-  friend int ha_delete_table(THD*,handlerton*,const char*,const char*,
-                             const char*,bool);
-
 public:
   typedef ulonglong Table_flags;
 protected:
@@ -1223,20 +1218,20 @@ public:
   uchar *dup_ref;			/* Pointer to duplicate row */
 
   ha_statistics stats;
-  
-  /* Multi range read implementation-used members: */
+
+  /** Multi range read implementation-used members: */
   range_seq_t mrr_iter;    /* MRR range sequence iterator being traversed */
   RANGE_SEQ_IF mrr_funcs;  /* Saved MRR range sequence traversal functions */
   HANDLER_BUFFER *multi_range_buffer; /* Saved MRR buffer info */
   uint ranges_in_seq; /* Total number of ranges in the traversed sequence */
   /* TRUE <=> source MRR ranges and the output are ordered */
   bool mrr_is_output_sorted;
-  
-  /* TRUE <=> we're currently traversing a range in mrr_cur_range. */
+
+  /** TRUE <=> we're currently traversing a range in mrr_cur_range. */
   bool mrr_have_range;
-  /* Current range (the one we're now returning rows from) */
+  /** Current range (the one we're now returning rows from) */
   KEY_MULTI_RANGE mrr_cur_range;
-  
+
   /* Default MRR implementation: */
   //bool mrr_restore_scan; /* TRUE <=> we're restoring the scan */
   //int mrr_restore_scan_res; /* iff mrr_restore_scan: return value of next call */
@@ -1373,6 +1368,38 @@ public:
     estimation_rows_to_insert= 0;
     return end_bulk_insert();
   }
+  int ha_bulk_update_row(const uchar *old_data, uchar *new_data,
+                         uint *dup_key_found);
+  int ha_delete_all_rows();
+  int ha_reset_auto_increment(ulonglong value);
+  int ha_optimize(THD* thd, HA_CHECK_OPT* check_opt);
+  int ha_analyze(THD* thd, HA_CHECK_OPT* check_opt);
+  bool ha_check_and_repair(THD *thd);
+  int ha_disable_indexes(uint mode);
+  int ha_enable_indexes(uint mode);
+  int ha_discard_or_import_tablespace(my_bool discard);
+  void ha_prepare_for_alter();
+  int ha_rename_table(const char *from, const char *to);
+  int ha_delete_table(const char *name);
+  void ha_drop_table(const char *name);
+
+  int ha_create(const char *name, TABLE *form, HA_CREATE_INFO *info);
+
+  int ha_create_handler_files(const char *name, const char *old_name,
+                              int action_flag, HA_CREATE_INFO *info);
+
+  int ha_change_partitions(HA_CREATE_INFO *create_info,
+                           const char *path,
+                           ulonglong *copied,
+                           ulonglong *deleted,
+                           const uchar *pack_frm_data,
+                           size_t pack_frm_len);
+  int ha_drop_partitions(const char *path);
+  int ha_rename_partitions(const char *path);
+  int ha_optimize_partitions(THD *thd);
+  int ha_analyze_partitions(THD *thd);
+  int ha_check_partitions(THD *thd);
+  int ha_repair_partitions(THD *thd);
 
   void adjust_next_insert_id_after_explicit_value(ulonglong nr);
   int update_auto_increment();
@@ -1474,25 +1501,6 @@ public:
     @retval  1   Bulk delete not used, normal operation used
   */
   virtual bool start_bulk_delete() { return 1; }
-  /**
-    This method is similar to update_row, however the handler doesn't need
-    to execute the updates at this point in time. The handler can be certain
-    that another call to bulk_update_row will occur OR a call to
-    exec_bulk_update before the set of updates in this query is concluded.
-
-    @param    old_data       Old record
-    @param    new_data       New record
-    @param    dup_key_found  Number of duplicate keys found
-
-    @retval  0   Bulk delete used by handler
-    @retval  1   Bulk delete not used, normal operation used
-  */
-  virtual int bulk_update_row(const uchar *old_data, uchar *new_data,
-                              uint *dup_key_found)
-  {
-    DBUG_ASSERT(FALSE);
-    return HA_ERR_WRONG_COMMAND;
-  }
   /**
     After this call all outstanding updates must be performed. The number
     of duplicate key errors are reported in the duplicate key parameter.
@@ -1630,14 +1638,6 @@ public:
   virtual void try_semi_consistent_read(bool) {}
   virtual void unlock_row() {}
   virtual int start_stmt(THD *thd, thr_lock_type lock_type) {return 0;}
-  /**
-    This is called to delete all rows in a table
-    If the handler don't support this, then this function will
-    return HA_ERR_WRONG_COMMAND and MySQL will delete the rows one
-    by one.
-  */
-  virtual int delete_all_rows()
-  { return (my_errno=HA_ERR_WRONG_COMMAND); }
   virtual void get_auto_increment(ulonglong offset, ulonglong increment,
                                   ulonglong nb_desired_values,
                                   ulonglong *first_value,
@@ -1662,33 +1662,16 @@ public:
     next_insert_id= (prev_insert_id > 0) ? prev_insert_id :
       insert_id_for_cur_row;
   }
-  /**
-    Reset the auto-increment counter to the given value, i.e. the next row
-    inserted will get the given value. This is called e.g. after TRUNCATE
-    is emulated by doing a 'DELETE FROM t'. HA_ERR_WRONG_COMMAND is
-    returned by storage engines that don't support this operation.
-  */
-  virtual int reset_auto_increment(ulonglong value)
-  { return HA_ERR_WRONG_COMMAND; }
 
   virtual void update_create_info(HA_CREATE_INFO *create_info) {}
   int check_old_types();
-  virtual int optimize(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
-  virtual int analyze(THD* thd, HA_CHECK_OPT* check_opt)
-  { return HA_ADMIN_NOT_IMPLEMENTED; }
   virtual int assign_to_keycache(THD* thd, HA_CHECK_OPT* check_opt)
   { return HA_ADMIN_NOT_IMPLEMENTED; }
   virtual int preload_keys(THD* thd, HA_CHECK_OPT* check_opt)
   { return HA_ADMIN_NOT_IMPLEMENTED; }
   /* end of the list of admin commands */
 
-  virtual bool check_and_repair(THD *thd) { return HA_ERR_WRONG_COMMAND; }
-  virtual int disable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
-  virtual int enable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
   virtual int indexes_are_disabled(void) {return 0;}
-  virtual int discard_or_import_tablespace(my_bool discard)
-  {return HA_ERR_WRONG_COMMAND;}
   virtual char *update_table_comment(const char * comment)
   { return (char*) comment;}
   virtual void append_create_info(String *packet) {}
@@ -1746,7 +1729,6 @@ public:
 
   virtual ulong index_flags(uint idx, uint part, bool all_parts) const =0;
 
-  virtual void prepare_for_alter() { return; }
   virtual int add_index(TABLE *table_arg, KEY *key_info, uint num_of_keys)
   { return (HA_ERR_WRONG_COMMAND); }
   virtual int prepare_drop_index(TABLE *table_arg, uint *key_num,
@@ -1778,43 +1760,11 @@ public:
   virtual bool is_crashed() const  { return 0; }
   virtual bool auto_repair() const { return 0; }
 
-  /**
-    default rename_table() and delete_table() rename/delete files with a
-    given name and extensions from bas_ext()
-  */
-  virtual int rename_table(const char *from, const char *to);
-  virtual int delete_table(const char *name);
-  virtual void drop_table(const char *name);
-
-  virtual int create(const char *name, TABLE *form, HA_CREATE_INFO *info)=0;
 
 #define CHF_CREATE_FLAG 0
 #define CHF_DELETE_FLAG 1
 #define CHF_RENAME_FLAG 2
 
-  virtual int create_handler_files(const char *name, const char *old_name,
-                                   int action_flag, HA_CREATE_INFO *info)
-  { return FALSE; }
-
-  virtual int change_partitions(HA_CREATE_INFO *create_info,
-                                const char *path,
-                                ulonglong *copied,
-                                ulonglong *deleted,
-                                const uchar *pack_frm_data,
-                                size_t pack_frm_len)
-  { return HA_ERR_WRONG_COMMAND; }
-  virtual int drop_partitions(const char *path)
-  { return HA_ERR_WRONG_COMMAND; }
-  virtual int rename_partitions(const char *path)
-  { return HA_ERR_WRONG_COMMAND; }
-  virtual int optimize_partitions(THD *thd)
-  { return HA_ERR_WRONG_COMMAND; }
-  virtual int analyze_partitions(THD *thd)
-  { return HA_ERR_WRONG_COMMAND; }
-  virtual int check_partitions(THD *thd)
-  { return HA_ERR_WRONG_COMMAND; }
-  virtual int repair_partitions(THD *thd)
-  { return HA_ERR_WRONG_COMMAND; }
 
   /**
     @note lock_count() can return > 1 if the table is MERGE or partitioned.
@@ -1892,7 +1842,7 @@ public:
  {
    return memcmp(ref1, ref2, ref_length);
  }
- 
+
  /*
    Condition pushdown to storage engines
  */
@@ -1901,7 +1851,7 @@ public:
    Push condition down to the table handler.
 
    @param  cond   Condition to be pushed. The condition tree must not be
-     modified by the by the caller.
+                  modified by the by the caller.
 
    @return
      The 'remainder' condition that caller must use to filter out records.
@@ -1914,7 +1864,7 @@ public:
    The table handler filters out rows using (pushed_cond1 AND pushed_cond2 
    AND ... AND pushed_condN)
    or less restrictive condition, depending on handler's capabilities.
-   
+
    handler->ha_reset() call empties the condition stack.
    Calls to rnd_init/rnd_end, index_init/index_end etc do not affect the
    condition stack.
@@ -1937,34 +1887,31 @@ public:
                                          uint table_changes)
  { return COMPATIBLE_DATA_NO; }
 
+ /* On-line ALTER TABLE interface */
 
- /*
-    On-line ALTER TABLE interface
-  */
-
- /*
+ /**
     Check if a storage engine supports a particular alter table on-line
-    SYNOPSIS
-      check_if_supported_alter()
-        altered_table     A temporary table show what table is to change to
-        create_info       Information from the parsing phase about new
-                          table properties.
-        alter_flags       Bitmask that shows what will be changed
-        table_changes     Shows if table layout has changed (for backwards
-                          compatibility with check_if_incompatible_data
-    RETURN
-        HA_ALTER_ERROR                Unexpected error
-        HA_ALTER_SUPPORTED_WAIT_LOCK  Supported, but requires DDL lock
-        HA_ALTER_SUPPORTED_NO_LOCK    Supported
-        HA_ALTER_NOT_SUPPORTED        Not supported
 
-      
-    NOTES
+    @param    altered_table     A temporary table show what table is to
+                                change to
+    @param    create_info       Information from the parsing phase about new
+                                table properties.
+    @param    alter_flags       Bitmask that shows what will be changed
+    @param    table_changes     Shows if table layout has changed (for
+                                backwards compatibility with
+                                check_if_incompatible_data
+
+    @retval   HA_ALTER_ERROR                Unexpected error
+    @retval   HA_ALTER_SUPPORTED_WAIT_LOCK  Supported, but requires DDL lock
+    @retval   HA_ALTER_SUPPORTED_NO_LOCK    Supported
+    @retval   HA_ALTER_NOT_SUPPORTED        Not supported
+
+    @note
       The default implementation is implemented to support fast
       alter table (storage engines that support some changes by
       just changing the frm file) without any change in the handler
       implementation.    
-  */
+ */
  virtual int check_if_supported_alter(TABLE *altered_table,
                                       HA_CREATE_INFO *create_info,
                                       HA_ALTER_FLAGS *alter_flags,
@@ -1977,19 +1924,19 @@ public:
    else
      DBUG_RETURN(HA_ALTER_SUPPORTED_WAIT_LOCK);
  }
- /*
-    Tell storage engine to prepare for the on-line alter table (pre-alter)
-    SYNOPSIS
-      alter_table_phase1()
-        thd               The thread handle
-        altered_table     A temporary table show what table is to change to
-        alter_info        Storage place for data used during phase1 and phase2
-        alter_flags       Bitmask that shows what will be changed
-    RETURN
-      0      OK
-      error  error code passed from storage engine
-    NOTES
-  */
+ /**
+   Tell storage engine to prepare for the on-line alter table (pre-alter)
+
+   @param     thd               The thread handle
+   @param     altered_table     A temporary table show what table is to
+                                change to
+   @param     alter_info        Storage place for data used during phase1
+                                and phase2
+   @param     alter_flags       Bitmask that shows what will be changed
+
+   @retval   0      OK
+   @retval   error  error code passed from storage engine
+ */
  virtual int alter_table_phase1(THD *thd,
                                 TABLE *altered_table,
                                 HA_CREATE_INFO *create_info,
@@ -1998,22 +1945,24 @@ public:
  {
    return HA_ERR_UNSUPPORTED;
  }
- /*
+ /**
     Tell storage engine to perform the on-line alter table (alter)
-    SYNOPSIS
-      alter_table_phase2()
-        thd               The thread handle
-        altered_table     A temporary table show what table is to change to
-        alter_info        Storage place for data used during phase1 and phase2
-        alter_flags       Bitmask that shows what will be changed
-    RETURN
-      0      OK
-      error  error code passed from storage engine
-    NOTES
+
+    @param    thd               The thread handle
+    @param    altered_table     A temporary table show what table is to
+                                change to
+    @param    alter_info        Storage place for data used during phase1
+                                and phase2
+    @param    alter_flags       Bitmask that shows what will be changed
+
+    @retval  0      OK
+    @retval  error  error code passed from storage engine
+
+    @note
       If check_if_supported_alter returns HA_ALTER_SUPPORTED_WAIT_LOCK
       this call is to be wrapped with a DDL lock. This is currently NOT
       supported.
-  */
+ */
  virtual int alter_table_phase2(THD *thd,
                                 TABLE *altered_table,
                                 HA_CREATE_INFO *create_info,
@@ -2022,37 +1971,18 @@ public:
  {
    return HA_ERR_UNSUPPORTED;
  }
- /*
+ /**
     Tell storage engine that changed frm file is now on disk and table
     has been re-opened (post-alter)
-    SYNOPSIS
-      alter_table_phase3()
-        thd               The thread handle
-        table             The altered table, re-opened
-    NOTES
-  */
+
+    @param    thd               The thread handle
+    @param    table             The altered table, re-opened
+ */
  virtual int alter_table_phase3(THD *thd, TABLE *table)
  {
    return HA_ERR_UNSUPPORTED;
  }
 
-
- /** These are only called from sql_select for internal temporary tables */
-  virtual int write_row(uchar *buf __attribute__((unused)))
-  {
-    return HA_ERR_WRONG_COMMAND;
-  }
-
-  virtual int update_row(const uchar *old_data __attribute__((unused)),
-                         uchar *new_data __attribute__((unused)))
-  {
-    return HA_ERR_WRONG_COMMAND;
-  }
-
-  virtual int delete_row(const uchar *buf __attribute__((unused)))
-  {
-    return HA_ERR_WRONG_COMMAND;
-  }
   /**
     use_hidden_primary_key() is called in case of an update/delete when
     (table_flags() and HA_PRIMARY_KEY_REQUIRED_FOR_DELETE) is defined
@@ -2060,31 +1990,29 @@ public:
   */
   virtual void use_hidden_primary_key();
 
-  /*
+  /**
     Lock table.
 
-    SYNOPSIS
-      handler::lock_table()
-        thd                     Thread handle
-        lock_type               HA_LOCK_IN_SHARE_MODE     (F_RDLCK)
-                                HA_LOCK_IN_EXCLUSIVE_MODE (F_WRLCK)
-        lock_timeout            -1 default timeout
-                                0  no wait
-                                >0 wait timeout in milliseconds.
+    @param    thd                     Thread handle
+    @param    lock_type               HA_LOCK_IN_SHARE_MODE     (F_RDLCK)
+                                      HA_LOCK_IN_EXCLUSIVE_MODE (F_WRLCK)
+    @param    lock_timeout            -1 default timeout
+                                      0  no wait
+                                      >0 wait timeout in milliseconds.
 
-    NOTE
+   @note
       lock_timeout >0 is not used by MySQL currently. If the storage
       engine does not support NOWAIT (lock_timeout == 0) it should
       return an error. But if it does not support WAIT X (lock_timeout
       >0) it should treat it as lock_timeout == -1 and wait a default
       (or even hard-coded) timeout.
 
-    RETURN
-      HA_ERR_WRONG_COMMAND      Storage engine does not support lock_table()
-      HA_ERR_UNSUPPORTED        Storage engine does not support NOWAIT
-      HA_ERR_LOCK_WAIT_TIMEOUT  Lock request timed out or
-                                lock conflict with NOWAIT option
-      HA_ERR_LOCK_DEADLOCK      Deadlock detected
+    @retval HA_ERR_WRONG_COMMAND      Storage engine does not support
+                                      lock_table()
+    @retval HA_ERR_UNSUPPORTED        Storage engine does not support NOWAIT
+    @retval HA_ERR_LOCK_WAIT_TIMEOUT  Lock request timed out or
+                                      lock conflict with NOWAIT option
+    @retval HA_ERR_LOCK_DEADLOCK      Deadlock detected
   */
   virtual int lock_table(THD *thd         __attribute__((unused)),
                          int lock_type    __attribute__((unused)),
@@ -2094,12 +2022,21 @@ public:
   }
 
   virtual void add_explain_extra_info(uint keyno, String *extra) {}
-
 protected:
   /* Service methods for use by storage engines. */
   void ha_statistic_increment(ulong SSV::*offset) const;
   void **ha_data(THD *) const;
   THD *ha_thd(void) const;
+
+  /**
+    Default rename_table() and delete_table() rename/delete files with a
+    given name and extensions from bas_ext().
+
+    These methods can be overridden, but their default implementation
+    provide useful functionality.
+  */
+  virtual int rename_table(const char *from, const char *to);
+  virtual int delete_table(const char *name);
 
 private:
   /*
@@ -2120,6 +2057,21 @@ private:
   */
   virtual int rnd_init(bool scan)= 0;
   virtual int rnd_end() { return 0; }
+  virtual int write_row(uchar *buf __attribute__((unused)))
+  {
+    return HA_ERR_WRONG_COMMAND;
+  }
+
+  virtual int update_row(const uchar *old_data __attribute__((unused)),
+                         uchar *new_data __attribute__((unused)))
+  {
+    return HA_ERR_WRONG_COMMAND;
+  }
+
+  virtual int delete_row(const uchar *buf __attribute__((unused)))
+  {
+    return HA_ERR_WRONG_COMMAND;
+  }
   /**
     Reset state of file to after 'open'.
     This function is called after every statement for all tables used
@@ -2176,10 +2128,82 @@ private:
    { return  HA_ERR_WRONG_COMMAND; }
   virtual int index_read_last(uchar * buf, const uchar * key, uint key_len)
    { return (my_errno= HA_ERR_WRONG_COMMAND); }
+  /**
+    This method is similar to update_row, however the handler doesn't need
+    to execute the updates at this point in time. The handler can be certain
+    that another call to bulk_update_row will occur OR a call to
+    exec_bulk_update before the set of updates in this query is concluded.
+
+    @param    old_data       Old record
+    @param    new_data       New record
+    @param    dup_key_found  Number of duplicate keys found
+
+    @retval  0   Bulk delete used by handler
+    @retval  1   Bulk delete not used, normal operation used
+  */
+  virtual int bulk_update_row(const uchar *old_data, uchar *new_data,
+                              uint *dup_key_found)
+  {
+    DBUG_ASSERT(FALSE);
+    return HA_ERR_WRONG_COMMAND;
+  }
+  /**
+    This is called to delete all rows in a table
+    If the handler don't support this, then this function will
+    return HA_ERR_WRONG_COMMAND and MySQL will delete the rows one
+    by one.
+  */
+  virtual int delete_all_rows()
+  { return (my_errno=HA_ERR_WRONG_COMMAND); }
+  /**
+    Reset the auto-increment counter to the given value, i.e. the next row
+    inserted will get the given value. This is called e.g. after TRUNCATE
+    is emulated by doing a 'DELETE FROM t'. HA_ERR_WRONG_COMMAND is
+    returned by storage engines that don't support this operation.
+  */
+  virtual int reset_auto_increment(ulonglong value)
+  { return HA_ERR_WRONG_COMMAND; }
+  virtual int optimize(THD* thd, HA_CHECK_OPT* check_opt)
+  { return HA_ADMIN_NOT_IMPLEMENTED; }
+  virtual int analyze(THD* thd, HA_CHECK_OPT* check_opt)
+  { return HA_ADMIN_NOT_IMPLEMENTED; }
+  virtual bool check_and_repair(THD *thd) { return HA_ERR_WRONG_COMMAND; }
+  virtual int disable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
+  virtual int enable_indexes(uint mode) { return HA_ERR_WRONG_COMMAND; }
+  virtual int discard_or_import_tablespace(my_bool discard)
+  { return (my_errno=HA_ERR_WRONG_COMMAND); }
+  virtual void prepare_for_alter() { return; }
+  virtual void drop_table(const char *name);
+  virtual int create(const char *name, TABLE *form, HA_CREATE_INFO *info)=0;
+
+  virtual int create_handler_files(const char *name, const char *old_name,
+                                   int action_flag, HA_CREATE_INFO *info)
+  { return FALSE; }
+
+  virtual int change_partitions(HA_CREATE_INFO *create_info,
+                                const char *path,
+                                ulonglong *copied,
+                                ulonglong *deleted,
+                                const uchar *pack_frm_data,
+                                size_t pack_frm_len)
+  { return HA_ERR_WRONG_COMMAND; }
+  virtual int drop_partitions(const char *path)
+  { return HA_ERR_WRONG_COMMAND; }
+  virtual int rename_partitions(const char *path)
+  { return HA_ERR_WRONG_COMMAND; }
+  virtual int optimize_partitions(THD *thd)
+  { return HA_ERR_WRONG_COMMAND; }
+  virtual int analyze_partitions(THD *thd)
+  { return HA_ERR_WRONG_COMMAND; }
+  virtual int check_partitions(THD *thd)
+  { return HA_ERR_WRONG_COMMAND; }
+  virtual int repair_partitions(THD *thd)
+  { return HA_ERR_WRONG_COMMAND; }
 };
 
 
-/*
+
+/**
   A Disk-Sweep MRR interface implementation
 
   This implementation makes range (and, in the future, 'ref') scans to read

@@ -678,7 +678,10 @@ char *opt_logname, *opt_slow_logname;
 /* Static variables */
 
 static bool kill_in_progress, segfaulted;
-static my_bool opt_do_pstack, opt_bootstrap, opt_myisam_log;
+#ifdef HAVE_STACK_TRACE_ON_SEGV
+static my_bool opt_do_pstack;
+#endif /* HAVE_STACK_TRACE_ON_SEGV */
+static my_bool opt_bootstrap, opt_myisam_log;
 static int cleanup_done;
 static ulong opt_specialflag, opt_myisam_block_size;
 static char *opt_update_logname, *opt_binlog_index_name;
@@ -2682,7 +2685,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
           str= ER(error);
         thd->main_da.set_error_status(thd, error, str);
       }
-      query_cache_abort(&thd->net);
+      query_cache_abort(&thd->query_cache_tls);
     }
     /*
       If a continue handler is found, the error message will be cleared
@@ -5348,6 +5351,9 @@ enum options_mysqld
   OPT_SECURE_FILE_PRIV,
   OPT_MIN_EXAMINED_ROW_LIMIT,
   OPT_LOG_SLOW_SLAVE_STATEMENTS,
+#if HAVE_POOL_OF_THREADS == 1
+  OPT_POOL_OF_THREADS,
+#endif
   OPT_OLD_MODE
 };
 
@@ -5518,9 +5524,11 @@ struct my_option my_long_options[] =
    (uchar**) &opt_enable_named_pipe, (uchar**) &opt_enable_named_pipe, 0, GET_BOOL,
    NO_ARG, 0, 0, 0, 0, 0, 0},
 #endif
+#ifdef HAVE_STACK_TRACE_ON_SEGV
   {"enable-pstack", OPT_DO_PSTACK, "Print a symbolic stack trace on failure.",
    (uchar**) &opt_do_pstack, (uchar**) &opt_do_pstack, 0, GET_BOOL, NO_ARG, 0, 0,
    0, 0, 0, 0},
+#endif /* HAVE_STACK_TRACE_ON_SEGV */
   {"engine-condition-pushdown",
    OPT_ENGINE_CONDITION_PUSHDOWN,
    "Push supported query conditions to the storage engine.",
@@ -5858,6 +5866,11 @@ thread is in the master's binlogs.",
   {"one-thread", OPT_ONE_THREAD,
    "(deprecated): Only use one thread (for debugging under Linux). Use thread-handling=no-threads instead",
    0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
+#if HAVE_POOL_OF_THREADS == 1
+  {"pool-of-threads", OPT_POOL_OF_THREADS,
+   "Use pool of threads during testing. NOTE: Use thread-handling=pool-of-threads instead",
+   0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
+#endif
   {"old-style-user-limits", OPT_OLD_STYLE_USER_LIMITS,
    "Enable old-style user limits (before 5.0.3 user resources were counted per each user+host vs. per account)",
    (uchar**) &opt_old_style_user_limits, (uchar**) &opt_old_style_user_limits,
@@ -7862,6 +7875,12 @@ mysqld_get_one_option(int optid,
     global_system_variables.thread_handling=
       SCHEDULER_ONE_THREAD_PER_CONNECTION;
     break;
+#if HAVE_POOL_OF_THREADS == 1
+  case OPT_POOL_OF_THREADS:
+    global_system_variables.thread_handling=
+      SCHEDULER_POOL_OF_THREADS;
+    break;
+#endif
   case OPT_THREAD_HANDLING:
   {
     global_system_variables.thread_handling=

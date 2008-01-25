@@ -13,9 +13,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-/** @file handler.cc
+/**
+  @file handler.cc
 
-    @brief
   Handler-calling-functions
 */
 
@@ -84,14 +84,13 @@ static plugin_ref ha_default_plugin(THD *thd)
 }
 
 
-/** @brief
+/**
   Return the default storage engine handlerton for thread
 
-  SYNOPSIS
-    ha_default_handlerton(thd)
-    thd         current thread
+  @param ha_default_handlerton(thd)
+  @param thd         current thread
 
-  RETURN
+  @return
     pointer to handlerton
 */
 handlerton *ha_default_handlerton(THD *thd)
@@ -104,15 +103,13 @@ handlerton *ha_default_handlerton(THD *thd)
 }
 
 
-/** @brief
+/**
   Return the storage engine handlerton for the supplied name
   
-  SYNOPSIS
-    ha_resolve_by_name(thd, name)
-    thd         current thread
-    name        name of storage engine
+  @param thd         current thread
+  @param name        name of storage engine
   
-  RETURN
+  @return
     pointer to storage engine plugin handle
 */
 plugin_ref ha_resolve_by_name(THD *thd, const LEX_STRING *name)
@@ -1468,7 +1465,7 @@ handle_error(uint sql_errno,
 }
 
 
-/** @brief
+/**
   This should return ENOENT if the file doesn't exists.
   The .frm file will be deleted only if we return 0 or ENOENT
 */
@@ -1492,7 +1489,7 @@ int ha_delete_table(THD *thd, handlerton *table_type, const char *path,
     DBUG_RETURN(ENOENT);
 
   path= check_lowercase_names(file, path, tmp_path);
-  if ((error= file->delete_table(path)) && generate_warning)
+  if ((error= file->ha_delete_table(path)) && generate_warning)
   {
     /*
       Because file->print_error() use my_error() to generate the error message
@@ -1511,8 +1508,7 @@ int ha_delete_table(THD *thd, handlerton *table_type, const char *path,
     dummy_share.table_name.length= strlen(alias);
     dummy_table.alias= alias;
 
-    file->table_share= &dummy_share;
-    file->table= &dummy_table;
+    file->change_table_ptr(&dummy_table, &dummy_share);
 
     thd->push_internal_handler(&ha_delete_table_error_handler);
     file->print_error(error, 0);
@@ -1574,12 +1570,11 @@ char* handler::get_tablespace_name()
   return table->s->tablespace;
 }
 
-/** @brief
+/**
   Open database-handler.
 
-  IMPLEMENTATION
-    Try O_RDONLY if cannot open as O_RDWR
-    Don't wait for locks if not HA_OPEN_WAIT_IF_LOCKED is set
+  Try O_RDONLY if cannot open as O_RDWR
+  Don't wait for locks if not HA_OPEN_WAIT_IF_LOCKED is set
 */
 int handler::ha_open(TABLE *table_arg, const char *name, int mode,
                      int test_if_locked)
@@ -1719,19 +1714,19 @@ void handler::adjust_next_insert_id_after_explicit_value(ulonglong nr)
 }
 
 
-/** @brief
+/**
+  Compute a previous insert id
+
   Computes the largest number X:
   - smaller than or equal to "nr"
   - of the form: auto_increment_offset + N * auto_increment_increment
-  where N>=0.
+    where N>=0.
 
-  SYNOPSIS
-    prev_insert_id
-      nr            Number to "round down"
-      variables     variables struct containing auto_increment_increment and
-                    auto_increment_offset
+  @param nr            Number to "round down"
+  @param variables     variables struct containing auto_increment_increment and
+                       auto_increment_offset
 
-  RETURN
+  @return
     The number X if it exists, "nr" otherwise.
 */
 inline ulonglong
@@ -1993,18 +1988,17 @@ int handler::update_auto_increment()
 }
 
 
-/** @brief
+/**
   MySQL signal that it changed the column bitmap
 
-  USAGE
-    This is for handlers that needs to setup their own column bitmaps.
-    Normally the handler should set up their own column bitmaps in
-    index_init() or rnd_init() and in any column_bitmaps_signal() call after
-    this.
+  This is for handlers that needs to setup their own column bitmaps.
+  Normally the handler should set up their own column bitmaps in
+  index_init() or rnd_init() and in any column_bitmaps_signal() call after
+  this.
 
-    The handler is allowd to do changes to the bitmap after a index_init or
-    rnd_init() call is made as after this, MySQL will not use the bitmap
-    for any program logic checking.
+  The handler is allowed to do changes to the bitmap after a index_init or
+  rnd_init() call is made as after this, MySQL will not use the bitmap
+  for any program logic checking.
 */
 void handler::column_bitmaps_signal()
 {
@@ -2015,22 +2009,20 @@ void handler::column_bitmaps_signal()
 }
 
 
-/** @brief
+/**
   Reserves an interval of auto_increment values from the handler.
-
-  SYNOPSIS
-    get_auto_increment()
-    offset              
-    increment
-    nb_desired_values   how many values we want
-    first_value         (OUT) the first value reserved by the handler
-    nb_reserved_values  (OUT) how many values the handler reserved
 
   offset and increment means that we want values to be of the form
   offset + N * increment, where N>=0 is integer.
   If the function sets *first_value to ~(ulonglong)0 it means an error.
   If the function sets *nb_reserved_values to ULONGLONG_MAX it means it has
   reserved to "positive infinite".
+
+  @param offset
+  @param increment
+  @param nb_desired_values   how many values we want
+  @param first_value         (OUT) the first value reserved by the handler
+  @param nb_reserved_values  (OUT) how many values the handler reserved
 */
 void handler::get_auto_increment(ulonglong offset, ulonglong increment,
                                  ulonglong nb_desired_values,
@@ -2557,12 +2549,314 @@ int handler::ha_check(THD *thd, HA_CHECK_OPT *check_opt)
 }
 
 
+/**
+  Repair table: public interface.
+
+  @sa handler::repair()
+*/
+
 int handler::ha_repair(THD* thd, HA_CHECK_OPT* check_opt)
 {
   int result;
   if ((result= repair(thd, check_opt)))
     return result;
   return update_frm_version(table);
+}
+
+
+/**
+  Bulk update row: public interface.
+
+  @sa handler::bulk_update_row()
+*/
+
+int
+handler::ha_bulk_update_row(const uchar *old_data, uchar *new_data,
+                            uint *dup_key_found)
+{
+  return bulk_update_row(old_data, new_data, dup_key_found);
+}
+
+
+/**
+  Delete all rows: public interface.
+
+  @sa handler::delete_all_rows()
+*/
+
+int
+handler::ha_delete_all_rows()
+{
+  return delete_all_rows();
+}
+
+
+/**
+  Reset auto increment: public interface.
+
+  @sa handler::reset_auto_increment()
+*/
+
+int
+handler::ha_reset_auto_increment(ulonglong value)
+{
+  return reset_auto_increment(value);
+}
+
+
+/**
+  Optimize table: public interface.
+
+  @sa handler::optimize()
+*/
+
+int
+handler::ha_optimize(THD* thd, HA_CHECK_OPT* check_opt)
+{
+  return optimize(thd, check_opt);
+}
+
+
+/**
+  Analyze table: public interface.
+
+  @sa handler::analyze()
+*/
+
+int
+handler::ha_analyze(THD* thd, HA_CHECK_OPT* check_opt)
+{
+  return analyze(thd, check_opt);
+}
+
+
+/**
+  Check and repair table: public interface.
+
+  @sa handler::check_and_repair()
+*/
+
+bool
+handler::ha_check_and_repair(THD *thd)
+{
+  return check_and_repair(thd);
+}
+
+
+/**
+  Disable indexes: public interface.
+
+  @sa handler::disable_indexes()
+*/
+
+int
+handler::ha_disable_indexes(uint mode)
+{
+  return disable_indexes(mode);
+}
+
+
+/**
+  Enable indexes: public interface.
+
+  @sa handler::enable_indexes()
+*/
+
+int
+handler::ha_enable_indexes(uint mode)
+{
+  return enable_indexes(mode);
+}
+
+
+/**
+  Discard or import tablespace: public interface.
+
+  @sa handler::discard_or_import_tablespace()
+*/
+
+int
+handler::ha_discard_or_import_tablespace(my_bool discard)
+{
+  return discard_or_import_tablespace(discard);
+}
+
+
+/**
+  Prepare for alter: public interface.
+
+  Called to prepare an *online* ALTER.
+
+  @sa handler::prepare_for_alter()
+*/
+
+void
+handler::ha_prepare_for_alter()
+{
+  prepare_for_alter();
+}
+
+
+/**
+  Rename table: public interface.
+
+  @sa handler::rename_table()
+*/
+
+int
+handler::ha_rename_table(const char *from, const char *to)
+{
+  return rename_table(from, to);
+}
+
+
+/**
+  Delete table: public interface.
+
+  @sa handler::delete_table()
+*/
+
+int
+handler::ha_delete_table(const char *name)
+{
+  return delete_table(name);
+}
+
+
+/**
+  Drop table in the engine: public interface.
+
+  @sa handler::drop_table()
+*/
+
+void
+handler::ha_drop_table(const char *name)
+{
+  return drop_table(name);
+}
+
+
+/**
+  Create a table in the engine: public interface.
+
+  @sa handler::create()
+*/
+
+int
+handler::ha_create(const char *name, TABLE *form, HA_CREATE_INFO *info)
+{
+  return create(name, form, info);
+}
+
+
+/**
+  Create handler files for CREATE TABLE: public interface.
+
+  @sa handler::create_handler_files()
+*/
+
+int
+handler::ha_create_handler_files(const char *name, const char *old_name,
+                        int action_flag, HA_CREATE_INFO *info)
+{
+  return create_handler_files(name, old_name, action_flag, info);
+}
+
+
+/**
+  Change partitions: public interface.
+
+  @sa handler::change_partitions()
+*/
+
+int
+handler::ha_change_partitions(HA_CREATE_INFO *create_info,
+                     const char *path,
+                     ulonglong *copied,
+                     ulonglong *deleted,
+                     const uchar *pack_frm_data,
+                     size_t pack_frm_len)
+{
+  return change_partitions(create_info, path, copied, deleted,
+                           pack_frm_data, pack_frm_len);
+}
+
+
+/**
+  Drop partitions: public interface.
+
+  @sa handler::drop_partitions()
+*/
+
+int
+handler::ha_drop_partitions(const char *path)
+{
+  return drop_partitions(path);
+}
+
+
+/**
+  Rename partitions: public interface.
+
+  @sa handler::rename_partitions()
+*/
+
+int
+handler::ha_rename_partitions(const char *path)
+{
+  return rename_partitions(path);
+}
+
+
+/**
+  Optimize partitions: public interface.
+
+  @sa handler::optimize_partitions()
+*/
+
+int
+handler::ha_optimize_partitions(THD *thd)
+{
+  return optimize_partitions(thd);
+}
+
+
+/**
+  Analyze partitions: public interface.
+
+  @sa handler::analyze_partitions()
+*/
+
+int
+handler::ha_analyze_partitions(THD *thd)
+{
+  return analyze_partitions(thd);
+}
+
+
+/**
+  Check partitions: public interface.
+
+  @sa handler::check_partitions()
+*/
+
+int
+handler::ha_check_partitions(THD *thd)
+{
+  return check_partitions(thd);
+}
+
+
+/**
+  Repair partitions: public interface.
+
+  @sa handler::repair_partitions()
+*/
+
+int
+handler::ha_repair_partitions(THD *thd)
+{
+  return repair_partitions(thd);
 }
 
 
@@ -2706,7 +3000,7 @@ int ha_create_table(THD *thd, const char *path,
 
   name= check_lowercase_names(table.file, share.path.str, name_buff);
 
-  error= table.file->create(name, &table, create_info);
+  error= table.file->ha_create(name, &table, create_info);
   VOID(closefrm(&table, 0));
   if (error)
   {
@@ -2777,7 +3071,7 @@ int ha_create_table_from_engine(THD* thd, const char *db, const char *name)
   create_info.table_options|= HA_OPTION_CREATE_FROM_ENGINE;
 
   check_lowercase_names(table.file, path, path);
-  error=table.file->create(path,&table,&create_info);
+  error=table.file->ha_create(path, &table, &create_info);
   VOID(closefrm(&table, 1));
 
   DBUG_RETURN(error != 0);
@@ -3046,7 +3340,7 @@ struct binlog_func_st
   void *arg;
 };
 
-/** @brief
+/**
   Listing handlertons first to avoid recursive calls and deadlock
 */
 static my_bool binlog_func_list(THD *thd, plugin_ref plugin, void *arg)
@@ -3165,26 +3459,24 @@ void ha_binlog_log_query(THD *thd, handlerton *hton,
 #endif
 
 
-/*
+/**
   Calculate cost of 'index only' scan for given index and number of records
 
-  SYNOPSIS
-    index_only_read_time()
-      keynr    Index number
-      records  Estimated number of records to be retrieved
+  @param keynr    Index number
+  @param records  Estimated number of records to be retrieved
 
-  NOTES
+  @note
     It is assumed that we will read trough the whole key range and that all
     key blocks are half full (normally things are much better). It is also
     assumed that each time we read the next key from the index, the handler
     performs a random seek, thus the cost is proportional to the number of
     blocks read.
 
-  TODO
+  @todo
     Consider joining this function and handler::read_time() into one
     handler::read_time(keynr, records, ranges, bool index_only) function.
 
-  RETURN
+  @return
     Estimated cost of 'index only' scan
 */
 
@@ -3203,37 +3495,35 @@ double handler::index_only_read_time(uint keynr, double records)
  * Default MRR implementation (MRR to non-MRR converter)
  ***************************************************************************/
 
-/*
+/**
   Get cost and other information about MRR scan over a known list of ranges
 
-  SYNOPSIS
-    multi_range_read_info_const()
-      keyno           Index number
-      seq             Range sequence to be traversed
-      seq_init_param  First parameter for seq->init()
-      n_ranges_arg    Number of ranges in the sequence, or 0 if the caller
-                      can't efficiently determine it
-      bufsz    INOUT  IN:  Size of the buffer available for use
-                      OUT: Size of the buffer that is expected to be actually
-                           used, or 0 if buffer is not needed.
-      flags    INOUT  A combination of HA_MRR_* flags
-      cost     OUT    Estimated cost of MRR access
+  Calculate estimated cost and other information about an MRR scan for given
+  sequence of ranges.
 
-  DESCRIPTION
-    Calculate estimated cost and other information about an MRR scan for given
-    sequence of ranges.
+  @param keyno           Index number
+  @param seq             Range sequence to be traversed
+  @param seq_init_param  First parameter for seq->init()
+  @param n_ranges_arg    Number of ranges in the sequence, or 0 if the caller
+                         can't efficiently determine it
+  @param bufsz    INOUT  IN:  Size of the buffer available for use
+                         OUT: Size of the buffer that is expected to be actually
+                              used, or 0 if buffer is not needed.
+  @param flags    INOUT  A combination of HA_MRR_* flags
+  @param cost     OUT    Estimated cost of MRR access
 
-  NOTES
+  @note
     This method (or an overriding one in a derived class) must check for
     thd->killed and return HA_POS_ERROR if it is not zero. This is required
     for a user to be able to interrupt the calculation by killing the
     connection/query.
 
-  RETURN
-    HA_POS_ERROR -  Error or the engine is unable to perform the requested 
-                    scan. Values of OUT parameters are undefined.
-    other        -  OK, *cost contains cost of the scan, *bufsz and *flags
-                    contain scan parameters.
+  @retval
+    HA_POS_ERROR  Error or the engine is unable to perform the requested
+                  scan. Values of OUT parameters are undefined.
+  @retval
+    other         OK, *cost contains cost of the scan, *bufsz and *flags
+                  contain scan parameters.
 */
 
 ha_rows 
@@ -3301,40 +3591,38 @@ handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
 }
 
 
-/*
+/**
   Get cost and other information about MRR scan over some sequence of ranges
 
-  SYNOPSIS
-    multi_range_read_info()
-      keyno           Index number
-      n_ranges        Estimated number of ranges (i.e. intervals) in the 
-                      range sequence.
-      n_rows          Estimated total number of records contained within all 
-                      of the ranges
-      bufsz    INOUT  IN:  Size of the buffer available for use
-                      OUT: Size of the buffer that will be actually used, or 
-                           0 if buffer is not needed.
-      flags    INOUT  A combination of HA_MRR_* flags
-      cost     OUT    Estimated cost of MRR access
+  Calculate estimated cost and other information about an MRR scan for some
+  sequence of ranges.
 
-  DESCRIPTION
-    Calculate estimated cost and other information about an MRR scan for some
-    sequence of ranges.
+  The ranges themselves will be known only at execution phase. When this
+  function is called we only know number of ranges and a (rough) E(#records)
+  within those ranges.
 
-    The ranges themselves will be known only at execution phase. When this 
-    function is called we only know number of ranges and a (rough) E(#records)
-    within those ranges.
+  Currently this function is only called for "n-keypart singlepoint" ranges,
+  i.e. each range is "keypart1=someconst1 AND ... AND keypartN=someconstN"
 
-    Currently this function is only called for "n-keypart singlepoint" ranges,
-    i.e. each range is "keypart1=someconst1 AND ... AND keypartN=someconstN"
+  The flags parameter is a combination of those flags: HA_MRR_SORTED,
+  HA_MRR_INDEX_ONLY, HA_MRR_NO_ASSOCIATION, HA_MRR_LIMITS.
 
-    The flags parameter is a combination of those flags: HA_MRR_SORTED, 
-    HA_MRR_INDEX_ONLY, HA_MRR_NO_ASSOCIATION, HA_MRR_LIMITS.
+  @param keyno           Index number
+  @param n_ranges        Estimated number of ranges (i.e. intervals) in the
+                         range sequence.
+  @param n_rows          Estimated total number of records contained within all
+                         of the ranges
+  @param bufsz    INOUT  IN:  Size of the buffer available for use
+                         OUT: Size of the buffer that will be actually used, or
+                              0 if buffer is not needed.
+  @param flags    INOUT  A combination of HA_MRR_* flags
+  @param cost     OUT    Estimated cost of MRR access
 
-  RETURN
-    0     - OK, *cost contains cost of the scan, *bufsz and *flags contain scan
-            parameters.
-    other - Error or can't perform the requested scan
+  @retval
+    0     OK, *cost contains cost of the scan, *bufsz and *flags contain scan
+          parameters.
+  @retval
+    other Error or can't perform the requested scan
 */
 
 int handler::multi_range_read_info(uint keyno, uint n_ranges, uint n_rows,
@@ -3356,28 +3644,25 @@ int handler::multi_range_read_info(uint keyno, uint n_ranges, uint n_rows,
 }
 
 
-/*
+/**
   Initialize the MRR scan
 
-  SYNOPSIS
-    multi_range_read_init()
-      seq             Range sequence to be traversed
-      seq_init_param  First parameter for seq->init()
-      n_ranges        Number of ranges in the sequence
-      mode            Flags, see the description section for the details
-      buf             INOUT: memory buffer to be used
+  Initialize the MRR scan. This function may do heavyweight scan 
+  initialization like row prefetching/sorting/etc (NOTE: but better not do
+  it here as we may not need it, e.g. if we never satisfy WHERE clause on
+  previous tables. For many implementations it would be natural to do such
+  initializations in the first multi_read_range_next() call)
 
-  DESCRIPTION
-    Initialize the MRR scan. This function may do heavyweight scan 
-    initialization like row prefetching/sorting/etc (NOTE: but better not do
-    it here as we may not need it, e.g. if we never satisfy WHERE clause on
-    previous tables. For many implementations it would be natural to do such
-    initializations in the first multi_read_range_next() call)
+  mode is a combination of the following flags: HA_MRR_SORTED,
+  HA_MRR_INDEX_ONLY, HA_MRR_NO_ASSOCIATION 
 
-    mode is a combination of the following flags: HA_MRR_SORTED,
-    HA_MRR_INDEX_ONLY, HA_MRR_NO_ASSOCIATION 
+  @param seq             Range sequence to be traversed
+  @param seq_init_param  First parameter for seq->init()
+  @param n_ranges        Number of ranges in the sequence
+  @param mode            Flags, see the description section for the details
+  @param buf             INOUT: memory buffer to be used
 
-  NOTES
+  @note
     One must have called index_init() before calling this function. Several
     multi_range_read_init() calls may be made in course of one query.
 
@@ -3396,9 +3681,8 @@ int handler::multi_range_read_info(uint keyno, uint n_ranges, uint n_rows,
     call is made, all records have been read, or until index_end() call is
     made, whichever comes first.
 
-  RETURN
-    0 - OK
-    1 - Error
+  @retval 0  OK
+  @retval 1  Error
 */
 
 int
@@ -3414,20 +3698,17 @@ handler::multi_range_read_init(RANGE_SEQ_IF *seq_funcs, void *seq_init_param,
 }
 
 
-/*
+/**
   Get next record in MRR scan
 
-  SYNOPSIS
-    multi_range_read_next()
-       range_info  OUT  Undefined if HA_MRR_NO_ASSOCIATION flag is in effect
-                        Otherwise, the opaque value associated with the range
-                        that contains the returned record.
-  DESCRIPTION
-    Default MRR implementation: read the next record
+  Default MRR implementation: read the next record
 
-  RETURN
-    0      OK
-    other  Error code
+  @param range_info  OUT  Undefined if HA_MRR_NO_ASSOCIATION flag is in effect
+                          Otherwise, the opaque value associated with the range
+                          that contains the returned record.
+
+  @retval 0      OK
+  @retval other  Error code
 */
 
 int handler::multi_range_read_next(char **range_info)
@@ -3523,26 +3804,22 @@ scan_it_again:
  * DS-MRR implementation 
  ***************************************************************************/
 
-/*
+/**
   DS-MRR: Initialize and start MRR scan
 
-  SYNOPSIS
-    DsMrr_impl::dsmrr_init()
-      h               Table handler to be used
-      key             Index to be used
-      seq_funcs       Interval sequence enumeration functions
-      seq_init_param  Interval sequence enumeration parameter
-      n_ranges        Number of ranges in the sequence.
-      mode            HA_MRR_* modes to use
-      buf             INOUT Buffer to use
+  Initialize and start the MRR scan. Depending on the mode parameter, this
+  may use default or DS-MRR implementation.
 
-  DESCRIPTION
-    Initialize and start the MRR scan. Depending on the mode parameter, this
-    may use default or DS-MRR implementation.
+  @param h               Table handler to be used
+  @param key             Index to be used
+  @param seq_funcs       Interval sequence enumeration functions
+  @param seq_init_param  Interval sequence enumeration parameter
+  @param n_ranges        Number of ranges in the sequence.
+  @param mode            HA_MRR_* modes to use
+  @param buf             INOUT Buffer to use
 
-  RETURN   
-    0     - Ok, Scan started.
-    other - Error
+  @retval 0     Ok, Scan started.
+  @retval other Error
 */
 
 int DsMrr_impl::dsmrr_init(handler *h, KEY *key,
@@ -3650,24 +3927,21 @@ static int rowid_cmp(void *h, uchar *a, uchar *b)
 }
 
 
-/*
+/**
   DS-MRR: Fill the buffer with rowids and sort it by rowid
+
+  {This is an internal function of DiskSweep MRR implementation}
+  Scan the MRR ranges and collect ROWIDs (or {ROWID, range_id} pairs) into 
+  buffer. When the buffer is full or scan is completed, sort the buffer by 
+  rowid and return.
   
-  SYNOPSIS
-    DsMrr_impl::dsmrr_fill_buffer()
-      h  Table handler
+  The function assumes that rowids buffer is empty when it is invoked. 
+  
+  @param h  Table handler
 
-  DESCRIPTION
-    {This is an internal function of DiskSweep MRR implementation}
-    Scan the MRR ranges and collect ROWIDs (or {ROWID, range_id} pairs) into 
-    buffer. When the buffer is full or scan is completed, sort the buffer by 
-    rowid and return.
-    
-    The function assumes that rowids buffer is empty when it is invoked. 
-
-  RETURN 
-    0     - OK, the next portion of rowids is in the buffer, properly ordered
-    other - Error
+  @retval 0      OK, the next portion of rowids is in the buffer,
+                 properly ordered
+  @retval other  Error
 */
 
 int DsMrr_impl::dsmrr_fill_buffer(handler *h)
@@ -3708,7 +3982,7 @@ int DsMrr_impl::dsmrr_fill_buffer(handler *h)
 }
 
 
-/*
+/**
   DS-MRR implementation: multi_range_read_next() function
 */
 
@@ -3757,7 +4031,7 @@ end:
 }
 
 
-/*
+/**
   DS-MRR implementation: multi_range_read_info() function
 */
 int DsMrr_impl::dsmrr_info(uint keyno, uint n_ranges, uint rows, uint *bufsz,
@@ -3788,7 +4062,7 @@ int DsMrr_impl::dsmrr_info(uint keyno, uint n_ranges, uint rows, uint *bufsz,
 }
 
 
-/*
+/**
   DS-MRR Implementation: multi_range_read_info_const() function
 */
 
@@ -3830,25 +4104,22 @@ ha_rows DsMrr_impl::dsmrr_info_const(uint keyno, RANGE_SEQ_IF *seq,
 }
 
 
-/*
+/**
   Check if key has partially-covered columns
 
-  SYNOPSIS
-    DsMrr_impl::key_uses_partial_cols()
-      keyno  Key to check
+  We can't use DS-MRR to perform range scans when the ranges are over
+  partially-covered keys, because we'll not have full key part values
+  (we'll have their prefixes from the index) and will not be able to check
+  if we've reached the end the range.
 
-  DESCRIPTION
-    We can't use DS-MRR to perform range scans when the ranges are over
-    partially-covered keys, because we'll not have full key part values
-    (we'll have their prefixes from the index) and will not be able to check
-    if we've reached the end the range.
+  @param keyno  Key to check
 
-    TODO: Allow use of DS-MRR in cases where the index has partially-covered
+  @todo
+    Allow use of DS-MRR in cases where the index has partially-covered
     components but they are not used for scanning.
 
-  RETURN 
-    TRUE  - Yes
-    FALSE - No
+  @retval TRUE   Yes
+  @retval FALSE  No
 */
 
 bool DsMrr_impl::key_uses_partial_cols(uint keyno)
@@ -3864,31 +4135,27 @@ bool DsMrr_impl::key_uses_partial_cols(uint keyno)
 }
 
 
-/*
+/**
   DS-MRR Internals: Choose between Default MRR implementation and DS-MRR
 
-  SYNOPSIS
-    choose_mrr_impl()
-      keyno       Index number
-      rows        E(full rows to be retrieved)
-      flags  IN   MRR flags provided by the MRR user
-             OUT  If DS-MRR is choosen, flags of DS-MRR implementation
-                  else the value is not modified
-      bufsz  IN   If DS-MRR is choosen, buffer use of DS-MRR implementation
-                  else the value is not modified
-      cost   IN   Cost of default MRR implementation
-             OUT  If DS-MRR is choosen, cost of DS-MRR scan 
-                  else the value is not modified
+  Make the choice between using Default MRR implementation and DS-MRR.
+  This function contains common functionality factored out of dsmrr_info()
+  and dsmrr_info_const(). The function assumes that the default MRR
+  implementation's applicability requirements are satisfied.
 
-  DESCRIPTION
-    Make the choice between using Default MRR implementation and DS-MRR.
-    This function contains common functionality factored out of dsmrr_info()
-    and dsmrr_info_const(). The function assumes that the default MRR
-    implementation's applicability requirements are satisfied.
+  @param keyno       Index number
+  @param rows        E(full rows to be retrieved)
+  @param flags  IN   MRR flags provided by the MRR user
+                OUT  If DS-MRR is choosen, flags of DS-MRR implementation
+                     else the value is not modified
+  @param bufsz  IN   If DS-MRR is choosen, buffer use of DS-MRR implementation
+                     else the value is not modified
+  @param cost   IN   Cost of default MRR implementation
+                OUT  If DS-MRR is choosen, cost of DS-MRR scan
+                     else the value is not modified
 
-  RETURN
-    TRUE   Default MRR implementation should be used
-    FALSE  DS-MRR implementation should be used
+  @retval TRUE   Default MRR implementation should be used
+  @retval FALSE  DS-MRR implementation should be used
 */
 
 bool DsMrr_impl::choose_mrr_impl(uint keyno, ha_rows rows, uint *flags,
@@ -3944,21 +4211,18 @@ bool DsMrr_impl::choose_mrr_impl(uint keyno, ha_rows rows, uint *flags,
 static void get_sort_and_sweep_cost(TABLE *table, ha_rows nrows, COST_VECT *cost);
 
 
-/*
+/**
   Get cost of DS-MRR scan
 
-  SYNOPSIS
-    get_disk_sweep_mrr_cost()
-      keynr              Index to be used
-      rows               E(Number of rows to be scanned)
-      flags              Scan parameters (HA_MRR_* flags)
-      buffer_size INOUT  Buffer size
-      cost        OUT    The cost
+  @param keynr              Index to be used
+  @param rows               E(Number of rows to be scanned)
+  @param flags              Scan parameters (HA_MRR_* flags)
+  @param buffer_size INOUT  Buffer size
+  @param cost        OUT    The cost
 
-  RETURN
-    FALSE  OK
-    TRUE   Error, DS-MRR cannot be used (the buffer is too small for even 1
-           rowid)
+  @retval FALSE  OK
+  @retval TRUE   Error, DS-MRR cannot be used (the buffer is too small
+                 for even 1 rowid)
 */
 
 bool DsMrr_impl::get_disk_sweep_mrr_cost(uint keynr, ha_rows rows, uint flags,
@@ -4048,52 +4312,47 @@ void get_sort_and_sweep_cost(TABLE *table, ha_rows nrows, COST_VECT *cost)
 }
 
 
-/*
+/**
   Get cost of reading nrows table records in a "disk sweep"
 
-  SYNOPSIS
-    get_sweep_read_cost()
-      table             Table to be accessed
-      nrows             Number of rows to retrieve
-      interrupted       TRUE <=> Assume that the disk sweep will be
-                        interrupted by other disk IO. FALSE - otherwise.
-      cost         OUT  The cost.
+  A disk sweep read is a sequence of handler->rnd_pos(rowid) calls that made
+  for an ordered sequence of rowids.
 
-  DESCRIPTION
-    Get cost of reading nrows table records in a "disk sweep".
-    
-    A disk sweep read is a sequence of handler->rnd_pos(rowid) calls that made
-    for an ordered sequence of rowids.
-    
-    We assume hard disk IO. The read is performed as follows:
- 
-     1. The disk head is moved to the needed cylinder
-     2. The controller waits for the plate to rotate
-     3. The data is transferred
-    
-    Time to do #3 is insignificant compared to #2+#1.
+  We assume hard disk IO. The read is performed as follows:
 
-    Time to move the disk head is proportional to head travel distance.
+   1. The disk head is moved to the needed cylinder
+   2. The controller waits for the plate to rotate
+   3. The data is transferred
 
-    Time to wait for the plate to rotate depends on whether the disk head
-    was moved or not. 
+  Time to do #3 is insignificant compared to #2+#1.
 
-    If disk head wasn't moved, the wait time is proportional to distance
-    between the previous block and the block we're reading.
+  Time to move the disk head is proportional to head travel distance.
 
-    If the head was moved, we don't know how much we'll need to wait for the
-    plate to rotate. We assume the wait time to be a variate with a mean of
-    0.5 of full rotation time.
+  Time to wait for the plate to rotate depends on whether the disk head
+  was moved or not. 
 
-    Our cost units are "random disk seeks". The cost of random disk seek is
-    actually not a constant, it depends one range of cylinders we're going
-    to access. We make it constant by introducing a fuzzy concept of "typical 
-    datafile length" (it's fuzzy as it's hard to tell whether it should
-    include index file, temp.tables etc). Then random seek cost is:
+  If disk head wasn't moved, the wait time is proportional to distance
+  between the previous block and the block we're reading.
 
-      1 = half_rotation_cost + move_cost * 1/3 * typical_data_file_length
+  If the head was moved, we don't know how much we'll need to wait for the
+  plate to rotate. We assume the wait time to be a variate with a mean of
+  0.5 of full rotation time.
 
-    We define half_rotation_cost as DISK_SEEK_BASE_COST=0.9.
+  Our cost units are "random disk seeks". The cost of random disk seek is
+  actually not a constant, it depends one range of cylinders we're going
+  to access. We make it constant by introducing a fuzzy concept of "typical 
+  datafile length" (it's fuzzy as it's hard to tell whether it should
+  include index file, temp.tables etc). Then random seek cost is:
+
+    1 = half_rotation_cost + move_cost * 1/3 * typical_data_file_length
+
+  We define half_rotation_cost as DISK_SEEK_BASE_COST=0.9.
+
+  @param table             Table to be accessed
+  @param nrows             Number of rows to retrieve
+  @param interrupted       TRUE <=> Assume that the disk sweep will be
+                           interrupted by other disk IO. FALSE - otherwise.
+  @param cost         OUT  The cost.
 */
 
 void get_sweep_read_cost(TABLE *table, ha_rows nrows, bool interrupted, 
@@ -4396,9 +4655,16 @@ bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat)
   return result;
 }
 
-/*
-  Function to check if the conditions for row-based binlogging is
-  correct for the table.
+
+/**
+  The Sun compiler cannot instantiate the template below if this is
+  declared static, but it works by putting it into an anonymous
+  namespace.
+*/
+namespace {
+
+/**
+  Check if the conditions for row-based binlogging is correct for the table.
 
   A row in the given table should be replicated if:
   - Row-based replication is enabled in the current thread
@@ -4408,11 +4674,6 @@ bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat)
   - The database the table resides in shall be binlogged (binlog_*_db rules)
   - table is not mysql.event
 */
-
-/* The Sun compiler cannot instantiate the template below if this is
-   declared static, but it works by putting it into an anonymous
-   namespace. */
-namespace {
   bool check_table_binlog_row_based(THD *thd, TABLE *table)
   {
     if (table->s->cached_row_logging_check == -1)
@@ -4432,25 +4693,21 @@ namespace {
   }
 }
 
-/** @brief
+/**
    Write table maps for all (manually or automatically) locked tables
    to the binary log.
 
-   SYNOPSIS
-     write_locked_table_maps()
-       thd     Pointer to THD structure
+   This function will generate and write table maps for all tables
+   that are locked by the thread 'thd'.  Either manually locked
+   (stored in THD::locked_tables) and automatically locked (stored
+   in THD::lock) are considered.
 
-   DESCRIPTION
-       This function will generate and write table maps for all tables
-       that are locked by the thread 'thd'.  Either manually locked
-       (stored in THD::locked_tables) and automatically locked (stored
-       in THD::lock) are considered.
-   
-   RETURN VALUE
-       0   All OK
-       1   Failed to write all table maps
+   @param thd     Pointer to THD structure
 
-   SEE ALSO
+   @retval 0   All OK
+   @retval 1   Failed to write all table maps
+
+   @sa
        THD::lock
        THD::locked_tables
 */
@@ -4586,7 +4843,7 @@ int handler::ha_external_lock(THD *thd, int lock_type)
 }
 
 
-/** @brief
+/**
   Check handler usage and reset state of file to after 'open'
 */
 int handler::ha_reset()
@@ -4649,7 +4906,8 @@ int handler::ha_delete_row(const uchar *buf)
 
 
 
-/** @brief
+/**
+  @details
   use_hidden_primary_key() is called in case of an update/delete when
   (table_flags() and HA_PRIMARY_KEY_REQUIRED_FOR_DELETE) is defined
   but we don't have a primary key
@@ -4661,7 +4919,7 @@ void handler::use_hidden_primary_key()
 }
 
 
-/** @brief
+/**
   Dummy function which accept information about log files which is not need
   by handlers
 */
@@ -4719,7 +4977,7 @@ err:
 #define fl_dir FN_ROOTDIR
 
 
-/** @brief
+/**
   Dummy function to return log status should be replaced by function which
   really detect the log status and check that the file is a log of this
   handler.
@@ -4763,7 +5021,7 @@ void fl_log_iterator_destroy(struct handler_iterator *iterator)
 }
 
 
-/** @brief
+/**
   returns buffer, to be assigned in handler_iterator struct
 */
 enum handler_create_iterator_result

@@ -255,7 +255,7 @@ public:
 	Applications		*applications;
 	SyncObject			syncObject;
 	SyncObject			syncTables;
-	SyncObject			syncStatements;
+	SyncObject			syncStatements;   // exclusive lock ok only if syncTables not exclusive
 	SyncObject			syncAddStatement;
 	SyncObject			syncSysConnection;
 	SyncObject			syncResultSets;

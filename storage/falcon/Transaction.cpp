@@ -247,7 +247,7 @@ void Transaction::commit()
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 
-	Log::log(LogXARecovery, "Commit transaction %d\n", transactionId);
+	Log::log(LogXARecovery, "%d: Commit transaction %d\n", database->deltaTime, transactionId);
 
 	if (state == Active)
 		{
@@ -1007,6 +1007,8 @@ int Transaction::createSavepoint()
 {
 	SavePoint *savePoint;
 	
+	ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
+	
 	if ( (savePoint = freeSavePoints) )
 		freeSavePoints = savePoint->next;
 	else
@@ -1017,6 +1019,8 @@ int Transaction::createSavepoint()
 	savePoint->next = savePoints;
 	savePoints = savePoint;
 
+	ASSERT(savePoint->next != savePoint);
+ 	
 	return savePoint->id;
 }
 
@@ -1029,6 +1033,7 @@ void Transaction::releaseSavepoint(int savePointId)
 			*ptr = savePoint->next;
 			savePoint->next = freeSavePoints;
 			freeSavePoints = savePoint;
+			ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
 
 			// commit pending record versions to the next pending savepoint
 			

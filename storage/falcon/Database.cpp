@@ -1408,8 +1408,10 @@ void Database::dropTable(Table * table, Transaction *transaction)
 			break;
 			}
 
-	invalidateCompiledStatements(table);
 	sync.unlock();
+	
+	invalidateCompiledStatements(table);
+	
 	table->drop(transaction);
 	table->expunge(getSystemTransaction());
 	delete table;

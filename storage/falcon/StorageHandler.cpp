@@ -549,6 +549,8 @@ StorageTableShare* StorageHandler::findTable(const char* pathname)
 	tableShare->collision = tables[slot];
 	tables[slot] = tableShare;
 	
+	ASSERT(tableShare->collision != tableShare);
+	
 	return tableShare;
 }
 
@@ -615,6 +617,8 @@ void StorageHandler::addTable(StorageTableShare* table)
 	sync.lock(Exclusive);
 	table->collision = tables[slot];
 	tables[slot] = table;
+	
+	ASSERT(table->collision != table);
 }
 
 void StorageHandler::removeTable(StorageTableShare* table)

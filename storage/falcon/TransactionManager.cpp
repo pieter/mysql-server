@@ -107,7 +107,7 @@ Transaction* TransactionManager::startTransaction(Connection* connection)
 			if (COMPARE_EXCHANGE(&transaction->state, Available, Initializing))
 				{
 				//syncInit.lock(Exclusive);
-				transaction->initialize(connection, ++transactionSequence);
+				transaction->initialize(connection, INTERLOCKED_INCREMENT(transactionSequence));
 				
 				return transaction;
 				}
@@ -115,7 +115,7 @@ Transaction* TransactionManager::startTransaction(Connection* connection)
 	sync.unlock();
 	sync.lock(Exclusive);
 	//syncInit.lock(Exclusive);
-	transaction = new Transaction (connection, ++transactionSequence);
+	transaction = new Transaction (connection, INTERLOCKED_INCREMENT(transactionSequence));
 	activeTransactions.append(transaction);
 	//syncInit.unlock();
 

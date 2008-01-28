@@ -46,6 +46,11 @@ static const int recChilled	= 2;		// record data is temporarily stored in serial
 static const int recOnDisk	= 3;		// record is on disk and must be read
 static const int recLock	= 4;		// this is a "record lock" and not a record
 static const int recNoChill = 5;		// record is in use and should not be chilled
+static const int recRollback = 6;		// record is being rolled back
+static const int recUnlocked = 7;		// record is being unlocked
+static const int recDeleting = 8;		// record is being physically deleted
+static const int recPruning	 = 9;		// record is being pruned
+static const int recEndChain = 10;		// end of chain for garbage collection
 
 class Format;
 class Table;

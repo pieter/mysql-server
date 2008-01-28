@@ -788,6 +788,8 @@ SerialLogWindow* SerialLog::findWindowGivenOffset(uint64 offset)
 			}
 
 	Log::debug("SerialLog::findWindowGivenOffset -- can't find window\n");
+	printWindows();
+	ASSERT(false);
 
 	return NULL;
 }

@@ -892,6 +892,8 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 	recordToRollback->active = false;
 #endif
 
+	recordToRollback->state = recRollback;
+
 	// Find the record that will become the current version.
 
 	Record *priorRecord = recordToRollback->priorVersion;
@@ -1785,6 +1787,7 @@ bool Table::insert(Record * record, Record *prior, int recordNumber)
 
 void Table::expungeRecordVersions(RecordVersion *record, RecordScavenge *recordScavenge)
 {
+	ASSERT(record->state != recLock);
 	Record *prior = record->priorVersion;
 	record->priorVersion = NULL;
 	
@@ -1934,29 +1937,12 @@ void Table::garbageCollect(Record * leaving, Record * staying, Transaction *tran
 
 	FOR_FIELDS(field, this)
 		if (field->type == Asciiblob || field->type == Binaryblob)
-			/***
-			for (Record *next, *record = leaving; record && record != staying; record = next)
-				{
-				next = record->getPriorVersion();
-				
-				if (record->hasRecord())
-					{
-					Value value;
-					record->getValue(field->id, &value);
-					
-					if ((value.getType() == BlobPtr || value.getType() == ClobPtr) &&
-						!duplicateBlob(&value, field->id, next) &&
-						!duplicateBlob(&value, field->id, staying))
-						expungeBlob(&value);
-					}
-				}
-			***/
 			{
 			Bitmap blobs;
 			Record *record;
 			Value value;
 			
-			for (record = leaving; record && record != staying; record = record->getPriorVersion())
+			for (record = leaving; record && record != staying; record = record->getGCPriorVersion())
 				if (record->hasRecord())
 					{
 					record->getRawValue(field->id, &value);
@@ -2152,7 +2138,7 @@ InversionFilter* Table::getFilters(Field *field, Record *records, Record *limit)
 {
 	InversionFilter *inversionFilter = NULL;
 
-	for (Record *record = records; record && record != limit; record = record->getPriorVersion())
+	for (Record *record = records; record && record != limit; record = record->getGCPriorVersion())
 		if (record->hasRecord())
 			{
 			Value value;
@@ -2160,7 +2146,7 @@ InversionFilter* Table::getFilters(Field *field, Record *records, Record *limit)
 			
 			if (!value.isNull())
 				{
-				Filter *filter = NEW Filter (tableId, field->id, record->recordNumber, &value);
+				Filter *filter = NEW Filter(tableId, field->id, record->recordNumber, &value);
 				
 				if (inversionFilter)
 					inversionFilter = NEW FilterTree(inversionFilter, filter);
@@ -3281,8 +3267,12 @@ void Table::unlockRecord(int recordNumber)
 void Table::unlockRecord(RecordVersion* record, bool remove)
 {
 	//int uc = record->useCount;
+	ASSERT(record->priorVersion);
 	
 	if (record->state == recLock)
+		{
+		record->state = recUnlocked;
+
 		if (insert(record->priorVersion, record, record->recordNumber))
 			{
 			if (remove && record->transaction)
@@ -3290,6 +3280,7 @@ void Table::unlockRecord(RecordVersion* record, bool remove)
 			}
 		else
 			Log::debug("Table::unlockRecord: record lock not in record tree\n");
+		}
 }
 
 void Table::checkAncestor(Record* current, Record* oldRecord)
@@ -3389,7 +3380,7 @@ Record* Table::fetchForUpdate(Transaction* transaction, Record* source, bool usi
 			
 			case Deadlock:
 				record->release();
-				throw SQLError(DEADLOCK, "Deadlock on table %s.%s", schemaName, name);
+				throw SQLError(DEADLOCK, "Deadlock on table %s.%s, tid %d", schemaName, name, transaction->transactionId);
 				
 			case WasActive:
 			case RolledBack:
@@ -3522,6 +3513,7 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 		return false;
 
 	Record *record = fetch(recordNumber);
+	Record *initial = record;
 	
 	while (record)
 		{
@@ -3542,6 +3534,17 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 			}
 		
 		Record *next = record->getPriorVersion();
+
+		if (!next)
+			{
+			Log::debug("Table::validateUpdate: bad record\n");
+			initial->print();
+			Record *newRecord = fetch(recordNumber);
+			Log::debug("Table::validateUpdate: currentRecord\n");
+			newRecord->print();
+			ASSERT(false);
+			}
+
 		next->addRef();
 		record->release();
 		record = next;

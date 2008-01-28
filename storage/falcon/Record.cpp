@@ -957,3 +957,8 @@ char* Record::allocRecordData(int length)
 	
 	return NULL;
 }
+
+Record* Record::getGCPriorVersion(void)
+{
+	return NULL;
+}

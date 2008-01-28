@@ -567,7 +567,7 @@ void Index::garbageCollect(Record * leaving, Record * staying, Transaction *tran
 {
 	int n = 0;
 	
-	for (Record *record = leaving; record && record != staying; record = record->getPriorVersion(), ++n)
+	for (Record *record = leaving; record && record != staying; record = record->getGCPriorVersion(), ++n)
 		if (record->hasRecord() && record->recordNumber >= 0)
 			{
 			IndexKey key(this);

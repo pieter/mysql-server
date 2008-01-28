@@ -43,7 +43,7 @@ C_MODE_START
 #include <sys/ioctl.h>
 #endif
 
-#if !defined(__WIN__) && !defined(HAVE_BROKEN_NETINET_INCLUDES) && !defined(__BEOS__) && !defined(__NETWARE__)
+#if !defined(__WIN__) && !defined(HAVE_BROKEN_NETINET_INCLUDES) && !defined(__NETWARE__)
 #include <netinet/in_systm.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -64,20 +64,6 @@ C_MODE_START
 
 #endif
 
-/*
-  On OSes which don't have the in_addr_t, we guess that using uint32 is the best
-  possible choice. We guess this from the fact that on HP-UX64bit & FreeBSD64bit
-  & Solaris64bit, in_addr_t is equivalent to uint32. And on Linux32bit too.
-*/
-#ifndef HAVE_IN_ADDR_T
-#define in_addr_t uint32
-#endif
-
-/* On some operating systems (e.g. Solaris) INADDR_NONE is not defined */
-#ifndef INADDR_NONE
-#define INADDR_NONE -1                          /* Error value from inet_addr */
-#endif
-
 /* Thread safe or portable version of some functions */
 
 void my_inet_ntoa(struct in_addr in, char *buf);
@@ -86,9 +72,6 @@ void my_inet_ntoa(struct in_addr in, char *buf);
   Handling of gethostbyname_r()
 */
 
-#if !defined(HPUX10)
-struct hostent;
-#endif /* HPUX */
 #if !defined(HAVE_GETHOSTBYNAME_R)
 struct hostent *my_gethostbyname_r(const char *name,
 				   struct hostent *result, char *buffer,
@@ -116,12 +99,6 @@ struct hostent *my_gethostbyname_r(const char *name,
 
 #ifndef GETHOSTBYNAME_BUFF_SIZE
 #define GETHOSTBYNAME_BUFF_SIZE 2048
-#endif
-
-/* On SCO you get a link error when refering to h_errno */
-#ifdef SCO
-#undef h_errno
-#define h_errno errno
 #endif
 
 C_MODE_END

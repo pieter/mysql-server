@@ -387,7 +387,8 @@ check_user(THD *thd, enum enum_server_command command,
     if (send_old_password_request(thd) ||
         my_net_read(net) != SCRAMBLE_LENGTH_323 + 1)
     {
-      inc_host_errors(&thd->remote.sin_addr);
+      inc_host_errors(&net->vio->remote);
+
       my_error(ER_HANDSHAKE_ERROR, MYF(0), thd->main_security_ctx.host_or_ip);
       DBUG_RETURN(1);
     }
@@ -676,9 +677,9 @@ static int check_connection(THD *thd)
 
   if (!thd->main_security_ctx.host)         // If TCP/IP connection
   {
-    char ip[30];
+    char ip[NI_MAXHOST];
 
-    if (vio_peer_addr(net->vio, ip, &thd->peer_port))
+    if (vio_peer_addr(net->vio, ip, &thd->peer_port, NI_MAXHOST))
     {
       my_error(ER_BAD_HOST_ERROR, MYF(0), thd->main_security_ctx.host_or_ip);
       return 1;
@@ -686,12 +687,10 @@ static int check_connection(THD *thd)
     if (!(thd->main_security_ctx.ip= my_strdup(ip,MYF(MY_WME))))
       return 1; /* The error is set by my_strdup(). */
     thd->main_security_ctx.host_or_ip= thd->main_security_ctx.ip;
-    vio_in_addr(net->vio,&thd->remote.sin_addr);
     if (!(specialflag & SPECIAL_NO_RESOLVE))
     {
-      vio_in_addr(net->vio,&thd->remote.sin_addr);
       thd->main_security_ctx.host=
-        ip_to_hostname(&thd->remote.sin_addr, &connect_errors);
+        ip_to_hostname(&net->vio->remote, net->vio->addrLen, &connect_errors);
       /* Cut very long hostnames to avoid possible overflows */
       if (thd->main_security_ctx.host)
       {
@@ -724,7 +723,7 @@ static int check_connection(THD *thd)
     thd->main_security_ctx.host_or_ip= thd->main_security_ctx.host;
     thd->main_security_ctx.ip= 0;
     /* Reset sin_addr */
-    bzero((char*) &thd->remote, sizeof(thd->remote));
+    bzero((char*) &net->vio->remote, sizeof(net->vio->remote));
   }
   vio_keepalive(net->vio, TRUE);
   {
@@ -775,7 +774,8 @@ static int check_connection(THD *thd)
 	(pkt_len= my_net_read(net)) == packet_error ||
 	pkt_len < MIN_HANDSHAKE_SIZE)
     {
-      inc_host_errors(&thd->remote.sin_addr);
+      inc_host_errors(&net->vio->remote);
+
       my_error(ER_HANDSHAKE_ERROR, MYF(0),
                thd->main_security_ctx.host_or_ip);
       return 1;
@@ -785,7 +785,7 @@ static int check_connection(THD *thd)
 #include "_cust_sql_parse.h"
 #endif
   if (connect_errors)
-    reset_host_errors(&thd->remote.sin_addr);
+    reset_host_errors(&net->vio->remote);
   if (thd->packet.alloc(thd->variables.net_buffer_length))
     return 1; /* The error is set by alloc(). */
 
@@ -814,7 +814,7 @@ static int check_connection(THD *thd)
     /* Do the SSL layering. */
     if (!ssl_acceptor_fd)
     {
-      inc_host_errors(&thd->remote.sin_addr);
+      inc_host_errors(&net->vio->remote);
       my_error(ER_HANDSHAKE_ERROR, MYF(0), thd->main_security_ctx.host_or_ip);
       return 1;
     }
@@ -822,7 +822,8 @@ static int check_connection(THD *thd)
     if (sslaccept(ssl_acceptor_fd, net->vio, net->read_timeout))
     {
       DBUG_PRINT("error", ("Failed to accept new SSL connection"));
-      inc_host_errors(&thd->remote.sin_addr);
+      inc_host_errors(&net->vio->remote);
+
       my_error(ER_HANDSHAKE_ERROR, MYF(0), thd->main_security_ctx.host_or_ip);
       return 1;
     }
@@ -832,7 +833,8 @@ static int check_connection(THD *thd)
     {
       DBUG_PRINT("error", ("Failed to read user information (pkt_len= %lu)",
 			   pkt_len));
-      inc_host_errors(&thd->remote.sin_addr);
+      inc_host_errors(&net->vio->remote);
+
       my_error(ER_HANDSHAKE_ERROR, MYF(0), thd->main_security_ctx.host_or_ip);
       return 1;
     }
@@ -841,7 +843,8 @@ static int check_connection(THD *thd)
 
   if (end >= (char*) net->read_pos+ pkt_len +2)
   {
-    inc_host_errors(&thd->remote.sin_addr);
+    inc_host_errors(&net->vio->remote);
+
     my_error(ER_HANDSHAKE_ERROR, MYF(0), thd->main_security_ctx.host_or_ip);
     return 1;
   }
@@ -879,7 +882,8 @@ static int check_connection(THD *thd)
 
   if (passwd + passwd_len + db_len > (char *)net->read_pos + pkt_len)
   {
-    inc_host_errors(&thd->remote.sin_addr);
+    inc_host_errors(&net->vio->remote);
+
     my_error(ER_HANDSHAKE_ERROR, MYF(0), thd->main_security_ctx.host_or_ip);
     return 1;
   }

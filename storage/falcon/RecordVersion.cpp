@@ -210,6 +210,11 @@ Record* RecordVersion::getPriorVersion()
 	return priorVersion;
 }
 
+Record* RecordVersion::getGCPriorVersion(void)
+{
+	return (state == recEndChain) ? NULL : priorVersion;
+}
+
 void RecordVersion::setSuperceded(bool flag)
 {
 	superceded = flag;

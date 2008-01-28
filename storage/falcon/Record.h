@@ -80,11 +80,11 @@ public:
 	virtual Record* releaseNonRecursive(void);
 	virtual void	setPriorVersion(Record* record);
 	virtual Record* getPriorVersion();
+	virtual Record* getGCPriorVersion(void);
 	virtual	void	print(void);
 	virtual int		thaw();
 	virtual const char*	getEncodedRecord();
 	virtual int		setRecordData(const UCHAR *dataIn, int dataLength);
-	//virtual char*	getRecordData();
 	
 	const UCHAR*	getEncoding (int index);
 	int				setEncodedRecord(Stream *stream, bool interlocked);
@@ -105,9 +105,6 @@ public:
 	void			validateData(void);
 	char*			allocRecordData(int length);
 	
-	//void			setAgeGroup();
-	//void			unsetAgeGroup(void);
-
 	Record (Table *table, Format *recordFormat);
 	Record(Table *table, int32 recordNumber, Stream *stream);
 

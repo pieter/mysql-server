@@ -1937,29 +1937,12 @@ void Table::garbageCollect(Record * leaving, Record * staying, Transaction *tran
 
 	FOR_FIELDS(field, this)
 		if (field->type == Asciiblob || field->type == Binaryblob)
-			/***
-			for (Record *next, *record = leaving; record && record != staying; record = next)
-				{
-				next = record->getPriorVersion();
-				
-				if (record->hasRecord())
-					{
-					Value value;
-					record->getValue(field->id, &value);
-					
-					if ((value.getType() == BlobPtr || value.getType() == ClobPtr) &&
-						!duplicateBlob(&value, field->id, next) &&
-						!duplicateBlob(&value, field->id, staying))
-						expungeBlob(&value);
-					}
-				}
-			***/
 			{
 			Bitmap blobs;
 			Record *record;
 			Value value;
 			
-			for (record = leaving; record && record != staying; record = record->getPriorVersion())
+			for (record = leaving; record && record != staying; record = record->getGCPriorVersion())
 				if (record->hasRecord())
 					{
 					record->getRawValue(field->id, &value);
@@ -2155,7 +2138,7 @@ InversionFilter* Table::getFilters(Field *field, Record *records, Record *limit)
 {
 	InversionFilter *inversionFilter = NULL;
 
-	for (Record *record = records; record && record != limit; record = record->getPriorVersion())
+	for (Record *record = records; record && record != limit; record = record->getGCPriorVersion())
 		if (record->hasRecord())
 			{
 			Value value;
@@ -2163,7 +2146,7 @@ InversionFilter* Table::getFilters(Field *field, Record *records, Record *limit)
 			
 			if (!value.isNull())
 				{
-				Filter *filter = NEW Filter (tableId, field->id, record->recordNumber, &value);
+				Filter *filter = NEW Filter(tableId, field->id, record->recordNumber, &value);
 				
 				if (inversionFilter)
 					inversionFilter = NEW FilterTree(inversionFilter, filter);

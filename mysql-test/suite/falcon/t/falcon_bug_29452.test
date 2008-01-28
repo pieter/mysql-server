@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #--disable_abort_on_error
 
 #

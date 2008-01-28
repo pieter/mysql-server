@@ -15,7 +15,7 @@ order_by             : WL#2475: spetrunia producing ordered streams is not handl
 federated_transactions   : Bug#29523 Transactions do not work
 subselect2 : BUG#31464 SergeyP will fix
 log_tables : BUG#31580 1007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
-show_check	: Bug #32682  	Test show_check fails in 6.0
+show_check      : Bug #32682    Test show_check fails in 6.0
 events                   : Bug#32664 events.test fails randomly
 lowercase_table3         : Bug#32667 lowercase_table3.test reports to error log
 innodb_mysql         : Bug#32724: innodb_mysql.test fails randomly
@@ -27,3 +27,4 @@ ctype_create         : Bug#32965 main.ctype_create fails
 status               : Bug#32966 main.status fails
 ps_ddl               : Bug#12093 2007-12-14 pending WL#4165 / WL#4166
 user_limits          : Bug#23921 2007-12-16 random failure of user_limits.test
+csv_alter_table      : Bug#33696 2008-01-21 pcrews no .result file - bug allows NULL columns in CSV tables

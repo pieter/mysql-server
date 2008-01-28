@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #32413: Memory usage not constrained by falcon_record_memory_max, assertion failure
 #

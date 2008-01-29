@@ -356,7 +356,7 @@ int32 PageInventoryPage::getLastPage(Dbb *dbb)
 		
 		if (!bdb)
 			{
-			Log::log("Recoverying from lost page inventory page %d", pip);			
+			Log::log("Recovering from lost page inventory page %d\n", pip);			
 			--pip;
 			
 			if (pip == 0)

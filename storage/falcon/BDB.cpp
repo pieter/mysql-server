@@ -116,10 +116,6 @@ void Bdb::addRef(LockType lType)
 
 void Bdb::release()
 {
-#ifdef HAVE_PAGE_NUMBER
-	ASSERT(buffer->pageNumber == pageNumber);
-#endif
-
 	ASSERT (useCount > 0);
 	decrementUseCount();
 

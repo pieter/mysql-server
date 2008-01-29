@@ -338,7 +338,12 @@ int get_byte(s)
     if (s->stream.avail_in == 0) 
     {
       s->z_eof = 1;
-      /* if (ferror(s->file)) s->z_err = Z_ERRNO; */
+      return EOF;
+    }
+    else if (s->stream.avail_in == (uInt) -1)
+    {
+      s->z_eof= 1;
+      s->z_err= Z_ERRNO;
       return EOF;
     }
     s->stream.next_in = s->inbuf;

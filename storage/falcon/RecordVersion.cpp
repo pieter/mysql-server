@@ -233,10 +233,7 @@ bool RecordVersion::isSuperceded()
 void RecordVersion::setPriorVersion(Record *oldVersion)
 {
 	if (oldVersion)
-		{
-		ASSERT(oldVersion->state != recLock);
 		oldVersion->addRef();
-		}
 
 	if (priorVersion)
 		priorVersion->release();

@@ -7713,6 +7713,7 @@ mysqld_get_one_option(int optid,
 
       bzero(&hints, sizeof(struct addrinfo));
       hints.ai_socktype= SOCK_STREAM;
+      hints.ai_protocol= IPPROTO_TCP;
 
       if (getaddrinfo(argument, NULL, &hints, &res_lst) != 0) 
       {

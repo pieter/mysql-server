@@ -2,7 +2,7 @@
 
 SHOW VARIABLES LIKE 'falcon_%';
 
---real_sleep=10
+--real_sleep 3
 
 # Test that these server variables are READ ONLY.
 
@@ -36,7 +36,7 @@ SET GLOBAL falcon_max_transaction_backlog = 10001;
 SELECT @@GLOBAL.falcon_max_transaction_backlog;
 
 SELECT @@GLOBAL.falcon_record_memory_max;
-SET GLOBAL falcon_record_memory_max = 1073741824;
+SET GLOBAL falcon_record_memory_max = 536870912;
 SELECT @@GLOBAL.falcon_record_memory_max;
 
 
@@ -44,5 +44,3 @@ SELECT @@GLOBAL.falcon_record_memory_max;
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.global_variables
   WHERE variable_name LIKE 'falcon%';
-
---real_sleep=10

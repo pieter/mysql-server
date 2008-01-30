@@ -1,5 +1,5 @@
-SET storage_engine = Falcon;
 *** Bug #28076 ***
+SET @@storage_engine = 'Falcon';
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (s1 binary(5), s2 varbinary(5));
 INSERT INTO t1 VALUES (0x41, 0x41);
@@ -16,4 +16,7 @@ SELECT hex(s1),hex(s2) FROM t1 WHERE s1 IN (SELECT s2 FROM t1);
 hex(s1)	hex(s2)
 SELECT hex(s1),hex(s2) FROM t1 WHERE s2 IN (SELECT s1 FROM t1);
 hex(s1)	hex(s2)
+SELECT count(*) FROM t1;
+count(*)
+1
 DROP TABLE t1;

@@ -432,8 +432,9 @@ public:
 		 ArrayPool<TriggerRecord> & trp) 
       : slaveState(b, validSlaveTransitions, validSlaveTransitionsCount,1)
       , tables(tp), triggers(trp), files(bp)
-      , masterData(b), backup(b)
       , ctlFilePtr(RNIL), logFilePtr(RNIL), dataFilePtr(RNIL)
+      , masterData(b), backup(b)
+
       {
         /*
           report of backup status uses these variables to keep track

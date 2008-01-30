@@ -6221,4 +6221,6 @@ ER_TRG_CANT_OPEN_TABLE
 ER_CANT_CREATE_SROUTINE
   eng "Cannot create stored routine `%-.64s`. Check warnings"
 ER_TABLESPACE_EXIST
-  eng "Tablespace '%-.192s' already exists"
+  eng "Tablespace '%-.192s' already exist"
+ER_NO_SUCH_TABLESPACE
+  eng "Tablespace '%-.192s' doesn't exist"

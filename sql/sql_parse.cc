@@ -3050,7 +3050,8 @@ end_with_restore_list:
     send_ok(thd);
     break;
   case SQLCOM_LOCK_TABLES:
-    if (check_table_access(thd, LOCK_TABLES_ACL | SELECT_ACL, all_tables, 0))
+    if (check_table_access(thd, LOCK_TABLES_ACL | SELECT_ACL, all_tables,
+                           UINT_MAX, FALSE))
       goto error;
     /*
       We try to take transactional locks if

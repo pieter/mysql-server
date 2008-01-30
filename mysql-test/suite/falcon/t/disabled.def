@@ -20,7 +20,6 @@ falcon_bug_22169    : Bug#22169 2006-08-24 hakank Too long run time for PB
 falcon_bug_22182    : Disabled until runtime team provides RENAME DATABASE replacement. See WL#4030
 falcon_bug_22187    : Bug#22187 2006-08-24 hakank Get pushbuild green
 falcon_bug_22189    : Bug#22189 2006-08-24 hakank Get pushbuild green
-falcon_bug_22845    : Bug#22845 2006-10-07 hakank Currently hangs
 falcon_bug_23692    : Bug#23692 2006-10-27 hakank Currently failing
 falcon_bug_24024    : Bug#24024 2006-12-05 ML Get pushbuild green
 falcon_bug_26058    : Bug#26058 2007-05-03 hakank Currently failing
@@ -34,7 +33,6 @@ falcon_bug_30480_A  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_bug_30480_B  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_bug_32413    : Bug#32413 2007-11-15 cpowers Does not play nicely with other tests
 falcon_deadlock     : Bug#28097 2007-04-25 hakank Currently hangs
-falcon_ts           : Bug#32993: falcon_ts.test fails sporadically
 index_merge_falcon  : Bug#32696 index_merge_falcon.test fails
 ps_8falcon          : Bug#32683  Test ps_8falcon fails in 6.0
 read_many_rows_falcon : Bug#23783 2006-10-30 ML Get pushbuild green

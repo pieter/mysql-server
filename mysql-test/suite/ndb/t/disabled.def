@@ -9,14 +9,8 @@
 #  Do not use any TAB characters for whitespace.
 #
 ##############################################################################
-partition_03ndb          : BUG#16385 2006-03-24 mikael Partitions: crash when updating a range partitioned NDB table
 
 ndb_partition_error2	 : HF is not sure if the test can work as internded on all the platforms
 
 # the below testcase have been reworked to avoid the bug, test contains comment, keep bug open
 #ndb_binlog_ddl_multi     : BUG#18976 2006-04-10 kent    CRBR: multiple binlog, second binlog may miss schema log events
-#ndb_binlog_discover      : bug#21806 2006-08-24
-ndb_blob_partition        : Bug#29699 2007-07-16 ingo segv for range partitioning
-ndb_single_user           : Bug#29824 2007-07-16 ingo Can't create table 'test.t1' (errno: 299)
-ndb_dd_restore_compat     : Bug#29940 2007-07-20 ndb_dd_restore_compat fails on 5.2
-ndb_binlog_format         : Bug#32733 ndb_binlog_format.test fails randomly

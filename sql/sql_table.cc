@@ -1695,7 +1695,7 @@ int mysql_rm_table_part2(THD *thd, TABLE_LIST *tables, bool if_exists,
       error= ha_delete_table(thd, table_type, path, db, table->table_name,
                              !dont_log_query);
       if ((error == ENOENT || error == HA_ERR_NO_SUCH_TABLE) && 
-          (if_exists || table_type == NULL))
+	  (if_exists || table_type == NULL))
       {
 	error= 0;
         thd->clear_error();

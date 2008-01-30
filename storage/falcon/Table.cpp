@@ -1189,6 +1189,9 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 		
 		if (record)
 			{
+			if (record->priorVersion)
+				record->priorVersion->setSuperceded(false);
+								
 			if (record->state == recLock)
 				record->deleteData();
 
@@ -3034,6 +3037,9 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 	
 		if (record)
 			{
+			if (record->priorVersion)
+				record->priorVersion->setSuperceded(false);
+								
 			if (record->state == recLock)
 				record->deleteData();
 

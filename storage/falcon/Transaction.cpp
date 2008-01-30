@@ -50,12 +50,13 @@ static const char *stateNames [] = {
 	"Committed",
 	"RolledBack",
 	"Us",
-	"Older",
-	"Younger",
+	"Visible",
+	"Invisible",
 	"WasActive",
 	"Deadlock",
-	"Avail",
-	"Initial"
+	"Available",
+	"Initial",
+	"ReadOnly"
 	};
 
 static const int INDENT = 5;
@@ -944,7 +945,7 @@ bool Transaction::waitForTransaction(TransId transId)
 		if (transaction->transactionId == transId)
 			break;
 	
-	// If the transction is no longer active, see if it committed
+	// If the transction is no longer active, see if it is committed
 	
 	if (!transaction || transaction->state == Available)
 		return true;

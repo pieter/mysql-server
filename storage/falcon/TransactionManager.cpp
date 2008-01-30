@@ -101,33 +101,34 @@ Transaction* TransactionManager::startTransaction(Connection* connection)
 	sync.lock (Shared);
 	//Sync syncInit(&syncInitialize, "TransactionManager::startTransaction");
 	Transaction *transaction;
-	
+
 	for (transaction = activeTransactions.first; transaction; transaction = transaction->next)
 		if (transaction->state == Available && transaction->dependencies == 0)
 			if (COMPARE_EXCHANGE(&transaction->state, Available, Initializing))
 				{
 				//syncInit.lock(Exclusive);
 				transaction->initialize(connection, INTERLOCKED_INCREMENT(transactionSequence));
-				
+
 				return transaction;
 				}
-				
+
 	sync.unlock();
 	sync.lock(Exclusive);
 	//syncInit.lock(Exclusive);
+
 	transaction = new Transaction (connection, INTERLOCKED_INCREMENT(transactionSequence));
 	activeTransactions.append(transaction);
 	//syncInit.unlock();
 
 	// And, just for yucks, add another 10 Available transactions
-	
+
 	for (int n = 0; n < EXTRA_TRANSACTIONS; ++n)
 		{
 		Transaction *trans = new Transaction(connection, 0);
 		activeTransactions.append(trans);
 		}
-	
-	return transaction;	
+
+	return transaction;
 }
 
 void TransactionManager::dropTable(Table* table, Transaction* transaction)
@@ -370,8 +371,8 @@ void TransactionManager::removeCommittedTransaction(Transaction* transaction)
 void TransactionManager::expungeTransaction(Transaction *transaction)
 {
 	//Sync sync(&syncInitialize, "TransactionManager::expungeTransaction");
-	Sync sync(&activeTransactions.syncObject, "TransactionManager::removeTransaction");
-	sync.lock(Shared);
+	Sync syncActiveTrans(&activeTransactions.syncObject, "TransactionManager::removeTransaction");
+	syncActiveTrans.lock(Shared);
 
 	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
 		if (trans->transactionId > transaction->transactionId)
@@ -380,15 +381,15 @@ void TransactionManager::expungeTransaction(Transaction *transaction)
 
 Transaction* TransactionManager::findTransaction(TransId transactionId)
 {
-	Sync sync(&activeTransactions.syncObject, "TransactionManager::findTransaction");
-	sync.lock(Shared);
+	Sync syncActiveTrans(&activeTransactions.syncObject, "TransactionManager::findTransaction");
+	syncActiveTrans.lock(Shared);
 	Transaction *transaction;
 
 	for (transaction = activeTransactions.first; transaction; transaction = transaction->next)
 		if (transaction->transactionId == transactionId)
 			return transaction;
 	
-	sync.unlock();
+	syncActiveTrans.unlock();
 	Sync syncCommitted(&committedTransactions.syncObject, "TransactionManager::findTransaction(2)");
 	syncCommitted.lock(Shared);
 

@@ -423,7 +423,7 @@ int StorageInterface::open(const char *name, int mode, uint test_if_locked)
 {
 	DBUG_ENTER("StorageInterface::open");
 
-        FALCON_OPEN();
+	FALCON_OPEN();
 
 	if (!mySqlThread)
 		mySqlThread = current_thd;
@@ -495,7 +495,7 @@ int StorageInterface::close(void)
 	if (storageTable)
 		storageTable->clearTruncateLock();
 
-        FALCON_CLOSE();
+	FALCON_CLOSE();
 
 	DBUG_RETURN(0);
 }
@@ -2520,7 +2520,6 @@ void StorageInterface::checkBinLog(void)
 	else
 		tableFlags &= ~HA_PRIMARY_KEY_REQUIRED_FOR_DELETE;
 }
-
 
 //*****************************************************************************
 //

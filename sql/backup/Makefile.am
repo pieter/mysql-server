@@ -36,7 +36,8 @@ libbackup_la_SOURCES = \
   be_snapshot.cc \
   buffer_iterator.cc \
   be_thread.cc \
-  backup_progress.cc
+  backup_progress.cc \
+  backup_test.cc
 
 libbackup_la_LIBADD = libbackupstream.la
 
@@ -64,7 +65,8 @@ noinst_HEADERS = \
   be_thread.h \
   backup_progress.h \
   stream_v1.h \
-  stream_v1_services.h
+  stream_v1_services.h \
+  backup_test.h
 
 DEFS = \
   -DMYSQL_SERVER \

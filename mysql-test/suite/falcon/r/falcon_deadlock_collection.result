@@ -1,0 +1,31 @@
+*** Deadlock related tests for Falcon ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int, PRIMARY KEY (a));
+INSERT INTO t1 (a) VALUES (1), (2);
+COMMIT;
+# Establish connection conn1
+SET storage_engine = 'Falcon';
+SET @@autocommit = 0;
+# Switch to connection default
+UPDATE t1 SET a = 3 WHERE a = 2;
+# Switch to connection conn1
+UPDATE t1 SET a = 4 WHERE a = 1;
+# Switch to connection default
+UPDATE t1 SET a = 5 WHERE a = 1;
+# Switch to connection conn1
+UPDATE t1 SET a = 6 WHERE a = 2;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+ROLLBACK;
+# Switch to connection default
+SELECT a FROM t1 ORDER BY a;
+a
+3
+5
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+2
+COMMIT;
+DROP TABLE t1;

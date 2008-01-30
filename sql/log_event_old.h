@@ -26,6 +26,7 @@ class Old_rows_log_event
  public:
  
   virtual ~Old_rows_log_event() {}
+  Old_rows_log_event() {}                     // keep gcc happy
 
  protected:
   

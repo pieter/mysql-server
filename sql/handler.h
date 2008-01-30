@@ -1023,6 +1023,8 @@ public:
   enum { MEM_COEFF=1 };
   enum { IMPORT_COEFF=1 };
 
+  COST_VECT() {}                              // keep gcc happy
+
   double total_cost() 
   {
     return IO_COEFF*io_count*avg_io_cost + CPU_COEFF * cpu_cost +

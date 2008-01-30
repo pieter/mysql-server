@@ -70,7 +70,7 @@ Locking_thread_st *open_backup_progress_table(const char *table_name,
   /*
     Start the locking thread and wait until it is ready.
   */
-  locking_thd->start_locking_thread();
+  locking_thd->start_locking_thread("backup progress locking thread");
 
   /*
     Poll the locking thread until ready.

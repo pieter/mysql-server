@@ -20,5 +20,27 @@ BACKUP DATABASE foo TO 'test.bak';
 ERROR 42000: Unknown database 'foo'
 BACKUP DATABASE test,foo,bdb,bar TO 'test.bak';
 ERROR 42000: Unknown database 'foo,bar'
+use adb;
+create table t1 (a int);
+create procedure p1() backup database test to 'test.bak';
+ERROR 0A000: BACKUP is not allowed in stored procedures
+create procedure p1() restore from 'test.bak';
+ERROR 0A000: RESTORE is not allowed in stored procedures
+create function f1() returns int backup database test to 'test.bak';
+ERROR 0A000: BACKUP is not allowed in stored procedures
+create function f1() returns int restore from 'test.bak';
+ERROR 0A000: RESTORE is not allowed in stored procedures
+create trigger tr1 before insert on t1 
+for each row backup database test to 'test.bak';
+ERROR 0A000: BACKUP is not allowed in stored procedures
+create trigger tr1 before insert on t1 
+for each row restore from 'test.bak';
+ERROR 0A000: RESTORE is not allowed in stored procedures
+create event ev1 on schedule every 1 day 
+do backup database test to 'test.bak';
+ERROR 0A000: BACKUP is not allowed in stored procedures
+create event ev1 on schedule every 1 day 
+do restore from 'test.bak';
+ERROR 0A000: RESTORE is not allowed in stored procedures
 DROP DATABASE adb;
 DROP DATABASE bdb;

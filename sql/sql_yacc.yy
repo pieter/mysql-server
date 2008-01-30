@@ -6019,6 +6019,11 @@ slave_until_opts:
 restore:
           RESTORE_SYM 
           {
+            if (Lex->sphead)
+            {
+              my_error(ER_SP_BADSTATEMENT, MYF(0), "RESTORE");
+              MYSQL_YYABORT;
+            }
             Lex->sql_command = SQLCOM_RESTORE;
             Lex->db_list.empty();
           }
@@ -6029,14 +6034,22 @@ restore:
         ;
 
 backup:
-          BACKUP_SYM DATABASE
+          BACKUP_SYM 
+          {
+            if (Lex->sphead)
+            {
+              my_error(ER_SP_BADSTATEMENT, MYF(0), "BACKUP");
+              MYSQL_YYABORT;
+            }
+          }
+          DATABASE
           {
             Lex->sql_command = SQLCOM_BACKUP;
             Lex->db_list.empty();
           }
           database_list TO_SYM TEXT_STRING_sys
           {
-            Lex->backup_dir = $6; 
+            Lex->backup_dir = $7; 
           }
           | BACKUP_TEST_SYM 
           {

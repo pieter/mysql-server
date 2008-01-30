@@ -52,6 +52,7 @@
 #include "IndexKey.h"
 #include "IndexNode.h"
 #include "DatabaseClone.h"
+#include "Table.h"
 
 //#define STOP_RECORD	123
 //#define TRACE_PAGE	109
@@ -329,6 +330,19 @@ void Dbb::updateBlob(Section *blobSection, int recordNumber, Stream* stream, Tra
 		updateRecord(blobSection, recordNumber, stream, transaction, true);
 		transaction->pendingPageWrites = true;
 		}
+}
+
+void Dbb::validateAndUpdateRecord(int32 sectionId, int32 recordId, Stream* stream, TransId transId, bool earlyWrite)
+{
+	Section *section = findSection (sectionId);
+	
+	if (section->table && !section->table->validateUpdate(recordId, transId))
+		return;
+		
+	section->updateRecord (recordId, stream, transId, earlyWrite);
+
+	if (!earlyWrite && !serialLog->recovering && transId)
+		serialLog->setPhysicalBlock(transId);
 }
 
 void Dbb::updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite)

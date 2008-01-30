@@ -35,6 +35,7 @@ class Validation;
 class Bitmap;
 class RecordLocatorPage;
 class SectionPage;
+class Table;
 
 struct RecordIndex;
 struct SectionAnalysis;
@@ -90,6 +91,7 @@ public:
 	int32			root;
 	Section			*hash;
 	Dbb				*dbb;
+	Table			*table;						// if known
 	Bitmap			*reservedRecordNumbers;
 	Bitmap			*freeLines;
 	short			level;

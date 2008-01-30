@@ -22,6 +22,7 @@
 #include <time.h>
 #include <memory.h>
 #include <errno.h>
+#include <limits.h>
 #include "Engine.h"
 #include "Database.h"
 #include "Dbb.h"
@@ -76,6 +77,10 @@
 #include "SyncTest.h"
 #include "PriorityScheduler.h"
 #include "Sequence.h"
+
+#ifdef _WIN32
+#define PATH_MAX			_MAX_PATH
+#endif
 
 #ifndef STORAGE_ENGINE
 #include "Applications.h"
@@ -1403,8 +1408,10 @@ void Database::dropTable(Table * table, Transaction *transaction)
 			break;
 			}
 
-	invalidateCompiledStatements(table);
 	sync.unlock();
+	
+	invalidateCompiledStatements(table);
+	
 	table->drop(transaction);
 	table->expunge(getSystemTransaction());
 	delete table;
@@ -1432,6 +1439,7 @@ void Database::truncateTable(Table *table, Transaction *transaction)
 	
 	// No access until truncate completes
 	
+	table->deleting = true;
 	Sync syncObj(&table->syncObject, "Database::truncateTable");
 	syncObj.lock(Exclusive);
 	
@@ -2447,3 +2455,8 @@ int	Database::recoverGetNextLimbo(int xidSize, unsigned char *xid)
 	return 0;
 	}
 
+
+void Database::flushWait(void)
+	{
+	cache->flushWait();
+	}

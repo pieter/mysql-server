@@ -92,6 +92,7 @@ public:
 	virtual int		add_index(TABLE* table_arg, KEY* key_info, uint num_of_keys);
 	virtual bool	check_if_incompatible_data(HA_CREATE_INFO* create_info, uint table_changes);
 	virtual int		reset_auto_increment(ulonglong value);
+	virtual void	update_create_info(HA_CREATE_INFO* create_info);
 	virtual const COND* cond_push(const COND* cond);
 	virtual int		optimize(THD* thd, HA_CHECK_OPT* check_opt);
 #ifdef TRUNCATE_ENABLED

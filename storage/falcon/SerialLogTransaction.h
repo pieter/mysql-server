@@ -42,7 +42,6 @@ class SerialLogTransaction //: public SerialLogAction
 {
 public:
 	virtual uint64	getBlockNumber();
-	//virtual bool	isTransaction();
 	virtual bool	completedRecovery();
 	virtual void	preRecovery();
 	virtual void	doAction();

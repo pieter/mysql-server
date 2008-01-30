@@ -50,12 +50,13 @@ static const char *stateNames [] = {
 	"Committed",
 	"RolledBack",
 	"Us",
-	"Older",
-	"Younger",
+	"Visible",
+	"Invisible",
 	"WasActive",
 	"Deadlock",
-	"Avail",
-	"Initial"
+	"Available",
+	"Initial",
+	"ReadOnly"
 	};
 
 static const int INDENT = 5;
@@ -81,6 +82,8 @@ Transaction::Transaction(Connection *cnct, TransId seq)
 
 void Transaction::initialize(Connection* cnct, TransId seq)
 {
+	Sync sync(&syncObject, "Transaction::initialize");
+	sync.lock(Exclusive);
 	ASSERT(savePoints == NULL);
 	ASSERT(freeSavePoints == NULL);
 	connection = cnct;
@@ -120,6 +123,9 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	blockedBy = 0;
 	inList = true;
 	thread = NULL;
+	syncObject.setName("Transaction::syncObject");
+	syncActive.setName("Transaction::syncActive");
+	syncIndexes.setName("Transaction::syncIndexes");
 	//scavenged = false;
 	
 	if (seq == 0)
@@ -154,12 +160,13 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 		}
 	
 	if (count)
-		{
 		for (Transaction *transaction = transactionManager->activeTransactions.first; transaction; transaction = transaction->next)
 			if (transaction->isActive() && 
 				 !transaction->systemTransaction &&
 				 transaction->transactionId < transactionId)
 				{
+				Sync syncDependency(&transaction->syncObject, "Transaction::initialize");
+				syncDependency.lock(Shared);
 				transaction->addRef();
 				INTERLOCKED_INCREMENT(transaction->dependencies);
 
@@ -181,7 +188,6 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 					transaction->release();
 					}
 				}
-		}
 
 	state = Active;
 }
@@ -242,7 +248,7 @@ void Transaction::commit()
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 
-	Log::log(LogXARecovery, "Commit transaction %d\n", transactionId);
+	Log::log(LogXARecovery, "%d: Commit transaction %d\n", database->deltaTime, transactionId);
 
 	if (state == Active)
 		{
@@ -250,7 +256,7 @@ void Transaction::commit()
 		sync.lock(Shared);
 		
 		for (DeferredIndex *deferredIndex= deferredIndexes; deferredIndex;  
-			deferredIndex = deferredIndex->nextInTransaction)
+			 deferredIndex = deferredIndex->nextInTransaction)
 			if (deferredIndex->index)
 				database->dbb->logIndexUpdates(deferredIndex);
 		
@@ -284,6 +290,7 @@ void Transaction::commit()
 	database->flushInversion(this);
 	syncActiveTransactions.lock(Exclusive);
 	transactionManager->activeTransactions.remove(this);
+	syncActiveTransactions.unlock();
 	
 	for (RecordVersion *record = firstRecord; record; record = record->nextInTrans)
 		if (!record->priorVersion)
@@ -291,7 +298,6 @@ void Transaction::commit()
 		else if (record->state == recDeleted && record->format->table->cardinality > 0)
 			--record->format->table->cardinality;
 			
-	syncActiveTransactions.unlock();
 	Sync syncCommitted(&transactionManager->committedTransactions.syncObject, "Transaction::commit");
 	syncCommitted.lock(Exclusive);
 	transactionManager->committedTransactions.append(this);
@@ -317,6 +323,8 @@ void Transaction::commit()
 
 void Transaction::commitNoUpdates(void)
 {
+	//Sync sync(&syncObject, "Transaction::commitNoUpdates");
+	//sync.lock(Exclusive);
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 	ASSERT(!deferredIndexes);
@@ -336,8 +344,8 @@ void Transaction::commitNoUpdates(void)
 	syncActiveTransactions.lock(Shared);
 	releaseDependencies();
 	Thread *thread = NULL;
-	Sync syncInit(&transactionManager->syncInitialize, "Transaction::commitNoUpdate");
-	syncInit.lock(Shared);
+	//Sync syncInit(&transactionManager->syncInitialize, "Transaction::commitNoUpdate");
+	//syncInit.lock(Shared);
 	state = CommittingReadOnly;
 
 	for (int n = 0; dependencies && n < 10; ++n)
@@ -386,7 +394,8 @@ void Transaction::commitNoUpdates(void)
 		
 	state = Available;
 	writePending = false;
-	syncInit.unlock();
+	//syncInit.unlock();
+	//sync.unlock();
 	syncActiveTransactions.unlock();
 	syncActive.unlock();
 	release();
@@ -400,12 +409,16 @@ void Transaction::rollback()
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
+	//Sync sync(&syncObject, "Transaction::rollback");
+	//sync.lock(Exclusive);
+	
 	if (deferredIndexes)
 		{
 		Sync sync(&syncIndexes, "Transaction::rollback");
 		sync.lock(Exclusive);
 		releaseDeferredIndexes();
 		}
+		
 	releaseSavePoints();
 	TransactionManager *transactionManager = database->transactionManager;
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
@@ -456,8 +469,8 @@ void Transaction::rollback()
 	xid = NULL;
 	xidLength = 0;
 	
-	Sync sync (&transactionManager->activeTransactions.syncObject, "Transaction::rollback");
-	sync.lock (Exclusive);
+	Sync syncActiveTransactions (&transactionManager->activeTransactions.syncObject, "Transaction::rollback");
+	syncActiveTransactions.lock (Exclusive);
 	++transactionManager->rolledBack;
 	
 	while (dependencies)
@@ -466,7 +479,8 @@ void Transaction::rollback()
 	ASSERT(dependencies == 0);
 	inList = false;
 	transactionManager->activeTransactions.remove(this);
-	sync.unlock();
+	syncActiveTransactions.unlock();
+	//sync.unlock();
 	release();
 }
 
@@ -931,7 +945,7 @@ bool Transaction::waitForTransaction(TransId transId)
 		if (transaction->transactionId == transId)
 			break;
 	
-	// If the transction is no longer active, see if it committed
+	// If the transction is no longer active, see if it is committed
 	
 	if (!transaction || transaction->state == Available)
 		return true;
@@ -994,6 +1008,8 @@ int Transaction::createSavepoint()
 {
 	SavePoint *savePoint;
 	
+	ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
+	
 	if ( (savePoint = freeSavePoints) )
 		freeSavePoints = savePoint->next;
 	else
@@ -1004,6 +1020,8 @@ int Transaction::createSavepoint()
 	savePoint->next = savePoints;
 	savePoints = savePoint;
 
+	ASSERT(savePoint->next != savePoint);
+ 	
 	return savePoint->id;
 }
 
@@ -1016,6 +1034,7 @@ void Transaction::releaseSavepoint(int savePointId)
 			*ptr = savePoint->next;
 			savePoint->next = freeSavePoints;
 			freeSavePoints = savePoint;
+			ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
 
 			// commit pending record versions to the next pending savepoint
 			

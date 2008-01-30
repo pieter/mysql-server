@@ -895,16 +895,20 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		{
 		case HA_KEYTYPE_LONG_INT:
 			{
-			int32 temp;
-			memcpy(&temp, ptr, sizeof(temp));
+			int32 temp = (int32)
+				(((int32) ((UCHAR) ptr[0])) +
+				(((int32) ((UCHAR) ptr[1]) << 8)) +
+				(((int32) ((UCHAR) ptr[2]) << 16)) +
+				(((int32) ((int16) ptr[3]) << 24)));
 			value->setValue(temp);
 			}
 			break;
 
 		case HA_KEYTYPE_SHORT_INT:
 			{
-			short temp;
-			memcpy(&temp, ptr, sizeof(temp));
+			short temp = (int16)
+				(((short) ((UCHAR) ptr[0])) +
+				((short) ((short) ptr[1]) << 8));
 			value->setValue(temp);
 			}
 			break;
@@ -912,8 +916,16 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		case HA_KEYTYPE_ULONGLONG:
 		case HA_KEYTYPE_LONGLONG:
 			{
-			int64 temp;
-			memcpy(&temp, ptr, sizeof(temp));
+			int64 temp = (int64)
+				((uint64)(((uint32) ((UCHAR) ptr[0])) +
+					(((uint32) ((UCHAR) ptr[1])) << 8) +
+					(((uint32) ((UCHAR) ptr[2])) << 16) +
+					(((uint32) ((UCHAR) ptr[3])) << 24)) +
+				(((uint64)(((uint32) ((UCHAR) ptr[4])) +
+					(((uint32) ((UCHAR) ptr[5])) << 8) +
+					(((uint32) ((UCHAR) ptr[6])) << 16) +
+					(((uint32) ((UCHAR) ptr[7])) << 24)))
+				<< 32));
 			value->setValue(temp);
 			}
 			break;
@@ -921,7 +933,14 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		case HA_KEYTYPE_FLOAT:
 			{
 			float temp;
+#ifdef _BIG_ENDIAN
+			((UCHAR*) &temp)[0] = ptr[3];
+			((UCHAR*) &temp)[1] = ptr[2];
+			((UCHAR*) &temp)[2] = ptr[1];
+			((UCHAR*) &temp)[3] = ptr[0];
+#else
 			memcpy(&temp, ptr, sizeof(temp));
+#endif
 			value->setValue(temp);
 			}
 			break;
@@ -929,7 +948,18 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		case HA_KEYTYPE_DOUBLE:
 			{
 			double temp;
+#ifdef _BIG_ENDIAN
+			((UCHAR*) &temp)[0] = ptr[7];
+			((UCHAR*) &temp)[1] = ptr[6];
+			((UCHAR*) &temp)[2] = ptr[5];
+			((UCHAR*) &temp)[3] = ptr[4];
+			((UCHAR*) &temp)[4] = ptr[3];
+			((UCHAR*) &temp)[5] = ptr[2];
+			((UCHAR*) &temp)[6] = ptr[1];
+			((UCHAR*) &temp)[7] = ptr[0];
+#else
 			memcpy(&temp, ptr, sizeof(temp));
+#endif
 			value->setValue(temp);
 			}
 			break;
@@ -939,8 +969,9 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		case HA_KEYTYPE_VARTEXT1:
 		case HA_KEYTYPE_VARTEXT2:
 			{
-			unsigned short len;
-			memcpy(&len, ptr, sizeof(len));
+			unsigned short len = (unsigned short)
+                        	(((short) ((UCHAR) ptr[0])) +
+                                 ((short) ((short) ptr[1]) << 8));
 			value->setString(len, (const char*) ptr + 2, false);
 			length += 2;
 			}
@@ -985,8 +1016,11 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		
 		case HA_KEYTYPE_ULONG_INT:
 			{
-			uint32 temp;
-			memcpy(&temp, ptr, sizeof(temp));
+			uint32 temp = (uint32)
+				(((uint32) ((UCHAR) ptr[0])) +
+				(((uint32) ((UCHAR) ptr[1]) << 8)) +
+				(((uint32) ((UCHAR) ptr[2]) << 16)) +
+				(((uint32) ((UCHAR) ptr[3]) << 24)));
 			
 			if (field && field->type == Timestamp)
 				value->setValue((int64) temp * 1000);
@@ -1001,25 +1035,35 @@ int StorageDatabase::getSegmentValue(StorageSegment* segment, const UCHAR* ptr, 
 		
 		case HA_KEYTYPE_USHORT_INT:
 			{
-			unsigned short temp;
-			memcpy(&temp, ptr, sizeof(temp));
-			value->setValue(*ptr);
+			unsigned short temp = (unsigned short)
+				(((uint16) ((UCHAR) ptr[0])) +
+				((uint16) ((UCHAR) ptr[1]) << 8));
+			value->setValue(temp);
 			}
 			break;
 			
 		case HA_KEYTYPE_UINT24:
 			{
-			uint32 temp;
-			memcpy(&temp, ptr, 3);
-			value->setValue((int) (temp & 0xffffff));
+			uint32 temp = (uint32)
+				(((uint32) ((UCHAR) ptr[0])) +
+				((uint32) ((UCHAR) ptr[1]) << 8) +
+				((uint32) ((UCHAR) ptr[2]) << 16));
+			value->setValue((int32) temp);
 			}
 			break;
 			
 		case HA_KEYTYPE_INT24:
 			{
-			int32 temp;
-			memcpy(&temp, ptr, 3);
-			value->setValue((temp << 8) >> 8);
+			int32 temp = (int32)
+				((((UCHAR) ptr[2]) & 128) ?
+				 (((uint32) ((UCHAR) ptr[0])) +
+				  ((uint32) ((UCHAR) ptr[1]) << 8) +
+				  ((uint32) ((UCHAR) ptr[2]) << 16) |
+				  ((uint32) 255L << 24)) :
+				 (((uint32) ((UCHAR) ptr[0])) +
+				  ((uint32) ((UCHAR) ptr[1]) << 8) +
+				  ((uint32) ((UCHAR) ptr[2]) << 16)));
+			value->setValue(temp);
 			}
 			break;
 		

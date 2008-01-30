@@ -58,6 +58,7 @@ RecordVersion::RecordVersion(Table *tbl, Format *format, Transaction *trans, Rec
 
 RecordVersion::~RecordVersion()
 {
+	state = recDeleting;
 	Record *prior = priorVersion;
 	priorVersion = NULL;
 
@@ -183,6 +184,7 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 		rec->active = false;
 #endif
 		Transaction *trans = rec->getTransaction();
+
 		if (trans)
 			trans->removeRecord( (RecordVersion*) rec);
 		}
@@ -197,7 +199,8 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 	Record *prior = priorVersion;
 	prior->addRef();
 	setPriorVersion(rec);
-	ptr->setPriorVersion(NULL);
+	//ptr->setPriorVersion(NULL);
+	ptr->state = recEndChain;
 	format->table->garbageCollect(prior, this, transaction, false);
 	prior->release();
 }
@@ -205,6 +208,11 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 Record* RecordVersion::getPriorVersion()
 {
 	return priorVersion;
+}
+
+Record* RecordVersion::getGCPriorVersion(void)
+{
+	return (state == recEndChain) ? NULL : priorVersion;
 }
 
 void RecordVersion::setSuperceded(bool flag)

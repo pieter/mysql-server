@@ -42,3 +42,19 @@ void SRLSession::print(void)
 {
 	logPrint("Session start recovery " I64FORMAT ", checkpoint " I64FORMAT ", \n", recoveryBlock, checkpointBlock);
 }
+
+void SRLSession::pass1(void)
+{
+	if (log->tracePage)
+		print();
+}
+
+void SRLSession::pass2(void)
+{
+	if (log->tracePage)
+		print();
+}
+
+void SRLSession::redo(void)
+{
+}

@@ -19,7 +19,7 @@
 // Page Types
 
 enum PageType {
-    PAGE_any,
+	PAGE_any,
 	PAGE_header			= 1,
 	PAGE_sections		= 2,
 	//PAGE_section		= 3,		 unused

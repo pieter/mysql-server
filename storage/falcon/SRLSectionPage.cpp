@@ -110,7 +110,6 @@ void SRLSectionPage::pass2()
 		if (control->isPostFlush())
 			Section::redoSectionPage(log->getDbb(tableSpaceId), parentPage, pageNumber, sectionSlot, sectionId, sequence, level);
 		}
-
 }
 
 void SRLSectionPage::redo()

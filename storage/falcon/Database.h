@@ -218,6 +218,9 @@ public:
 	void			debugTrace(void);
 	void			pageCacheFlushed(int64 flushArg);
 	JString			setLogRoot(const char *defaultPath, bool create);
+	void			setIOError(SQLException* exception);
+	void			clearIOError(void);
+	void			flushWait(void);
 
 
 	Dbb					*dbb;
@@ -252,7 +255,7 @@ public:
 	Applications		*applications;
 	SyncObject			syncObject;
 	SyncObject			syncTables;
-	SyncObject			syncStatements;
+	SyncObject			syncStatements;   // exclusive lock ok only if syncTables not exclusive
 	SyncObject			syncAddStatement;
 	SyncObject			syncSysConnection;
 	SyncObject			syncResultSets;
@@ -301,8 +304,6 @@ public:
 	int64				lastRecordMemory;
 	time_t				creationTime;
 	volatile time_t		lastScavenge;
-	void setIOError(SQLException* exception);
-	void clearIOError(void);
 };
 
 #endif // !defined(AFX_DATABASE_H__5EC961D1_A406_11D2_AB5B_0000C01D2301__INCLUDED_)

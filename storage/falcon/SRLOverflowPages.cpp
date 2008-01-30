@@ -98,6 +98,10 @@ void SRLOverflowPages::redo(void)
 	for (const UCHAR *p = data, *end = data + dataLength; p < end;)
 		{
 		int pageNumber = getInt(&p);
+		
+		if (log->tracePage == pageNumber)
+			print();
+		
 		log->bumpPageIncarnation(pageNumber, tableSpaceId, objInUse);
 		}
 }

@@ -4,6 +4,45 @@ MYSQL_PLUGIN_DIRECTORY(falcon, [storage/falcon])
 MYSQL_PLUGIN_STATIC(falcon,    [libfalcon.a])
 MYSQL_PLUGIN_DYNAMIC(falcon,   [ha_falcon.la])
 
+# Check for supported machine types.
+AC_CACHE_CHECK([if Falcon Storage Engine is supported on $MACHINE_TYPE],
+  			   falcon_supported_by_machine,[
+  case "$BASE_MACHINE_TYPE" in
+    i386)   falcon_supported_by_machine="yes" ;;
+    x86_64) falcon_supported_by_machine="yes" ;;
+    powerpc)falcon_supported_by_machine="yes" ;;
+    sparc)
+      AC_TRY_LINK([
+#include <stdlib.h>
+volatile int target= 0;
+int compare= 1,
+int exchange= 2;
+      ],[
+  char ret;
+  __asm__ __volatile__ (
+	  "membar #LoadLoad | #LoadStore | #StoreLoad | #StoreStore\n\t"
+	  "cas [%2],%0,%1\n\t"
+	  "cmp %0,%1\n\t"
+	  "be,a 0f\n\t"
+	  "mov 1,%0\n\t"		/* one insn after branch always executed */
+	  "clr %0\n\t"
+	  "0:\n\t"
+	  : "=r" (ret), "+r" (exchange)
+	  : "r" (&target), "0" (compare)
+	  : "memory", "cc"
+	  )
+      ], falcon_supported_by_machine="yes", 
+         falcon_supported_by_machine="no")
+      ;;
+    *) falcon_supported_by_machine="no" ;;
+  esac
+])
+
+if test "$falcon_supported_by_machine" != "yes"; then
+  mysql_plugin_falcon="no"
+  with_plugin_falcon="no"
+fi
+
 # Generate Makefile for TransformLib.
 MYSQL_PLUGIN_ACTIONS(falcon,[
   AC_CONFIG_FILES(storage/falcon/TransformLib/Makefile)

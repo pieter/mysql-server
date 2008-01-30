@@ -42,7 +42,7 @@
 
 extern uint falcon_io_threads;
 
-//#define STOP_PAGE		109
+//#define STOP_PAGE		55
 #define TRACE_FILE	"cache.trace"
 
 static FILE			*traceFile;
@@ -83,6 +83,7 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 	syncObject.setName("Cache::syncObject");
 	syncDirty.setName("Cache::syncDirty");
 	syncFlush.setName("Cache::syncFlush");
+	syncWait.setName("Cache::syncWait");
 	flushBitmap = new Bitmap;
 	numberIoThreads = falcon_io_threads;
 	ioThreads = new Thread*[numberIoThreads];
@@ -288,8 +289,8 @@ Bdb* Cache::fetchPage(Dbb *dbb, int32 pageNumber, PageType pageType, LockType lo
 		throw SQLError (DATABASE_CORRUPTION, "page %d wrong page type, expected %d got %d\n",
 						pageNumber, pageType, page->pageType);
 		***/
-		FATAL ("page %d wrong page type, expected %d got %d\n",
-				 bdb->pageNumber, pageType, page->pageType);
+		FATAL ("page %d/%d wrong page type, expected %d got %d\n",
+				 bdb->pageNumber, dbb->tableSpaceId, pageType, page->pageType);
 		}
 
 	// If buffer has moved out of the upper "fraction" of the LRU queue, move it back up
@@ -352,13 +353,14 @@ Bdb* Cache::fakePage(Dbb *dbb, int32 pageNumber, PageType type, TransId transId)
 
 void Cache::flush(int64 arg)
 {
-	Sync flushLock(&syncFlush, "Cache::ioThread");
+	Sync flushLock(&syncFlush, "Cache::flush");
 	Sync sync(&syncDirty, "Cache::ioThread");
 	flushLock.lock(Exclusive);
 	
 	if (flushing)
 		return;
 
+	syncWait.lock(NULL, Exclusive);
 	sync.lock(Shared);
 	//Log::debug(%d: "Initiating flush\n", dbb->deltaTime);
 	flushArg = arg;
@@ -944,7 +946,7 @@ void Cache::ioThread(void)
 	
 	// This is the main loop.  Write blocks until there's nothing to do, then sleep
 	
-	while (!thread->shutdownInProgress)
+	for (;;)
 		{
 		int32 pageNumber = flushBitmap->nextSet(0);
 		int count;
@@ -1089,6 +1091,7 @@ void Cache::ioThread(void)
 				time_t delta = database->timestamp - flushStart;
 				flushing = false;
 				flushLock.unlock();
+				syncWait.unlock();
 				
 				if (writes > 0 && Log::isActive(LogInfo))
 					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
@@ -1099,6 +1102,9 @@ void Cache::ioThread(void)
 			else
 				flushLock.unlock();
 			
+			if (thread->shutdownInProgress)
+				break;
+
 			thread->sleep();
 			flushLock.lock(Exclusive);
 			}
@@ -1222,4 +1228,10 @@ void Cache::closeTraceFile(void)
 		traceFile = NULL;
 		}
 #endif
+}
+
+void Cache::flushWait(void)
+{
+	Sync sync(&syncWait, "Cache::flushWait");
+	sync.lock(Shared);
 }

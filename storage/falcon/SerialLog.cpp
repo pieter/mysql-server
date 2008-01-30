@@ -395,7 +395,9 @@ void SerialLog::recover()
 		
 	recovering = false;
 	lastFlushBlock = writeBlock->blockNumber;
-	checkpoint(true);
+	//checkpoint(true);
+	database->flush(lastBlockWritten);
+	database->flushWait();
 	
 	for (TableSpaceInfo *info = tableSpaceInfo; info; info = info->next)
 		{
@@ -571,7 +573,8 @@ void SerialLog::createNewWindow(void)
 
 	while (   (firstWindow->lastBlockNumber < lastReadBlock)
 	       && (firstWindow->inUse == 0)
-	       && (firstWindow->useCount == 0))
+	       && (firstWindow->useCount == 0)
+	       && (firstWindow->interestCount == 0))
 		{
 		release(firstWindow);
 		}
@@ -785,6 +788,8 @@ SerialLogWindow* SerialLog::findWindowGivenOffset(uint64 offset)
 			}
 
 	Log::debug("SerialLog::findWindowGivenOffset -- can't find window\n");
+	printWindows();
+	ASSERT(false);
 
 	return NULL;
 }
@@ -1114,17 +1119,15 @@ void SerialLog::copyClone(JString fileRoot, int logOffset, int logLength)
 
 bool SerialLog::bumpPageIncarnation(int32 pageNumber, int tableSpaceId, int state)
 {
+	if (pageNumber == tracePage)
+		printf("bumpPageIncarnation; page %d\n", tracePage);
+
 	bool ret = recoveryPages->bumpIncarnation(pageNumber, tableSpaceId, state, pass1);
-	Dbb *dbb = getDbb(tableSpaceId);
 	
-	if (ret)
+	if (ret && pass1)
 		{
-		if (pass1)
-			dbb->reallocPage(pageNumber);
-		else if (pageNumber == tracePage)
-			{
-			//printf("trace page %d\n", tracePage);
-			}
+		Dbb *dbb = getDbb(tableSpaceId);
+		dbb->reallocPage(pageNumber);
 		}
 
 	return ret;
@@ -1483,7 +1486,7 @@ void SerialLog::updateSectionUseVector(uint sectionId, int tableSpaceId, int del
 		info->sectionUseVector.extend(sectionId + 10);
 	
 	//info->sectionUseVector.vector[sectionId] += delta;
-	INTERLOCKED_ADD(info->sectionUseVector.vector + sectionId, delta);
+	INTERLOCKED_ADD((volatile INTERLOCK_TYPE*)(info->sectionUseVector.vector + sectionId), delta);
 }
 
 void SerialLog::updateIndexUseVector(uint indexId, int tableSpaceId, int delta)
@@ -1541,7 +1544,7 @@ int SerialLog::getBlockSize(void)
 }
 
 int	SerialLog::recoverGetNextLimbo(int xidSize, unsigned char *xid)
-	{
+{
 	SerialLogTransaction *transaction = nextLimboTransaction;
 
 	if (!transaction)
@@ -1558,3 +1561,11 @@ int	SerialLog::recoverGetNextLimbo(int xidSize, unsigned char *xid)
 	return 1;
 }
 
+
+SerialLogWindow* SerialLog::setWindowInterest(void)
+{
+	SerialLogWindow *window = writeWindow;
+	window->setInterest();
+	
+	return window;
+}

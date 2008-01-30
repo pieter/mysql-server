@@ -651,6 +651,8 @@ StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* table
 	
 	if (connections[slot])
 		{
+		sync.lock(Shared);
+
 		for (storageConnection = connections[slot]; storageConnection; storageConnection = storageConnection->collision)
 			if (storageConnection->mySqlThread == mySqlThread) // && storageConnection->storageDatabase == tableShare->storageDatabase)
 				{
@@ -662,7 +664,6 @@ StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* table
 				return storageConnection;
 				}
 
-		sync.lock(Shared);
 		sync.unlock();
 		}
 		

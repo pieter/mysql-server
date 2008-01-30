@@ -2106,12 +2106,16 @@ public:
   /* The list of post-headers' lengthes */
   uint8 *post_header_len;
   uchar server_version_split[3];
+  const uint8 *event_type_permutation;
 
   Format_description_log_event(uint8 binlog_ver, const char* server_ver=0);
   Format_description_log_event(const char* buf, uint event_len,
                                const Format_description_log_event
                                *description_event);
-  ~Format_description_log_event() { my_free((uchar*)post_header_len, MYF(0)); }
+  ~Format_description_log_event()
+  {
+    my_free((uchar*)post_header_len, MYF(MY_ALLOW_ZERO_PTR));
+  }
   Log_event_type get_type_code() { return FORMAT_DESCRIPTION_EVENT;}
 #ifndef MYSQL_CLIENT
   bool write(IO_CACHE* file);
@@ -2515,7 +2519,7 @@ protected:
   */
   bool fake_base;
 public:
-  char* block;
+  uchar* block;
   const char *event_buf;
   uint block_len;
   uint file_id;
@@ -2526,7 +2530,7 @@ public:
 			const char* table_name_arg,
 			List<Item>& fields_arg,
 			enum enum_duplicates handle_dup, bool ignore,
-			char* block_arg, uint block_len_arg,
+			uchar* block_arg, uint block_len_arg,
 			bool using_trans);
 #ifdef HAVE_REPLICATION
   void pack_info(Protocol* protocol);
@@ -2581,7 +2585,7 @@ private:
 class Append_block_log_event: public Log_event
 {
 public:
-  char* block;
+  uchar* block;
   uint block_len;
   uint file_id;
   /*
@@ -2598,7 +2602,7 @@ public:
   const char* db;
 
 #ifndef MYSQL_CLIENT
-  Append_block_log_event(THD* thd, const char* db_arg, char* block_arg,
+  Append_block_log_event(THD* thd, const char* db_arg, uchar* block_arg,
 			 uint block_len_arg, bool using_trans);
 #ifdef HAVE_REPLICATION
   void pack_info(Protocol* protocol);
@@ -2722,7 +2726,7 @@ class Begin_load_query_log_event: public Append_block_log_event
 public:
 #ifndef MYSQL_CLIENT
   Begin_load_query_log_event(THD* thd_arg, const char *db_arg,
-                             char* block_arg, uint block_len_arg,
+                             uchar* block_arg, uint block_len_arg,
                              bool using_trans);
 #ifdef HAVE_REPLICATION
   Begin_load_query_log_event(THD* thd);

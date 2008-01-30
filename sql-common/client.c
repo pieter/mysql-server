@@ -2221,7 +2221,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
       Send client_flag, max_packet_size - unencrypted otherwise
       the server does not know we want to do SSL
     */
-    if (my_net_write(net,buff,(uint) (end-buff)) || net_flush(net))
+    if (my_net_write(net, (uchar*) buff, (uint) (end-buff)) || net_flush(net))
     {
       set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
                                ER(CR_SERVER_LOST_EXTENDED),

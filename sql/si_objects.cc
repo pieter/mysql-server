@@ -989,7 +989,7 @@ TableObj* DbTablesIterator::create_obj(TABLE *t)
   t->field[1]->val_str(&db_name);
   t->field[2]->val_str(&table_name);
   t->field[3]->val_str(&type);
-  t->field[5]->val_str(&engine);
+  t->field[4]->val_str(&engine);
 
   // Skip tables not from the given database.
 

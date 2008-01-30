@@ -688,6 +688,8 @@ bool Backup_info::close()
  */
 int Backup_info::add_dbs(List< ::LEX_STRING > &dbs)
 {
+  using namespace obs;
+
   List_iterator< ::LEX_STRING > it(dbs);
   ::LEX_STRING *s;
   String unknown_dbs; // comma separated list of databases which don't exist
@@ -695,17 +697,22 @@ int Backup_info::add_dbs(List< ::LEX_STRING > &dbs)
   while ((s= it++))
   {
     String db_name(*s);
-    Db_ref db(db_name);
+    
+    Obj *db= get_database(&db_name);
 
-    if (db_exists(db))
-    {
+    if (db && !check_db_existence(db->get_name()))
+    {    
       if (!unknown_dbs.is_empty()) // we just compose unknown_dbs list
+      {
+        delete db;
         continue;
-
+      }
+      
       Db_item *it= add_db(db);
 
       if (!it)
       {
+        delete db;
         // TODO: report error
         goto error;
       }
@@ -717,7 +724,8 @@ int Backup_info::add_dbs(List< ::LEX_STRING > &dbs)
     {
       if (!unknown_dbs.is_empty())
         unknown_dbs.append(",");
-      unknown_dbs.append(db.name());
+      unknown_dbs.append(*db->get_name());
+      delete db;
     }
   }
 
@@ -745,74 +753,45 @@ int Backup_info::add_dbs(List< ::LEX_STRING > &dbs)
 */
 int Backup_info::add_all_dbs()
 {
-  my_bitmap_map *old_map;
+  using namespace obs;
 
-  DBUG_PRINT("backup", ("Reading databases from I_S"));
-
-  ::TABLE *db_table = get_schema_table(m_thd, ::get_schema_table(SCH_SCHEMATA));
-
-  if (!db_table)
+  int res= 0;
+  ObjIterator *dbit= get_databases(m_thd);
+  
+  if (!dbit)
   {
     report_error(ER_BACKUP_LIST_DBS);
     return ERROR;
   }
-
-  ::handler *ha = db_table->file;
-
-  // TODO: locking
-
-  int res= 0;
-
-  old_map= dbug_tmp_use_all_columns(db_table, db_table->read_set);
-
-  if (ha->ha_rnd_init(TRUE))
+  
+  Obj *db;
+  
+  while ((db= dbit->next()))
   {
-    res= -2;
-    report_error(ER_BACKUP_LIST_DBS);
-    goto finish;
-  }
-
-  while (!ha->rnd_next(db_table->record[0]))
-  {
-    String *db_name= new (m_thd->mem_root) String();
-
-    if (!db_name)
-    {
-      report_error(ER_OUT_OF_RESOURCES);
-      res= ERROR;
-      goto finish;
-    }
-
-    db_table->field[1]->val_str(db_name);
-
     // skip internal databases
-    if (*db_name == String("information_schema")
-        || *db_name == String("mysql"))
+    if (is_internal_db_name(db->get_name()))
     {
-      DBUG_PRINT("backup",(" Skipping internal database %s",db_name->ptr()));
-      delete db_name;
+      DBUG_PRINT("backup",(" Skipping internal database %s",db->get_name()->ptr()));
+      delete db;
       continue;
     }
 
-    db_name->copy();
-    Db_ref db(*db_name);
-
-    DBUG_PRINT("backup", (" Found database %s", db.name().ptr()));
+    DBUG_PRINT("backup", (" Found database %s", db->get_name()->ptr()));
 
     Db_item *it= add_db(db);
 
     if (!it)
     {
       res= -3;
-      delete db_name;
+      delete db;
       goto finish;
     }
 
-    /*
-      Add name to name_strings list so that it is freed in the destructor.
-    */
-    name_strings.push_back(db_name);
-
+    /* 
+      Note: the db instance is now owned by *this and will be deleted at 
+      destruction time.
+     */
+    
     if (add_db_items(*it))
     {
       res= -4;
@@ -822,15 +801,9 @@ int Backup_info::add_all_dbs()
 
   DBUG_PRINT("backup", ("No more databases in I_S"));
 
-  ha->ha_rnd_end();
-
  finish:
 
-  if (db_table)
-  {
-    dbug_tmp_restore_column_map(db_table->read_set, old_map);
-    ::free_tmp_table(m_thd, db_table);
-  }
+  delete dbit;
 
   if (res)
     m_state= ERROR;
@@ -847,13 +820,9 @@ int Backup_info::add_all_dbs()
  */
 int Backup_info::add_db_items(Db_item &dbi)
 {
-  my_bitmap_map *old_map;
+  using namespace obs;
 
-  DBUG_ASSERT(m_state == INIT);  // should be called before structure is closed
-  DBUG_ASSERT(is_valid());       // should be valid
-  DBUG_ASSERT(i_s_tables->file); // i_s_tables should be opened
-
-  ::handler *ha= i_s_tables->file;
+  ObjIterator *it= get_db_tables(m_thd,&dbi.name()); 
 
   /*
     If error debugging is switched on (see debug.h) then I_S.TABLES access
@@ -861,59 +830,19 @@ int Backup_info::add_db_items(Db_item &dbi)
    */
   TEST_ERROR_IF(dbi.name().ptr()[0]=='a');
 
-  old_map= dbug_tmp_use_all_columns(i_s_tables, i_s_tables->read_set);
-
-  if (ha->ha_rnd_init(TRUE) || TEST_ERROR)
+  if (!it || TEST_ERROR)
   {
-    dbug_tmp_restore_column_map(i_s_tables->read_set, old_map);
     report_error(ER_BACKUP_LIST_DB_TABLES,dbi.name().ptr());
     return ERROR;
   }
-
+  
   int res= 0;
-
-  /*
-   TODO: Instead of looping through all records in the I_S.TABLES table
-   we could execute an SQL query with appropriate WHERE clause.
-  */
-  while (!ha->rnd_next(i_s_tables->record[0]))
+  Obj *t= NULL;
+  
+  
+  while ((t= it->next()))
   {
-    String db_name;
-    String type;
-    String engine;
-
-    String *name= new (m_thd->mem_root) String();
-
-    /*
-      Read info about next table/view
-
-      Note: this should be synchronized with the definition of
-      INFORMATION_SCHEMA.TABLES table.
-     */
-    i_s_tables->field[1]->val_str(&db_name);
-    i_s_tables->field[2]->val_str(name);
-    i_s_tables->field[3]->val_str(&type);
-    i_s_tables->field[4]->val_str(&engine);
-
-    // skip tables not from the given database
-    if (db_name != dbi.name())
-    {
-      delete name;
-      continue;
-    }
-
-    // FIXME: right now, we handle only tables
-    if (type != String("BASE TABLE"))
-    {
-      report_error(log_level::WARNING,ER_BACKUP_SKIP_VIEW,
-                   name->c_ptr(),db_name.c_ptr());
-      delete name;
-      continue;
-    }
-
-    name->copy();
-    Backup_info::Table_ref t(dbi,*name);
-
+/*
     if (engine.is_empty())
     {
       Table_ref::describe_buf buf;
@@ -921,27 +850,21 @@ int Backup_info::add_db_items(Db_item &dbi)
       delete name;
       continue;
     }
-
+*/
     DBUG_PRINT("backup", ("Found table %s for database %s",
-                           t.name().ptr(), t.db().name().ptr()));
+                           t->get_name()->ptr(), dbi.name().ptr()));
 
     /*
       add_table() method selects/creates a snapshot to which this table is added.
       The backup engine is chooden in Backup_info::find_backup_engine() method.
     */
-    Table_item *ti= add_table(dbi,t);
+    Table_item *ti= add_table(dbi,Table_ref(dbi,t));
 
     if (!ti)
     {
-      delete name;
+      delete t;
       goto error;
     }
-
-    /*
-      We store pointers to created String objects so that they all will
-      be deleted in ~Backup_info().
-    */
-    name_strings.push_back(name);
 
     if (add_table_items(*ti))
       goto error;
@@ -952,13 +875,11 @@ int Backup_info::add_db_items(Db_item &dbi)
  error:
 
   res= res ? res : ERROR;
-
+  m_state= ERROR;
+  
  finish:
 
-  ha->ha_rnd_end();
-
-  dbug_tmp_restore_column_map(i_s_tables->read_set, old_map);
-
+  delete it;
   return res;
 }
 
@@ -1049,22 +970,6 @@ Backup_info::add_table(Db_item &dbi, const Table_ref &t)
     report_error(ER_OUT_OF_RESOURCES);
     goto end;
   }
-
-  /*
-    Note: we obtain and store CREATE statement here because that requires
-    the table to be opened. Otherwise we could do that when meta-data is
-    written.
-    We could still do this (and save memory used to store these statements)
-    at an expense of opening table again during meta-data write phase.
-
-    TODO: don't open table here, but locate its storage engine based on its
-    name (which is read from I_S.TABLES table). Then CREATE statement could
-    be constructed inside meta::Table::get_create_stmt() method.
-   */
-
-  ti->tl_entry= tl;
-  ti->get_create_stmt();
-  ti->tl_entry= NULL;
 
  end:
 
@@ -1215,49 +1120,22 @@ Restore_info::~Restore_info()
 {}
 
 /**
-  Restore an object given the metadata read from backup stream.
-
-  @param it    @c Item object describing the object to be restored,
-  @param stmt  that object's CREATE statement stored in the backup image
-               (can be empty),
-  @param begin first byte of extra metadata stored in the image,
-  @param end   one after the last byte of the extra metadat.
-
-  If no extra metadata was stored for that object, @c begin and @c end are NULL.
-
-  @note The actual job is done by @c Item::create()  and @c Item::drop()
-  methods, here we only create and maintain correct context for these methods
-  to work.
-*/
-result_t Restore_info::restore_item(Item &it, ::String &stmt,
-                                    byte *begin, byte *end)
+  Restore an object given its meta data.
+  
+  @param[in] it     Item instance identifying the object to restore
+  @param[in] sdata  the serialization read from backup image
+  @param[in] extra  other meta data stored in the image (not used now)
+ */ 
+result_t Restore_info::restore_item(Item &it, String &sdata, String &extra)
 {
-  /*
-    change the current database if we are going to create a per-db item
-    and we are not already in the correct one.
-  */
-  const Db_ref *db= it.in_db();
-
-  if (db && (!curr_db || *db != *curr_db))
-  {
-    DBUG_PRINT("restore",("  changing current db to %s",db->name().ptr()));
-    curr_db= db;
-    change_db(m_thd,*curr_db);
-  }
-
-  /*
-    note: This is destructive restore, so we drop each object before
-    creating it.
-  */
-
-  result_t ret= it.drop(::current_thd);
-
-  if (ret != OK)
-    return ret;
-
-  ret= it.create(m_thd, stmt, begin, end);
-
-  return ret;
+  using namespace obs;
+  
+  Obj *obj= it.obj_ptr(0, sdata);
+  
+  if (!obj)
+    return ERROR;
+  
+  return obj->execute(m_thd) ? ERROR : OK;
 }
 
 } // backup namespace
@@ -1431,6 +1309,94 @@ int bcat_add_item(st_bstream_image_header *catalogue, struct st_bstream_item_inf
 
   } // switch (item->type)
 }
+
+/*****************************************************************
+
+   Services for backup stream library related to meta-data
+   manipulation.
+
+ *****************************************************************/
+
+extern "C"
+int bcat_create_item(st_bstream_image_header *catalogue,
+                     struct st_bstream_item_info *item,
+                     bstream_blob create_stmt,
+                     bstream_blob other_meta_data)
+{
+  using namespace backup;
+  using namespace obs;
+
+  DBUG_ASSERT(catalogue);
+  DBUG_ASSERT(item);
+
+  Restore_info *info= static_cast<Restore_info*>(catalogue);
+
+  Image_info::Item *it= info->locate_item(item);
+
+  /*
+    TODO: Decide what to do when we come across unknown item (locate_item()
+    returns NULL): break the restore process as it is done now or continue
+    with a warning?
+  */
+
+  if (!it)
+    return BSTREAM_ERROR; // locate_item should report errors
+
+  backup::String sdata(create_stmt.begin, create_stmt.end);
+  backup::String other_data(other_meta_data.begin, other_meta_data.end);
+
+  DBUG_PRINT("restore",("Creating item of type %d pos %ld: %s",
+                         item->type, item->pos, sdata.ptr()));
+
+  result_t ret= info->restore_item(*it, sdata, other_data);
+
+  return ret == OK ? BSTREAM_OK : BSTREAM_ERROR;
+}
+
+extern "C"
+int bcat_get_item_create_query(st_bstream_image_header *catalogue,
+                               struct st_bstream_item_info *item,
+                               bstream_blob *stmt)
+{
+  using namespace backup;
+  using namespace obs;
+
+  DBUG_ASSERT(catalogue);
+  DBUG_ASSERT(item);
+  DBUG_ASSERT(stmt);
+
+  Image_info *info= static_cast<Image_info*>(catalogue);
+
+  Image_info::Item *it= info->locate_item(item);
+
+  if (!it)
+  {
+    // TODO: warn that object was not found (?)
+    return BSTREAM_ERROR;
+  }
+
+  info->create_stmt_buf.length(0);
+  result_t res= it->get_serialization(::current_thd, info->create_stmt_buf);
+
+  if (res != OK)
+    return BSTREAM_ERROR;
+
+  stmt->begin= (backup::byte*)info->create_stmt_buf.ptr();
+  stmt->end= stmt->begin + info->create_stmt_buf.length();
+
+  return BSTREAM_OK;
+}
+
+
+extern "C"
+int bcat_get_item_create_data(st_bstream_image_header *catalogue,
+                            struct st_bstream_item_info *item,
+                            bstream_blob *data)
+{
+  /* We don't use any extra data now */
+  return BSTREAM_ERROR;
+}
+
 
 /*************************************************
 

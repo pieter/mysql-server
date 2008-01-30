@@ -30,7 +30,6 @@ libbackup_la_SOURCES = \
   logger.cc \
   catalog.cc \
   kernel.cc \
-  meta_data.cc \
   data_backup.cc \
   be_default.cc \
   be_snapshot.cc \
@@ -57,7 +56,6 @@ noinst_HEADERS = \
   backup_aux.h \
   logger.h \
   catalog.h \
-  meta_data.h \
   be_native.h \
   be_default.h \
   be_snapshot.h \

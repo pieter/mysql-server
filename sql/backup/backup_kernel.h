@@ -226,7 +226,7 @@ class Restore_info: public Image_info, public Logger
   bool selected(const Image_info::Item&)
   { return TRUE; }
 
-  result_t restore_item(Item&, ::String&, byte*, byte*);
+  result_t restore_item(Item &it, String &sdata, String&);
 
   friend int restore_table_data(THD*, Restore_info&, IStream&);
   friend int ::bcat_add_item(st_bstream_image_header*,

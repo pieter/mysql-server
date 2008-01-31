@@ -100,6 +100,15 @@ execute_backup_command(THD *thd, LEX *lex)
     DBUG_RETURN(ER_SPECIFIC_ACCESS_DENIED_ERROR);
   }
 
+  /*
+    Check for progress tables.
+  */
+  if (check_ob_progress_tables(thd))
+  {
+    my_error(ER_BACKUP_PROGRESS_TABLES, MYF(0));
+    DBUG_RETURN(ER_BACKUP_PROGRESS_TABLES);
+  }
+
   Location *loc= Location::find(lex->backup_dir);
 
   if (!loc || !loc->is_valid())

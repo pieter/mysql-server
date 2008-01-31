@@ -6202,6 +6202,9 @@ ER_BACKUP_OPEN_TABLES
 ER_BACKUP_THREAD_INIT
         eng "Backup driver's table locking thread can not be initialized."
 
+ER_BACKUP_PROGRESS_TABLES
+        eng "Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'."
+
 ER_VIEW_NO_CREATION_CTX
   eng "View `%-.64s`.`%-.64s` has no creation context"
 ER_VIEW_INVALID_CREATION_CTX

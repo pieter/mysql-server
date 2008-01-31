@@ -44,3 +44,36 @@ do restore from 'test.bak';
 ERROR 0A000: RESTORE is not allowed in stored procedures
 DROP DATABASE adb;
 DROP DATABASE bdb;
+Making copies of progress tables.
+CREATE TABLE IF NOT EXISTS test.ob_copy LIKE mysql.online_backup;
+CREATE TABLE IF NOT EXISTS test.obp_copy LIKE mysql.online_backup_progress;
+CREATE DATABASE test_ob_error;
+CREATE TABLE test_ob_error.t1 (col_a int);
+INSERT INTO test_ob_error.t1 VALUES (1), (2), (3), (4), (5);
+Backup the database;
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+backup_id
+#
+DROP TABLE mysql.online_backup;
+Backup the database;
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+ERROR 42S02: Table 'mysql.online_backup' doesn't exist
+SHOW ERRORS;
+Level	Code	Message
+Error	1146	Table 'mysql.online_backup' doesn't exist
+Error	1649	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
+Restoring the table
+CREATE TABLE mysql.online_backup LIKE test.ob_copy;
+DROP TABLE test.ob_copy;
+DROP TABLE mysql.online_backup_progress;
+Backup the database;
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+ERROR 42S02: Table 'mysql.online_backup_progress' doesn't exist
+SHOW ERRORS;
+Level	Code	Message
+Error	1146	Table 'mysql.online_backup_progress' doesn't exist
+Error	1649	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
+Restoring the table
+CREATE TABLE mysql.online_backup_progress LIKE test.obp_copy;
+DROP TABLE test.obp_copy;
+DROP DATABASE test_ob_error;

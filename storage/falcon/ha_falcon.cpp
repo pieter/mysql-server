@@ -189,12 +189,15 @@ int StorageInterface::falcon_init(void *p)
 	falcon_hton->flags = HTON_NO_FLAGS;
 	storageHandler->addNfsLogger(falcon_debug_mask, StorageInterface::logger, NULL);
 
-	int repeatableRead = (falcon_consistent_read ? 
+	int newRepeatableRead = (falcon_consistent_read ? 
 		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
-	if (isolation_levels[2] != repeatableRead)
+	if (isolation_levels[ISO_REPEATABLE_READ] != newRepeatableRead)
+		{
+		int oldRepeatableRead = isolation_levels[ISO_REPEATABLE_READ];
 		for (int i = 0; i < 4; i++)
-			if ((i == 2) || (isolation_levels[i] == isolation_levels[2]))
-				isolation_levels[i] = repeatableRead;
+			if (isolation_levels[i] == oldRepeatableRead)
+				isolation_levels[i] = newRepeatableRead;
+		}
 
 	if (falcon_debug_server)
 		storageHandler->startNfsServer();
@@ -3036,10 +3039,13 @@ void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_v
 	int newRepeatableRead = (falcon_consistent_read ? 
 		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
 
-	if (isolation_levels[2] != newRepeatableRead)
+	if (isolation_levels[ISO_REPEATABLE_READ] != newRepeatableRead)
+		{
+		int oldRepeatableRead = isolation_levels[ISO_REPEATABLE_READ];
 		for (int i = 0; i < 4; i++)
-			if ((i == 2) || (isolation_levels[i] == isolation_levels[2]))
+			if (isolation_levels[i] == oldRepeatableRead)
 				isolation_levels[i] = newRepeatableRead;
+		}
 }
 
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)

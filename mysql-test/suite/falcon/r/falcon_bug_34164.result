@@ -1,0 +1,106 @@
+SET storage_engine = Falcon;
+*** Bug #34164 ***
+DROP DATABASE IF EXISTS test2;
+SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+CREATE DATABASE test2;
+USE test2;
+CREATE TABLE t1 (a int primary key, b int) engine=falcon;
+# Establish connection conn1 (user = root)
+USE test2;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+SHOW VARIABLES LIKE 'tx_isolation';
+Variable_name	Value
+tx_isolation	SERIALIZABLE
+SHOW VARIABLES LIKE 'falcon_consistent_read';
+Variable_name	Value
+falcon_consistent_read	OFF
+START TRANSACTION;
+SELECT * FROM t1;
+a	b
+Warnings:
+Warning	1568	Falcon does not support SERIALIZABLE ISOLATION, using REPEATABLE READ instead.
+INSERT INTO t1 VALUES (1,1);
+Warnings:
+Warning	1568	Falcon does not support SERIALIZABLE ISOLATION, using REPEATABLE READ instead.
+UPDATE t1 SET b = 11 WHERE a = 1;
+COMMIT;
+SELECT * FROM t1;
+a	b
+1	11
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SHOW VARIABLES LIKE 'tx_isolation';
+Variable_name	Value
+tx_isolation	READ-UNCOMMITTED
+SHOW VARIABLES LIKE 'falcon_consistent_read';
+Variable_name	Value
+falcon_consistent_read	OFF
+START TRANSACTION;
+SELECT * FROM t1;
+a	b
+1	11
+Warnings:
+Warning	1568	Falcon does not support READ UNCOMMITTED ISOLATION, using REPEATABLE READ instead.
+INSERT INTO t1 VALUES (2,2);
+Warnings:
+Warning	1568	Falcon does not support READ UNCOMMITTED ISOLATION, using REPEATABLE READ instead.
+UPDATE t1 SET b = 22 WHERE a = 2;
+COMMIT;
+SELECT * FROM t1;
+a	b
+1	11
+2	22
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+# Establish connection conn2 (user = root)
+USE test2;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+SHOW VARIABLES LIKE 'tx_isolation';
+Variable_name	Value
+tx_isolation	SERIALIZABLE
+SHOW VARIABLES LIKE 'falcon_consistent_read';
+Variable_name	Value
+falcon_consistent_read	ON
+START TRANSACTION;
+SELECT * FROM t1;
+a	b
+1	11
+2	22
+Warnings:
+Warning	1568	Falcon does not support SERIALIZABLE ISOLATION, using REPEATABLE READ instead.
+INSERT INTO t1 VALUES (3,3);
+Warnings:
+Warning	1568	Falcon does not support SERIALIZABLE ISOLATION, using REPEATABLE READ instead.
+UPDATE t1 SET b = 33 WHERE a = 3;
+COMMIT;
+SELECT * FROM t1;
+a	b
+1	11
+2	22
+3	3
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SHOW VARIABLES LIKE 'tx_isolation';
+Variable_name	Value
+tx_isolation	READ-UNCOMMITTED
+SHOW VARIABLES LIKE 'falcon_consistent_read';
+Variable_name	Value
+falcon_consistent_read	ON
+START TRANSACTION;
+SELECT * FROM t1;
+a	b
+1	11
+2	22
+3	3
+Warnings:
+Warning	1568	Falcon does not support READ UNCOMMITTED ISOLATION, using REPEATABLE READ instead.
+INSERT INTO t1 VALUES (4,4);
+Warnings:
+Warning	1568	Falcon does not support READ UNCOMMITTED ISOLATION, using REPEATABLE READ instead.
+UPDATE t1 SET b = 44 WHERE a = 4;
+COMMIT;
+SELECT * FROM t1;
+a	b
+1	11
+2	22
+3	3
+4	4
+DROP DATABASE test2;
+USE test;

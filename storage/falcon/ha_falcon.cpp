@@ -86,11 +86,16 @@ FILE		*falcon_log_file;
 static const ulonglong MSB = ULL(1) << ((sizeof(void *)*8 - 1) & 63);
 ulonglong max_memory_address = MSB | (MSB - 1);
 
+// These are the isolation levels we actually use.
+// They corespond to enum_tx_isolation from hamdler.h
+// 0 = ISO_READ_UNCOMMITTED, 1 = ISO_READ_COMMITTED,
+// 2 = ISO_REPEATABLE_READ,  3 = ISO_SERIALIZABLE
 
-int	isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
-	                       TRANSACTION_READ_COMMITTED,
-	                       TRANSACTION_CONSISTENT_READ, // TRANSACTION_WRITE_COMMITTED, // This is repeatable read
-	                       TRANSACTION_SERIALIZABLE};
+int	isolation_levels[4] = 
+	{TRANSACTION_CONSISTENT_READ, 	// TRANSACTION_READ_UNCOMMITTED
+	TRANSACTION_READ_COMMITTED,
+	TRANSACTION_CONSISTENT_READ, 	// TRANSACTION_WRITE_COMMITTED, // This is repeatable read
+	TRANSACTION_CONSISTENT_READ};	// TRANSACTION_SERIALIZABLE
 
 static const ulonglong default_table_flags = (	  HA_REC_NOT_IN_SEQ
 												| HA_NULL_IN_KEY
@@ -186,7 +191,10 @@ int StorageInterface::falcon_init(void *p)
 
 	int repeatableRead = (falcon_consistent_read ? 
 		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
-	isolation_levels[2] = repeatableRead;
+	if (isolation_levels[2] != repeatableRead)
+		for (int i = 0; i < 4; i++)
+			if ((i == 2) || (isolation_levels[i] == isolation_levels[2]))
+				isolation_levels[i] = repeatableRead;
 
 	if (falcon_debug_server)
 		storageHandler->startNfsServer();
@@ -3029,7 +3037,9 @@ void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_v
 		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
 
 	if (isolation_levels[2] != newRepeatableRead)
-		isolation_levels[2] = newRepeatableRead;
+		for (int i = 0; i < 4; i++)
+			if ((i == 2) || (isolation_levels[i] == isolation_levels[2]))
+				isolation_levels[i] = newRepeatableRead;
 }
 
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)

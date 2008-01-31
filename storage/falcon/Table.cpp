@@ -2479,8 +2479,7 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 
 			const char *text = "duplicate values for key %s in table %s.%s";
 			int code = UNIQUE_DUPLICATE;
-			isDuplicate(index, record, dup);
-			
+
 			if (state == Deadlock)
 				{
 				text = "deadlock on key %s in table %s.%s";

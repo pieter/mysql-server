@@ -358,6 +358,8 @@ void StorageTableShare::load(void)
 	Sync sync(&storageHandler->dictionarySyncObject, "StorageTableShare::load");
 	sync.lock(Exclusive);
 	Connection *connection = storageHandler->getDictionaryConnection();
+	if (!connection)
+		return;
 	PreparedStatement *statement = connection->prepareStatement(
 		"select given_schema_name,given_table_name,effective_schema_name,effective_table_name,tablespace_name "
 		"from falcon.tables where pathname=?");

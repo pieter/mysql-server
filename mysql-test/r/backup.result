@@ -1,3 +1,4 @@
+SET GLOBAL debug="d,backup_debug:d,backup";
 DROP DATABASE IF EXISTS db1;
 DROP DATABASE IF EXISTS db2;
 DROP DATABASE IF EXISTS db3;
@@ -41,7 +42,28 @@ CREATE TABLE `tasking` (
 LOCK TABLES `tasking` WRITE;
 INSERT INTO `tasking` VALUES ('333445555','405',23),('123763153','405',33.5),('921312388','601',44),('800122337','300',13),('820123637','300',9.5),('830132335','401',8.5),('333445555','300',11),('921312388','500',13),('800122337','300',44),('820123637','401',500.5),('830132335','400',12),('333445665','600',300.25),('123654321','607',444.75),('123456789','300',1000);
 UNLOCK TABLES;
+breakpoints: Getting lock "locking_thread_added"
+SELECT get_lock("locking_thread_added", 100);
+get_lock("locking_thread_added", 100)
+1
+backup: Send the backup command.
 BACKUP DATABASE db1,db2 TO 'test.ba';
+breakpoints: Check for lock in process list.
+breakpoints: Checking locks.
+SELECT id, command, state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%" OR info LIKE "default driver locking thread%";
+id	#
+command	Daemon
+state	Locking thread: holding table locks
+info	default driver locking thread
+id	#
+command	Query
+state	debug_sync_point: locking_thread_added
+info	BACKUP DATABASE db1,db2 TO 'test.ba'
+breakpoints: Release lock
+SELECT release_lock("locking_thread_added");
+release_lock("locking_thread_added")
+1
 backup_id
 #
 DROP DATABASE db1;

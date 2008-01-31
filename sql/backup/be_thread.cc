@@ -37,13 +37,6 @@
   *       use it and replace code in ndb_binlog_thread_func(void *arg) to
   *       call this function.
   *
-  * @TODO Make this thread visible to SHOW PROCESSLIST. The following code
-  *       can be used to do this. See BUG#32970 for more details.
-  *
-  *       pthread_mutex_lock(&LOCK_thread_count);
-  *       threads.append(thd);
-  *       pthread_mutex_unlock(&LOCK_thread_count);
-  *
   * @note my_net_init() this should be paired with my_net_end() on 
   *       close/kill of thread.
   */
@@ -58,6 +51,7 @@ THD *create_new_thd()
     delete thd;
     DBUG_RETURN(0);
   }
+  THD_CHECK_SENTRY(thd);
 
   thd->thread_stack = (char*)&thd; // remember where our stack is  
   pthread_mutex_lock(&LOCK_thread_count);
@@ -65,6 +59,7 @@ THD *create_new_thd()
   pthread_mutex_unlock(&LOCK_thread_count);
   if (unlikely(thd->store_globals())) // for a proper MEM_ROOT  
   {
+    thd->cleanup();
     delete thd;
     DBUG_RETURN(0);
   }
@@ -83,6 +78,17 @@ THD *create_new_thd()
 
   lex_start(thd);
   mysql_reset_thd_for_next_command(thd);
+
+  /*
+    Making this thread visible to SHOW PROCESSLIST is useful for
+    troubleshooting a backup job (why does it stall etc).
+  */
+  pthread_mutex_lock(&LOCK_thread_count);
+  threads.append(thd);
+  thread_count++;
+  thread_running++;
+  pthread_mutex_unlock(&LOCK_thread_count);
+
   DBUG_RETURN(thd);
 }
 
@@ -110,22 +116,28 @@ pthread_handler_t backup_thread_for_locking(void *arg)
   my_thread_init();
 #endif
 
-  pthread_detach_this_thread();
-
   /*
     First, create a new THD object.
   */
   DBUG_PRINT("info",("Online backup creating THD struct for thread"));
   THD *thd= create_new_thd();
+
+  THD_SET_PROC_INFO(thd, "Locking thread started");
+  thd->query= locking_thd->thd_name.c_ptr();
+  thd->query_length= locking_thd->thd_name.length();
+
+  pthread_detach_this_thread();
   locking_thd->lock_thd= thd;
   if (thd == 0)
   {
+    THD_SET_PROC_INFO(thd, "lock error");
     locking_thd->lock_state= LOCK_ERROR;
     goto end2;
   }
 
   if (thd->killed)
   {
+    THD_SET_PROC_INFO(thd, "lock error");
     locking_thd->lock_state= LOCK_ERROR;
     goto end2;
   }
@@ -137,6 +149,7 @@ pthread_handler_t backup_thread_for_locking(void *arg)
   if (!locking_thd->tables_in_backup)
   {
     DBUG_PRINT("info",("Online backup locking error no tables to lock"));
+    THD_SET_PROC_INFO(thd, "lock error");
     locking_thd->lock_state= LOCK_ERROR;
     goto end2;
   }
@@ -149,12 +162,14 @@ pthread_handler_t backup_thread_for_locking(void *arg)
   if (!thd->killed && open_and_lock_tables(thd, locking_thd->tables_in_backup))
   {
     DBUG_PRINT("info",("Online backup locking thread dying"));
+    THD_SET_PROC_INFO(thd, "lock error");
     locking_thd->lock_state= LOCK_ERROR;
     goto end;
   }
 
   if (thd->killed)
   {
+    THD_SET_PROC_INFO(thd, "lock error");
     locking_thd->lock_state= LOCK_ERROR;
     goto end;
   }
@@ -163,6 +178,7 @@ pthread_handler_t backup_thread_for_locking(void *arg)
     Part of work is done. Rest until woken up.
     We wait if the thread is not killed and the driver has not signaled us.
   */
+  THD_SET_PROC_INFO(thd, "waiting for signal");
   pthread_mutex_lock(&locking_thd->THR_LOCK_thread);
   locking_thd->lock_state= LOCK_ACQUIRED;
   thd->enter_cond(&locking_thd->COND_thread_wait,
@@ -172,6 +188,7 @@ pthread_handler_t backup_thread_for_locking(void *arg)
     pthread_cond_wait(&locking_thd->COND_thread_wait,
                       &locking_thd->THR_LOCK_thread);
   thd->exit_cond("Locking thread: terminating");
+  THD_SET_PROC_INFO(thd, "terminating");
 
   DBUG_PRINT("info",("Locking thread locking thread terminating"));
 
@@ -182,6 +199,11 @@ end:
   close_thread_tables(thd);
 
 end2:
+  pthread_mutex_lock(&LOCK_thread_count);
+  thread_count--;
+  thread_running--;
+  pthread_mutex_unlock(&LOCK_thread_count);
+
   pthread_mutex_lock(&locking_thd->THR_LOCK_caller);
   net_end(&thd->net);
   my_thread_end();
@@ -189,6 +211,7 @@ end2:
   locking_thd->lock_thd= NULL;
   if (locking_thd->lock_state != LOCK_ERROR)
     locking_thd->lock_state= LOCK_DONE;
+  THD_SET_PROC_INFO(thd, "lock done");
 
   /*
     Signal the driver thread that it's ok to proceed with destructor.
@@ -213,6 +236,7 @@ Locking_thread_st::Locking_thread_st()
   pthread_cond_init(&COND_caller_wait, NULL);
   lock_state= LOCK_NOT_STARTED;
   lock_thd= NULL; // set to 0 as precaution for get_data being called too soon
+  thd_name.length(0);
 };
 
 /*
@@ -254,14 +278,18 @@ Locking_thread_st::~Locking_thread_st()
 
    Launches a separate thread ("locking thread") which will lock
    tables.
+
+   @param[in] tname The name of the thread which will show in
+              process list.
  */
-result_t Locking_thread_st::start_locking_thread()
+result_t Locking_thread_st::start_locking_thread(const char *tname)
 {
   DBUG_ENTER("Locking_thread_st::start_locking_thread");
   pthread_t th;
   if (pthread_create(&th, &connection_attrib,
                      backup_thread_for_locking, this))
     SET_STATE_TO_ERROR_AND_DBUG_RETURN;
+  thd_name.append(tname);
   DBUG_RETURN(backup::OK);
 }
 

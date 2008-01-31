@@ -29,13 +29,6 @@ using backup::result_t;
 using backup::Table_list;
 
 /**
-   create_new_thd
-
-   This method creates a new THD object.
-*/
-THD *create_new_thd();
-
-/**
    backup_thread_for_locking
 
    This method creates a new thread and opens and locks the tables.
@@ -66,8 +59,9 @@ public:
   THD *lock_thd;                   ///< Locking thread pointer
   LOCK_STATE lock_state;           ///< Current state of the lock call
   THD *m_thd;                      ///< Pointer to current thread struct.
+  String thd_name;                 ///< Name of locking thread
 
-  result_t start_locking_thread();
+  result_t start_locking_thread(const char *tname);
   void kill_locking_thread();
 
 }; // Locking_thread_st

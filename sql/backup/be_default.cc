@@ -138,7 +138,7 @@ Backup::Backup(const Table_list &tables, THD *t_thd, thr_lock_type lock_type):
 result_t Backup::prelock()
 {
   DBUG_ENTER("Default_backup::prelock()");
-  DBUG_RETURN(locking_thd->start_locking_thread());
+  DBUG_RETURN(locking_thd->start_locking_thread("default driver locking thread"));
 }
 
 /**
@@ -297,6 +297,7 @@ result_t Backup::get_data(Buffer &buf)
     case LOCK_ACQUIRED:          // First time lock ready for validity point
     {
       locks_acquired= TRUE;
+      BACKUP_BREAKPOINT("locking_thread_added");
       DBUG_RETURN(READY);
     }
     default:                     // If first call, signal end of init phase

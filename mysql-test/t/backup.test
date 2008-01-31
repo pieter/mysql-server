@@ -1,9 +1,14 @@
 --source include/have_innodb.inc
 --source include/not_embedded.inc
+--source include/have_debug.inc
 
 connect (backup,localhost,root,,);
+connect (breakpoints,localhost,root,,);
 
 connection backup;
+
+# Setup the server to use the backup breakpoints
+SET GLOBAL debug="d,backup_debug:d,backup";
 
 --disable_warnings
 DROP DATABASE IF EXISTS db1;
@@ -93,9 +98,43 @@ LOCK TABLES `tasking` WRITE;
 INSERT INTO `tasking` VALUES ('333445555','405',23),('123763153','405',33.5),('921312388','601',44),('800122337','300',13),('820123637','300',9.5),('830132335','401',8.5),('333445555','300',11),('921312388','500',13),('800122337','300',44),('820123637','401',500.5),('830132335','400',12),('333445665','600',300.25),('123654321','607',444.75),('123456789','300',1000);
 UNLOCK TABLES;
 
+#
+# Get a lock to check for locking thread in process list
+# Note that this portion of the test is designed to merely
+# test that the locking thread code is correctly displayed
+# in the process list and not a complete test of the locking
+# thread code.
+#
+connection breakpoints;
+--echo breakpoints: Getting lock "locking_thread_added"
+SELECT get_lock("locking_thread_added", 100);
+
+connection backup;
+--echo backup: Send the backup command.
+send BACKUP DATABASE db1,db2 TO 'test.ba';
+
+# get the lock and wait until lock is identified in process list
+connection breakpoints;
+--echo breakpoints: Check for lock in process list.
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo breakpoints: Checking locks.
+let $wait_condition = SELECT count(*) = 1
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "default driver locking thread%";
+--source include/wait_condition.inc
 
 --replace_column 1 #
-BACKUP DATABASE db1,db2 TO 'test.ba';
+query_vertical SELECT id, command, state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%" OR info LIKE "default driver locking thread%";
+
+--echo breakpoints: Release lock
+SELECT release_lock("locking_thread_added");
+
+# reattach to backup job
+connection backup;
+--replace_column 1 #
+reap;
 
 DROP DATABASE db1;
 DROP DATABASE db2;
@@ -295,4 +334,6 @@ DROP DATABASE IF EXISTS bup_default;
 --enable_warnings
 
 --remove_file $MYSQLTEST_VARDIR/master-data/bup_default.bak
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/test.ba
 

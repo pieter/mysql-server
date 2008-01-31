@@ -1189,6 +1189,9 @@ void Table::update(Transaction * transaction, Record * oldRecord, int numberFiel
 		
 		if (record)
 			{
+			if (record->priorVersion)
+				record->priorVersion->setSuperceded(false);
+								
 			if (record->state == recLock)
 				record->deleteData();
 
@@ -3034,6 +3037,9 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 	
 		if (record)
 			{
+			if (record->priorVersion)
+				record->priorVersion->setSuperceded(false);
+								
 			if (record->state == recLock)
 				record->deleteData();
 
@@ -3526,7 +3532,7 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 		
 		Transaction *transaction = record->getTransaction();
 		
-		if (transaction && transaction->state == Committed)
+		if (!transaction || transaction->state == Committed)
 			{
 			record->release();
 			

@@ -40,6 +40,7 @@
 #include "SRLOverflowPages.h"
 #include "Transaction.h"
 #include "PageInventoryPage.h"
+#include "SQLError.h"
 
 //#define STOP_PAGE	114
 //#define STOP_SECTION	40
@@ -1245,18 +1246,42 @@ void Section::redoSectionPage(Dbb *dbb, int32 parentPage, int32 pageNumber, int 
 
 int32 Section::getSectionRoot()
 {
-	Bdb *bdb = getSectionPage (dbb, SECTION_ROOT, sectionId / dbb->pagesPerSection, Shared, NO_TRANSACTION);
+	Bdb *bdb = getSectionPage(dbb, SECTION_ROOT, sectionId / dbb->pagesPerSection, Shared, NO_TRANSACTION);
 	BDB_HISTORY(bdb);
 	SectionPage *sectionPage = (SectionPage*) bdb->buffer;
-	root = sectionPage->pages [sectionId % dbb->pagesPerSection];
+	root = sectionPage->pages[sectionId % dbb->pagesPerSection];
 	bdb->release(REL_HISTORY);
 
+	if (root == 0)
+		{
+		if (!dbb->serialLog->recovering)
+			throw SQLError(DATABASE_DAMAGED, "Missing section root for section %d/%d\n", sectionId, dbb->tableSpaceId);
+
+		// Missing root page -- make a new one
+		
+		Bdb *sectionBdb = dbb->allocPage(PAGE_sections, NO_TRANSACTION);
+		BDB_HISTORY(sectionBdb);
+		root = sectionBdb->pageNumber;
+		SectionPage *page = (SectionPage*) sectionBdb->buffer;
+		page->section = sectionId;
+		sectionBdb->release(REL_HISTORY);
+		
+		// Register new root page
+			
+		bdb = getSectionPage(dbb, SECTION_ROOT, sectionId / dbb->pagesPerSection, Exclusive, NO_TRANSACTION);
+		BDB_HISTORY(bdb);
+		sectionPage = (SectionPage*) bdb->buffer;
+		sectionPage->pages[sectionId % dbb->pagesPerSection] = root;
+		bdb->release(REL_HISTORY);
+		}
+
+		
 	return root;
 }
 
 void Section::redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostFlush)
 {
-	Bdb *bdb = getSectionPage (sequence / dbb->pagesPerSection, Exclusive, NO_TRANSACTION);
+	Bdb *bdb = getSectionPage(sequence / dbb->pagesPerSection, Exclusive, NO_TRANSACTION);
 	BDB_HISTORY(bdb);
 	SectionPage *sectionPage = (SectionPage*) bdb->buffer;
 	int slot = sequence % dbb->pagesPerSection;

@@ -23,7 +23,7 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/extra/yassl/include)
 
 SET(BACKUP_SOURCES stream.cc logger.cc kernel.cc
-               catalog.cc meta_data.cc data_backup.cc
+               catalog.cc data_backup.cc
                be_default.cc buffer_iterator.cc
                be_snapshot.cc be_thread.cc backup_progress.cc
                backup_test.cc)

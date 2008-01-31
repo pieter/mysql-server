@@ -29,4 +29,5 @@ COMMIT;
 SELECT count(*) FROM t1;
 count(*)
 0
+COMMIT;
 DROP DATABASE db1;

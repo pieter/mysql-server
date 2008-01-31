@@ -1,114 +1,130 @@
 # Establish connection con1 (user=root)
 # Establish connection con2 (user=root)
-drop table if exists t1,t2;
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
 # Switch to connection con1
-create table t1 (id integer, x integer) engine=Falcon;
-insert into t1 values(0, 0);
-set autocommit=0;
-SELECT * from t1 where id = 0 FOR UPDATE;
+CREATE TABLE t1 (
+id integer,
+x integer
+);
+INSERT INTO t1 VALUES (0, 0);
+SET @@autocommit = 0;
+SELECT * FROM t1 WHERE id = 0 FOR UPDATE;
 id	x
 0	0
 # Switch to connection con2
-set autocommit=0;
-update t1 set x=2 where id = 0;
+SET @@autocommit = 0;
+UPDATE t1 SET x = 2 WHERE id = 0;
 # Switch to connection con1
-update t1 set x=1 where id = 0;
-select * from t1;
+UPDATE t1 SET x = 1 WHERE id = 0;
+SELECT * FROM t1;
 id	x
 0	1
-commit;
+COMMIT;
 # Switch to connection con2
-commit;
+COMMIT;
 # Switch to connection con1
-select * from t1;
+SELECT * FROM t1;
 id	x
 0	2
-commit;
-drop table t1;
+COMMIT;
+DROP TABLE t1;
 # Switch to connection con1
-create table t1 (id integer, x integer) engine=Falcon;
-create table t2 (b integer, a integer) engine=Falcon;
-insert into t1 values(0, 0), (300, 300);
-insert into t2 values(0, 10), (1, 20), (2, 30);
-commit;
-set autocommit=0;
-select * from t2;
+CREATE TABLE t1 (
+id integer,
+x integer
+);
+CREATE TABLE t2 (
+b integer,
+a integer
+);
+INSERT INTO t1 VALUES (0, 0), (300, 300);
+INSERT INTO t2 VALUES (0, 10), (1, 20), (2, 30);
+COMMIT;
+SELECT * FROM t2;
 b	a
 0	10
 1	20
 2	30
-update t2 set a=100 where b=(SELECT x from t1 where id = b FOR UPDATE);
-select * from t2;
+UPDATE t2 SET a = 100 WHERE b = (SELECT x FROM t1 WHERE id = b FOR UPDATE);
+SELECT * FROM t2;
 b	a
 0	100
 1	20
 2	30
-select * from t1;
+SELECT * FROM t1;
 id	x
 0	0
 300	300
 # Switch to connection con2
-set autocommit=0;
-update t1 set x=2 where id = 0;
+UPDATE t1 SET x = 2 WHERE id = 0;
 # Switch to connection con1
-update t1 set x=1 where id = 0;
-select * from t1;
+UPDATE t1 SET x = 1 WHERE id = 0;
+SELECT * FROM t1;
 id	x
 0	1
 300	300
-commit;
+COMMIT;
 # Switch to connection con2
-commit;
+COMMIT;
 # Switch to connection con1
-select * from t1;
+SELECT * FROM t1;
 id	x
 0	2
 300	300
-commit;
-drop table t1, t2;
-create table t1 (id integer, x integer) engine=Falcon;
-create table t2 (b integer, a integer) engine=Falcon;
-insert into t1 values(0, 0), (300, 300);
-insert into t2 values(0, 0), (1, 20), (2, 30);
-commit;
+COMMIT;
+DROP TABLE t1;
+DROP TABLE t2;
+CREATE TABLE t1 (
+id integer,
+x integer
+);
+CREATE TABLE t2 (
+b integer,
+a integer
+);
+INSERT INTO t1 VALUES (0, 0), (300, 300);
+INSERT INTO t2 VALUES (0, 0), (1, 20), (2, 30);
+COMMIT;
 # Switch to connection con1
-select a,b from t2 UNION SELECT id, x from t1 FOR UPDATE;
+SELECT a, b FROM t2 UNION SELECT id, x FROM t1 FOR UPDATE;
 a	b
 0	0
 20	1
 30	2
 300	300
-select * from t2;
+SELECT * FROM t2;
 b	a
 0	0
 1	20
 2	30
-select * from t1;
+SELECT * FROM t1;
 id	x
 0	0
 300	300
 # Switch to connection con2
-update t2 set a=2 where b = 0;
-select * from t2;
+UPDATE t2 SET a = 2 WHERE b = 0;
+SELECT * FROM t2;
 b	a
 0	2
 1	20
 2	30
-update t1 set x=2 where id = 0;
+UPDATE t1 SET x = 2 WHERE id = 0;
 # Switch to connection con1
-update t1 set x=1 where id = 0;
-select * from t1;
+UPDATE t1 SET x = 1 WHERE id = 0;
+SELECT * FROM t1;
 id	x
 0	1
 300	300
-commit;
+COMMIT;
 # Switch to connection con2
-commit;
+COMMIT;
 # Switch to connection con1
-select * from t1;
+SELECT * FROM t1;
 id	x
 0	2
 300	300
-commit;
+COMMIT;
 # Switch to connection default + disconnect con1 and con2
-drop table t1, t2;
+DROP TABLE t1;
+DROP TABLE t2;

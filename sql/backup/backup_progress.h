@@ -93,6 +93,12 @@ enum enum_backup_op
 };
 
 /*
+  This method attempts to open the online backup progress tables. It returns
+  an error if either table is not present or cannot be opened.
+*/
+my_bool check_ob_progress_tables(THD *thd);
+
+/*
   This method inserts a new row in the online_backup table populating it with
   the initial values passed. It returns the backup_id of the new row.
 */

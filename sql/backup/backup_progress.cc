@@ -27,7 +27,47 @@
 #include "backup_progress.h"
 #include "be_thread.h"
 
-extern bool check_if_table_exists(THD *thd, TABLE_LIST *table, bool *exists);
+/**
+   Check online backup progress tables.
+
+   This method attempts to open the online backup progress tables. It returns
+   an error if either table is not present or cannot be opened.
+
+   @param[in] THD * The current thread.
+
+   @returns Information whether backup progress tables can be used.
+
+   @retval FALSE  success
+   @retval TRUE  failed to open one of the tables
+  */
+my_bool check_ob_progress_tables(THD *thd)
+{
+  TABLE_LIST tables;
+  my_bool ret= FALSE;
+
+  DBUG_ENTER("check_ob_progress_tables");
+
+  /* Check mysql.online_backup */
+  tables.init_one_table("mysql", "online_backup", TL_READ);
+  if (simple_open_n_lock_tables(thd, &tables))
+  {
+    ret= TRUE;
+    sql_print_error(ER(ER_BACKUP_PROGRESS_TABLES));
+    DBUG_RETURN(ret);
+  }
+  close_thread_tables(thd);
+
+  /* Check mysql.online_backup_progress */
+  tables.init_one_table("mysql", "online_backup_progress", TL_READ);
+  if (simple_open_n_lock_tables(thd, &tables))
+  {
+    ret= TRUE;
+    sql_print_error(ER(ER_BACKUP_PROGRESS_TABLES));
+    DBUG_RETURN(ret);
+  }
+  close_thread_tables(thd);
+  DBUG_RETURN(ret);
+}
 
 /**
    Open backup progress table.

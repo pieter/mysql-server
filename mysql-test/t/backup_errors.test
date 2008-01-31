@@ -57,3 +57,57 @@ DROP DATABASE bdb;
 # will fail and we will be warned that something is wrong with the test
 --error 1
 --remove_file $MYSQLTEST_VARDIR/master-data/test.bak
+
+#
+# BUG#33352 - Test for presence of online backup progress tables;
+#
+
+# Make backup copies of the tables first.
+--echo Making copies of progress tables.
+CREATE TABLE IF NOT EXISTS test.ob_copy LIKE mysql.online_backup;
+CREATE TABLE IF NOT EXISTS test.obp_copy LIKE mysql.online_backup_progress;
+
+# Create a database and put some data in it.
+CREATE DATABASE test_ob_error;
+CREATE TABLE test_ob_error.t1 (col_a int);
+INSERT INTO test_ob_error.t1 VALUES (1), (2), (3), (4), (5);
+
+# Backup the database to ensure db is ok.
+--echo Backup the database;
+--replace_column 1 #
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+--remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
+
+# Drop one of the tables and try a backup.
+DROP TABLE mysql.online_backup;
+
+# Try to backup the database (should be error).
+--echo Backup the database;
+--error ER_NO_SUCH_TABLE
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
+SHOW ERRORS;
+
+# Restore the table
+--echo Restoring the table
+CREATE TABLE mysql.online_backup LIKE test.ob_copy;
+DROP TABLE test.ob_copy;
+
+# Drop one of the tables and try a backup.
+DROP TABLE mysql.online_backup_progress;
+
+# Try to backup the database (should be error).
+--echo Backup the database;
+--error ER_NO_SUCH_TABLE
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
+SHOW ERRORS;
+
+# Restore the table
+--echo Restoring the table
+CREATE TABLE mysql.online_backup_progress LIKE test.obp_copy;
+DROP TABLE test.obp_copy;
+
+DROP DATABASE test_ob_error;

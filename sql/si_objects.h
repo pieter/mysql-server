@@ -506,22 +506,13 @@ void ddl_blocker_exception_on(THD *thd);
 */
 void ddl_blocker_exception_off(THD *thd);
 
-/**
-  Build a where clause for list of databases.
-
-  This method is used to help improve the efficiency of queries against
-  information schema tables. It builds a condition tree of the form
-  db_col IN ('a','b','c') where a,b,c are database names.
-
-  @param[in] thd      Thread context.
-  @param[in] t        The table to operate on.
-  @param[in] db_list  The list of databases in form List<LEX_STRING>
-
-  @returns NULL if no databases in list or pointer to COND tree.
+/*
+  Creates a WHERE clause for information schema table lookups of the
+  for FROM INFORMATION_SCHEMA.X WHERE <db_col> IN ('a','b','c').
 */
 COND *create_db_select_condition(THD *thd, 
                                  TABLE *t,
-                                 List<LEX_STRING> db_list);
+                                 List<LEX_STRING> *db_list);
 
 } // obs namespace
 

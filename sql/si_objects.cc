@@ -270,8 +270,13 @@ bool drop_object(THD *thd, const char *obj_name, String *name1, String *name2)
   Open given table in @c INFORMATION_SCHEMA database.
 
   This is a private helper function to the implementation.
+
+  @param[in] thd  Thread context
+  @param[in] st   Schema table enum
+
+  @retval TABLE* The schema table
 */
-TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st, List<LEX_STRING> db_list)
+TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st, List<LEX_STRING> *db_list)
 {
   TABLE *t;
   TABLE_LIST arg;
@@ -303,8 +308,7 @@ TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st, List<LEX_STRING> db_list
 
   old_map= tmp_use_all_columns(t, t->read_set);
 
-  st->fill_table(thd, &arg, 
-    obs::create_db_select_condition(thd, t, db_list));
+  st->fill_table(thd, &arg, obs::create_db_select_condition(thd, t, db_list));
 
   tmp_restore_column_map(t->read_set, old_map);
 
@@ -377,24 +381,32 @@ void delete_table_name_key(void *data)
 
 namespace obs {
   
-/*
-  Creates a WHERE clause for information schema table lookups of the
-  for FROM INFORMATION_SCHEMA.X WHERE <db_col> IN ('a','b','c').
+/**
+  Build a where clause for list of databases.
+
+  This method is used to help improve the efficiency of queries against
+  information schema tables. It builds a condition tree of the form
+  db_col IN ('a','b','c') where a,b,c are database names.
+
+  @param[in] thd      Thread context.
+  @param[in] t        The table to operate on.
+  @param[in] db_list  The list of databases in form List<LEX_STRING>
+
+  @returns NULL if no databases in list or pointer to COND tree.
 */
 COND *create_db_select_condition(THD *thd, 
                                  TABLE *t,
-                                 List<LEX_STRING> db_list)
+                                 List<LEX_STRING> *db_list)
 {
   List<Item> in_db_list;
-  List< ::LEX_STRING> &dbs= db_list;
-  List_iterator< ::LEX_STRING> it(dbs);
+  List_iterator< ::LEX_STRING> it(*db_list);
   ::LEX_STRING *db;
   DBUG_ENTER("Obj::create_select_condition()");
   
   /*
     If no list of databases, just return NULL
   */
-  if (!db_list.elements)
+  if (!db_list->elements)
     DBUG_RETURN(NULL);
 
   /*
@@ -950,7 +962,7 @@ bool InformationSchemaIterator::prepare_is_table(
   enum_schema_tables is_table_idx,
   List<LEX_STRING> db_list)
 {
-  *is_table= open_schema_table(thd, get_schema_table(is_table_idx), db_list);
+  *is_table= open_schema_table(thd, get_schema_table(is_table_idx), &db_list);
 
   if (!*is_table)
     return TRUE;

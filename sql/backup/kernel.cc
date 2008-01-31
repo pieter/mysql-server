@@ -1817,7 +1817,7 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
   old_map= tmp_use_all_columns(t, t->read_set);
 
   st->fill_table(thd, &arg, 
-    obs::create_db_select_condition(thd, t, thd->lex->db_list));
+    obs::create_db_select_condition(thd, t, &thd->lex->db_list));
 
   tmp_restore_column_map(t->read_set, old_map);
 

@@ -28,6 +28,7 @@
 #include "be_snapshot.h"
 #include "ddl_blocker.h"
 #include "backup_progress.h"
+#include "si_objects.h"
 
 extern DDL_blocker_class *DDL_blocker;
 
@@ -1815,11 +1816,8 @@ TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
 
   old_map= tmp_use_all_columns(t, t->read_set);
 
-  /*
-    Question: is it correct to fill I_S table each time we use it or should it
-    be filled only once?
-   */
-  st->fill_table(thd,&arg,NULL);  // NULL = no select condition
+  st->fill_table(thd, &arg, 
+    obs::create_db_select_condition(thd, t, thd->lex->db_list));
 
   tmp_restore_column_map(t->read_set, old_map);
 

@@ -271,7 +271,7 @@ bool drop_object(THD *thd, const char *obj_name, String *name1, String *name2)
 
   This is a private helper function to the implementation.
 */
-TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
+TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st, List<LEX_STRING> db_list)
 {
   TABLE *t;
   TABLE_LIST arg;
@@ -303,11 +303,8 @@ TABLE* open_schema_table(THD *thd, ST_SCHEMA_TABLE *st)
 
   old_map= tmp_use_all_columns(t, t->read_set);
 
-  /*
-    Question: is it correct to fill I_S table each time we use it or should it
-    be filled only once?
-   */
-  st->fill_table(thd,&arg,NULL);  // NULL = no select condition
+  st->fill_table(thd, &arg, 
+    obs::create_db_select_condition(thd, t, db_list));
 
   tmp_restore_column_map(t->read_set, old_map);
 
@@ -379,6 +376,53 @@ void delete_table_name_key(void *data)
 ///////////////////////////////////////////////////////////////////////////
 
 namespace obs {
+  
+/*
+  Creates a WHERE clause for information schema table lookups of the
+  for FROM INFORMATION_SCHEMA.X WHERE <db_col> IN ('a','b','c').
+*/
+COND *create_db_select_condition(THD *thd, 
+                                 TABLE *t,
+                                 List<LEX_STRING> db_list)
+{
+  List<Item> in_db_list;
+  List< ::LEX_STRING> &dbs= db_list;
+  List_iterator< ::LEX_STRING> it(dbs);
+  ::LEX_STRING *db;
+  DBUG_ENTER("Obj::create_select_condition()");
+  
+  /*
+    If no list of databases, just return NULL
+  */
+  if (!db_list.elements)
+    DBUG_RETURN(NULL);
+
+  /*
+    Build an inclusion list in the form of 'a', 'b', etc.
+  */
+  while ((db= it++))
+  {
+    Item *db_name= new Item_string(db->str, db->length, system_charset_info);
+    db_name->fix_fields(thd, &db_name);
+    db_name->next= NULL;
+    in_db_list.push_front(db_name);
+  }
+
+  /*
+    Build the compared field "table_schema" and link to temp table field.
+  */
+  Item *db_field= new Item_field(thd, thd->lex->current_context(), t->field[1]);
+  in_db_list.push_front(db_field);
+  
+  /*
+    Build the in function item comparison and add list of databases.
+  */
+  Item_func_in *in_cond = new Item_func_in(in_db_list);
+  in_cond->fix_fields(thd, (Item **)&in_cond);
+  in_cond->fix_length_and_dec();
+
+  DBUG_RETURN(in_cond);
+}
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -658,7 +702,8 @@ public:
     TABLE **is_table,
     handler **ha,
     my_bitmap_map **orig_columns,
-    enum_schema_tables is_table_idx);
+    enum_schema_tables is_table_idx,
+    List<LEX_STRING> db_list);
 
 public:
   InformationSchemaIterator(THD *thd,
@@ -902,9 +947,10 @@ bool InformationSchemaIterator::prepare_is_table(
   TABLE **is_table,
   handler **ha,
   my_bitmap_map **orig_columns,
-  enum_schema_tables is_table_idx)
+  enum_schema_tables is_table_idx,
+  List<LEX_STRING> db_list)
 {
-  *is_table= open_schema_table(thd, get_schema_table(is_table_idx));
+  *is_table= open_schema_table(thd, get_schema_table(is_table_idx), db_list);
 
   if (!*is_table)
     return TRUE;
@@ -1283,7 +1329,8 @@ ObjIterator *get_databases(THD *thd)
   my_bitmap_map *orig_columns;
 
   if (InformationSchemaIterator::prepare_is_table(
-      thd, &is_table, &ha, &orig_columns, SCH_SCHEMATA))
+      thd, &is_table, &ha, &orig_columns, SCH_SCHEMATA, 
+      thd->lex->db_list))
     return NULL;
 
   return new DatabaseIterator(thd, is_table, ha, orig_columns);
@@ -1298,8 +1345,16 @@ Iterator *create_is_iterator(THD *thd,
   handler *ha;
   my_bitmap_map *orig_columns;
 
+  LEX_STRING dbname;
+  String db;
+  db.copy(*db_name);
+  thd->make_lex_string(&dbname, db.c_ptr(), db.length(), FALSE);
+  List<LEX_STRING> db_list;
+  db_list.push_back(&dbname);
+
   if (InformationSchemaIterator::prepare_is_table(
-      thd, &is_table, &ha, &orig_columns, is_table_idx))
+      thd, &is_table, &ha, &orig_columns, is_table_idx,
+      db_list))
     return NULL;
 
   return new Iterator(thd, db_name, is_table, ha, orig_columns);

@@ -1,4 +1,5 @@
 *** Bug #29452 - Wait Lock Timout ***
+SET @@storage_engine = 'Falcon';
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
 SELECT @@falcon_lock_wait_timeout INTO @previous_lock_wait_timeout;
@@ -11,8 +12,8 @@ Variable_name	Value
 falcon_lock_wait_timeout	2
 # Establish connection conn1
 # Switch to connection default
-CREATE TABLE t1 (a varchar(50), PRIMARY KEY (a)) engine = falcon;
-CREATE TABLE t2 (a varchar(50)) engine = myisam;
+CREATE TABLE t1 (a varchar(50), PRIMARY KEY (a));
+CREATE TABLE t2 (a varchar(50)) Engine 'MyISAM';
 CREATE TRIGGER bi BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO t2 VALUES ('inserted by trigger');
 BEGIN;
 INSERT INTO t1 VALUES('inserted by client 1');
@@ -32,7 +33,16 @@ inserted by trigger
 INSERT INTO t1 VALUES('inserted by client 1');
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction
 # Switch to connection default
+COMMIT;
+SELECT count(*) FROM t1;
+count(*)
+1
+SELECT count(*) FROM t2;
+count(*)
+2
+# Switch to connection default
 DROP TABLE t1;
+DROP TABLE t2;
 SET GLOBAL FALCON_LOCK_WAIT_TIMEOUT = @previous_lock_wait_timeout;
 SHOW VARIABLES LIKE 'FALCON_LOCK_WAIT_TIMEOUT';
 Variable_name	Value

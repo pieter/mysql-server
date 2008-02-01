@@ -1,9 +1,15 @@
-#--disable_abort_on_error
-
+--source include/have_falcon.inc
 #
-# 29452: Prevent ohterwise unpreventable deadlocks with a wait lock timout
+# Bug #29452: Prevent ohterwise unpreventable deadlocks with a wait lock timout
 #
 --echo *** Bug #29452 - Wait Lock Timout ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+let $other_engine = 'MyISAM';
+eval SET @@storage_engine = $engine;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -20,9 +26,13 @@ connect (conn1,localhost,root,,);
 
 --echo # Switch to connection default
 connection default;
-CREATE TABLE t1 (a varchar(50), PRIMARY KEY (a)) engine = falcon;
-CREATE TABLE t2 (a varchar(50)) engine = myisam;
+CREATE TABLE t1 (a varchar(50), PRIMARY KEY (a));
+eval CREATE TABLE t2 (a varchar(50)) Engine $other_engine;
 CREATE TRIGGER bi BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO t2 VALUES ('inserted by trigger');
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
 BEGIN;
 INSERT INTO t1 VALUES('inserted by client 1');
 SELECT * FROM t1;
@@ -36,10 +46,22 @@ SELECT * FROM t2;
 --error 1205
 INSERT INTO t1 VALUES('inserted by client 1');
 
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+COMMIT;
+SELECT count(*) FROM t1;
+SELECT count(*) FROM t2;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
 --echo # Switch to connection default
 connection default;
 disconnect conn1;
 DROP TABLE t1;
+DROP TABLE t2;
 SET GLOBAL FALCON_LOCK_WAIT_TIMEOUT = @previous_lock_wait_timeout;
 SHOW VARIABLES LIKE 'FALCON_LOCK_WAIT_TIMEOUT';
-

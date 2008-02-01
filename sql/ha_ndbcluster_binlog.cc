@@ -785,7 +785,7 @@ static int ndbcluster_create_ndb_apply_status_table(THD *thd)
                    " log_name VARCHAR(255) BINARY NOT NULL, "
                    " start_pos BIGINT UNSIGNED NOT NULL, "
                    " end_pos BIGINT UNSIGNED NOT NULL, "
-                   " PRIMARY KEY USING HASH (server_id) ) ENGINE=NDB");
+                   " PRIMARY KEY USING HASH (server_id) ) ENGINE=NDB CHARACTER SET latin1");
 
   const int no_print_error[5]= {ER_TABLE_EXISTS_ERROR,
                                 701,
@@ -846,7 +846,7 @@ static int ndbcluster_create_schema_table(THD *thd)
                    " id INT UNSIGNED NOT NULL,"
                    " version INT UNSIGNED NOT NULL,"
                    " type INT UNSIGNED NOT NULL,"
-                   " PRIMARY KEY USING HASH (db,name) ) ENGINE=NDB");
+                   " PRIMARY KEY USING HASH (db,name) ) ENGINE=NDB CHARACTER SET latin1");
 
   const int no_print_error[5]= {ER_TABLE_EXISTS_ERROR,
                                 701,
@@ -4606,7 +4606,8 @@ restart:
           setReportThreshEventGCISlip(ndb_report_thresh_binlog_epoch_slip);
         i_ndb->setReportThreshEventFreeMem(ndb_report_thresh_binlog_mem_usage);
 
-        bzero((char*)&_row, sizeof(_row));
+        bzero((char*) &_row, sizeof(_row));
+        thd->variables.character_set_client= &my_charset_latin1;
         injector::transaction trans;
         // pass table map before epoch
         {

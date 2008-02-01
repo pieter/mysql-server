@@ -285,4 +285,11 @@ select hex(weight_string(_utf32 0x10001 collate utf32_unicode_ci));
 set @@collation_connection=utf32_czech_ci;
 --source include/weight_string_chde.inc
 
+#
+# Test basic regex functionality
+#
+set collation_connection=utf32_unicode_ci;
+--source include/ctype_regex.inc
+set names latin1;
+
 --echo End of 5.2 tests

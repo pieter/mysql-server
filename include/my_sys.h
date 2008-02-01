@@ -303,7 +303,7 @@ struct st_my_file_info
 {
   char *		name;
   enum file_type	type;
-#if defined(THREAD) && !defined(HAVE_PREAD)
+#if defined(THREAD) && !defined(HAVE_PREAD) && !defined(__WIN__)
   pthread_mutex_t	mutex;
 #endif
 };

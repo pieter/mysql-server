@@ -102,6 +102,7 @@ StorageHandler::StorageHandler(int lockSize)
 	dictionaryConnection = NULL;
 	databaseList = NULL;
 	defaultDatabase = NULL;
+	initialized = false;
 }
 
 StorageHandler::~StorageHandler(void)
@@ -642,6 +643,9 @@ StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* table
 	if (!defaultDatabase)
 		initialize();
 
+	if (!dictionaryConnection)
+		return NULL;
+
 	if (!tableShare->storageDatabase)
 		tableShare->findDatabase();
 
@@ -890,14 +894,16 @@ void StorageHandler::getTransactionSummaryInfo(InfoTable* infoTable)
 
 void StorageHandler::initialize(void)
 {
-	if (defaultDatabase)
+
+	if (initialized)
 		return;
 	
 	Sync sync(&syncObject, "StorageConnection::initialize");
 	sync.lock(Exclusive);
 	
-	if (defaultDatabase)
+	if (initialized)
 		return;
+	initialized = true;
 		
 	defaultDatabase = getStorageDatabase(MASTER_NAME, MASTER_PATH);
 	
@@ -907,8 +913,15 @@ void StorageHandler::initialize(void)
 		dictionaryConnection = defaultDatabase->getOpenConnection();
 		dropTempTables();
 		}
-	catch (...)
+	catch (SQLException &e)
 		{
+		// No point in creating a database if we got memory error.
+		// On FILE_ACCESS_ERROR, an external application can temporarily lock the file.
+		// In this both cases, trying to create database in this case could eventually
+		// lead to "recreate" and data loss.
+		int err = e.getSqlcode();
+		if(err == OUT_OF_MEMORY_ERROR || err == FILE_ACCESS_ERROR)
+			return;
 		try
 			{
 			defaultDatabase->createDatabase();

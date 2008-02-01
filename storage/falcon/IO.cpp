@@ -142,8 +142,10 @@ bool IO::openFile(const char * name, bool readOnly)
 		}
 
 	if (fileId < 0)
-		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
-							name, strerror (errno), errno);
+		{
+			int sqlError = (errno == EACCES )? FILE_ACCESS_ERROR :CONNECTION_ERROR;
+			throw SQLEXCEPTION (sqlError, "can't open file \"%s\": %s (%d)", name, strerror (errno), errno);
+		}
 
 	isReadOnly = readOnly;
 	
@@ -184,8 +186,7 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 		}
 
 	if (fileId < 0)
-		throw SQLEXCEPTION (CONNECTION_ERROR, "can't create file \"%s\", %s (%d)", 
-								name, strerror (errno), errno);
+		throw SQLEXCEPTION (CONNECTION_ERROR,"can't create file \"%s\", %s (%d)", name, strerror (errno), errno);
 
 	isReadOnly = false;
 #ifndef _WIN32

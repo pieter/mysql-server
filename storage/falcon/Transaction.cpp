@@ -167,25 +167,19 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 				{
 				Sync syncDependency(&transaction->syncObject, "Transaction::initialize");
 				syncDependency.lock(Shared);
-				transaction->addRef();
-				INTERLOCKED_INCREMENT(transaction->dependencies);
 
 				if (transaction->isActive() && 
 					 !transaction->systemTransaction &&
 					 transaction->transactionId < transactionId)
 					{
-					//transaction->cleanupNeeded = 1;
+					transaction->addRef();
+					INTERLOCKED_INCREMENT(transaction->dependencies);
 					TransState *state = states + numberStates;
 					state->transaction = transaction;
 					state->transactionId = transaction->transactionId;
 					state->state = transaction->state;
 					++numberStates;
 					ASSERT(transaction->transactionId == state->transactionId);
-					}
-				else
-					{
-					INTERLOCKED_DECREMENT(transaction->dependencies);
-					transaction->release();
 					}
 				}
 
@@ -247,7 +241,6 @@ void Transaction::commit()
 
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
-
 	Log::log(LogXARecovery, "%d: Commit transaction %d\n", database->deltaTime, transactionId);
 
 	if (state == Active)
@@ -323,8 +316,6 @@ void Transaction::commit()
 
 void Transaction::commitNoUpdates(void)
 {
-	//Sync sync(&syncObject, "Transaction::commitNoUpdates");
-	//sync.lock(Exclusive);
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 	ASSERT(!deferredIndexes);
@@ -342,45 +333,18 @@ void Transaction::commitNoUpdates(void)
 
 	Sync syncActiveTransactions(&transactionManager->activeTransactions.syncObject, "Transaction::commitNoUpdates");
 	syncActiveTransactions.lock(Shared);
-	releaseDependencies();
-	Thread *thread = NULL;
-	//Sync syncInit(&transactionManager->syncInitialize, "Transaction::commitNoUpdate");
-	//syncInit.lock(Shared);
 	state = CommittingReadOnly;
-
-	for (int n = 0; dependencies && n < 10; ++n)
-		{
-		int initial = dependencies;
-		transactionManager->expungeTransaction(this);
-
-		if (dependencies && n < 3)
-			{
-			Log::debug("dangling dependencies for tid %d (%d/%d/%d)\n", transactionId, n, initial, dependencies);
-
-			for (Transaction *t = transactionManager->activeTransactions.first; t; t = t->next)
-				{
-				t->print();
-
-				for (int s = 0; s < t->numberStates; ++s)
-					//ASSERT(t->states[s].transaction && t->states[s].transactionId != transactionId); // wrong
-					//ASSERT(t->states[s].transactionId != transactionId || !t->states[s].transaction); // right
-					Log::debug("dependency from tid %d still present\n", t->transactionId);
-				}
-			}
-
-		if (dependencies)
-			{
-			if (!thread)
-				thread = Thread::getThread("Transaction::CommitNoUpdates");
-
-			thread->sleep(1);
-			}
-		}
+	releaseDependencies();
+	
+	Sync sync(&syncObject, "Transaction::commitNoUpdates");
+	sync.lock(Exclusive);
 
 	if (dependencies)
-		Log::debug("final dangling dependencies for transaction %d\n", transactionId);
+		transactionManager->expungeTransaction(this);
 
-
+	sync.unlock();
+	ASSERT(dependencies == 0);
+	
 	delete [] xid;
 	xid = NULL;
 	xidLength = 0;
@@ -394,8 +358,6 @@ void Transaction::commitNoUpdates(void)
 		
 	state = Available;
 	writePending = false;
-	//syncInit.unlock();
-	//sync.unlock();
 	syncActiveTransactions.unlock();
 	syncActive.unlock();
 	release();
@@ -487,7 +449,9 @@ void Transaction::rollback()
 
 void Transaction::expungeTransaction(Transaction * transaction)
 {
-	for (TransState *s = states, *end = s + numberStates; s < end; ++s)
+	int n = 0;
+	
+	for (TransState *s = states, *end = s + numberStates; s < end; ++s, ++n)
 		if (s->transaction == transaction)
 			{
 			if (COMPARE_EXCHANGE_POINTER(&s->transaction, transaction, NULL))

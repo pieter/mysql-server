@@ -370,7 +370,6 @@ void TransactionManager::removeCommittedTransaction(Transaction* transaction)
 
 void TransactionManager::expungeTransaction(Transaction *transaction)
 {
-	//Sync sync(&syncInitialize, "TransactionManager::expungeTransaction");
 	Sync syncActiveTrans(&activeTransactions.syncObject, "TransactionManager::removeTransaction");
 	syncActiveTrans.lock(Shared);
 

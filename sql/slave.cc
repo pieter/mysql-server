@@ -724,6 +724,39 @@ int init_intvar_from_file(int* var, IO_CACHE* f, int default_val)
   DBUG_RETURN(1);
 }
 
+int init_floatvar_from_file(float* var, IO_CACHE* f, float default_val)
+{
+  char buf[16];
+  DBUG_ENTER("init_floatvar_from_file");
+
+
+  if (my_b_gets(f, buf, sizeof(buf)))
+  {
+    if (sscanf(buf, "%f", var) != 1)
+      DBUG_RETURN(1);
+    else
+      DBUG_RETURN(0);
+  }
+  else if (default_val != 0.0)
+  {
+    *var = default_val;
+    DBUG_RETURN(0);
+  }
+  DBUG_RETURN(1);
+}
+
+static bool check_io_slave_killed(THD *thd, Master_info *mi, const char *info)
+{
+  if (io_slave_killed(thd, mi))
+  {
+    if (info && global_system_variables.log_warnings)
+      sql_print_information(info);
+    return TRUE;
+  }
+  return FALSE;
+}
+
+
 /*
   Note that we rely on the master's version (3.23, 4.0.14 etc) instead of
   relying on the binlog's version. This is not perfect: imagine an upgrade
@@ -740,7 +773,9 @@ int init_intvar_from_file(int* var, IO_CACHE* f, int default_val)
 
 static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
 {
-  const char* errmsg= 0;
+  char error_buf[512];
+  String err_msg(error_buf, sizeof(error_buf), &my_charset_bin);
+  err_msg.length(0);
   DBUG_ENTER("get_master_version_and_clock");
 
   /*
@@ -751,7 +786,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
   mi->rli.relay_log.description_event_for_queue= 0;
 
   if (!my_isdigit(&my_charset_bin,*mysql->server_version))
-    errmsg = "Master reported unrecognized MySQL version";
+    err_msg.append("Master reported unrecognized MySQL version");
   else
   {
     /*
@@ -762,7 +797,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     case '0':
     case '1':
     case '2':
-      errmsg = "Master reported unrecognized MySQL version";
+      err_msg.append("Master reported unrecognized MySQL version");
       break;
     case '3':
       mi->rli.relay_log.description_event_for_queue= new
@@ -794,9 +829,9 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
      events sent by the master, and there will be error messages.
   */
 
-  if (errmsg)
+  if (err_msg.length() != 0)
   {
-    sql_print_error(errmsg);
+    sql_print_error(err_msg.ptr());
     DBUG_RETURN(1);
   }
 
@@ -851,10 +886,10 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     if ((master_row= mysql_fetch_row(master_res)) &&
         (::server_id == strtoul(master_row[1], 0, 10)) &&
         !mi->rli.replicate_same_server_id)
-      errmsg= "The slave I/O thread stops because master and slave have equal \
-MySQL server ids; these ids must be different for replication to work (or \
-the --replicate-same-server-id option must be used on slave but this does \
-not always make sense; please check the manual before using it).";
+      err_msg.append("The slave I/O thread stops because master and slave have equal"
+                     " MySQL server ids; these ids must be different for replication to work (or"
+                     " the --replicate-same-server-id option must be used on slave but this does"
+                     " not always make sense; please check the manual before using it).");
     mysql_free_result(master_res);
   }
 
@@ -886,9 +921,9 @@ not always make sense; please check the manual before using it).";
   {
     if ((master_row= mysql_fetch_row(master_res)) &&
         strcmp(master_row[0], global_system_variables.collation_server->name))
-      errmsg= "The slave I/O thread stops because master and slave have \
-different values for the COLLATION_SERVER global variable. The values must \
-be equal for replication to work";
+      err_msg.append("The slave I/O thread stops because master and slave have"
+                     " different values for the COLLATION_SERVER global variable."
+                     " The values must be equal for replication to work");
     mysql_free_result(master_res);
   }
 
@@ -914,16 +949,44 @@ be equal for replication to work";
     if ((master_row= mysql_fetch_row(master_res)) &&
         strcmp(master_row[0],
                global_system_variables.time_zone->get_name()->ptr()))
-      errmsg= "The slave I/O thread stops because master and slave have \
-different values for the TIME_ZONE global variable. The values must \
-be equal for replication to work";
+      err_msg.append("The slave I/O thread stops because master and slave have"
+                     " different values for the TIME_ZONE global variable."
+                     " The values must be equal for replication to work");
     mysql_free_result(master_res);
   }
 
-err:
-  if (errmsg)
+  if (mi->heartbeat_period != 0.0)
   {
-    sql_print_error(errmsg);
+    char llbuf[22];
+    const char query_format[]= "SET @master_heartbeat_period= %s";
+    char query[sizeof(query_format) - 2 + sizeof(llbuf)];
+    /* 
+       the period is an ulonglong of nano-secs. 
+    */
+    llstr((ulonglong) (mi->heartbeat_period*1000000000UL), llbuf);
+    my_sprintf(query, (query, query_format, llbuf));
+
+    if (mysql_real_query(mysql, query, strlen(query))
+        && !check_io_slave_killed(mi->io_thd, mi, NULL))
+    {
+      err_msg.append("The slave I/O thread stops because querying master with '");
+      err_msg.append(query);
+      err_msg.append("' failed;");
+      err_msg.append(" error: ");
+      err_msg.qs_append(mysql_errno(mysql));
+      err_msg.append("  '");
+      err_msg.append(mysql_error(mysql));
+      err_msg.append("'");
+      mysql_free_result(mysql_store_result(mysql));
+      goto err;
+    }
+    mysql_free_result(mysql_store_result(mysql));
+  }
+  
+err:
+  if (err_msg.length() != 0)
+  {
+    sql_print_error(err_msg.ptr());
     DBUG_RETURN(1);
   }
 
@@ -1864,18 +1927,6 @@ on this slave.\
 }
 
 
-static bool check_io_slave_killed(THD *thd, Master_info *mi, const char *info)
-{
-  if (io_slave_killed(thd, mi))
-  {
-    if (global_system_variables.log_warnings)
-      sql_print_information(info);
-    return TRUE;
-  }
-  return FALSE;
-}
-
-
 /**
   @brief Try to reconnect slave IO thread.
 
@@ -2152,12 +2203,8 @@ Stopping slave I/O thread due to out-of-memory error from master");
 
       retry_count=0;                    // ok event, reset retry counter
       THD_SET_PROC_INFO(thd, "Queueing master event to the relay log");
-      if (queue_event(mi,(const char*)mysql->net.read_pos + 1,
-                      event_len))
+      if (queue_event(mi,(const char*)mysql->net.read_pos + 1, event_len))
       {
-        mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
-                   ER(ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
-                   "could not queue event from master");
         goto err;
       }
       if (flush_master_info(mi, 1))
@@ -2922,6 +2969,7 @@ static int queue_old_event(Master_info *mi, const char *buf,
 static int queue_event(Master_info* mi,const char* buf, ulong event_len)
 {
   int error= 0;
+  String error_msg;
   ulong inc_pos;
   Relay_log_info *rli= &mi->rli;
   pthread_mutex_t *log_lock= rli->relay_log.get_log_lock();
@@ -2956,7 +3004,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
     Rotate_log_event rev(buf,event_len,mi->rli.relay_log.description_event_for_queue);
     if (unlikely(process_io_rotate(mi,&rev)))
     {
-      error= 1;
+      error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
       goto err;
     }
     /*
@@ -2983,7 +3031,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
           Log_event::read_log_event(buf, event_len, &errmsg,
                                     mi->rli.relay_log.description_event_for_queue)))
     {
-      error= 2;
+      error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
       goto err;
     }
     delete mi->rli.relay_log.description_event_for_queue;
@@ -3002,6 +3050,56 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
 
   }
   break;
+
+  case HEARTBEAT_LOG_EVENT:
+  {
+    /*
+      HB (heartbeat) cannot come before RL (Relay)
+    */
+    char  llbuf[22];
+    Heartbeat_log_event hb(buf, event_len, mi->rli.relay_log.description_event_for_queue);
+    if (!hb.is_valid())
+    {
+      error= ER_SLAVE_HEARTBEAT_FAILURE;
+      error_msg.append(STRING_WITH_LEN("inconsistent heartbeat event content;"));
+      error_msg.append(STRING_WITH_LEN("the event's data: log_file_name "));
+      error_msg.append(hb.get_log_ident(), (uint) strlen(hb.get_log_ident()));
+      error_msg.append(STRING_WITH_LEN(" log_pos "));
+      llstr(hb.log_pos, llbuf);
+      error_msg.append(llbuf, strlen(llbuf));
+      goto err;
+    }
+    mi->received_heartbeats++;
+    /* 
+       compare local and event's versions of log_file, log_pos.
+       
+       Heartbeat is sent only after an event corresponding to the corrdinates
+       the heartbeat carries.
+       Slave can not have a difference in coordinates except in the only
+       special case when mi->master_log_name, master_log_pos have never
+       been updated by Rotate event i.e when slave does not have any history
+       with the master (and thereafter mi->master_log_pos is NULL).
+
+       TODO: handling `when' for SHOW SLAVE STATUS' snds behind
+    */
+    if ((memcmp(mi->master_log_name, hb.get_log_ident(), hb.get_ident_len())
+         && mi->master_log_name != NULL)
+        || mi->master_log_pos != hb.log_pos)
+    {
+      /* missed events of heartbeat from the past */
+      error= ER_SLAVE_HEARTBEAT_FAILURE;
+      error_msg.append(STRING_WITH_LEN("heartbeat is not compatible with local info;"));
+      error_msg.append(STRING_WITH_LEN("the event's data: log_file_name "));
+      error_msg.append(hb.get_log_ident(), (uint) strlen(hb.get_log_ident()));
+      error_msg.append(STRING_WITH_LEN(" log_pos "));
+      llstr(hb.log_pos, llbuf);
+      error_msg.append(llbuf, strlen(llbuf));
+      goto err;
+    }
+    goto skip_relay_logging;
+  }
+  break;
+    
   default:
     inc_pos= event_len;
     break;
@@ -3062,15 +3160,23 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       rli->relay_log.harvest_bytes_written(&rli->log_space_total);
     }
     else
-      error= 3;
+    {
+      error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
+    }
     rli->ign_master_log_name_end[0]= 0; // last event is not ignored
   }
   pthread_mutex_unlock(log_lock);
 
-
+skip_relay_logging:
+  
 err:
   pthread_mutex_unlock(&mi->data_lock);
   DBUG_PRINT("info", ("error: %d", error));
+  if (error)
+    mi->report(ERROR_LEVEL, error, ER(error), 
+               (error == ER_SLAVE_RELAY_LOG_WRITE_FAILURE)?
+               "could not queue event from master" :
+               error_msg.ptr());
   DBUG_RETURN(error);
 }
 
@@ -3542,8 +3648,8 @@ static Log_event* next_event(Relay_log_info* rli)
         */
         pthread_mutex_unlock(&rli->log_space_lock);
         pthread_cond_broadcast(&rli->log_space_cond);
-        // Note that wait_for_update unlocks lock_log !
-        rli->relay_log.wait_for_update(rli->sql_thd, 1);
+        // Note that wait_for_update_relay_log unlocks lock_log !
+        rli->relay_log.wait_for_update_relay_log(rli->sql_thd);
         // re-acquire data lock since we released it earlier
         pthread_mutex_lock(&rli->data_lock);
         rli->last_master_timestamp= save_timestamp;

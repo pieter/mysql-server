@@ -378,8 +378,17 @@ sub mtr_report_stats ($) {
 
                 # BUG#32080 - Excessive warnings on Solaris: setrlimit could not
                 #             change the size of core files
-                /setrlimit could not change the size of core files to 'infinity'/
-	       )
+                /setrlimit could not change the size of core files to 'infinity'/ or
+		# rpl_idempotency.test produces warnings for the slave.
+		($testname eq 'rpl.rpl_idempotency' and
+		 (/Slave: Can\'t find record in \'t1\' Error_code: 1032/ or
+                  /Slave: Cannot add or update a child row: a foreign key constraint fails .* Error_code: 1452/
+		 )) or
+
+		# rpl_skip_error produce an error which is skipped (slave does not stop)
+		($testname eq 'rpl.rpl_skip_error' and
+		 /Failed to write to mysql\.general_log/)
+		)
             {
               next;                       # Skip these lines
             }

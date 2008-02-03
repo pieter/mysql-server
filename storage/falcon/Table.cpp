@@ -1321,7 +1321,6 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 {
 	database->preUpdate();
 	Sync scavenge(&syncScavenge, "Table::deleteRecord");
-	//scavenge.lock(Shared);
 	Record *candidate = fetch(oldRecord->recordNumber);
 	checkAncestor(candidate, oldRecord);
 	RecordVersion *record;
@@ -1345,7 +1344,6 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		}
 
 	record->state = recDeleted;
-	//record->setAgeGroup();
 	fireTriggers(transaction, PreDelete, oldRecord, NULL);
 
 	// Do any necessary cascading
@@ -1371,7 +1369,17 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		record->state = recDeleted;
 	else
 		{
-		validateAndInsert(transaction, record);
+		try
+			{
+			validateAndInsert(transaction, record);
+			}
+		catch (...)
+			{
+			record->release();
+			
+			throw;
+			}
+			
 		transaction->addRecord(record);
 		}
 		

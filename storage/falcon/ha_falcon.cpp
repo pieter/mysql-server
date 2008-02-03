@@ -44,6 +44,7 @@
 #include "BigInt.h"
 
 //#define NO_OPTIMIZE
+#define VALIDATE
 
 #ifndef MIN
 #define MIN(a,b)			((a <= b) ? (a) : (b))
@@ -509,6 +510,35 @@ int StorageInterface::close(void)
 	FALCON_CLOSE();
 
 	DBUG_RETURN(0);
+}
+
+
+int StorageInterface::check(THD* thd, HA_CHECK_OPT* check_opt)
+{
+#ifdef VALIDATE
+	DBUG_ENTER("StorageInterface::check");
+
+	if (storageConnection)
+		storageConnection->validate(0);
+		
+	DBUG_RETURN(0);
+#else
+	return HA_ADMIN_NOT_IMPLEMENTED;
+#endif
+}
+
+int StorageInterface::repair(THD* thd, HA_CHECK_OPT* check_opt)
+{
+#ifdef VALIDATE
+	DBUG_ENTER("StorageInterface::repair");
+	
+	if (storageConnection)
+		storageConnection->validate(VALIDATE_REPAIR);
+
+	DBUG_RETURN(0);
+#else
+	return HA_ADMIN_NOT_IMPLEMENTED;
+#endif
 }
 
 int StorageInterface::rnd_next(uchar *buf)

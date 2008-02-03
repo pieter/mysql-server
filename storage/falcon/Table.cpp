@@ -1317,21 +1317,24 @@ ForeignKey* Table::findForeignKey(ForeignKey * key)
 	return NULL;
 }
 
-void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
+void Table::deleteRecord(Transaction * transaction, Record * orgRecord)
 {
 	database->preUpdate();
 	Sync scavenge(&syncScavenge, "Table::deleteRecord");
-	Record *candidate = fetch(oldRecord->recordNumber);
-	checkAncestor(candidate, oldRecord);
+	Record *candidate = fetch(orgRecord->recordNumber);
+	checkAncestor(candidate, orgRecord);
 	RecordVersion *record;
 	bool wasLock = false;
+	
+	if (!candidate)
+		return;
 	
 	if (candidate->state == recLock && candidate->getTransaction() == transaction)
 		{
 		if (candidate->getSavePointId() == transaction->curSavePointId)
 			{
 			record = (RecordVersion*) candidate;
-			ASSERT(record->priorVersion == oldRecord);
+			ASSERT(record->priorVersion == orgRecord);
 			wasLock = true;
 			}
 		else
@@ -1339,12 +1342,21 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		}
 	else
 		{
+		Record *oldVersion = candidate->fetchVersion(transaction);
+		
+		if (oldVersion != candidate)
+			{
+			candidate->release();
+			throw SQLError(UPDATE_CONFLICT, "delete conflict in table %s.%s", schemaName, name);
+			}
+		
+		ASSERT(candidate->hasRecord());
 		record = allocRecordVersion(NULL, transaction, candidate);
 		candidate->release();
 		}
 
 	record->state = recDeleted;
-	fireTriggers(transaction, PreDelete, oldRecord, NULL);
+	fireTriggers(transaction, PreDelete, orgRecord, NULL);
 
 	// Do any necessary cascading
 
@@ -1353,7 +1365,7 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		key->bind(database);
 
 		if (key->primaryTable == this && key->deleteRule == importedKeyCascade)
-			key->cascadeDelete(transaction, oldRecord);
+			key->cascadeDelete(transaction, orgRecord);
 		}
 
 	// Checkin with any attachments
@@ -1384,7 +1396,7 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		}
 		
 	record->release();
-	fireTriggers(transaction, PostDelete, oldRecord, NULL);
+	fireTriggers(transaction, PostDelete, orgRecord, NULL);
 }
 
 int Table::getFieldId(const char * name)

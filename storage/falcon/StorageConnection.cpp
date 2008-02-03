@@ -406,3 +406,13 @@ Transaction* StorageConnection::getTransaction(void)
 {
 	return connection->getTransaction();
 }
+
+void StorageConnection::validate(int options)
+{
+	int flags = 0;
+	
+	if (options & VALIDATE_REPAIR)
+		flags |= validateRepair;
+	
+	connection->validate(flags);
+}

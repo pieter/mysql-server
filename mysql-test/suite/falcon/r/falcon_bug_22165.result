@@ -1,5 +1,5 @@
-SET STORAGE_ENGINE = Falcon;
 *** Bug #22165 ***
+SET @@storage_engine = 'Falcon';
 DROP PROCEDURE IF EXISTS db1.p1;
 DROP EVENT IF EXISTS db1.e1;
 DROP EVENT IF EXISTS db1.e2;

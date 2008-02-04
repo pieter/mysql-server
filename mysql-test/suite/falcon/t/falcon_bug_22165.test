@@ -1,9 +1,15 @@
 --source include/have_falcon.inc
-SET STORAGE_ENGINE = Falcon;
 #
 # Bug #22165: ALTER crash if two interleaving transactions
 #
 --echo *** Bug #22165 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
 --disable_warnings
 DROP PROCEDURE IF EXISTS db1.p1;
 DROP EVENT IF EXISTS db1.e1;
@@ -35,14 +41,25 @@ CREATE TABLE t1 (a bigint, b varchar(1000), c timestamp)//
 
 CREATE EVENT e1 ON SCHEDULE EVERY 1 second DO CALL db1.p1()//
 CREATE EVENT e2 ON SCHEDULE EVERY 1 second DO CALL db1.p1()//
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
 SET GLOBAL event_scheduler = 1//
 --sleep 60
-
-# Final cleanup
 SET GLOBAL event_scheduler = 0//
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+# Checking row count is not applicable here.
+#SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
 DROP EVENT db1.e1//
 DROP EVENT db1.e2//
 DROP PROCEDURE db1.p1//
 DROP DATABASE db1//
-
 delimiter ;//

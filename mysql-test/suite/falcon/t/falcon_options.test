@@ -2,7 +2,7 @@
 
 SHOW VARIABLES LIKE 'falcon_%';
 
---real_sleep 3
+--real_sleep 1
 
 # Test that these server variables are READ ONLY.
 
@@ -27,14 +27,17 @@ SELECT @@GLOBAL.falcon_serial_log_buffers;
 SET GLOBAL falcon_serial_log_buffers = 100;
 
 # These variables are r/w.
+SELECT @@GLOBAL.falcon_debug_mask INTO @previous_falcon_debug_mask;
 SELECT @@GLOBAL.falcon_debug_mask;
 SET GLOBAL falcon_debug_mask = 4096;
 SELECT @@GLOBAL.falcon_debug_mask;
 
+SELECT @@GLOBAL.falcon_max_transaction_backlog INTO @previous_falcon_max_transaction_backlog;
 SELECT @@GLOBAL.falcon_max_transaction_backlog;
 SET GLOBAL falcon_max_transaction_backlog = 10001;
 SELECT @@GLOBAL.falcon_max_transaction_backlog;
 
+SELECT @@GLOBAL.falcon_record_memory_max INTO @previous_falcon_record_memory_max;
 SELECT @@GLOBAL.falcon_record_memory_max;
 SET GLOBAL falcon_record_memory_max = 536870912;
 SELECT @@GLOBAL.falcon_record_memory_max;
@@ -44,3 +47,8 @@ SELECT @@GLOBAL.falcon_record_memory_max;
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.global_variables
   WHERE variable_name LIKE 'falcon%';
+
+# Final cleanup.
+SET GLOBAL falcon_debug_mask = @previous_falcon_debug_mask;
+SET GLOBAL falcon_max_transaction_backlog =  @previous_falcon_max_transaction_backlog;
+SET GLOBAL falcon_record_memory_max =  @previous_falcon_record_memory_max;

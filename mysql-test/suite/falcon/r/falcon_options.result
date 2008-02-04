@@ -51,6 +51,7 @@ SELECT @@GLOBAL.falcon_serial_log_buffers;
 20
 SET GLOBAL falcon_serial_log_buffers = 100;
 ERROR HY000: Variable 'falcon_serial_log_buffers' is a read only variable
+SELECT @@GLOBAL.falcon_debug_mask INTO @previous_falcon_debug_mask;
 SELECT @@GLOBAL.falcon_debug_mask;
 @@GLOBAL.falcon_debug_mask
 0
@@ -58,6 +59,7 @@ SET GLOBAL falcon_debug_mask = 4096;
 SELECT @@GLOBAL.falcon_debug_mask;
 @@GLOBAL.falcon_debug_mask
 4096
+SELECT @@GLOBAL.falcon_max_transaction_backlog INTO @previous_falcon_max_transaction_backlog;
 SELECT @@GLOBAL.falcon_max_transaction_backlog;
 @@GLOBAL.falcon_max_transaction_backlog
 150
@@ -65,6 +67,7 @@ SET GLOBAL falcon_max_transaction_backlog = 10001;
 SELECT @@GLOBAL.falcon_max_transaction_backlog;
 @@GLOBAL.falcon_max_transaction_backlog
 10001
+SELECT @@GLOBAL.falcon_record_memory_max INTO @previous_falcon_record_memory_max;
 SELECT @@GLOBAL.falcon_record_memory_max;
 @@GLOBAL.falcon_record_memory_max
 262144000
@@ -101,3 +104,6 @@ FALCON_SERIAL_LOG_DIR
 FALCON_SERIAL_LOG_PRIORITY	1
 FALCON_SUPPORT_XA	OFF
 FALCON_USE_DEFERRED_INDEX_HASH	OFF
+SET GLOBAL falcon_debug_mask = @previous_falcon_debug_mask;
+SET GLOBAL falcon_max_transaction_backlog =  @previous_falcon_max_transaction_backlog;
+SET GLOBAL falcon_record_memory_max =  @previous_falcon_record_memory_max;

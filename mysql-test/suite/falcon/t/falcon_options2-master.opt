@@ -1,1 +1,0 @@
---loose-falcon-debug-server --loose-falcon-log-dir=/dummy/test/path/here --loose-falcon-log_mask=1234 --loose-falcon-max_record_memory=1M --loose-falcon-min_record_memory=1G --loose-falcon_page_cache_size=100M --loose-falcon-page-size=16K

@@ -18,7 +18,7 @@ CREATE TABLESPACE tablespace1 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon
 # ----------------------------------------------------- #
 # --- Test                                          --- #
 # ----------------------------------------------------- #
---error 1656
+--error ER_TABLESPACE_EXIST
 CREATE TABLESPACE tablespace2 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
 
 # ----------------------------------------------------- #

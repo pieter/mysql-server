@@ -892,6 +892,7 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 	recordToRollback->active = false;
 #endif
 
+	int priorState = recordToRollback->state;
 	recordToRollback->state = recRollback;
 
 	// Find the record that will become the current version.
@@ -905,6 +906,9 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 
 	if (!insert(priorRecord, recordToRollback, recordToRollback->recordNumber))
 		{
+		if (priorRecord == NULL && priorState == recDeleted)
+			return priorRecord;
+			
 		recordToRollback->printRecord("Table::rollbackRecord");
 		insert(priorRecord, recordToRollback, recordToRollback->recordNumber);
 		ASSERT(false);
@@ -1347,7 +1351,7 @@ void Table::deleteRecord(Transaction * transaction, Record * orgRecord)
 		if (oldVersion != candidate)
 			{
 			candidate->release();
-			throw SQLError(UPDATE_CONFLICT, "delete conflict in table %s.%s", schemaName, name);
+			throw SQLError(UPDATE_CONFLICT, "delete conflict in table %s.%s record %d", schemaName, name, orgRecord->recordNumber);
 			}
 		
 		ASSERT(candidate->hasRecord());
@@ -3197,8 +3201,7 @@ void Table::validateAndInsert(Transaction *transaction, RecordVersion *record)
 						else
 							{
 							transaction->blockedBy = transId;
-							//throw SQLError(UPDATE_CONFLICT, "update (%s) conflict in table %s.%s record %d", op, schemaName, name, record->recordNumber);
-							throw SQLError(UPDATE_CONFLICT, "update conflict in table %s.%s", schemaName, name);
+							throw SQLError(UPDATE_CONFLICT, "update conflict in table %s.%s record %d", schemaName, name, record->recordNumber);
 							}
 						}
 					}
@@ -3214,7 +3217,7 @@ void Table::validateAndInsert(Transaction *transaction, RecordVersion *record)
 		record->active = false;
 		}
 
-	throw SQLError(UPDATE_CONFLICT, "unexpected update conflict in table %s.%s", schemaName, name);
+	throw SQLError(UPDATE_CONFLICT, "unexpected update conflict in table %s.%s record %d", schemaName, name, record->recordNumber);
 }
 
 int Table::getFormatVersion()
@@ -3317,6 +3320,10 @@ void Table::checkAncestor(Record* current, Record* oldRecord)
 	
 	current->printRecord("current record");
 	oldRecord->printRecord("old record");
+	Value value1;
+	Value value2;
+	current->getValue(0, &value1);
+	oldRecord->getValue(0, &value2);
 	ASSERT(false);
 }
 
@@ -3577,4 +3584,9 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 		}
 	
 	ASSERT(false);
+}
+
+void Table::expungeRecord(int32 recordNumber)
+{
+	dataSection->expungeRecord(recordNumber);
 }

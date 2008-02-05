@@ -962,3 +962,8 @@ Record* Record::getGCPriorVersion(void)
 {
 	return NULL;
 }
+
+void Record::expungeRecord(void)
+{
+	format->table->expungeRecord(recordNumber);
+}

@@ -104,6 +104,7 @@ public:
 	void			printRecord(const char* header);
 	void			validateData(void);
 	char*			allocRecordData(int length);
+	void			expungeRecord(void);
 	
 	Record (Table *table, Format *recordFormat);
 	Record(Table *table, int32 recordNumber, Stream *stream);

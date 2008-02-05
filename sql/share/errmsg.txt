@@ -6114,6 +6114,10 @@ ER_BACKUP_RESTORE_START
 ER_BACKUP_RESTORE_DONE
         eng "Restore completed"
 
+ER_BACKUP_NOTHING_TO_BACKUP
+        eng "Nothing to backup"
+ER_BACKUP_CANNOT_INCLUDE_DB
+        eng "Database '%-.64s' cannot be included in a backup"
 ER_BACKUP_BACKUP
         eng "Error during backup operation - server's error log contains more information about the error"
 ER_BACKUP_RESTORE

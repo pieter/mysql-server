@@ -22,3 +22,21 @@ BACKUP DATABASE test,foo,bdb,bar TO 'test.bak';
 ERROR 42000: Unknown database 'foo,bar'
 DROP DATABASE adb;
 DROP DATABASE bdb;
+Backup of mysql, information_schema scenario 1
+BACKUP DATABASE mysql TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 2
+BACKUP DATABASE information_schema TO 't.bak';
+ERROR HY000: Database 'information_schema' cannot be included in a backup
+Backup of mysql, information_schema scenario 3
+BACKUP DATABASE mysql, information_schema TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 4
+BACKUP DATABASE mysql, test TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 5
+BACKUP DATABASE information_schema, test TO 't.bak';
+ERROR HY000: Database 'information_schema' cannot be included in a backup
+Backup of mysql, information_schema scenario 6
+BACKUP DATABASE mysql, information_schema, test TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup

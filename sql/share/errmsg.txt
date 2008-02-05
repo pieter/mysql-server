@@ -6119,6 +6119,8 @@ ER_SLAVE_AMBIGOUS_EXEC_MODE
 
 ER_NO_FORMAT_DESCRIPTION_EVENT_BEFORE_BINLOG_STATEMENT
   eng "The BINLOG statement of type `%s` was not preceded by a format description BINLOG statement."
+ER_SLAVE_CORRUPT_EVENT
+  eng "Corrupted replication event was detected"
 ER_WARN_AUTO_CONVERT_LOCK
         eng "Converted to non-transactional lock on '%-.64s'"
         ger "Umgewandelt zu nicht-transaktionalen Sperren auf '%-.64s'"

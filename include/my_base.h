@@ -430,7 +430,9 @@ enum ha_base_keytype {
 #define HA_ERR_CORRUPT_EVENT      172    /* The event was corrupt, leading to
                                             illegal data being read */
 #define HA_ERR_LOCK_OR_ACTIVE_TRANSACTION 173
-#define HA_ERR_LAST               173    /*Copy last error nr.*/
+#define HA_ERR_ROWS_EVENT_APPLY   174    /* The event could not be processed
+                                            no other hanlder error happened */
+#define HA_ERR_LAST              174     /*Copy last error nr.*/
 /* Add error numbers before HA_ERR_LAST and change it accordingly. */
 #define HA_ERR_ERRORS            (HA_ERR_LAST - HA_ERR_FIRST + 1)
 

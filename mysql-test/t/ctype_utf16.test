@@ -564,6 +564,29 @@ select hex(a) from t1;
 drop table t1;
 
 #
+# Bug#32393 Character sets: illegal characters in utf16 columns
+#
+# Tests that cs->cset->wc_mb() doesn't accept surrogate parts
+#
+# via alter
+#
+create table t1 (s1 varchar(50) character set ucs2);
+insert into t1 values (0xdf84);
+alter table t1 modify column s1 varchar(50) character set utf16;
+select hex(s1) from t1;
+drop table t1;
+#
+# via update
+#
+create table t1 (s1 varchar(5) character set ucs2, s2 varchar(5) character set utf16);
+insert into t1 (s1) values (0xdf84);
+update t1 set s2 = s1;
+select hex(s2) from t1;
+drop table t1;
+
+
+
+#
 # Testing cs->cset->lengthsp()
 #
 create table t1 (a char(10)) character set utf16;
@@ -676,6 +699,13 @@ insert into t1 values (0xD800DC00),(0xD800DCFF),(0xDB7FDC00),(0xDB7FDCFF);
 insert into t1 values (0x00C0), (0x00FF),(0xE000), (0xFFFF);
 select hex(a), hex(@a:=convert(a using utf8)), hex(convert(@a using utf16)) from t1;
 drop table t1;
+
+#
+# Test basic regex functionality
+#
+set collation_connection=utf16_general_ci;
+--source include/ctype_regex.inc
+set names latin1;
 
 #
 ## TODO: add tests for all engines

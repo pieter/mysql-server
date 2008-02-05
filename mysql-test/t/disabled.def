@@ -28,3 +28,4 @@ status               : Bug#32966 main.status fails
 ps_ddl               : Bug#12093 2007-12-14 pending WL#4165 / WL#4166
 user_limits          : Bug#23921 2007-12-16 random failure of user_limits.test
 csv_alter_table      : Bug#33696 2008-01-21 pcrews no .result file - bug allows NULL columns in CSV tables
+ctype_latin2_ch      : BUG #33791 2008-01-18 mats Wrong ORDER BY with latin2_czech_cs

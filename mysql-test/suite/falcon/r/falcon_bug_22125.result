@@ -1,5 +1,5 @@
-SET STORAGE_ENGINE = Falcon;
 *** Bug #22125 ***
+SET @@storage_engine = 'Falcon';
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (
 f1 double,
@@ -49,4 +49,7 @@ count(*)
 SELECT count(*) FROM t1 where f1 < 1;
 count(*)
 7
+SELECT count(*) FROM t1;
+count(*)
+10
 DROP TABLE t1;

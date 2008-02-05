@@ -10,9 +10,6 @@
 #
 ##############################################################################
 
-falcon_bug_22144    : Bug#22144 2006-08-24 hakank Get pushbuild green
-falcon_bug_22151    : Bug#22151 2006-08-24 hakank Get pushbuild green
-falcon_bug_22154    : Bug#22154 2006-11-04 hakank Too long run time for PB
 falcon_bug_22156    : Bug#22156 2006-11-04 hakank Case sensitivity problem
 falcon_bug_22166    : Bug#22166 2006-08-24 hakank Get pushbuild green
 falcon_bug_22169    : Bug#22169 2006-08-24 hakank Too long run time for PB

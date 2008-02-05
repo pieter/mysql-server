@@ -1,52 +1,65 @@
 --source include/have_falcon.inc
-SET storage_engine = Falcon;
 #
-# Bug #22151: ROLLBACK fails with two interleaving transactions
+# Bug #22151: ROLLBACK fails with two interleaving transactions.
+#   Original bug report uses isolation level SERIALIZABLE. But
+#   Falcon currently does not support SERIALIZABLE, therefore
+#   we use the default isolation level of REPEATABLE-READ.
 #
 --echo *** Bug #22151 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
 --disable_warnings
 DROP DATABASE IF EXISTS test2;
 --enable_warnings
 
 --echo # Establish connection conn1 (user = root)
 connect (conn1,localhost,root,,);
-SET storage_engine = Falcon;
+eval SET @@storage_engine = $engine;
 
 --echo # Switch to connection default
 connection default;
-SET @@autocommit=0;
+SET @@autocommit = 0;
 CREATE DATABASE test2;
 USE test2;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (a int primary key, b int);
-COMMIT;
-INSERT INTO t1 VALUES (0,0),(1,1);
+INSERT INTO t1 VALUES (0, 0), (1, 1);
 COMMIT;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (a int primary key, b int);
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 START TRANSACTION;
 SELECT * FROM t1;
-INSERT INTO t1 VALUES (0,0);
+INSERT INTO t1 VALUES (0, 0);
 
 --echo # Switch to connection conn1
 connection conn1;
-SET @@autocommit=1;
+SET @@autocommit = 1;
 USE test2;
-# Following statements waits for connection default
---send INSERT INTO t1 VALUES (1,1);
+# Following statements waits for connection default when using
+# InnoDB (next-key-lock). Falcon does not wait here.
+INSERT INTO t1 VALUES (1, 1);
 
 --echo # Switch to connection default
 connection default;
-INSERT INTO t1 VALUES (1,2);
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES (1, 2);
 ROLLBACK;
 
 --echo # Switch to connection conn1
 connection conn1;
-reap;
-INSERT INTO t1 VALUES (0,6);
+INSERT INTO t1 VALUES (0, 6);
 --error ER_DUP_ENTRY
-INSERT INTO t1 VALUES (0,6);
+INSERT INTO t1 VALUES (0, 6);
 COMMIT;
 
 --echo # Switch to connection default
@@ -54,7 +67,16 @@ connection default;
 SELECT * FROM t1 ORDER BY a;
 COMMIT;
 
-# Final cleanup
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
 disconnect conn1;
 DROP DATABASE test2;
+SET @@autocommit = 1;
 USE test;

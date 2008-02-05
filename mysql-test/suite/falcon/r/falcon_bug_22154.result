@@ -1,12 +1,11 @@
-SET storage_engine = Falcon;
 *** Bug #22154 ***
+SET @@storage_engine = 'Falcon';
 DROP TABLE IF EXISTS tj9;
 DROP PROCEDURE IF EXISTS pj9;
+CREATE TABLE tj9 (s0 int);
 create procedure pj9 ()
 begin
 declare v int default 1;
-drop table if exists tj9;
-create table tj9 (s0 int);
 while v < 500 do
 select 'alter',v;
 set @v = concat('alter table tj9 add column s',v,' char(64) default ''Hello World''');
@@ -29,7 +28,7 @@ execute stmt1;
 set v = v + 1;
 end while;
 end//
-call pj9()//
+call pj9();
 alter	v
 alter	1
 alter	v
@@ -3024,7 +3023,8 @@ update	v
 update	498
 update	v
 update	499
-Warnings:
-Note	1051	Unknown table 'tj9'
-DROP TABLE tj9//
-DROP PROCEDURE pj9//
+SELECT count(*) FROM t1;
+count(*)
+500
+DROP TABLE tj9;
+DROP PROCEDURE pj9;

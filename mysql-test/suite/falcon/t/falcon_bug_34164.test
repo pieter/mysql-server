@@ -1,89 +1,191 @@
 --disable_abort_on_error
 --source include/have_falcon.inc
-
-SET storage_engine = Falcon;
 #
 # Bug #34164: Serializable Transaction asserts
 #
 --echo *** Bug #34164 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
 --disable_warnings
 DROP DATABASE IF EXISTS test2;
 --enable_warnings
 
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+
 SET GLOBAL FALCON_CONSISTENT_READ=OFF;
 CREATE DATABASE test2;
 USE test2;
+#SET @@autocommit=1;
 CREATE TABLE t1 (a int primary key, b int) engine=falcon;
+INSERT INTO t1 VALUES (1,1);
+INSERT INTO t1 VALUES (2,2);
+INSERT INTO t1 VALUES (3,3);
+INSERT INTO t1 VALUES (4,4);
 
+# ----------------------------------------------------- #
+# --- Check SERIALIZABLE                            --- #
+# --- with FALCON_CONSISTENT_READ=OFF               --- #
+# ----------------------------------------------------- #
+
+--real_sleep=2
 --echo # Establish connection conn1 (user = root)
 connect (conn1,localhost,root,,);
 connection conn1;
+--real_sleep=1
 USE test2;
+#SET @@autocommit=1;
 SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 SHOW VARIABLES LIKE 'tx_isolation';
 SHOW VARIABLES LIKE 'falcon_consistent_read';
 START TRANSACTION;
 SELECT * FROM t1;
-INSERT INTO t1 VALUES (1,1);
-connection default;
---send UPDATE t1 SET b = 11 WHERE a = 1
-connection conn1;
-COMMIT;
-connection default;
---reap
-SELECT * FROM t1;
-
-
-connection conn1;
-SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-SHOW VARIABLES LIKE 'tx_isolation';
-SHOW VARIABLES LIKE 'falcon_consistent_read';
-START TRANSACTION;
-SELECT * FROM t1;
-INSERT INTO t1 VALUES (2,2);
-connection default;
---send UPDATE t1 SET b = 22 WHERE a = 2
-connection conn1;
-COMMIT;
-connection default;
---reap
-SELECT * FROM t1;
-
-
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+UPDATE t1 SET b = 11 WHERE a = 1;
 --echo # Establish connection conn2 (user = root)
 connect (conn2,localhost,root,,);
 connection conn2;
+--real_sleep=1
 USE test2;
 SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 SHOW VARIABLES LIKE 'tx_isolation';
-SHOW VARIABLES LIKE 'falcon_consistent_read';
 START TRANSACTION;
 SELECT * FROM t1;
-INSERT INTO t1 VALUES (3,3);
-connection default;
-UPDATE t1 SET b = 33 WHERE a = 3;
-connection conn2;
+--send UPDATE t1 SET b = 111 WHERE a = 1
+--echo # Switch to conn1
+connection conn1;
 COMMIT;
-SELECT * FROM t1;
-
+--real_sleep=1
+--echo # Switch to conn2
 connection conn2;
+--reap
+SELECT * FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check READ UNCOMMITTED                        --- #
+# --- with FALCON_CONSISTENT_READ=OFF               --- #
+# ----------------------------------------------------- #
+
+--echo # Switch to conn1
+connection conn1;
 SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 SHOW VARIABLES LIKE 'tx_isolation';
 SHOW VARIABLES LIKE 'falcon_consistent_read';
 START TRANSACTION;
 SELECT * FROM t1;
-INSERT INTO t1 VALUES (4,4);
-connection default;
-UPDATE t1 SET b = 44 WHERE a = 4;
+UPDATE t1 SET b = 22 WHERE a = 2;
+--echo # Switch to conn2
 connection conn2;
+--real_sleep=1
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SHOW VARIABLES LIKE 'tx_isolation';
+START TRANSACTION;
+SELECT * FROM t1;
+--send UPDATE t1 SET b = 222 WHERE a = 2
+--echo # Switch to conn1
+connection conn1;
+--real_sleep=1
+COMMIT;
+--echo # Switch to conn2
+connection conn2;
+--reap
+SELECT * FROM t1;
+COMMIT;
+
+
+# ----------------------------------------------------- #
+# --- Check SERIALIZABLE                            --- #
+# --- with FALCON_CONSISTENT_READ=ON                --- #
+# ----------------------------------------------------- #
+
+--echo # Switch to default connection
+connection default;
+SET GLOBAL FALCON_CONSISTENT_READ=ON;
+--echo # Establish connection conn3 (user = root)
+connect (conn3,localhost,root,,);
+connection conn3;
+USE test2;
+#SET @@autocommit=1;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+SHOW VARIABLES LIKE 'tx_isolation';
+SHOW VARIABLES LIKE 'falcon_consistent_read';
+START TRANSACTION;
+SELECT * FROM t1;
+UPDATE t1 SET b = 33 WHERE a = 3;
+--echo # Establish connection conn4 (user = root)
+connect (conn4,localhost,root,,);
+connection conn4;
+--real_sleep=1
+USE test2;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+SHOW VARIABLES LIKE 'tx_isolation';
+START TRANSACTION;
+SELECT * FROM t1;
+--send UPDATE t1 SET b = 333 WHERE a = 3
+--echo # Switch to conn3
+connection conn3;
+--real_sleep=1
+COMMIT;
+--echo # Switch to conn4
+connection conn4;
+--error 1020
+--reap
+SELECT * FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check READ UNCOMMITTED                        --- #
+# --- with FALCON_CONSISTENT_READ=ON                --- #
+# ----------------------------------------------------- #
+
+--echo # Switch to conn3
+connection conn3;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SHOW VARIABLES LIKE 'tx_isolation';
+SHOW VARIABLES LIKE 'falcon_consistent_read';
+START TRANSACTION;
+SELECT * FROM t1;
+UPDATE t1 SET b = 44 WHERE a = 4;
+--echo # Switch to conn4
+connection conn4;
+--real_sleep=1
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SHOW VARIABLES LIKE 'tx_isolation';
+START TRANSACTION;
+SELECT * FROM t1;
+--send UPDATE t1 SET b = 444 WHERE a = 4
+--echo # Switch to conn3
+connection conn3;
+--real_sleep=1
+COMMIT;
+--echo # Switch to conn4
+connection conn4;
+--error 1020
+--reap
+SELECT * FROM t1;
 COMMIT;
 SELECT * FROM t1;
 
 
-# Final cleanup
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to default connection and cleanup other connections
 connection default;
 disconnect conn1;
 disconnect conn2;
+disconnect conn3;
+disconnect conn4;
 DROP DATABASE test2;
 USE test;
+
+
+
+
+

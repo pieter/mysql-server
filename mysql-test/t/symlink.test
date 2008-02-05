@@ -85,7 +85,7 @@ create table mysqltest.t9 (a int not null auto_increment, b char(16) not null, p
 eval create table mysqltest.t9 (a int not null auto_increment, b char(16) not null, primary key (a)) engine=myisam index directory="$MYSQLTEST_VARDIR/run";
 
 # Should fail becasue the file t9.MYD already exist in 'tmp'
---error 1,1,ER_TABLE_EXISTS_ERROR
+--error 1,1
 eval create table mysqltest.t9 (a int not null auto_increment, b char(16) not null, primary key (a)) engine=myisam data directory="$MYSQLTEST_VARDIR/tmp";
 enable_query_log;
 

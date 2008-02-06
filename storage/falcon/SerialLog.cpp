@@ -1373,7 +1373,7 @@ void SerialLog::getSerialLogInfo(InfoTable* tableInfo)
 
 	syncWindows.unlock();
 	int n = 0;
-	tableInfo->putString(n++, database->name);
+//	tableInfo->putString(n++, database->name);
 	tableInfo->putInt(n++, numberTransactions);
 	tableInfo->putInt64(n++, delta);
 	tableInfo->putInt(n++, windows);

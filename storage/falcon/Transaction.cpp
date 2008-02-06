@@ -1210,28 +1210,43 @@ void Transaction::printBlocking(int level)
 
 void Transaction::getInfo(InfoTable* infoTable)
 {
-	
-	int n = 0;
-	infoTable->putString(n++, database->name);
-	infoTable->putInt(n++, mySqlThreadId);
-	infoTable->putInt(n++, transactionId);
-	infoTable->putString(n++, stateNames[state]);
-	infoTable->putInt(n++, hasUpdates);
-	infoTable->putInt(n++, writePending);
-	infoTable->putInt(n++, dependencies);
-	infoTable->putInt(n++, oldestActive);
-	infoTable->putInt(n++, firstRecord != NULL);
-	infoTable->putInt(n++, (waitingFor) ? waitingFor->transactionId : 0);
-	
-	char buffer[512];
-	
-	if (connection)
-		connection->getCurrentStatement(buffer, sizeof(buffer));
-	else
-		buffer[0] = 0;
+	if (!(state == Available && dependencies == 0))
+		{
+		const char * ptr;
+		switch (state)
+			{
+			case Active:				ptr = "Active"; break;
+			case Limbo:					ptr = "Limbo"; break;
+			case Committed:				ptr = "Committed"; break;
+			case RolledBack:			ptr = "RolledBack"; break;
+			case Available:				ptr = "Available"; break;
+			case Initializing:			ptr = "Initializing"; break;
+			case CommittingReadOnly:	ptr = "CommittingReadOnly"; break;
+			default:					ptr = "Unknown"; break;
+			}
 
-	infoTable->putString(n++, buffer);
-	infoTable->putRecord();
+		int n = 0;
+		infoTable->putString(n++, ptr);
+		infoTable->putInt(n++, mySqlThreadId);
+		infoTable->putInt(n++, transactionId);
+		infoTable->putString(n++, stateNames[state]);
+		infoTable->putInt(n++, hasUpdates);
+		infoTable->putInt(n++, writePending);
+		infoTable->putInt(n++, dependencies);
+		infoTable->putInt(n++, oldestActive);
+		infoTable->putInt(n++, firstRecord != NULL);
+		infoTable->putInt(n++, (waitingFor) ? waitingFor->transactionId : 0);
+		
+		char buffer[512];
+		
+		if (connection)
+			connection->getCurrentStatement(buffer, sizeof(buffer));
+		else
+			buffer[0] = 0;
+
+		infoTable->putString(n++, buffer);
+		infoTable->putRecord();
+		}
 }
 
 void Transaction::releaseDependency(void)

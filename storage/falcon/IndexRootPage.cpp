@@ -123,7 +123,9 @@ bool IndexRootPage::addIndexEntry(Dbb * dbb, int32 indexId, IndexKey *key, int32
 		Btn::printKey (" appended key", &searchKey, 0, false);
 		}
 		
-	for (int n = 0; n < 3; ++n)
+	// Multiple threads may attempt to update the same index. If necessary, make several attempts.
+	
+	for (int n = 0; n < 10; ++n)
 		{
 		/* Find insert page and position on page */
 
@@ -1067,9 +1069,9 @@ void IndexRootPage::indexMerge(Dbb *dbb, int indexId, SRLUpdateIndex *logRecord,
 			// If the key is out of order, somebody screwed up.  Punt out of here
 			
 			if (key.compare(&priorKey) > 0)
-				//break;
-				ASSERT(false);
-			
+				//ASSERT(false);
+				Log::log("IndexRootPage::addIndexEntry: Unexpected out of order index");
+
 			// Find the next insertion point, compute the next key, etc.
 			
 			bucketEnd = (Btn*) ((char*) page + page->length);

@@ -4770,35 +4770,18 @@ namespace
 
     if (check_table_binlog_row_based(thd, table))
     {
-      MY_BITMAP cols;
-      /* Potential buffer on the stack for the bitmap */
-      uint32 bitbuf[BITMAP_STACKBUF_SIZE/sizeof(uint32)];
-      uint n_fields= table->s->fields;
-      my_bool use_bitbuf= n_fields <= sizeof(bitbuf)*8;
-
+      DBUG_DUMP("read_set 10", (uchar*) table->read_set->bitmap, (table->s->fields + 7) / 8);
       /*
         If there are no table maps written to the binary log, this is
         the first row handled in this statement. In that case, we need
         to write table maps for all locked tables to the binary log.
       */
-      if (likely(!(error= bitmap_init(&cols,
-                                      use_bitbuf ? bitbuf : NULL,
-                                      (n_fields + 7) & ~7UL,
-                                      FALSE))))
+      if (likely(!(error= write_locked_table_maps(thd))))
       {
-        bitmap_set_all(&cols);
-        if (likely(!(error= write_locked_table_maps(thd))))
-        {
-          error=
-            RowsEventT::binlog_row_logging_function(thd, table,
-                                                    table->file->
-                                                    has_transactions(),
-                                                    &cols, table->s->fields,
-                                                    before_record,
-                                                    after_record);
-        }
-        if (!use_bitbuf)
-          bitmap_free(&cols);
+        bool const has_trans= table->file->has_transactions();
+        error=
+          RowsEventT::binlog_row_logging_function(thd, table, has_trans,
+                                                  before_record, after_record);
       }
     }
     return error ? HA_ERR_RBR_LOGGING_FAILED : 0;

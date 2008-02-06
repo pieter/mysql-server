@@ -674,6 +674,8 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 			++numberIndexes;
 			}
 
+		Sync syncTables (&database->syncTables, "StorageDatabase::renameTable");
+		syncTables.lock (Exclusive);
 		Sync sync(&database->syncSysConnection, "StorageDatabase::renameTable");
 		sync.lock(Exclusive);
 
@@ -696,6 +698,7 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 			sequence->rename(tableName);
 
 		sync.unlock();
+		syncTables.unlock();
 		database->commitSystemTransaction();
 
 		return 0;

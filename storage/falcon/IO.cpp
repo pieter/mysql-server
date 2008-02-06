@@ -132,6 +132,8 @@ bool IO::openFile(const char * name, bool readOnly)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't open file \"%s\": %s (%d)", 
 							name, strerror (errno), errno);
 
+	isReadOnly = readOnly;
+	
 #ifndef _WIN32
 	signal (SIGXFSZ, SIG_IGN);
 
@@ -166,6 +168,7 @@ bool IO::createFile(const char *name, uint64 initialAllocation)
 		throw SQLEXCEPTION (CONNECTION_ERROR, "can't create file \"%s\", %s (%d)", 
 								name, strerror (errno), errno);
 
+	isReadOnly = false;
 #ifndef _WIN32
 #ifndef STORAGE_ENGINE
 	flock(fileId, LOCK_EX);
@@ -522,6 +525,9 @@ void IO::write(int64 offset, int length, const UCHAR* buffer)
 
 void IO::sync(void)
 {
+	if (fileId == -1)
+		return;
+	
 	if (traceFile)
 		traceOperation(TRACE_SYNC_START);
 		

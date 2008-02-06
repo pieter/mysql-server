@@ -82,8 +82,9 @@ Bdb::~Bdb()
 
 void Bdb::mark(TransId transId)
 {
-	ASSERT (useCount > 0);
-	ASSERT (lockType == Exclusive);
+	ASSERT(useCount > 0);
+	ASSERT(lockType == Exclusive);
+	ASSERT(!dbb->isReadOnly);
 	transactionId = transId;
 	//cache->validateCache();
 	lastMark = cache->database->timestamp;

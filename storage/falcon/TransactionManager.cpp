@@ -322,7 +322,7 @@ void TransactionManager::getSummaryInfo(InfoTable* infoTable)
 	sync.unlock();
 	
 	int n = 0;
-	infoTable->putString(n++, database->name);
+//	infoTable->putString(n++, database->name);
 	infoTable->putInt(n++, numberCommitted);
 	infoTable->putInt(n++, numberRolledBack);
 	infoTable->putInt(n++, numberActive);

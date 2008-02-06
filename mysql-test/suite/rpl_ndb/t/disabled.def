@@ -24,3 +24,6 @@ rpl_ndb_mix_innodb       : Bug #32720 2007-11-27 mats Test rpl_ndb_mix_innodb fa
 rpl_ndb_basic              : Bug#29827 2007-07-16 ingo reports to error log
 rpl_ndb_blob             : Bug#31284 rpl_ndb_blob fails on powermacg5: incorrect BLOB contents
 rpl_ndb_multi            : Bug#30751 rpl_ndb_multi missing row in output
+rpl_ndb_idempotent       : BUG#33360 2007-12-19 mats rpl_ndb_idempotent fails due to null field for table on slave side
+rpl_ndb_innodb2ndb       : Bug #32648  	Test failure between NDB Cluster and other engines
+rpl_ndb_myisam2ndb       : Bug #32648  	Test failure between NDB Cluster and other engines

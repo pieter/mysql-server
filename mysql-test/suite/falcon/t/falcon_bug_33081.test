@@ -1,0 +1,34 @@
+--source include/have_falcon.inc
+#
+# Bug #33081: Falcon: crash and database corruption when altering indexed ucs2 column
+#
+--echo *** Bug #33081 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a char(5) CHARACTER SET ucs2);
+INSERT INTO t1 (a) VALUES ('a!'), (null);
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+CREATE INDEX i1 on t1(a(1));
+ALTER TABLE t1 MODIFY COLUMN a varbinary(20);
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

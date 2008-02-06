@@ -389,12 +389,26 @@ int32 Dbb::findNextRecord(Section *section, int32 startingRecord, Stream *stream
 	return section->findNextRecord(startingRecord, stream);
 }
 
-int32 Dbb::createIndex(TransId transId)
+int32 Dbb::createIndex(TransId transId, int indexVersion)
 {
-	int indexId = IndexRootPage::createIndex(this, transId);
+	int indexId;
+	
+	switch (indexVersion)
+		{
+		case INDEX_VERSION_0:
+			indexId = Index2RootPage::createIndex(this, transId);
+			break;
+		
+		case INDEX_VERSION_1:
+			indexId = IndexRootPage::createIndex(this, transId);
+			break;
+		
+		default:
+			ASSERT(false);
+		}
 
 	if (serialLog)
-		serialLog->logControl->createIndex.append(this, transId, indexId, INDEX_CURRENT_VERSION);
+		serialLog->logControl->createIndex.append(this, transId, indexId, indexVersion);
 
 	return indexId;
 }
@@ -454,7 +468,7 @@ Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
 	while (n && !(n & 1))
 		n >>= 1;
 		
-	if (n != 1)
+	if (n != 1 || header.pageSize < 1024)
 		{
 		skewHeader(&header);
 		headerSkew = true;

@@ -9138,6 +9138,12 @@
 			RelativePath=".\FsbDerivedTable.h">
 		</File>
 		<File
+			RelativePath=".\Gopher.cpp">
+		</File>
+		<File
+			RelativePath=".\Gopher.h">
+		</File>
+		<File
 			RelativePath=".\LogLock.cpp">
 		</File>
 		<File
@@ -9154,6 +9160,18 @@
 		</File>
 		<File
 			RelativePath=".\MemFreeBlock.h">
+		</File>
+		<File
+			RelativePath=".\Priority.cpp">
+		</File>
+		<File
+			RelativePath=".\Priority.h">
+		</File>
+		<File
+			RelativePath=".\PriorityScheduler.cpp">
+		</File>
+		<File
+			RelativePath=".\PriorityScheduler.h">
 		</File>
 		<File
 			RelativePath=".\RecordScavenge.cpp">
@@ -9178,6 +9196,18 @@
 		</File>
 		<File
 			RelativePath=".\SRLDropTableSpace.h">
+		</File>
+		<File
+			RelativePath=".\SRLSession.cpp">
+		</File>
+		<File
+			RelativePath=".\SRLSession.h">
+		</File>
+		<File
+			RelativePath=".\SRLUpdateBlob.cpp">
+		</File>
+		<File
+			RelativePath=".\SRLUpdateBlob.h">
 		</File>
 		<File
 			RelativePath=".\TableSpace.cpp">

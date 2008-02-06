@@ -1462,18 +1462,14 @@ void Table::drop(Transaction *transaction)
 
 void Table::truncate(Transaction *transaction)
 {
-	Sync sync(&syncObject, "Table::truncate");
-	sync.lock(Exclusive);
-	Transaction *sysTransaction = database->getSystemTransaction();
-	
 	// Delete data and blob sections
 	
-	expunge(sysTransaction);
+	expunge(transaction);
 
 	// Recreate data and blob sections
 	
-	dataSectionId = dbb->createSection(TRANSACTION_ID(sysTransaction));
-	blobSectionId = dbb->createSection(TRANSACTION_ID(sysTransaction));
+	dataSectionId = dbb->createSection(TRANSACTION_ID(transaction));
+	blobSectionId = dbb->createSection(TRANSACTION_ID(transaction));
 
 	dataSection = dbb->findSection(dataSectionId);
 	blobSection = dbb->findSection(dataSectionId);
@@ -1481,12 +1477,16 @@ void Table::truncate(Transaction *transaction)
 	emptySections->clear();
 	recordBitmap->clear();
 	
-	// Update system.tables with new section ids
+	cardinality = 0;
+	priorCardinality = cardinality;
 	
-	PreparedStatement *statement = database->prepareStatement("update system.tables set dataSection=?, blobSection=? where tableId=?");
+	// Update system.tables with new section ids and cardinality
+	
+	PreparedStatement *statement = database->prepareStatement("update system.tables set dataSection=?, blobSection=?, cardinality=? where tableId=?");
 	statement->setInt(1, dataSectionId);
 	statement->setInt(2, blobSectionId);
-	statement->setInt(3, tableId);
+	statement->setLong(3, cardinality);
+	statement->setInt(4, tableId);
 	statement->executeUpdate();
 	statement->close();
 
@@ -1496,17 +1496,14 @@ void Table::truncate(Transaction *transaction)
 		records = NULL;
 		}
 		
-	rebuildIndexes(sysTransaction, true);
+	rebuildIndexes(transaction, true);
 
-	// Reset select Table attributes
+	// Reset remaining Table attributes
 	
-	priorCardinality = cardinality; // forces update to system tables during scavenge
-	cardinality = 0;
 	ageGroup = database->currentGeneration;
 	debugThawedRecords = 0;
 	debugThawedBytes = 0;
 	alterIsActive = false;
-	//database->commitSystemTransaction();
 }
 
 void Table::checkNullable(Record * record)

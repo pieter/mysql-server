@@ -1,4 +1,5 @@
 --source include/have_falcon.inc
+--source include/have_partition.inc
 #
 # Bug #22178: Partitions: crash if expression
 # Note: Certain partition functions are not allowed anymore.

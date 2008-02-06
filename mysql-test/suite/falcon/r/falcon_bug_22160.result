@@ -1,23 +1,32 @@
-SET @@storage_engine = Falcon;
 *** Bug #22160 ***
+SET @@storage_engine = 'Falcon';
+SELECT @@GLOBAL.falcon_consistent_read INTO @previous_falcon_consistent_read;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+SET GLOBAL falcon_consistent_read = ON;
 DROP DATABASE IF EXISTS db64;
 CREATE DATABASE db64;
-SET @@storage_engine = Falcon;
 USE db64;
+# Establish connection conn1
+SET @@storage_engine = 'Falcon';
 USE db64;
+# Switch to connection default
 CREATE TABLE t1 (s1 int, primary key (s1));
 SET @@autocommit = 0;
 INSERT INTO t1 VALUES (1);
+# Switch to connection conn1
 SET @@autocommit = 0;
 SELECT * FROM t1;
 s1
+# Switch to connection default
 COMMIT;
+# Switch to connection conn1
 REPLACE INTO t1 VALUES (1);
 ERROR HY000: Record has changed since last read in table 't1'
-SELECT * FROM t1;
-s1
 COMMIT;
+# Switch to connection default
+SELECT count(*) FROM t1;
+count(*)
+1
 DROP DATABASE db64;
+SET GLOBAL falcon_consistent_read = @previous_falcon_consistent_read;
 USE test;

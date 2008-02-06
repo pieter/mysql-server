@@ -1,5 +1,5 @@
-SET storage_engine = Falcon;
 *** Bug #22156 ***
+SET @@storage_engine = 'Falcon';
 DROP DATABASE IF EXISTS TEST_DB;
 DROP DATABASE IF EXISTS test_db;
 CREATE SCHEMA test_db;

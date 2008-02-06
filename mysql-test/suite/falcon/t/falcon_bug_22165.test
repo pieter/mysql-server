@@ -37,17 +37,19 @@ begin
     SET v = v + 1;
   end while;
 end//
-CREATE TABLE t1 (a bigint, b varchar(1000), c timestamp)//
+delimiter ;//
 
-CREATE EVENT e1 ON SCHEDULE EVERY 1 second DO CALL db1.p1()//
-CREATE EVENT e2 ON SCHEDULE EVERY 1 second DO CALL db1.p1()//
+CREATE TABLE t1 (a bigint, b varchar(1000), c timestamp);
+
+CREATE EVENT e1 ON SCHEDULE EVERY 1 second DO CALL db1.p1();
+CREATE EVENT e2 ON SCHEDULE EVERY 1 second DO CALL db1.p1();
 
 # ----------------------------------------------------- #
 # --- Test                                          --- #
 # ----------------------------------------------------- #
-SET GLOBAL event_scheduler = 1//
+SET GLOBAL event_scheduler = 1;
 --sleep 60
-SET GLOBAL event_scheduler = 0//
+SET GLOBAL event_scheduler = 0;
 
 # ----------------------------------------------------- #
 # --- Check                                         --- #
@@ -58,8 +60,8 @@ SET GLOBAL event_scheduler = 0//
 # ----------------------------------------------------- #
 # --- Final cleanup                                 --- #
 # ----------------------------------------------------- #
-DROP EVENT db1.e1//
-DROP EVENT db1.e2//
-DROP PROCEDURE db1.p1//
-DROP DATABASE db1//
-delimiter ;//
+DROP EVENT db1.e1;
+DROP EVENT db1.e2;
+DROP PROCEDURE db1.p1;
+DROP DATABASE db1;
+USE test;

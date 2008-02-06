@@ -10,8 +10,7 @@
 #
 ##############################################################################
 
-falcon_bug_22156    : Bug#22156 2006-11-04 hakank Case sensitivity problem
-falcon_bug_22166    : Bug#22166 2006-08-24 hakank Get pushbuild green
+falcon_bug_22166    : Bug#22166 2006-08-24 hakank Open bug
 falcon_bug_22169    : Bug#22169 2006-08-24 hakank Too long run time for PB
 falcon_bug_22182    : Disabled until runtime team provides RENAME DATABASE replacement. See WL#4030
 falcon_bug_22187    : Bug#22187 2006-08-24 hakank Get pushbuild green

@@ -19,7 +19,6 @@ DROP TABLE IF EXISTS t2;
 # ----------------------------------------------------- #
 # --- Test                                          --- #
 # ----------------------------------------------------- #
-
 # Set a very low record cache size.
 SET GLOBAL falcon_record_memory_max = 16 * 1024 * 1024;
 

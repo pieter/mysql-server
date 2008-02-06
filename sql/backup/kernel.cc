@@ -91,6 +91,9 @@ execute_backup_command(THD *thd, LEX *lex)
 
   using namespace backup;
 
+  mysql_reset_errors(thd, 0);
+  thd->no_warnings_for_error= FALSE;
+
   /*
     Check access for SUPER rights. If user does not have SUPER, fail with error.
   */

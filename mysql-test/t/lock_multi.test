@@ -456,7 +456,7 @@ connection waiter;
 connection default;
 let $wait_condition=
   select count(*) = 1 from information_schema.processlist
-  where state = "Locked" and info = "insert into t1 values(1)";
+  where state = "Table Lock" and info = "insert into t1 values(1)";
 --source include/wait_condition.inc
 let $tlwb= `show status like 'Table_locks_waited'`;
 unlock tables;

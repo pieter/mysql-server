@@ -170,6 +170,9 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 #ifdef CHECK_RECORD_ACTIVITY
 					record->active = false;
 #endif
+					if (record->state == recDeleted)
+						record->expungeRecord();
+
 					record->release();
 					}
 				else

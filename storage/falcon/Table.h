@@ -136,6 +136,7 @@ public:
 	void		garbageCollect (Record *leaving, Record *staying, Transaction *transaction, bool quiet);
 	void		expungeBlob (Value *blob);
 	bool		duplicateBlob (Value *blob, int fieldId, Record *recordChain);
+	void		expungeRecord(int32 recordNumber);
 	void		expungeRecordVersions (RecordVersion *record, RecordScavenge *recordScavenge);
 	void		setView (View *view);
 	Index*		findIndex (const char *indexName);

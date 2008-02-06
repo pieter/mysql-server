@@ -374,7 +374,7 @@ void TransactionManager::expungeTransaction(Transaction *transaction)
 	syncActiveTrans.lock(Shared);
 
 	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
-		if (trans->transactionId > transaction->transactionId)
+		if (trans->state != Available && trans->transactionId > transaction->transactionId)
 			trans->expungeTransaction(transaction);
 }
 

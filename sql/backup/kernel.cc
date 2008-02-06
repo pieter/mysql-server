@@ -305,7 +305,16 @@ execute_backup_command(THD *thd, LEX *lex)
       else
       {
         info.write_message(log_level::INFO,"Backing up selected databases");
-        info.add_dbs(lex->db_list); // backup databases specified by user
+        res= info.add_dbs(lex->db_list); // backup databases specified by user
+      }
+      if ((info.db_count() == 0) && (res != ERROR))
+      {
+        res= ERROR;
+        info.report_error(log_level::ERROR, ER_BACKUP_NOTHING_TO_BACKUP, MYF(0));
+        stop= my_time(0); 
+        info.save_end_time(stop);
+        report_errors(thd, info, ER_BACKUP_BACKUP);
+        goto backup_error;
       }
 
       report_ob_num_objects(backup_prog_id, info.table_count);
@@ -710,7 +719,16 @@ int Backup_info::add_dbs(List< ::LEX_STRING > &dbs)
     
     Obj *db= get_database(&db_name);
 
-    if (db && !check_db_existence(db->get_name()))
+    if (((my_strcasecmp(system_charset_info,
+      db_name.c_ptr(), "information_schema") == 0)) ||
+      (my_strcasecmp(system_charset_info,
+      db_name.c_ptr(), "mysql") == 0))
+    {
+      report_error(log_level::ERROR, ER_BACKUP_CANNOT_INCLUDE_DB,
+                   db_name.c_ptr());
+      goto error;
+    }
+    else if (db && !check_db_existence(db->get_name()))
     {    
       if (!unknown_dbs.is_empty()) // we just compose unknown_dbs list
       {

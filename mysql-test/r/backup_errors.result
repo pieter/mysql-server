@@ -44,6 +44,24 @@ do restore from 'test.bak';
 ERROR 0A000: RESTORE is not allowed in stored procedures
 DROP DATABASE adb;
 DROP DATABASE bdb;
+Backup of mysql, information_schema scenario 1
+BACKUP DATABASE mysql TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 2
+BACKUP DATABASE information_schema TO 't.bak';
+ERROR HY000: Database 'information_schema' cannot be included in a backup
+Backup of mysql, information_schema scenario 3
+BACKUP DATABASE mysql, information_schema TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 4
+BACKUP DATABASE mysql, test TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 5
+BACKUP DATABASE information_schema, test TO 't.bak';
+ERROR HY000: Database 'information_schema' cannot be included in a backup
+Backup of mysql, information_schema scenario 6
+BACKUP DATABASE mysql, information_schema, test TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
 Making copies of progress tables.
 CREATE TABLE IF NOT EXISTS test.ob_copy LIKE mysql.online_backup;
 CREATE TABLE IF NOT EXISTS test.obp_copy LIKE mysql.online_backup_progress;

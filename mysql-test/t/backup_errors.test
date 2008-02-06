@@ -89,6 +89,71 @@ DROP DATABASE bdb;
 --error 1
 --remove_file $MYSQLTEST_VARDIR/master-data/test.bak
 
+# Check error conditions for including mysql and information_schema in
+# the list of databases.
+#
+# There are several scenarios:
+# 1) BACKUP DATABASE mysql TO 't.bak'
+#    Error: Nothing to backup
+# 2) BACKUP DATABASE information_schema TO 't.bak'
+#    Error: Nothing to backup
+# 3) BACKUP DATABASE mysql, information_schema TO 't.bak'
+#    Error: Nothing to backup
+# 4) BACKUP DATABASE mysql, test TO 't.bak'
+#    Warning: Backup cannot include database 'mysql'
+# 5) BACKUP DATABASE information_schema, test TO 't.bak'
+#    Warning: Backup cannot include database 'information_schema'
+# 6) BACKUP DATABASE mysql, information_schema, test TO 't.bak'
+#    Warning: Backup cannot include database 'mysql'
+#    Warning: Backup cannot include database 'mysql'
+
+# Scenario 1
+--echo Backup of mysql, information_schema scenario 1
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE mysql TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 2
+--echo Backup of mysql, information_schema scenario 2
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE information_schema TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 3
+--echo Backup of mysql, information_schema scenario 3
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE mysql, information_schema TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 4
+--echo Backup of mysql, information_schema scenario 4
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE mysql, test TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 5
+--echo Backup of mysql, information_schema scenario 5
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE information_schema, test TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 6
+--echo Backup of mysql, information_schema scenario 6
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE mysql, information_schema, test TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
 #
 # BUG#33352 - Test for presence of online backup progress tables;
 #

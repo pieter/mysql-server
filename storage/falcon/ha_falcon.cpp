@@ -2851,7 +2851,6 @@ ST_FIELD_INFO transactionInfoFieldInfo[]=
 	{"STATE",			120, MYSQL_TYPE_STRING,		0, 0, "State", SKIP_OPEN_TABLE},
 	{"THREAD_ID",		4, MYSQL_TYPE_LONG,			0, 0, "Thread Id", SKIP_OPEN_TABLE},
 	{"ID",				4, MYSQL_TYPE_LONG,			0, 0, "Id", SKIP_OPEN_TABLE},
-	{"STATE",			10, MYSQL_TYPE_STRING,		0, 0, "State", SKIP_OPEN_TABLE},
 	{"UPDATES",			4, MYSQL_TYPE_LONG,			0, 0, "Has Updates", SKIP_OPEN_TABLE},
 	{"PENDING",			4, MYSQL_TYPE_LONG,			0, 0, "Write Pending", SKIP_OPEN_TABLE},
 	{"DEP",				4, MYSQL_TYPE_LONG,			0, 0, "Dependencies", SKIP_OPEN_TABLE},
@@ -3064,7 +3063,7 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 
 void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
 {
-	falcon_consistent_read = *(my_bool*) save;
+	falcon_consistent_read = (my_bool) (*(int *) save ? 1 : 0);
 
 	int newRepeatableRead = (falcon_consistent_read ? 
 		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);

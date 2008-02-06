@@ -464,8 +464,8 @@ void Transaction::rollback()
 
 void Transaction::expungeTransaction(Transaction * transaction)
 {
-	TransId oldId = transactionId;
-	int orgState = state;
+	//TransId oldId = transactionId;
+	//int orgState = state;
 	ASSERT(states != NULL || numberStates == 0);
 	int n = 0;
 	
@@ -1213,24 +1213,10 @@ void Transaction::getInfo(InfoTable* infoTable)
 {
 	if (!(state == Available && dependencies == 0))
 		{
-		const char * ptr;
-		switch (state)
-			{
-			case Active:				ptr = "Active"; break;
-			case Limbo:					ptr = "Limbo"; break;
-			case Committed:				ptr = "Committed"; break;
-			case RolledBack:			ptr = "RolledBack"; break;
-			case Available:				ptr = "Available"; break;
-			case Initializing:			ptr = "Initializing"; break;
-			case CommittingReadOnly:	ptr = "CommittingReadOnly"; break;
-			default:					ptr = "Unknown"; break;
-			}
-
 		int n = 0;
-		infoTable->putString(n++, ptr);
+		infoTable->putString(n++, stateNames[state]);
 		infoTable->putInt(n++, mySqlThreadId);
 		infoTable->putInt(n++, transactionId);
-		infoTable->putString(n++, stateNames[state]);
 		infoTable->putInt(n++, hasUpdates);
 		infoTable->putInt(n++, writePending);
 		infoTable->putInt(n++, dependencies);

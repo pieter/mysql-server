@@ -11,7 +11,6 @@
 ##############################################################################
 
 
-rpl_ndb_ctype_ucs2_def   : BUG#27404 util thd mysql_parse sig11 when mysqld default multibyte charset
 rpl_ndb_charset          : Bug#32026 rpl_ndb_charset occasional extra rows in binlog
 
 # the below testcase have been reworked to avoid the bug, test contains comment, keep bug open

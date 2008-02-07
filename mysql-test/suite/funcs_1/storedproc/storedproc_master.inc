@@ -141,7 +141,7 @@ CALL sp1( 17976931340000 );
 
 # switched off due to big differences with (e.g....) sol10-sparc-b
 CALL sp1( 1.797693134e+13 );
---error ER_ILLEGAL_VALUE_FOR_TYPE
+
 CALL sp1( 1.7976931348623157493578e+308 );
 
 # check all ...E+100 to E-100
@@ -18241,6 +18241,7 @@ END//
 delimiter ;//
 
 CALL sp2( 'insert' );
+--sorted_result
 SELECT * from t3 where f3 <=5 && f3 >= 0;
 
 SELECT count(*) from t3;

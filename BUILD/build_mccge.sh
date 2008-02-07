@@ -214,14 +214,15 @@ extended_usage()
   --package=cge
     storage engines:
       ARCHIVE, BLACKHOLE, CSV, EXAMPLE, FEDERATED, MYISAM, NDB
-      (All storage engines except InnoDB)
+      (All storage engines except InnoDB and Falcon)
     comment: MySQL Cluster Carrier Grade Edition GPL/Commercial version 
              built from source
     version string suffix: -cge
 
   --package=extended
     storage engines:
-      ARCHIVE, BLACKHOLE, CSV, EXAMPLE, FEDERATED, MYISAM, INNODB, NDB
+      ARCHIVE, BLACKHOLE, CSV, EXAMPLE, FEDERATED, MYISAM, INNODB, NDB,
+      FALCON
       (All storage engines)
     comment: MySQL Cluster Carrier Grade Extended Edition GPL/Commercial 
              version built from source
@@ -229,7 +230,7 @@ extended_usage()
 
   --package=pro
     storage engines:
-      ARCHIVE, BLACKHOLE, CSV, EXAMPLE, FEDERATED, INNODB, MYISAM
+      ARCHIVE, BLACKHOLE, CSV, EXAMPLE, FEDERATED, INNODB, MYISAM, FALCON
       (All storage engines except NDB)
     comment: MySQL Pro GPL/Commercial version built from 
              source
@@ -339,6 +340,10 @@ extended_usage()
   -------------------------
   --with-innodb
     Specifically included in the "pro" and "extended" packages, and not 
+    in any of the others.
+
+  --with-falcon
+    Specifically included in the "pro" and "extended" packages, and not
     in any of the others.
 
   --with-comment
@@ -1070,6 +1075,7 @@ set_pro_package()
 {
   base_configs="$base_configs $engine_configs"
   base_configs="$base_configs --with-innodb"
+  base_configs="$base_configs --with-falcon"
   base_configs="$base_configs --with-comment=\"MySQL Pro $version_text built from source\""
   if test "x$with_debug_flag" = "xyes" ; then
     base_configs="$base_configs --with-server-suffix=\"-debug\""
@@ -1085,6 +1091,7 @@ set_cge_extended_package()
   base_configs="$base_configs --without-ndb-debug"
   base_configs="$base_configs $engine_configs"
   base_configs="$base_configs --with-innodb"
+  base_configs="$base_configs --with-falcon"
   base_configs="$base_configs --with-comment=\"MySQL Cluster Carrier Grade Extended Edition $version_text built from source\""
   if test "x$with_debug_flag" = "xyes" ; then
     base_configs="$base_configs --with-server-suffix=\"-cge-extended-debug\""

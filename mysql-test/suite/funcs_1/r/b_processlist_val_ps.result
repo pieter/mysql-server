@@ -67,10 +67,10 @@ Id	User	Host	db	Command	Time	State	Info
 SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 <ID>	ddicttestuser1	localhost	information_schema	Execute	<TIME>	executing	SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST
-<ID>	ddicttestuser1	localhost	information_schema	Sleep	<TIME>		NULL
+<ID>	ddicttestuser1	localhost	information_schema	Sleep	<TIME>	NULL	NULL
 SHOW FULL PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info
-<ID>	ddicttestuser1	localhost	information_schema	Sleep	<TIME>		NULL
+<ID>	ddicttestuser1	localhost	information_schema	Sleep	<TIME>	NULL	NULL
 <ID>	ddicttestuser1	localhost	information_schema	Query	<TIME>	NULL	SHOW FULL PROCESSLIST
 
 ----- switch to connection default (user = root) -----
@@ -133,14 +133,16 @@ SELECT COUNT(*) FROM test.t1;
 
 ----- switch to connection default (user = root) -----
 # Sleep some time
+Timeout in wait_condition.inc for SELECT COUNT(*) FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE INFO IS NOT NULL AND STATE = 'Locked'
 SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
-<ID>	ddicttestuser1	localhost	information_schema	Query	<TIME>	Locked	SELECT COUNT(*) FROM test.t1
+<ID>	ddicttestuser1	localhost	information_schema	Query	<TIME>	Table lock	SELECT COUNT(*) FROM test.t1
 <ID>	root	localhost	information_schema	Execute	<TIME>	executing	SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST
 SHOW FULL PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info
 <ID>	root	localhost	information_schema	Query	<TIME>	NULL	SHOW FULL PROCESSLIST
-<ID>	ddicttestuser1	localhost	information_schema	Query	<TIME>	Locked	SELECT COUNT(*) FROM test.t1
+<ID>	ddicttestuser1	localhost	information_schema	Query	<TIME>	Table lock	SELECT COUNT(*) FROM test.t1
 UNLOCK TABLES;
 
 ----- switch to connection ddicttestuser1 (user = ddicttestuser1) -----

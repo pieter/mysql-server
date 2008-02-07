@@ -3031,3 +3031,4 @@ win/vs8cache.txt
 ylwrap
 zlib/*.ds?
 zlib/*.vcproj
+mysql-test/funcs_1-ps.log

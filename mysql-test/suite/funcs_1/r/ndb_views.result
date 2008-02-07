@@ -22495,9 +22495,6 @@ f1	f2	f4	report
 2	NULL	<-- 10 -->	t1 2
 2	NULL	<-- 10 -->	v1 2
 ALTER TABLE t1 CHANGE COLUMN f4 f4 CHAR(8);
-Warnings:
-Warning	1265	Data truncated for column 'f4' at row 2
-Warning	1265	Data truncated for column 'f4' at row 5
 INSERT INTO t1 SET f1 = 3, f4 = '<-- 10 -->', report = 't1 3';
 Warnings:
 Warning	1265	Data truncated for column 'f4' at row 1
@@ -22823,7 +22820,7 @@ f1	f2
 ABC	3
 SELECT * FROM v1 order by 2;
 f1	my_sqrt
-ABC	1.7320508075689
+ABC	1.7320508075688772
 ALTER TABLE t1 CHANGE COLUMN f2 f2 VARCHAR(30);
 INSERT INTO t1   SET f1 = 'ABC', f2 = 'DEF';
 DESCRIBE t1;
@@ -22841,7 +22838,7 @@ ABC	DEF
 SELECT * FROM v1 order by 2;
 f1	my_sqrt
 ABC	0
-ABC	1.7320508075689
+ABC	1.7320508075688772
 SELECT SQRT('DEF');
 SQRT('DEF')
 0
@@ -22861,27 +22858,27 @@ my_sqrt	double	YES		NULL
 SELECT * FROM v2 order by 2;
 f1	my_sqrt
 ABC	0
-ABC	1.7320508075689
+ABC	1.7320508075688772
 CREATE TABLE t2 AS SELECT f1, SQRT(f2) my_sqrt FROM t1;
 SELECT * FROM t2 order by 2;
 f1	ABC
 my_sqrt	0
 f1	ABC
-my_sqrt	1.73205080756888
+my_sqrt	1.7320508075688772
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT * FROM v1;
 SELECT * FROM t2 order by 2;
 f1	ABC
 my_sqrt	0
 f1	ABC
-my_sqrt	1.73205080756888
+my_sqrt	1.7320508075688772
 DROP TABLE t2;
 CREATE TABLE t2 AS SELECT * FROM v2;
 SELECT * FROM t2 order by 2;
 f1	ABC
 my_sqrt	0
 f1	ABC
-my_sqrt	1.73205080756888
+my_sqrt	1.7320508075688772
 DROP TABLE t1;
 DROP TABLE t2;
 DROP VIEW  v1;

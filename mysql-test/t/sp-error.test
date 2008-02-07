@@ -2354,20 +2354,22 @@ delimiter ;|
 #
 # Bug#21801: SQL exception handlers and warnings
 #
-
---disable_warnings
-drop procedure if exists p1;
---enable_warnings
-delimiter |;
-create procedure p1()
-begin
-  create table t1 (a int) type=MyISAM;
-  drop table t1;
-end|
-delimiter ;|
-call p1();
-call p1();
-drop procedure p1;
+# Disabled because there are no deprecated warnings in 6.+
+# Uncomment when such warnings are added to the parser.
+#
+#--disable_warnings
+#drop procedure if exists p1;
+#--enable_warnings
+#delimiter |;
+#create procedure p1()
+#begin
+#  create table t1 (a int) type=MyISAM;
+#  drop table t1;
+#end|
+#delimiter ;|
+#call p1();
+#call p1();
+#drop procedure p1;
 
 #
 # BUG#NNNN: New bug synopsis

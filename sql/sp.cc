@@ -482,6 +482,30 @@ db_find_routine(THD *thd, int type, sp_name *name, sp_head **sphp)
 }
 
 
+/**
+  Silence DEPRECATED SYNTAX warnings when loading a stored procedure
+  into the cache.
+*/
+struct Silence_deprecated_warning : public Internal_error_handler
+{
+public:
+  virtual bool handle_error(uint sql_errno, const char *message,
+                            MYSQL_ERROR::enum_warning_level level,
+                            THD *thd);
+};
+
+bool
+Silence_deprecated_warning::handle_error(uint sql_errno, const char *message,
+                                         MYSQL_ERROR::enum_warning_level level,
+                                         THD *thd)
+{
+  if (sql_errno == ER_WARN_DEPRECATED_SYNTAX &&
+      level == MYSQL_ERROR::WARN_LEVEL_WARN)
+    return TRUE;
+
+  return FALSE;
+}
+
 
 /**
   @brief    The function parses input strings and returns SP stucture.
@@ -503,12 +527,14 @@ static sp_head *sp_compile(THD *thd, String *defstr, ulong sql_mode,
   ulong old_sql_mode= thd->variables.sql_mode;
   ha_rows old_select_limit= thd->variables.select_limit;
   sp_rcontext *old_spcont= thd->spcont;
+  Silence_deprecated_warning warning_handler;
 
   thd->variables.sql_mode= sql_mode;
   thd->variables.select_limit= HA_POS_ERROR;
 
   Lex_input_stream lip(thd, defstr->c_ptr(), defstr->length());
   lex_start(thd);
+  thd->push_internal_handler(&warning_handler);
   thd->spcont= 0;
 
   if (parse_sql(thd, &lip, creation_ctx) || thd->lex == NULL)
@@ -522,6 +548,7 @@ static sp_head *sp_compile(THD *thd, String *defstr, ulong sql_mode,
     sp= thd->lex->sphead;
   }
 
+  thd->pop_internal_handler();
   thd->spcont= old_spcont;
   thd->variables.sql_mode= old_sql_mode;
   thd->variables.select_limit= old_select_limit;

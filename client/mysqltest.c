@@ -49,6 +49,7 @@
 #include <direct.h>
 #endif
 
+
 /* Use cygwin for --exec and --system before 5.0 */
 #if MYSQL_VERSION_ID < 50000
 #define USE_CYGWIN

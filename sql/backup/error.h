@@ -11,7 +11,7 @@ namespace util {
   @returns 0 if error was reported, non-zero otherwise.
  */
 inline
-int report_mysql_error(THD*, MYSQL_ERROR *err, int code= 0)
+int report_mysql_error(THD* thd, MYSQL_ERROR *err, int code= 0)
 {
   DBUG_ASSERT(err);
 
@@ -22,8 +22,14 @@ int report_mysql_error(THD*, MYSQL_ERROR *err, int code= 0)
   switch (err->level) {
 
   case MYSQL_ERROR::WARN_LEVEL_ERROR:
-    return my_printf_error(err->code ? err->code : code, err->msg, MYF(0));
-
+  {
+    int ret;
+    bool old_value= thd->no_warnings_for_error;
+    thd->no_warnings_for_error= TRUE;
+    ret= my_printf_error(err->code ? err->code : code, err->msg, MYF(0));
+    thd->no_warnings_for_error= old_value;
+    return ret;
+  }
   default: // Q: What to do with warnings and notes? push them... ?
     return -1;
   }

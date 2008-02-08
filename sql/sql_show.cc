@@ -3214,6 +3214,7 @@ int get_all_tables(THD *thd, TABLE_LIST *tables, COND *cond)
   Security_context *sctx= thd->security_ctx;
 #endif
   uint table_open_method;
+  bool old_value= thd->no_warnings_for_error;
   DBUG_ENTER("get_all_tables");
 
   lex->view_prepare_mode= TRUE;
@@ -3425,6 +3426,7 @@ err:
   lex->all_selects_list= old_all_select_lex;
   lex->view_prepare_mode= save_view_prepare_mode;
   lex->sql_command= save_sql_command;
+  thd->no_warnings_for_error= old_value;
   DBUG_RETURN(error);
 }
 

@@ -887,6 +887,32 @@ Record* Table::fetch(int32 recordNumber)
 		}
 }
 
+Record* Table::treeFetch(int32 recordNumber)
+{
+	Sync sync (&syncObject, "Table::treeFetch");
+	sync.lock (Shared);
+
+	if (!records)
+		return NULL;
+		
+	RecordSection *section = records;
+	int id = recordNumber;
+	
+	while (section->base)
+		{
+		int slot = id / section->base;
+		id = id % section->base;
+
+		if (slot >= RECORD_SLOTS)
+			return NULL;
+
+		if ( !(section = ((RecordGroup*) section)->records[slot]) )
+			return NULL;
+		}
+	
+	return section->fetch(id);
+}
+
 Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 {
 #ifdef CHECK_RECORD_ACTIVITY
@@ -3548,7 +3574,7 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 	if (deleting)
 		return false;
 
-	Record *record = fetch(recordNumber);
+	Record *record = treeFetch(recordNumber);
 	Record *initial = record;
 	
 	while (record)

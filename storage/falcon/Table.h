@@ -258,6 +258,8 @@ public:
 
 protected:
 	const char		*type;
+public:
+	Record* treeFetch(int32 recordNumber);
 };
 
 #endif // !defined(AFX_TABLE_H__02AD6A42_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

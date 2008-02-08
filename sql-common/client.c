@@ -1793,7 +1793,6 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
 {
   char		buff[NAME_LEN+USERNAME_LENGTH+100];
   char		*end,*host_info;
-  my_socket	sock;
   ulong		pkt_length;
   NET		*net= &mysql->net;
 #ifdef MYSQL_SERVER
@@ -1885,7 +1884,6 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
     else
     {
       mysql->options.protocol=MYSQL_PROTOCOL_MEMORY;
-      sock=0;
       unix_socket = 0;
       host=mysql->options.shared_memory_base_name;
       my_snprintf(host_info=buff, sizeof(buff)-1,
@@ -1900,12 +1898,8 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
       (unix_socket || mysql_unix_port) &&
       (!host || !strcmp(host,LOCAL_HOST)))
   {
-    host=LOCAL_HOST;
-    if (!unix_socket)
-      unix_socket=mysql_unix_port;
-    host_info=(char*) ER(CR_LOCALHOST_CONNECTION);
-    DBUG_PRINT("info",("Using UNIX sock '%s'",unix_socket));
-    if ((sock = socket(AF_UNIX,SOCK_STREAM,0)) == SOCKET_ERROR)
+    my_socket sock= socket(AF_UNIX, SOCK_STREAM, 0);
+    if (sock == SOCKET_ERROR)
     {
       set_mysql_extended_error(mysql, CR_SOCKET_CREATE_ERROR,
                                unknown_sqlstate,
@@ -1913,12 +1907,28 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
                                socket_errno);
       goto error;
     }
+
     net->vio= vio_new(sock, VIO_TYPE_SOCKET,
                       VIO_LOCALHOST | VIO_BUFFERED_READ);
-    bzero((char*) &UNIXaddr,sizeof(UNIXaddr));
-    UNIXaddr.sun_family = AF_UNIX;
+    if (!net->vio)
+    {
+      DBUG_PRINT("error",("Unknow protocol %d ", mysql->options.protocol));
+      set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
+      closesocket(sock);
+      goto error;
+    }
+
+    host= LOCAL_HOST;
+    if (!unix_socket)
+      unix_socket= mysql_unix_port;
+    host_info= (char*) ER(CR_LOCALHOST_CONNECTION);
+    DBUG_PRINT("info", ("Using UNIX sock '%s'", unix_socket));
+
+    bzero((char*) &UNIXaddr, sizeof(UNIXaddr));
+    UNIXaddr.sun_family= AF_UNIX;
     strmake(UNIXaddr.sun_path, unix_socket, sizeof(UNIXaddr.sun_path)-1);
-    if (my_connect(sock,(struct sockaddr *) &UNIXaddr, sizeof(UNIXaddr),
+
+    if (my_connect(sock, (struct sockaddr *) &UNIXaddr, sizeof(UNIXaddr),
 		   mysql->options.connect_timeout))
     {
       DBUG_PRINT("error",("Got error %d on connect to local server",
@@ -1927,6 +1937,8 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
                                unknown_sqlstate,
                                ER(CR_CONNECTION_ERROR),
                                unix_socket, socket_errno);
+      vio_delete(net->vio);
+      net->vio= 0;
       goto error;
     }
     mysql->options.protocol=MYSQL_PROTOCOL_SOCKET;
@@ -1937,7 +1949,6 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
        (host && !strcmp(host,LOCAL_HOST_NAMEDPIPE)) ||
        (! have_tcpip && (unix_socket || !host && is_NT()))))
   {
-    sock=0;
     if ((hPipe= create_named_pipe(mysql, mysql->options.connect_timeout,
                                   (char**) &host, (char**) &unix_socket)) ==
 	INVALID_HANDLE_VALUE)
@@ -2012,46 +2023,40 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
       goto error;
     }
 
-    sock= -1;
-
     /* We only look at the first item (something to think about changing in the future) */
     t_res= res_lst; 
     {
-      if ((sock= socket(t_res->ai_family, t_res->ai_socktype, t_res->ai_protocol)) == SOCKET_ERROR)
+      my_socket sock= socket(t_res->ai_family, t_res->ai_socktype,
+                             t_res->ai_protocol);
+      if (sock == SOCKET_ERROR)
       {
         set_mysql_extended_error(mysql, CR_IPSOCK_ERROR, unknown_sqlstate,
                                  ER(CR_IPSOCK_ERROR), socket_errno);
-
         freeaddrinfo(res_lst);
         goto error;
       }
 
       net->vio= vio_new(sock, VIO_TYPE_TCPIP, VIO_BUFFERED_READ);
-      if (! net->vio ) 
+      if (! net->vio )
       {
         DBUG_PRINT("error",("Unknow protocol %d ", mysql->options.protocol));
         set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
-        close((int)sock);
-        sock=-1;
+        closesocket(sock);
         freeaddrinfo(res_lst);
-
-        goto error; 
+        goto error;
       }
 
-      if (my_connect(sock, t_res->ai_addr, t_res->ai_addrlen, 
-                     mysql->options.connect_timeout)) 
+      if (my_connect(sock, t_res->ai_addr, t_res->ai_addrlen,
+                     mysql->options.connect_timeout))
       {
         DBUG_PRINT("error",("Got error %d on connect to '%s'",socket_errno,
                             host));
         set_mysql_extended_error(mysql, CR_CONN_HOST_ERROR, unknown_sqlstate,
                                  ER(CR_CONN_HOST_ERROR), host, socket_errno);
         vio_delete(net->vio);
-        net->vio = 0;
-        close((int)sock);
-        sock=-1;
+        net->vio= 0;
         freeaddrinfo(res_lst);
-
-        goto error; 
+        goto error;
       }
     }
 

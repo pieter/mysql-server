@@ -277,6 +277,92 @@ AC_TRY_COMPILE([
 	[Define to unsigned int if you dont have it])]
 )
 
+AC_MSG_CHECKING([whether our compiler supports __func__])
+AC_TRY_COMPILE([],
+ [ const char *cp = __func__; ],
+ AC_MSG_RESULT([yes]),
+ AC_MSG_RESULT([no])
+ AC_MSG_CHECKING([whether our compiler supports __FUNCTION__])
+ AC_TRY_COMPILE([],
+   [ const char *cp = __FUNCTION__; ],
+   AC_MSG_RESULT([yes])
+   AC_DEFINE(__func__, __FUNCTION__,
+         [Define to appropriate substitue if compiler doesnt have __func__]),
+   AC_MSG_RESULT([no])
+   AC_DEFINE(__func__, __FILE__,
+         [Define to appropriate substitue if compiler doesnt have __func__])))
+
+AH_VERBATIM([HAVE_TIMERADD], [
+/* Define if timeradd is defined in <sys/time.h> */
+#undef HAVE_TIMERADD
+#ifndef HAVE_TIMERADD
+#undef timersub
+#define timeradd(tvp, uvp, vvp)						\
+	do {								\
+		(vvp)->tv_sec = (tvp)->tv_sec + (uvp)->tv_sec;		\
+		(vvp)->tv_usec = (tvp)->tv_usec + (uvp)->tv_usec;       \
+		if ((vvp)->tv_usec >= 1000000) {			\
+			(vvp)->tv_sec++;				\
+			(vvp)->tv_usec -= 1000000;			\
+		}							\
+	} while (0)
+#define	timersub(tvp, uvp, vvp)						\
+	do {								\
+		(vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;		\
+		(vvp)->tv_usec = (tvp)->tv_usec - (uvp)->tv_usec;	\
+		if ((vvp)->tv_usec < 0) {				\
+			(vvp)->tv_sec--;				\
+			(vvp)->tv_usec += 1000000;			\
+		}							\
+	} while (0)
+#endif /* !HAVE_TIMERADD */
+])
+
+AH_VERBATIM([HAVE_TIMERCLEAR], [
+#undef HAVE_TIMERCLEAR
+#ifndef HAVE_TIMERCLEAR
+#define	timerclear(tvp)	(tvp)->tv_sec = (tvp)->tv_usec = 0
+#endif
+])
+
+AH_VERBATIM([HAVE_TIMERCMP], [
+#undef HAVE_TIMERCMP
+#ifndef HAVE_TIMERCMP
+#undef timercmp
+#define	timercmp(tvp, uvp, cmp)						\
+	(((tvp)->tv_sec == (uvp)->tv_sec) ?				\
+	 ((tvp)->tv_usec cmp (uvp)->tv_usec) :				\
+	 ((tvp)->tv_sec cmp (uvp)->tv_sec))
+#endif
+])
+
+AH_VERBATIM([HAVE_TIMERISSET], [
+#undef HAVE_TIMERISSET
+#ifndef HAVE_TIMERISSET
+#undef timerisset
+#define	timerisset(tvp)	((tvp)->tv_sec || (tvp)->tv_usec)
+#endif
+])
+
+AH_VERBATIM([HAVE_TAILQFOREACH], [
+/* Define if TAILQ_FOREACH is defined in <sys/queue.h> */
+#undef HAVE_TAILQFOREACH
+#ifndef HAVE_TAILQFOREACH
+#define	TAILQ_FIRST(head)		((head)->tqh_first)
+#define	TAILQ_END(head)			NULL
+#define	TAILQ_NEXT(elm, field)		((elm)->field.tqe_next)
+#define TAILQ_FOREACH(var, head, field)					\
+	for((var) = TAILQ_FIRST(head);					\
+	    (var) != TAILQ_END(head);					\
+	    (var) = TAILQ_NEXT(var, field))
+#define	TAILQ_INSERT_BEFORE(listelm, elm, field) do {			\
+	(elm)->field.tqe_prev = (listelm)->field.tqe_prev;		\
+	(elm)->field.tqe_next = (listelm);				\
+	*(listelm)->field.tqe_prev = (elm);				\
+	(listelm)->field.tqe_prev = &(elm)->field.tqe_next;		\
+} while (0)
+#endif /* TAILQ_FOREACH */
+])
 ])
 
 

@@ -2742,7 +2742,7 @@ AC_CONFIG_FILES(Makefile extra/Makefile mysys/Makefile dnl
  strings/Makefile regex/Makefile storage/Makefile dnl
  man/Makefile BUILD/Makefile vio/Makefile dnl
  libmysql/Makefile libmysql_r/Makefile client/Makefile dnl
- sql/Makefile sql/share/Makefile dnl
+ sql/Makefile sql/share/Makefile sql/backup/Makefile dnl
  sql/sql_builtin.cc sql-common/Makefile dnl
  dbug/Makefile scripts/Makefile include/Makefile dnl
  tests/Makefile Docs/Makefile support-files/Makefile dnl

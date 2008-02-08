@@ -1,0 +1,22 @@
+DROP DATABASE IF EXISTS db;
+CREATE DATABASE db;
+CREATE TABLE db.t1 (a int, b char(32))
+ENGINE=MYISAM;
+BACKUP DATABASE db TO "db.backup";
+backup_id
+#
+DROP DATABASE db;
+CREATE DATABASE db;
+RESTORE FROM "db.backup";
+backup_id
+#
+SHOW TABLES IN db;
+Tables_in_db
+t1
+SHOW CREATE TABLE db.t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) DEFAULT NULL,
+  `b` char(32) DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=latin1
+DROP DATABASE db;

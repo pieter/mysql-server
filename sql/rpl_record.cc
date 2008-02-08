@@ -201,7 +201,14 @@ unpack_row(Relay_log_info const *rli,
   // The "current" null bits
   unsigned int null_bits= *null_ptr++;
   uint i= 0;
-  table_def *tabledef= ((Relay_log_info*)rli)->get_tabledef(table);
+
+  /*
+    Use the rli class to get the table's metadata. If tabledef is not NULL
+    we are processing data from a master. If tabledef is NULL then it is
+    assumed that the packed row comes from the table to which it is
+    unpacked.
+  */
+  table_def *tabledef= rli ? ((Relay_log_info*)rli)->get_tabledef(table) : 0;
   for (field_ptr= begin_ptr ; field_ptr < end_ptr && *field_ptr ; ++field_ptr)
   {
     Field *const f= *field_ptr;
@@ -235,7 +242,12 @@ unpack_row(Relay_log_info const *rli,
           Use the master's size information if available else call
           normal unpack operation.
         */
-        uint16 const metadata= tabledef->field_metadata(i);
+        /*
+          Use the master's metadata if we are processing data from a slave
+          (tabledef not NULL). If tabledef is NULL then it is assumed that
+          the packed row comes from the table to which it is unpacked.
+        */
+        uint16 metadata= tabledef ? tabledef->field_metadata(i) : 0;
 #ifndef DBUG_OFF
         uchar const *const old_pack_ptr= pack_ptr;
 #endif
@@ -254,8 +266,12 @@ unpack_row(Relay_log_info const *rli,
 
   /*
     throw away master's extra fields
+
+    Use the master's max_cols if we are processing data from a slave
+    (tabledef not NULL). If tabledef is NULL then it is assumed that
+    there are no extra columns.
   */
-  uint max_cols= min(tabledef->size(), cols->n_bits);
+  uint max_cols= tabledef ? min(tabledef->size(), cols->n_bits) : 0;
   for (; i < max_cols; i++)
   {
     if (bitmap_is_set(cols, i))

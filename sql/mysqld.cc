@@ -26,6 +26,7 @@
 #include "mysqld_suffix.h"
 #include "mysys_err.h"
 #include "events.h"
+#include "ddl_blocker.h"
 
 #include "../storage/myisam/ha_myisam.h"
 
@@ -392,6 +393,7 @@ static pthread_cond_t COND_thread_cache, COND_flush_thread_cache;
 
 /* Global variables */
 
+extern DDL_blocker_class *DDL_blocker;
 bool opt_update_log, opt_bin_log;
 my_bool opt_log, opt_slow_log;
 ulong log_output_options;
@@ -644,6 +646,8 @@ pthread_mutex_t LOCK_mysql_create_db, LOCK_Acl, LOCK_open, LOCK_thread_count,
 		LOCK_crypt, LOCK_bytes_sent, LOCK_bytes_received,
 	        LOCK_global_system_variables,
 		LOCK_user_conn, LOCK_slave_list, LOCK_active_mi;
+pthread_mutex_t LOCK_backup;
+
 /**
   The below lock protects access to two global server variables:
   max_prepared_stmt_count and prepared_stmt_count. These variables
@@ -1399,6 +1403,7 @@ static void clean_up_mutexes()
   (void) pthread_mutex_destroy(&LOCK_bytes_sent);
   (void) pthread_mutex_destroy(&LOCK_bytes_received);
   (void) pthread_mutex_destroy(&LOCK_user_conn);
+  (void) pthread_mutex_destroy(&LOCK_backup);
   Events::destroy_mutexes();
 #ifdef HAVE_OPENSSL
   (void) pthread_mutex_destroy(&LOCK_des_key_file);
@@ -1426,6 +1431,7 @@ static void clean_up_mutexes()
   (void) pthread_cond_destroy(&COND_thread_cache);
   (void) pthread_cond_destroy(&COND_flush_thread_cache);
   (void) pthread_cond_destroy(&COND_manager);
+  DDL_blocker_class::destroy_DDL_blocker_class_instance();
 }
 
 #endif /*EMBEDDED_LIBRARY*/
@@ -3345,6 +3351,7 @@ static int init_thread_environment()
   (void) pthread_mutex_init(&LOCK_global_read_lock, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_prepared_stmt_count, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_uuid_generator, MY_MUTEX_INIT_FAST);
+  (void) pthread_mutex_init(&LOCK_backup, MY_MUTEX_INIT_FAST);
 #ifdef HAVE_OPENSSL
   (void) pthread_mutex_init(&LOCK_des_key_file,MY_MUTEX_INIT_FAST);
 #ifndef HAVE_YASSL
@@ -3374,6 +3381,12 @@ static int init_thread_environment()
 #endif
   (void) pthread_mutex_init(&LOCK_server_started, MY_MUTEX_INIT_FAST);
   (void) pthread_cond_init(&COND_server_started,NULL);
+
+  /*
+    Initialize the DDL blocker
+  */
+  DDL_blocker= DDL_blocker_class::get_DDL_blocker_class_instance();
+
   sp_cache_init();
   Events::init_mutexes();
   /* Parameter for threads created for connections */

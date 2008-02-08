@@ -1,0 +1,97 @@
+DROP DATABASE IF EXISTS adb;
+DROP DATABASE IF EXISTS bdb;
+RESTORE FROM 'test.bak';
+ERROR HY000: Can't read backup location 'test.bak'
+CREATE DATABASE adb;
+CREATE DATABASE bdb;
+CREATE TABLE bdb.t1(a int) ENGINE=MEMORY;
+BACKUP DATABASE adb TO '';
+ERROR HY000: Invalid backup location ''
+BACKUP DATABASE adb TO "bdb/t1.frm";
+ERROR HY000: Can't write to backup location 'bdb/t1.frm' (file already exists?)
+BACKUP DATABASE adb TO "test.bak";
+backup_id
+#
+BACKUP DATABASE adb TO "test.bak";
+ERROR HY000: Can't write to backup location 'test.bak' (file already exists?)
+DROP DATABASE IF EXISTS foo;
+DROP DATABASE IF EXISTS bar;
+BACKUP DATABASE foo TO 'test.bak';
+ERROR 42000: Unknown database 'foo'
+BACKUP DATABASE test,foo,bdb,bar TO 'test.bak';
+ERROR 42000: Unknown database 'foo,bar'
+use adb;
+create table t1 (a int);
+create procedure p1() backup database test to 'test.bak';
+ERROR 0A000: BACKUP is not allowed in stored procedures
+create procedure p1() restore from 'test.bak';
+ERROR 0A000: RESTORE is not allowed in stored procedures
+create function f1() returns int backup database test to 'test.bak';
+ERROR 0A000: BACKUP is not allowed in stored procedures
+create function f1() returns int restore from 'test.bak';
+ERROR 0A000: RESTORE is not allowed in stored procedures
+create trigger tr1 before insert on t1 
+for each row backup database test to 'test.bak';
+ERROR 0A000: BACKUP is not allowed in stored procedures
+create trigger tr1 before insert on t1 
+for each row restore from 'test.bak';
+ERROR 0A000: RESTORE is not allowed in stored procedures
+create event ev1 on schedule every 1 day 
+do backup database test to 'test.bak';
+ERROR 0A000: BACKUP is not allowed in stored procedures
+create event ev1 on schedule every 1 day 
+do restore from 'test.bak';
+ERROR 0A000: RESTORE is not allowed in stored procedures
+DROP DATABASE adb;
+DROP DATABASE bdb;
+Backup of mysql, information_schema scenario 1
+BACKUP DATABASE mysql TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 2
+BACKUP DATABASE information_schema TO 't.bak';
+ERROR HY000: Database 'information_schema' cannot be included in a backup
+Backup of mysql, information_schema scenario 3
+BACKUP DATABASE mysql, information_schema TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 4
+BACKUP DATABASE mysql, test TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Backup of mysql, information_schema scenario 5
+BACKUP DATABASE information_schema, test TO 't.bak';
+ERROR HY000: Database 'information_schema' cannot be included in a backup
+Backup of mysql, information_schema scenario 6
+BACKUP DATABASE mysql, information_schema, test TO 't.bak';
+ERROR HY000: Database 'mysql' cannot be included in a backup
+Making copies of progress tables.
+CREATE TABLE IF NOT EXISTS test.ob_copy LIKE mysql.online_backup;
+CREATE TABLE IF NOT EXISTS test.obp_copy LIKE mysql.online_backup_progress;
+CREATE DATABASE test_ob_error;
+CREATE TABLE test_ob_error.t1 (col_a int);
+INSERT INTO test_ob_error.t1 VALUES (1), (2), (3), (4), (5);
+Backup the database;
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+backup_id
+#
+DROP TABLE mysql.online_backup;
+Backup the database;
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+ERROR 42S02: Table 'mysql.online_backup' doesn't exist
+SHOW ERRORS;
+Level	Code	Message
+Error	1146	Table 'mysql.online_backup' doesn't exist
+Error	1651	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
+Restoring the table
+CREATE TABLE mysql.online_backup LIKE test.ob_copy;
+DROP TABLE test.ob_copy;
+DROP TABLE mysql.online_backup_progress;
+Backup the database;
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+ERROR 42S02: Table 'mysql.online_backup_progress' doesn't exist
+SHOW ERRORS;
+Level	Code	Message
+Error	1146	Table 'mysql.online_backup_progress' doesn't exist
+Error	1651	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
+Restoring the table
+CREATE TABLE mysql.online_backup_progress LIKE test.obp_copy;
+DROP TABLE test.obp_copy;
+DROP DATABASE test_ob_error;

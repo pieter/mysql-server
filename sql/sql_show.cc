@@ -686,8 +686,6 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
   Security_context *sctx= thd->security_ctx;
   uint db_access;
 #endif
-  HA_CREATE_INFO create;
-  uint create_options = create_info ? create_info->options : 0;
   Protocol *protocol=thd->protocol;
   DBUG_ENTER("mysql_show_create_db");
 
@@ -706,22 +704,17 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
     DBUG_RETURN(TRUE);
   }
 #endif
-  if (!my_strcasecmp(system_charset_info, dbname,
-                     INFORMATION_SCHEMA_NAME.str))
-  {
-    dbname= INFORMATION_SCHEMA_NAME.str;
-    create.default_table_charset= system_charset_info;
-  }
-  else
-  {
-    if (check_db_dir_existence(dbname))
-    {
-      my_error(ER_BAD_DB_ERROR, MYF(0), dbname);
-      DBUG_RETURN(TRUE);
-    }
 
-    load_db_opt_by_name(thd, dbname, &create);
+  if (store_db_create_info(thd, dbname, &buffer, create_info))
+  {
+    /* 
+      This assumes that the only reason for which store_db_create_info()
+      can fail is incorrect database name (which is the case now).
+    */
+    my_error(ER_BAD_DB_ERROR, MYF(0), dbname);
+    DBUG_RETURN(TRUE);    
   }
+
   List<Item> field_list;
   field_list.push_back(new Item_empty_string("Database",NAME_CHAR_LEN));
   field_list.push_back(new Item_empty_string("Create Database",1024));
@@ -732,24 +725,6 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
 
   protocol->prepare_for_resend();
   protocol->store(dbname, strlen(dbname), system_charset_info);
-  buffer.length(0);
-  buffer.append(STRING_WITH_LEN("CREATE DATABASE "));
-  if (create_options & HA_LEX_CREATE_IF_NOT_EXISTS)
-    buffer.append(STRING_WITH_LEN("/*!32312 IF NOT EXISTS*/ "));
-  append_identifier(thd, &buffer, dbname, strlen(dbname));
-
-  if (create.default_table_charset)
-  {
-    buffer.append(STRING_WITH_LEN(" /*!40100"));
-    buffer.append(STRING_WITH_LEN(" DEFAULT CHARACTER SET "));
-    buffer.append(create.default_table_charset->csname);
-    if (!(create.default_table_charset->state & MY_CS_PRIMARY))
-    {
-      buffer.append(STRING_WITH_LEN(" COLLATE "));
-      buffer.append(create.default_table_charset->name);
-    }
-    buffer.append(STRING_WITH_LEN(" */"));
-  }
   protocol->store(buffer.ptr(), buffer.length(), buffer.charset());
 
   if (protocol->write())
@@ -1459,6 +1434,74 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
   DBUG_RETURN(0);
 }
 
+/**
+  Get a CREATE statement for a given database.
+
+  The database is identified by its name, passed as @c dbname parameter.
+  The name should be encoded using the system character set (UTF8 currently).
+
+  Resulting statement is stored in the string pointed by @c buffer. The string
+  is emptied first and its character set is set to the system character set.
+
+  If HA_LEX_CREATE_IF_NOT_EXISTS flag is set in @c create_info->options, then
+  the resulting CREATE statement contains "IF NOT EXISTS" clause. Other flags
+  in @c create_options are ignored.
+
+  @param  thd           The current thread instance.
+  @param  dbname        The name of the database.
+  @param  buffer        A String instance where the statement is stored.
+  @param  create_info   If not NULL, the options member influences the resulting 
+                        CRATE statement.
+
+  @returns TRUE if errors are detected, FALSE otherwise.
+*/
+
+bool store_db_create_info(THD *thd, const char *dbname, String *buffer,
+                          HA_CREATE_INFO *create_info)
+{
+  HA_CREATE_INFO create;
+  uint create_options = create_info ? create_info->options : 0;
+  DBUG_ENTER("store_db_create_info");
+
+  if (!my_strcasecmp(system_charset_info, dbname,
+                     INFORMATION_SCHEMA_NAME.str))
+  {
+    dbname= INFORMATION_SCHEMA_NAME.str;
+    create.default_table_charset= system_charset_info;
+  }
+  else
+  {
+    if (check_db_dir_existence(dbname))
+      DBUG_RETURN(TRUE);
+
+    load_db_opt_by_name(thd, dbname, &create);
+  }
+
+  buffer->length(0);
+  buffer->free();
+  buffer->set_charset(system_charset_info);
+  buffer->append(STRING_WITH_LEN("CREATE DATABASE "));
+
+  if (create_options & HA_LEX_CREATE_IF_NOT_EXISTS)
+    buffer->append(STRING_WITH_LEN("/*!32312 IF NOT EXISTS*/ "));
+
+  append_identifier(thd, buffer, dbname, strlen(dbname));
+
+  if (create.default_table_charset)
+  {
+    buffer->append(STRING_WITH_LEN(" /*!40100"));
+    buffer->append(STRING_WITH_LEN(" DEFAULT CHARACTER SET "));
+    buffer->append(create.default_table_charset->csname);
+    if (!(create.default_table_charset->state & MY_CS_PRIMARY))
+    {
+      buffer->append(STRING_WITH_LEN(" COLLATE "));
+      buffer->append(create.default_table_charset->name);
+    }
+    buffer->append(STRING_WITH_LEN(" */"));
+  }
+
+  DBUG_RETURN(FALSE);
+}
 
 static void store_key_options(THD *thd, String *packet, TABLE *table,
                               KEY *key_info)
@@ -3172,6 +3215,7 @@ int get_all_tables(THD *thd, TABLE_LIST *tables, COND *cond)
   Security_context *sctx= thd->security_ctx;
 #endif
   uint table_open_method;
+  bool old_value= thd->no_warnings_for_error;
   DBUG_ENTER("get_all_tables");
 
   lex->view_prepare_mode= TRUE;
@@ -3391,6 +3435,7 @@ err:
   lex->all_selects_list= old_all_select_lex;
   lex->view_prepare_mode= save_view_prepare_mode;
   lex->sql_command= save_sql_command;
+  thd->no_warnings_for_error= old_value;
   DBUG_RETURN(error);
 }
 
@@ -7233,7 +7278,7 @@ static TABLE_LIST *get_trigger_table_impl(
   @return TABLE_LIST object corresponding to the base table.
 */
 
-static TABLE_LIST *get_trigger_table(THD *thd, const sp_name *trg_name)
+TABLE_LIST *get_trigger_table(THD *thd, const sp_name *trg_name)
 {
   /* Acquire LOCK_open (stop the server). */
 

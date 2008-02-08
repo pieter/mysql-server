@@ -118,6 +118,11 @@ enum enum_sql_command {
   SQLCOM_SHOW_CREATE_TRIGGER,
   SQLCOM_ALTER_DB_UPGRADE,
   SQLCOM_SHOW_PROFILE, SQLCOM_SHOW_PROFILES,
+  SQLCOM_SHOW_ARCHIVE,
+  SQLCOM_BACKUP, SQLCOM_RESTORE,
+#ifdef BACKUP_TEST
+  SQLCOM_BACKUP_TEST,
+#endif
 
   /*
     When a command is added here, be sure it's also added in mysqld.cc

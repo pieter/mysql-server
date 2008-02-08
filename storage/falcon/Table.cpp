@@ -376,6 +376,7 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		if (recordNumber >= 0)
 			{
 			dbb->updateRecord(dataSection, recordNumber, NULL, transaction, false);
+			dataSection->expungeRecord(recordNumber);
 			record->recordNumber = -1;
 			}
 
@@ -2918,6 +2919,7 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 		if (recordNumber >= 0)
 			{
 			dbb->updateRecord(dataSection, recordNumber, NULL, transaction, false);
+			dataSection->expungeRecord(recordNumber);
 			record->recordNumber = -1;
 			}
 
@@ -3584,7 +3586,7 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 		record = next;
 		}
 	
-	ASSERT(false);
+	return true;
 }
 
 void Table::expungeRecord(int32 recordNumber)

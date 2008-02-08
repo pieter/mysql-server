@@ -595,7 +595,7 @@ result_t Restore::truncate_table(TABLE *tbl)
   DBUG_ENTER("Default_backup::truncate_table)");
   DBUG_ASSERT(tbl->file);
   hdl= tbl->file;
-  last_write_res= cur_table->file->delete_all_rows();
+  last_write_res= cur_table->file->ha_delete_all_rows();
   /*
     Check to see if delete all rows was ok. Ignore if the handler
     doesn't support it.

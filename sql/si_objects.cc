@@ -50,7 +50,6 @@ int silent_exec(THD *thd, String *query)
     sql_parse.cc
    */
   thd->net.vio= 0;
-  thd->net.no_send_error= 0;
 
   thd->query=         query->c_ptr();
   thd->query_length=  query->length();
@@ -78,7 +77,6 @@ int silent_exec(THD *thd, String *query)
   while (!thd->killed && found_semicolon && !thd->is_error())
   {
     char *next_packet= (char*) found_semicolon;
-    thd->net.no_send_error= 0;
     /*
       Multiple queries exits, execute them individually
     */
@@ -107,9 +105,9 @@ int silent_exec(THD *thd, String *query)
   {
     DBUG_PRINT("restore",
               ("error executing query %s!", thd->query));
-    DBUG_PRINT("restore",("last error (%d): %s",thd->net.last_errno
-                                               ,thd->net.last_error));
-    return thd->net.last_errno ? (int)thd->net.last_errno : -1;
+    DBUG_PRINT("restore",("last error (%d): %s",thd->net.client_last_errno
+                                               ,thd->net.client_last_error));
+    return thd->net.client_last_errno ? (int)thd->net.client_last_errno : -1;
   }
 
   return 0;

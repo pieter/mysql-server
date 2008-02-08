@@ -1398,7 +1398,8 @@ void Table::deleteRecord(Transaction * transaction, Record * orgRecord)
 			
 		transaction->addRecord(record);
 		}
-		
+	
+	dataSection->reserveRecordNumber(record->recordNumber);
 	record->release();
 	fireTriggers(transaction, PostDelete, orgRecord, NULL);
 }

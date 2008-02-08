@@ -41,6 +41,7 @@
 #include "Transaction.h"
 #include "PageInventoryPage.h"
 #include "SQLError.h"
+#include "Table.h"
 
 //#define STOP_PAGE	114
 //#define STOP_SECTION	40
@@ -79,6 +80,7 @@ Section::Section(Dbb *pDbb, int32 id, TransId transId)
 	reservedRecordNumbers = NULL;
 	freeLines = NULL;
 	table = NULL;
+	//records = new Bitmap;
 	syncObject.setName("Section::syncObject");
 	syncInsert.setName("Section::syncInsert");
 }
@@ -362,7 +364,7 @@ int32 Section::insertStub(TransId transId)
 
 			int indexSlot = indexSequence % dbb->pagesPerSection;
 
-			if (pages->pages [indexSlot])
+			if (pages->pages[indexSlot])
 				{
 				bdb = dbb->handoffPage(bdb, pages->pages [indexSlot], PAGE_record_locator, Exclusive);
 				BDB_HISTORY(bdb);
@@ -374,7 +376,7 @@ int32 Section::insertStub(TransId transId)
 
 				dbb->setPrecedence(bdb, newBdb->pageNumber);
 				bdb->mark(transId);
-				pages->pages [indexSlot] = newBdb->pageNumber;
+				pages->pages[indexSlot] = newBdb->pageNumber;
 				bdb->release(REL_HISTORY);
 
 				bdb = newBdb;
@@ -451,7 +453,7 @@ int32 Section::insertStub(TransId transId)
 				if (nextLine % linesPerSection == 0)
 					markFull(true, sequence, transId);
 				}
-				
+			
 			return line;
 			}
 
@@ -472,8 +474,8 @@ void Section::reInsertStub(int32 recordNumber, TransId transId)
 {
 	Bdb *bdb = fetchLocatorPage (root, recordNumber, Exclusive, transId);
 	BDB_HISTORY(bdb);
+	
 	if (!bdb)
-		//NOT_YET_IMPLEMENTED;
 		return;
 
 	RecordLocatorPage *locatorPage = (RecordLocatorPage*) bdb->buffer;
@@ -502,16 +504,8 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 	// If the record number has been reserved, don't bother to delete it.
 
 	if (!stream)
-		{
-		Sync sync (&syncInsert, "Section::updateRecord");
-		sync.lock (Exclusive);
-
-		if (!reservedRecordNumbers)
-			reservedRecordNumbers = new Bitmap;
-
-		reservedRecordNumbers->set (recordNumber);
-		}
-
+		reserveRecordNumber(recordNumber);
+	
 	// Find section page and slot for record number within section
 
 	int32 slot = recordNumber / dbb->linesPerPage;
@@ -524,7 +518,14 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 	ASSERT (pageNumber);
 	bdb = dbb->handoffPage (bdb, pageNumber, PAGE_record_locator, Exclusive);
 	BDB_HISTORY(bdb);
+	
+	if (!dbb->serialLog->recovering && table && !table->validateUpdate(recordNumber, transId))
+		{
+		bdb->release();
 		
+		return;
+		}
+
 	// We've found the section index page.  Mark it
 
 	bdb->mark(transId);
@@ -791,6 +792,7 @@ bool Section::fetchRecord(int32 recordNumber, Stream *stream, TransId transId)
 {
 	Bdb *bdb = fetchLocatorPage(root, recordNumber, Shared, transId);
 	BDB_HISTORY(bdb);
+	
 	if (!bdb)
 		return false;
 
@@ -1162,9 +1164,10 @@ void Section::expungeRecord(int32 recordNumber)
 	Sync sync (&syncInsert, "Section::expungeRecord");
 	sync.lock (Exclusive);
 
-	if (reservedRecordNumbers && reservedRecordNumbers->isSet (recordNumber))
+	if (reservedRecordNumbers && reservedRecordNumbers->isSet(recordNumber))
 		{
-		reservedRecordNumbers->clear (recordNumber);
+		reservedRecordNumbers->clear(recordNumber);
+		
 		if (reservedRecordNumbers->count == 0)
 			{
 			reservedRecordNumbers->release();
@@ -1175,7 +1178,7 @@ void Section::expungeRecord(int32 recordNumber)
 	if (!freeLines)
 		freeLines = new Bitmap;
 
-	freeLines->set (recordNumber);
+	freeLines->set(recordNumber);
 }
 
 void Section::markFull(bool isFull, int sequence, TransId transId)
@@ -1503,3 +1506,38 @@ void Section::redoBlobDelete(Dbb* dbb, int32 locatorPage, int locatorLine, int32
 	page->setIndexSlot(locatorLine, 0, 0, dbb->pageSize);
 	bdb->release(REL_HISTORY);
 }
+
+void Section::reserveRecordNumber(int32 recordNumber)
+{
+	Sync sync (&syncInsert, "Section::reserveRecordNumber");
+	sync.lock (Exclusive);
+
+	if (!reservedRecordNumbers)
+		reservedRecordNumbers = new Bitmap;
+
+	reservedRecordNumbers->set(recordNumber);
+}
+
+/*** save for debugging
+void Section::setRecordFlag(int32 recordNumber)
+{
+	Sync sync(&syncObject, "Section::setRecordFlag");
+	sync.lock(Exclusive);
+	records->set(recordNumber);
+}
+
+void Section::clearRecordFlag(int32 recordNumber)
+{
+	Sync sync(&syncObject, "Section::clearRecordFlag");
+	sync.lock(Exclusive);
+	records->clear(recordNumber);
+}
+
+bool Section::checkRecordFlag(int32 recordNumber)
+{
+	Sync sync(&syncObject, "Section::checkRecordFlag");
+	sync.lock(Shared);
+	
+	return records->isSet(recordNumber);
+}
+***/

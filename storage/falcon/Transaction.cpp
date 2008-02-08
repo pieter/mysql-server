@@ -338,28 +338,29 @@ void Transaction::commitNoUpdates(void)
 	
 	Sync sync(&syncObject, "Transaction::commitNoUpdates");
 	sync.lock(Exclusive);
-
-	if (dependencies)
+	Thread *thread = NULL;
+	int wait = 1;
+	
+	for (int n = 0; dependencies && n < 10; ++n)
 		{
 		transactionManager->expungeTransaction(this);
 	
-		// There is a tiny race condition between another thread releasing a dependency and
-		// TransactionManager::expungeTransaction doing thte same thing.  So spin.
-		
-		if (dependencies)
-			{
-			Thread *thread = NULL;
+		if (!dependencies)
+			break;
 			
-			for (int n = 0; dependencies && n < 10; ++n)
-				if (thread)
-					thread->sleep(1);
-				else
-					thread = Thread::getThread("Transaction::commitNoUpdates");
-
-			ASSERT(dependencies == 0);
-			}
-		}
+		// There is a tiny race condition between another thread releasing a dependency and
+		// TransactionManager::expungeTransaction doing the same thing.  So spin.
 		
+		if (thread)
+			{
+			thread->sleep(wait);
+			wait <<= 1;
+			}
+		else
+			thread = Thread::getThread("Transaction::commitNoUpdates");
+		}
+	
+	ASSERT(dependencies == 0);	
 	sync.unlock();
 	delete [] xid;
 	xid = NULL;
@@ -464,12 +465,13 @@ void Transaction::rollback()
 
 void Transaction::expungeTransaction(Transaction * transaction)
 {
+	//Sync sync(&syncObject, "Transaction::expungeTransaction");
+	//sync.lock(Shared);
 	//TransId oldId = transactionId;
 	//int orgState = state;
 	ASSERT(states != NULL || numberStates == 0);
-	int n = 0;
 	
-	for (TransState *s = states, *end = s + numberStates; s < end; ++s, ++n)
+	for (TransState *s = states, *end = s + numberStates; s < end; ++s)
 		if (s->transaction == transaction)
 			{
 			if (COMPARE_EXCHANGE_POINTER(&s->transaction, transaction, NULL))
@@ -749,25 +751,29 @@ void Transaction::releaseDependencies()
 
 void Transaction::commitRecords()
 {
-	RecordVersion *recordList = firstRecord;
-	
-	//if (COMPARE_EXCHANGE(&cleanupNeeded, (INTERLOCK_TYPE) 1, (INTERLOCK_TYPE) 0))
-	if (recordList && COMPARE_EXCHANGE_POINTER(&firstRecord, recordList, NULL))
+	for (RecordVersion *recordList; recordList = firstRecord;)
 		{
-		chillPoint = &firstRecord;
-		recordPtr = &firstRecord;
-		lastRecord = NULL;
-
-		for (RecordVersion *record; (record = recordList);)
+		if (recordList && COMPARE_EXCHANGE_POINTER(&firstRecord, recordList, NULL))
 			{
-			ASSERT (record->useCount > 0);
-			recordList = record->nextInTrans;
-			record->nextInTrans = NULL;
-			record->prevInTrans = NULL;
-			record->commit();
-			record->release();
-			committedRecords++;
+			chillPoint = &firstRecord;
+			recordPtr = &firstRecord;
+			lastRecord = NULL;
+
+			for (RecordVersion *record; (record = recordList);)
+				{
+				ASSERT (record->useCount > 0);
+				recordList = record->nextInTrans;
+				record->nextInTrans = NULL;
+				record->prevInTrans = NULL;
+				record->commit();
+				record->release();
+				committedRecords++;
+				}
+			
+			return;
 			}
+			
+		Log::debug("Transaction::commitRecords failed\n");
 		}
 }
 

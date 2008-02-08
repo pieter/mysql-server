@@ -96,6 +96,7 @@ SerialLog::SerialLog(Database *db, JString schedule, int maxTransactionBacklog) 
 	recoverySections = NULL;
 	recoveryPhase = 0;
 	tracePage = TRACE_PAGE;
+	traceRecord = 0;
 	chilledRecords = 0;
 	chilledBytes = 0;
 	windowReads = 0;

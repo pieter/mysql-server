@@ -342,19 +342,6 @@ void Dbb::updateBlob(Section *blobSection, int recordNumber, Stream* stream, Tra
 		}
 }
 
-void Dbb::validateAndUpdateRecord(int32 sectionId, int32 recordId, Stream* stream, TransId transId, bool earlyWrite)
-{
-	Section *section = findSection (sectionId);
-	
-	if (section->table && !section->table->validateUpdate(recordId, transId))
-		return;
-		
-	section->updateRecord (recordId, stream, transId, earlyWrite);
-
-	if (!earlyWrite && !serialLog->recovering && transId)
-		serialLog->setPhysicalBlock(transId);
-}
-
 void Dbb::updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite)
 {
 	Section *section = findSection (sectionId);

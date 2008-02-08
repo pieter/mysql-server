@@ -376,6 +376,7 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		if (recordNumber >= 0)
 			{
 			dbb->updateRecord(dataSection, recordNumber, NULL, transaction, false);
+			dataSection->expungeRecord(recordNumber);
 			record->recordNumber = -1;
 			}
 
@@ -884,6 +885,32 @@ Record* Table::fetch(int32 recordNumber)
 		record->active = false;
 		record->release();
 		}
+}
+
+Record* Table::treeFetch(int32 recordNumber)
+{
+	Sync sync (&syncObject, "Table::treeFetch");
+	sync.lock (Shared);
+
+	if (!records)
+		return NULL;
+		
+	RecordSection *section = records;
+	int id = recordNumber;
+	
+	while (section->base)
+		{
+		int slot = id / section->base;
+		id = id % section->base;
+
+		if (slot >= RECORD_SLOTS)
+			return NULL;
+
+		if ( !(section = ((RecordGroup*) section)->records[slot]) )
+			return NULL;
+		}
+	
+	return section->fetch(id);
 }
 
 Record* Table::rollbackRecord(RecordVersion * recordToRollback)
@@ -1398,7 +1425,8 @@ void Table::deleteRecord(Transaction * transaction, Record * orgRecord)
 			
 		transaction->addRecord(record);
 		}
-		
+	
+	dataSection->reserveRecordNumber(record->recordNumber);
 	record->release();
 	fireTriggers(transaction, PostDelete, orgRecord, NULL);
 }
@@ -2917,6 +2945,7 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 		if (recordNumber >= 0)
 			{
 			dbb->updateRecord(dataSection, recordNumber, NULL, transaction, false);
+			dataSection->expungeRecord(recordNumber);
 			record->recordNumber = -1;
 			}
 
@@ -3545,7 +3574,7 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 	if (deleting)
 		return false;
 
-	Record *record = fetch(recordNumber);
+	Record *record = treeFetch(recordNumber);
 	Record *initial = record;
 	
 	while (record)
@@ -3583,7 +3612,7 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 		record = next;
 		}
 	
-	ASSERT(false);
+	return true;
 }
 
 void Table::expungeRecord(int32 recordNumber)

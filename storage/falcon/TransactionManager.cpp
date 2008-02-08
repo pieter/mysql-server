@@ -70,18 +70,28 @@ TransactionManager::~TransactionManager(void)
 
 TransId TransactionManager::findOldestActive()
 {
-	Sync sync (&activeTransactions.syncObject, "TransactionManager::findOldestActive");
-	sync.lock (Shared);
+	Sync syncCommitted(&committedTransactions.syncObject, "TransactionManager::findOldestActive");
+	syncCommitted.lock(Shared);
+	TransId oldestActive = transactionSequence;
+	
+	for (Transaction *trans = committedTransactions.first; trans; trans = trans->next)
+		oldestActive = MIN(trans->transactionId, oldestActive);
+
+	syncCommitted.unlock();
+	Sync sync(&activeTransactions.syncObject, "TransactionManager::findOldestActive");
+	sync.lock(Shared);
 	Transaction *oldest = findOldest();
 
 	if (oldest)
 		{
-		//oldest->scavenged = false;
-	
-		return oldest->oldestActive;
+		//Log::debug("Oldest transaction %d, oldest ancestor %d, oldest committed %d\n",  oldest->transactionId, oldest->oldestActive, oldestActive);
+					
+		return MIN(oldest->oldestActive, oldestActive);
 		}
-		
-	return transactionSequence;
+	
+	//Log::debug("No active, current %d, oldest committed %d\n", transactionSequence, oldestActive);
+	
+	return oldestActive;
 }
 
 Transaction* TransactionManager::findOldest(void)
@@ -374,7 +384,8 @@ void TransactionManager::expungeTransaction(Transaction *transaction)
 	syncActiveTrans.lock(Shared);
 
 	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
-		if (trans->state != Available && trans->transactionId > transaction->transactionId)
+		if ((trans->state != Available && trans->state != Initializing))
+			 //&& trans->transactionId > transaction->transactionId)
 			trans->expungeTransaction(transaction);
 }
 

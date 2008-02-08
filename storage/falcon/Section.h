@@ -58,10 +58,14 @@ public:
 	void		storeRecord (RecordLocatorPage *recordLocatorPage, int32 indexPageNumber, RecordIndex *index, Stream *stream, TransId transId, bool earlyWrite);
 	int			deleteLine (Bdb *bdb, int line, int32 sectionPageNumber, TransId transId, RecordLocatorPage *locatorPage, int locatorLine);
 	void		updateRecord (int32 recordId, Stream *stream, TransId transId, bool earlyWrite);
+	void		reserveRecordNumber(int32 recordNumber);
 	int32		insertStub (TransId transId);
 	int32		getSectionRoot();
 	Bdb*		getSectionPage(int sequence, LockType lockType, TransId transId);
 	Bdb*		fetchLocatorPage (int32 root, int32 recordNumber, LockType lockType, TransId transId);
+	//void		setRecordFlag(int32 recordNumber);
+	//void		clearRecordFlag(int32 recordNumber);
+	//bool		checkRecordFlag(int32 recordNumber);
 
 	static void		redoSectionPromotion(Dbb* dbb, int sectionId, int32 rootPageNumber, int pageLength, const UCHAR* pageData, int32 newPageNumber);
 	void			redoRecordLocatorPage(int sequence, int32 pageNumber, bool isPostFlush);
@@ -94,6 +98,7 @@ public:
 	Table			*table;						// if known
 	Bitmap			*reservedRecordNumbers;
 	Bitmap			*freeLines;
+	//Bitmap		*records;					// save for debugging
 	short			level;
 	SparseArray<int,100>	sectionPages;
 };

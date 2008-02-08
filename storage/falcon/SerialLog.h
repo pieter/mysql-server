@@ -218,6 +218,7 @@ public:
 	uint64				priorDelta;
 	int					priorWrites;
 	int32				tracePage;
+	int32				traceRecord;
 	uint32				chilledRecords;
 	uint64				chilledBytes;
 	

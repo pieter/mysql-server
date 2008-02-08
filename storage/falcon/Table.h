@@ -136,6 +136,7 @@ public:
 	void		garbageCollect (Record *leaving, Record *staying, Transaction *transaction, bool quiet);
 	void		expungeBlob (Value *blob);
 	bool		duplicateBlob (Value *blob, int fieldId, Record *recordChain);
+	void		expungeRecord(int32 recordNumber);
 	void		expungeRecordVersions (RecordVersion *record, RecordScavenge *recordScavenge);
 	void		setView (View *view);
 	Index*		findIndex (const char *indexName);
@@ -257,6 +258,8 @@ public:
 
 protected:
 	const char		*type;
+public:
+	Record* treeFetch(int32 recordNumber);
 };
 
 #endif // !defined(AFX_TABLE_H__02AD6A42_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

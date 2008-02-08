@@ -376,6 +376,7 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 		if (recordNumber >= 0)
 			{
 			dbb->updateRecord(dataSection, recordNumber, NULL, transaction, false);
+			dataSection->expungeRecord(recordNumber);
 			record->recordNumber = -1;
 			}
 
@@ -886,12 +887,39 @@ Record* Table::fetch(int32 recordNumber)
 		}
 }
 
+Record* Table::treeFetch(int32 recordNumber)
+{
+	Sync sync (&syncObject, "Table::treeFetch");
+	sync.lock (Shared);
+
+	if (!records)
+		return NULL;
+		
+	RecordSection *section = records;
+	int id = recordNumber;
+	
+	while (section->base)
+		{
+		int slot = id / section->base;
+		id = id % section->base;
+
+		if (slot >= RECORD_SLOTS)
+			return NULL;
+
+		if ( !(section = ((RecordGroup*) section)->records[slot]) )
+			return NULL;
+		}
+	
+	return section->fetch(id);
+}
+
 Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 {
 #ifdef CHECK_RECORD_ACTIVITY
 	recordToRollback->active = false;
 #endif
 
+	int priorState = recordToRollback->state;
 	recordToRollback->state = recRollback;
 
 	// Find the record that will become the current version.
@@ -905,6 +933,9 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 
 	if (!insert(priorRecord, recordToRollback, recordToRollback->recordNumber))
 		{
+		if (priorRecord == NULL && priorState == recDeleted)
+			return priorRecord;
+			
 		recordToRollback->printRecord("Table::rollbackRecord");
 		insert(priorRecord, recordToRollback, recordToRollback->recordNumber);
 		ASSERT(false);
@@ -1317,22 +1348,24 @@ ForeignKey* Table::findForeignKey(ForeignKey * key)
 	return NULL;
 }
 
-void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
+void Table::deleteRecord(Transaction * transaction, Record * orgRecord)
 {
 	database->preUpdate();
 	Sync scavenge(&syncScavenge, "Table::deleteRecord");
-	//scavenge.lock(Shared);
-	Record *candidate = fetch(oldRecord->recordNumber);
-	checkAncestor(candidate, oldRecord);
+	Record *candidate = fetch(orgRecord->recordNumber);
+	checkAncestor(candidate, orgRecord);
 	RecordVersion *record;
 	bool wasLock = false;
+	
+	if (!candidate)
+		return;
 	
 	if (candidate->state == recLock && candidate->getTransaction() == transaction)
 		{
 		if (candidate->getSavePointId() == transaction->curSavePointId)
 			{
 			record = (RecordVersion*) candidate;
-			ASSERT(record->priorVersion == oldRecord);
+			ASSERT(record->priorVersion == orgRecord);
 			wasLock = true;
 			}
 		else
@@ -1340,13 +1373,21 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		}
 	else
 		{
+		Record *oldVersion = candidate->fetchVersion(transaction);
+		
+		if (oldVersion != candidate)
+			{
+			candidate->release();
+			throw SQLError(UPDATE_CONFLICT, "delete conflict in table %s.%s record %d", schemaName, name, orgRecord->recordNumber);
+			}
+		
+		ASSERT(candidate->hasRecord());
 		record = allocRecordVersion(NULL, transaction, candidate);
 		candidate->release();
 		}
 
 	record->state = recDeleted;
-	//record->setAgeGroup();
-	fireTriggers(transaction, PreDelete, oldRecord, NULL);
+	fireTriggers(transaction, PreDelete, orgRecord, NULL);
 
 	// Do any necessary cascading
 
@@ -1355,7 +1396,7 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		key->bind(database);
 
 		if (key->primaryTable == this && key->deleteRule == importedKeyCascade)
-			key->cascadeDelete(transaction, oldRecord);
+			key->cascadeDelete(transaction, orgRecord);
 		}
 
 	// Checkin with any attachments
@@ -1371,12 +1412,23 @@ void Table::deleteRecord(Transaction * transaction, Record * oldRecord)
 		record->state = recDeleted;
 	else
 		{
-		validateAndInsert(transaction, record);
+		try
+			{
+			validateAndInsert(transaction, record);
+			}
+		catch (...)
+			{
+			record->release();
+			
+			throw;
+			}
+			
 		transaction->addRecord(record);
 		}
-		
+	
+	dataSection->reserveRecordNumber(record->recordNumber);
 	record->release();
-	fireTriggers(transaction, PostDelete, oldRecord, NULL);
+	fireTriggers(transaction, PostDelete, orgRecord, NULL);
 }
 
 int Table::getFieldId(const char * name)
@@ -2893,6 +2945,7 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 		if (recordNumber >= 0)
 			{
 			dbb->updateRecord(dataSection, recordNumber, NULL, transaction, false);
+			dataSection->expungeRecord(recordNumber);
 			record->recordNumber = -1;
 			}
 
@@ -3177,8 +3230,7 @@ void Table::validateAndInsert(Transaction *transaction, RecordVersion *record)
 						else
 							{
 							transaction->blockedBy = transId;
-							//throw SQLError(UPDATE_CONFLICT, "update (%s) conflict in table %s.%s record %d", op, schemaName, name, record->recordNumber);
-							throw SQLError(UPDATE_CONFLICT, "update conflict in table %s.%s", schemaName, name);
+							throw SQLError(UPDATE_CONFLICT, "update conflict in table %s.%s record %d", schemaName, name, record->recordNumber);
 							}
 						}
 					}
@@ -3194,7 +3246,7 @@ void Table::validateAndInsert(Transaction *transaction, RecordVersion *record)
 		record->active = false;
 		}
 
-	throw SQLError(UPDATE_CONFLICT, "unexpected update conflict in table %s.%s", schemaName, name);
+	throw SQLError(UPDATE_CONFLICT, "unexpected update conflict in table %s.%s record %d", schemaName, name, record->recordNumber);
 }
 
 int Table::getFormatVersion()
@@ -3297,6 +3349,10 @@ void Table::checkAncestor(Record* current, Record* oldRecord)
 	
 	current->printRecord("current record");
 	oldRecord->printRecord("old record");
+	Value value1;
+	Value value2;
+	current->getValue(0, &value1);
+	oldRecord->getValue(0, &value2);
 	ASSERT(false);
 }
 
@@ -3518,7 +3574,7 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 	if (deleting)
 		return false;
 
-	Record *record = fetch(recordNumber);
+	Record *record = treeFetch(recordNumber);
 	Record *initial = record;
 	
 	while (record)
@@ -3556,5 +3612,10 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 		record = next;
 		}
 	
-	ASSERT(false);
+	return true;
+}
+
+void Table::expungeRecord(int32 recordNumber)
+{
+	dataSection->expungeRecord(recordNumber);
 }

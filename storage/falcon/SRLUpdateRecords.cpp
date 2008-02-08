@@ -260,7 +260,10 @@ void SRLUpdateRecords::redo(void)
 			int recordNumber = getInt(&p);
 			int length = getInt(&p);
 			log->updateSectionUseVector(sectionId, tableSpaceId, -1);
-			
+
+			if (log->traceRecord && recordNumber == log->traceRecord)
+				print();
+					
 			if (log->bumpSectionIncarnation(sectionId, tableSpaceId, objInUse))
 				{
 				Dbb *dbb = log->getDbb(tableSpaceId);
@@ -335,7 +338,7 @@ void SRLUpdateRecords::commit(void)
 				{
 				Stream stream;
 				stream.putSegment(length, (const char*) p, false);
-				dbb->validateAndUpdateRecord(sectionId, recordNumber, &stream, transactionId, false);
+				dbb->updateRecord(sectionId, recordNumber, &stream, transactionId, false);
 				}
 			else
 				dbb->updateRecord(sectionId, recordNumber, NULL, transactionId, false);

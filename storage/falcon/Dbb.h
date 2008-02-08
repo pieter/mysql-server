@@ -115,7 +115,6 @@ public:
 	void	enableSerialLog();
 	void	rollback (TransId transId, bool updateTransaction);
 	void	updateRecord(int32 sectionId, int32 recordId, Stream *stream, TransId transId, bool earlyWrite);
-	void	validateAndUpdateRecord(int32 sectionId, int32 recordNumber, Stream* stream, TransId transactionId, bool earlyWrite);
 	void	prepareTransaction(TransId transId, int xidLength, const UCHAR *xid);
 	void	commit(Transaction *transaction);
 	void	reportStatistics();

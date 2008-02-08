@@ -95,9 +95,13 @@ public:
 	virtual void	update_create_info(HA_CREATE_INFO* create_info);
 	virtual const COND* cond_push(const COND* cond);
 	virtual int		optimize(THD* thd, HA_CHECK_OPT* check_opt);
+	virtual int		check(THD* thd, HA_CHECK_OPT* check_opt);
+	virtual int		repair(THD* thd, HA_CHECK_OPT* check_opt);
+	
 #ifdef TRUNCATE_ENABLED
 	virtual int		delete_all_rows(void);
 #endif
+
 	void			getDemographics(void);
 	int				createIndex(const char *schemaName, const char *tableName,
 					            KEY *key, int indexNumber);

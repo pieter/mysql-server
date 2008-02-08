@@ -158,7 +158,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 		statesAllocated = count;
 		states = new TransState[statesAllocated];
 		}
-	
+
 	if (count)
 		for (Transaction *transaction = transactionManager->activeTransactions.first; transaction; transaction = transaction->next)
 			if (transaction->isActive() && 
@@ -167,25 +167,19 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 				{
 				Sync syncDependency(&transaction->syncObject, "Transaction::initialize");
 				syncDependency.lock(Shared);
-				transaction->addRef();
-				INTERLOCKED_INCREMENT(transaction->dependencies);
 
 				if (transaction->isActive() && 
 					 !transaction->systemTransaction &&
 					 transaction->transactionId < transactionId)
 					{
-					//transaction->cleanupNeeded = 1;
+					transaction->addRef();
+					INTERLOCKED_INCREMENT(transaction->dependencies);
 					TransState *state = states + numberStates;
 					state->transaction = transaction;
 					state->transactionId = transaction->transactionId;
 					state->state = transaction->state;
 					++numberStates;
 					ASSERT(transaction->transactionId == state->transactionId);
-					}
-				else
-					{
-					INTERLOCKED_DECREMENT(transaction->dependencies);
-					transaction->release();
 					}
 				}
 
@@ -247,7 +241,6 @@ void Transaction::commit()
 
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
-
 	Log::log(LogXARecovery, "%d: Commit transaction %d\n", database->deltaTime, transactionId);
 
 	if (state == Active)
@@ -323,8 +316,6 @@ void Transaction::commit()
 
 void Transaction::commitNoUpdates(void)
 {
-	//Sync sync(&syncObject, "Transaction::commitNoUpdates");
-	//sync.lock(Exclusive);
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
 	ASSERT(!deferredIndexes);
@@ -342,45 +333,35 @@ void Transaction::commitNoUpdates(void)
 
 	Sync syncActiveTransactions(&transactionManager->activeTransactions.syncObject, "Transaction::commitNoUpdates");
 	syncActiveTransactions.lock(Shared);
-	releaseDependencies();
-	Thread *thread = NULL;
-	//Sync syncInit(&transactionManager->syncInitialize, "Transaction::commitNoUpdate");
-	//syncInit.lock(Shared);
 	state = CommittingReadOnly;
-
+	releaseDependencies();
+	
+	Sync sync(&syncObject, "Transaction::commitNoUpdates");
+	sync.lock(Exclusive);
+	Thread *thread = NULL;
+	int wait = 1;
+	
 	for (int n = 0; dependencies && n < 10; ++n)
 		{
-		int initial = dependencies;
 		transactionManager->expungeTransaction(this);
-
-		if (dependencies && n < 3)
+	
+		if (!dependencies)
+			break;
+			
+		// There is a tiny race condition between another thread releasing a dependency and
+		// TransactionManager::expungeTransaction doing the same thing.  So spin.
+		
+		if (thread)
 			{
-			Log::debug("dangling dependencies for tid %d (%d/%d/%d)\n", transactionId, n, initial, dependencies);
-
-			for (Transaction *t = transactionManager->activeTransactions.first; t; t = t->next)
-				{
-				t->print();
-
-				for (int s = 0; s < t->numberStates; ++s)
-					//ASSERT(t->states[s].transaction && t->states[s].transactionId != transactionId); // wrong
-					//ASSERT(t->states[s].transactionId != transactionId || !t->states[s].transaction); // right
-					Log::debug("dependency from tid %d still present\n", t->transactionId);
-				}
+			thread->sleep(wait);
+			wait <<= 1;
 			}
-
-		if (dependencies)
-			{
-			if (!thread)
-				thread = Thread::getThread("Transaction::CommitNoUpdates");
-
-			thread->sleep(1);
-			}
+		else
+			thread = Thread::getThread("Transaction::commitNoUpdates");
 		}
-
-	if (dependencies)
-		Log::debug("final dangling dependencies for transaction %d\n", transactionId);
-
-
+	
+	ASSERT(dependencies == 0);	
+	sync.unlock();
 	delete [] xid;
 	xid = NULL;
 	xidLength = 0;
@@ -388,17 +369,12 @@ void Transaction::commitNoUpdates(void)
 	// If there's no reason to stick around, just go away
 	
 	connection = NULL;
-	
-	if (dependencies == 0)
-		transactionId = 0;
-		
-	state = Available;
+	transactionId = 0;
 	writePending = false;
-	//syncInit.unlock();
-	//sync.unlock();
 	syncActiveTransactions.unlock();
 	syncActive.unlock();
 	release();
+	state = Available;
 }
 
 void Transaction::rollback()
@@ -422,7 +398,7 @@ void Transaction::rollback()
 	releaseSavePoints();
 	TransactionManager *transactionManager = database->transactionManager;
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
-	state = RolledBack;
+	//state = RolledBack;
 	chillPoint = &firstRecord;
 	recordPtr = &firstRecord;
 	totalRecordData = 0;
@@ -457,6 +433,8 @@ void Transaction::rollback()
 		record->release();
 		}
 
+	ASSERT(writePending);
+	state = RolledBack;
 	writePending = false;
 	releaseDependencies();
 	syncActive.unlock();
@@ -487,6 +465,12 @@ void Transaction::rollback()
 
 void Transaction::expungeTransaction(Transaction * transaction)
 {
+	//Sync sync(&syncObject, "Transaction::expungeTransaction");
+	//sync.lock(Shared);
+	//TransId oldId = transactionId;
+	//int orgState = state;
+	ASSERT(states != NULL || numberStates == 0);
+	
 	for (TransState *s = states, *end = s + numberStates; s < end; ++s)
 		if (s->transaction == transaction)
 			{
@@ -767,25 +751,29 @@ void Transaction::releaseDependencies()
 
 void Transaction::commitRecords()
 {
-	RecordVersion *recordList = firstRecord;
-	
-	//if (COMPARE_EXCHANGE(&cleanupNeeded, (INTERLOCK_TYPE) 1, (INTERLOCK_TYPE) 0))
-	if (recordList && COMPARE_EXCHANGE_POINTER(&firstRecord, recordList, NULL))
+	for (RecordVersion *recordList; recordList = firstRecord;)
 		{
-		chillPoint = &firstRecord;
-		recordPtr = &firstRecord;
-		lastRecord = NULL;
-
-		for (RecordVersion *record; (record = recordList);)
+		if (recordList && COMPARE_EXCHANGE_POINTER(&firstRecord, recordList, NULL))
 			{
-			ASSERT (record->useCount > 0);
-			recordList = record->nextInTrans;
-			record->nextInTrans = NULL;
-			record->prevInTrans = NULL;
-			record->commit();
-			record->release();
-			committedRecords++;
+			chillPoint = &firstRecord;
+			recordPtr = &firstRecord;
+			lastRecord = NULL;
+
+			for (RecordVersion *record; (record = recordList);)
+				{
+				ASSERT (record->useCount > 0);
+				recordList = record->nextInTrans;
+				record->nextInTrans = NULL;
+				record->prevInTrans = NULL;
+				record->commit();
+				record->release();
+				committedRecords++;
+				}
+			
+			return;
 			}
+			
+		Log::debug("Transaction::commitRecords failed\n");
 		}
 }
 
@@ -916,7 +904,7 @@ bool Transaction::hasUncommittedRecords(Table* table)
 
 void Transaction::writeComplete(void)
 {
-	ASSERT(writePending == true);
+	ASSERT(writePending);
 	ASSERT(state == Committed);
 	Sync sync(&syncIndexes, "Transaction::writeComplete");
 	sync.lock(Exclusive);
@@ -928,8 +916,8 @@ void Transaction::writeComplete(void)
 	if (dependencies == 0)
 		commitRecords();
 
-	sync.unlock();
 	writePending = false;
+	sync.unlock();
 }
 
 bool Transaction::waitForTransaction(TransId transId)
@@ -1231,24 +1219,10 @@ void Transaction::getInfo(InfoTable* infoTable)
 {
 	if (!(state == Available && dependencies == 0))
 		{
-		const char * ptr;
-		switch (state)
-			{
-			case Active:				ptr = "Active"; break;
-			case Limbo:					ptr = "Limbo"; break;
-			case Committed:				ptr = "Committed"; break;
-			case RolledBack:			ptr = "RolledBack"; break;
-			case Available:				ptr = "Available"; break;
-			case Initializing:			ptr = "Initializing"; break;
-			case CommittingReadOnly:	ptr = "CommittingReadOnly"; break;
-			default:					ptr = "Unknown"; break;
-			}
-
 		int n = 0;
-		infoTable->putString(n++, ptr);
+		infoTable->putString(n++, stateNames[state]);
 		infoTable->putInt(n++, mySqlThreadId);
 		infoTable->putInt(n++, transactionId);
-		infoTable->putString(n++, stateNames[state]);
 		infoTable->putInt(n++, hasUpdates);
 		infoTable->putInt(n++, writePending);
 		infoTable->putInt(n++, dependencies);

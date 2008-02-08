@@ -44,6 +44,7 @@
 #include "BigInt.h"
 
 //#define NO_OPTIMIZE
+//#define VALIDATE
 
 #ifndef MIN
 #define MIN(a,b)			((a <= b) ? (a) : (b))
@@ -509,6 +510,35 @@ int StorageInterface::close(void)
 	FALCON_CLOSE();
 
 	DBUG_RETURN(0);
+}
+
+
+int StorageInterface::check(THD* thd, HA_CHECK_OPT* check_opt)
+{
+#ifdef VALIDATE
+	DBUG_ENTER("StorageInterface::check");
+
+	if (storageConnection)
+		storageConnection->validate(0);
+		
+	DBUG_RETURN(0);
+#else
+	return HA_ADMIN_NOT_IMPLEMENTED;
+#endif
+}
+
+int StorageInterface::repair(THD* thd, HA_CHECK_OPT* check_opt)
+{
+#ifdef VALIDATE
+	DBUG_ENTER("StorageInterface::repair");
+	
+	if (storageConnection)
+		storageConnection->validate(VALIDATE_REPAIR);
+
+	DBUG_RETURN(0);
+#else
+	return HA_ADMIN_NOT_IMPLEMENTED;
+#endif
 }
 
 int StorageInterface::rnd_next(uchar *buf)
@@ -2821,7 +2851,6 @@ ST_FIELD_INFO transactionInfoFieldInfo[]=
 	{"STATE",			120, MYSQL_TYPE_STRING,		0, 0, "State", SKIP_OPEN_TABLE},
 	{"THREAD_ID",		4, MYSQL_TYPE_LONG,			0, 0, "Thread Id", SKIP_OPEN_TABLE},
 	{"ID",				4, MYSQL_TYPE_LONG,			0, 0, "Id", SKIP_OPEN_TABLE},
-	{"STATE",			10, MYSQL_TYPE_STRING,		0, 0, "State", SKIP_OPEN_TABLE},
 	{"UPDATES",			4, MYSQL_TYPE_LONG,			0, 0, "Has Updates", SKIP_OPEN_TABLE},
 	{"PENDING",			4, MYSQL_TYPE_LONG,			0, 0, "Write Pending", SKIP_OPEN_TABLE},
 	{"DEP",				4, MYSQL_TYPE_LONG,			0, 0, "Dependencies", SKIP_OPEN_TABLE},
@@ -3034,7 +3063,7 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 
 void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
 {
-	falcon_consistent_read = *(my_bool*) save;
+	falcon_consistent_read = (my_bool) (*(int *) save ? 1 : 0);
 
 	int newRepeatableRead = (falcon_consistent_read ? 
 		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);

@@ -101,7 +101,10 @@ bool RecordGroup::store(Record * record, Record *prior, int32 id, RecordSection 
 			section = new RecordGroup(base / RECORD_SLOTS);
 
 		if (!COMPARE_EXCHANGE_POINTER(ptr, NULL, section))
+			{
+			delete section;
 			section = *ptr;
+			}
 		}
 
 	return section->store(record, prior, id % base, NULL);

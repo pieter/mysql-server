@@ -126,6 +126,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	syncObject.setName("Transaction::syncObject");
 	syncActive.setName("Transaction::syncActive");
 	syncIndexes.setName("Transaction::syncIndexes");
+	syncIndexes.setName("Transaction::syncSavepoints");
 	//scavenged = false;
 	
 	if (seq == 0)
@@ -212,7 +213,7 @@ Transaction::~Transaction()
 		removeRecord(record);
 		}
 	
-	releaseSavePoints();
+	releaseSavepoints();
 	
 	if (deferredIndexes)
 		{
@@ -230,7 +231,7 @@ void Transaction::commit()
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
-	releaseSavePoints();
+	releaseSavepoints();
 
 	if (!hasUpdates)
 		{
@@ -395,7 +396,7 @@ void Transaction::rollback()
 		releaseDeferredIndexes();
 		}
 		
-	releaseSavePoints();
+	releaseSavepoints();
 	TransactionManager *transactionManager = database->transactionManager;
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
 	//state = RolledBack;
@@ -465,10 +466,6 @@ void Transaction::rollback()
 
 void Transaction::expungeTransaction(Transaction * transaction)
 {
-	//Sync sync(&syncObject, "Transaction::expungeTransaction");
-	//sync.lock(Shared);
-	//TransId oldId = transactionId;
-	//int orgState = state;
 	ASSERT(states != NULL || numberStates == 0);
 	
 	for (TransState *s = states, *end = s + numberStates; s < end; ++s)
@@ -487,7 +484,7 @@ void Transaction::prepare(int xidLen, const UCHAR *xidPtr)
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
 	Log::log(LogXARecovery, "Prepare transaction %d: xidLen = %d\n", transactionId, xidLen);
-	releaseSavePoints();
+	releaseSavepoints();
 
 	xidLength = xidLen;
 
@@ -751,7 +748,7 @@ void Transaction::releaseDependencies()
 
 void Transaction::commitRecords()
 {
-	for (RecordVersion *recordList; recordList = firstRecord;)
+	for (RecordVersion *recordList; (recordList = firstRecord);)
 		{
 		if (recordList && COMPARE_EXCHANGE_POINTER(&firstRecord, recordList, NULL))
 			{
@@ -994,9 +991,15 @@ int Transaction::release()
 
 int Transaction::createSavepoint()
 {
+	Sync sync(&syncSavepoints, "Transaction::createSavepoint");
 	SavePoint *savePoint;
 	
 	ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
+	
+	// System transactions require an exclusive lock for concurrent access
+	
+	if (systemTransaction)
+		sync.lock(Exclusive);
 	
 	if ( (savePoint = freeSavePoints) )
 		freeSavePoints = savePoint->next;
@@ -1015,6 +1018,13 @@ int Transaction::createSavepoint()
 
 void Transaction::releaseSavepoint(int savePointId)
 {
+	Sync sync(&syncSavepoints, "Transaction::releaseSavepoint");
+
+	// System transactions require an exclusive lock for concurrent access
+
+	if (systemTransaction)
+		sync.lock(Exclusive);
+	
 	for (SavePoint **ptr = &savePoints, *savePoint; (savePoint = *ptr); ptr = &savePoint->next)
 		if (savePoint->id == savePointId)
 			{
@@ -1041,9 +1051,43 @@ void Transaction::releaseSavepoint(int savePointId)
 	//throw SQLError(RUNTIME_ERROR, "invalid savepoint");
 }
 
+void Transaction::releaseSavepoints(void)
+{
+	Sync sync(&syncSavepoints, "Transaction::releaseSavepoints");
+	SavePoint *savePoint;
+	
+	// System transactions require an exclusive lock for concurrent access
+
+	if (systemTransaction)
+		sync.lock(Exclusive);
+	
+	
+	while ( (savePoint = savePoints) )
+		{
+		savePoints = savePoint->next;
+		
+		if (savePoint < localSavePoints || savePoint >= localSavePoints + LOCAL_SAVE_POINTS)
+			delete savePoint;
+		}
+
+	while ( (savePoint = freeSavePoints) )
+		{
+		freeSavePoints = savePoint->next;
+		
+		if (savePoint < localSavePoints || savePoint >= localSavePoints + LOCAL_SAVE_POINTS)
+			delete savePoint;
+		}
+}
+
 void Transaction::rollbackSavepoint(int savePointId)
 {
-	SavePoint *savePoint = savePoints;
+	Sync sync(&syncSavepoints, "Transaction::rollbackSavepoints");
+	SavePoint *savePoint;
+
+	// System transactions require an exclusive lock for concurrent access
+
+	if (systemTransaction)
+		sync.lock(Exclusive);
 
 	// Be sure the target savepoint is valid before rollong them back.
 	
@@ -1283,27 +1327,6 @@ void Transaction::validateDependencies(bool noDependencies)
 			ASSERT(!noDependencies);
 			ASSERT(state->transaction->transactionId == state->transactionId);
 			}
-}
-
-void Transaction::releaseSavePoints(void)
-{
-	SavePoint *savePoint;
-	
-	while ( (savePoint = savePoints) )
-		{
-		savePoints = savePoint->next;
-		
-		if (savePoint < localSavePoints || savePoint >= localSavePoints + LOCAL_SAVE_POINTS)
-			delete savePoint;
-		}
-
-	while ( (savePoint = freeSavePoints) )
-		{
-		freeSavePoints = savePoint->next;
-		
-		if (savePoint < localSavePoints || savePoint >= localSavePoints + LOCAL_SAVE_POINTS)
-			delete savePoint;
-		}
 }
 
 void Transaction::printBlockage(void)

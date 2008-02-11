@@ -117,6 +117,13 @@ public:
       class table 
       {
       public:
+        /**
+           Class used to save away the read and write sets for the table temporarily.
+
+           When created, this class accepts a read- and write-set and
+           installs these as current sets for the table. When
+           destroyed, the old sets are restored.
+         */
         class save_sets {
         public:
           save_sets(table const &tbl, MY_BITMAP const *new_rs, MY_BITMAP const *new_ws)

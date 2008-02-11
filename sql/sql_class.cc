@@ -3099,13 +3099,22 @@ THD::binlog_prepare_pending_rows_event(TABLE* table, uint32 serv_id,
     (between Write, Update and Delete), or not the same affected columns, or
     going to be too big, flush this event to disk and create a new pending
     event.
+
+    The last test is necessary for the Cluster injector to work
+    correctly. The reason is that the Cluster can inject two write
+    rows with different column bitmaps if there is an insert followed
+    by an update in the same transaction, and these are grouped into a
+    single epoch/transaction when fed to the injector.
+
+    TODO: Fix the code so that the last test can be removed.
   */
   if (!pending ||
       pending->server_id != serv_id || 
       pending->get_table_id() != table->s->table_map_id ||
       pending->get_type_code() != type_code || 
-      pending->get_data_size() + needed > opt_binlog_rows_event_max_size) 
-  {
+      pending->get_data_size() + needed > opt_binlog_rows_event_max_size ||
+      !bitmap_cmp(pending->get_cols(), table->write_set))
+    {
     /* Create a new RowsEventT... */
     Rows_log_event* const
 	ev= new RowsEventT(this, table, table->s->table_map_id,

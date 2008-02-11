@@ -77,7 +77,7 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
   unsigned int null_mask= 1U;
   DBUG_PRINT("debug", ("null ptr: 0x%lx; row start: %p; null bytes: %d",
                        (ulong) null_ptr, row_data, null_byte_count));
-  DBUG_DUMP("cols", (uchar*) cols->bitmap, cols->last_word_ptr - cols->bitmap + 1);
+  DBUG_PRINT_BITSET("debug", "cols: %s", cols);
   for ( ; (field= *p_field) ; p_field++)
   {
     DBUG_PRINT("debug", ("field: %s; null mask: 0x%x",
@@ -213,12 +213,14 @@ unpack_row(Relay_log_info const *rli,
   unsigned int null_bits= *null_ptr++;
   uint i= 0;
   table_def *tabledef= ((Relay_log_info*)rli)->get_tabledef(table);
+  DBUG_PRINT_BITSET("debug", "cols: %s", cols);
   for (field_ptr= begin_ptr ; field_ptr < end_ptr && *field_ptr ; ++field_ptr)
   {
     Field *const f= *field_ptr;
 
-    DBUG_PRINT("debug", ("field: %s; null mask: 0x%x; null bits: 0x%lx;"
+    DBUG_PRINT("debug", ("%sfield: %s; null mask: 0x%x; null bits: 0x%lx;"
                          " row start: %p; null bytes: %ld",
+                         bitmap_is_set(cols, field_ptr -  begin_ptr) ? "+" : "-",
                          f->field_name, null_mask, (ulong) null_bits,
                          pack_ptr, (ulong) master_null_byte_count));
 
@@ -326,21 +328,28 @@ unpack_row(Relay_log_info const *rli,
   First @c empty_record() is called and then, additionally, fields are
   initialized explicitly with a call to @c set_default().
 
-  For optimization reasons, the explicit initialization can be skipped for
-  first @c skip fields. This is useful if later we are going to fill these 
-  fields from other source (e.g. from a Rows replication event).
+  For optimization reasons, the explicit initialization can be skipped
+  for fields that are not marked in the @c cols vector. These fields
+  will be set later, and filling them with default values is
+  unnecessary.
 
-  If @c check is true, fields are explicitly initialized only if they have
-  default value or can be NULL. Otherwise error is reported.
- 
-  @param log    Used to report errors.
-  @param table  Table whose record[0] buffer is prepared. 
-  @param skip   Number of columns for which default value initialization 
-                should be skipped.
-  @param check  Indicates if errors should be checked when setting default
-                values.
-                
-  @returns 0 on success. 
+  If @c check is true, fields are explicitly initialized only if they
+  have default value or can be NULL. Otherwise error is reported. If
+  @c check is false, no error is reported and the field is not set to
+  any value.
+
+  @todo When flag is added to allow engine to handle default values
+  itself, the record should not be emptied and default values not set.
+
+  @param log[in]       Used to report errors.
+  @param table[in,out] Table whose record[0] buffer is prepared. 
+  @param cols[in]      Vector of bits denoting columns that will be set
+                       elsewhere
+  @param check[in]     Indicates if errors should be checked when setting default
+                       values.
+
+  @retval 0                       Success
+  @retval ER_NO_DEFAULT_FOR_FIELD Default value could not be set for a field
  */ 
 int prepare_record(const Slave_reporting_capability *const log, 
                    TABLE *const table, 
@@ -358,27 +367,31 @@ int prepare_record(const Slave_reporting_capability *const log,
     have no sensible default.
   */
 
+  DBUG_PRINT_BITSET("debug", "cols: %s", cols);
   for (Field **field_ptr= table->field ; *field_ptr ; ++field_ptr)
   {
-    uint32 const mask= NOT_NULL_FLAG | NO_DEFAULT_VALUE_FLAG;
-    Field *const f= *field_ptr;
+    if ((uint) (field_ptr - table->field) >= cols->n_bits ||
+        !bitmap_is_set(cols, field_ptr - table->field))
+    {
+      uint32 const mask= NOT_NULL_FLAG | NO_DEFAULT_VALUE_FLAG;
+      Field *const f= *field_ptr;
 
-    if (check && ((f->flags & mask) == mask))
-    {
-      DBUG_ASSERT(log);
-      error= ER_NO_DEFAULT_FOR_FIELD;
-      log->report(ERROR_LEVEL, error,
-                  "Field `%s` of table `%s`.`%s` "
-                  "has no default value and cannot be NULL",
-                  f->field_name, table->s->db.str,
-                  table->s->table_name.str);
-      my_error(error, MYF(0), f->field_name);
-    }
-    else if ((uint) (field_ptr - table->field) >= cols->n_bits ||
-             !bitmap_is_set(cols, field_ptr - table->field))
-    {
-      DBUG_PRINT("debug", ("Set default; field: %s", f->field_name));
-      f->set_default();
+      if (check && ((f->flags & mask) == mask))
+      {
+        DBUG_ASSERT(log);
+        error= ER_NO_DEFAULT_FOR_FIELD;
+        log->report(ERROR_LEVEL, error,
+                    "Field `%s` of table `%s`.`%s` "
+                    "has no default value and cannot be NULL",
+                    f->field_name, table->s->db.str,
+                    table->s->table_name.str);
+        my_error(error, MYF(0), f->field_name);
+      }
+      else
+      {
+        DBUG_PRINT("debug", ("Set default; field: %s", f->field_name));
+        f->set_default();
+      }
     }
   }
 

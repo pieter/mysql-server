@@ -738,10 +738,6 @@ static int find_and_fetch_row(TABLE *table, uchar *key)
     DBUG_RETURN(error);
   }
 
-  /* We need to retrieve all fields */
-  /* TODO: Move this out from this function to main loop */
-  table->use_all_columns();
-
   if (table->s->keys > 0)
   {
     int error;
@@ -2078,8 +2074,8 @@ Old_rows_log_event::write_row(const Relay_log_info *const rli,
 
   /* fill table->record[0] with default values */
 
-  if ((error= prepare_record(rli, table, m_width,
-                             TRUE /* check if columns have def. values */)))
+  if ((error= prepare_record(rli, table, table->write_set, m_width,
+                             table->file->ht->db_type != DB_TYPE_NDBCLUSTER)))
     DBUG_RETURN(error);
   
   /* unpack row into table->record[0] */
@@ -2289,7 +2285,8 @@ int Old_rows_log_event::find_row(const Relay_log_info *rli)
   /* unpack row - missing fields get default values */
 
   // TODO: shall we check and report errors here?
-  prepare_record(NULL,table,m_width,FALSE /* don't check errors */); 
+  prepare_record(NULL, table, table->read_set, m_width,
+                 FALSE /* don't check errors */); 
   error= unpack_current_row(rli); 
 
 #ifndef DBUG_OFF
@@ -2330,12 +2327,6 @@ int Old_rows_log_event::find_row(const Relay_log_info *rli)
 
   // We can't use position() - try other methods.
   
-  /* 
-    We need to retrieve all fields
-    TODO: Move this out from this function to main loop 
-   */
-  table->use_all_columns();
-
   /*
     Save copy of the record in table->record[1]. It might be needed 
     later if linear search is used to find exact match.

@@ -6109,6 +6109,7 @@ Rows_log_event::Rows_log_event(THD *thd_arg, TABLE *tbl_arg, ulong tid,
                           m_width,
                           false)))
   {
+    DBUG_PRINT_BITSET("debug", "init cols: %s", cols);
     /* Cols can be zero if this is a dummy binrows event */
     if (likely(cols != NULL))
     {
@@ -6884,7 +6885,7 @@ bool Rows_log_event::write_data_body(IO_CACHE*file)
   DBUG_DUMP("m_width", sbuf, (size_t) (sbuf_end - sbuf));
   res= res || my_b_safe_write(file, sbuf, (size_t) (sbuf_end - sbuf));
 
-  DBUG_DUMP("m_cols", (uchar*) m_cols.bitmap, no_bytes_in_map(&m_cols));
+  DBUG_PRINT_BITSET("debug", "writing cols: %s", &m_cols);
   res= res || my_b_safe_write(file, (uchar*) m_cols.bitmap,
                               no_bytes_in_map(&m_cols));
   /*
@@ -7682,8 +7683,18 @@ Rows_log_event::write_row(const Relay_log_info *const rli,
 
   /* fill table->record[0] with default values */
 
+  /*
+     We only check if the columns have default values for non-NDB
+     engines, for NDB we ignore the check since updates are sent as
+     writes, causing errors when trying to prepare the record.
+
+     TODO[ndb]: Elimiate this hard-coded dependency on NDB. Ideally,
+     the engine should be able to set a flag that it want the default
+     values filled in and one flag to handle the case that the default
+     values should be checked. Maybe these two flags can be combined.
+  */
   if ((error= prepare_record(rli, table, &m_cols, m_width,
-                             TRUE /* check if columns have def. values */)))
+                             table->file->ht->db_type != DB_TYPE_NDBCLUSTER)))
     DBUG_RETURN(error);
   
   /* unpack row into table->record[0] */
@@ -8068,12 +8079,6 @@ int Rows_log_event::find_row(const Relay_log_info *rli)
 
   // We can't use position() - try other methods.
   
-  /* 
-    We need to retrieve all fields
-    TODO: Move this out from this function to main loop 
-   */
-  table->use_all_columns();
-
   /*
     Save copy of the record in table->record[1]. It might be needed 
     later if linear search is used to find exact match.

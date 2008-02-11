@@ -6684,7 +6684,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
     const_cast<Relay_log_info*>(rli)->clear_tables_to_lock();
   /* reset OPTION_ALLOW_BATCH as not affect later events */
   thd->options&= ~OPTION_ALLOW_BATCH;
-
+  
   if (error)
   {                     /* error has occured during the transaction */
     slave_rows_error_report(ERROR_LEVEL, error, rli, thd, table,

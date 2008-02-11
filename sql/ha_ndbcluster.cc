@@ -2970,7 +2970,7 @@ ordered_index_scan_callback(void *arg, Uint32 i,
 
 
 /**
-  Start ordered index scan in NDB.
+  Start ordered index scan in NDB
 */
 
 int ha_ndbcluster::ordered_index_scan(const key_range *start_key,
@@ -3226,7 +3226,7 @@ int ha_ndbcluster::write_row(uchar *record)
 }
 
 /**
-  Insert one record into NDB.
+  Insert one record into NDB
 */
 int ha_ndbcluster::ndb_write_row(uchar *record,
                                  bool primary_key_update,
@@ -6942,8 +6942,7 @@ ha_ndbcluster::column_bitmaps_signal()
 }
 
 /**
-  Open a table for further use.
-
+  Open a table for further use
   - fetch metadata for this table from NDB
   - check that table exists
 

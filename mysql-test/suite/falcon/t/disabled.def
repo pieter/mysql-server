@@ -26,6 +26,7 @@ falcon_bug_29246    : Bug#29246 2007-06-21 hakank Currently failing
 falcon_bug_30282    : Bug#30282 2007-08-21 hakank Currently failing
 falcon_bug_30480_A  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_bug_30480_B  : Bug#30282 2007-09-07 klewis Currently failing
+falcon_bug_32413    : Bug#32413 2008-02-11 hakank Either works on 64-bit or on 32-bit, but not on both platforms. This is a test case problem and not a bug.
 falcon_deadlock     : Bug#34182 2008-01-31 hakank Bug in SELECT ... FOR UPDATE
 index_merge_falcon  : Bug#32696 index_merge_falcon.test fails
 ps_8falcon          : Bug#32683  Test ps_8falcon fails in 6.0

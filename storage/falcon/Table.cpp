@@ -1480,7 +1480,8 @@ void Table::drop(Transaction *transaction)
 
 
 	Sync sync(&database->syncSysConnection, "Table::drop");
-	sync.lock(Shared);
+	//sync.lock(Shared);
+	sync.lock(Exclusive);
 	Transaction *sysTransaction = database->getSystemTransaction();
 
 	for (Index *index = indexes; index; index = index->next)
@@ -1500,7 +1501,6 @@ void Table::drop(Transaction *transaction)
 		statement = database->prepareStatement(sql);
 		statement->setString(1, schemaName);
 		statement->setString(2, name);
-		//int count = 
 		statement->executeUpdate();
 		statement->close();
 		}

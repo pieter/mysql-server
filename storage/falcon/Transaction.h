@@ -112,9 +112,10 @@ public:
 	bool		hasUncommittedRecords(Table* table);
 	void		writeComplete(void);
 	void		releaseDependency(void);
-	void		rollbackSavepoint (int savepointId);
-	void		releaseSavepoint(int savepointId);
 	int			createSavepoint();
+	void		releaseSavepoint(int savepointId);
+	void		releaseSavepoints(void);
+	void		rollbackSavepoint (int savepointId);
 	void		scavengeRecords(int ageGroup);
 	void		add(DeferredIndex* deferredIndex);
 	void		initialize(Connection* cnct, TransId seq);
@@ -130,7 +131,6 @@ public:
 	void		releaseCommittedTransaction(void);
 	void		commitNoUpdates(void);
 	void		validateDependencies(bool noDependencies);
-	void		releaseSavePoints(void);
 	void		printBlocking(int level);
 	void		releaseDeferredIndexes(void);
 	void		releaseDeferredIndexes(Table* table);
@@ -172,6 +172,7 @@ public:
 	SyncObject		syncActive;
 	SyncObject		syncIndexes;
 	SyncObject		syncObject;
+	SyncObject		syncSavepoints;
 	uint64			totalRecordData;	// total bytes of record data for this transaction (unchilled + thawed)
 	uint32			totalRecords;		// total record count
 	uint32			chilledRecords;		// total chilled record count

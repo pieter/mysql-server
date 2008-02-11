@@ -174,9 +174,9 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 	Record *rec = priorVersion;
 	Record *ptr = NULL;
 	
-	// Loop through versions 'till we find somebody rec (or run out of versions looking
+	// Remove prior record versions assigned to the savepoint being released
 	
-	for (; rec && rec->getTransactionId() == targetTransactionId && rec->getSavePointId() >= savePointId;
+	for (; rec && rec->getTransactionId() == targetTransactionId && rec->getSavePointId() >= oldestActiveSavePointId;
 		  rec = rec->getPriorVersion())
 		{
 		ptr = rec;
@@ -186,7 +186,7 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 		Transaction *trans = rec->getTransaction();
 
 		if (trans)
-			trans->removeRecord( (RecordVersion*) rec);
+			trans->removeRecord((RecordVersion*) rec);
 		}
 	
 	// If we didn't find anyone, there's nothing to do

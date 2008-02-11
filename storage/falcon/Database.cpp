@@ -1810,7 +1810,7 @@ void Database::ticker()
 
 int Database::createSequence(int64 initialValue)
 {
-	Transaction *transaction = systemConnection->getTransaction();
+	Transaction *transaction = getSystemTransaction();
 
 	return dbb->createSequence (initialValue, TRANSACTION_ID(transaction));
 }

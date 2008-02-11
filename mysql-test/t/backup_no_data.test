@@ -1,0 +1,91 @@
+--source include/not_embedded.inc
+
+connect (backup,localhost,root,,);
+
+connection backup;
+
+
+--disable_warnings
+DROP DATABASE IF EXISTS empty_db;
+DROP DATABASE IF EXISTS other_db;
+--enable_warnings
+
+CREATE DATABASE empty_db;
+CREATE DATABASE other_db;
+
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/empty_db.bak
+--replace_column 1 #
+BACKUP DATABASE empty_db TO 'empty_db.bak';
+
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/all.bak
+--replace_column 1 #
+BACKUP DATABASE * TO 'all.bak';
+
+DROP DATABASE empty_db;
+DROP DATABASE other_db;
+
+SHOW DATABASES;
+
+--replace_column 1 #
+RESTORE FROM 'all.bak';
+
+SHOW DATABASES;
+
+DROP DATABASE empty_db;
+DROP DATABASE other_db;
+
+--replace_column 1 #
+RESTORE FROM 'empty_db.bak';
+
+SHOW DATABASES;
+SHOW TABLES IN empty_db;
+
+--replace_column 1 #
+RESTORE FROM 'all.bak';
+
+SHOW DATABASES;
+SHOW TABLES IN empty_db;
+
+connection backup;
+
+USE other_db;
+
+DROP TABLE IF EXISTS t1;
+
+CREATE TABLE t1 (
+  `dir_code` char(4),
+  `building` char(6)
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
+
+USE empty_db;
+
+--disable_warnings
+DROP VIEW IF EXISTS v1;
+--enable_warnings
+
+CREATE VIEW v1 AS SELECT * FROM other_db.t1;
+
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/empty_db.bak
+--replace_column 1 #
+BACKUP DATABASE empty_db TO 'empty_db.bak';
+
+SHOW DATABASES;
+
+--replace_column 1 #
+RESTORE FROM 'empty_db.bak';
+
+USE empty_db;
+
+SHOW TABLES;
+DROP DATABASE IF EXISTS empty_db;
+DROP DATABASE IF EXISTS other_db;
+
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/all.bak
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/empty_db.bak
+
+

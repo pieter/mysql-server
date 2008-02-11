@@ -6143,10 +6143,16 @@ ER_BACKUP_RESTORE_START
 ER_BACKUP_RESTORE_DONE
         eng "Restore completed"
 
+ER_BACKUP_NOTHING_TO_BACKUP
+        eng "Nothing to backup"
+ER_BACKUP_CANNOT_INCLUDE_DB
+        eng "Database '%-.64s' cannot be included in a backup"
 ER_BACKUP_BACKUP
         eng "Error during backup operation - server's error log contains more information about the error"
 ER_BACKUP_RESTORE
         eng "Error during restore operation - server's error log contains more information about the error"
+ER_BACKUP_RUNNING
+        eng "Can't execute this command because another BACKUP/RESTORE operation is in progress"
 ER_BACKUP_BACKUP_PREPARE
         eng "Error when preparing for backup operation"
 ER_BACKUP_RESTORE_PREPARE
@@ -6156,7 +6162,7 @@ ER_BACKUP_INVALID_LOC
 ER_BACKUP_READ_LOC
         eng "Can't read backup location '%-.64s'"
 ER_BACKUP_WRITE_LOC
-        eng "Can't write to backup location '%-.64s'"
+        eng "Can't write to backup location '%-.64s' (file already exists?)"
 ER_BACKUP_LIST_DBS
         eng "Can't enumerate server databases"
 ER_BACKUP_LIST_TABLES
@@ -6225,6 +6231,12 @@ ER_BACKUP_SEND_DATA_RETRY
 
 ER_BACKUP_OPEN_TABLES
         eng "Open and lock tables failed in %-.64s"
+
+ER_BACKUP_THREAD_INIT
+        eng "Backup driver's table locking thread can not be initialized."
+
+ER_BACKUP_PROGRESS_TABLES
+        eng "Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'."
 
 ER_TABLESPACE_EXIST
   eng "Tablespace '%-.192s' already exists"

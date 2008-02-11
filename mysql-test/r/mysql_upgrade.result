@@ -12,6 +12,8 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.host                                         OK
 mysql.ndb_binlog_index                             OK
+mysql.online_backup                                OK
+mysql.online_backup_progress                       OK
 mysql.plugin                                       OK
 mysql.proc                                         OK
 mysql.procs_priv                                   OK
@@ -42,6 +44,8 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.host                                         OK
 mysql.ndb_binlog_index                             OK
+mysql.online_backup                                OK
+mysql.online_backup_progress                       OK
 mysql.plugin                                       OK
 mysql.proc                                         OK
 mysql.procs_priv                                   OK
@@ -72,6 +76,8 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.host                                         OK
 mysql.ndb_binlog_index                             OK
+mysql.online_backup                                OK
+mysql.online_backup_progress                       OK
 mysql.plugin                                       OK
 mysql.proc                                         OK
 mysql.procs_priv                                   OK
@@ -104,6 +110,8 @@ mysql.help_relation                                OK
 mysql.help_topic                                   OK
 mysql.host                                         OK
 mysql.ndb_binlog_index                             OK
+mysql.online_backup                                OK
+mysql.online_backup_progress                       OK
 mysql.plugin                                       OK
 mysql.proc                                         OK
 mysql.procs_priv                                   OK

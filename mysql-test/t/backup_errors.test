@@ -1,0 +1,209 @@
+--source include/not_embedded.inc
+
+# Check that BACKUP/RESTORE commands correctly report errors 
+#
+# TODO: When we know how to do that, check that the backup progress table
+# contains appropriate rows when errors have been detected.
+
+--disable_warnings
+DROP DATABASE IF EXISTS adb;
+DROP DATABASE IF EXISTS bdb;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/test.bak
+--enable_warnings
+
+# non-existent backup archive
+-- error ER_BACKUP_READ_LOC
+RESTORE FROM 'test.bak';
+
+CREATE DATABASE adb;
+CREATE DATABASE bdb;
+CREATE TABLE bdb.t1(a int) ENGINE=MEMORY;
+
+# invalid location
+--error ER_BACKUP_INVALID_LOC
+BACKUP DATABASE adb TO '';
+
+# don't overwrite existing files
+--error ER_BACKUP_WRITE_LOC
+BACKUP DATABASE adb TO "bdb/t1.frm";
+
+--replace_column 1 #
+BACKUP DATABASE adb TO "test.bak";
+
+# don't overwrite existing backup image
+--error ER_BACKUP_WRITE_LOC
+BACKUP DATABASE adb TO "test.bak";
+
+--remove_file $MYSQLTEST_VARDIR/master-data/test.bak
+
+# non-existent database
+--disable_warnings
+DROP DATABASE IF EXISTS foo;
+DROP DATABASE IF EXISTS bar;
+--enable_warnings
+
+-- error ER_BAD_DB_ERROR
+BACKUP DATABASE foo TO 'test.bak';
+-- error ER_BAD_DB_ERROR
+BACKUP DATABASE test,foo,bdb,bar TO 'test.bak';
+
+# Test that BACKUP/RESTORE statements are disable inside stored routines,
+# triggers and events.
+
+use adb;
+
+create table t1 (a int);
+
+--error ER_SP_BADSTATEMENT
+create procedure p1() backup database test to 'test.bak';
+--error ER_SP_BADSTATEMENT
+create procedure p1() restore from 'test.bak';
+
+--error ER_SP_BADSTATEMENT
+create function f1() returns int backup database test to 'test.bak';
+--error ER_SP_BADSTATEMENT
+create function f1() returns int restore from 'test.bak';
+
+--error ER_SP_BADSTATEMENT
+create trigger tr1 before insert on t1 
+for each row backup database test to 'test.bak';
+--error ER_SP_BADSTATEMENT
+create trigger tr1 before insert on t1 
+for each row restore from 'test.bak';
+
+--error ER_SP_BADSTATEMENT
+create event ev1 on schedule every 1 day 
+do backup database test to 'test.bak';
+--error ER_SP_BADSTATEMENT
+create event ev1 on schedule every 1 day 
+do restore from 'test.bak';
+
+# TODO: fix error injection and test more errors
+
+DROP DATABASE adb;
+DROP DATABASE bdb;
+
+# Note: the file should be removed - if it is not, the following command
+# will fail and we will be warned that something is wrong with the test
+--error 1
+--remove_file $MYSQLTEST_VARDIR/master-data/test.bak
+
+# Check error conditions for including mysql and information_schema in
+# the list of databases.
+#
+# There are several scenarios:
+# 1) BACKUP DATABASE mysql TO 't.bak'
+#    Error: Nothing to backup
+# 2) BACKUP DATABASE information_schema TO 't.bak'
+#    Error: Nothing to backup
+# 3) BACKUP DATABASE mysql, information_schema TO 't.bak'
+#    Error: Nothing to backup
+# 4) BACKUP DATABASE mysql, test TO 't.bak'
+#    Warning: Backup cannot include database 'mysql'
+# 5) BACKUP DATABASE information_schema, test TO 't.bak'
+#    Warning: Backup cannot include database 'information_schema'
+# 6) BACKUP DATABASE mysql, information_schema, test TO 't.bak'
+#    Warning: Backup cannot include database 'mysql'
+#    Warning: Backup cannot include database 'mysql'
+
+# Scenario 1
+--echo Backup of mysql, information_schema scenario 1
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE mysql TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 2
+--echo Backup of mysql, information_schema scenario 2
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE information_schema TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 3
+--echo Backup of mysql, information_schema scenario 3
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE mysql, information_schema TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 4
+--echo Backup of mysql, information_schema scenario 4
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE mysql, test TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 5
+--echo Backup of mysql, information_schema scenario 5
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE information_schema, test TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+
+# Scenario 6
+--echo Backup of mysql, information_schema scenario 6
+--error ER_BACKUP_CANNOT_INCLUDE_DB
+BACKUP DATABASE mysql, information_schema, test TO 't.bak';
+
+--error 0, 1
+--remove_file $MYSQLTEST_VARDIR/master-data/t.bak
+#
+# BUG#33352 - Test for presence of online backup progress tables;
+#
+
+# Make backup copies of the tables first.
+--echo Making copies of progress tables.
+CREATE TABLE IF NOT EXISTS test.ob_copy LIKE mysql.online_backup;
+CREATE TABLE IF NOT EXISTS test.obp_copy LIKE mysql.online_backup_progress;
+
+# Create a database and put some data in it.
+CREATE DATABASE test_ob_error;
+CREATE TABLE test_ob_error.t1 (col_a int);
+INSERT INTO test_ob_error.t1 VALUES (1), (2), (3), (4), (5);
+
+# Backup the database to ensure db is ok.
+--echo Backup the database;
+--replace_column 1 #
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+--remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
+
+# Drop one of the tables and try a backup.
+DROP TABLE mysql.online_backup;
+
+# Try to backup the database (should be error).
+--echo Backup the database;
+--error ER_NO_SUCH_TABLE
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
+SHOW ERRORS;
+
+# Restore the table
+--echo Restoring the table
+CREATE TABLE mysql.online_backup LIKE test.ob_copy;
+DROP TABLE test.ob_copy;
+
+# Drop one of the tables and try a backup.
+DROP TABLE mysql.online_backup_progress;
+
+# Try to backup the database (should be error).
+--echo Backup the database;
+--error ER_NO_SUCH_TABLE
+BACKUP DATABASE test_ob_error TO 'ob_err.bak';
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
+SHOW ERRORS;
+
+# Restore the table
+--echo Restoring the table
+CREATE TABLE mysql.online_backup_progress LIKE test.obp_copy;
+DROP TABLE test.obp_copy;
+
+DROP DATABASE test_ob_error;

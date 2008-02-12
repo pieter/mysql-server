@@ -6119,6 +6119,8 @@ ER_SLAVE_AMBIGOUS_EXEC_MODE
 
 ER_NO_FORMAT_DESCRIPTION_EVENT_BEFORE_BINLOG_STATEMENT
   eng "The BINLOG statement of type `%s` was not preceded by a format description BINLOG statement."
+ER_SLAVE_CORRUPT_EVENT
+  eng "Corrupted replication event was detected"
 ER_WARN_AUTO_CONVERT_LOCK
         eng "Converted to non-transactional lock on '%-.64s'"
         ger "Umgewandelt zu nicht-transaktionalen Sperren auf '%-.64s'"
@@ -6228,3 +6230,7 @@ ER_BACKUP_OPEN_TABLES
 
 ER_TABLESPACE_EXIST
   eng "Tablespace '%-.192s' already exists"
+ER_SLAVE_HEARTBEAT_FAILURE
+  eng "Unexpected master's heartbeat data: %s"
+ER_SLAVE_HEARTBEAT_VALUE_OUT_OF_RANGE
+  eng "The requested value for the heartbeat period %s %s"

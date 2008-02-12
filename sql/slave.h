@@ -22,6 +22,17 @@
 
   @file
 */
+
+/** 
+   Some of defines are need in parser even though replication is not 
+   compiled in (embedded).
+*/
+
+/**
+   The maximum is defined as (ULONG_MAX/1000) with 4 bytes ulong
+*/
+#define SLAVE_MAX_HEARTBEAT_PERIOD 4294967
+
 #ifdef HAVE_REPLICATION
 
 #include "log.h"
@@ -32,7 +43,6 @@
 #define SLAVE_NET_TIMEOUT  3600
 
 #define MAX_SLAVE_ERROR    2000
-
 
 // Forward declarations
 class Relay_log_info;
@@ -80,8 +90,8 @@ class Master_info;
   mi->rli does not either.
 
   In Master_info: run_lock, data_lock
-  run_lock protects all information about the run state: slave_running, and the
-  existence of the I/O thread (to stop/start it, you need this mutex).
+  run_lock protects all information about the run state: slave_running, thd
+  and the existence of the I/O thread to stop/start it, you need this mutex).
   data_lock protects some moving members of the struct: counters (log name,
   position) and relay log (MYSQL_BIN_LOG object).
 

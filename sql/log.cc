@@ -73,23 +73,28 @@ static int binlog_prepare(handlerton *hton, THD *thd, bool all);
 */
 class Silence_log_table_errors : public Internal_error_handler
 {
+  char m_message[MYSQL_ERRMSG_SIZE];
 public:
   Silence_log_table_errors()
-  {}
+  {
+    m_message[0]= '\0';
+  }
 
   virtual ~Silence_log_table_errors() {}
 
   virtual bool handle_error(uint sql_errno, const char *message,
                             MYSQL_ERROR::enum_warning_level level,
                             THD *thd);
+  const char *message() const { return m_message; }
 };
 
 bool
 Silence_log_table_errors::handle_error(uint /* sql_errno */,
-                                       const char * /* message */,
+                                       const char *message_arg,
                                        MYSQL_ERROR::enum_warning_level /* level */,
                                        THD * /* thd */)
 {
+  strmake(m_message, message_arg, sizeof(m_message)-1);
   return TRUE;
 }
 
@@ -436,8 +441,9 @@ bool Log_to_csv_event_handler::
   result= FALSE;
 
 err:
-  if (result)
-    sql_print_error("Failed to write to mysql.general_log");
+  if (result && !thd->killed)
+    sql_print_error("Failed to write to mysql.general_log: %s",
+                    error_handler.message());
 
   if (need_rnd_end)
   {
@@ -495,11 +501,13 @@ bool Log_to_csv_event_handler::
   bool result= TRUE;
   bool need_close= FALSE;
   bool need_rnd_end= FALSE;
+  Silence_log_table_errors error_handler;
   Open_tables_state open_tables_backup;
   CHARSET_INFO *client_cs= thd->variables.character_set_client;
   bool save_time_zone_used;
   DBUG_ENTER("Log_to_csv_event_handler::log_slow");
 
+  thd->push_internal_handler(& error_handler);
   /*
     CSV uses TIME_to_timestamp() internally if table needs to be repaired
     which will set thd->time_zone_used
@@ -629,8 +637,11 @@ bool Log_to_csv_event_handler::
   result= FALSE;
 
 err:
-  if (result)
-    sql_print_error("Failed to write to mysql.slow_log");
+  thd->pop_internal_handler();
+
+  if (result && !thd->killed)
+    sql_print_error("Failed to write to mysql.slow_log: %s",
+                    error_handler.message());
 
   if (need_rnd_end)
   {
@@ -4137,33 +4148,59 @@ err:
 
 
 /**
-  Wait until we get a signal that the binary log has been updated.
+  Wait until we get a signal that the relay log has been updated
 
-  @param thd		Thread variable
-  @param is_slave      If 0, the caller is the Binlog_dump thread from master;
-                       if 1, the caller is the SQL thread from the slave. This
-                       influences only thd->proc_info.
-
+  @param[in] thd   a THD struct
   @note
-    One must have a lock on LOCK_log before calling this function.
-    This lock will be released before return! That's required by
-    THD::enter_cond() (see NOTES in sql_class.h).
+    LOCK_log must be taken before calling this function.
+    It will be released at the end of the function.
 */
 
-void MYSQL_BIN_LOG::wait_for_update(THD* thd, bool is_slave)
+void MYSQL_BIN_LOG::wait_for_update_relay_log(THD* thd)
 {
   const char *old_msg;
   DBUG_ENTER("wait_for_update");
-
   old_msg= thd->enter_cond(&update_cond, &LOCK_log,
-                           is_slave ?
-                           "Has read all relay log; waiting for the slave I/O "
-                           "thread to update it" :
-                           "Has sent all binlog to slave; waiting for binlog "
-                           "to be updated");
+                           "Slave has read all relay log; " 
+                           "waiting for the slave I/O "
+                           "thread to update it" );
   pthread_cond_wait(&update_cond, &LOCK_log);
   thd->exit_cond(old_msg);
   DBUG_VOID_RETURN;
+}
+
+
+/**
+  Wait until we get a signal that the binary log has been updated.
+  Applies to master only.
+     
+  NOTES
+  @param[in] thd        a THD struct
+  @param[in] timeout    a pointer to a timespec;
+                        NULL means to wait w/o timeout.
+  @retval    0          if got signalled on update
+  @retval    non-0      if wait timeout elapsed
+  @note
+    LOCK_log must be taken before calling this function.
+    LOCK_log is being released while the thread is waiting.
+    LOCK_log is released by the caller.
+*/
+
+int MYSQL_BIN_LOG::wait_for_update_bin_log(THD* thd,
+                                           const struct timespec *timeout)
+{
+  int ret= 0;
+  const char* old_msg = thd->proc_info;
+  DBUG_ENTER("wait_for_update_bin_log");
+  old_msg= thd->enter_cond(&update_cond, &LOCK_log,
+                           "Master has sent all binlog to slave; "
+                           "waiting for binlog to be updated");
+  if (!timeout)
+    pthread_cond_wait(&update_cond, &LOCK_log);
+  else
+    ret= pthread_cond_timedwait(&update_cond, &LOCK_log,
+                                const_cast<struct timespec *>(timeout));
+  DBUG_RETURN(ret);
 }
 
 

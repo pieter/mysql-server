@@ -586,15 +586,13 @@ prepare stmt from "insert into t1 values (?,?)";
 set @a= 9999999999999999;
 set @b= 14632475938453979136;
 execute stmt using @a, @b;
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
 deallocate prepare stmt;
 drop table t1;
 show binlog events from 0;
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
 master-bin.000001	4	Format_desc	1	107	Server version, Binlog ver: 4
 master-bin.000001	107	Query	1	228	use `test`; create table t1 (a bigint unsigned, b bigint(20) unsigned)
-master-bin.000001	228	Query	1	352	use `test`; insert into t1 values (9999999999999999,-3814268135255572480)
+master-bin.000001	228	Query	1	352	use `test`; insert into t1 values (9999999999999999,14632475938453979136)
 master-bin.000001	352	Query	1	428	use `test`; drop table t1
 End of 5.0 tests
 reset master;

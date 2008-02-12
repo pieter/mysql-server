@@ -1079,8 +1079,6 @@ prepare stmt from "insert into t1 values (?,?)";
 set @a= 9999999999999999;
 set @b= 14632475938453979136;
 execute stmt using @a, @b;
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
 deallocate prepare stmt;
 drop table t1;
 show binlog events from 0;

@@ -13,7 +13,7 @@ DROP DATABASE IF EXISTS bdb;
 --enable_warnings
 
 # non-existent backup archive
--- error ER_BACKUP_READ_LOC
+--error ER_BACKUP_READ_LOC
 RESTORE FROM 'test.bak';
 
 CREATE DATABASE adb;
@@ -183,6 +183,7 @@ DROP TABLE mysql.online_backup;
 BACKUP DATABASE test_ob_error TO 'ob_err.bak';
 --error 0,1
 --remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
+--replace_column 2 #
 SHOW ERRORS;
 
 # Restore the table
@@ -199,6 +200,7 @@ DROP TABLE mysql.online_backup_progress;
 BACKUP DATABASE test_ob_error TO 'ob_err.bak';
 --error 0,1
 --remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
+--replace_column 2 #
 SHOW ERRORS;
 
 # Restore the table

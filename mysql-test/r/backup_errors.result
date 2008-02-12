@@ -78,8 +78,8 @@ BACKUP DATABASE test_ob_error TO 'ob_err.bak';
 ERROR 42S02: Table 'mysql.online_backup' doesn't exist
 SHOW ERRORS;
 Level	Code	Message
-Error	1146	Table 'mysql.online_backup' doesn't exist
-Error	1651	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
+Error	#	Table 'mysql.online_backup' doesn't exist
+Error	#	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
 Restoring the table
 CREATE TABLE mysql.online_backup LIKE test.ob_copy;
 DROP TABLE test.ob_copy;
@@ -89,8 +89,8 @@ BACKUP DATABASE test_ob_error TO 'ob_err.bak';
 ERROR 42S02: Table 'mysql.online_backup_progress' doesn't exist
 SHOW ERRORS;
 Level	Code	Message
-Error	1146	Table 'mysql.online_backup_progress' doesn't exist
-Error	1651	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
+Error	#	Table 'mysql.online_backup_progress' doesn't exist
+Error	#	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
 Restoring the table
 CREATE TABLE mysql.online_backup_progress LIKE test.obp_copy;
 DROP TABLE test.obp_copy;

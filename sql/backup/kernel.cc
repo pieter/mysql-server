@@ -1093,6 +1093,8 @@ int mysql_restore(THD *thd, backup::Restore_info &info, backup::IStream &s)
 
   s.next_chunk();
 
+  thd->main_da.reset_diagnostics_area();
+
   DBUG_PRINT("restore",("Restoring table data"));
 
   // Here restore drivers are created to restore table data

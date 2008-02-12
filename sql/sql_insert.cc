@@ -575,7 +575,7 @@ bool mysql_insert(THD *thd,TABLE_LIST *table_list,
   bool log_on= ((thd->options & OPTION_BIN_LOG) ||
                 (!(thd->security_ctx->master_access & SUPER_ACL)));
 #endif
-  thr_lock_type lock_type;
+  thr_lock_type lock_type= TL_IGNORE;
   Item *unused_conds= 0;
   DBUG_ENTER("mysql_insert");
 

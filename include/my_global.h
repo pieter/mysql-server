@@ -891,14 +891,6 @@ typedef SOCKET_SIZE_TYPE size_socket;
 #define M_LN2 0.69314718055994530942
 #endif
 
-#ifndef HAVE_LOG2
-/*
-  This will be slightly slower and perhaps a tiny bit less accurate than
-  doing it the IEEE754 way but log2() should be available on C99 systems.
-*/
-#define log2(X) (log(X) / M_LN2)
-#endif
-
 /*
   Max size that must be added to a so that we know Size to make
   adressable obj.

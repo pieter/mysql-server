@@ -21,7 +21,7 @@ namespace backup {
 /* Image_info implementation */
 
 Image_info::Image_info():
-  backup_prog_id(0), table_count(0), data_size(0)
+  backup_prog_id(0), table_count(0), data_size(0), m_items(32,128)
 {
   /* initialize st_bstream_image_header members */
   version= 1;
@@ -87,6 +87,14 @@ Image_info::~Image_info()
     
     if (db)
       delete db->obj_ptr();
+  }
+  
+  for (uint i=0; i < m_items.size(); ++i)
+  {
+    PerDb_item *it= m_items[i];
+    
+    if (it)
+      delete it->obj_ptr();
   }
 }
 
@@ -156,10 +164,137 @@ Image_info::locate_item(const st_bstream_item_info *item) const
     return get_table(ti->snap_no,item->pos);
   }
 
+  case BSTREAM_IT_VIEW:
+  case BSTREAM_IT_SPROC:
+  case BSTREAM_IT_SFUNC:
+  case BSTREAM_IT_EVENT:
+  case BSTREAM_IT_TRIGGER:
+    return get_db_object(item->pos);
+
   default:
     // TODO: warn or report error
     return NULL;
   }
+}
+
+/**
+  Store in Backup_image all objects enumerated by the iterator.
+ */ 
+int Image_info::add_objects(Db_item &dbi,
+                            const enum_bstream_item_type type, 
+                            obs::ObjIterator &it)
+{
+  using namespace obs;
+  
+  Obj *obj;
+  
+  while ((obj= it.next()))
+    if (!add_db_object(dbi, type, *obj))
+    {
+      delete obj;
+      return TRUE;
+    }
+
+  return FALSE;
+}
+
+Image_info::PerDb_item* Image_info::add_db_object(Db_item &dbi,
+                                                  const enum_bstream_item_type type,
+                                                  obs::Obj &obj)
+{
+  ulong pos= m_items.size();
+  
+  PerDb_item *it= m_items.get_entry(pos);
+  
+  if (!it)
+    return NULL;
+    
+  *it= obj;
+  it->base.type= type;
+  it->base.pos= pos;
+  it->db= &dbi;
+
+  return it;
+}
+
+Image_info::PerDb_item* Image_info::add_db_object(Db_item &dbi,
+                                                  const enum_bstream_item_type type,
+                                                  const ::String &name)
+{
+  ulong pos= m_items.size();
+  
+  PerDb_item *it= m_items.get_entry(pos);
+  
+  if (!it)
+    return NULL;
+    
+  *it= name;
+  it->base.type= type;
+  it->base.pos= pos;
+  it->db= &dbi;
+  it->m_db_name= dbi.name();
+
+  return it;
+}
+
+obs::Obj* Image_info::PerDb_item::obj_ptr(uint ver, ::String &sdata)
+{ 
+  using namespace obs;
+
+  Obj *obj;
+  
+  switch (base.type) {
+  case BSTREAM_IT_VIEW:   
+    obj= materialize_view(&m_db_name, &m_name, ver, &sdata); break;
+  case BSTREAM_IT_SPROC:  
+    obj= materialize_stored_procedure(&m_db_name, &m_name, ver, &sdata); break;
+  case BSTREAM_IT_SFUNC:
+    obj= materialize_stored_function(&m_db_name, &m_name, ver, &sdata); break;
+  case BSTREAM_IT_EVENT:
+    obj= materialize_event(&m_db_name, &m_name, ver, &sdata); break;
+  case BSTREAM_IT_TRIGGER:   
+    obj= materialize_trigger(&m_db_name, &m_name, ver, &sdata); break;
+  default: obj= NULL;
+  }
+
+  return obj;
+}
+
+bool Image_info::Ditem_iterator::next()
+{
+  if (ptr)
+    ptr= ptr->next_table;
+    
+  if (ptr)
+    return TRUE;
+
+  bool more=TRUE;
+
+  // advance to next element in other list if we are inside it
+  if (other_list)
+     more= PerDb_iterator::next();
+
+  other_list= TRUE; // mark that we are now inside the other list
+
+  // return if there are no more elements in the other list
+  if (!more)
+    return FALSE;
+
+  // find an element belonging to our database  
+  do
+  {
+    PerDb_item *it= (PerDb_item*)PerDb_iterator::get_ptr();
+
+    if (!it)
+      return FALSE;
+    
+    if (it->m_db_name == db_name)
+      return TRUE;
+  }
+  while (PerDb_iterator::next());
+    
+  // we haven't found any object belonging to our database
+  return FALSE;
 }
 
 } // backup namespace
@@ -179,6 +314,9 @@ void* bcat_iterator_get(st_bstream_image_header *catalogue, unsigned int type)
   switch (type) {
 
   case BSTREAM_IT_PERDB:
+    return
+    new backup::Image_info::PerDb_iterator(*static_cast<backup::Image_info*>(catalogue));
+
   case BSTREAM_IT_PERTABLE:
     return &null_iter;
 
@@ -281,7 +419,7 @@ void  bcat_db_iterator_free(st_bstream_image_header *catalogue,
                               struct st_bstream_db_info *db,
                               void *iter)
 {
-  delete (backup::Image_info::Ditem_iterator*)iter;
+  delete (backup::Image_info::Iterator*)iter;
 }
 
 }

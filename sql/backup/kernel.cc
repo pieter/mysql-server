@@ -869,19 +869,9 @@ int Backup_info::add_db_items(Db_item &dbi)
   
   int res= 0;
   Obj *t= NULL;
-  
-  
+
   while ((t= it->next()))
   {
-/*
-    if (engine.is_empty())
-    {
-      Table_ref::describe_buf buf;
-      report_error(log_level::WARNING,ER_BACKUP_NO_ENGINE,t.describe(buf));
-      delete name;
-      continue;
-    }
-*/
     DBUG_PRINT("backup", ("Found table %s for database %s",
                            t->get_name()->ptr(), dbi.name().ptr()));
 
@@ -901,6 +891,61 @@ int Backup_info::add_db_items(Db_item &dbi)
       goto error;
   }
 
+  delete it;  
+  it= get_db_stored_procedures(m_thd, &dbi.name());
+  
+  if (!it)
+  {
+    // TODO: report error
+    goto error;
+  }
+  
+  add_objects(dbi, BSTREAM_IT_SPROC, *it);
+
+  delete it;
+  it= get_db_stored_functions(m_thd, &dbi.name());
+
+  if (!it)
+  {
+    // TODO: report error
+    goto error;
+  }
+  
+  add_objects(dbi, BSTREAM_IT_SFUNC, *it);
+
+  delete it;
+  it= get_db_views(m_thd, &dbi.name());
+
+  if (!it)
+  {
+    // TODO: report error
+    goto error;
+  }
+  
+  add_objects(dbi, BSTREAM_IT_VIEW, *it);
+
+  delete it;
+  it= get_db_events(m_thd, &dbi.name());
+
+  if (!it)
+  {
+    // TODO: report error
+    goto error;
+  }
+  
+  add_objects(dbi, BSTREAM_IT_EVENT, *it);
+  
+  delete it;
+  it= get_db_triggers(m_thd, &dbi.name());
+
+  if (!it)
+  {
+    // TODO: report error
+    goto error;
+  }
+  
+  add_objects(dbi, BSTREAM_IT_TRIGGER, *it);
+  
   goto finish;
 
  error:
@@ -913,7 +958,6 @@ int Backup_info::add_db_items(Db_item &dbi)
   delete it;
   return res;
 }
-
 
 /**
   Add table to archive's list of meta-data items.
@@ -1336,6 +1380,29 @@ int bcat_add_item(st_bstream_image_header *catalogue, struct st_bstream_item_inf
 
     return BSTREAM_OK;
   }
+
+  case BSTREAM_IT_VIEW:
+  case BSTREAM_IT_SPROC:
+  case BSTREAM_IT_SFUNC:
+  case BSTREAM_IT_EVENT:
+  case BSTREAM_IT_TRIGGER:
+  {
+    st_bstream_dbitem_info *it= (st_bstream_dbitem_info*)item;
+    
+    DBUG_ASSERT(it->db);
+    
+    Image_info::Db_item *db= (Image_info::Db_item*)
+                               info->locate_item((st_bstream_item_info*)it->db);
+  
+    DBUG_ASSERT(db);
+    
+    Image_info::PerDb_item *it1= info->add_db_object(*db, item->type, name_str);
+  
+    if (!it1)
+      return BSTREAM_ERROR;
+    
+    return BSTREAM_OK;
+  }   
 
   default:
     return BSTREAM_OK;

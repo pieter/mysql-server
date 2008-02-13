@@ -99,6 +99,8 @@ int silent_exec(THD *thd, String *query)
     mysql_parse(thd, next_packet, length, & found_semicolon);
   }
 
+  close_thread_tables(thd);
+
   thd->net.vio= save_vio;
 
   if (thd->is_error())

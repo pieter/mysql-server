@@ -1,0 +1,171 @@
+#
+# This test testing backup and restore for database objects.
+#
+
+--source include/have_innodb.inc
+--source include/not_embedded.inc
+
+connect (con1,localhost,root,,);
+connection con1;
+
+##############################################################
+--echo 
+--echo Starting Test - Backup
+--echo 
+##############################################################
+
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_objects.bak
+
+# Set SQL_MODE and client charset
+--echo Setting SQL_MODE = PIPES_AS_CONCAT
+SET SQL_MODE = 'PIPES_AS_CONCAT';
+
+--echo Change client connection charset
+SET character_set_client = 'latin2';
+
+# Create database and objects for this test and tailor it to the test.
+--disable_warnings
+DROP DATABASE IF EXISTS bup_objects;
+--enable_warnings
+
+CREATE DATABASE bup_objects;
+
+# Create table and load it with data.
+--echo con1: Creating table
+CREATE TABLE bup_objects.t1 (col_a int, col_b CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_objects.t2 (col_a int, col_b CHAR(40)) ENGINE=INNODB;
+
+--echo con1: Loading data
+INSERT INTO bup_objects.t1 VALUES (01, "101 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (02, "102 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (03, "103 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (04, "201 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (05, "202 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (06, "203 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (07, "301 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (08, "302 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (09, "303 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (10, "401 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (11, "402 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (12, "403 Some data to test");
+
+INSERT INTO bup_objects.t2 VALUES (01, "101 Some data to test");
+INSERT INTO bup_objects.t2 VALUES (02, "102 Some data to test");
+INSERT INTO bup_objects.t2 VALUES (03, "103 Some data to test");
+
+# Create views of the table.
+CREATE VIEW bup_objects.v1 AS SELECT * FROM bup_objects.t1 WHERE col_a < 5;
+CREATE VIEW bup_objects.v2 AS SELECT * FROM bup_objects.t1 WHERE col_a >= 5;
+
+# Create trigger for table.
+delimiter ||;
+CREATE TRIGGER bup_objects.ins_t1 AFTER INSERT ON bup_objects.t1 FOR EACH ROW 
+BEGIN
+  DELETE FROM bup_objects.t2 WHERE col_a > 1;
+END;
+||
+
+# Create event.
+CREATE EVENT bup_objects.e1 ON SCHEDULE EVERY 1 YEAR DO
+  DELETE FROM bup_objects.t2 WHERE col_a > 100;
+||
+  
+# Create procedure.
+CREATE PROCEDURE bup_objects.p1()
+BEGIN
+  UPDATE bup_objects.t1 SET col_b = "Procedure p1 was here." WHERE col_a < 3;
+END;
+||
+
+# Create function.
+CREATE FUNCTION bup_objects.f1() RETURNS INTEGER
+BEGIN
+  DECLARE v_out INT;
+  SELECT count(*) FROM bup_objects.t1 INTO v_out;
+  RETURN v_out;
+END;
+||
+
+delimiter ;||
+
+# Exercise the objects.
+--echo Using the objects.
+INSERT INTO bup_objects.t1 VALUES (30, "a new row.");
+CALL bup_objects.p1();
+SELECT bup_objects.f1();
+
+# Show the data and CREATE statements
+--echo Showing objects and create statements.
+--query_vertical SHOW CREATE DATABASE bup_objects;
+--query_vertical SHOW CREATE TABLE bup_objects.t1;
+--query_vertical SHOW CREATE TABLE bup_objects.t2;
+--query_vertical SHOW CREATE VIEW bup_objects.v1;
+--query_vertical SHOW CREATE VIEW bup_objects.v2;
+--query_vertical SHOW CREATE PROCEDURE bup_objects.p1;
+--query_vertical SHOW CREATE FUNCTION bup_objects.f1;
+--query_vertical SHOW CREATE TRIGGER bup_objects.ins_t1;
+--replace_column 13 # 14 # 17 # 18 # 19 #
+--query_vertical SELECT * FROM INFORMATION_SCHEMA.EVENTS WHERE event_schema = 'bup_objects' AND event_name = 'e1';
+
+SELECT table_name FROM INFORMATION_SCHEMA.TABLES
+  WHERE table_schema = 'bup_objects';
+SELECT table_name as view_name FROM INFORMATION_SCHEMA.VIEWS
+  WHERE table_schema = 'bup_objects';
+SELECT routine_name as proc_name FROM INFORMATION_SCHEMA.ROUTINES
+  WHERE routine_schema = 'bup_objects' AND routine_type = 'PROCEDURE';
+SELECT routine_name as func_name FROM INFORMATION_SCHEMA.ROUTINES
+  WHERE routine_schema = 'bup_objects' AND routine_type = 'FUNCTION';
+SELECT trigger_name, event_manipulation, event_object_table
+  FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_schema = 'bup_objects';
+SELECT event_name FROM INFORMATION_SCHEMA.EVENTS
+  WHERE event_schema = 'bup_objects';
+
+# Backup and restore the data.
+--echo Backup data.
+--replace_column 1 #
+BACKUP DATABASE bup_objects TO 'bup_objects.bak';
+
+--echo Dropping database.
+DROP DATABASE bup_objects;
+
+# Set SQL_MODE and client charset
+--echo Setting SQL_MODE = ''
+SET SQL_MODE = '';
+
+--echo Change client connection charset
+SET character_set_client = 'latin1';
+
+--replace_column 1 #
+RESTORE FROM 'bup_objects.bak';
+
+# Show the data and CREATE statements
+--echo Showing objects and create statements.
+--query_vertical SHOW CREATE DATABASE bup_objects;
+--query_vertical SHOW CREATE TABLE bup_objects.t1;
+--query_vertical SHOW CREATE TABLE bup_objects.t2;
+--query_vertical SHOW CREATE VIEW bup_objects.v1;
+--query_vertical SHOW CREATE VIEW bup_objects.v2;
+--query_vertical SHOW CREATE PROCEDURE bup_objects.p1;
+--query_vertical SHOW CREATE FUNCTION bup_objects.f1;
+--query_vertical SHOW CREATE TRIGGER bup_objects.ins_t1;
+--replace_column 13 # 14 # 17 # 18 # 19 #
+--query_vertical SELECT * FROM INFORMATION_SCHEMA.EVENTS WHERE event_schema = 'bup_objects' AND event_name = 'e1';
+
+SELECT table_name FROM INFORMATION_SCHEMA.TABLES
+  WHERE table_schema = 'bup_objects';
+SELECT table_name as view_name FROM INFORMATION_SCHEMA.VIEWS
+  WHERE table_schema = 'bup_objects';
+SELECT routine_name as proc_name FROM INFORMATION_SCHEMA.ROUTINES
+  WHERE routine_schema = 'bup_objects' AND routine_type = 'PROCEDURE';
+SELECT routine_name as func_name FROM INFORMATION_SCHEMA.ROUTINES
+  WHERE routine_schema = 'bup_objects' AND routine_type = 'FUNCTION';
+SELECT trigger_name, event_manipulation, event_object_table
+  FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_schema = 'bup_objects';
+SELECT event_name FROM INFORMATION_SCHEMA.EVENTS
+  WHERE event_schema = 'bup_objects';
+
+--echo Cleanup
+DROP DATABASE bup_objects;
+
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_objects.bak

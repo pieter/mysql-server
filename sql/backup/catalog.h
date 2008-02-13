@@ -44,10 +44,12 @@ class Image_info: public st_bstream_image_header
    class Item;          ///< base class for all item types
    class Db_item;
    class Table_item;
+   class PerDb_item;
 
    class Iterator;       ///< base for all iterators
    class Db_iterator;    ///< iterates over databases in archive
-   class Ditem_iterator; ///< iterates over per-db items
+   class Ditem_iterator; ///< iterates over all objects in a given database
+   class PerDb_iterator; ///< iterates over all per-db objects, except tables
 
    virtual ~Image_info();
 
@@ -92,11 +94,11 @@ class Image_info: public st_bstream_image_header
     {
       return add_db(db,count());
     }
-
   };
 
   Databases m_db; ///< list of databases
   Snapshot_info *m_snap[256];   ///< list of snapshots
+  Dynamic_array<PerDb_item> m_items;
 
   Image_info();
 
@@ -135,6 +137,14 @@ class Image_info: public st_bstream_image_header
   Table_item* get_table(uint, unsigned long int) const;
 
   Item* locate_item(const st_bstream_item_info*) const;
+
+  PerDb_item* add_db_object(Db_item&, const enum_bstream_item_type, obs::Obj&);
+  PerDb_item* add_db_object(Db_item&, const enum_bstream_item_type, const ::String&);
+
+  PerDb_item* get_db_object(ulong pos) const
+  { return m_items[pos]; }
+
+  int add_objects(Db_item&, const enum_bstream_item_type, obs::ObjIterator&);
 
  private:
 
@@ -429,7 +439,7 @@ class Image_info::Db_item
   /// Store information about database @c db.
   Db_item& operator=(const Db_ref &db)
   {
-    Image_info::Item::m_name= db.name();   // save name of the db
+    Image_info::Item::m_name.copy(db.name());   // save name of the db
     /*
       setup the name member (inherited from bstream_item_info) to point
       at the db name
@@ -524,6 +534,69 @@ class Image_info::Table_item
 
   friend
   int ::bcat_add_item(st_bstream_image_header*, struct st_bstream_item_info*);
+};
+
+
+class Image_info::PerDb_item
+ : public st_bstream_dbitem_info,
+   public Image_info::Item,
+   public Obj_ref_base
+{
+ public:
+ 
+  String m_db_name;
+ 
+  PerDb_item(): 
+    Obj_ref_base(NULL)
+  {}
+
+  PerDb_item(String &db_name, String &name): 
+    Obj_ref_base(NULL)
+  {
+    m_db_name.copy(db_name);
+    m_name.copy(name);
+  }
+  
+  PerDb_item(obs::Obj *obj): 
+    Obj_ref_base(obj)
+  {
+    m_db_name= *obj->get_db_name();
+    m_name= *obj->get_name();
+  }
+
+  obs::Obj *obj_ptr()
+  { return Obj_ref_base::obj_ptr(); }
+
+  obs::Obj* obj_ptr(uint, ::String&);
+
+  PerDb_item& operator= (obs::Obj &obj)
+  {
+    m_name= *obj.get_name();
+    m_db_name= *obj.get_db_name();
+    m_obj= &obj;
+    
+    base.name.begin= (byte*) m_name.ptr();
+    base.name.end= base.name.begin + m_name.length();
+
+    // These should be set up externally
+    base.type= BSTREAM_IT_TABLE; 
+    base.pos= 0;
+    db= NULL;
+    
+    return *this;
+  }
+  
+  PerDb_item& operator= (const ::String &name)
+  {
+    m_name.copy(name);
+    
+    base.name.begin= (byte*) m_name.ptr();
+    base.name.end= base.name.begin + m_name.length();
+
+    return *this;
+  }
+
+  const st_bstream_item_info* info() const { return &base; }
 };
 
 /**
@@ -697,7 +770,7 @@ class Image_info::Iterator
 class Image_info::Db_iterator
  : public Image_info::Iterator
 {
-  uint pos;
+  ulong pos;
 
  public:
 
@@ -707,50 +780,72 @@ class Image_info::Db_iterator
     find_non_null_pos();
   }
 
- private:
+ protected:
 
   const Item* get_ptr() const
-  { return m_info.m_db[pos]; }
+  { return get_ptr(pos); }
 
   bool next()
   {
     pos++;
     find_non_null_pos();
-    return pos < m_info.m_db.count();
+    return pos < count();
   }
 
   void find_non_null_pos()
   {
-    for(; pos < m_info.m_db.count() && m_info.m_db[pos] == NULL; ++pos);
+    for(; pos < count() && get_ptr(pos) == NULL; ++pos);
   }
+
+  virtual Item* get_ptr(ulong pos) const
+  { return m_info.m_db[pos]; }
+  
+  virtual ulong count() const
+  { return m_info.m_db.count(); }
+
 };
 
+class Image_info::PerDb_iterator: public Image_info::Db_iterator
+{
+ public:
+ 
+  PerDb_iterator(const Image_info &info): Db_iterator(info)
+  {}
+ 
+ protected:
+ 
+  const Item* get_ptr() const
+  { return Db_iterator::get_ptr(); } // FIXME
+   
+  Item* get_ptr(ulong pos) const
+  { return m_info.m_items[pos]; }
+
+  ulong count() const
+  { return m_info.m_items.size(); }
+};
 
 class Image_info::Ditem_iterator
- : public Image_info::Iterator
+ : public Image_info::PerDb_iterator
 {
   Table_item *ptr;
+  String db_name;
+  bool other_list;
 
  public:
 
-  Ditem_iterator(const Image_info &info, const Db_item &db): Iterator(info)
+  Ditem_iterator(const Image_info &info, const Db_item &db): 
+    PerDb_iterator(info), other_list(FALSE)
   {
     ptr= db.m_tables;
+    db_name.copy(db.name());
   }
 
  private:
 
   const Item* get_ptr() const
-  { return ptr; }
+  { return ptr ? ptr : PerDb_iterator::get_ptr(); }
 
-  bool next()
-  {
-    if (ptr)
-      ptr= ptr->next_table;
-
-    return ptr != NULL;
-  }
-
+  bool next();
 };
 
 } // backup namespace

@@ -34,11 +34,12 @@ public:
 	virtual void pass2();
 	virtual void pass1();
 	virtual void read();
-	void append(Dbb *dbb, TransId transId, int32 page, int32 lvl, int32 up, int32 left, int32 right, int length, const UCHAR *data);
+	void append(Dbb *dbb, TransId transId, int idxVersion, int32 page, int32 lvl, int32 up, int32 left, int32 right, int length, const UCHAR *data);
 	SRLIndexPage();
 	virtual ~SRLIndexPage();
 
 	int			tableSpaceId;
+	int			indexVersion;
 	int32		pageNumber;
 	int32		parent;
 	int32		prior;

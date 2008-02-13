@@ -38,7 +38,8 @@ static const int srlVersion8		= 8;	// Adding tableSpaceId to many classes	June 5
 static const int srlVersion9		= 9;	// Added block number for checkpoint operation	July 9, 2007
 static const int srlVersion10		= 10;	// Added transaction id for drop table space	July 9, 2007
 static const int srlVersion11		= 11;	// Added table space type (repository support)	December 4, 2007
-static const int srlCurrentVersion	= srlVersion11;
+static const int srlVersion12		= 12;	// Added index version number to SRLIndexPage	February 13, 2008
+static const int srlCurrentVersion	= srlVersion12;
 
 class SRLVersion : public SerialLogRecord  
 {

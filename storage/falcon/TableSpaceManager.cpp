@@ -112,16 +112,17 @@ TableSpace* TableSpaceManager::findTableSpace(const char *name)
 		int type = resultSet->getInt(3);
 		tableSpace = new TableSpace(database, name, id, fileName, 0, type);
 
-		try
-			{
-			tableSpace->open();
-			}
-		catch (...)
-			{
-			delete tableSpace;
+		if (type != TABLESPACE_TYPE_REPOSITORY)
+			try
+				{
+				tableSpace->open();
+				}
+			catch (...)
+				{
+				delete tableSpace;
 
-			throw;
-			}
+				throw;
+				}
 
 		add(tableSpace);
 		}

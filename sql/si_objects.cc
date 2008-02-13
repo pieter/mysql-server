@@ -1374,27 +1374,27 @@ Iterator *create_is_iterator(THD *thd,
 
 template
 DbTablesIterator *
-create_is_iterator(THD *, enum_schema_tables, const String *);
+create_is_iterator<DbTablesIterator>(THD *, enum_schema_tables, const String *);
 
 template
 DbViewsIterator *
-create_is_iterator(THD *, enum_schema_tables, const String *);
+create_is_iterator<DbViewsIterator>(THD *, enum_schema_tables, const String *);
 
 template
 DbTriggerIterator *
-create_is_iterator(THD *, enum_schema_tables, const String *);
+create_is_iterator<DbTriggerIterator>(THD *, enum_schema_tables, const String *);
 
 template
 DbStoredProcIterator *
-create_is_iterator(THD *, enum_schema_tables, const String *);
+create_is_iterator<DbStoredProcIterator>(THD *, enum_schema_tables, const String *);
 
 template
 DbStoredFuncIterator *
-create_is_iterator(THD *, enum_schema_tables, const String *);
+create_is_iterator<DbStoredFuncIterator>(THD *, enum_schema_tables, const String *);
 
 template
 DbEventIterator *
-create_is_iterator(THD *, enum_schema_tables, const String *);
+create_is_iterator<DbEventIterator>(THD *, enum_schema_tables, const String *);
 
 ObjIterator *get_db_tables(THD *thd, const String *db_name)
 {

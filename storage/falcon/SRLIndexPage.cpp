@@ -53,8 +53,8 @@ void SRLIndexPage::append(Dbb *dbb, TransId transId, int idxVersion, int32 page,
 			trans->setPhysicalBlock();
 		}
 	
-	putInt(idxVersion);	
 	putInt(dbb->tableSpaceId);
+	putInt(idxVersion);	
 	putInt(page);
 	putInt(lvl);
 	putInt(up);

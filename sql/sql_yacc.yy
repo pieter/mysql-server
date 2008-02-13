@@ -504,6 +504,7 @@ Item* handle_sql2003_note184_exception(THD *thd, Item* left, bool equal,
   enum index_hint_type index_hint;
   enum enum_filetype filetype;
   enum ha_build_method build_method;
+  enum Foreign_key::fk_option m_fk_option;
 }
 
 %{
@@ -1153,7 +1154,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         type int_type real_type order_dir
         udf_type if_exists opt_local opt_table_options table_options
         table_option opt_if_not_exists opt_no_write_to_binlog
-        delete_option opt_temporary all_or_any opt_distinct
+        opt_temporary all_or_any opt_distinct
         opt_ignore_leaves fulltext_options spatial_type union_option
         start_transaction_opts opt_chain opt_release
         union_opt select_derived_init option_type2
@@ -1162,6 +1163,9 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         ev_alter_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
         opt_transactional_lock_timeout
         /* opt_lock_timeout_value */
+
+%type <m_fk_option>
+        delete_option
 
 %type <ulong_num>
         ulong_num real_ulong_num merge_insert_types
@@ -1285,7 +1289,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         opt_precision opt_ignore opt_column opt_restrict
         grant revoke set lock unlock string_list field_options field_option
         field_opt_list opt_binary table_lock_list table_lock
-        ref_list opt_on_delete opt_on_delete_list opt_on_delete_item use
+        ref_list opt_match_clause opt_on_update_delete use
         opt_delete_options opt_delete_option varchar nchar nvarchar
         opt_outer table_list table_name table_alias_ref_list table_alias_ref
         opt_option opt_place
@@ -5199,52 +5203,85 @@ opt_primary:
         ;
 
 references:
-          REFERENCES table_ident
-          {
-            LEX *lex=Lex;
-            lex->fk_delete_opt= lex->fk_update_opt= lex->fk_match_option= 0;
-            lex->ref_list.empty();
-          }
+          REFERENCES
+          table_ident
           opt_ref_list
+          opt_match_clause
+          opt_on_update_delete
           {
             $$=$2;
           }
         ;
 
 opt_ref_list:
-          /* empty */ opt_on_delete {}
-        | '(' ref_list ')' opt_on_delete {}
+          /* empty */
+          { Lex->ref_list.empty(); }
+        | '(' ref_list ')'
         ;
 
 ref_list:
-          ref_list ',' ident { Lex->ref_list.push_back(new Key_part_spec($3.str)); }
-        | ident { Lex->ref_list.push_back(new Key_part_spec($1.str)); }
+          ref_list ',' ident
+          { Lex->ref_list.push_back(new Key_part_spec($3.str)); }
+        | ident
+          {
+            LEX *lex= Lex;
+            lex->ref_list.empty();
+            lex->ref_list.push_back(new Key_part_spec($1.str));
+          }
         ;
 
-opt_on_delete:
-          /* empty */ {}
-        | opt_on_delete_list {}
+opt_match_clause:
+          /* empty */
+          { Lex->fk_match_option= Foreign_key::FK_MATCH_UNDEF; }
+        | MATCH FULL
+          { Lex->fk_match_option= Foreign_key::FK_MATCH_FULL; }
+        | MATCH PARTIAL
+          { Lex->fk_match_option= Foreign_key::FK_MATCH_PARTIAL; }
+        | MATCH SIMPLE_SYM
+          { Lex->fk_match_option= Foreign_key::FK_MATCH_SIMPLE; }
         ;
 
-opt_on_delete_list:
-          opt_on_delete_list opt_on_delete_item {}
-        | opt_on_delete_item {}
-        ;
-
-opt_on_delete_item:
-          ON DELETE_SYM delete_option { Lex->fk_delete_opt= $3; }
-        | ON UPDATE_SYM delete_option { Lex->fk_update_opt= $3; }
-        | MATCH FULL       { Lex->fk_match_option= Foreign_key::FK_MATCH_FULL; }
-        | MATCH PARTIAL    { Lex->fk_match_option= Foreign_key::FK_MATCH_PARTIAL; }
-        | MATCH SIMPLE_SYM { Lex->fk_match_option= Foreign_key::FK_MATCH_SIMPLE; }
+opt_on_update_delete:
+          /* empty */
+          {
+            LEX *lex= Lex;
+            lex->fk_update_opt= Foreign_key::FK_OPTION_UNDEF;
+            lex->fk_delete_opt= Foreign_key::FK_OPTION_UNDEF;
+          }
+        | ON UPDATE_SYM delete_option
+          {
+            LEX *lex= Lex;
+            lex->fk_update_opt= $3;
+            lex->fk_delete_opt= Foreign_key::FK_OPTION_UNDEF;
+          }
+        | ON DELETE_SYM delete_option
+          {
+            LEX *lex= Lex;
+            lex->fk_update_opt= Foreign_key::FK_OPTION_UNDEF;
+            lex->fk_delete_opt= $3;
+          }
+        | ON UPDATE_SYM delete_option
+          ON DELETE_SYM delete_option
+          {
+            LEX *lex= Lex;
+            lex->fk_update_opt= $3;
+            lex->fk_delete_opt= $6;
+          }
+        | ON DELETE_SYM delete_option
+          ON UPDATE_SYM delete_option
+          {
+            LEX *lex= Lex;
+            lex->fk_update_opt= $6;
+            lex->fk_delete_opt= $3;
+          }
         ;
 
 delete_option:
-          RESTRICT      { $$= (int) Foreign_key::FK_OPTION_RESTRICT; }
-        | CASCADE       { $$= (int) Foreign_key::FK_OPTION_CASCADE; }
-        | SET NULL_SYM  { $$= (int) Foreign_key::FK_OPTION_SET_NULL; }
-        | NO_SYM ACTION { $$= (int) Foreign_key::FK_OPTION_NO_ACTION; }
-        | SET DEFAULT   { $$= (int) Foreign_key::FK_OPTION_DEFAULT;  }
+          RESTRICT      { $$= Foreign_key::FK_OPTION_RESTRICT; }
+        | CASCADE       { $$= Foreign_key::FK_OPTION_CASCADE; }
+        | SET NULL_SYM  { $$= Foreign_key::FK_OPTION_SET_NULL; }
+        | NO_SYM ACTION { $$= Foreign_key::FK_OPTION_NO_ACTION; }
+        | SET DEFAULT   { $$= Foreign_key::FK_OPTION_DEFAULT;  }
         ;
 
 key_type:

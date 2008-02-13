@@ -101,6 +101,8 @@ int silent_exec(THD *thd, String *query)
     mysql_parse(thd, next_packet, length, & found_semicolon);
   }
 
+  close_thread_tables(thd);
+ 
   thd->net.vio= save_vio;
 
   if (thd->is_error())
@@ -989,7 +991,7 @@ TableObj* DbTablesIterator::create_obj(TABLE *t)
   t->field[1]->val_str(&db_name);
   t->field[2]->val_str(&table_name);
   t->field[3]->val_str(&type);
-  t->field[5]->val_str(&engine);
+  t->field[4]->val_str(&engine);
 
   // Skip tables not from the given database.
 

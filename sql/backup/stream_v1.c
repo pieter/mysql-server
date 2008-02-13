@@ -834,6 +834,10 @@ int bstream_wr_item_type(backup_stream *s, enum enum_bstream_item_type type)
   case BSTREAM_IT_DB:        return bstream_wr_int2(s,4);
   case BSTREAM_IT_TABLE:     return bstream_wr_int2(s,5);
   case BSTREAM_IT_VIEW:      return bstream_wr_int2(s,6);
+  case BSTREAM_IT_SPROC:     return bstream_wr_int2(s,7);
+  case BSTREAM_IT_SFUNC:     return bstream_wr_int2(s,8);
+  case BSTREAM_IT_EVENT:     return bstream_wr_int2(s,9);
+  case BSTREAM_IT_TRIGGER:   return bstream_wr_int2(s,10);
   case BSTREAM_IT_LAST:      return bstream_wr_int2(s,0);
   default: return BSTREAM_ERROR;
   }
@@ -865,6 +869,10 @@ int bstream_rd_item_type(backup_stream *s, enum enum_bstream_item_type *type)
   case 4: *type= BSTREAM_IT_DB; break;
   case 5: *type= BSTREAM_IT_TABLE; break;
   case 6: *type= BSTREAM_IT_VIEW; break;
+  case 7: *type= BSTREAM_IT_SPROC; break;
+  case 8: *type= BSTREAM_IT_SFUNC; break;
+  case 9: *type= BSTREAM_IT_EVENT; break;
+  case 10: *type= BSTREAM_IT_TRIGGER; break;
   default: return BSTREAM_ERROR;
   }
 
@@ -891,10 +899,12 @@ int bstream_rd_item_type(backup_stream *s, enum enum_bstream_item_type *type)
 
   [optional item data] is used only for tables:
 
-  [optional item data (table)]= [ flags:1 ! snapshot no:1 ! optional extra data ]
+  [optional item data (table)]= [ flags:1 ! snapshot no:1 ! pos ! 
+                                  optional extra data ]
   @endverbatim
 
-  [snapshot no] tells which snapshot contains tables data.
+  [snapshot no] tells which snapshot contains tables data and [pos] tells what
+  is the position of the table in this snapshot.
 
   Presence of extra data is indicated by a flag.
   @verbatim

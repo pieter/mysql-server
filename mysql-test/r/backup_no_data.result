@@ -50,17 +50,12 @@ other_db
 test
 SHOW TABLES IN empty_db;
 Tables_in_empty_db
-USE other_db;
+USE empty_db;
 DROP TABLE IF EXISTS t1;
-Warnings:
-Note	1051	Unknown table 't1'
 CREATE TABLE t1 (
 `dir_code` char(4),
 `building` char(6)
 ) ENGINE=MYISAM DEFAULT CHARSET=latin1;
-USE empty_db;
-DROP VIEW IF EXISTS v1;
-CREATE VIEW v1 AS SELECT * FROM other_db.t1;
 BACKUP DATABASE empty_db TO 'empty_db.bak';
 backup_id
 #
@@ -77,5 +72,6 @@ backup_id
 USE empty_db;
 SHOW TABLES;
 Tables_in_empty_db
+t1
 DROP DATABASE IF EXISTS empty_db;
 DROP DATABASE IF EXISTS other_db;

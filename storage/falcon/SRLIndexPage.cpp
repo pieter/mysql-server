@@ -24,6 +24,8 @@
 #include "SerialLogTransaction.h"
 #include "Dbb.h"
 #include "IndexRootPage.h"
+#include "Index2RootPage.h"
+#include "Index.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -39,7 +41,7 @@ SRLIndexPage::~SRLIndexPage()
 
 }
 
-void SRLIndexPage::append(Dbb *dbb, TransId transId, int32 page, int32 lvl, int32 up, int32 left, int32 right, int length, const UCHAR *data)
+void SRLIndexPage::append(Dbb *dbb, TransId transId, int idxVersion, int32 page, int32 lvl, int32 up, int32 left, int32 right, int length, const UCHAR *data)
 {
 	START_RECORD(srlIndexPage, "SRLIndexPage::append");
 	
@@ -50,8 +52,9 @@ void SRLIndexPage::append(Dbb *dbb, TransId transId, int32 page, int32 lvl, int3
 		if (trans)
 			trans->setPhysicalBlock();
 		}
-		
+	
 	putInt(dbb->tableSpaceId);
+	putInt(idxVersion);	
 	putInt(page);
 	putInt(lvl);
 	putInt(up);
@@ -67,6 +70,11 @@ void SRLIndexPage::read()
 		tableSpaceId = getInt();
 	else
 		tableSpaceId = 0;
+
+	if (control->version >= srlVersion12)
+		indexVersion = getInt();
+	else
+		indexVersion = INDEX_VERSION_1;
 
 	pageNumber = getInt();
 	level = getInt();
@@ -95,7 +103,19 @@ void SRLIndexPage::pass2()
 			print();
 
 		if (control->isPostFlush())
-			IndexRootPage::redoIndexPage(log->getDbb(tableSpaceId), pageNumber, parent, level, prior, next, length, data);
+			switch (indexVersion)
+				{
+				case INDEX_VERSION_0:
+					Index2RootPage::redoIndexPage(log->getDbb(tableSpaceId), pageNumber, parent, level, prior, next, length, data);
+					break;
+				
+				case INDEX_VERSION_1:
+					IndexRootPage::redoIndexPage(log->getDbb(tableSpaceId), pageNumber, parent, level, prior, next, length, data);
+					break;
+				
+				default:
+					ASSERT(false);
+				}
 		}
 	else 
 		if (log->tracePage == pageNumber)

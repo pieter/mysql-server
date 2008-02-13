@@ -359,7 +359,7 @@ db_find_routine(THD *thd, int type, sp_name *name, sp_head **sphp)
   uint length;
   char buff[65];
   String str(buff, sizeof(buff), &my_charset_bin);
-  ulong sql_mode;
+  ulong sql_mode, saved_mode= thd->variables.sql_mode;
   Open_tables_state open_tables_state_backup;
   Stored_program_creation_ctx *creation_ctx;
 
@@ -370,6 +370,9 @@ db_find_routine(THD *thd, int type, sp_name *name, sp_head **sphp)
   *sphp= 0;                                     // In case of errors
   if (!(table= open_proc_table_for_read(thd, &open_tables_state_backup)))
     DBUG_RETURN(SP_OPEN_TABLE_FAILED);
+
+  /* Reset sql_mode during data dictionary operations. */
+  thd->variables.sql_mode= 0;
 
   if ((ret= db_find_routine_aux(thd, type, name, table)) != SP_OK)
     goto done;
@@ -474,9 +477,34 @@ db_find_routine(THD *thd, int type, sp_name *name, sp_head **sphp)
  done:
   if (table)
     close_system_tables(thd, &open_tables_state_backup);
+  thd->variables.sql_mode= saved_mode;
   DBUG_RETURN(ret);
 }
 
+
+/**
+  Silence DEPRECATED SYNTAX warnings when loading a stored procedure
+  into the cache.
+*/
+struct Silence_deprecated_warning : public Internal_error_handler
+{
+public:
+  virtual bool handle_error(uint sql_errno, const char *message,
+                            MYSQL_ERROR::enum_warning_level level,
+                            THD *thd);
+};
+
+bool
+Silence_deprecated_warning::handle_error(uint sql_errno, const char *message,
+                                         MYSQL_ERROR::enum_warning_level level,
+                                         THD *thd)
+{
+  if (sql_errno == ER_WARN_DEPRECATED_SYNTAX &&
+      level == MYSQL_ERROR::WARN_LEVEL_WARN)
+    return TRUE;
+
+  return FALSE;
+}
 
 
 /**
@@ -499,12 +527,14 @@ static sp_head *sp_compile(THD *thd, String *defstr, ulong sql_mode,
   ulong old_sql_mode= thd->variables.sql_mode;
   ha_rows old_select_limit= thd->variables.select_limit;
   sp_rcontext *old_spcont= thd->spcont;
+  Silence_deprecated_warning warning_handler;
 
   thd->variables.sql_mode= sql_mode;
   thd->variables.select_limit= HA_POS_ERROR;
 
   Lex_input_stream lip(thd, defstr->c_ptr(), defstr->length());
   lex_start(thd);
+  thd->push_internal_handler(&warning_handler);
   thd->spcont= 0;
 
   if (parse_sql(thd, &lip, creation_ctx) || thd->lex == NULL)
@@ -518,6 +548,7 @@ static sp_head *sp_compile(THD *thd, String *defstr, ulong sql_mode,
     sp= thd->lex->sphead;
   }
 
+  thd->pop_internal_handler();
   thd->spcont= old_spcont;
   thd->variables.sql_mode= old_sql_mode;
   thd->variables.select_limit= old_select_limit;
@@ -675,6 +706,7 @@ sp_create_routine(THD *thd, int type, sp_head *sp)
   int ret;
   TABLE *table;
   char definer[USER_HOST_BUFF_SIZE];
+  ulong saved_mode= thd->variables.sql_mode;
 
   CHARSET_INFO *db_cs= get_default_db_collation(thd, sp->m_db.str);
 
@@ -688,6 +720,9 @@ sp_create_routine(THD *thd, int type, sp_head *sp)
 
   DBUG_ASSERT(type == TYPE_ENUM_PROCEDURE ||
               type == TYPE_ENUM_FUNCTION);
+
+  /* Reset sql_mode during data dictionary operations. */
+  thd->variables.sql_mode= 0;
 
   /*
     This statement will be replicated as a statement, even when using
@@ -790,7 +825,7 @@ sp_create_routine(THD *thd, int type, sp_head *sp)
 
     store_failed= store_failed ||
       table->field[MYSQL_PROC_FIELD_SQL_MODE]->
-        store((longlong)thd->variables.sql_mode, TRUE);
+        store((longlong)saved_mode, TRUE);
 
     if (sp->m_chistics->comment.str)
     {
@@ -890,6 +925,7 @@ sp_create_routine(THD *thd, int type, sp_head *sp)
 
 done:
   thd->count_cuted_fields= saved_count_cuted_fields;
+  thd->variables.sql_mode= saved_mode;
 
   close_thread_tables(thd);
   DBUG_RETURN(ret);

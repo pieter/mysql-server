@@ -1182,6 +1182,9 @@ public:
   uint get_binlog_table_maps() const {
     return binlog_table_maps;
   }
+  void clear_binlog_table_maps() {
+    binlog_table_maps= 0;
+  }
 #endif /* MYSQL_CLIENT */
 
 public:

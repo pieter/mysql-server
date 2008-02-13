@@ -1,0 +1,47 @@
+--source include/have_falcon.inc
+--source include/master-slave.inc
+#
+# Bug #33688: Falcon: replication fails on duplicate key error
+#
+--echo #---- Bug 33688 ----
+connection master;
+set storage_engine='Falcon';
+create table t1 (a int primary key);
+create table t4 (a int primary key);
+# generate an error that goes to the binlog
+--error 1022, ER_DUP_ENTRY
+insert into t1 values (1),(1);
+insert into t4 values (1),(2);
+save_master_pos;
+connection slave;
+# as the t1 table is ignored on the slave, the slave should be able to sync
+sync_with_master;
+# check that the table has been ignored, because otherwise the test is nonsense
+show tables like 't1';
+show tables like 't4';
+SELECT * FROM test.t4 ORDER BY a;
+
+connection master;
+insert into t4 values (3);
+save_master_pos;
+
+connection slave;
+sync_with_master;
+SELECT * FROM test.t4 ORDER BY a;
+
+connection master;
+--error 1022, ER_DUP_ENTRY
+insert into t1 values (1),(1);
+insert into t4 values (6);
+save_master_pos;
+
+connection slave;
+sync_with_master;
+SELECT * FROM test.t4 ORDER BY a;
+
+connection master;
+drop table t1;
+drop table t4;
+save_master_pos;
+connection slave;
+sync_with_master;

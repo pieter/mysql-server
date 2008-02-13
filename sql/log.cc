@@ -1376,7 +1376,12 @@ binlog_end_trans(THD *thd, binlog_trx_data *trx_data,
       transaction cache to remove the statement.
      */
     if (all || !(thd->options & (OPTION_BEGIN | OPTION_NOT_AUTOCOMMIT)))
+    {
       trx_data->reset();
+
+      DBUG_ASSERT(!thd->binlog_get_pending_rows_event());
+      thd->clear_binlog_table_maps();
+    }
     else                                        // ...statement
       trx_data->truncate(trx_data->before_stmt_pos);
 

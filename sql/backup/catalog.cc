@@ -241,23 +241,23 @@ obs::Obj* Image_info::PerDb_item::obj_ptr(uint ver, ::String &sdata)
 { 
   using namespace obs;
 
-  Obj *obj;
+  delete m_obj;
   
   switch (base.type) {
   case BSTREAM_IT_VIEW:   
-    obj= materialize_view(&m_db_name, &m_name, ver, &sdata); break;
+    m_obj= materialize_view(&m_db_name, &m_name, ver, &sdata); break;
   case BSTREAM_IT_SPROC:  
-    obj= materialize_stored_procedure(&m_db_name, &m_name, ver, &sdata); break;
+    m_obj= materialize_stored_procedure(&m_db_name, &m_name, ver, &sdata); break;
   case BSTREAM_IT_SFUNC:
-    obj= materialize_stored_function(&m_db_name, &m_name, ver, &sdata); break;
+    m_obj= materialize_stored_function(&m_db_name, &m_name, ver, &sdata); break;
   case BSTREAM_IT_EVENT:
-    obj= materialize_event(&m_db_name, &m_name, ver, &sdata); break;
+    m_obj= materialize_event(&m_db_name, &m_name, ver, &sdata); break;
   case BSTREAM_IT_TRIGGER:   
-    obj= materialize_trigger(&m_db_name, &m_name, ver, &sdata); break;
-  default: obj= NULL;
+    m_obj= materialize_trigger(&m_db_name, &m_name, ver, &sdata); break;
+  default: m_obj= NULL;
   }
 
-  return obj;
+  return m_obj;
 }
 
 bool Image_info::Ditem_iterator::next()

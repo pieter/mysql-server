@@ -20,15 +20,6 @@ show variables like 'collation_server';
 #
 show variables like "%character_set_ser%";
 --disable_warnings
-#
-# Re-create test database so that the default character set and collation settings
-# are taken from server options (which are specified in the option file for this test). 
-# Otherwise, if test database exists before this test is run and has these defaults 
-# set explicitly, the server options would have no effect.
-#
-DROP DATABASE test;
-CREATE DATABASE test;
-USE test;
 DROP TABLE IF EXISTS t1;
 --enable_warnings
 create table t1 (a int) ENGINE=NDB;

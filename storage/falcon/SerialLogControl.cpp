@@ -169,6 +169,9 @@ SerialLogRecord* SerialLogControl::getRecordManager(int which)
 		case srlSmallBlob:
 			return &smallBlob;
 			
+		case srlSavepointRollback:
+			return &savepointRollback;
+			
 		default:
 			ASSERT(false);
 		}

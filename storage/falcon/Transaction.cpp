@@ -41,6 +41,7 @@
 #include "Thread.h"
 #include "Format.h"
 #include "LogLock.h"
+#include "SRLSavepointRollback.h"
 
 extern uint		falcon_lock_wait_timeout;
 
@@ -1098,6 +1099,9 @@ void Transaction::rollbackSavepoint(int savePointId)
 	if ((savePoint) && (savePoint->id != savePointId))
 		throw SQLError(RUNTIME_ERROR, "invalid savepoint");
 
+	if (chilledBytes)
+		database->serialLog->logControl->savepointRollback.append(transactionId, savePointId);
+
 	savePoint = savePoints;
 	
 	while (savePoint)
@@ -1108,8 +1112,10 @@ void Transaction::rollbackSavepoint(int savePointId)
 		// Purge out records from this savepoint
 
 		RecordVersion *record = *savePoint->records;
+		
 		if (record)
 			lastRecord = record->prevInTrans;
+			
 		recordPtr = savePoint->records;
 		*recordPtr = NULL;
 		RecordVersion *stack = NULL;
@@ -1153,13 +1159,6 @@ void Transaction::rollbackSavepoint(int savePointId)
 			savePoint = savePoint->next;
 		}
 }
-
-/***
-void Transaction::scavengeRecords(int ageGroup)
-{
-	scavenged = true;
-}
-***/
 
 void Transaction::add(DeferredIndex* deferredIndex)
 {

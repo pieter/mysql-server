@@ -35,6 +35,7 @@ ADD_LIBRARY(ha_falcon
 		Alias.cpp
 		AsciiBlob.cpp
 		BDB.cpp 
+		BackLog.cpp 
 		BigInt.cpp 
 		BigInteger.cpp 
 		BinaryBlob.cpp 
@@ -245,6 +246,7 @@ ADD_LIBRARY(ha_falcon
 		SRLRecordStub.cpp 
 		SRLRollback.cpp
 		SRLRecordLocator.cpp 
+		SRLSavepointRollback.cpp
 		SRLSectionLine.cpp 
 		SRLSectionPage.cpp 
 		SRLSectionPromotion.cpp 
@@ -298,6 +300,7 @@ ADD_LIBRARY(ha_falcon
 		View.cpp 
 		WString.cpp
 		AsciiBlob.h
+		BackLog.h 
 		BDB.h 
 		BigInt.h 
 		BigInteger.h 
@@ -519,6 +522,7 @@ ADD_LIBRARY(ha_falcon
 		SRLRecordStub.h 
 		SRLRollback.h
 		SRLRecordLocator.h 
+		SRLSavepointRollback.h
 		SRLSectionLine.h 
 		SRLSectionPage.h 
 		SRLSectionPromotion.h 

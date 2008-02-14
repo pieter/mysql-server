@@ -1928,7 +1928,7 @@ void StorageInterface::get_auto_increment(ulonglong offset, ulonglong increment,
 
 int StorageInterface::reset_auto_increment(ulonglong value)
 {
-	return handler::reset_auto_increment(value);
+	return handler::ha_reset_auto_increment(value);
 }
 
 const char *StorageInterface::index_type(uint key_number)

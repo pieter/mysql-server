@@ -153,6 +153,4 @@ backup_id	object	start_time	stop_time	total_bytes	progress	error_num	notes
 #	backup kernel	#	#	0	0	0	starting
 #	backup kernel	#	#	0	0	0	running
 #	backup kernel	#	#	0	0	0	complete
-BACKUP DATABASE DOES_NOT_EXIST to 'backup_progress_orig.bak';
-ERROR 42000: Unknown database 'DOES_NOT_EXIST'
 DROP DATABASE backup_progress;

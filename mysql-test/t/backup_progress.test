@@ -229,13 +229,6 @@ SELECT obp.* FROM mysql.online_backup_progress AS obp JOIN backup_progress.t1_re
 
 connection con1;
 
---replace_column 1 #
---remove_file $MYSQLTEST_VARDIR/master-data/backup_progress_orig.bak
---error 1049
-BACKUP DATABASE DOES_NOT_EXIST to 'backup_progress_orig.bak';
-
 DROP DATABASE backup_progress;
-# note: the backup file should be deleted.
---error 1
 --remove_file $MYSQLTEST_VARDIR/master-data/backup_progress_orig.bak
 

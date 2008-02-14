@@ -372,9 +372,8 @@ sub mtr_report_stats ($) {
 		/Slave: Can't DROP 'c7'.* 1091/ or
 		/Slave: Key column 'c6'.* 1072/ or
 
-                # BUG#32080 - Excessive warnings on Solaris: setrlimit could not
-                #             change the size of core files
-                /setrlimit could not change the size of core files to 'infinity'/
+                # Test case for Bug#31590 produces the following error:
+                /Out of sort memory; increase server sort buffer size/
 	       )
             {
               next;                       # Skip these lines

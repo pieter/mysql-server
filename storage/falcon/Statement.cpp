@@ -221,10 +221,13 @@ void Statement::createTable(Syntax * syntax)
 
 	if (!database->formatting)
 		{
+		Sync sync (&database->syncSysConnection, "Statement::createTable");
+		sync.lock(Exclusive);
 		Transaction *sysTransaction = database->getSystemTransaction();
 		table->create ((connection == database->systemConnection) ? "SYSTEM TABLE" : "TABLE", sysTransaction);
 		table->save();
 		database->roleModel->addUserPrivilege (connection->user, table, ALL_PRIVILEGES);
+		sync.unlock();
 		database->commitSystemTransaction();
 		}
 

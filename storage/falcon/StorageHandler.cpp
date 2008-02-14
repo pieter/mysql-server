@@ -102,6 +102,7 @@ StorageHandler::StorageHandler(int lockSize)
 	dictionaryConnection = NULL;
 	databaseList = NULL;
 	defaultDatabase = NULL;
+	initialized = false;
 }
 
 StorageHandler::~StorageHandler(void)
@@ -209,7 +210,7 @@ void StorageHandler::remove(StorageConnection* storageConnection)
 {
 	Sync sync(&syncObject, "StorageHandler::remove");
 	sync.lock(Exclusive);
-	removeConnection(storageConnection);			
+	removeConnection(storageConnection);
 }
 
 int StorageHandler::startTransaction(THD* mySqlThread, int isolationLevel)
@@ -549,6 +550,8 @@ StorageTableShare* StorageHandler::findTable(const char* pathname)
 	tableShare->collision = tables[slot];
 	tables[slot] = tableShare;
 	
+	ASSERT(tableShare->collision != tableShare);
+	
 	return tableShare;
 }
 
@@ -615,6 +618,8 @@ void StorageHandler::addTable(StorageTableShare* table)
 	sync.lock(Exclusive);
 	table->collision = tables[slot];
 	tables[slot] = table;
+	
+	ASSERT(table->collision != table);
 }
 
 void StorageHandler::removeTable(StorageTableShare* table)
@@ -638,15 +643,20 @@ StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* table
 	if (!defaultDatabase)
 		initialize();
 
+	if (!dictionaryConnection)
+		return NULL;
+
 	if (!tableShare->storageDatabase)
 		tableShare->findDatabase();
 
 	StorageDatabase *storageDatabase = defaultDatabase;
 	int slot = HASH(mySqlThread, connectionHashSize);
 	StorageConnection *storageConnection;
-	
+
 	if (connections[slot])
 		{
+		sync.lock(Shared);
+
 		for (storageConnection = connections[slot]; storageConnection; storageConnection = storageConnection->collision)
 			if (storageConnection->mySqlThread == mySqlThread) // && storageConnection->storageDatabase == tableShare->storageDatabase)
 				{
@@ -658,12 +668,11 @@ StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* table
 				return storageConnection;
 				}
 
-		sync.lock(Shared);
 		sync.unlock();
 		}
-		
+
 	sync.lock(Exclusive);
-	
+
 	for (storageConnection = connections[slot]; storageConnection; storageConnection = storageConnection->collision)
 		if (storageConnection->mySqlThread == mySqlThread) // && storageConnection->storageDatabase == tableShare->storageDatabase)
 			{
@@ -674,7 +683,6 @@ StorageConnection* StorageHandler::getStorageConnection(StorageTableShare* table
 					
 			return storageConnection;
 			}
-	
 	
 	storageConnection = new StorageConnection(this, storageDatabase, mySqlThread, mySqlThdId);
 	bool success = false;
@@ -737,10 +745,10 @@ void StorageHandler::changeMySqlThread(StorageConnection* storageConnection, THD
 	Sync sync(&syncObject, "StorageHandler::changeMySqlThread");
 	sync.lock(Exclusive);
 	removeConnection(storageConnection);
-	storageConnection->mySqlThread = newThread;		
+	storageConnection->mySqlThread = newThread;
 	int slot = HASH(storageConnection->mySqlThread, connectionHashSize);
 	storageConnection->collision = connections[slot];
-	connections[slot] = storageConnection;	
+	connections[slot] = storageConnection;
 }
 
 void StorageHandler::removeConnection(StorageConnection* storageConnection)
@@ -759,22 +767,25 @@ int StorageHandler::closeConnections(THD* thd)
 {
 	int slot = HASH(thd, connectionHashSize);
 	Sync sync(&syncObject, "StorageHandler::closeConnections");
-	
+	sync.lock(Shared);
+
 	for (StorageConnection *storageConnection = connections[slot], *next; storageConnection; storageConnection = next)
 		{
 		next = storageConnection->collision;
 		
 		if (storageConnection->mySqlThread == thd)
 			{
+			sync.unlock();
+
 			storageConnection->close();
-		
+
 			if (storageConnection->mySqlThread)
 				storageConnection->release();	// This is for thd->ha_data[falcon_hton->slot]
 			
 			storageConnection->release();	// This is for storageConn
 			}
 		}
-	
+
 	return 0;
 }
 
@@ -883,14 +894,16 @@ void StorageHandler::getTransactionSummaryInfo(InfoTable* infoTable)
 
 void StorageHandler::initialize(void)
 {
-	if (defaultDatabase)
+
+	if (initialized)
 		return;
 	
 	Sync sync(&syncObject, "StorageConnection::initialize");
 	sync.lock(Exclusive);
 	
-	if (defaultDatabase)
+	if (initialized)
 		return;
+	initialized = true;
 		
 	defaultDatabase = getStorageDatabase(MASTER_NAME, MASTER_PATH);
 	
@@ -900,8 +913,15 @@ void StorageHandler::initialize(void)
 		dictionaryConnection = defaultDatabase->getOpenConnection();
 		dropTempTables();
 		}
-	catch (...)
+	catch (SQLException &e)
 		{
+		// No point in creating a database if we got memory error.
+		// On FILE_ACCESS_ERROR, an external application can temporarily lock the file.
+		// In this both cases, trying to create database in this case could eventually
+		// lead to "recreate" and data loss.
+		int err = e.getSqlcode();
+		if(err == OUT_OF_MEMORY_ERROR || err == FILE_ACCESS_ERROR)
+			return;
 		try
 			{
 			defaultDatabase->createDatabase();

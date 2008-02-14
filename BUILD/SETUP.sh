@@ -175,7 +175,7 @@ amd64_cxxflags=""  # If dropping '--with-big-tables', add here  "-DBIG_TABLES"
 pentium_cflags="$check_cpu_cflags"
 pentium64_cflags="$check_cpu_cflags -m64"
 ppc_cflags="$check_cpu_cflags"
-sparc_cflags=""
+sparc_cflags="-mcpu=ultrasparc"
 
 if gmake --version > /dev/null 2>&1
 then

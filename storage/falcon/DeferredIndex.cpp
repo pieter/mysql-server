@@ -30,6 +30,7 @@
 #include "Log.h"
 #include "LogLock.h"
 #include "Configuration.h"
+#include "SerialLogWindow.h"
 
 static const uint MIDPOINT = DEFERRED_INDEX_FANOUT / 2;
 static char printable[256];
@@ -58,10 +59,14 @@ DeferredIndex::DeferredIndex(Index *idx, Transaction *trans)
 	maxValue = NULL;
 	haveMinValue = true;
 	haveMaxValue = true;
+	window = NULL;
 }
 
 DeferredIndex::~DeferredIndex(void)
 {
+	if (window)
+		window->clearInterest();
+		
 	ASSERT(index == NULL && transaction == NULL);
 	freeHunks();
 }
@@ -841,6 +846,9 @@ void DeferredIndex::chill(Dbb *dbb)
 	Sync sync(&syncObject, "DeferredIndex::chill");
 	sync.lock(Exclusive);
 
+	if (!window)
+		window = dbb->serialLog->setWindowInterest();
+		
 	dbb->logIndexUpdates(this);
 
 	// Free up the space used by this DeferredIndex

@@ -52,6 +52,7 @@
 #include "IndexKey.h"
 #include "IndexNode.h"
 #include "DatabaseClone.h"
+#include "Table.h"
 
 //#define STOP_RECORD	123
 //#define TRACE_PAGE	109
@@ -152,12 +153,22 @@ Cache* Dbb::create(const char * fileName, int pageSz, int64 cacheSize, FileType 
 	odsVersion = ODS_VERSION;
 	odsMinorVersion = ODS_MINOR_VERSION;
 	sequence = 1;
-	createFile(fileName, initialAllocation);
+
 	init (pageSz, (int) ((cacheSize + pageSz - 1) / pageSz));
-	Hdr::create (this, fileType, transId, logRoot);
-	PageInventoryPage::create (this, transId);
-	SectionRootPage::create (this, transId);
-	IndexRootPage::create (this, transId);
+	createFile(fileName, initialAllocation);
+	try
+		{
+		Hdr::create (this, fileType, transId, logRoot);
+		PageInventoryPage::create (this, transId);
+		SectionRootPage::create (this, transId);
+		IndexRootPage::create (this, transId);
+		}
+	catch(...)
+		{
+		closeFile();
+		deleteFile();
+		throw;
+		}
 
 	return cache;
 }

@@ -1,0 +1,76 @@
+--source include/have_falcon.inc
+#
+# Collection of deadlock related tests for Falcon.
+#
+# Currently Falcon detects deadlocks instantly and
+# issues an error message, but does not roll back
+# any transaction involved in the deadlock.
+#    Please note that cross engine deadlocks are not
+# detectable yet. For cross engine deadlock Falcon has
+# a parameter called falcon_lock_wait_timeout. If Falcon
+# waits longer than falcon_lock_wait_timeout on a given
+# transaction, it bails out with a wait timeout error.
+#
+--echo *** Deadlock related tests for Falcon ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+SET @@autocommit = 0;
+CREATE TABLE t1 (a int, PRIMARY KEY (a));
+INSERT INTO t1 (a) VALUES (1), (2);
+COMMIT;
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET storage_engine = $engine;
+SET @@autocommit = 0;
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
+connection default;
+UPDATE t1 SET a = 3 WHERE a = 2;
+
+--echo # Switch to connection conn1
+connection conn1;
+UPDATE t1 SET a = 4 WHERE a = 1;
+
+--echo # Switch to connection default
+connection default;
+--real_sleep 1
+--send UPDATE t1 SET a = 5 WHERE a = 1
+
+--echo # Switch to connection conn1
+connection conn1;
+--real_sleep 1
+# Now we should get a deadlock error message.
+--error ER_LOCK_DEADLOCK
+UPDATE t1 SET a = 6 WHERE a = 2;
+ROLLBACK;
+
+--echo # Switch to connection default
+connection default;
+--reap
+SELECT a FROM t1 ORDER BY a;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+disconnect conn1;
+DROP TABLE t1;

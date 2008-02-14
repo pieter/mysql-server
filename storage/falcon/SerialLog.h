@@ -154,6 +154,7 @@ public:
 	void			unblockUpdates(void);
 	void			blockUpdates(void);
 	int				getBlockSize(void);
+	SerialLogWindow* setWindowInterest(void);
 	
 	TableSpaceManager	*tableSpaceManager;
 	SerialLogFile		*file1;
@@ -217,6 +218,7 @@ public:
 	uint64				priorDelta;
 	int					priorWrites;
 	int32				tracePage;
+	int32				traceRecord;
 	uint32				chilledRecords;
 	uint64				chilledBytes;
 	

@@ -1,21 +1,27 @@
 --source include/have_falcon.inc
-SET storage_engine = Falcon;
+--source include/big_test.inc
 #
 # Bug #22154: Crash after 500 alters, 500 inserts, and a few updates
 #
 --echo *** Bug #22154 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
 --disable_warnings
 DROP TABLE IF EXISTS tj9;
 DROP PROCEDURE IF EXISTS pj9;
 --enable_warnings
 
-delimiter //;
+CREATE TABLE tj9 (s0 int);
 
+delimiter //;
 create procedure pj9 ()
 begin
   declare v int default 1;
-  drop table if exists tj9;
-  create table tj9 (s0 int);
   while v < 500 do
     select 'alter',v;
     set @v = concat('alter table tj9 add column s',v,' char(64) default ''Hello World''');
@@ -38,11 +44,20 @@ begin
     set v = v + 1;
   end while;
 end//
-
-call pj9()//
-
-# Final cleanup
-DROP TABLE tj9//
-DROP PROCEDURE pj9//
-
 delimiter ;//
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+call pj9();
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM tj9;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE tj9;
+DROP PROCEDURE pj9;

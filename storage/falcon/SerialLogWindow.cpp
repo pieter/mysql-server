@@ -28,6 +28,7 @@
 #include "Sync.h"
 #include "Database.h"
 #include "Thread.h"
+#include "Interlock.h"
 
 #define NEXT_BLOCK(prior)	(SerialLogBlock*) ((UCHAR*) prior + ROUNDUP(prior->length, sectorSize))
 
@@ -53,6 +54,7 @@ SerialLogWindow::SerialLogWindow(SerialLog *serialLog, SerialLogFile *logFile, i
 	useCount = 0;
 	currentLength = 0;
 	virtualOffset = 0;
+	interestCount = 0;
 }
 
 SerialLogWindow::~SerialLogWindow()
@@ -331,7 +333,7 @@ uint64 SerialLogWindow::getVirtualOffset()
 
 void SerialLogWindow::print(void)
 {
-	Log::debug("  Window#" I64FORMAT "- blocks " I64FORMAT ":" I64FORMAT " len %d, in-use %d, useCount %d, buffer %p, virtoff " I64FORMAT "\n",
+	Log::debug("  Window #" I64FORMAT "- blocks " I64FORMAT ":" I64FORMAT " len %d, in-use %d, useCount %d, buffer %p, virtoff " I64FORMAT "\n",
 	           virtualOffset / SRL_WINDOW_SIZE, firstBlockNumber, lastBlockNumber, 
 	           currentLength, inUse, useCount, buffer, virtualOffset);
 }
@@ -351,4 +353,14 @@ bool SerialLogWindow::validate(const UCHAR* pointer)
 	ASSERT(pointer >= buffer && pointer < buffer + bufferLength);
 	
 	return true;
+}
+
+void SerialLogWindow::setInterest(void)
+{
+	INTERLOCKED_INCREMENT(interestCount);
+}
+
+void SerialLogWindow::clearInterest(void)
+{
+	INTERLOCKED_DECREMENT(interestCount);
 }

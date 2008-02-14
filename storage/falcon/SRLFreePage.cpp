@@ -55,22 +55,23 @@ void SRLFreePage::read()
 
 	pageNumber = getInt();
 	
-	if (log->tracePage == pageNumber)
-		print();
 }
 
 void SRLFreePage::pass1()
 {
+	if (log->tracePage == pageNumber)
+		print();
+
 	incarnation = log->bumpPageIncarnation(pageNumber, tableSpaceId, objDeleted);
 }
 
 void SRLFreePage::pass2(void)
 {
-	if (!log->bumpPageIncarnation(pageNumber, tableSpaceId, objDeleted))
-		return;
-
 	if (pageNumber == log->tracePage)
 		print();
+
+	if (!log->bumpPageIncarnation(pageNumber, tableSpaceId, objDeleted))
+		return;
 
 	log->redoFreePage(pageNumber, tableSpaceId);
 }
@@ -82,7 +83,7 @@ void SRLFreePage::redo()
 
 void SRLFreePage::print()
 {
-	logPrint("Free Page %d/%d\n", pageNumber, tableSpaceId);
+	logPrint("Free Page %d  tableSpaceId %d\n", pageNumber, tableSpaceId);
 }
 
 void SRLFreePage::commit(void)

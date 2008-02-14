@@ -44,6 +44,7 @@
 #include "BigInt.h"
 
 //#define NO_OPTIMIZE
+//#define VALIDATE
 
 #ifndef MIN
 #define MIN(a,b)			((a <= b) ? (a) : (b))
@@ -70,31 +71,41 @@ static StorageHandler	*storageHandler;
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
 
-unsigned long long		falcon_record_memory_max;
-unsigned long long		falcon_initial_allocation;
-uint					falcon_allocation_extent;
-unsigned long long		falcon_page_cache_size;
-char*					falcon_serial_log_dir;
-char*					falcon_checkpoint_schedule;
-char*					falcon_scavenge_schedule;
-//uint					falcon_debug_mask;
-//uint					falcon_debug_trace;
-FILE					*falcon_log_file;
+ulonglong	falcon_record_memory_max;
+ulonglong	falcon_initial_allocation;
+uint		falcon_allocation_extent;
+ulonglong	falcon_page_cache_size;
+char*		falcon_serial_log_dir;
+char*		falcon_checkpoint_schedule;
+char*		falcon_scavenge_schedule;
+//uint		falcon_debug_mask;
+//uint		falcon_debug_trace;
+FILE		*falcon_log_file;
 
-int						isolation_levels[4] = {TRANSACTION_READ_UNCOMMITTED, 
-						                       TRANSACTION_READ_COMMITTED,
-						                       TRANSACTION_CONSISTENT_READ, // TRANSACTION_WRITE_COMMITTED, // This is repeatable read
-						                       TRANSACTION_SERIALIZABLE};
-						                       
-static const ulonglong	default_table_flags = (	  HA_REC_NOT_IN_SEQ
+// Determine the largest memory address, assume 64-bits max
+
+static const ulonglong MSB = ULL(1) << ((sizeof(void *)*8 - 1) & 63);
+ulonglong max_memory_address = MSB | (MSB - 1);
+
+// These are the isolation levels we actually use.
+// They corespond to enum_tx_isolation from hamdler.h
+// 0 = ISO_READ_UNCOMMITTED, 1 = ISO_READ_COMMITTED,
+// 2 = ISO_REPEATABLE_READ,  3 = ISO_SERIALIZABLE
+
+int	isolation_levels[4] = 
+	{TRANSACTION_CONSISTENT_READ, 	// TRANSACTION_READ_UNCOMMITTED
+	TRANSACTION_READ_COMMITTED,
+	TRANSACTION_CONSISTENT_READ, 	// TRANSACTION_WRITE_COMMITTED, // This is repeatable read
+	TRANSACTION_CONSISTENT_READ};	// TRANSACTION_SERIALIZABLE
+
+static const ulonglong default_table_flags = (	  HA_REC_NOT_IN_SEQ
 												| HA_NULL_IN_KEY
 												| HA_PARTIAL_COLUMN_READ
 												| HA_CAN_GEOMETRY
 												//| HA_AUTO_PART_KEY
 												| HA_BINLOG_ROW_CAPABLE);
-						                       
 
-static struct st_mysql_show_var falconStatus[]=
+static struct st_mysql_show_var falconStatus[] =
 {
   //{"static",     (char*)"just a static text",     SHOW_CHAR},
   //{"called",     (char*)&number_of_calls, SHOW_LONG},
@@ -179,9 +190,15 @@ int StorageInterface::falcon_init(void *p)
 	falcon_hton->flags = HTON_NO_FLAGS;
 	storageHandler->addNfsLogger(falcon_debug_mask, StorageInterface::logger, NULL);
 
-	int repeatableRead = (falcon_consistent_read ? 
+	int newRepeatableRead = (falcon_consistent_read ? 
 		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
-	isolation_levels[2] = repeatableRead;
+	if (isolation_levels[ISO_REPEATABLE_READ] != newRepeatableRead)
+		{
+		int oldRepeatableRead = isolation_levels[ISO_REPEATABLE_READ];
+		for (int i = 0; i < 4; i++)
+			if (isolation_levels[i] == oldRepeatableRead)
+				isolation_levels[i] = newRepeatableRead;
+		}
 
 	if (falcon_debug_server)
 		storageHandler->startNfsServer();
@@ -418,7 +435,7 @@ int StorageInterface::open(const char *name, int mode, uint test_if_locked)
 {
 	DBUG_ENTER("StorageInterface::open");
 
-        FALCON_OPEN();
+	FALCON_OPEN();
 
 	if (!mySqlThread)
 		mySqlThread = current_thd;
@@ -490,9 +507,38 @@ int StorageInterface::close(void)
 	if (storageTable)
 		storageTable->clearTruncateLock();
 
-        FALCON_CLOSE();
+	FALCON_CLOSE();
 
 	DBUG_RETURN(0);
+}
+
+
+int StorageInterface::check(THD* thd, HA_CHECK_OPT* check_opt)
+{
+#ifdef VALIDATE
+	DBUG_ENTER("StorageInterface::check");
+
+	if (storageConnection)
+		storageConnection->validate(0);
+		
+	DBUG_RETURN(0);
+#else
+	return HA_ADMIN_NOT_IMPLEMENTED;
+#endif
+}
+
+int StorageInterface::repair(THD* thd, HA_CHECK_OPT* check_opt)
+{
+#ifdef VALIDATE
+	DBUG_ENTER("StorageInterface::repair");
+	
+	if (storageConnection)
+		storageConnection->validate(VALIDATE_REPAIR);
+
+	DBUG_RETURN(0);
+#else
+	return HA_ADMIN_NOT_IMPLEMENTED;
+#endif
 }
 
 int StorageInterface::rnd_next(uchar *buf)
@@ -574,7 +620,8 @@ int StorageInterface::info(uint what)
 #endif
 
 	if (what & HA_STATUS_AUTO)
-		stats.auto_increment_value = storageShare->getSequenceValue(0);
+		// Return the next number to use.  Falcon stores the last number used.
+		stats.auto_increment_value = storageShare->getSequenceValue(0) + 1;
 
 	if (what & HA_STATUS_ERRKEY)
 		errkey = indexErrorId;
@@ -644,6 +691,16 @@ const char **StorageInterface::bas_ext(void) const
 	DBUG_RETURN(falcon_extensions);
 }
 
+void StorageInterface::update_create_info(HA_CREATE_INFO* create_info)
+{
+	DBUG_ENTER("StorageInterface::update_create_info");
+	if (!(create_info->used_fields & HA_CREATE_USED_AUTO)) 
+		{
+		StorageInterface::info(HA_STATUS_AUTO);
+		create_info->auto_increment_value = stats.auto_increment_value;
+		}
+	DBUG_VOID_RETURN;
+}
 
 ulonglong StorageInterface::table_flags(void) const
 {
@@ -752,7 +809,11 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 	DBUG_PRINT("info",("incrementValue = " I64FORMAT, (long long int)incrementValue));
 
 	if ((ret = storageTable->create(gen.getString(), incrementValue)))
+		{
+		storageTable->deleteTable();
+		
 		DBUG_RETURN(error(ret));
+		}
 
 	for (n = 0; n < form->s->keys; ++n)
 		if (n != form->s->primary_key)
@@ -816,13 +877,20 @@ THR_LOCK_DATA **StorageInterface::store_lock(THD *thd, THR_LOCK_DATA **to,
 		{
 		/*
 		  Here is where we get into the guts of a row level lock.
-		  If TL_UNLOCK is set
-		  If we are not doing a LOCK TABLE or DISCARD/IMPORT
-		  TABLESPACE, then allow multiple writers
+		  MySQL server will serialize write access to tables unless 
+		  we tell it differently.  Falcon can handle concurrent changes
+		  for most operations.  But allow the server to set its own 
+		  lock type for certain SQL commands.
 		*/
 
-		if ( (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE) &&
-		     !thd_in_lock_tables(thd))
+		const uint sql_command = thd_sql_command(thd);
+		if (    (lock_type >= TL_WRITE_CONCURRENT_INSERT && lock_type <= TL_WRITE)
+		    && !(thd_in_lock_tables(thd) && sql_command == SQLCOM_LOCK_TABLES)
+		    && !(thd_tablespace_op(thd))
+		  //  &&  (sql_command != SQLCOM_TRUNCATE)
+		    &&  (sql_command != SQLCOM_OPTIMIZE)
+		    &&  (sql_command != SQLCOM_CREATE_TABLE)
+		   )
 			lock_type = TL_WRITE_ALLOW_WRITE;
 
 		/*
@@ -1699,6 +1767,9 @@ int StorageInterface::getMySqlError(int storageError)
 			return (HA_ERR_TO_BIG_ROW);
 			
 		case StorageErrorTableSpaceNotExist:
+			DBUG_PRINT("info", ("StorageErrorTableSpaceNotExist"));
+			return (HA_ERR_NO_SUCH_TABLESPACE);
+
 		case StorageErrorTableSpaceExist:
 			DBUG_PRINT("info", ("StorageErrorTableSpaceExist"));
 			return (HA_ERR_TABLESPACE_EXIST);
@@ -1929,9 +2000,6 @@ int StorageInterface::alter_tablespace(handlerton* hton, THD* thd, st_alter_tabl
 
 		case DROP_TABLESPACE:
 			ret = storageHandler->deleteTablespace(ts_info->tablespace_name);
-			
-			if (ret == StorageErrorTableSpaceNotExist)
-				ret = 0;
 			break;
 
 		default:
@@ -1965,10 +2033,14 @@ void StorageInterface::logger(int mask, const char* text, void* arg)
 {
 	if (mask & falcon_debug_mask)
 		{
-		printf ("%s", text);
+		printf("%s", text);
+		fflush(stdout);
 
 		if (falcon_log_file)
+			{
 			fprintf(falcon_log_file, "%s", text);
+			fflush(falcon_log_file);
+			}
 		}
 }
 
@@ -2364,6 +2436,11 @@ void StorageInterface::decodeRecord(uchar *buf)
 				case MYSQL_TYPE_TIMESTAMP:
 					{
 					int value = (int) (dataStream->value.integer64 / 1000);
+#ifdef _BIG_ENDIAN
+					if (table->s->db_low_byte_first)
+					int4store(field->ptr, value);
+					else
+#endif
 					longstore(field->ptr, value);
 					}
 					break;
@@ -2480,7 +2557,6 @@ void StorageInterface::checkBinLog(void)
 	else
 		tableFlags &= ~HA_PRIMARY_KEY_REQUIRED_FOR_DELETE;
 }
-
 
 //*****************************************************************************
 //
@@ -2771,7 +2847,6 @@ ST_FIELD_INFO transactionInfoFieldInfo[]=
 	{"STATE",			120, MYSQL_TYPE_STRING,		0, 0, "State", SKIP_OPEN_TABLE},
 	{"THREAD_ID",		4, MYSQL_TYPE_LONG,			0, 0, "Thread Id", SKIP_OPEN_TABLE},
 	{"ID",				4, MYSQL_TYPE_LONG,			0, 0, "Id", SKIP_OPEN_TABLE},
-	{"STATE",			10, MYSQL_TYPE_STRING,		0, 0, "State", SKIP_OPEN_TABLE},
 	{"UPDATES",			4, MYSQL_TYPE_LONG,			0, 0, "Has Updates", SKIP_OPEN_TABLE},
 	{"PENDING",			4, MYSQL_TYPE_LONG,			0, 0, "Write Pending", SKIP_OPEN_TABLE},
 	{"DEP",				4, MYSQL_TYPE_LONG,			0, 0, "Dependencies", SKIP_OPEN_TABLE},
@@ -2984,18 +3059,23 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 
 void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
 {
-	falcon_consistent_read = *(my_bool*) save;
+	falcon_consistent_read = (my_bool) (*(int *) save ? 1 : 0);
 
 	int newRepeatableRead = (falcon_consistent_read ? 
 		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
 
-	if (isolation_levels[2] != newRepeatableRead)
-		isolation_levels[2] = newRepeatableRead;
+	if (isolation_levels[ISO_REPEATABLE_READ] != newRepeatableRead)
+		{
+		int oldRepeatableRead = isolation_levels[ISO_REPEATABLE_READ];
+		for (int i = 0; i < 4; i++)
+			if (isolation_levels[i] == oldRepeatableRead)
+				isolation_levels[i] = newRepeatableRead;
+		}
 }
 
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
-	falcon_record_memory_max = *(unsigned long long*) save;
+	falcon_record_memory_max = *(ulonglong*) save;
 
 	if (storageHandler)
 		storageHandler->setRecordMemoryMax(falcon_record_memory_max);
@@ -3077,7 +3157,7 @@ static MYSQL_SYSVAR_STR(scavenge_schedule, falcon_scavenge_schedule,
 static MYSQL_SYSVAR_ULONGLONG(record_memory_max, falcon_record_memory_max,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
   "The maximum size of the record memory cache.",
-  NULL, StorageInterface::updateRecordMemoryMax, LL(250)<<20, 0, (ulonglong) ~0, LL(1)<<20);
+  NULL, StorageInterface::updateRecordMemoryMax, LL(250)<<20, 0, (ulonglong) max_memory_address, LL(1)<<20);
 
 static MYSQL_SYSVAR_ULONGLONG(initial_allocation, falcon_initial_allocation,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,

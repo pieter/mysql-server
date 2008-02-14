@@ -78,6 +78,7 @@ void Bitmap::set (int32 bitNumber)
 				return;
 				
 			max = 2;
+			count = 0;
 			}
 		}
 

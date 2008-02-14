@@ -40,7 +40,8 @@ SRLUpdateIndex::~SRLUpdateIndex(void)
 void SRLUpdateIndex::append(DeferredIndex* deferredIndex)
 {
 	Sync syncIndexes(&log->syncIndexes, "SRLUpdateIndex::append");
-	syncIndexes.lock(Exclusive);
+//	syncIndexes.lock(Exclusive);
+	syncIndexes.lock(Shared);
 
 	Transaction *transaction = deferredIndex->transaction;
 	DeferredIndexWalker walker(deferredIndex, NULL);
@@ -49,7 +50,7 @@ void SRLUpdateIndex::append(DeferredIndex* deferredIndex)
 	int tableSpaceId = deferredIndex->index->dbb->tableSpaceId;
 	uint64 virtualOffset = 0;
 	uint64 virtualOffsetAtEnd = 0;
-	
+
 	// Remember where this is logged
 	
 	virtualOffset = log->writeWindow->getNextVirtualOffset();
@@ -225,7 +226,7 @@ void SRLUpdateIndex::thaw(DeferredIndex* deferredIndex)
 	
 	if (window == NULL)
 		{
-		Log::log("A window for DeferredIndex::virtualOffset=%8llx could not be found.\n",
+		Log::log("A window for DeferredIndex::virtualOffset=" I64FORMAT " could not be found.\n",
 		         deferredIndex->virtualOffset);
 		log->printWindows();
 		

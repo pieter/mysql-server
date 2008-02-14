@@ -46,8 +46,12 @@
 INTERLOCK_TYPE synchronizeFreeze;
 #endif
 
-#define NANO		1000000000
+#define NANO		QUAD_CONSTANT(1000000000)
 #define MICRO		1000000
+
+#if defined(_PTHREADS) && !(_POSIX_TIMERS > 0)
+extern "C" int64 my_getsystime();
+#endif
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -136,22 +140,43 @@ bool Synchronize::sleep(int milliseconds)
 #endif
 
 #ifdef _PTHREADS
-	struct timeval microTime;
-	int ret = gettimeofday(&microTime, NULL);
-	int64 nanos = (int64) microTime.tv_sec * NANO + microTime.tv_usec * 1000 +
-				 (int64) milliseconds * 1000000;
-	struct timespec nanoTime;
-	nanoTime.tv_sec = nanos / NANO;
-	nanoTime.tv_nsec = nanos % NANO;
-	ret = pthread_mutex_lock (&mutex);
+	int ret = pthread_mutex_lock (&mutex);
 	CHECK_RET("pthread_mutex_lock failed, errno %d", errno);
+	struct timespec nanoTime;
+#if _POSIX_TIMERS > 0
+	ret = clock_gettime(CLOCK_REALTIME, &nanoTime);
+	CHECK_RET("clock_gettime failed, errno %d", errno);
+	int64 start = nanoTime.tv_sec * NANO + nanoTime.tv_nsec;
+	int64 nanos = nanoTime.tv_nsec + (int64) milliseconds * 1000000;
+	nanoTime.tv_sec += nanos / NANO;
+	nanoTime.tv_nsec = nanos % NANO;
+#else
+	int64 start = my_getsystime();
+	int64 ticks = start + (milliseconds * 10000);
+	nanoTime.tv_sec = ticks / (NANO/100);
+	nanoTime.tv_nsec = (ticks % (NANO/100)) * 100;
+#endif
 
 	while (!wakeup)
 		{
 		ret = pthread_cond_timedwait(&condition, &mutex, &nanoTime);
 		
 		if (ret == ETIMEDOUT)
+			{
+#if _POSIX_TIMERS > 0
+			clock_gettime(CLOCK_REALTIME, &nanoTime);
+			int64 delta = (int64) nanoTime.tv_sec * NANO + nanoTime.tv_nsec - start;
+			int millis = delta / 1000000;
+#else
+			int64 delta = my_getsystime() - start;
+			int millis = delta / 10000;
+#endif
+			
+			if (millis < milliseconds)
+				Log::debug("Timeout after %d milliseconds (expected %d)\n", millis, milliseconds);
+				
 			break;
+			}
 			
 		if (!wakeup)
 #ifdef ENGINE

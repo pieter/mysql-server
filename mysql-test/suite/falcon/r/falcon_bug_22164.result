@@ -1,24 +1,23 @@
-SET @@storage_engine = Falcon;
-#---- Bug 22164 ----
+*** Bug #22164 ***
+SET @@storage_engine = 'Falcon';
 DROP SCHEMA IF EXISTS testdb_2;
 CREATE SCHEMA testdb_2;
-# Establish connection session2 (root)
-connect(localhost,root,,test,MYSQL_PORT,MYSQL_SOCK);
-SET @@storage_engine = Falcon;
+# Establish connection conn1
+SET @@storage_engine = 'Falcon';
 USE testdb_2;
-#-------- Switch to connection default (root) --------
+# Switch to connection default
 CREATE TABLE t2 (COL5   BIGINT);
 GRANT UPDATE (COL5) ON t2 TO testdb_2@localhost;
-CREATE TABLE t1( f1 BIGINT);
-#-------- Switch to connection session2 (root) --------
+CREATE TABLE t1 (f1 BIGINT);
+# Switch to connection conn1
 CREATE TABLE t3 (COL5  DECIMAL(7,2));
 GRANT ALL PRIVILEGES ON t3 TO root@localhost;
-#------- Switch to connection default (root) -------
+# Switch to connection default
 SET @@autocommit = 0;
 INSERT INTO testdb_2.t3 SET COL5 = 100.3;
 SELECT * FROM t1;
 f1
-INSERT INTO t1 VALUES( 1 );
+INSERT INTO t1 VALUES (1);
 SELECT * FROM t1;
 f1
 1
@@ -26,9 +25,12 @@ ROLLBACK WORK;
 # !!! ------- Why do I get a result set after ROLLBACK ? -------- !!!
 SELECT * FROM t1;
 f1
-#-------- Switch to connection session2 (root) --------
+SELECT count(*) FROM t1;
+count(*)
+0
+# Switch to connection conn1
 REVOKE ALL PRIVILEGES ON t3 FROM root@localhost;
-#------- Switch to connection default (root) -------
+# Switch to connection default
 REVOKE ALL PRIVILEGES ON t2 FROM testdb_2@localhost;
 DROP USER testdb_2@localhost;
 DROP SCHEMA testdb_2;

@@ -91,11 +91,17 @@ public:
 	virtual uint8	table_cache_type(void);
 	virtual int		add_index(TABLE* table_arg, KEY* key_info, uint num_of_keys);
 	virtual bool	check_if_incompatible_data(HA_CREATE_INFO* create_info, uint table_changes);
+	virtual int		reset_auto_increment(ulonglong value);
+	virtual void	update_create_info(HA_CREATE_INFO* create_info);
 	virtual const COND* cond_push(const COND* cond);
 	virtual int		optimize(THD* thd, HA_CHECK_OPT* check_opt);
+	virtual int		check(THD* thd, HA_CHECK_OPT* check_opt);
+	virtual int		repair(THD* thd, HA_CHECK_OPT* check_opt);
+	
 #ifdef TRUNCATE_ENABLED
 	virtual int		delete_all_rows(void);
 #endif
+
 	void			getDemographics(void);
 	int				createIndex(const char *schemaName, const char *tableName,
 					            KEY *key, int indexNumber);

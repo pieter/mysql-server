@@ -48,6 +48,7 @@ public:
 	uint32		sectorSize;
 	Mutex		syncObject;
 	Database	*database;
+	bool		forceFsync;
 
 #ifdef _WIN32
 	void	*handle;

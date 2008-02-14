@@ -502,6 +502,7 @@ void* MemMgr::allocate(int size)
 
 	if (signature)
 		{
+		length = ROUNDUP(length, sizeof (double));
 		memory = alloc (length);
 		memory->pool = this;
 		}
@@ -534,6 +535,7 @@ void* MemMgr::allocateDebug(int size, const char* fileName, int line)
 
 	if (signature)
 		{
+		length = ROUNDUP(length, sizeof (double));
 		memory = alloc (length);
 		memory->pool = this;
 		}

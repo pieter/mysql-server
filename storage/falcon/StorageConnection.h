@@ -18,6 +18,8 @@
 
 #include "JString.h"
 
+static const int VALIDATE_REPAIR	= 1;
+
 class StorageConnection;
 class StorageTable;
 class StorageDatabase;
@@ -25,21 +27,6 @@ class Database;
 class THD;
 class Table;
 class Stream;
-
-//typedef void (Logger) (int, const char*, void *arg);
-
-/***
-extern "C"
-{
-StorageConnection* getStorageConnection(const char *path, THD *mySqlThread, OpenOption create);
-void	initializeNfsEngine();
-void	shutdownNfsEngine(const char *path);
-void	shutdownNfsAll();
-void	addNfsLogger(int mask, Logger listener, void *arg);
-int		isTempTable(const char *path);
-};
-***/
-
 class Connection;
 class THD;
 class StorageTableShare;
@@ -81,6 +68,7 @@ public:
 	virtual void	validate(void);
 	virtual const char* getLastErrorString(void);
 	virtual int		getMaxKeyLength(void);
+	virtual void	 validate(int options);
 	
 	void			setErrorText(const char* text);
 	int				setErrorText(SQLException *exception);

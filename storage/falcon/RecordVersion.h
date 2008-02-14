@@ -39,6 +39,7 @@ public:
 	virtual int			getSavePointId();
 	virtual void		setSuperceded (bool flag);
 	virtual Record*		getPriorVersion();
+	virtual Record*		getGCPriorVersion(void);
 	virtual bool		scavenge(RecordScavenge *recordScavenge);
 	virtual void		scavenge(TransId targetTransactionId, int oldestActiveSavePoint);
 	virtual bool		isVersion();
@@ -49,7 +50,6 @@ public:
 	virtual void		setVirtualOffset(uint64 offset);
 	virtual uint64		getVirtualOffset();
 	virtual int			thaw();
-	//virtual char*		getRecordData();
 	virtual void		print(void);
 
 	void				commit();
@@ -58,7 +58,7 @@ protected:
 	virtual ~RecordVersion();
 
 public:
-	uint64			virtualOffset; // byte offset into serial log window
+	uint64			virtualOffset;		// byte offset into serial log window
 	Transaction		*transaction;
 	Record			*priorVersion;
 	RecordVersion	*nextInTrans;

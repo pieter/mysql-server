@@ -2,14 +2,14 @@
 // #define PARAMETER_BOOL(name, text, default, flags, update_function)
 
 // These flags are defined in include/mysql/plugin.h 
-// 0x0000 = Argument required for cmd line
-// 0x0100 = Variable is per-connection
-// 0x0200 = Server variable is read only
-// 0x0400 = Not a server variable
-// 0x0800 = Not a command line option
-// 0x1000 = No argument for cmd line
-// 0x2000 = Argument optional for cmd line
-// 0x8000 = String needs memory allocated
+// #define PLUGIN_VAR_RQCMDARG     0x0000 = Argument required for cmd line
+// #define PLUGIN_VAR_THDLOCAL     0x0100 = Variable is per-connection
+// #define PLUGIN_VAR_READONLY     0x0200 = Server variable is read only
+// #define PLUGIN_VAR_NOSYSVAR     0x0400 = Not a server variable
+// #define PLUGIN_VAR_NOCMDOPT     0x0800 = Not a command line option
+// #define PLUGIN_VAR_NOCMDARG     0x1000 = No argument for cmd line
+// #define PLUGIN_VAR_OPCMDARG     0x2000 = Argument optional for cmd line
+// #define PLUGIN_VAR_MEMALLOC     0x8000 = String needs memory allocated
 
 
 PARAMETER_BOOL(consistent_read, "Enable Consistent Read Mode for Repeatable Reads", 1, 0, StorageInterface::updateConsistentRead)
@@ -21,7 +21,7 @@ PARAMETER_UINT(gopher_threads, "Number of Falcon gopher threads", 1, 5, 20, 0, N
 PARAMETER_UINT(index_chill_threshold, "Mbytes of pending index data that is 'frozen' to the Falcon serial log.", 1, 4, 1024, 0, &updateIndexChillThreshold)
 PARAMETER_UINT(io_threads, "Number of Falcon I/O threads", 2, 2, 20, 0, NULL)
 PARAMETER_UINT(large_blob_threshold, "Threshold for large blobs", 0, 160000, INT_MAX, 0, NULL)
-PARAMETER_UINT(lock_timeout, "Transaction lock time period (milliseconds)", 0, 0, INT_MAX, 0, NULL)
+PARAMETER_UINT(lock_wait_timeout, "Transaction lock time period (seconds)", 0, 50, INT_MAX, 0, NULL)
 PARAMETER_UINT(max_transaction_backlog, "Maximum number of backlogged transactions.", 1, 150, 1000000, 0, NULL)
 PARAMETER_UINT(page_size, "The page size used when creating a Falcon tablespace.", 1024, 4096, 32768, 0x0200, NULL)
 PARAMETER_UINT(record_chill_threshold, "Mbytes of pending record data that is 'frozen' to the Falcon serial log.", 1, 5, 1024, 0, &updateRecordChillThreshold)

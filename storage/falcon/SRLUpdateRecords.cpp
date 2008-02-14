@@ -48,10 +48,12 @@ void SRLUpdateRecords::chill(Transaction *transaction, RecordVersion *record, ui
 	// Update transaction counter and chillPoint
 	
 	transaction->chillPoint = &record->nextInTrans;
-	ASSERT(transaction->totalRecordData >= dataLength);
-	
+
+	//ASSERT(transaction->totalRecordData >= dataLength);
 	if (transaction->totalRecordData >= dataLength)
 		transaction->totalRecordData -= dataLength;
+	else
+		transaction->totalRecordData = 0;
 }
 
 int SRLUpdateRecords::thaw(RecordVersion *record, bool *thawed)
@@ -260,7 +262,10 @@ void SRLUpdateRecords::redo(void)
 			int recordNumber = getInt(&p);
 			int length = getInt(&p);
 			log->updateSectionUseVector(sectionId, tableSpaceId, -1);
-			
+
+			if (log->traceRecord && recordNumber == log->traceRecord)
+				print();
+					
 			if (log->bumpSectionIncarnation(sectionId, tableSpaceId, objInUse))
 				{
 				Dbb *dbb = log->getDbb(tableSpaceId);

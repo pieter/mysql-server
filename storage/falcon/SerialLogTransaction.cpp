@@ -25,6 +25,7 @@
 #include "SerialLogWindow.h"
 #include "Transaction.h"
 #include "Database.h"
+#include "Bitmap.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -46,6 +47,7 @@ SerialLogTransaction::SerialLogTransaction(SerialLog *serialLog, TransId transId
 	finished = false;
 	ordered = false;
 	transaction = NULL;
+	rolledBackSavepoints = NULL;
 	blockNumber = maxBlockNumber = minBlockNumber = physicalBlockNumber = 0;
 	xidLength = 0;
 	xid = NULL;
@@ -61,6 +63,7 @@ SerialLogTransaction::~SerialLogTransaction()
 		
 	log->transactionDelete(this);
 	delete [] xid;
+	delete rolledBackSavepoints;
 }
 
 void SerialLogTransaction::commit()
@@ -210,4 +213,20 @@ void SerialLogTransaction::setTransaction(Transaction* trans)
 		transaction = trans;
 		transaction->addRef();
 		}
+}
+
+void SerialLogTransaction::savepointRolledBack(int savepointId)
+{
+	if (!rolledBackSavepoints)
+		rolledBackSavepoints = new Bitmap;
+	
+	rolledBackSavepoints->set(savepointId);
+}
+
+bool SerialLogTransaction::isRolledBackSavepoint(int savepointId)
+{
+	if (!rolledBackSavepoints)
+		return false;
+	
+	return rolledBackSavepoints->isSet(savepointId);
 }

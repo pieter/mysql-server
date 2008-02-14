@@ -11,6 +11,10 @@ select @@collation_connection;
 drop table if exists t1;
 --enable_warnings
 
+ALTER DATABASE test
+CHARACTER SET latin1
+COLLATE latin1_german2_ci;
+
 create table t1 (a char (20) not null, b int not null auto_increment, index (a,b));
 insert into t1 (a) values ('ä'),('ac'),('ae'),('ad'),('Äc'),('aeb');
 insert into t1 (a) values ('üc'),('uc'),('ue'),('ud'),('Ü'),('ueb'),('uf');
@@ -165,3 +169,7 @@ select hex(weight_string('xä' as char(2)));
 select hex(weight_string('xö' as char(2)));
 select hex(weight_string('xü' as char(2)));
 select hex(weight_string('xß' as char(2)));
+
+# Re-create test database to restore default collation settings
+DROP DATABASE test;
+CREATE DATABASE test;

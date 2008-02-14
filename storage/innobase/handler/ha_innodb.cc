@@ -6345,7 +6345,7 @@ int ha_innobase::reset()
   /* Reset index condition pushdown state */
   pushed_idx_cond_keyno= MAX_KEY;
   pushed_idx_cond= NULL;
-  //in_range_read= FALSE;
+  ds_mrr.dsmrr_close();
   prebuilt->idx_cond_func= NULL;
   return 0;
 }

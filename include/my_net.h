@@ -64,6 +64,15 @@ C_MODE_START
 
 #endif
 
+/*
+  On OSes which don't have the in_addr_t, we guess that using uint32 is the best
+  possible choice. We guess this from the fact that on HP-UX64bit & FreeBSD64bit
+  & Solaris64bit, in_addr_t is equivalent to uint32. And on Linux32bit too.
+*/
+#ifndef HAVE_IN_ADDR_T
+#define in_addr_t uint32
+#endif
+
 /* Thread safe or portable version of some functions */
 
 void my_inet_ntoa(struct in_addr in, char *buf);

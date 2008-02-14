@@ -71,6 +71,17 @@ SHOW TABLES;
 --disable_warnings
 DROP DATABASE IF EXISTS empty_db;
 DROP DATABASE IF EXISTS other_db;
+#
+# Normally, when tests are run the test/ directory corresponding to the test database
+# is empty. In particular, it doesn't contain the db.opt file storing database settings.
+# Some tests rely on that, as they use server options to determine these settings.
+# If we backup test database (e.g., with "BACKUP DATABASE * ...") and then restore it,
+# then it will be created using "CREATE DATABASE test" statement and this will create
+# the db.opt file. As a result, some tests run after that will fail. To avoid this situation
+# we remove the test/db.opt file as a part of clean-up.
+#
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/test/db.opt
 --enable_warnings
 
 --error 0,1

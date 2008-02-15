@@ -199,6 +199,7 @@ end:
   close_thread_tables(thd);
 
 end2:
+  THD_SET_PROC_INFO(thd, "lock done");
   pthread_mutex_lock(&LOCK_thread_count);
   thread_count--;
   thread_running--;
@@ -211,7 +212,6 @@ end2:
   locking_thd->lock_thd= NULL;
   if (locking_thd->lock_state != LOCK_ERROR)
     locking_thd->lock_state= LOCK_DONE;
-  THD_SET_PROC_INFO(thd, "lock done");
 
   /*
     Signal the driver thread that it's ok to proceed with destructor.

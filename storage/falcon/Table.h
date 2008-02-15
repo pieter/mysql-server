@@ -29,6 +29,7 @@
 #include "SyncObject.h"
 #include "Types.h"
 #include "Index.h"
+#include "SparseArray.h"
 
 static const int PreInsert	= 1;
 static const int PostInsert = 2;
@@ -233,6 +234,7 @@ public:
 	Trigger			*triggers;
 	Bitmap			*recordBitmap;
 	Bitmap			*emptySections;
+	SparseArray<int32, 128>	*backloggedRecords;
 	Section			*dataSection;
 	Section			*blobSection;
 	TableSpace		*tableSpace;

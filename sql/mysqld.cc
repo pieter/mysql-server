@@ -1618,7 +1618,7 @@ static void network_init(void)
 #ifdef HAVE_SYS_UN_H
   struct sockaddr_un	UNIXaddr;
 #endif
-  int	arg=1;
+  int	arg;
   int   ret;
   uint  waited;
   uint  this_wait;
@@ -1669,8 +1669,23 @@ static void network_init(void)
       We should not use SO_REUSEADDR on windows as this would enable a
       user to open two mysqld servers with the same TCP/IP port.
     */
+    arg= 1;
     (void) setsockopt(ip_sock,SOL_SOCKET,SO_REUSEADDR,(char*)&arg,sizeof(arg));
 #endif /* __WIN__ */
+
+#ifdef IPV6_V6ONLY
+     /*
+       For interoperability with older clients, IPv6 socket should
+       listen on both IPv6 and IPv4 wildcard addresses.
+       Turn off IPV6_V6ONLY option.
+     */
+    if (ai->ai_family == AF_INET6)
+    {
+      arg= 0;      
+      (void) setsockopt(ip_sock, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&arg,
+                sizeof(arg));
+    }
+#endif
     /*
       Sometimes the port is not released fast enough when stopping and
       restarting the server. This happens quite often with the test suite
@@ -1779,6 +1794,7 @@ static void network_init(void)
     UNIXaddr.sun_family = AF_UNIX;
     strmov(UNIXaddr.sun_path, mysqld_unix_port);
     (void) unlink(mysqld_unix_port);
+    arg= 1;
     (void) setsockopt(unix_sock,SOL_SOCKET,SO_REUSEADDR,(char*)&arg,
 		      sizeof(arg));
     umask(0);

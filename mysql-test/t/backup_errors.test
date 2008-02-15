@@ -179,7 +179,7 @@ DROP TABLE mysql.online_backup;
 
 # Try to backup the database (should be error).
 --echo Backup the database;
---error ER_NO_SUCH_TABLE
+--error ER_BACKUP_PROGRESS_TABLES
 BACKUP DATABASE test_ob_error TO 'ob_err.bak';
 --error 0,1
 --remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak
@@ -196,7 +196,7 @@ DROP TABLE mysql.online_backup_progress;
 
 # Try to backup the database (should be error).
 --echo Backup the database;
---error ER_NO_SUCH_TABLE
+--error ER_BACKUP_PROGRESS_TABLES
 BACKUP DATABASE test_ob_error TO 'ob_err.bak';
 --error 0,1
 --remove_file $MYSQLTEST_VARDIR/master-data/ob_err.bak

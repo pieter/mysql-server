@@ -75,10 +75,9 @@ backup_id
 DROP TABLE mysql.online_backup;
 Backup the database;
 BACKUP DATABASE test_ob_error TO 'ob_err.bak';
-ERROR 42S02: Table 'mysql.online_backup' doesn't exist
+ERROR HY000: Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
 SHOW ERRORS;
 Level	Code	Message
-Error	#	Table 'mysql.online_backup' doesn't exist
 Error	#	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
 Restoring the table
 CREATE TABLE mysql.online_backup LIKE test.ob_copy;
@@ -86,10 +85,9 @@ DROP TABLE test.ob_copy;
 DROP TABLE mysql.online_backup_progress;
 Backup the database;
 BACKUP DATABASE test_ob_error TO 'ob_err.bak';
-ERROR 42S02: Table 'mysql.online_backup_progress' doesn't exist
+ERROR HY000: Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
 SHOW ERRORS;
 Level	Code	Message
-Error	#	Table 'mysql.online_backup_progress' doesn't exist
 Error	#	Can't open the online backup progress tables. Check 'mysql.online_backup' and 'mysql.online_backup_progress'.
 Restoring the table
 CREATE TABLE mysql.online_backup_progress LIKE test.obp_copy;

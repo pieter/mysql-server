@@ -27,6 +27,8 @@
 #include "backup_progress.h"
 #include "be_thread.h"
 
+extern bool check_if_table_exists(THD *thd, TABLE_LIST *table, bool *exists);
+
 /**
    Check online backup progress tables.
 
@@ -44,12 +46,14 @@ my_bool check_ob_progress_tables(THD *thd)
 {
   TABLE_LIST tables;
   my_bool ret= FALSE;
+  bool exists= FALSE;
 
   DBUG_ENTER("check_ob_progress_tables");
 
   /* Check mysql.online_backup */
   tables.init_one_table("mysql", "online_backup", TL_READ);
-  if (simple_open_n_lock_tables(thd, &tables))
+  check_if_table_exists(thd, &tables, &exists);
+  if (!exists)
   {
     ret= TRUE;
     sql_print_error(ER(ER_BACKUP_PROGRESS_TABLES));
@@ -59,7 +63,8 @@ my_bool check_ob_progress_tables(THD *thd)
 
   /* Check mysql.online_backup_progress */
   tables.init_one_table("mysql", "online_backup_progress", TL_READ);
-  if (simple_open_n_lock_tables(thd, &tables))
+  check_if_table_exists(thd, &tables, &exists);
+  if (!exists)
   {
     ret= TRUE;
     sql_print_error(ER(ER_BACKUP_PROGRESS_TABLES));

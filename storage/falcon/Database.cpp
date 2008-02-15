@@ -77,6 +77,7 @@
 #include "SyncTest.h"
 #include "PriorityScheduler.h"
 #include "Sequence.h"
+#include "BackLog.h"
 
 #ifdef _WIN32
 #define PATH_MAX			_MAX_PATH

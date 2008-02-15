@@ -1075,6 +1075,9 @@ void Transaction::releaseSavepoints(void)
 		{
 		savePoints = savePoint->next;
 		
+		if (savePoint->savepoints)
+			savePoint->clear();
+			
 		if (savePoint < localSavePoints || savePoint >= localSavePoints + LOCAL_SAVE_POINTS)
 			delete savePoint;
 		}
@@ -1340,9 +1343,6 @@ void Transaction::validateDependencies(bool noDependencies)
 			ASSERT(!noDependencies);
 			ASSERT(state->transaction->transactionId == state->transactionId);
 			}
-		
-		if (savePoint->savepoints)
-			savePoint->clear();
 }
 
 void Transaction::printBlockage(void)

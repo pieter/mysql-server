@@ -20,6 +20,13 @@
 
 #include "Engine.h"
 #include "SavePoint.h"
+#include "Bitmap.h"
+
+#ifdef _DEBUG
+#undef THIS_FILE
+static const char THIS_FILE[]=__FILE__;
+#endif
+
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -35,3 +42,18 @@ SavePoint::~SavePoint()
 
 }
 ***/
+
+
+void SavePoint::setIncludedSavepoint(int savepointId)
+{
+	if (!savepoints)
+		savepoints = new Bitmap;
+	
+	savepoints->set(savepointId);
+}
+
+void SavePoint::clear(void)
+{
+	delete savepoints;
+	savepoints = NULL;
+}

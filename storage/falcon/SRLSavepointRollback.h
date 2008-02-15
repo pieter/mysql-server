@@ -27,7 +27,6 @@ public:
 	virtual void read(void);
 	virtual void pass1(void);
 	
-	TransId	transactionId;
 	int		savepointId;
 };
 

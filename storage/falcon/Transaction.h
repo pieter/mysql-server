@@ -72,11 +72,6 @@ struct TransState {
 	int			state;
 	};
 
-struct Savepoint {
-	int			id;
-	RecordVersion	**records;
-	};
-
 static const int LOCAL_SAVE_POINTS = 5;
 
 static const int FOR_READING = 0;

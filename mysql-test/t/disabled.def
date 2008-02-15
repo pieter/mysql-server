@@ -29,3 +29,11 @@ ps_ddl               : Bug#12093 2007-12-14 pending WL#4165 / WL#4166
 user_limits          : Bug#23921 2007-12-16 random failure of user_limits.test
 ctype_latin2_ch	: BUG #33791 2008-01-18 mats Wrong ORDER BY with latin2_czech_cs
 
+ctype_big5               : BUG#26711 2007-06-21 Lars Test has never worked on Double Whopper
+
+innodb_mysql         : Bug#32724: innodb_mysql.test fails randomly
+wait_timeout         : Bug#32801 wait_timeout.test fails randomly
+ctype_create         : Bug#32965 main.ctype_create fails
+status               : Bug#32966 main.status fails
+ps_ddl               : Bug#12093 2007-12-14 pending WL#4165 / WL#4166
+query_cache_debug    : Bug#34424: query_cache_debug.test leads to valgrind warnings

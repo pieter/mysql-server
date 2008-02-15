@@ -459,6 +459,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	pageWriter = NULL;
 	zombieTables = NULL;
 	updateCardinality = NULL;
+	backLog = NULL;
 	ioScheduler = new PriorityScheduler;
 	lastScavenge = 0;
 	scavengeCycle = 0;
@@ -605,6 +606,7 @@ Database::~Database()
 	delete repositoryManager;
 	delete transactionManager;
 	delete ioScheduler;
+	delete backLog;
 }
 
 void Database::createDatabase(const char * filename)

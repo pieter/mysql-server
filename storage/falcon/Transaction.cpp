@@ -42,6 +42,7 @@
 #include "Format.h"
 #include "LogLock.h"
 #include "SRLSavepointRollback.h"
+#include "Bitmap.h"
 
 extern uint		falcon_lock_wait_timeout;
 
@@ -527,9 +528,12 @@ void Transaction::chillRecords()
 		
 	uint32 chilledBefore = chilledRecords;
 	uint64 totalDataBefore = totalRecordData;
-	
 	database->dbb->logUpdatedRecords(this, *chillPoint, true);
-	
+
+	for (SavePoint *savePoint = savePoints; savePoint; savePoint = savePoint->next)
+		if (savePoint->id != curSavePointId)
+			savePoint->setIncludedSavepoint(curSavePointId);
+				
 	Log::debug("Record Chill:      trxId=%-5ld records=%7ld  bytes=%8ld\n",
 				transactionId, chilledRecords-chilledBefore, (uint32)(totalDataBefore-totalRecordData), committedRecords);
 }
@@ -1010,8 +1014,8 @@ int Transaction::createSavepoint()
 	savePoint->records = recordPtr;
 	savePoint->id = ++curSavePointId;
 	savePoint->next = savePoints;
+	savePoint->savepoints = NULL;
 	savePoints = savePoint;
-
 	ASSERT(savePoint->next != savePoint);
  	
 	return savePoint->id;
@@ -1031,6 +1035,10 @@ void Transaction::releaseSavepoint(int savePointId)
 			{
 			int nextLowerSavePointId = (savePoint->next) ? savePoint->next->id : 0;
 			*ptr = savePoint->next;
+			
+			if (savePoint->savepoints)
+				savePoint->clear();
+
 			savePoint->next = freeSavePoints;
 			freeSavePoints = savePoint;
 			ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
@@ -1099,8 +1107,14 @@ void Transaction::rollbackSavepoint(int savePointId)
 	if ((savePoint) && (savePoint->id != savePointId))
 		throw SQLError(RUNTIME_ERROR, "invalid savepoint");
 
-	if (chilledBytes)
+	if (chilledRecords)
+		{
 		database->serialLog->logControl->savepointRollback.append(transactionId, savePointId);
+		
+		if (savePoint->savepoints)
+			for (int n = 0; (n = savePoint->savepoints->nextSet(n)) >= 0; ++n)
+				database->serialLog->logControl->savepointRollback.append(transactionId, n);
+		}				
 
 	savePoint = savePoints;
 	
@@ -1326,6 +1340,9 @@ void Transaction::validateDependencies(bool noDependencies)
 			ASSERT(!noDependencies);
 			ASSERT(state->transaction->transactionId == state->transactionId);
 			}
+		
+		if (savePoint->savepoints)
+			savePoint->clear();
 }
 
 void Transaction::printBlockage(void)

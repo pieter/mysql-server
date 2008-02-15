@@ -30,6 +30,7 @@ void SRLSession::append(int64 priorRecoveryBlock, int64 priorCheckpointBlock)
 	START_RECORD(srlSession, "SRLCheckpoint::append");
 	putInt64(priorRecoveryBlock);
 	putInt64(priorCheckpointBlock);
+	log->flush(false, log->nextBlockNumber, &sync);
 }
 
 void SRLSession::read(void)

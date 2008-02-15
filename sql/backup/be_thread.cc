@@ -122,29 +122,23 @@ pthread_handler_t backup_thread_for_locking(void *arg)
   DBUG_PRINT("info",("Online backup creating THD struct for thread"));
   THD *thd= create_new_thd();
 
+  if (thd == 0 || thd->killed)
+  {
+    locking_thd->lock_state= LOCK_ERROR;
+    goto end2;
+  }
+
   THD_SET_PROC_INFO(thd, "Locking thread started");
   thd->query= locking_thd->thd_name.c_ptr();
   thd->query_length= locking_thd->thd_name.length();
 
   pthread_detach_this_thread();
   locking_thd->lock_thd= thd;
-  if (thd == 0)
-  {
-    THD_SET_PROC_INFO(thd, "lock error");
-    locking_thd->lock_state= LOCK_ERROR;
-    goto end2;
-  }
-
-  if (thd->killed)
-  {
-    THD_SET_PROC_INFO(thd, "lock error");
-    locking_thd->lock_state= LOCK_ERROR;
-    goto end2;
-  }
 
   /* 
     Now open and lock the tables.
   */
+
   DBUG_PRINT("info",("Online backup open tables in thread"));
   if (!locking_thd->tables_in_backup)
   {
@@ -154,16 +148,27 @@ pthread_handler_t backup_thread_for_locking(void *arg)
     goto end2;
   }
 
+  pthread_mutex_lock(&locking_thd->THR_LOCK_caller);
+
+  if (thd->killed)
+  {
+    THD_SET_PROC_INFO(thd, "lock error");
+    locking_thd->lock_state= LOCK_ERROR;
+    pthread_mutex_unlock(&locking_thd->THR_LOCK_caller);
+    goto end;
+  }
+
   /*
     As locking tables can be a long operation, we need to support
     killing the thread. In this case, we need to close the tables 
     and exit.
   */
-  if (!thd->killed && open_and_lock_tables(thd, locking_thd->tables_in_backup))
+  if (open_and_lock_tables(thd, locking_thd->tables_in_backup))
   {
     DBUG_PRINT("info",("Online backup locking thread dying"));
     THD_SET_PROC_INFO(thd, "lock error");
     locking_thd->lock_state= LOCK_ERROR;
+    pthread_mutex_unlock(&locking_thd->THR_LOCK_caller);
     goto end;
   }
 
@@ -171,8 +176,11 @@ pthread_handler_t backup_thread_for_locking(void *arg)
   {
     THD_SET_PROC_INFO(thd, "lock error");
     locking_thd->lock_state= LOCK_ERROR;
+    pthread_mutex_unlock(&locking_thd->THR_LOCK_caller);
     goto end;
   }
+
+  pthread_mutex_unlock(&locking_thd->THR_LOCK_caller);
 
   /*
     Part of work is done. Rest until woken up.
@@ -286,10 +294,10 @@ result_t Locking_thread_st::start_locking_thread(const char *tname)
 {
   DBUG_ENTER("Locking_thread_st::start_locking_thread");
   pthread_t th;
+  thd_name.append(tname);
   if (pthread_create(&th, &connection_attrib,
                      backup_thread_for_locking, this))
     SET_STATE_TO_ERROR_AND_DBUG_RETURN;
-  thd_name.append(tname);
   DBUG_RETURN(backup::OK);
 }
 
@@ -304,6 +312,9 @@ void Locking_thread_st::kill_locking_thread()
 {
   DBUG_ENTER("Locking_thread_st::kill_locking_thread");
   pthread_mutex_lock(&THR_LOCK_caller);
+  if (lock_state == LOCK_ERROR)
+    THD_SET_PROC_INFO(m_thd, "error in the locking thread");
+
   if (lock_thd && (lock_state != LOCK_DONE) && (lock_state != LOCK_SIGNAL))
   {
     lock_state= LOCK_SIGNAL;

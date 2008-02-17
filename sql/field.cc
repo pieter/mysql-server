@@ -6300,7 +6300,12 @@ int Field_str::store(double nr)
 
   length= my_gcvt(nr, MY_GCVT_ARG_DOUBLE, local_char_length, buff, &error);
   if (error)
-    report_data_too_long(this);
+  {
+    if (table->in_use->abort_on_warning)
+      set_warning(MYSQL_ERROR::WARN_LEVEL_ERROR, ER_DATA_TOO_LONG, 1);
+    else
+      set_warning(MYSQL_ERROR::WARN_LEVEL_WARN, WARN_DATA_TRUNCATED, 1);
+  }
   return store(buff, length, charset());
 }
 

@@ -210,7 +210,9 @@ let $message= Testcase 3.5.1.6: - Need to fix;
 let $message= Testcase 3.5.1.7: - need to fix;
 --source include/show_msg.inc
 
+        --disable_warnings
 	drop table if exists t1;
+        --enable_warnings
 	eval create table t1 (f1 int, f2 char(25),f3 int) engine=$engine_type;
 	CREATE TRIGGER trg5_1 BEFORE INSERT on test.t1 
 		for each row set new.f3 = '14';

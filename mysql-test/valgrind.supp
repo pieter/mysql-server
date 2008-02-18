@@ -504,7 +504,7 @@
    dlopen threaded memory leak
    Memcheck:Leak
    fun:calloc
-   obj:/lib64/libdl-*.so
-   fun:dlopen
+   obj:*/libdl-*.so
+   fun:dlopen*
 }
 

@@ -4,20 +4,7 @@
 
 source include/have_debug.inc;
 source include/have_log_bin.inc;
-
-connect (master,127.0.0.1,root,,test,$MASTER_MYPORT,);
-connect (slave,127.0.0.1,root,,test,$SLAVE_MYPORT,);
-
-
-connection master;
-reset master;
-
-connection slave;
---disable_warnings
-stop slave;
---enable_warnings
-reset slave;
-start slave;
+source include/master-slave.inc;
 
 connection master;
 save_master_pos;

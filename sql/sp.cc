@@ -510,7 +510,6 @@ static sp_head *sp_compile(THD *thd, String *defstr, ulong sql_mode,
   lex_start(thd);
   thd->spcont= 0;
 
-  thd->push_internal_handler(&warning_handler);
   if (parse_sql(thd, &lip, creation_ctx) || thd->lex == NULL)
   {
     sp= thd->lex->sphead;
@@ -521,7 +520,6 @@ static sp_head *sp_compile(THD *thd, String *defstr, ulong sql_mode,
   {
     sp= thd->lex->sphead;
   }
-  thd->pop_internal_handler();
 
   thd->spcont= old_spcont;
   thd->variables.sql_mode= old_sql_mode;
@@ -620,7 +618,9 @@ db_load_routine(THD *thd, int type, sp_name *name, sp_head **sphp,
   }
 
   {
+    thd->push_internal_handler(&warning_handler);
     *sphp= sp_compile(thd, &defstr, sql_mode, creation_ctx);
+    thd->pop_internal_handler();
     /*
       Force switching back to the saved current database (if changed),
       because it may be NULL. In this case, mysql_change_db() would

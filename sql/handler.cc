@@ -4657,13 +4657,6 @@ bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat)
 
 
 /**
-  The Sun compiler cannot instantiate the template below if this is
-  declared static, but it works by putting it into an anonymous
-  namespace.
-*/
-namespace {
-
-/**
   Check if the conditions for row-based binlogging is correct for the table.
 
   A row in the given table should be replicated if:

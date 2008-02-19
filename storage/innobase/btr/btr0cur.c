@@ -3846,4 +3846,3 @@ btr_rec_copy_externally_stored_field(
 
 	return(btr_copy_externally_stored_field(len, data, local_len, heap));
 }
-FORCE CONFLICT: will be removed during NULL MERGE from lower tree

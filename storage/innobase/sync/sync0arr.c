@@ -1105,4 +1105,3 @@ sync_array_print_info(
 	sync_array_exit(arr);
 }
 
-FORCE CONFLICT: will be removed during NULL MERGE from lower tree

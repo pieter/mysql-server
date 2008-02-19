@@ -3218,4 +3218,3 @@ a
 2
 DROP TABLE t1;
 DROP TABLE t2;
-FORCE CONFLICT: will be removed during NULL MERGE from lower tree

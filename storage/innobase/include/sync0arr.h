@@ -125,4 +125,3 @@ sync_array_print_info(
 #endif
 
 #endif
-FORCE CONFLICT: will be removed during NULL MERGE from lower tree

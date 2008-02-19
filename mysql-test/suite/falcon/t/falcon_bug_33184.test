@@ -1,0 +1,41 @@
+--source include/have_falcon.inc
+#
+# Bug #33184: Falcon regression tests fail on Mac OS XBug 
+#   simplified version of Bug #28165: Falcon: hang after select for update
+#
+--echo *** Bug #33184 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+#SET @@autocommit = 0;
+CREATE TABLE t1 (
+  a int,
+  primary key(a)
+);
+
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (2);
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--error ER_DUP_ENTRY
+UPDATE t1 SET a = 1 WHERE a = 2;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+DROP TABLE t1;

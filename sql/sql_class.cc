@@ -1609,7 +1609,7 @@ bool select_to_file::send_eof()
       function, SELECT INTO has to have an own SQLCOM.
       TODO: split from SQLCOM_SELECT
     */
-    ::send_ok(thd,row_count);
+    ::my_ok(thd,row_count);
   }
   file= -1;
   return error;
@@ -2559,7 +2559,7 @@ bool select_dumpvar::send_eof()
     function, SELECT INTO has to have an own SQLCOM.
     TODO: split from SQLCOM_SELECT
   */
-  ::send_ok(thd,row_count);
+  ::my_ok(thd,row_count);
   return 0;
 }
 

@@ -3135,7 +3135,7 @@ end_with_restore_list:
         goto error;
       if (rc == 0)
       {
-        send_ok(thd);
+        my_ok(thd);
         break;
       }
       /*

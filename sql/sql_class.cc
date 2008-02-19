@@ -3607,3 +3607,4 @@ bool Discrete_intervals_list::append(ulonglong start, ulonglong val,
 }
 
 #endif /* !defined(MYSQL_CLIENT) */
+FORCE CONFLICT: will be removed during NULL MERGE from lower tree

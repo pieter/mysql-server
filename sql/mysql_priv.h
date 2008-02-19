@@ -2503,3 +2503,4 @@ bool load_collation(MEM_ROOT *mem_root,
 #endif /* MYSQL_CLIENT */
 
 #endif /* MYSQL_PRIV_H */
+FORCE CONFLICT: will be removed during NULL MERGE from lower tree

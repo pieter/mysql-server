@@ -18,3 +18,4 @@ show variables like 'slave_skip_errors';
 
 # Cleanup
 set global slave_net_timeout=default;
+sync_slave_with_master;

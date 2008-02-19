@@ -805,17 +805,6 @@ int mysql_update(THD *thd,
   }
   DBUG_ASSERT(transactional_table || !updated || thd->transaction.stmt.modified_non_trans_table);
   free_underlaid_joins(thd, select_lex);
-  if (transactional_table)
-  {
-    if (ha_autocommit_or_rollback(thd, error >= 0))
-      error=1;
-  }
-
-  if (thd->lock)
-  {
-    mysql_unlock_tables(thd, thd->lock);
-    thd->lock=0;
-  }
 
   /* If LAST_INSERT_ID(X) was used, report X */
   id= thd->arg_of_last_insert_id_function ?
@@ -1724,13 +1713,8 @@ void multi_update::abort()
     If not attempt to do remaining updates.
   */
 
-  if (trans_safe)
+  if (! trans_safe)
   {
-    DBUG_ASSERT(transactional_tables);
-    (void) ha_autocommit_or_rollback(thd, 1);
-  }
-  else
-  { 
     DBUG_ASSERT(thd->transaction.stmt.modified_non_trans_table);
     if (do_update && table_count > 1)
     {
@@ -1762,11 +1746,6 @@ void multi_update::abort()
     thd->transaction.all.modified_non_trans_table= TRUE;
   }
   DBUG_ASSERT(trans_safe || !updated || thd->transaction.stmt.modified_non_trans_table);
-  
-  if (transactional_tables)
-  {
-    (void) ha_autocommit_or_rollback(thd, 1);
-  }
 }
 
 
@@ -2003,12 +1982,6 @@ bool multi_update::send_eof()
   }
   if (local_error != 0)
     error_handled= TRUE; // to force early leave from ::send_error()
-
-  if (transactional_tables)
-  {
-    if (ha_autocommit_or_rollback(thd, local_error != 0))
-      local_error=1;
-  }
 
   if (local_error > 0) // if the above log write did not fail ...
   {

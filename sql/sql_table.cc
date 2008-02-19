@@ -4121,6 +4121,7 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
       switch ((*prepare_func)(thd, table, check_opt)) {
       case  1:           // error, message written to net
         ha_autocommit_or_rollback(thd, 1);
+        end_trans(thd, ROLLBACK);
         close_thread_tables(thd);
         DBUG_PRINT("admin", ("simple error, admin next table"));
         continue;
@@ -4179,6 +4180,7 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
                           table_name);
       protocol->store(buff, length, system_charset_info);
       ha_autocommit_or_rollback(thd, 0);
+      end_trans(thd, COMMIT);
       close_thread_tables(thd);
       lex->reset_query_tables_list(FALSE);
       table->table=0;				// For query cache
@@ -4451,6 +4453,7 @@ send_result_message:
       }
     }
     ha_autocommit_or_rollback(thd, 0);
+    end_trans(thd, COMMIT);
     close_thread_tables(thd);
     table->table=0;				// For query cache
     if (protocol->write())
@@ -4460,8 +4463,9 @@ send_result_message:
   send_eof(thd);
   DBUG_RETURN(FALSE);
 
- err:
+err:
   ha_autocommit_or_rollback(thd, 1);
+  end_trans(thd, ROLLBACK);
   close_thread_tables(thd);			// Shouldn't be needed
   if (table)
     table->table=0;
@@ -4950,8 +4954,8 @@ mysql_discard_or_import_tablespace(THD *thd,
   query_cache_invalidate3(thd, table_list, 0);
 
   /* The ALTER TABLE is always in its own transaction */
-  error = ha_commit_stmt(thd);
-  if (ha_commit(thd))
+  error = ha_autocommit_or_rollback(thd, 0);
+  if (end_active_trans(thd))
     error=1;
   if (error)
     goto err;
@@ -4959,7 +4963,6 @@ mysql_discard_or_import_tablespace(THD *thd,
 
 err:
   ha_autocommit_or_rollback(thd, error);
-  close_thread_tables(thd);
   thd->tablespace_op=FALSE;
   
   if (error == 0)
@@ -6849,8 +6852,8 @@ view_err:
     VOID(pthread_mutex_unlock(&LOCK_open));
     alter_table_manage_keys(table, table->file->indexes_are_disabled(),
                             alter_info->keys_onoff);
-    error= ha_commit_stmt(thd);
-    if (ha_commit(thd))
+    error= ha_autocommit_or_rollback(thd, 0);
+    if (end_active_trans(thd))
       error= 1;
   }
   thd->count_cuted_fields= CHECK_FIELD_IGNORE;
@@ -7299,9 +7302,9 @@ copy_data_between_tables(TABLE *from,TABLE *to,
     Ensure that the new table is saved properly to disk so that we
     can do a rename
   */
-  if (ha_commit_stmt(thd))
+  if (ha_autocommit_or_rollback(thd, 0))
     error=1;
-  if (ha_commit(thd))
+  if (end_active_trans(thd))
     error=1;
 
  err:

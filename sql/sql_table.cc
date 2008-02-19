@@ -4460,7 +4460,7 @@ send_result_message:
       goto err;
   }
 
-  send_eof(thd);
+  my_eof(thd);
   DBUG_RETURN(FALSE);
 
 err:
@@ -7463,7 +7463,7 @@ bool mysql_checksum_table(THD *thd, TABLE_LIST *tables,
       goto err;
   }
 
-  send_eof(thd);
+  my_eof(thd);
   DBUG_RETURN(FALSE);
 
  err:

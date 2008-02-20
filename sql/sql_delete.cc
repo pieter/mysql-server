@@ -23,6 +23,7 @@
 #include "sql_select.h"
 #include "sp_head.h"
 #include "sql_trigger.h"
+#include "backup/debug.h"
 
 bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
                   SQL_LIST *order, ha_rows limit, ulonglong options,
@@ -386,6 +387,14 @@ cleanup:
   {
     if (ha_autocommit_or_rollback(thd,error >= 0))
       error=1;
+  }
+
+  /*
+    Breakpoints for backup testing.
+  */
+  if (!table->file->has_transactions())
+  {
+    BACKUP_BREAKPOINT("backup_commit_blocker");
   }
 
   if (thd->lock)

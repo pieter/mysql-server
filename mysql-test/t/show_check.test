@@ -1109,7 +1109,6 @@ DROP EVENT ev1;
 SHOW STORAGE ENGINES;
 --enable_result_log
 
-
 #
 # Bug #32710: SHOW INNODB STATUS requires SUPER
 #

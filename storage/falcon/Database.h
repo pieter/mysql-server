@@ -263,6 +263,7 @@ public:
 	SyncObject			syncResultSets;
 	SyncObject			syncConnectionStatements;
 	SyncObject			syncScavenge;
+	SyncObject			syncDDL;
 	PriorityScheduler	*ioScheduler;
 	Threads				*threads;
 	Scheduler			*scheduler;

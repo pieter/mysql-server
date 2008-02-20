@@ -711,6 +711,9 @@ void Statement::executeDDL()
 	Syntax *syntax = statement->syntax;
 	ASSERT (syntax);
 	Syntax *child;
+	
+	Sync sync(&database->syncDDL, "Statement::executeDDL");
+	sync.lock(Exclusive);
 
 	switch (syntax->type)
 		{

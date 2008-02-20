@@ -382,7 +382,6 @@ inline double ulonglong2double(ulonglong value)
 #define HAVE_ANSI_INCLUDE
 #define HAVE_SYS_UTIME_H
 #define HAVE_STRTOUL
-#define HAVE_LOG2
 #endif
 #define my_reinterpret_cast(A) reinterpret_cast <A>
 #define my_const_cast(A) const_cast<A>

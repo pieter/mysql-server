@@ -1,9 +1,11 @@
 --source include/have_falcon.inc
 #
 # Bug #33184: Falcon regression tests fail on Mac OS XBug 
-#   simplified version of Bug #28165: Falcon: hang after select for update
+#   Simplified version of Bug #28165: Falcon: hang after select for update
+#   We provoke ER_DUP_KEY on an INSERT here, falcon_bug_33184.test
+#   provokes an ER_DUP_KEY with an UPDATE.
 #
---echo *** Bug #33184 ***
+--echo *** Bug #33184_II ***
 
 # ----------------------------------------------------- #
 # --- Initialisation                                --- #
@@ -27,7 +29,7 @@ INSERT INTO t1 VALUES (2);
 # --- Test                                          --- #
 # ----------------------------------------------------- #
 --error ER_DUP_ENTRY
-UPDATE t1 SET a = 1 WHERE a = 2;
+INSERT INTO t1 (a) VALUES (1);
 
 # ----------------------------------------------------- #
 # --- Check                                         --- #

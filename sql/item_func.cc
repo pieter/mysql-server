@@ -3372,7 +3372,7 @@ longlong Item_master_pos_wait::val_int()
   return event_count;
 }
 
-#ifdef EXTRA_DEBUG
+#ifndef DBUG_OFF
 void debug_sync_point(const char* lock_name, uint lock_timeout)
 {
   THD* thd=current_thd;

@@ -476,6 +476,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	syncResultSets.setName("Database::syncResultSets");
 	syncConnectionStatements.setName("Database::syncConnectionStatements");
 	syncScavenge.setName("Database::syncScavenge");
+	syncDDL.setName("Database::syncDDL");
 }
 
 
@@ -1377,6 +1378,7 @@ void Database::dropTable(Table * table, Transaction *transaction)
 	// OK, now make sure any records are purged out of committed transactions as well
 	
 	transactionManager->dropTable(table, transaction);
+
 	Sync sync (&syncTables, "Database::dropTable");
 	sync.lock (Exclusive);
 
@@ -1413,8 +1415,9 @@ void Database::dropTable(Table * table, Transaction *transaction)
 
 	sync.unlock();
 	
-	invalidateCompiledStatements(table);
+	sync.lock(Shared);
 	
+	invalidateCompiledStatements(table);
 	table->drop(transaction);
 	table->expunge(getSystemTransaction());
 	delete table;

@@ -2960,7 +2960,7 @@ int NfsPluginHandler::deinitSyncInfo(void *p)
 
 static void updateIndexChillThreshold(MYSQL_THD thd,
                                       struct st_mysql_sys_var *var,
-                                      void *var_ptr, void *save)
+                                      void *var_ptr, const void *save)
 {
 	// TBD; Apply this setting to all configurations associated with 'thd'.
 	//uint newFalconIndexChillThreshold = *((uint *) save);
@@ -2968,13 +2968,13 @@ static void updateIndexChillThreshold(MYSQL_THD thd,
 
 static void updateRecordChillThreshold(MYSQL_THD thd,
                                       struct st_mysql_sys_var *var,
-                                      void *var_ptr, void *save)
+                                      void *var_ptr, const void *save)
 {
 	// TBD; Apply this setting to all configurations associated with 'thd'.
 	//uint newFalconRecordChillThreshold = *((uint *) save);
 }
 
-void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
+void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, const void *save)
 {
 	falcon_consistent_read = *(my_bool*) save;
 
@@ -2985,7 +2985,7 @@ void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_v
 		isolation_levels[2] = newRepeatableRead;
 }
 
-void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, const void* save)
 {
 	falcon_record_memory_max = *(unsigned long long*) save;
 
@@ -2993,7 +2993,7 @@ void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_
 		storageHandler->setRecordMemoryMax(falcon_record_memory_max);
 }
 
-void StorageInterface::updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+void StorageInterface::updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, const void* save)
 {
 	falcon_record_scavenge_threshold = *(int*) save;
 
@@ -3001,7 +3001,7 @@ void StorageInterface::updateRecordScavengeThreshold(MYSQL_THD thd, struct st_my
 		storageHandler->setRecordScavengeThreshold(falcon_record_scavenge_threshold);
 }
 
-void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, const void* save)
 {
 	falcon_record_scavenge_floor = *(int*) save;
 
@@ -3010,7 +3010,7 @@ void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_
 }
 
 
-void StorageInterface::updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+void StorageInterface::updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, const void* save)
 {
 	falcon_debug_mask = *(uint*) save;
 	storageHandler->deleteNfsLogger(StorageInterface::logger, NULL);

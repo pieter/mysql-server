@@ -233,6 +233,8 @@ void select_describe(JOIN *join, bool need_tmp_table,bool need_order,
 static Item *remove_additional_cond(Item* conds);
 static void add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab);
 static bool test_if_ref(Item_field *left_item,Item *right_item);
+static bool replace_where_subcondition(JOIN *join, Item *old_cond, 
+                                       Item *new_cond, bool fix_fields);
 
 /*
   This is used to mark equalities that were made from i-th IN-equality.
@@ -3362,14 +3364,15 @@ bool JOIN::flatten_subqueries()
   */
   sj_subselects.sort(subq_sj_candidate_cmp);
   // #tables-in-parent-query + #tables-in-subquery < MAX_TABLES
-  /* Replace all subqueries to be flattened for Item_int(1) */
+  /* Replace all subqueries to be flattened with Item_int(1) */
   arena= thd->activate_stmt_arena_if_needed(&backup);
   for (in_subq= sj_subselects.front(); 
        in_subq != in_subq_end && 
        tables + ((*in_subq)->sj_convert_priority % MAX_TABLES) < MAX_TABLES;
        in_subq++)
   {
-    *((*in_subq)->ref_ptr)= new Item_int(1);
+    if (replace_where_subcondition(this, *in_subq, new Item_int(1), FALSE))
+      DBUG_RETURN(TRUE);
   }
  
   for (in_subq= sj_subselects.front(); 
@@ -3394,11 +3397,12 @@ bool JOIN::flatten_subqueries()
     if (res == Item_subselect::RES_ERROR)
       DBUG_RETURN(TRUE);
 
-    *((*in_subq)->ref_ptr)= (*in_subq)->substitution;
     (*in_subq)->changed= 1;
     (*in_subq)->fixed= 1;
-    if (!(*in_subq)->substitution->fixed &&
-      (*in_subq)->substitution->fix_fields(thd, (*in_subq)->ref_ptr))
+
+    Item *substitute= (*in_subq)->substitution;
+    bool do_fix_fields= !(*in_subq)->substitution->fixed;
+    if (replace_where_subcondition(this, *in_subq, substitute, do_fix_fields))
       DBUG_RETURN(TRUE);
 
     //if ((*in_subq)->fix_fields(thd, (*in_subq)->ref_ptr))
@@ -14889,6 +14893,48 @@ static bool test_if_ref(Item_field *left_item,Item *right_item)
   return 0;					// keep test
 }
 
+/**
+   @brief Replaces an expression destructively inside the expression tree of
+   the WHERE clase.
+
+   @note Because of current requirements for semijoin flattening, we do not
+   need to recurse here, hence this function will only examine the top-level
+   AND conditions. (see JOIN::prepare, comment above the line 
+   'if (do_materialize)'
+   
+   @param join The top-level query.
+   @param old_cond The expression to be replaced.
+   @param new_cond The expression to be substituted.
+   @param do_fix_fields If true, Item::fix_fields(THD*, Item**) is called for
+   the new expression.
+   @return <code>true</code> if there was an error, <code>false</code> if
+   successful.
+*/
+static bool replace_where_subcondition(JOIN *join, Item *old_cond, 
+                                       Item *new_cond, bool do_fix_fields)
+{
+  if (join->conds == old_cond) {
+    join->conds= new_cond;
+    if (do_fix_fields)
+      new_cond->fix_fields(join->thd, &join->conds);
+    return FALSE;
+  }
+  
+  if (join->conds->type() == Item::COND_ITEM) {
+    List_iterator<Item> li(*((Item_cond*)join->conds)->argument_list());
+    Item *item;
+    while ((item= li++))
+      if (item == old_cond) 
+      {
+        li.replace(new_cond);
+        if (do_fix_fields)
+          new_cond->fix_fields(join->thd, li.ref());
+        return FALSE;
+      }
+  }
+
+  return TRUE;
+}
 
 /*
   Extract a condition that can be checked after reading given table

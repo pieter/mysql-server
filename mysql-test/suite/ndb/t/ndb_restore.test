@@ -246,16 +246,21 @@ select count(*)
 select * from t10_c order by a;
 # Bug #27775 cont'd
 # - auto inc info should be correct
---replace_column 1 X 2 X 3 X 4 X 5 X 6 X 7 X 8 X 9 X 10 X 12 X 13 X 14 X 15 X 16 X 17 X 18 X
-show table status like 't1_c';
---replace_column 1 X 2 X 3 X 4 X 5 X 6 X 7 X 8 X 9 X 10 X 12 X 13 X 14 X 15 X 16 X 17 X 18 X
-show table status like 't2_c'; 
---replace_column 1 X 2 X 3 X 4 X 5 X 6 X 7 X 8 X 9 X 10 X 12 X 13 X 14 X 15 X 16 X 17 X 18 X
-show table status like 't4_c'; 
---replace_column 1 X 2 X 3 X 4 X 5 X 6 X 7 X 8 X 9 X 10 X 12 X 13 X 14 X 15 X 16 X 17 X 18 X
-show table status like 't7_c'; 
---replace_column 1 X 2 X 3 X 4 X 5 X 6 X 7 X 8 X 9 X 10 X 12 X 13 X 14 X 15 X 16 X 17 X 18 X
-show table status like 't10_c';
+select max(capgoaledatta) from t1_c;
+select auto_increment from information_schema.tables
+where table_name = 't1_c';
+select max(capgotod) from t2_c;
+select auto_increment from information_schema.tables
+where table_name = 't2_c';
+select max(capfa) from t4_c;
+select auto_increment from information_schema.tables
+where table_name = 't4_c';
+select max(dardtestard) from t7_c;
+select auto_increment from information_schema.tables
+where table_name = 't7_c';
+select max(a) from t10_c;
+select auto_increment from information_schema.tables
+where table_name = 't10_c';
 
 #
 # Try Partitioned tables as well
@@ -406,3 +411,18 @@ drop table if exists t2_c;
 --exec $NDB_TOOLS_DIR/ndb_select_all --no-defaults -d sys -D , SYSTAB_0 | grep 520093696, | sed "s/,$the_backup_id/,<the_backup_id>/"
 
 # End of 5.0 tests (4.1 test intermixed to save test time)
+
+#
+# Test restore of epoch number bug#
+#
+
+# ensure correct restore of epoch numbers in old versions
+--exec $NDB_TOOLS_DIR/ndb_restore --no-defaults --core=0 -e -b 1 -n 1 $MYSQL_TEST_DIR/std_data/ndb_backup50 >> $NDB_TOOLS_OUTPUT
+select epoch from mysql.ndb_apply_status where server_id=0;
+--exec $NDB_TOOLS_DIR/ndb_restore --no-defaults --core=0 -e -b 1 -n 1 $MYSQL_TEST_DIR/std_data/ndb_backup51 >> $NDB_TOOLS_OUTPUT
+select epoch from mysql.ndb_apply_status where server_id=0;
+# ensure correct restore of epoch numbers in current version
+# number hould be "big"
+--exec $NDB_TOOLS_DIR/ndb_restore --no-defaults --core=0 -e -b $the_backup_id -n 1 $NDB_BACKUP_DIR/BACKUP/BACKUP-$the_backup_id >> $NDB_TOOLS_OUTPUT
+# should evaluate to true == 1
+select epoch > (1 << 32) from mysql.ndb_apply_status where server_id=0;

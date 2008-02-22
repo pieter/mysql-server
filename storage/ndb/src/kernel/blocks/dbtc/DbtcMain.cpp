@@ -4108,8 +4108,7 @@ void Dbtc::sendtckeyconf(Signal* signal, UintR TcommitFlag)
   if (unlikely(!ndb_check_micro_gcp(getNodeInfo(localHostptr.i).m_version)))
   {
     jam();
-    ndbassert(Tpack6 == 0);
-    localHostptr.p->noOfWordsTCKEYCONF = TcurrLen + TpacketLen; // no gci_lo
+    ndbassert(Tpack6 == 0 || getNodeInfo(localHostptr.i).m_connected == false);
   }
 }//Dbtc::sendtckeyconf()
 
@@ -4521,7 +4520,7 @@ void Dbtc::commit020Lab(Signal* signal)
 
     if (localTcConnectptr.i != RNIL) {
       Tcount = Tcount + 1;
-      if (Tcount < 16) {
+      if (Tcount < 16 && !ERROR_INSERTED(8057)) {
         ptrCheckGuard(localTcConnectptr,
                       TtcConnectFilesize, localTcConnectRecord);
         jam();
@@ -4540,6 +4539,9 @@ void Dbtc::commit020Lab(Signal* signal)
       }//if
     } else {
       jam();
+      if (ERROR_INSERTED(8057))
+        CLEAR_ERROR_INSERT_VALUE;
+
       regApiPtr->apiConnectstate = CS_COMMIT_SENT;
       return;
     }//if
@@ -4579,7 +4581,7 @@ void Dbtc::sendCommitLqh(Signal* signal,
   if (unlikely(!ndb_check_micro_gcp(getNodeInfo(Thostptr.i).m_version)))
   {
     jam();
-    ndbassert(Tdata5 == 0);
+    ndbassert(Tdata5 == 0 || getNodeInfo(Thostptr.i).m_connected == false);
     Thostptr.p->noOfPackedWordsLqh = Tindex + 4; // no gci_lo
   }
 }//Dbtc::sendCommitLqh()
@@ -12190,8 +12192,7 @@ void Dbtc::sendTcIndxConf(Signal* signal, UintR TcommitFlag)
   if (unlikely(!ndb_check_micro_gcp(getNodeInfo(localHostptr.i).m_version)))
   {
     jam();
-    ndbassert(Tpack6 == 0);
-    localHostptr.p->noOfWordsTCINDXCONF = TcurrLen + TpacketLen; // no gci_lo
+    ndbassert(Tpack6 == 0 || getNodeInfo(localHostptr.i).m_connected == false);
   }
 }//Dbtc::sendTcIndxConf()
 

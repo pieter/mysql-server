@@ -215,7 +215,7 @@ void print_keyuse(KEYUSE *keyuse)
   const char *fieldname;
   String str(buff,(uint32) sizeof(buff), system_charset_info);
   str.length(0);
-  keyuse->val->print(&str);
+  keyuse->val->print(&str, QT_ORDINARY);
   str.append('\0');
   if (keyuse->keypart == FT_KEYPART)
     fieldname= "FT_KEYPART";

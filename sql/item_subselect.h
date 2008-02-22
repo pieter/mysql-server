@@ -619,7 +619,7 @@ public:
      having(having_arg)
   {}
   int exec();
-  void print (String *str, enum_query_type query_type);
+  virtual void print (String *str, enum_query_type query_type);
   virtual enum_engine_type engine_type() { return INDEXSUBQUERY_ENGINE; }
 };
 
@@ -676,7 +676,7 @@ public:
   void cleanup();
   int prepare() { return 0; }
   int exec();
-  void print (String *str);
+  virtual void print (String *str, enum_query_type query_type);
   uint cols()
   {
     return materialize_engine->cols();

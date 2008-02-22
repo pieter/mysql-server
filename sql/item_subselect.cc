@@ -3207,13 +3207,13 @@ err:
   Print the state of this engine into a string for debugging and views.
 */
 
-void subselect_hash_sj_engine::print(String *str)
+void subselect_hash_sj_engine::print(String *str, enum_query_type query_type)
 {
   str->append(STRING_WITH_LEN(" <materialize> ("));
-  materialize_engine->print(str);
+  materialize_engine->print(str, query_type);
   str->append(STRING_WITH_LEN(" ), "));
   if (tab)
-    subselect_uniquesubquery_engine::print(str);
+    subselect_uniquesubquery_engine::print(str, query_type);
   else
     str->append(STRING_WITH_LEN(
            "<the access method for lookups is not yet created>"

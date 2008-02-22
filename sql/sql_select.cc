@@ -3308,7 +3308,9 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
   /* Unlink the child select_lex so it doesn't show up in EXPLAIN: */
   subq_lex->master_unit()->exclude_level();
 
-  DBUG_EXECUTE("where",print_where(sj_nest->sj_on_expr,"SJ-EXPR"););
+  DBUG_EXECUTE("where",
+               print_where(sj_nest->sj_on_expr,"SJ-EXPR", QT_ORDINARY););
+
   /* Inject sj_on_expr into the parent's WHERE or ON */
   if (emb_tbl_nest)
   {
@@ -8054,10 +8056,15 @@ static void push_index_cond(JOIN_TAB *tab, uint keyno, bool other_tbls_ok)
   if (tab->table->file->index_flags(keyno, 0, 1) & HA_DO_INDEX_COND_PUSHDOWN &&
       tab->join->thd->variables.engine_condition_pushdown)
   {
-    DBUG_EXECUTE("where", print_where(tab->select_cond, "full cond"););
+    DBUG_EXECUTE("where",
+                 print_where(tab->select_cond, "full cond", QT_ORDINARY););
+
     idx_cond= make_cond_for_index(tab->select_cond, tab->table, keyno,
                                   other_tbls_ok);
-    DBUG_EXECUTE("where", print_where(idx_cond, "idx cond"););
+
+    DBUG_EXECUTE("where",
+                 print_where(idx_cond, "idx cond", QT_ORDINARY););
+
     if (idx_cond)
     {
       tab->pre_idx_push_select_cond= tab->select_cond;
@@ -8076,7 +8083,9 @@ static void push_index_cond(JOIN_TAB *tab, uint keyno, bool other_tbls_ok)
         tab->ref.disable_cache= TRUE;
 
       Item *row_cond= make_cond_remainder(tab->select_cond, TRUE);
-      DBUG_EXECUTE("where", print_where(row_cond, "remainder cond"););
+
+      DBUG_EXECUTE("where",
+                   print_where(row_cond, "remainder cond", QT_ORDINARY););
       
       if (row_cond)
       {
@@ -8094,7 +8103,11 @@ static void push_index_cond(JOIN_TAB *tab, uint keyno, bool other_tbls_ok)
         tab->select_cond= idx_remainder_cond;
       if (tab->select)
       {
-        DBUG_EXECUTE("where", print_where(tab->select->cond, "select_cond"););
+        DBUG_EXECUTE("where",
+                     print_where(tab->select->cond,
+                                 "select_cond",
+                                 QT_ORDINARY););
+
         tab->select->cond= tab->select_cond;
       }
     }

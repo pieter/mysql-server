@@ -319,7 +319,13 @@ sub mtr_report_stats ($) {
 		/Slave: Unknown error.* 1105/ or
 		/Slave: Can't drop database.* database doesn't exist/ or
                 /Slave SQL:.*(?:Error_code: \d+|Query:.*)/ or
-		/Backup:/ or /Restore:/ or
+		
+		# backup_errors test is supposed to trigger lots of backup related errors
+		($testname eq 'main.backup_errors') and
+		(
+		  /Backup:/ or /Restore:/ or /Can't open the online backup progress tables/
+		) or
+		
 		/Sort aborted/ or
 		/Time-out in NDB/ or
 		/Warning:\s+One can only use the --user.*root/ or

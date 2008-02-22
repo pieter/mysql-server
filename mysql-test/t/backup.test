@@ -1,0 +1,339 @@
+--source include/have_innodb.inc
+--source include/not_embedded.inc
+--source include/have_debug.inc
+
+connect (backup,localhost,root,,);
+connect (breakpoints,localhost,root,,);
+
+connection backup;
+
+# Setup the server to use the backup breakpoints
+SET GLOBAL debug="d,backup_debug:d,backup";
+
+--disable_warnings
+DROP DATABASE IF EXISTS db1;
+DROP DATABASE IF EXISTS db2;
+DROP DATABASE IF EXISTS db3;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_default.bak
+--enable_warnings
+
+CREATE DATABASE db1;
+CREATE DATABASE db2 CHARACTER SET=utf8;
+CREATE DATABASE db3 COLLATE latin1_bin;
+
+USE db1;
+
+CREATE TABLE `building` (
+  `dir_code` char(4),
+  `building` char(6)
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
+
+#
+# Dumping data for table `building`
+#
+
+LOCK TABLES `building` WRITE;
+INSERT INTO `building` VALUES ('N41','1300'),('N01','1453'),('M00','1000'),('N41','1301'),('N41','1305');
+UNLOCK TABLES;
+
+
+#
+# Table structure for table `directorate`
+#
+
+CREATE TABLE `directorate` (
+  `dir_code` char(4),
+  `dir_name` char(30),
+  `dir_head_id` char(9)
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
+
+#
+# Dumping data for table `directorate`
+#
+
+LOCK TABLES `directorate` WRITE;
+INSERT INTO `directorate` VALUES ('N41','Development','333445555'),('N01','Human Resources','123654321'),('M00','Management','333444444');
+UNLOCK TABLES;
+
+USE db2;
+
+#
+# Table structure for table `staff`
+#
+
+CREATE TABLE `staff` (
+  `id` char(9),
+  `first_name` char(20),
+  `mid_name` char(20),
+  `last_name` char(30),
+  `sex` char(1),
+  `salary` int(11),
+  `mgr_id` char(9)
+) ENGINE=MYISAM DEFAULT CHARSET=latin1;
+
+#
+# Dumping data for table `staff`
+#
+
+LOCK TABLES `staff` WRITE;
+INSERT INTO `staff` VALUES ('333445555','John','Q','Smith','M',30000,'333444444'),('123763153','William','E','Walters','M',25000,'123654321'),('333444444','Alicia','F','St.Cruz','F',25000,NULL),('921312388','Goy','X','Hong','F',40000,'123654321'),('800122337','Rajesh','G','Kardakarna','M',38000,'333445555'),('820123637','Monty','C','Smythe','M',38000,'333445555'),('830132335','Richard','E','Jones','M',38000,'333445555'),('333445665','Edward','E','Engles','M',25000,'333445555'),('123654321','Beware','D','Borg','F',55000,'333444444'),('123456789','Wilma','N','Maxima','F',43000,'333445555');
+UNLOCK TABLES;
+
+#
+# Table structure for table `tasking`
+#
+
+CREATE TABLE `tasking` (
+  `id` char(9),
+  `project_number` char(9),
+  `hours_worked` double(10,2)
+) ENGINE=blackhole DEFAULT CHARSET=latin1;
+
+#
+# Dumping data for table `tasking`
+#
+
+LOCK TABLES `tasking` WRITE;
+INSERT INTO `tasking` VALUES ('333445555','405',23),('123763153','405',33.5),('921312388','601',44),('800122337','300',13),('820123637','300',9.5),('830132335','401',8.5),('333445555','300',11),('921312388','500',13),('800122337','300',44),('820123637','401',500.5),('830132335','400',12),('333445665','600',300.25),('123654321','607',444.75),('123456789','300',1000);
+UNLOCK TABLES;
+
+#
+# Get a lock to check for locking thread in process list
+# Note that this portion of the test is designed to merely
+# test that the locking thread code is correctly displayed
+# in the process list and not a complete test of the locking
+# thread code.
+#
+connection breakpoints;
+--echo breakpoints: Getting lock "locking_thread_added"
+SELECT get_lock("locking_thread_added", 100);
+
+connection backup;
+--echo backup: Send the backup command.
+send BACKUP DATABASE db1,db2 TO 'test.ba';
+
+# get the lock and wait until lock is identified in process list
+connection breakpoints;
+--echo breakpoints: Check for lock in process list.
+
+# Wait for lock to be acquired and execution to reach breakpoint
+--echo breakpoints: Checking locks.
+let $wait_condition = SELECT count(*) = 1
+                      FROM INFORMATION_SCHEMA.PROCESSLIST
+                      WHERE info LIKE "default driver locking thread%";
+--source include/wait_condition.inc
+
+--replace_column 1 #
+query_vertical SELECT id, command, state, info FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE info LIKE "BACKUP DATABASE%" OR info LIKE "default driver locking thread%";
+
+--echo breakpoints: Release lock
+SELECT release_lock("locking_thread_added");
+
+# reattach to backup job
+connection backup;
+--replace_column 1 #
+reap;
+
+DROP DATABASE db1;
+DROP DATABASE db2;
+
+#Disabled until SHOW commands are implemented.
+#SHOW BACKUP 'test.ba';
+
+USE mysql;
+
+--replace_column 1 #
+RESTORE FROM 'test.ba';
+
+--remove_file $MYSQLTEST_VARDIR/master-data/test.ba
+
+SHOW CREATE DATABASE db1;
+SHOW CREATE DATABASE db2;
+SHOW CREATE DATABASE db3;
+
+USE db1;
+SHOW TABLES;
+
+CHECK TABLE building EXTENDED;
+CHECK TABLE directorate EXTENDED;
+
+SELECT * FROM building;
+SELECT * FROM directorate;
+
+
+USE db2;
+SHOW TABLES;
+
+CHECK TABLE staff EXTENDED;
+
+SELECT * FROM staff;
+SHOW CREATE TABLE tasking;
+
+DROP DATABASE db1;
+DROP DATABASE db2;
+DROP DATABASE db3;
+
+#
+# This test is for the default and snapshot online backup drivers
+#
+
+connection backup;
+
+--disable_warnings
+DROP DATABASE IF EXISTS bup_default;
+--enable_warnings
+
+CREATE DATABASE bup_default;
+
+# Create tables and load with data.
+
+CREATE TABLE bup_default.wide (
+  `a` int(11) NOT NULL AUTO_INCREMENT,
+  `b` char(255) DEFAULT NULL,
+  `c` char(255) DEFAULT NULL,
+  `d` char(255) DEFAULT NULL,
+  `e` char(255) DEFAULT NULL,
+  `f` char(255) DEFAULT NULL,
+  `g` char(255) DEFAULT NULL,
+  `h` char(255) DEFAULT NULL,
+  `i` char(255) DEFAULT NULL,
+  `j` char(255) DEFAULT NULL,
+  `k` char(255) DEFAULT NULL,
+  `l` char(255) DEFAULT NULL,
+  `m` char(255) DEFAULT NULL,
+  `n` char(255) DEFAULT NULL,
+  `o` char(255) DEFAULT NULL,
+  `p` char(255) DEFAULT NULL,
+  `q` TEXT,
+  PRIMARY KEY (`a`)
+) ENGINE=INNODB DEFAULT CHARSET=latin1;
+
+CREATE TABLE bup_default.t1 (a int) engine=innodb;
+CREATE TABLE bup_default.t2 (a int) engine=MYISAM;
+CREATE TABLE bup_default.t1_blob (a int, b text) engine=innodb;
+
+# Insert some data.
+
+INSERT INTO bup_default.wide VALUES (
+NULL,
+"This is column b pass 01",
+"This is column c pass 01",
+"This is column d pass 01",
+"This is column e pass 01",
+"This is column f pass 01",
+"This is column g pass 01",
+"This is column h pass 01",
+"This is column i pass 01",
+"This is column j pass 01",
+"This is column k pass 01",
+"This is column l pass 01",
+"This is column m pass 01",
+"This is column n pass 01",
+"This is column o pass 01",
+"This is column p pass 01",
+"Running the server in debug:
+
+linux:/home/Chuck # mysqld-debug -u root --debug=d,enter,exit:t:F:L:g:O,/tmp/mys
+qld.trace &
+[2] 7492
+[1]   Done                    kwrite /tmp/mysqld.trace
+linux:/home/Chuck # 060601 21:18:45  InnoDB: Started; log sequence number 0 4640
+3
+060601 21:18:45 [Note] mysqld-debug: ready for connections.
+Version: '5.1.9-beta-debug-log'  socket: '/var/lib/mysql/mysql.sock'  port: 3306
+  MySQL Community Server - Debug (GPL)
+060601 21:18:57 [Note] mysqld-debug: Normal shutdown
+
+060601 21:18:59  InnoDB: Starting shutdown...
+060601 21:19:01  InnoDB: Shutdown completed; log sequence number 0 46403
+060601 21:19:01 [Note] mysqld-debug: Shutdown complete
+
+Running the client:
+
+Chuck@linux:~> mysql -uroot -p
+Enter password:");
+
+INSERT INTO bup_default.t1 VALUES (1);
+INSERT INTO bup_default.t1 VALUES (2);
+INSERT INTO bup_default.t1 VALUES (3);
+INSERT INTO bup_default.t1 VALUES (4);
+INSERT INTO bup_default.t2 VALUES (1);
+INSERT INTO bup_default.t2 VALUES (2);
+INSERT INTO bup_default.t2 VALUES (3);
+INSERT INTO bup_default.t2 VALUES (4);
+
+INSERT INTO bup_default.t1_blob VALUES (1,"Short text will fit in buffer.");
+INSERT INTO bup_default.t1_blob VALUES (2,"Replication Failover
+--------------------
+One of the greatest advantages of MySQL replication is the ability to failover in the event of a server crash. More specifically, if you need to take your master server offline you can promote one of your slaves as a master and thereby minimize the interruption to your users.
+
+Promoting a Slave to a Master
+-----------------------------
+When your master fails beyond repair, you can quickly replace it with your slave and reestablish service to your databases and applications. The process for promoting a slave to a master involves taking the master offline (if not already), flushing the logs and safely shutting down the slave, then restarting the slave to run as the master. A simplified process is shown below.
+
+1. Lock the tables on your master.
+2. Record the location of the binlog on the master for point in time recovery (if needed).
+3. Flush the logs on the slave.
+4. Shutdown the master.
+5. Shutdown the slave you want to promote.
+6. Restart the slave specifying the startup options for the master.
+
+Notes
+-----
+Your configuration may require slightly differing steps in the process to match your environment. Things to consider include how the applications connect to the server, where the data is store (NAS or other detached storage), and the mode of replication among your master and slave(s).
+
+Remember to keep the server_id the same as it was when the promoted slave was a slave!
+
+If you have applications that use embedded hostnames or IP addresses in their connections to the master, you have two choices; 1) you can change the slave's hostname and IP to that of the master and restart the server, or 2) you can redirect your clients to the promoted slave.
+
+Failover and Invoked Objects
+----------------------------
+For most applications, the failover sequence described above will get you a viable master and return your database system to service. If you use invoked objects, specifically events, the promotion of the slave to a master involves some additional steps.
+
+If you are unsure if you have any events that are replicated, you can issue the following command on the slave (you need to have privileges to run the show commands):
+
+SHOW EVENTS WHERE STATUS = 'SLAVESIDE_DISABLED';
+
+This query will list all of the events on the slave that have been replicated FROM the master. You will also see a column named ORIGINATOR that lists the server_id of the originating master. Together with the STATUS column, you can quickly determine which events need to be activated on the newly promoted slave.
+
+To turn the events on, you can create and run the following stored procedure:
+NORMAL END!");
+
+# Show the data
+
+SELECT * FROM bup_default.t1;
+SELECT * FROM bup_default.t2;
+SELECT COUNT(*) FROM bup_default.t1_blob;
+--query_vertical SELECT * FROM bup_default.t1_blob;
+SELECT COUNT(*) FROM bup_default.wide;
+--query_vertical SELECT * FROM bup_default.wide;
+
+--replace_column 1 #
+BACKUP DATABASE bup_default TO "bup_default.bak";
+
+# Now restore the database and then check to make sure the data is there.
+
+DROP DATABASE bup_default;
+
+--replace_column 1 #
+--query_vertical RESTORE FROM "bup_default.bak"
+
+# Show the data
+
+SELECT * FROM bup_default.t1;
+SELECT * FROM bup_default.t2;
+SELECT COUNT(*) FROM bup_default.t1_blob;
+--query_vertical SELECT * FROM bup_default.t1_blob;
+SELECT COUNT(*) FROM bup_default.wide;
+--query_vertical SELECT * FROM bup_default.wide;
+
+--disable_warnings
+DROP DATABASE IF EXISTS bup_default;
+--enable_warnings
+
+--remove_file $MYSQLTEST_VARDIR/master-data/bup_default.bak
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/test.ba
+

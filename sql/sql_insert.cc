@@ -61,6 +61,7 @@
 #include "sql_show.h"
 #include "slave.h"
 #include "rpl_mi.h"
+#include "backup/debug.h"
 
 #ifndef EMBEDDED_LIBRARY
 static bool delayed_get_table(THD *thd, TABLE_LIST *table_list);
@@ -611,6 +612,11 @@ bool mysql_insert(THD *thd,TABLE_LIST *table_list,
   }
   lock_type= table_list->lock_type;
 
+  /*
+    Breakpoints for backup testing.
+  */
+  BACKUP_BREAKPOINT("backup_cs_reading");
+  BACKUP_BREAKPOINT("commit_blocker_step_1");
   thd_proc_info(thd, "init");
   thd->used_tables=0;
   values= its++;

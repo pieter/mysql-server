@@ -3406,8 +3406,16 @@ void debug_sync_point(const char* lock_name, uint lock_timeout)
   /*
     Structure is now initialized.  Try to get the lock.
     Set up control struct to allow others to abort locks
-  */
-  thd_proc_info(thd, "User lock");
+
+    Note: The size for the proc_info string is set to the same
+    size as the "state" member of the processlist_fields_info
+    structure in sql_show.cc.
+
+    See processlist_fields_info[6].field_length.
+   */
+  char proc_info[64];
+  my_snprintf(proc_info, sizeof(proc_info), "debug_sync_point: %s", lock_name);
+  thd_proc_info(thd, proc_info);
   thd->mysys_var->current_mutex= &LOCK_user_locks;
   thd->mysys_var->current_cond=  &ull->cond;
 

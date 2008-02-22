@@ -1650,17 +1650,17 @@ returns char(10) return null;
 create procedure p1 (p1 float(8,5), p2 char(32), p3 varchar(10)) begin end;
 create procedure p2 (p1 enum('c', 's'), p2 blob, p3 text) begin end;
 select * from information_schema.parameters;
-SPECIFIC_CATALOG	SPECIFIC_SCHEMA	SPECIFIC_NAME	ORDINAL_POSITION	PARAMETER_MODE	PARAMETER_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	CHARACTER_SET_NAME	COLLATION_NAME	DTD_IDENTIFIER
-NULL	test	f1	0	NULL	NULL	char	10	10	NULL	NULL	latin1	latin1_swedish_ci	char(10)
-NULL	test	f1	1	IN	p1	int	NULL	NULL	10	0	NULL	NULL	int(11)
-NULL	test	f1	2	IN	p2	datetime	NULL	NULL	NULL	NULL	NULL	NULL	datetime
-NULL	test	f1	3	IN	p3	decimal	NULL	NULL	10	2	NULL	NULL	decimal(10,2)
-NULL	test	p1	1	IN	p1	float	NULL	NULL	8	5	NULL	NULL	float(8,5)
-NULL	test	p1	2	IN	p2	char	32	32	NULL	NULL	latin1	latin1_swedish_ci	char(32)
-NULL	test	p1	3	IN	p3	varchar	10	10	NULL	NULL	latin1	latin1_swedish_ci	varchar(10)
-NULL	test	p2	1	IN	p1	enum	1	1	NULL	NULL	latin1	latin1_swedish_ci	enum('c','s')
-NULL	test	p2	2	IN	p2	blob	65535	65535	NULL	NULL	NULL	NULL	blob
-NULL	test	p2	3	IN	p3	text	65535	65535	NULL	NULL	latin1	latin1_swedish_ci	text
+SPECIFIC_CATALOG	SPECIFIC_SCHEMA	SPECIFIC_NAME	ORDINAL_POSITION	PARAMETER_MODE	PARAMETER_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	CHARACTER_SET_NAME	COLLATION_NAME	DTD_IDENTIFIER	ROUTINE_TYPE
+NULL	test	f1	0	NULL	NULL	char	10	10	NULL	NULL	latin1	latin1_swedish_ci	char(10)	FUNCTION
+NULL	test	f1	1	IN	p1	int	NULL	NULL	10	0	NULL	NULL	int(11)	FUNCTION
+NULL	test	f1	2	IN	p2	datetime	NULL	NULL	NULL	NULL	NULL	NULL	datetime	FUNCTION
+NULL	test	f1	3	IN	p3	decimal	NULL	NULL	10	2	NULL	NULL	decimal(10,2)	FUNCTION
+NULL	test	p1	1	IN	p1	float	NULL	NULL	8	5	NULL	NULL	float(8,5)	PROCEDURE
+NULL	test	p1	2	IN	p2	char	32	32	NULL	NULL	latin1	latin1_swedish_ci	char(32)	PROCEDURE
+NULL	test	p1	3	IN	p3	varchar	10	10	NULL	NULL	latin1	latin1_swedish_ci	varchar(10)	PROCEDURE
+NULL	test	p2	1	IN	p1	enum	1	1	NULL	NULL	latin1	latin1_swedish_ci	enum('c','s')	PROCEDURE
+NULL	test	p2	2	IN	p2	blob	65535	65535	NULL	NULL	NULL	NULL	blob	PROCEDURE
+NULL	test	p2	3	IN	p3	text	65535	65535	NULL	NULL	latin1	latin1_swedish_ci	text	PROCEDURE
 select data_type, character_maximum_length,
 character_octet_length, numeric_precision,
 numeric_scale, character_set_name,

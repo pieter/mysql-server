@@ -4168,13 +4168,16 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
   {
     Field *field;
     Create_field *field_def;
-
+    String tmp_string;
     if (routine_type == TYPE_ENUM_FUNCTION)
     {
       restore_record(table, s->default_values);
       table->field[1]->store(sp_db.ptr(), sp_db.length(), cs);
       table->field[2]->store(sp_name.ptr(), sp_name.length(), cs);
       table->field[3]->store((longlong) 0, TRUE);
+      get_field(thd->mem_root, proc_table->field[MYSQL_PROC_MYSQL_TYPE],
+                &tmp_string);
+      table->field[14]->store(tmp_string.ptr(), tmp_string.length(), cs);
       field_def= &sp->m_return_field_def;
       field= make_field(&share, (uchar*) 0, field_def->length,
                         (uchar*) "", 0, field_def->pack_flag,
@@ -4224,6 +4227,9 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
       table->field[4]->set_notnull();
       table->field[5]->store(spvar->name.str, spvar->name.length, cs);
       table->field[5]->set_notnull();
+      get_field(thd->mem_root, proc_table->field[MYSQL_PROC_MYSQL_TYPE],
+                &tmp_string);
+      table->field[14]->store(tmp_string.ptr(), tmp_string.length(), cs);
 
       field= make_field(&share, (uchar*) 0, field_def->length,
                         (uchar*) "", 0, field_def->pack_flag,
@@ -6868,6 +6874,7 @@ ST_FIELD_INFO parameters_fields_info[]=
   {"CHARACTER_SET_NAME", 64, MYSQL_TYPE_STRING, 0, 1, 0, OPEN_FULL_TABLE},
   {"COLLATION_NAME", 64, MYSQL_TYPE_STRING, 0, 1, 0, OPEN_FULL_TABLE},
   {"DTD_IDENTIFIER", 65535, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE},
+  {"ROUTINE_TYPE", 9, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE}
 };
 

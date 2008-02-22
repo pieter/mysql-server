@@ -16,7 +16,6 @@ federated_transactions   : Bug#29523 Transactions do not work
 subselect2 : BUG#31464 SergeyP will fix
 log_tables : BUG#31580 1007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
 show_check      : Bug #32682    Test show_check fails in 6.0
-events                   : Bug#32664 events.test fails randomly
 lowercase_table3         : Bug#32667 lowercase_table3.test reports to error log
 innodb_mysql         : Bug#32724: innodb_mysql.test fails randomly
 events_bugs          : Bug#32771 events_bugs.test fails randomly

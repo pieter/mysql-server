@@ -49,3 +49,4 @@ ps_8falcon	    : Bug #32683  	Test ps_8falcon fails in 6.0
 falcon_bug_22173a    : Bug#32963: falcon_bug_22173a fails
 falcon_read-committed: Bug#32992: falcon_read-committed.test causes a server crash occasionally
 falcon_ts            : Bug#32993: falcon_ts.test fails sporadically
+falcon_bug_30826     : Bug#20129 2008-02-24 mattiasj disabled until wl#4176

@@ -1,0 +1,38 @@
+*** Bug#33041 ***
+SET @@storage_engine = 'Falcon';
+SELECT @@GLOBAL.falcon_consistent_read INTO @previous_falcon_consistent_read;
+SET GLOBAL falcon_consistent_read = OFF;
+#connect (conn1,localhost,root,,);
+#connection conn1;
+SET falcon_consistent_read = on;
+#check that it worked
+show variables like 'falcon_consistent_read';
+Variable_name	Value
+falcon_consistent_read	ON
+#verify local setting for conn1 does not affect other connections 
+#connection conn2;
+show variables like 'falcon_consistent_read';
+Variable_name	Value
+falcon_consistent_read	OFF
+#connection conn1;
+#verify that local setting does NOT affect global value
+SELECT @@GLOBAL.falcon_consistent_read;
+@@GLOBAL.falcon_consistent_read
+0
+#change global setting and verify it worked
+SET global falcon_consistent_read = on;
+SELECT @@GLOBAL.falcon_consistent_read;
+@@GLOBAL.falcon_consistent_read
+1
+#check that "set global" does  NOT affect existing connections
+#connection conn2;
+show variables like 'falcon_consistent_read';
+Variable_name	Value
+falcon_consistent_read	OFF
+#check that "set global" DOES  affect new connection
+connect (conn3,localhost,root,,);
+show variables like 'falcon_consistent_read';
+Variable_name	Value
+falcon_consistent_read	ON
+SET @@GLOBAL.falcon_consistent_read = @previous_falcon_consistent_read;
+

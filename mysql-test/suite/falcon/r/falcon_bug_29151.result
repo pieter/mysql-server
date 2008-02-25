@@ -1,6 +1,6 @@
 *** Bug #29151 ***
 SET @@storage_engine = 'Falcon';
-SET GLOBAL falcon_consistent_read = off;
+SET falcon_consistent_read = off;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (
 a int,
@@ -12,10 +12,12 @@ PRIMARY KEY (a)
 SET storage_engine = 'Falcon';
 SET @@tx_isolation = 'REPEATABLE-READ';
 SET @@autocommit = 0;
+SET falcon_consistent_read = off;
 # Establish connection conn2
 SET storage_engine = 'Falcon';
 SET @@tx_isolation = 'REPEATABLE-READ';
 SET @@autocommit = 0;
+SET falcon_consistent_read = off;
 INSERT INTO t1 VALUES(49990, 0, 'c1');
 COMMIT;
 # Switch to connection conn1
@@ -41,4 +43,3 @@ a	b	c
 COMMIT;
 # Switch to connection default
 DROP TABLE t1;
-SET GLOBAL falcon_consistent_read = on;

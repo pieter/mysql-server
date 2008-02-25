@@ -35,4 +35,3 @@ show variables like 'falcon_consistent_read';
 Variable_name	Value
 falcon_consistent_read	ON
 SET @@GLOBAL.falcon_consistent_read = @previous_falcon_consistent_read;
-

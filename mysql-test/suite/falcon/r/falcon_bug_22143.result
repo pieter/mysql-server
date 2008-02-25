@@ -1,10 +1,10 @@
-SET storage_engine = Falcon;
 *** Bug #22143 ***
+SET @@storage_engine = 'Falcon';
 DROP DATABASE IF EXISTS test2;
 CREATE DATABASE test2;
 USE test2;
 # Establish connection conn1 (user = root)
-SET storage_engine = Falcon;
+SET @@storage_engine = 'Falcon';
 USE test2;
 # Switch to connection default
 CREATE TABLE t1 (a int);
@@ -30,6 +30,10 @@ count(*)
 3
 # Switch to connection conn1
 DROP TEMPORARY TABLE t1;
+SELECT count(*) FROM t1;
+count(*)
+3
+# Switch to connection default
 SELECT count(*) FROM t1;
 count(*)
 3

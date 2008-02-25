@@ -571,8 +571,13 @@ const UCHAR* EncodedDataStream::decode(const UCHAR *ptr, Value *value, bool copy
 			u.d = 0;
 			int count = code - edsDoubleLen0;
 
+#ifdef _BIG_ENDIAN
+			for (int n = 0; n < count; ++n)
+				u.chars[n] = *p++;
+#else
 			for (int n = 0; n < count; ++n)
 				u.chars[7 - n] = *p++;
+#endif
 
 			value->setValue(u.d);
 			}
@@ -663,32 +668,38 @@ const UCHAR* EncodedDataStream::decode(const UCHAR *ptr, Value *value, bool copy
 			break;
 
 		case edsClobLen0:
+			value->setAsciiBlob(0);
+			break;
+			
 		case edsClobLen1:
 		case edsClobLen2:
 		case edsClobLen3:
 		case edsClobLen4:
 			{
-			int count = code - edsClobLen0;
-			int blobId = 0;
+			int l = code - edsClobLen1;
+			int32 blobId = (signed char) *p++;
 
-			for (int n = 0; n < count; ++n)
-				blobId = blobId << 8 | *p++;
+			for (int n = 0; n < l; ++n)
+				blobId = (blobId << 8) | *p++;
 
 			value->setAsciiBlob(blobId);
 			}
 			break;
 
 		case edsBlobLen0:
+			value->setBinaryBlob(0);
+			break;
+
 		case edsBlobLen1:
 		case edsBlobLen2:
 		case edsBlobLen3:
 		case edsBlobLen4:
 			{
-			int count = code - edsBlobLen0;
-			int blobId = 0;
+			int l = code - edsBlobLen1;
+			int32 blobId = (signed char) *p++;
 
-			for (int n = 0; n < count; ++n)
-				blobId = blobId << 8 | *p++;
+			for (int n = 0; n < l; ++n)
+				blobId = (blobId << 8) | *p++;
 
 			value->setBinaryBlob(blobId);
 			}
@@ -993,8 +1004,13 @@ DataStreamType EncodedDataStream::decode()
 			u.d = 0;
 			int count = code - edsDoubleLen0;
 
+#ifdef _BIG_ENDIAN
+			for (int n = 0; n < count; ++n)
+				u.chars[n] = *ptr++;
+#else
 			for (int n = 0; n < count; ++n)
 				u.chars[7 - n] = *ptr++;
+#endif
 
 			value.dbl = u.d;
 			type = edsTypeDouble;
@@ -1085,16 +1101,20 @@ DataStreamType EncodedDataStream::decode()
 			break;
 
 		case edsClobLen0:
+			value.blobId = 0;
+			type = edsTypeClob;
+			break;
+			
 		case edsClobLen1:
 		case edsClobLen2:
 		case edsClobLen3:
 		case edsClobLen4:
 			{
-			int count = code - edsClobLen0;
-			int32 blobId = 0;
+			int l = code - edsClobLen1;
+			int32 blobId = (signed char) *ptr++;
 
-			for (int n = 0; n < count; ++n)
-				blobId = blobId << 8 | *ptr++;
+			for (int n = 0; n < l; ++n)
+				blobId = (blobId << 8) | *ptr++;
 
 			value.blobId = blobId;
 			type = edsTypeClob;
@@ -1102,16 +1122,20 @@ DataStreamType EncodedDataStream::decode()
 			break;
 
 		case edsBlobLen0:
+			value.blobId = 0;
+			type = edsTypeBlob;
+			break;
+			
 		case edsBlobLen1:
 		case edsBlobLen2:
 		case edsBlobLen3:
 		case edsBlobLen4:
 			{
-			int count = code - edsBlobLen0;
-			int blobId = 0;
+			int l = code - edsBlobLen1;
+			int32 blobId = (signed char) *ptr++;
 
-			for (int n = 0; n < count; ++n)
-				blobId = blobId << 8 | *ptr++;
+			for (int n = 0; n < l; ++n)
+				blobId = (blobId << 8) | *ptr++;
 
 			value.blobId = blobId;
 			type = edsTypeBlob;
@@ -1262,6 +1286,17 @@ void EncodedDataStream::encodeDouble(double dbl)
 		
 	u.d = (dbl == 0 ? 0 : dbl);
 		
+#ifdef _BIG_ENDIAN
+	int count = 8;
+
+	while (count && u.chars[count - 1] == 0)
+		count--;
+
+	stream->putCharacter(edsDoubleLen0 + count);
+
+	for (int n = 0; n < count; n++)
+		stream->putCharacter(u.chars[n]);
+#else
 	int count = 0;
 
 	while (count < 8 && u.chars[count] == 0)
@@ -1271,6 +1306,7 @@ void EncodedDataStream::encodeDouble(double dbl)
 
 	for (int n = 7; n >= count; --n)
 		stream->putCharacter(u.chars[n]);
+#endif
 }
 
 void EncodedDataStream::encodeAsciiBlob(int32 blobId)

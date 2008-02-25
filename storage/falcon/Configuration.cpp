@@ -20,9 +20,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #ifndef _WIN32
 #include <unistd.h>
+#else
+#define PATH_MAX			_MAX_PATH
 #endif
 
 #ifdef __FreeBSD__
@@ -41,6 +44,10 @@
 #include "IOx.h"
 #include "ScanDir.h"
 
+#ifndef ULL
+#define ULL(a)		((uint64) a)
+#endif
+
 #ifdef STORAGE_ENGINE
 #define CONFIG_FILE	"falcon.conf"
 
@@ -51,6 +58,8 @@
 #include "StorageParameters.h"
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
+
+extern uint64		max_memory_address;
 
 extern uint64		falcon_record_memory_max;
 extern uint64		falcon_initial_allocation;
@@ -70,6 +79,10 @@ extern char*		falcon_serial_log_dir;
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
 
+// Determine the largest memory address, assume 64-bits max
+
+static const uint64 MSB = ULL(1) << ((sizeof(void *)*8 - 1) & 63);
+uint64 max_memory_address = MSB | (MSB - 1);
 #endif
 
 #ifdef _DEBUG
@@ -157,6 +170,7 @@ Configuration::Configuration(const char *configFile)
 	maxTransactionBacklog		= MAX_TRANSACTION_BACKLOG;
 #endif
 
+	maxMemoryAddress = max_memory_address;
 	javaInitialAllocation = 0;
 	javaSecondaryAllocation = 0;
 	maxThreads = 0;
@@ -339,9 +353,9 @@ uint64 Configuration::getPhysicalMemory(uint64 *available, uint64 *total)
 #ifdef __APPLE__
 	uint64_t physMem = 0;
 	mib[1] = HW_MEMSIZE;
-#elif	// __FreeBSD__
+#elif	__FreeBSD__
 	size_t physMem = 0;
-	mib[1] = HW_PHYSMEM
+	mib[1] = HW_PHYSMEM;
 #endif
     
 	len = sizeof physMem;
@@ -421,10 +435,8 @@ void Configuration::setRecordScavengeFloor(int floor)
 
 void Configuration::setRecordMemoryMax(uint64 value)
 {
-	uint64 totalMemory = getPhysicalMemory();
-	
 	recordMemoryMax = MAX(value, MIN_RECORD_MEMORY);
-	recordMemoryMax = MIN(value, totalMemory);
+	recordMemoryMax = MIN(value, maxMemoryAddress);
 	
 	setRecordScavengeThreshold(recordScavengeThresholdPct);
 	

@@ -1,5 +1,5 @@
-SET STORAGE_ENGINE = Falcon;
 *** Bug #22144 ***
+SET @@storage_engine = 'Falcon';
 DROP TABLE IF EXISTS t2;
 CREATE TABLE t2 (
 a int,
@@ -8,7 +8,7 @@ c int,
 d int,
 PRIMARY KEY(a)
 );
-INSERT INTO t2 VALUES 
+INSERT INTO t2 VALUES
 (1,1,1,1),
 (2,2,2,2),
 (3,3,3,3),
@@ -19,5 +19,8 @@ INSERT INTO t2 VALUES
 (8,8,8,8);
 EXPLAIN SELECT distinct(a) FROM t2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	index	NULL	PRIMARY	4	NULL	8	Using index
+1	SIMPLE	t2	ALL	NULL	NULL	NULL	NULL	8	
+SELECT count(*) FROM t2;
+count(*)
+8
 DROP TABLE t2;

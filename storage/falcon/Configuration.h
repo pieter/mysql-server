@@ -64,6 +64,7 @@ public:
 	short		serialLogBlockSize;
 	bool		schedulerEnabled;
 	bool		useDeferredIndexHash;
+	uint64		maxMemoryAddress;
 };
 
 #endif // !defined(AFX_CONFIGURATION_H__FE192389_82EE_4E37_BA07_19A71BCFF487__INCLUDED_)

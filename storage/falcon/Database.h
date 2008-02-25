@@ -102,6 +102,7 @@ class MemMgr;
 class RecordScavenge;
 class PriorityScheduler;
 class SQLException;
+class BackLog;
 
 struct JavaCallback;
 
@@ -218,6 +219,9 @@ public:
 	void			debugTrace(void);
 	void			pageCacheFlushed(int64 flushArg);
 	JString			setLogRoot(const char *defaultPath, bool create);
+	void			setIOError(SQLException* exception);
+	void			clearIOError(void);
+	void			flushWait(void);
 
 
 	Dbb					*dbb;
@@ -236,6 +240,7 @@ public:
 	Configuration		*configuration;
 	SerialLog			*serialLog;
 	Connection			*systemConnection;
+	BackLog				*backLog;
 	int					nextTableId;
 	bool				formatting;
 	bool				licensed;
@@ -252,12 +257,13 @@ public:
 	Applications		*applications;
 	SyncObject			syncObject;
 	SyncObject			syncTables;
-	SyncObject			syncStatements;
+	SyncObject			syncStatements;   // exclusive lock ok only if syncTables not exclusive
 	SyncObject			syncAddStatement;
 	SyncObject			syncSysConnection;
 	SyncObject			syncResultSets;
 	SyncObject			syncConnectionStatements;
 	SyncObject			syncScavenge;
+	SyncObject			syncDDL;
 	PriorityScheduler	*ioScheduler;
 	Threads				*threads;
 	Scheduler			*scheduler;
@@ -301,8 +307,6 @@ public:
 	int64				lastRecordMemory;
 	time_t				creationTime;
 	volatile time_t		lastScavenge;
-	void setIOError(SQLException* exception);
-	void clearIOError(void);
 };
 
 #endif // !defined(AFX_DATABASE_H__5EC961D1_A406_11D2_AB5B_0000C01D2301__INCLUDED_)

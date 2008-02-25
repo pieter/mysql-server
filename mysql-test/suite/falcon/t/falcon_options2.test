@@ -17,7 +17,7 @@ SELECT @@falcon_index_chill_threshold;
 SELECT @@falcon_initial_allocation;
 SELECT @@falcon_io_threads;
 SELECT @@falcon_large_blob_threshold;
-SELECT @@falcon_lock_timeout;
+SELECT @@falcon_lock_wait_timeout;
 SELECT @@falcon_max_transaction_backlog;
 SELECT @@falcon_page_cache_size;
 SELECT @@falcon_page_size;

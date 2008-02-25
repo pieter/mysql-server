@@ -36,13 +36,13 @@ enum sltState {
 class SerialLog;
 class SerialLogWindow;
 class Transaction;
+class Bitmap;
 struct SerialLogBlock;
 	
 class SerialLogTransaction //: public SerialLogAction
 {
 public:
 	virtual uint64	getBlockNumber();
-	//virtual bool	isTransaction();
 	virtual bool	completedRecovery();
 	virtual void	preRecovery();
 	virtual void	doAction();
@@ -77,6 +77,7 @@ public:
 	SerialLogTransaction	*prior;
 	SerialLogTransaction	*earlier;
 	SerialLogTransaction	*later;
+	Bitmap					*rolledBackSavepoints;
 	bool					flushing;
 	bool					ordered;
 	uint64					physicalBlockNumber;
@@ -84,6 +85,8 @@ public:
 	uint64					maxBlockNumber;
 
 	void setTransaction(Transaction* transaction);
+	void savepointRolledBack(int savepointId);
+	bool isRolledBackSavepoint(int savepointId);
 };
 
 #endif // !defined(AFX_SERIALLOGTRANSACTION_H__33E33BBC_8622_49DB_BD48_C6D51B5A1002__INCLUDED_)

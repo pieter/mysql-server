@@ -1,67 +1,74 @@
 --source include/have_falcon.inc
-SET @@storage_engine = Falcon;
 #
-# Test derived from the NIST testsuite
+# Bug #22164: ROLLBACK does not work under strange conditions
+#    Test derived from the NIST testsuite
 #
---echo #---- Bug 22164 ----
+--echo *** Bug #22164 ***
 
---disable_abort_on_error
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
 --disable_warnings
 DROP SCHEMA IF EXISTS testdb_2;
 --enable_warnings
 CREATE SCHEMA testdb_2;
 
---echo # Establish connection session2 (root)
---replace_result $MASTER_MYPORT MYSQL_PORT $MASTER_MYSOCK MYSQL_SOCK
-connect (session2,localhost,root,,test);
-SET @@storage_engine = Falcon;
+--echo # Establish connection conn1
+connect (conn1,localhost,root,,);
+eval SET @@storage_engine = $engine;
 USE testdb_2;
 
---echo #-------- Switch to connection default (root) --------
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
 connection default;
-# --source suite/nist/t/schema/schema1.mysql
 
 CREATE TABLE t2 (COL5   BIGINT);
 GRANT UPDATE (COL5) ON t2 TO testdb_2@localhost;
 
-CREATE TABLE t1( f1 BIGINT);
+CREATE TABLE t1 (f1 BIGINT);
 
-connection default;
-
---echo #-------- Switch to connection session2 (root) --------
-#--source suite/nist/t/schema/schema2.mysql
-connection session2;
+--echo # Switch to connection conn1
+connection conn1;
 
 CREATE TABLE t3 (COL5  DECIMAL(7,2));
 GRANT ALL PRIVILEGES ON t3 TO root@localhost;
 
---echo #------- Switch to connection default (root) -------
+--echo # Switch to connection default
 connection default;
-# --source suite/nist/t/sql/dml040.mysql
 SET @@autocommit = 0;
 
 INSERT INTO testdb_2.t3 SET COL5 = 100.3;
 
-#--source suite/nist/t/sql/dml045.mysql
-
 SELECT * FROM t1;
-INSERT INTO t1 VALUES( 1 );
+INSERT INTO t1 VALUES (1);
 SELECT * FROM t1;
 
 ROLLBACK WORK;
 --echo # !!! ------- Why do I get a result set after ROLLBACK ? -------- !!!
 SELECT * FROM t1;
 
-# Final cleanup.
---echo #-------- Switch to connection session2 (root) --------
-connection session2;
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection conn1
+connection conn1;
 REVOKE ALL PRIVILEGES ON t3 FROM root@localhost;
---echo #------- Switch to connection default (root) -------
+--echo # Switch to connection default
 connection default;
 REVOKE ALL PRIVILEGES ON t2 FROM testdb_2@localhost;
 DROP USER testdb_2@localhost;
 DROP SCHEMA testdb_2;
 DROP TABLE t2;
 DROP TABLE t1;
-disconnect session2;
+disconnect conn1;
 USE test;

@@ -68,6 +68,7 @@ class Index;
 class IndexKey;
 class Bitmap;
 class Dbb;
+class SerialLogWindow;
 
 class DeferredIndex
 {
@@ -121,6 +122,7 @@ public:
 	uint			sizeEstimate;
 	uint64			virtualOffset;		// virtual offset into the serial log where this DI was flushed.
 	uint64			virtualOffsetAtEnd;
+	SerialLogWindow	*window;
 };
 
 #endif

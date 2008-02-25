@@ -30,6 +30,7 @@ void SRLSession::append(int64 priorRecoveryBlock, int64 priorCheckpointBlock)
 	START_RECORD(srlSession, "SRLCheckpoint::append");
 	putInt64(priorRecoveryBlock);
 	putInt64(priorCheckpointBlock);
+	log->flush(false, log->nextBlockNumber, &sync);
 }
 
 void SRLSession::read(void)
@@ -41,4 +42,20 @@ void SRLSession::read(void)
 void SRLSession::print(void)
 {
 	logPrint("Session start recovery " I64FORMAT ", checkpoint " I64FORMAT ", \n", recoveryBlock, checkpointBlock);
+}
+
+void SRLSession::pass1(void)
+{
+	if (log->tracePage)
+		print();
+}
+
+void SRLSession::pass2(void)
+{
+	if (log->tracePage)
+		print();
+}
+
+void SRLSession::redo(void)
+{
 }

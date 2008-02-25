@@ -1,0 +1,11 @@
+*** Bug #33081 ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a char(5) CHARACTER SET ucs2);
+INSERT INTO t1 (a) VALUES ('a!'), (null);
+CREATE INDEX i1 on t1(a(1));
+ALTER TABLE t1 MODIFY COLUMN a varbinary(20);
+SELECT count(*) FROM t1;
+count(*)
+2
+DROP TABLE t1;

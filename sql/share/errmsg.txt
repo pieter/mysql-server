@@ -6242,6 +6242,8 @@ ER_BACKUP_PROGRESS_TABLES
 
 ER_TABLESPACE_EXIST
   eng "Tablespace '%-.192s' already exists"
+ER_NO_SUCH_TABLESPACE
+  eng "Tablespace '%-.192s' doesn't exist"
 ER_SLAVE_HEARTBEAT_FAILURE
   eng "Unexpected master's heartbeat data: %s"
 ER_SLAVE_HEARTBEAT_VALUE_OUT_OF_RANGE

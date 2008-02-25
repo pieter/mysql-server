@@ -111,7 +111,7 @@ Application* Applications::getApplication(const char *applicationName)
 		"select extends,classname"
 		" from system.applications where application=?");
 	statement->setString (1, applicationName);
-    int n;
+	int n;
 
 	for (n = 0; !application && n < 2; ++n)
 		{

@@ -26,7 +26,9 @@
 
 #include "SynchronizationObject.h"
 
-#ifndef INTERLOCK_TYPE
+#if !defined(INTERLOCK_TYPE) && defined(_WIN32)
+#define INTERLOCK_TYPE	long
+#elif !defined(INTERLOCK_TYPE)
 #define INTERLOCK_TYPE	int
 #endif
 
@@ -72,6 +74,7 @@ public:
 	bool		ourExclusiveLock(void);
 	void		frequentStaller(Thread *thread, Sync *sync);
 	void		setName(const char* name);
+	void		timedout(int timeout);
 
 	virtual void	unlock (Sync *sync, LockType type);
 	virtual void	lock (Sync *sync, LockType type, int timeout = 0);

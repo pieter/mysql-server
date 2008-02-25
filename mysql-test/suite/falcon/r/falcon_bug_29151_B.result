@@ -1,11 +1,12 @@
 *** Bug #29151 ***
 SET @@storage_engine = Falcon;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+SET GLOBAL falcon_consistent_read = on;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (a int, b int, c char(10), PRIMARY KEY (a));
 # Establish connection conn1
+# Establish connection conn2
 INSERT INTO t1 VALUES(490, 0, 'inserted');
-# Switch to connection default
+# Switch to connection conn1
 BEGIN;
 UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
@@ -13,18 +14,18 @@ INSERT INTO t1 VALUES(490, 1, 'inserted');
 SELECT * FROM t1;
 a	b	c
 490	1	inserted
-# Switch to connection conn1
+# Switch to connection conn2
 BEGIN;
 SELECT * FROM t1;
 a	b	c
 490	0	inserted
 UPDATE t1 SET c = 'updated' WHERE a = 490;
-# Switch to connection default
+# Switch to connection conn1
 SELECT * FROM t1;
 a	b	c
 490	1	inserted
 ROLLBACK;
-# Switch to connection conn1
+# Switch to connection conn2
 SELECT * FROM t1;
 a	b	c
 490	0	updated
@@ -38,13 +39,13 @@ BEGIN;
 UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
 INSERT INTO t1 VALUES(490, 3, 'inserted');
-# Switch to connection default
+# Switch to connection conn1
 BEGIN;
 SELECT * FROM t1;
 a	b	c
 490	2	inserted
 DELETE FROM t1 WHERE a = 490;
-# Switch to connection conn1
+# Switch to connection conn2
 SELECT * FROM t1;
 a	b	c
 490	3	inserted
@@ -52,30 +53,30 @@ ROLLBACK;
 SELECT * FROM t1;
 a	b	c
 490	2	inserted
-# Switch to connection default
+# Switch to connection conn1
 SELECT * FROM t1;
 a	b	c
 COMMIT;
 BEGIN;
 INSERT INTO t1 VALUES(490, 4, 'inserted');
-# Switch to connection conn1
+# Switch to connection conn2
 BEGIN;
 SELECT * FROM t1;
 a	b	c
 INSERT INTO t1 VALUES(490, 5, 'inserted');
-# Switch to connection default
+# Switch to connection conn1
 SELECT * FROM t1;
 a	b	c
 490	4	inserted
 ROLLBACK;
 SELECT * FROM t1;
 a	b	c
-# Switch to connection conn1
+# Switch to connection conn2
 SELECT * FROM t1;
 a	b	c
 490	5	inserted
 COMMIT;
-# Switch to connection default
+# Switch to connection conn1
 SELECT * FROM t1;
 a	b	c
 490	5	inserted

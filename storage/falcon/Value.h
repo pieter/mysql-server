@@ -39,7 +39,6 @@ class Clob;
 class Value  
 {
 public:
-	Blob*		getBlob();
 	Value (const char *string);
 
 	short		getShort(int scale = 0);
@@ -48,11 +47,16 @@ public:
 	double		getDouble();
 	int			getTruncatedString(int bufferSize, char* buffer);
 	void		getBigInt(BigInt *bigInt);
+	Blob*		getBlob();
 	Clob*		getClob();
 	TimeStamp	getTimestamp();
 	Time		getTime();
 	DateTime	getDate();
 	void		getStream (Stream *stream, bool copyFlag);
+	int64		getSeconds(void);
+	int64		getMilliseconds(void);
+	int			getNanos(void);
+	BigInt*		getBigInt(void);
 
 	const char	*getString();
 	int			getString (int bufferSize, char *buffer);
@@ -181,11 +185,6 @@ protected:
 		TimeStamp	timestamp;
 		Time		time;
 		} data;
-public:
-	int64 getSeconds(void);
-	int64 getMilliseconds(void);
-	int getNanos(void);
-	BigInt* getBigInt(void);
 };
 
 #endif // !defined(AFX_VALUE_H__02AD6A4B_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

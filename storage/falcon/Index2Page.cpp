@@ -35,6 +35,7 @@
 #include "SerialLogControl.h"
 #include "SQLError.h"
 #include "RootPage.h"
+#include "Index.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -996,7 +997,7 @@ void Index2Page::logIndexPage(Bdb *bdb, TransId transId)
 
 	ASSERT(bdb->useCount > 0);
 	Index2Page *indexPage = (Index2Page*) bdb->buffer;
-	dbb->serialLog->logControl->indexPage.append(dbb, transId, bdb->pageNumber, indexPage->level, 
+	dbb->serialLog->logControl->indexPage.append(dbb, transId, INDEX_VERSION_0, bdb->pageNumber, indexPage->level, 
 												 indexPage->parentPage, indexPage->priorPage, indexPage->nextPage,  
 												 indexPage->length - OFFSET (Index2Page*, nodes), 
 												 (const UCHAR*) indexPage->nodes);

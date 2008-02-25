@@ -1,46 +1,67 @@
 --source include/have_falcon.inc
-#--disable_abort_on_error
-SET @@storage_engine = Falcon;
 #
 # Bug #22160: REPLACE crash with two interleaving transactions
 #
 --echo *** Bug #22160 ***
 
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+SELECT @@GLOBAL.falcon_consistent_read INTO @previous_falcon_consistent_read;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+SET GLOBAL falcon_consistent_read = ON;
 
 --disable_warnings
 DROP DATABASE IF EXISTS db64;
 --enable_warnings
+
 CREATE DATABASE db64;
+USE db64;
 
+--echo # Establish connection conn1
 connect (conn1,localhost,root,,);
-SET @@storage_engine = Falcon;
+eval SET @@storage_engine = $engine;
 USE db64;
 
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
 connection default;
-USE db64;
 CREATE TABLE t1 (s1 int, primary key (s1));
 SET @@autocommit = 0;
 INSERT INTO t1 VALUES (1);
 
+--echo # Switch to connection conn1
 connection conn1;
 SET @@autocommit = 0;
 SELECT * FROM t1;
 
+--echo # Switch to connection default
 connection default;
 COMMIT;
 
+--echo # Switch to connection conn1
 connection conn1;
 --real_sleep 1
---error 1020
+--error ER_CHECKREAD
 REPLACE INTO t1 VALUES (1);
-SELECT * FROM t1;
 COMMIT;
 
-# Final cleanup
-disconnect conn1;
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+--echo # Switch to connection default
 connection default;
-DROP DATABASE db64;
-USE test;
+SELECT count(*) FROM t1;
 
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+disconnect conn1;
+DROP DATABASE db64;
+SET GLOBAL falcon_consistent_read = @previous_falcon_consistent_read;
+USE test;

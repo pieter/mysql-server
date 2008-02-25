@@ -1,7 +1,7 @@
 *** Bug #22185 ***
 SET @@storage_engine = Falcon;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+SET FALCON_CONSISTENT_READ=ON;
 DROP TABLE IF EXISTS sbtest;
 # Establish connection conn1 (user = root)
 SET @@storage_engine = Falcon;

@@ -1,10 +1,9 @@
 --source include/have_falcon.inc
 #
-# Record cache memory leak test second version. Inspired by Kevin.
+# Bug #33184: Falcon regression tests fail on Mac OS XBug 
+#   simplified version of Bug #28165: Falcon: hang after select for update
 #
-# Note: This is a smaller version of the original test so that we
-#       don't get timeouts on Pushbuild runs.
-#
+--echo *** Bug #33184 ***
 
 # ----------------------------------------------------- #
 # --- Initialisation                                --- #
@@ -16,33 +15,19 @@ eval SET @@storage_engine = $engine;
 DROP TABLE IF EXISTS t1;
 --enable_warnings
 
-CREATE TABLE t1 (c1 varchar(100));
-INSERT INTO t1 VALUES (repeat('A', 100));
-INSERT INTO t1 VALUES (repeat('B', 100));
-INSERT INTO t1 VALUES (repeat('C', 100));
-COMMIT;
+CREATE TABLE t1 (
+  a int,
+  primary key(a)
+);
+
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (2);
 
 # ----------------------------------------------------- #
 # --- Test                                          --- #
 # ----------------------------------------------------- #
---disable_query_log
-let $i= 10000;
-while ($i) 
-{
-    BEGIN;
-    UPDATE t1 SET c1 = lower(c1);
-    UPDATE t1 SET c1 = upper(c1);
-    UPDATE t1 SET c1 = lower(c1);
-    UPDATE t1 SET c1 = upper(c1);
-    UPDATE t1 SET c1 = lower(c1);
-    UPDATE t1 SET c1 = upper(c1);
-    UPDATE t1 SET c1 = lower(c1);
-    UPDATE t1 SET c1 = upper(c1);
-    COMMIT;
-
-    dec $i;
-}
---enable_query_log
+--error ER_DUP_ENTRY
+UPDATE t1 SET a = 1 WHERE a = 2;
 
 # ----------------------------------------------------- #
 # --- Check                                         --- #

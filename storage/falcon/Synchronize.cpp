@@ -20,13 +20,13 @@
 #include <stdio.h>
 
 #ifdef _WIN32
-//#include <AFX.h>
 #include <windows.h>
 #else
 #include <sys/time.h>
 #endif
 
 #ifdef _PTHREADS
+#include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
 #endif

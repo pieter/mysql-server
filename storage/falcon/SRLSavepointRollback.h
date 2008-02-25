@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 MySQL AB
+/* Copyright (C) 2008 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,6 +13,21 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#ifndef _SRL_SAVEPOINT_ROLLBACK_H_
+#define _SRL_SAVEPOINT_ROLLBACK_H_
 
-#define FALCON_VERSION	"T1.0-7"
-#define FALCON_DATE		"25 February, 2008"
+#include "SerialLogRecord.h"
+
+class SRLSavepointRollback : public SerialLogRecord
+{
+public:
+	SRLSavepointRollback(void);
+	~SRLSavepointRollback(void);
+	void append(TransId transactionId, int savepointId);
+	virtual void read(void);
+	virtual void pass1(void);
+	
+	int		savepointId;
+};
+
+#endif

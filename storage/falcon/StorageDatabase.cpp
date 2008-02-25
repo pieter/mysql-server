@@ -684,10 +684,14 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 			++numberIndexes;
 			}
 
+		Sync syncDDL (&database->syncDDL, "StorageDatabase::renameTable");
+		syncDDL.lock(Exclusive);
+		
 		Sync syncTables (&database->syncTables, "StorageDatabase::renameTable");
 		syncTables.lock (Exclusive);
-		Sync sync(&database->syncSysConnection, "StorageDatabase::renameTable");
-		sync.lock(Exclusive);
+		
+		Sync syncSysConn(&database->syncSysConnection, "StorageDatabase::renameTable");
+		syncSysConn.lock(Exclusive);
 
 		for (int n = firstIndex; n < numberIndexes; ++n)
 			{
@@ -707,8 +711,10 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 		if (sequence)
 			sequence->rename(tableName);
 
-		sync.unlock();
+		syncSysConn.unlock();
 		syncTables.unlock();
+		syncDDL.unlock();
+		
 		database->commitSystemTransaction();
 
 		return 0;

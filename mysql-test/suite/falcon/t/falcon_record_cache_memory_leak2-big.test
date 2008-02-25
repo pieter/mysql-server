@@ -1,9 +1,10 @@
 --source include/have_falcon.inc
+--source include/big_test.inc
 #
 # Record cache memory leak test second version. Inspired by Kevin.
 #
-# Note: This is a smaller version of the original test so that we
-#       don't get timeouts on Pushbuild runs.
+# Note: This is a bigger version of the original test to be
+#       used with --big-test option.
 #
 
 # ----------------------------------------------------- #
@@ -26,7 +27,7 @@ COMMIT;
 # --- Test                                          --- #
 # ----------------------------------------------------- #
 --disable_query_log
-let $i= 10000;
+let $i= 500000;
 while ($i) 
 {
     BEGIN;

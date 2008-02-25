@@ -44,6 +44,10 @@
 #include "IOx.h"
 #include "ScanDir.h"
 
+#ifndef ULL
+#define ULL(a)		((uint64) a)
+#endif
+
 #ifdef STORAGE_ENGINE
 #define CONFIG_FILE	"falcon.conf"
 
@@ -77,8 +81,8 @@ extern char*		falcon_serial_log_dir;
 
 // Determine the largest memory address, assume 64-bits max
 
-static const ulonglong MSB = ULL(1) << ((sizeof(void *)*8 - 1) & 63));
-static ulonglong max_memory_address = MSB | (MSB - 1);
+static const uint64 MSB = ULL(1) << ((sizeof(void *)*8 - 1) & 63);
+uint64 max_memory_address = MSB | (MSB - 1);
 #endif
 
 #ifdef _DEBUG

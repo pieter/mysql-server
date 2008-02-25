@@ -102,6 +102,7 @@ class MemMgr;
 class RecordScavenge;
 class PriorityScheduler;
 class SQLException;
+class BackLog;
 
 struct JavaCallback;
 
@@ -239,6 +240,7 @@ public:
 	Configuration		*configuration;
 	SerialLog			*serialLog;
 	Connection			*systemConnection;
+	BackLog				*backLog;
 	int					nextTableId;
 	bool				formatting;
 	bool				licensed;
@@ -261,6 +263,7 @@ public:
 	SyncObject			syncResultSets;
 	SyncObject			syncConnectionStatements;
 	SyncObject			syncScavenge;
+	SyncObject			syncDDL;
 	PriorityScheduler	*ioScheduler;
 	Threads				*threads;
 	Scheduler			*scheduler;

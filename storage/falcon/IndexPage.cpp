@@ -34,6 +34,7 @@
 #include "SerialLog.h"
 #include "SerialLogControl.h"
 #include "SQLError.h"
+#include "Index.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -1082,7 +1083,7 @@ void IndexPage::logIndexPage(Bdb *bdb, TransId transId)
 		}
 	***/
 	
-	dbb->serialLog->logControl->indexPage.append(dbb, transId, bdb->pageNumber, indexPage->level, 
+	dbb->serialLog->logControl->indexPage.append(dbb, transId, INDEX_VERSION_1, bdb->pageNumber, indexPage->level, 
 												 indexPage->parentPage, indexPage->priorPage, indexPage->nextPage,  
 												 indexPage->length - OFFSET (IndexPage*, nodes), 
 												 (const UCHAR*) indexPage->nodes);

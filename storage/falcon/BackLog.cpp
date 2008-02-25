@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 MySQL AB
+/* Copyright (C) 2008 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,47 +13,29 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-
-// SavePoint.cpp: implementation of the SavePoint class.
-//
-//////////////////////////////////////////////////////////////////////
-
 #include "Engine.h"
-#include "SavePoint.h"
-#include "Bitmap.h"
+#include "BackLog.h"
+#include "Database.h"
+#include "Dbb.h"
+#include "Section.h"
+#include "Index.h"
+#include "IndexRootPage.h"
+#include "Transaction.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;
 #endif
 
-
-//////////////////////////////////////////////////////////////////////
-// Construction/Destruction
-//////////////////////////////////////////////////////////////////////
-
-/***
-SavePoint::SavePoint()
+BackLog::BackLog(Database *db)
 {
+	database = db;
+	dbb = new Dbb(database);
+	section = new Section(dbb, 0, NO_TRANSACTION);
 }
 
-SavePoint::~SavePoint()
+BackLog::~BackLog(void)
 {
-
-}
-***/
-
-
-void SavePoint::setIncludedSavepoint(int savepointId)
-{
-	if (!savepoints)
-		savepoints = new Bitmap;
-	
-	savepoints->set(savepointId);
-}
-
-void SavePoint::clear(void)
-{
-	delete savepoints;
-	savepoints = NULL;
+	delete section;
+	delete dbb;
 }

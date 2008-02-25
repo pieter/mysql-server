@@ -759,7 +759,11 @@ Bdb* Dbb::getSequencePage(int sequenceId, LockType lockType, TransId transId)
 		
 		if (sequencePageNumber)
 			{
+#ifdef STORAGE_ENGINE
 			bdb = fetchPage(sequencePageNumber, PAGE_sequences, lockType);
+#else
+			bdb = fetchPage(sequencePageNumber, PAGE_any, lockType);
+#endif
 			BDB_HISTORY(bdb);
 			}
 		else
@@ -770,7 +774,11 @@ Bdb* Dbb::getSequencePage(int sequenceId, LockType lockType, TransId transId)
 			
 			if (sequencePageNumber)
 				{
+#ifdef STORAGE_ENGINE
 				bdb = fetchPage(sequencePageNumber, PAGE_sequences, lockType);
+#else
+				bdb = fetchPage(sequencePageNumber, PAGE_any, lockType);
+#endif
 				BDB_HISTORY(bdb);
 				}
 			else

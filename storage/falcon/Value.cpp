@@ -127,7 +127,7 @@ void Value::setValue(Value * value, bool copyFlag)
 
 		case Short:
 			scale = value->scale;
-			data.integer = value->data.smallInt;
+			data.smallInt = value->data.smallInt;
 			break;
 
 		case Int32:

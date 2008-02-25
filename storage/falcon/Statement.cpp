@@ -221,10 +221,13 @@ void Statement::createTable(Syntax * syntax)
 
 	if (!database->formatting)
 		{
+		Sync sync (&database->syncSysConnection, "Statement::createTable");
+		sync.lock(Exclusive);
 		Transaction *sysTransaction = database->getSystemTransaction();
 		table->create ((connection == database->systemConnection) ? "SYSTEM TABLE" : "TABLE", sysTransaction);
 		table->save();
 		database->roleModel->addUserPrivilege (connection->user, table, ALL_PRIVILEGES);
+		sync.unlock();
 		database->commitSystemTransaction();
 		}
 
@@ -708,6 +711,9 @@ void Statement::executeDDL()
 	Syntax *syntax = statement->syntax;
 	ASSERT (syntax);
 	Syntax *child;
+	
+	Sync sync(&database->syncDDL, "Statement::executeDDL");
+	sync.lock(Exclusive);
 
 	switch (syntax->type)
 		{
@@ -2773,8 +2779,11 @@ void Statement::createRepository(Syntax *syntax, bool upgrade)
 	if (sequenceName)	 
 		sequence = database->sequenceManager->findSequence (schema, sequenceName);
 
-	if (!sequence && !upgrade)
-		throw SQLEXCEPTION (DDL_ERROR, "sequence %s.%s isn't defined", schema, sequenceName);
+	if (!upgrade && !sequence)
+		if (sequenceName)
+			throw SQLEXCEPTION (DDL_ERROR, "sequence %s.%s isn't defined", schema, sequenceName);
+		else
+			throw SQLEXCEPTION (DDL_ERROR, "a sequence name is required for repository %d", schema);
 
 	if (repository)
 		{
@@ -2944,7 +2953,7 @@ void Statement::createTableSpace(Syntax *syntax)
 		initialAllocation = alloc->getUInt64();
 		
 	if (!tableSpace)
-		tableSpaceManager->createTableSpace(name, fileName, initialAllocation);
+		tableSpaceManager->createTableSpace(name, fileName, initialAllocation, false);
 }
 
 void Statement::dropTableSpace(Syntax* syntax)

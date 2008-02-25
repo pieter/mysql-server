@@ -207,7 +207,7 @@ void RecordLocatorPage::linkSpaceSlot(int from, int to)
 	VALIDIF(to == 0 || elements[to].spaceAvailable > 0);
 	
 	if (from < 0)
-		++from = 0;
+		from = 0;
 	
 	int end = (to) ? to : maxLine;
 	
@@ -385,6 +385,9 @@ void RecordLocatorPage::unlinkSpaceSlot(int slot)
 	int priorSlot;
 	int nextSlot;
 	
+	if (maxLine == 0)
+		return;
+
 	for (priorSlot = -1; (nextSlot = nextSpaceSlot(priorSlot)) >= 0 && nextSlot < slot; priorSlot = nextSlot)
 		;
 

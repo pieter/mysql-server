@@ -2,9 +2,16 @@
 #
 # Record cache memory leak test second version. Inspired by Kevin.
 #
-# Note: Do not run in ramdisk!
+# Note: This is a smaller version of the original test so that we
+#       don't get timeouts on Pushbuild runs.
 #
-SET STORAGE_ENGINE = 'Falcon';
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 --enable_warnings
@@ -15,8 +22,11 @@ INSERT INTO t1 VALUES (repeat('B', 100));
 INSERT INTO t1 VALUES (repeat('C', 100));
 COMMIT;
 
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
 --disable_query_log
-let $i= 25000;
+let $i= 10000;
 while ($i) 
 {
     BEGIN;
@@ -34,6 +44,12 @@ while ($i)
 }
 --enable_query_log
 
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT count(*) FROM t1;
 
-# Final cleanup
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
 DROP TABLE t1;

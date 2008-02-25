@@ -73,7 +73,7 @@ public:
 	void		validate(void *before);
 
 	static int		computePrefix (IndexKey *key1, IndexKey *key2);
-	static Bdb*		findLevel (Dbb *dbb, Bdb *bdb, int level, IndexKey *indexKey, int32 recordNumber);
+	static Bdb*		findLevel (Dbb *dbb, int32 indexId, Bdb *bdb, int level, IndexKey *indexKey, int32 recordNumber);
 	static Bdb*		createNewLevel (Dbb* dbb, int level, int version, TransId transId);
 	static Bdb*		createNewLevel (Dbb *dbb, int level, int version, int32 page1, int32 page2, IndexKey *key2, TransId transId);
 	static void		printPage (Bdb *bdb, bool inversion);

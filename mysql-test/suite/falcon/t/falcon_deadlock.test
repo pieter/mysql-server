@@ -1,9 +1,168 @@
-# This test was derived from innodb_deadlock.test.
-
 -- source include/have_falcon.inc
-let $engine_type = Falcon;
-
-# Can't test this with embedded server
 -- source include/not_embedded.inc
+#
+# This test was derived from innodb_deadlock.test,
+# which sources in include/deadlock.inc.
+#
+# As Falcon has different behavior than InnoDB,
+# we rewrote the parts in question.
+#
+let $engine = Falcon;
+eval SET @@storage_engine = $engine;
 
---source include/deadlock.inc
+--echo # Establish connection con1 (user=root)
+connect (con1,localhost,root,,);
+eval SET @@storage_engine = $engine;
+
+--echo # Establish connection con2 (user=root)
+connect (con2,localhost,root,,);
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+#
+# Testing of FOR UPDATE, first take.
+#
+--echo # Switch to connection con1
+connection con1;
+CREATE TABLE t1 (
+  id integer,
+  x integer
+);
+
+INSERT INTO t1 VALUES (0, 0);
+SET @@autocommit = 0;
+SELECT * FROM t1 WHERE id = 0 FOR UPDATE;
+
+--echo # Switch to connection con2
+connection con2;
+SET @@autocommit = 0;
+
+# The following query should hang because con1 is locking the record
+--send UPDATE t1 SET x = 2 WHERE id = 0;
+--real_sleep 2
+
+--echo # Switch to connection con1
+connection con1;
+UPDATE t1 SET x = 1 WHERE id = 0;
+SELECT * FROM t1;
+COMMIT;
+
+--echo # Switch to connection con2
+connection con2;
+# With Falcon we should get a
+# Record has changed since last read in table 't1' here.
+--error ER_CHECKREAD
+--reap
+ROLLBACK;
+
+--echo # Switch to connection con1
+connection con1;
+SELECT * FROM t1;
+COMMIT;
+
+DROP TABLE t1;
+
+#
+# Testing of FOR UPDATE, second take.
+#
+--echo # Switch to connection con1
+connection con1;
+CREATE TABLE t1 (
+  id integer,
+  x integer
+);
+
+CREATE TABLE t2 (
+  b integer,
+  a integer
+);
+
+INSERT INTO t1 VALUES (0, 0), (300, 300);
+INSERT INTO t2 VALUES (0, 10), (1, 20), (2, 30);
+COMMIT;
+
+SELECT * FROM t2;
+UPDATE t2 SET a = 100 WHERE b = (SELECT x FROM t1 WHERE id = b FOR UPDATE);
+SELECT * FROM t2;
+SELECT * FROM t1;
+
+--echo # Switch to connection con2
+connection con2;
+
+# The following query should hang because con1 is locking the record
+--send UPDATE t1 SET x = 2 WHERE id = 0;
+--real_sleep 2
+
+--echo # Switch to connection con1
+connection con1;
+UPDATE t1 SET x = 1 WHERE id = 0;
+SELECT * FROM t1;
+COMMIT;
+
+--echo # Switch to connection con2
+connection con2;
+--reap
+COMMIT;
+
+--echo # Switch to connection con1
+connection con1;
+SELECT * FROM t1;
+COMMIT;
+
+DROP TABLE t1;
+DROP TABLE t2;
+
+CREATE TABLE t1 (
+  id integer,
+  x integer
+);
+
+CREATE TABLE t2 (
+  b integer,
+  a integer
+);
+
+INSERT INTO t1 VALUES (0, 0), (300, 300);
+INSERT INTO t2 VALUES (0, 0), (1, 20), (2, 30);
+COMMIT;
+
+SELECT a, b FROM t2 UNION SELECT id, x FROM t1 FOR UPDATE;
+SELECT * FROM t2;
+SELECT * FROM t1;
+
+--echo # Switch to connection con2
+connection con2;
+
+# The following query should hang because con1 is locking the record
+UPDATE t2 SET a = 2 WHERE b = 0;
+SELECT * FROM t2;
+--send UPDATE t1 SET x = 2 WHERE id = 0;
+--real_sleep 2
+
+--echo # Switch to connection con1
+connection con1;
+UPDATE t1 SET x = 1 WHERE id = 0;
+SELECT * FROM t1;
+COMMIT;
+
+--echo # Switch to connection con2
+connection con2;
+--reap
+COMMIT;
+
+--echo # Switch to connection con1
+connection con1;
+SELECT * FROM t1;
+COMMIT;
+
+# Cleanup
+--echo # Switch to connection default + disconnect con1 and con2
+connection default;
+disconnect con1;
+disconnect con2;
+DROP TABLE t1,
+DROP TABLE t2;

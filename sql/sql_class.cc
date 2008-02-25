@@ -3070,8 +3070,6 @@ void xid_cache_delete(XID_STATE *xid_state)
 
 template <class RowsEventT> Rows_log_event* 
 THD::binlog_prepare_pending_rows_event(TABLE* table, uint32 serv_id,
-                                       MY_BITMAP const* cols,
-                                       size_t colcnt,
                                        size_t needed,
                                        bool is_transactional,
 				       RowsEventT *hint __attribute__((unused)))
@@ -3104,18 +3102,25 @@ THD::binlog_prepare_pending_rows_event(TABLE* table, uint32 serv_id,
     (between Write, Update and Delete), or not the same affected columns, or
     going to be too big, flush this event to disk and create a new pending
     event.
+
+    The last test is necessary for the Cluster injector to work
+    correctly. The reason is that the Cluster can inject two write
+    rows with different column bitmaps if there is an insert followed
+    by an update in the same transaction, and these are grouped into a
+    single epoch/transaction when fed to the injector.
+
+    TODO: Fix the code so that the last test can be removed.
   */
   if (!pending ||
       pending->server_id != serv_id || 
       pending->get_table_id() != table->s->table_map_id ||
       pending->get_type_code() != type_code || 
-      pending->get_data_size() + needed > opt_binlog_rows_event_max_size || 
-      pending->get_width() != colcnt ||
-      !bitmap_cmp(pending->get_cols(), cols)) 
-  {
+      pending->get_data_size() + needed > opt_binlog_rows_event_max_size ||
+      !bitmap_cmp(pending->get_cols(), table->write_set))
+    {
     /* Create a new RowsEventT... */
     Rows_log_event* const
-	ev= new RowsEventT(this, table, table->s->table_map_id, cols,
+	ev= new RowsEventT(this, table, table->s->table_map_id,
                            is_transactional);
     if (unlikely(!ev))
       DBUG_RETURN(NULL);
@@ -3141,18 +3146,15 @@ THD::binlog_prepare_pending_rows_event(TABLE* table, uint32 serv_id,
   compiling option.
 */
 template Rows_log_event*
-THD::binlog_prepare_pending_rows_event(TABLE*, uint32, MY_BITMAP const*,
-				       size_t, size_t, bool,
+THD::binlog_prepare_pending_rows_event(TABLE*, uint32, size_t, bool,
 				       Write_rows_log_event*);
 
 template Rows_log_event*
-THD::binlog_prepare_pending_rows_event(TABLE*, uint32, MY_BITMAP const*,
-				       size_t colcnt, size_t, bool,
+THD::binlog_prepare_pending_rows_event(TABLE*, uint32, size_t, bool,
 				       Delete_rows_log_event *);
 
 template Rows_log_event* 
-THD::binlog_prepare_pending_rows_event(TABLE*, uint32, MY_BITMAP const*,
-				       size_t colcnt, size_t, bool,
+THD::binlog_prepare_pending_rows_event(TABLE*, uint32, size_t, bool,
 				       Update_rows_log_event *);
 #endif
 
@@ -3344,7 +3346,6 @@ namespace {
 
 
 int THD::binlog_write_row(TABLE* table, bool is_trans, 
-                          MY_BITMAP const* cols, size_t colcnt, 
                           uchar const *record) 
 { 
   DBUG_ASSERT(current_stmt_binlog_row_based && mysql_bin_log.is_open());
@@ -3359,11 +3360,10 @@ int THD::binlog_write_row(TABLE* table, bool is_trans,
 
   uchar *row_data= memory.slot(0);
 
-  size_t const len= pack_row(table, cols, row_data, record);
+  size_t const len= pack_row(table, table->write_set, row_data, record);
 
   Rows_log_event* const ev=
-    binlog_prepare_pending_rows_event(table, server_id, cols, colcnt,
-                                      len, is_trans,
+    binlog_prepare_pending_rows_event(table, server_id, len, is_trans,
                                       static_cast<Write_rows_log_event*>(0));
 
   if (unlikely(ev == 0))
@@ -3373,7 +3373,6 @@ int THD::binlog_write_row(TABLE* table, bool is_trans,
 }
 
 int THD::binlog_update_row(TABLE* table, bool is_trans,
-                           MY_BITMAP const* cols, size_t colcnt,
                            const uchar *before_record,
                            const uchar *after_record)
 { 
@@ -3389,9 +3388,9 @@ int THD::binlog_update_row(TABLE* table, bool is_trans,
   uchar *before_row= row_data.slot(0);
   uchar *after_row= row_data.slot(1);
 
-  size_t const before_size= pack_row(table, cols, before_row,
+  size_t const before_size= pack_row(table, table->read_set, before_row,
                                         before_record);
-  size_t const after_size= pack_row(table, cols, after_row,
+  size_t const after_size= pack_row(table, table->write_set, after_row,
                                        after_record);
 
   /*
@@ -3406,7 +3405,7 @@ int THD::binlog_update_row(TABLE* table, bool is_trans,
 #endif
 
   Rows_log_event* const ev=
-    binlog_prepare_pending_rows_event(table, server_id, cols, colcnt,
+    binlog_prepare_pending_rows_event(table, server_id,
 				      before_size + after_size, is_trans,
 				      static_cast<Update_rows_log_event*>(0));
 
@@ -3419,7 +3418,6 @@ int THD::binlog_update_row(TABLE* table, bool is_trans,
 }
 
 int THD::binlog_delete_row(TABLE* table, bool is_trans, 
-                           MY_BITMAP const* cols, size_t colcnt,
                            uchar const *record)
 { 
   DBUG_ASSERT(current_stmt_binlog_row_based && mysql_bin_log.is_open());
@@ -3434,11 +3432,11 @@ int THD::binlog_delete_row(TABLE* table, bool is_trans,
 
   uchar *row_data= memory.slot(0);
 
-  size_t const len= pack_row(table, cols, row_data, record);
+  DBUG_DUMP("table->read_set", (uchar*) table->read_set->bitmap, (table->s->fields + 7) / 8);
+  size_t const len= pack_row(table, table->read_set, row_data, record);
 
   Rows_log_event* const ev=
-    binlog_prepare_pending_rows_event(table, server_id, cols, colcnt,
-				      len, is_trans,
+    binlog_prepare_pending_rows_event(table, server_id, len, is_trans,
 				      static_cast<Delete_rows_log_event*>(0));
 
   if (unlikely(ev == 0))

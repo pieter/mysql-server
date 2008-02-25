@@ -52,6 +52,7 @@
 #include "IndexKey.h"
 #include "IndexNode.h"
 #include "DatabaseClone.h"
+#include "Table.h"
 
 //#define STOP_RECORD	123
 //#define TRACE_PAGE	109
@@ -152,12 +153,22 @@ Cache* Dbb::create(const char * fileName, int pageSz, int64 cacheSize, FileType 
 	odsVersion = ODS_VERSION;
 	odsMinorVersion = ODS_MINOR_VERSION;
 	sequence = 1;
-	createFile(fileName, initialAllocation);
+
 	init (pageSz, (int) ((cacheSize + pageSz - 1) / pageSz));
-	Hdr::create (this, fileType, transId, logRoot);
-	PageInventoryPage::create (this, transId);
-	SectionRootPage::create (this, transId);
-	IndexRootPage::create (this, transId);
+	createFile(fileName, initialAllocation);
+	try
+		{
+		Hdr::create (this, fileType, transId, logRoot);
+		PageInventoryPage::create (this, transId);
+		SectionRootPage::create (this, transId);
+		IndexRootPage::create (this, transId);
+		}
+	catch(...)
+		{
+		closeFile();
+		deleteFile();
+		throw;
+		}
 
 	return cache;
 }
@@ -389,12 +400,26 @@ int32 Dbb::findNextRecord(Section *section, int32 startingRecord, Stream *stream
 	return section->findNextRecord(startingRecord, stream);
 }
 
-int32 Dbb::createIndex(TransId transId)
+int32 Dbb::createIndex(TransId transId, int indexVersion)
 {
-	int indexId = IndexRootPage::createIndex(this, transId);
+	int indexId;
+	
+	switch (indexVersion)
+		{
+		case INDEX_VERSION_0:
+			indexId = Index2RootPage::createIndex(this, transId);
+			break;
+		
+		case INDEX_VERSION_1:
+			indexId = IndexRootPage::createIndex(this, transId);
+			break;
+		
+		default:
+			ASSERT(false);
+		}
 
 	if (serialLog)
-		serialLog->logControl->createIndex.append(this, transId, indexId, INDEX_CURRENT_VERSION);
+		serialLog->logControl->createIndex.append(this, transId, indexId, indexVersion);
 
 	return indexId;
 }
@@ -454,7 +479,7 @@ Cache* Dbb::open(const char * fileName, int64 cacheSize, TransId transId)
 	while (n && !(n & 1))
 		n >>= 1;
 		
-	if (n != 1)
+	if (n != 1 || header.pageSize < 1024)
 		{
 		skewHeader(&header);
 		headerSkew = true;
@@ -734,7 +759,11 @@ Bdb* Dbb::getSequencePage(int sequenceId, LockType lockType, TransId transId)
 		
 		if (sequencePageNumber)
 			{
+#ifdef STORAGE_ENGINE
 			bdb = fetchPage(sequencePageNumber, PAGE_sequences, lockType);
+#else
+			bdb = fetchPage(sequencePageNumber, PAGE_any, lockType);
+#endif
 			BDB_HISTORY(bdb);
 			}
 		else
@@ -745,7 +774,11 @@ Bdb* Dbb::getSequencePage(int sequenceId, LockType lockType, TransId transId)
 			
 			if (sequencePageNumber)
 				{
+#ifdef STORAGE_ENGINE
 				bdb = fetchPage(sequencePageNumber, PAGE_sequences, lockType);
+#else
+				bdb = fetchPage(sequencePageNumber, PAGE_any, lockType);
+#endif
 				BDB_HISTORY(bdb);
 				}
 			else

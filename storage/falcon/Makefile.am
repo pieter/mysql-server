@@ -26,7 +26,9 @@ INCLUDES= -I$(top_srcdir)/include -I$(top_builddir)/include \
 	  -I$(srcdir) -I$(srcdir)/TransformLib @ZLIB_INCLUDES@
 
 falcon_headers= Agent.h Alias.h Application.h \
-		AsciiBlob.h BDB.h \
+		AsciiBlob.h \
+		BackLog.h \
+		BDB.h \
 		BigInt.h \
 		BigInteger.h \
 		BinaryBlob.h Bitmap.h Blob.h BlobReference.h Btn.h Cache.h \
@@ -145,6 +147,7 @@ falcon_headers= Agent.h Alias.h Application.h \
 		SRLOverflowPages.h \
 		SRLPrepare.h \
 		SRLRecordLocator.h \
+		SRLSavepointRollback.h \
 		SRLSectionLine.h \
 		SRLSectionPage.h \
 		SRLSectionPromotion.h \
@@ -189,6 +192,7 @@ falcon_headers= Agent.h Alias.h Application.h \
 		WString.h
 falcon_sources= Agent.cpp Alias.cpp \
 		AsciiBlob.cpp \
+		BackLog.cpp \
 		BDB.cpp \
 		BigInt.cpp \
 		BigInteger.cpp \
@@ -314,6 +318,7 @@ falcon_sources= Agent.cpp Alias.cpp \
 		SRLRecordStub.cpp \
 		SRLRollback.cpp \
 		SRLRecordLocator.cpp \
+		SRLSavepointRollback.cpp \
 		SRLSectionLine.cpp \
 		SRLSectionPage.cpp \
 		SRLSectionPromotion.cpp \
@@ -352,7 +357,8 @@ falcon_sources= Agent.cpp Alias.cpp \
 		UserRole.cpp Validation.cpp Value.cpp ValueEx.cpp Values.cpp \
 		ValueSet.cpp View.cpp WString.cpp
 
-noinst_HEADERS=		$(falcon_headers)
+noinst_HEADERS=	$(falcon_headers) \
+		falcon_probes.h
 
 EXTRA_LTLIBRARIES=	ha_falcon.la
 pkglib_LTLIBRARIES=	@plugin_falcon_shared_target@
@@ -361,6 +367,11 @@ ha_falcon_la_CXXFLAGS=	$(AM_CXXFLAGS) -DMYSQL_DYNAMIC_PLUGIN
 ha_falcon_la_CFLAGS=	$(AM_CFLAGS) -DMYSQL_DYNAMIC_PLUGIN
 ha_falcon_la_LIBADD=	TransformLib/libtransform.la
 ha_falcon_la_SOURCES=	$(falcon_sources)
+
+if HAVE_DTRACE
+  ha_falcon_la_LIBADD+= falcon_probes.o
+endif
+
 
 EXTRA_LIBRARIES=	libfalcon.a libhafalcon.a
 noinst_LIBRARIES=	@plugin_falcon_static_target@
@@ -384,7 +395,17 @@ libfalcon.a:		$(libfalcon_a_LIBADD)
 		fi
 
 
-EXTRA_DIST=		CMakeLists.txt plug.in
+EXTRA_DIST=		CMakeLists.txt plug.in \
+			falcon_probes.d
+
+falcon_probes.h: falcon_probes.d
+	$(DTRACE) $(DTRACEFLAGS) -h -s falcon_probes.d
+	mv falcon_probes.h falcon_probes.h.bak
+	sed "s/#include <unistd.h>//g" falcon_probes.h.bak > falcon_probes.h
+	rm falcon_probes.h.bak
+
+falcon_probes.o:
+	$(DTRACE) $(DTRACEFLAGS) -G -s falcon_probes.d $(DTRACEFILES)
 
 # Don't update the files from bitkeeper
 %::SCCS/s.%

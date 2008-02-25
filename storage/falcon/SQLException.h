@@ -67,7 +67,8 @@ enum SqlCode {
 	TABLESPACE_EXIST_ERROR		= -33,
 	TABLESPACE_NOT_EMPTY		= -34,
 	TABLESPACE_NOT_EXIST_ERROR	= -35,
-	DEVICE_FULL					= -36
+	DEVICE_FULL					= -36,
+	FILE_ACCESS_ERROR			= -37
 	};
 
 class DllExport SQLException {

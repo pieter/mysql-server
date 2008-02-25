@@ -115,11 +115,16 @@ void IndexKey::appendNumber(double number)
 	else
 		stuff.quad ^= QUAD_CONSTANT(0xffffffffffffffff);
 
+#ifdef _BIG_ENDIAN
+	for (unsigned char *q = stuff.chars; q < stuff.chars + 8; )
+		*p++ = *q++;
+#else
 	// This loop inverts the mantissa and exponent on little-endian
 	// platforms.  Note that this won’t work on big-endian machines!
 
 	for (unsigned char *q = stuff.chars + 8; q > stuff.chars; )
 		*p++ = *--q;
+#endif
 
 	// This loop truncates trailing zeros in the mantissa.
 

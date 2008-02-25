@@ -23,6 +23,7 @@
 #include "TableSpace.h"
 #include "Database.h"
 #include "TableSpaceManager.h"
+#include "SerialLogControl.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -50,6 +51,7 @@ void SRLCreateTableSpace::append(TableSpace *tableSpace)
 	len = (int) strlen(p);
 	putInt(len);
 	putData(len, (const UCHAR*) p);
+	putInt(tableSpace->type);
 }
 
 void SRLCreateTableSpace::read()
@@ -59,11 +61,16 @@ void SRLCreateTableSpace::read()
 	name = (const char*) getData(nameLength);
 	filenameLength = getInt();
 	filename = (const char*) getData(filenameLength);
+
+	if (control->version >= srlVersion11)
+		type = getInt();
+	else
+		type = TABLESPACE_TYPE_TABLESPACE;
 }
 
 void SRLCreateTableSpace::pass1()
 {
-	log->database->tableSpaceManager->redoCreateTableSpace(tableSpaceId, nameLength, name, filenameLength, filename);
+	log->database->tableSpaceManager->redoCreateTableSpace(tableSpaceId, nameLength, name, filenameLength, filename, type);
 }
 
 void SRLCreateTableSpace::pass2()

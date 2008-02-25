@@ -431,8 +431,8 @@ enum ha_base_keytype {
                                             illegal data being read */
 #define HA_ERR_LOCK_OR_ACTIVE_TRANSACTION 173
 #define HA_ERR_ROWS_EVENT_APPLY   174    /* The event could not be processed
-                                            no other hanlder error happened */
-#define HA_ERR_LAST              174     /*Copy last error nr.*/
+#define HA_ERR_NO_SUCH_TABLESPACE 175
+#define HA_ERR_LAST               175    /*Copy last error nr.*/
 /* Add error numbers before HA_ERR_LAST and change it accordingly. */
 #define HA_ERR_ERRORS            (HA_ERR_LAST - HA_ERR_FIRST + 1)
 

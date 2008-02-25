@@ -52,7 +52,7 @@ TransactionManager::TransactionManager(Database *db)
 	rolledBackTransaction->state = RolledBack;
 	rolledBackTransaction->inList = false;
 	syncObject.setName("TransactionManager::syncObject");
-	syncInitialize.setName("TransactionManager::syncInitialize");
+	//syncInitialize.setName("TransactionManager::syncInitialize");
 }
 
 TransactionManager::~TransactionManager(void)
@@ -70,18 +70,28 @@ TransactionManager::~TransactionManager(void)
 
 TransId TransactionManager::findOldestActive()
 {
-	Sync sync (&activeTransactions.syncObject, "TransactionManager::findOldestActive");
-	sync.lock (Shared);
+	Sync syncCommitted(&committedTransactions.syncObject, "TransactionManager::findOldestActive");
+	syncCommitted.lock(Shared);
+	TransId oldestActive = transactionSequence;
+	
+	for (Transaction *trans = committedTransactions.first; trans; trans = trans->next)
+		oldestActive = MIN(trans->transactionId, oldestActive);
+
+	syncCommitted.unlock();
+	Sync sync(&activeTransactions.syncObject, "TransactionManager::findOldestActive");
+	sync.lock(Shared);
 	Transaction *oldest = findOldest();
 
 	if (oldest)
 		{
-		//oldest->scavenged = false;
-	
-		return oldest->oldestActive;
+		//Log::debug("Oldest transaction %d, oldest ancestor %d, oldest committed %d\n",  oldest->transactionId, oldest->oldestActive, oldestActive);
+					
+		return MIN(oldest->oldestActive, oldestActive);
 		}
-		
-	return transactionSequence;
+	
+	//Log::debug("No active, current %d, oldest committed %d\n", transactionSequence, oldestActive);
+	
+	return oldestActive;
 }
 
 Transaction* TransactionManager::findOldest(void)
@@ -99,35 +109,36 @@ Transaction* TransactionManager::startTransaction(Connection* connection)
 {
 	Sync sync (&activeTransactions.syncObject, "Database::startTransaction");
 	sync.lock (Shared);
-	Sync syncInit(&syncInitialize, "TransactionManager::startTransaction");
+	//Sync syncInit(&syncInitialize, "TransactionManager::startTransaction");
 	Transaction *transaction;
-	
+
 	for (transaction = activeTransactions.first; transaction; transaction = transaction->next)
 		if (transaction->state == Available && transaction->dependencies == 0)
 			if (COMPARE_EXCHANGE(&transaction->state, Available, Initializing))
 				{
-				syncInit.lock(Exclusive);
-				transaction->initialize(connection, ++transactionSequence);
-				
+				//syncInit.lock(Exclusive);
+				transaction->initialize(connection, INTERLOCKED_INCREMENT(transactionSequence));
+
 				return transaction;
 				}
-				
+
 	sync.unlock();
 	sync.lock(Exclusive);
-	syncInit.lock(Exclusive);
-	transaction = new Transaction (connection, ++transactionSequence);
+	//syncInit.lock(Exclusive);
+
+	transaction = new Transaction (connection, INTERLOCKED_INCREMENT(transactionSequence));
 	activeTransactions.append(transaction);
-	syncInit.unlock();
+	//syncInit.unlock();
 
 	// And, just for yucks, add another 10 Available transactions
-	
+
 	for (int n = 0; n < EXTRA_TRANSACTIONS; ++n)
 		{
 		Transaction *trans = new Transaction(connection, 0);
 		activeTransactions.append(trans);
 		}
-	
-	return transaction;	
+
+	return transaction;
 }
 
 void TransactionManager::dropTable(Table* table, Transaction* transaction)
@@ -322,7 +333,7 @@ void TransactionManager::getSummaryInfo(InfoTable* infoTable)
 	sync.unlock();
 	
 	int n = 0;
-	infoTable->putString(n++, database->name);
+//	infoTable->putString(n++, database->name);
 	infoTable->putInt(n++, numberCommitted);
 	infoTable->putInt(n++, numberRolledBack);
 	infoTable->putInt(n++, numberActive);
@@ -369,26 +380,27 @@ void TransactionManager::removeCommittedTransaction(Transaction* transaction)
 
 void TransactionManager::expungeTransaction(Transaction *transaction)
 {
-	Sync sync(&syncInitialize, "TransactionManager::expungeTransaction");
-	sync.lock(Shared);
+	Sync syncActiveTrans(&activeTransactions.syncObject, "TransactionManager::removeTransaction");
+	syncActiveTrans.lock(Shared);
 
 	for (Transaction *trans = activeTransactions.first; trans; trans = trans->next)
-		if (trans->transactionId > transaction->transactionId)
+		if ((trans->state != Available && trans->state != Initializing))
+			 //&& trans->transactionId > transaction->transactionId)
 			trans->expungeTransaction(transaction);
 }
 
 Transaction* TransactionManager::findTransaction(TransId transactionId)
 {
-	Sync sync(&committedTransactions.syncObject, "TransactionManager::findTransaction");
-	sync.lock(Shared);
+	Sync syncActiveTrans(&activeTransactions.syncObject, "TransactionManager::findTransaction");
+	syncActiveTrans.lock(Shared);
 	Transaction *transaction;
 
 	for (transaction = activeTransactions.first; transaction; transaction = transaction->next)
 		if (transaction->transactionId == transactionId)
 			return transaction;
 	
-	sync.unlock();
-	Sync syncCommitted(&committedTransactions.syncObject, "TransactionManager::findTransaction");
+	syncActiveTrans.unlock();
+	Sync syncCommitted(&committedTransactions.syncObject, "TransactionManager::findTransaction(2)");
 	syncCommitted.lock(Shared);
 
 	for (transaction = committedTransactions.first; transaction; transaction = transaction->next)

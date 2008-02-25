@@ -31,6 +31,7 @@
 #define socket_t	SOCKET
 #else
 #define socket_t	int
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #endif

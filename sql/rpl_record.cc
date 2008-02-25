@@ -75,15 +75,20 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
   unsigned int null_bits= (1U << 8) - 1;
   // Mask to mask out the correct but among the null bits
   unsigned int null_mask= 1U;
+  DBUG_PRINT("debug", ("null ptr: 0x%lx; row start: %p; null bytes: %d",
+                       (ulong) null_ptr, row_data, null_byte_count));
+  DBUG_PRINT_BITSET("debug", "cols: %s", cols);
   for ( ; (field= *p_field) ; p_field++)
   {
-    DBUG_PRINT("debug", ("null_mask=%d; null_ptr=%p; row_data=%p; null_byte_count=%d",
-                         null_mask, null_ptr, row_data, null_byte_count));
+    DBUG_PRINT("debug", ("field: %s; null mask: 0x%x",
+                         field->field_name, null_mask));
     if (bitmap_is_set(cols, p_field - table->field))
     {
       my_ptrdiff_t offset;
       if (field->is_null(rec_offset))
       {
+        DBUG_PRINT("debug", ("Is NULL; null_mask: 0x%x; null_bits: 0x%x",
+                             null_mask, null_bits));
         offset= def_offset;
         null_bits |= null_mask;
       }
@@ -104,9 +109,9 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
 #endif
         pack_ptr= field->pack(pack_ptr, field->ptr + offset,
                               field->max_data_length(), TRUE);
-        DBUG_PRINT("debug", ("field: %s; pack_ptr: 0x%lx;"
+        DBUG_PRINT("debug", ("Packed into row; pack_ptr: 0x%lx;"
                              " pack_ptr':0x%lx; bytes: %d",
-                             field->field_name, (ulong) old_pack_ptr,
+                             (ulong) old_pack_ptr,
                              (ulong) pack_ptr,
                              (int) (pack_ptr - old_pack_ptr)));
       }
@@ -120,6 +125,12 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
         null_bits= (1U << 8) - 1;
       }
     }
+#ifndef DBUG_OFF
+    else
+    {
+      DBUG_PRINT("debug", ("Skipped"));
+    }
+#endif
   }
 
   /*
@@ -202,9 +213,16 @@ unpack_row(Relay_log_info const *rli,
   unsigned int null_bits= *null_ptr++;
   uint i= 0;
   table_def *tabledef= ((Relay_log_info*)rli)->get_tabledef(table);
+  DBUG_PRINT_BITSET("debug", "cols: %s", cols);
   for (field_ptr= begin_ptr ; field_ptr < end_ptr && *field_ptr ; ++field_ptr)
   {
     Field *const f= *field_ptr;
+
+    DBUG_PRINT("debug", ("%sfield: %s; null mask: 0x%x; null bits: 0x%lx;"
+                         " row start: %p; null bytes: %ld",
+                         bitmap_is_set(cols, field_ptr -  begin_ptr) ? "+" : "-",
+                         f->field_name, null_mask, (ulong) null_bits,
+                         pack_ptr, (ulong) master_null_byte_count));
 
     /*
       No need to bother about columns that does not exist: they have
@@ -225,7 +243,12 @@ unpack_row(Relay_log_info const *rli,
       DBUG_ASSERT(pack_ptr != NULL);
 
       if ((null_bits & null_mask) && f->maybe_null())
+      {
+        DBUG_PRINT("debug", ("Was NULL; null mask: 0x%x; null bits: 0x%x",
+                             null_mask, null_bits));
+
         f->set_null();
+      }
       else
       {
         f->set_notnull();
@@ -240,15 +263,20 @@ unpack_row(Relay_log_info const *rli,
         uchar const *const old_pack_ptr= pack_ptr;
 #endif
         pack_ptr= f->unpack(f->ptr, pack_ptr, metadata, TRUE);
-	DBUG_PRINT("debug", ("field: %s; metadata: 0x%x;"
+	DBUG_PRINT("debug", ("Unpacked; metadata: 0x%x;"
                              " pack_ptr: 0x%lx; pack_ptr': 0x%lx; bytes: %d",
-                             f->field_name, metadata,
-                             (ulong) old_pack_ptr, (ulong) pack_ptr,
+                             metadata, (ulong) old_pack_ptr, (ulong) pack_ptr,
                              (int) (pack_ptr - old_pack_ptr)));
       }
 
       null_mask <<= 1;
     }
+#ifndef DBUG_OFF
+    else
+    {
+      DBUG_PRINT("debug", ("Non-existent: skipped"));
+    }
+#endif
     i++;
   }
 
@@ -300,46 +328,70 @@ unpack_row(Relay_log_info const *rli,
   First @c empty_record() is called and then, additionally, fields are
   initialized explicitly with a call to @c set_default().
 
-  For optimization reasons, the explicit initialization can be skipped for
-  first @c skip fields. This is useful if later we are going to fill these 
-  fields from other source (e.g. from a Rows replication event).
+  For optimization reasons, the explicit initialization can be skipped
+  for fields that are not marked in the @c cols vector. These fields
+  will be set later, and filling them with default values is
+  unnecessary.
 
-  If @c check is true, fields are explicitly initialized only if they have
-  default value or can be NULL. Otherwise error is reported.
- 
-  @param table  Table whose record[0] buffer is prepared. 
-  @param skip   Number of columns for which default value initialization 
-                should be skipped.
-  @param check  Indicates if errors should be checked when setting default
-                values.
-                
-  @returns 0 on success or a handler level error code
+  If @c check is true, fields are explicitly initialized only if they
+  have default value or can be NULL. Otherwise error is reported. If
+  @c check is false, no error is reported and the field is not set to
+  any value.
+
+  @todo When flag is added to allow engine to handle default values
+  itself, the record should not be emptied and default values not set.
+
+  @param log[in]       Used to report errors.
+  @param table[in,out] Table whose record[0] buffer is prepared. 
+  @param cols[in]      Vector of bits denoting columns that will be set
+                       elsewhere
+  @param check[in]     Indicates if errors should be checked when setting default
+                       values.
+
+  @retval 0                       Success
+  @retval ER_NO_DEFAULT_FOR_FIELD Default value could not be set for a field
  */ 
 int prepare_record(TABLE *const table, 
-                   const uint skip, const bool check)
+                   const MY_BITMAP *cols, uint width, const bool check)
 {
   DBUG_ENTER("prepare_record");
 
   int error= 0;
   empty_record(table);
 
-  if (skip >= table->s->fields)  // nothing to do
-    DBUG_RETURN(0);
+  /*
+    Explicit initialization of fields. For fields that are not in the
+    cols for the row, we set them to default. If the fields are in
+    addition to what exists on the master, we give an error if the
+    have no sensible default.
+  */
 
-  /* Explicit initialization of fields */
-
-  for (Field **field_ptr= table->field+skip ; *field_ptr ; ++field_ptr)
+  DBUG_PRINT_BITSET("debug", "cols: %s", cols);
+  for (Field **field_ptr= table->field ; *field_ptr ; ++field_ptr)
   {
-    uint32 const mask= NOT_NULL_FLAG | NO_DEFAULT_VALUE_FLAG;
-    Field *const f= *field_ptr;
-
-    if (check && ((f->flags & mask) == mask))
+    if ((uint) (field_ptr - table->field) >= cols->n_bits ||
+        !bitmap_is_set(cols, field_ptr - table->field))
     {
-      my_error(ER_NO_DEFAULT_FOR_FIELD, MYF(0), f->field_name);
-      error = HA_ERR_ROWS_EVENT_APPLY;
+      uint32 const mask= NOT_NULL_FLAG | NO_DEFAULT_VALUE_FLAG;
+      Field *const f= *field_ptr;
+
+      if (check && ((f->flags & mask) == mask))
+      {
+        DBUG_ASSERT(log);
+        error= ER_NO_DEFAULT_FOR_FIELD;
+        log->report(ERROR_LEVEL, error,
+                    "Field `%s` of table `%s`.`%s` "
+                    "has no default value and cannot be NULL",
+                    f->field_name, table->s->db.str,
+                    table->s->table_name.str);
+        my_error(error, MYF(0), f->field_name);
+      }
+      else
+      {
+        DBUG_PRINT("debug", ("Set default; field: %s", f->field_name));
+        f->set_default();
+      }
     }
-    else
-      f->set_default();
   }
 
   DBUG_RETURN(error);

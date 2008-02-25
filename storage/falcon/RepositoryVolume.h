@@ -32,6 +32,8 @@ class Database;
 class Transaction;
 class BlobReference;
 class IndexKey;
+class Section;
+class TableSpace;
 
 class RepositoryVolume  
 {
@@ -63,11 +65,15 @@ public:
 	int64 reverseKey (UCHAR *key);
 	void synchronize(Transaction *transaction);
 	void scavenge();
+	
 	int					volumeNumber;
+	int32				rootPage;
 	Repository			*repository;
 	RepositoryVolume	*collision;
+	TableSpace			*tableSpace;
 	SyncObject			syncObject;
 	JString				fileName;
+	Section				*section;
 	Dbb					*dbb;
 	Database			*database;
 	time_t				lastAccess;

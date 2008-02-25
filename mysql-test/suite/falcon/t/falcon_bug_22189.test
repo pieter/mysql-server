@@ -61,7 +61,7 @@ ROLLBACK;
 --echo # Switch to connection conn1
 connection conn1;
 INSERT INTO x1 VALUES (0,6);
---error 1062
+--error ER_DUP_ENTRY
 INSERT INTO x1 VALUES (0,6);
 
 --echo # Switch to connection default

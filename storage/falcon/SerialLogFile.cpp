@@ -75,6 +75,7 @@ SerialLogFile::SerialLogFile(Database *db)
 	offset = 0;
 	highWater = 0;
 	writePoint = 0;
+	forceFsync = false;
 	sectorSize = database->serialLogBlockSize;
 }
 
@@ -119,7 +120,7 @@ void SerialLogFile::open(JString filename, bool create)
 	sectorSize = MAX(bytesPerSector, database->serialLogBlockSize);
 #else
 
-	for (int attempt = 0; attempt < 2; ++attempt)
+	for (int attempt = 0; attempt < 3; ++attempt)
 		{
 		if (create)
 			handle = ::open(filename,  IO::getWriteMode(attempt) | O_RDWR | O_BINARY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
@@ -128,6 +129,9 @@ void SerialLogFile::open(JString filename, bool create)
 
 		if (handle > 0)
 			break;
+		
+		if (attempt == 1)
+			forceFsync = true;
 		}
 
 	if (handle <= 0)		
@@ -219,6 +223,9 @@ void SerialLogFile::write(int64 position, uint32 length, const SerialLogBlock *d
 		}
 
 	uint32 n = ::write(handle, data, effectiveLength);
+	
+	if (forceFsync)
+		fsync(handle);
 #endif
 
 	if (n != effectiveLength)

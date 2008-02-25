@@ -51,10 +51,10 @@ public:
 	void			printBlockage(void);
 	void			printBlocking(Transaction* transaction, int level);
 	
-	TransId			transactionSequence;
+	INTERLOCK_TYPE	transactionSequence;
 	Database		*database;
 	SyncObject		syncObject;
-	SyncObject		syncInitialize;
+	//SyncObject	syncInitialize;
 	Transaction		*rolledBackTransaction;
 	int				committed;
 	int				rolledBack;

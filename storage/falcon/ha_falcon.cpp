@@ -148,6 +148,7 @@ int StorageInterface::falcon_init(void *p)
 {
 	DBUG_ENTER("falcon_init");
 	falcon_hton = (handlerton *)p;
+	my_bool error = false;
 
 	if (!storageHandler)
 		storageHandler = getFalconStorageHandler(sizeof(THR_LOCK));
@@ -203,11 +204,30 @@ int StorageInterface::falcon_init(void *p)
 	if (falcon_debug_server)
 		storageHandler->startNfsServer();
 
-	//TimeTest timeTest;
-	//timeTest.testScaled(16, 2, 100000);
+	try
+		{
+		storageHandler->initialize();
+		}
+	catch(SQLException &e)
+		{
+		sql_print_error("Falcon : exception '%s'during initialization",
+			e.getText());
+		error = true;
+		}
+	catch(...)
+		{
+		sql_print_error(" Falcon : general exception in initialization");
+		error = true;
+		}
 
-	//pluginHandler = new NfsPluginHandler;
 
+	if (error)
+		{
+			// Cleanup after error
+			delete storageHandler;
+			storageHandler = 0;
+			DBUG_RETURN(1);
+		}
 	DBUG_RETURN(0);
 }
 
@@ -225,7 +245,7 @@ int falcon_strnxfrm (void *cs,
 {
 	CHARSET_INFO *charset = (CHARSET_INFO*) cs;
 
-	return charset->coll->strnxfrm(charset, (uchar *) dst, dstlen, nweights,
+	return (int)charset->coll->strnxfrm(charset, (uchar *) dst, dstlen, nweights,
 	                              (uchar *) src, srclen, 0);
 }
 
@@ -3080,25 +3100,19 @@ void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_v
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
 	falcon_record_memory_max = *(ulonglong*) save;
-
-	if (storageHandler)
-		storageHandler->setRecordMemoryMax(falcon_record_memory_max);
+	storageHandler->setRecordMemoryMax(falcon_record_memory_max);
 }
 
 void StorageInterface::updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
-	falcon_record_scavenge_threshold = *(int*) save;
-
-	if (storageHandler)
-		storageHandler->setRecordScavengeThreshold(falcon_record_scavenge_threshold);
+	falcon_record_scavenge_threshold = *(uint*) save;
+	storageHandler->setRecordScavengeThreshold(falcon_record_scavenge_threshold);
 }
 
 void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
-	falcon_record_scavenge_floor = *(int*) save;
-
-	if (storageHandler)
-		storageHandler->setRecordScavengeFloor(falcon_record_scavenge_floor);
+	falcon_record_scavenge_floor = *(uint*) save;
+	storageHandler->setRecordScavengeFloor(falcon_record_scavenge_floor);
 }
 
 

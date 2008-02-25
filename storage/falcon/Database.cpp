@@ -77,6 +77,7 @@
 #include "SyncTest.h"
 #include "PriorityScheduler.h"
 #include "Sequence.h"
+#include "BackLog.h"
 
 #ifdef _WIN32
 #define PATH_MAX			_MAX_PATH
@@ -459,6 +460,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	pageWriter = NULL;
 	zombieTables = NULL;
 	updateCardinality = NULL;
+	backLog = NULL;
 	ioScheduler = new PriorityScheduler;
 	lastScavenge = 0;
 	scavengeCycle = 0;
@@ -474,6 +476,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	syncResultSets.setName("Database::syncResultSets");
 	syncConnectionStatements.setName("Database::syncConnectionStatements");
 	syncScavenge.setName("Database::syncScavenge");
+	syncDDL.setName("Database::syncDDL");
 }
 
 
@@ -605,6 +608,7 @@ Database::~Database()
 	delete repositoryManager;
 	delete transactionManager;
 	delete ioScheduler;
+	delete backLog;
 }
 
 void Database::createDatabase(const char * filename)
@@ -1374,6 +1378,7 @@ void Database::dropTable(Table * table, Transaction *transaction)
 	// OK, now make sure any records are purged out of committed transactions as well
 	
 	transactionManager->dropTable(table, transaction);
+
 	Sync sync (&syncTables, "Database::dropTable");
 	sync.lock (Exclusive);
 
@@ -1410,8 +1415,9 @@ void Database::dropTable(Table * table, Transaction *transaction)
 
 	sync.unlock();
 	
-	invalidateCompiledStatements(table);
+	sync.lock(Shared);
 	
+	invalidateCompiledStatements(table);
 	table->drop(transaction);
 	table->expunge(getSystemTransaction());
 	delete table;

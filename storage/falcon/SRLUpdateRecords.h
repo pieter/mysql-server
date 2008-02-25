@@ -38,6 +38,7 @@ public:
 	
 	const UCHAR		*data;
 	int				tableSpaceId;
+	int				savepointId;
 	int				dataLength;
 };
 

@@ -25,6 +25,7 @@
 #endif // _MSC_VER > 1000
 
 class RecordVersion;
+class Bitmap;
 
 class SavePoint
 {
@@ -32,9 +33,13 @@ public:
 	//SavePoint();
 	//virtual ~SavePoint();
 
+	void setIncludedSavepoint(int savepointId);
+
 	SavePoint		*next;
+	Bitmap			*savepoints;
 	RecordVersion	**records;
 	int				id;
+	void clear(void);
 };
 
 #endif // !defined(AFX_SAVEPOINT_H__00C992AB_072D_4582_846E_5311807625B5__INCLUDED_)

@@ -26,7 +26,9 @@ INCLUDES= -I$(top_srcdir)/include -I$(top_builddir)/include \
 	  -I$(srcdir) -I$(srcdir)/TransformLib @ZLIB_INCLUDES@
 
 falcon_headers= Agent.h Alias.h Application.h \
-		AsciiBlob.h BDB.h \
+		AsciiBlob.h \
+		BackLog.h \
+		BDB.h \
 		BigInt.h \
 		BigInteger.h \
 		BinaryBlob.h Bitmap.h Blob.h BlobReference.h Btn.h Cache.h \
@@ -145,6 +147,7 @@ falcon_headers= Agent.h Alias.h Application.h \
 		SRLOverflowPages.h \
 		SRLPrepare.h \
 		SRLRecordLocator.h \
+		SRLSavepointRollback.h \
 		SRLSectionLine.h \
 		SRLSectionPage.h \
 		SRLSectionPromotion.h \
@@ -189,6 +192,7 @@ falcon_headers= Agent.h Alias.h Application.h \
 		WString.h
 falcon_sources= Agent.cpp Alias.cpp \
 		AsciiBlob.cpp \
+		BackLog.cpp \
 		BDB.cpp \
 		BigInt.cpp \
 		BigInteger.cpp \
@@ -314,6 +318,7 @@ falcon_sources= Agent.cpp Alias.cpp \
 		SRLRecordStub.cpp \
 		SRLRollback.cpp \
 		SRLRecordLocator.cpp \
+		SRLSavepointRollback.cpp \
 		SRLSectionLine.cpp \
 		SRLSectionPage.cpp \
 		SRLSectionPromotion.cpp \

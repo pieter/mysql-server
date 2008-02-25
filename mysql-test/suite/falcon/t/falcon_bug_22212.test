@@ -19,7 +19,7 @@
 
 SET @@storage_engine = Falcon;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+SET FALCON_CONSISTENT_READ=ON;
 
 --echo # Initialization
 --disable_warnings
@@ -32,10 +32,12 @@ COMMIT;
 
 --echo # Establish connection con1 (user=root)
 connect (con1,localhost,root,,);
+SET FALCON_CONSISTENT_READ=ON;
 SET AUTOCOMMIT = 0;
 
 --echo # Establish connection con2 (user=root)
 connect (con2,localhost,root,,);
+SET FALCON_CONSISTENT_READ=ON;
 SET AUTOCOMMIT = 0;
 
 --echo # Switch to connection con1

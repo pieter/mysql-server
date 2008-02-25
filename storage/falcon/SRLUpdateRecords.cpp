@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include "Engine.h"
 #include "SRLUpdateRecords.h"
+#include "SRLVersion.h"
 #include "Stream.h"
 #include "Table.h"
 #include "SerialLogControl.h"
@@ -120,6 +121,7 @@ void SRLUpdateRecords::append(Transaction *transaction, RecordVersion *records, 
 	uint32 chilledBytesWindow   = 0;
 	uint32 windowNumber         = 0;
 	SerialLogTransaction *srlTrans = NULL;
+	int savepointId;
 	
 	for (RecordVersion *record = records; record;)
 		{
@@ -132,6 +134,8 @@ void SRLUpdateRecords::append(Transaction *transaction, RecordVersion *records, 
 			}
 
 		putInt(transaction->transactionId);
+		savepointId = (chillRecords) ? record->savePointId : 0;
+		putInt(savepointId);
 		UCHAR *lengthPtr = putFixedInt(0);
 		UCHAR *start = log->writePtr;
 		UCHAR *end = log->writeWarningTrack;
@@ -160,6 +164,11 @@ void SRLUpdateRecords::append(Transaction *transaction, RecordVersion *records, 
 			if (record->state == recNoChill)
 				continue;
 
+			// If this is a different savepoint, start another record
+			
+			if (chillRecords && record->savePointId != savepointId)
+				break;
+	
 			Table *table = record->format->table;
 			tableSpaceId = table->dbb->tableSpaceId;
 			Stream stream;
@@ -241,6 +250,12 @@ void SRLUpdateRecords::append(Transaction *transaction, RecordVersion *records, 
 void SRLUpdateRecords::read(void)
 {
 	transactionId = getInt();
+
+	if (control->version >= srlVersion13)
+		savepointId = getInt();
+	else
+		savepointId = 0;
+
 	dataLength = getInt();
 	data = getData(dataLength);
 }
@@ -248,6 +263,9 @@ void SRLUpdateRecords::read(void)
 void SRLUpdateRecords::redo(void)
 {
 	SerialLogTransaction *transaction = control->getTransaction(transactionId);
+
+	if (savepointId != 0 && transaction->isRolledBackSavepoint(savepointId))
+		return;
 	
 	if (transaction->state == sltCommitted)
 		for (const UCHAR *p = data, *end = data + dataLength; p < end;)
@@ -316,6 +334,14 @@ void SRLUpdateRecords::pass2(void)
 
 void SRLUpdateRecords::commit(void)
 {
+	if (savepointId != 0)
+		{
+		SerialLogTransaction *transaction = log->getTransaction(transactionId);
+		
+		if (transaction->isRolledBackSavepoint(savepointId))
+			return;
+		}
+
 	Sync sync(&log->syncSections, "SRLUpdateRecords::commit");
 	sync.lock(Shared);
 	
@@ -352,7 +378,7 @@ void SRLUpdateRecords::commit(void)
 
 void SRLUpdateRecords::print(void)
 {
-	logPrint("UpdateRecords: transaction %d, length %d\n", transactionId, dataLength);
+	logPrint("UpdateRecords: transaction %d, savepointId %d, length %d\n", transactionId, savepointId, dataLength);
 	
 	for (const UCHAR *p = data, *end = data + dataLength; p < end;)
 		{

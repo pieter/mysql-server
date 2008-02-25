@@ -12,7 +12,6 @@
 // #define PLUGIN_VAR_MEMALLOC     0x8000 = String needs memory allocated
 
 
-PARAMETER_BOOL(consistent_read, "Enable Consistent Read Mode for Repeatable Reads", 1, 0, StorageInterface::updateConsistentRead)
 PARAMETER_UINT(debug_mask, "Falcon message type mask for logged messages.", 0, 0, INT_MAX, 0, StorageInterface::updateDebugMask)
 PARAMETER_BOOL(debug_server, "Enable Falcon debug code.", 0, 0x0200, NULL)
 PARAMETER_UINT(debug_trace, "Falcon debug trace trigger.", 0, 0, INT_MAX, 0, NULL)

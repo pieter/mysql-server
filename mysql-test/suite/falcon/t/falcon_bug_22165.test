@@ -29,8 +29,8 @@ begin
     ALTER TABLE t1 MODIFY COLUMN c timestamp;
   end;
   while v < 10 do
-    START TRANSACTION;
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    START TRANSACTION;
     INSERT INTO t1 (a, b) VALUES (v, 'a');
     UPDATE t1 SET c = current_timestamp WHERE a = v;
     COMMIT;

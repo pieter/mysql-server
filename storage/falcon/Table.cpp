@@ -142,8 +142,8 @@ Table::~Table()
 #endif
 
 	delete view;
-	if (records)
-		delete records;
+	delete backloggedRecords;
+	delete records;
 
 	if (recordBitmap)
 		recordBitmap->release();
@@ -805,6 +805,7 @@ void Table::init(int id, const char *schema, const char *tableName, TableSpace *
 	dataSectionId = 0;
 	blobSection = NULL;
 	dataSection = NULL;
+	backloggedRecords = NULL;
 	nextFieldId = 0;
 	setType ("TABLE");
 	formatVersion = 0;
@@ -1480,8 +1481,8 @@ void Table::drop(Transaction *transaction)
 
 
 	Sync sync(&database->syncSysConnection, "Table::drop");
-	//sync.lock(Shared);
-	sync.lock(Exclusive);
+	sync.lock(Shared);
+	
 	Transaction *sysTransaction = database->getSystemTransaction();
 
 	for (Index *index = indexes; index; index = index->next)
@@ -1516,6 +1517,7 @@ void Table::drop(Transaction *transaction)
 		view->drop(database);
 			
 	sync.unlock();
+	
 	database->commitSystemTransaction();
 }
 

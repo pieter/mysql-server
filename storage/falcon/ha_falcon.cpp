@@ -3049,16 +3049,18 @@ static void updateIndexChillThreshold(MYSQL_THD thd,
                                       struct st_mysql_sys_var *var,
                                       void *var_ptr, void *save)
 {
-	// TBD; Apply this setting to all configurations associated with 'thd'.
-	//uint newFalconIndexChillThreshold = *((uint *) save);
+	falcon_index_chill_threshold = *(uint *)save;
+	if(storageHandler)
+		storageHandler->setIndexChillThreshold(falcon_index_chill_threshold * 1024 * 1024);
 }
 
 static void updateRecordChillThreshold(MYSQL_THD thd,
                                       struct st_mysql_sys_var *var,
                                       void *var_ptr, void *save)
 {
-	// TBD; Apply this setting to all configurations associated with 'thd'.
-	//uint newFalconRecordChillThreshold = *((uint *) save);
+	falcon_record_chill_threshold = *(uint *)save;
+	if(storageHandler)
+		storageHandler->setRecordChillThreshold(falcon_record_chill_threshold * 1024 * 1024);
 }
 
 void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)

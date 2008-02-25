@@ -1079,6 +1079,20 @@ void StorageHandler::setRecordScavengeFloor(int value)
 		dictionaryConnection->setRecordScavengeFloor(value);
 }
 
+void StorageHandler::setIndexChillThreshold(uint value)
+{
+	if (dictionaryConnection)
+		dictionaryConnection->setIndexChillThreshold(value);
+}
+
+
+void StorageHandler::setRecordChillThreshold(uint value)
+{
+	if (dictionaryConnection)
+		dictionaryConnection->setRecordChillThreshold(value);
+}
+
+
 void StorageHandler::cleanFileName(const char* pathname, char* filename, int filenameLength)
 {
 	char c, prior = 0;

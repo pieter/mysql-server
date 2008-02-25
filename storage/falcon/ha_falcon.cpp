@@ -225,7 +225,8 @@ int StorageInterface::falcon_init(void *p)
 
 int StorageInterface::falcon_deinit(void *p)
 {
-	storageHandler->shutdownHandler();
+	if(storageHandler)
+		storageHandler->shutdownHandler();
 
 	return 0;
 }
@@ -1974,13 +1975,15 @@ void StorageInterface::freeActiveBlobs(void)
 
 void StorageInterface::shutdown(handlerton *htons)
 {
-	storageHandler->shutdownHandler();
+	if(storageHandler)
+		storageHandler->shutdownHandler();
 }
 
 
 int StorageInterface::panic(handlerton* hton, ha_panic_function flag)
 {
-	storageHandler->shutdownHandler();
+	if(storageHandler)
+		storageHandler->shutdownHandler();
 
 	return 0;
 }

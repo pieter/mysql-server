@@ -171,6 +171,8 @@ public:
 	virtual void		setRecordMemoryMax(uint64 maxMemory);
 	virtual void		setRecordScavengeThreshold(int value);
 	virtual void		setRecordScavengeFloor(int value);
+	virtual void		setIndexChillThreshold(uint value);
+	virtual void		setRecordChillThreshold(uint value);
 
 	int32			getNextHandle();
 	void			deleteRepositoryBlob (const char *schema, const char *repositoryName, int volume, int64 blobId);

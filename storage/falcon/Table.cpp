@@ -56,7 +56,7 @@
 #include "TableSpace.h"
 #include "RecordScavenge.h"
 #include "Section.h"
-#include "Backlog.h"
+#include "BackLog.h"
 
 #ifndef STORAGE_ENGINE
 #include "Trigger.h"

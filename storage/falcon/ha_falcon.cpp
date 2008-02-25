@@ -44,7 +44,7 @@
 #include "BigInt.h"
 
 //#define NO_OPTIMIZE
-//#define VALIDATE
+#define VALIDATE
 
 #ifndef MIN
 #define MIN(a,b)			((a <= b) ? (a) : (b))
@@ -52,6 +52,7 @@
 #endif
 
 static const uint LOAD_AUTOCOMMIT_RECORDS = 10000;
+//static const uint LOAD_AUTOCOMMIT_RECORDS = 10000000;
 static const char falcon_hton_name[] = "Falcon";
 
 static const char *falcon_extensions[] = {
@@ -78,8 +79,6 @@ ulonglong	falcon_page_cache_size;
 char*		falcon_serial_log_dir;
 char*		falcon_checkpoint_schedule;
 char*		falcon_scavenge_schedule;
-//uint		falcon_debug_mask;
-//uint		falcon_debug_trace;
 FILE		*falcon_log_file;
 
 // Determine the largest memory address, assume 64-bits max

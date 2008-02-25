@@ -141,7 +141,7 @@ int32 Section::createSection(Dbb * dbb, TransId transId)
 				sections->pages [slot] = sectionPageNumber;
 				dbb->nextSection = (sectionSkipped) ? sectionSkipped : (id + 1);
 
-				if (!dbb->serialLog->recovering)
+				if (!dbb->serialLog->recovering && !dbb->noLog)
 					dbb->serialLog->logControl->sectionPage.append(dbb, transId, sectionsBdb->pageNumber, sectionPageNumber, slot, id, 0, 0);
 					
 				sectionsBdb->release(REL_HISTORY);
@@ -222,7 +222,7 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 			Bdb *newBdb = dbb->allocPage(PAGE_sections, transId);
 			BDB_HISTORY(newBdb);
 			
-			if (!dbb->serialLog->recovering)
+			if (!dbb->serialLog->recovering && !dbb->noLog)
 				dbb->serialLog->logControl->sectionPromotion.append(dbb, page->section, bdb->pageNumber, dbb->pageSize, 
 																	(const UCHAR*) page, newBdb->pageNumber);
 
@@ -293,7 +293,7 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 				page = newPage;
 				lockType = Exclusive;
 
-				if (!dbb->serialLog->recovering)
+				if (!dbb->serialLog->recovering && !dbb->noLog)
 					dbb->serialLog->logControl->sectionPage.append(dbb, transId, parentPage, newPageNumber, slot, sectionId, sequence, page->level - 1);
 				}
 			}
@@ -384,7 +384,7 @@ int32 Section::insertStub(TransId transId)
 				page->section = pages->section;
 				page->sequence = line / linesPerPage;
 				
-				if (!dbb->serialLog->recovering)
+				if (!dbb->serialLog->recovering && !dbb->noLog)
 					dbb->serialLog->logControl->recordLocator.append(dbb, transId, sectionId, page->sequence, bdb->pageNumber);
 				}
 
@@ -648,7 +648,7 @@ int Section::deleteLine(Bdb * bdb, int line, int32 sectionPageNumber, TransId tr
 			return spaceAvailable;
 			}
 	
-	if (!dbb->serialLog->recovering)
+	if (!dbb->serialLog->recovering && !dbb->noLog)
 		dbb->serialLog->logControl->sectionLine.append(dbb, sectionPageNumber, bdb->pageNumber);
 				
 	dbb->freePage(bdb, transId);
@@ -693,7 +693,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 				recordLocatorPage->setIndexSlot(indexSlot, temp.page, temp.line, spaceAvailable);
 				VALIDATE_SPACE_SLOTS(recordLocatorPage);
 
-				if (!dbb->serialLog->recovering)
+				if (!dbb->serialLog->recovering && !dbb->noLog)
 					{
 					if (earlyWrite)
 						{
@@ -732,7 +732,7 @@ void Section::storeRecord(RecordLocatorPage *recordLocatorPage, int32 indexPageN
 
 	recordLocatorPage->setIndexSlot(indexSlot, temp.page, temp.line, spaceAvailable);
 
-	if (!dbb->serialLog->recovering)
+	if (!dbb->serialLog->recovering && !dbb->noLog)
 		{
 		if (earlyWrite)
 			{
@@ -781,7 +781,7 @@ int Section::storeTail(Stream * stream, int maxRecord, int *pLength, TransId tra
 
 	*pLength = length;
 	
-	if (!dbb->serialLog->recovering)
+	if (!dbb->serialLog->recovering && !dbb->noLog)
 		dbb->serialLog->logControl->overflowPages.append(dbb, &pageNumbers);
 	
 	return overflowPageNumber;
@@ -946,7 +946,7 @@ void Section::deleteSection(Dbb * dbb, int32 sectionId, TransId transId)
 	sections->pages [slot] = 0;
 	dbb->nextSection = MIN(sectionId, dbb->nextSection);
 
-	if (!dbb->serialLog->recovering)
+	if (!dbb->serialLog->recovering && !dbb->noLog)
 		dbb->serialLog->logControl->sectionPage.append(dbb, transId, sectionsBdb->pageNumber, 0, slot, sections->section, sections->sequence, sections->level);
 
 	sectionsBdb->release(REL_HISTORY);
@@ -967,7 +967,7 @@ void Section::deleteSectionLevel(Dbb * dbb, int32 pageNumber, TransId transId)
 		{
 		for (int n = 0; n < dbb->pagesPerSection; ++n)
 			{
-			if (!dbb->serialLog->recovering)
+			if (!dbb->serialLog->recovering && !dbb->noLog)
 				dbb->serialLog->logControl->sectionPage.append(dbb, transId, pageNumber, 0, n, page->section, page->sequence, page->level);
 				
 			if (page->pages [n])

@@ -56,6 +56,7 @@
 #include "TableSpace.h"
 #include "RecordScavenge.h"
 #include "Section.h"
+#include "Backlog.h"
 
 #ifndef STORAGE_ENGINE
 #include "Trigger.h"
@@ -141,8 +142,20 @@ Table::~Table()
 		}
 #endif
 
+	if (backloggedRecords && recordBitmap)
+		{
+		for (int32 recordNumber = 0; (recordNumber = recordBitmap->nextSet(recordNumber)) >= 0; ++recordNumber)
+			{
+			int32 backlogId = backloggedRecords->get(recordNumber);
+			
+			if (backlogId)
+				database->backLog->deleteRecord(backlogId);
+			}
+			
+		delete backloggedRecords;
+		}
+		
 	delete view;
-	delete backloggedRecords;
 	delete records;
 
 	if (recordBitmap)
@@ -557,6 +570,11 @@ Record* Table::fetchNext(int32 start)
 			if (recNumber <= bitNumber)
 				break;
 			}
+		else if (backloggedRecords && (record = backlogFetch(recNumber)))
+			{
+			if (recNumber <= bitNumber)
+				break;
+			}
 		else
 			{
 			if (stream.totalLength == 0)
@@ -841,12 +859,11 @@ void Table::init(int id, const char *schema, const char *tableName, TableSpace *
 Record* Table::fetch(int32 recordNumber)
 {
 	Sync sync (&syncObject, "Table::fetch");
+	sync.lock (Shared);
 	Record *record;
 	
 	for (;;)
 		{
-		sync.lock (Shared);
-
 		if (records)
 			{
 			RecordSection *section = records;
@@ -873,6 +890,27 @@ Record* Table::fetch(int32 recordNumber)
 			}
 
 		notFound:
+		
+		if (backloggedRecords)
+			{
+			int32 backlogId = backloggedRecords->get(recordNumber);
+			
+			if (backlogId)
+				{
+				sync.unlock();
+				sync.lock(Exclusive);
+				record = database->backLog->fetch(backlogId);
+				
+				if (insert(record, NULL, recordNumber))
+					return record;
+				
+				record->active = false;
+				record->release();
+				
+				continue;
+				}
+			}
+				
 		sync.unlock();
 		
 		if ( !(record = databaseFetch(recordNumber)) )
@@ -885,6 +923,7 @@ Record* Table::fetch(int32 recordNumber)
 		
 		record->active = false;
 		record->release();
+		sync.lock(Shared);
 		}
 }
 
@@ -914,6 +953,24 @@ Record* Table::treeFetch(int32 recordNumber)
 	return section->fetch(id);
 }
 
+Record* Table::backlogFetch(int32 recordNumber)
+{
+	if (backloggedRecords)
+		{
+		int32 backlogId = backloggedRecords->get(recordNumber);
+		
+		if (backlogId)
+			{
+			Record *record = database->backLog->fetch(backlogId);
+			ASSERT (insert(record, NULL, recordNumber));
+			
+			return record;
+			}
+		}
+	
+	return NULL;	
+}
+
 Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 {
 #ifdef CHECK_RECORD_ACTIVITY
@@ -928,7 +985,7 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 	Record *priorRecord = recordToRollback->priorVersion;
 
 	if (priorRecord)
-		priorRecord->setSuperceded (false);
+		priorRecord->setSuperceded(false);
 
 	// Replace the current version of this record.
 
@@ -943,10 +1000,13 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 		}
 
 	if (!priorRecord && recordToRollback->recordNumber >= 0)
-		deleteRecord (recordToRollback);
+		deleteRecord(recordToRollback);
 
 	garbageCollect(recordToRollback, priorRecord, recordToRollback->transaction, true);
-	
+
+	if (backloggedRecords)
+		deleteRecordBacklog(recordToRollback->recordNumber);
+			
 	return priorRecord;
 }
 
@@ -3619,4 +3679,43 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 void Table::expungeRecord(int32 recordNumber)
 {
 	dataSection->expungeRecord(recordNumber);
+}
+
+int32 Table::backlogRecord(RecordVersion* record)
+{
+	Sync sync(&syncObject, "Table::backlogRecord");
+	sync.lock(Exclusive);
+	
+	if (!backloggedRecords)
+		backloggedRecords = new SparseArray<int32, BL_SIZE>;
+
+	int32 backlogId = backloggedRecords->get(record->recordNumber);
+	
+	if (backlogId)
+		database->backLog->update(backlogId, record);
+	else
+		{
+		backlogId = database->backLog->save(record);
+		backloggedRecords->set(record->recordNumber, backlogId);
+		}
+	
+	ASSERT(insert(NULL, record, record->recordNumber));
+	recordBitmap->set(record->recordNumber);
+	
+	return backlogId;
+}
+
+void Table::deleteRecordBacklog(int32 recordNumber)
+{
+	Sync sync(&syncObject, "Table::rollbackRecord");
+	sync.lock(Shared);
+	int32 backlogId = backloggedRecords->get(recordNumber);
+	
+	if (backlogId)
+		{
+		sync.unlock();
+		sync.lock(Exclusive);
+		backloggedRecords->set(recordNumber, 0);
+		database->backLog->deleteRecord(backlogId);
+		}
 }

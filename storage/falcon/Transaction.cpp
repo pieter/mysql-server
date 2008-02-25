@@ -43,6 +43,9 @@
 #include "LogLock.h"
 #include "SRLSavepointRollback.h"
 #include "Bitmap.h"
+#include "BackLog.h"
+
+//#define DEBUG_BACKLOG
 
 extern uint		falcon_lock_wait_timeout;
 
@@ -108,6 +111,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	waitingFor = NULL;
 	curSavePointId = 0;
 	deferredIndexes = NULL;
+	backloggedRecords = NULL;
 	deferredIndexCount = 0;
 	xidLength = 0;
 	xid = NULL;
@@ -207,6 +211,7 @@ Transaction::~Transaction()
 
 	delete [] states;
 	delete [] xid;
+	delete backloggedRecords;
 	chillPoint = &firstRecord;
 	recordPtr = &firstRecord;
 
@@ -436,6 +441,9 @@ void Transaction::rollback()
 		record->release();
 		}
 
+	if (backloggedRecords)
+		database->backLog->rollbackRecords(backloggedRecords, this);
+
 	ASSERT(writePending);
 	state = RolledBack;
 	writePending = false;
@@ -520,6 +528,10 @@ void Transaction::prepare(int xidLen, const UCHAR *xidPtr)
 
 void Transaction::chillRecords()
 {
+#ifdef DEBUG_BACKLOG
+	database->setLowMemory();
+#endif'
+
 	// chillPoint points to a pointer to the first non-chilled record. If any
 	// records have been thawed, then reset chillPoint.
 	
@@ -529,11 +541,44 @@ void Transaction::chillRecords()
 	uint32 chilledBefore = chilledRecords;
 	uint64 totalDataBefore = totalRecordData;
 	database->dbb->logUpdatedRecords(this, *chillPoint, true);
-
-	for (SavePoint *savePoint = savePoints; savePoint; savePoint = savePoint->next)
+	SavePoint *savePoint;
+	
+	for (savePoint = savePoints; savePoint; savePoint = savePoint->next)
 		if (savePoint->id != curSavePointId)
 			savePoint->setIncludedSavepoint(curSavePointId);
+	
+	if (database->lowMemory)
+		{
+		savePoint = savePoints;
+		
+		for (RecordVersion *record; (record = lastRecord);)
+			{
+			if (savePoints)
+				for (; record->savePointId < savePoint->id; savePoint->next)
+					ASSERT(savePoint->next != NULL);
+		
+			lastRecord = record->prevInTrans;
+			
+			if (savePoint)
+				savePoint->backlogRecord(record);
+			else
+				{
+				if (!backloggedRecords)
+					backloggedRecords = new Bitmap;
 				
+				int32 backlogId = record->format->table->backlogRecord(record);
+				backloggedRecords->set(backlogId);
+				}
+			
+			record->release();
+			}
+		
+
+		firstRecord = NULL;
+		chillPoint = &firstRecord;
+		recordPtr = &firstRecord;
+		}
+		
 	Log::debug("Record Chill:      trxId=%-5ld records=%7ld  bytes=%8ld\n",
 				transactionId, chilledRecords-chilledBefore, (uint32)(totalDataBefore-totalRecordData), committedRecords);
 }
@@ -1015,6 +1060,7 @@ int Transaction::createSavepoint()
 	savePoint->id = ++curSavePointId;
 	savePoint->next = savePoints;
 	savePoint->savepoints = NULL;
+	savePoint->backloggedRecords = NULL;
 	savePoints = savePoint;
 	ASSERT(savePoint->next != savePoint);
  	
@@ -1036,6 +1082,31 @@ void Transaction::releaseSavepoint(int savePointId)
 			int nextLowerSavePointId = (savePoint->next) ? savePoint->next->id : 0;
 			*ptr = savePoint->next;
 			
+			// If we have backed logged records, merge them in to the previous savepoint or the transaction itself.
+			
+			if (savePoint->backloggedRecords)
+				{
+				SavePoint *nextSavePoint = savePoint->next;
+				
+				if (nextSavePoint)
+					{
+					if (nextSavePoint->backloggedRecords)
+						nextSavePoint->backloggedRecords->orBitmap(savePoint->backloggedRecords);
+					else
+						nextSavePoint->backloggedRecords = savePoint->backloggedRecords;
+					
+					}
+				else
+					{
+					if (backloggedRecords)
+						backloggedRecords->orBitmap(savePoint->backloggedRecords);
+					else
+						backloggedRecords = savePoint->backloggedRecords;
+					}
+					
+				savePoint->backloggedRecords = NULL;
+				}
+					
 			if (savePoint->savepoints)
 				savePoint->clear();
 
@@ -1162,6 +1233,11 @@ void Transaction::rollbackSavepoint(int savePointId)
 			rec->release();
 			}
 
+		// Handle any backlogged records
+		
+		if (savePoint->backloggedRecords)
+			database->backLog->rollbackRecords(savePoint->backloggedRecords, this);
+				
 		// Move skipped savepoints object to the free list
 		// Leave the target savepoint empty, but connected to the transaction.
 		

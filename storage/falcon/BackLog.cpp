@@ -21,21 +21,102 @@
 #include "Index.h"
 #include "IndexRootPage.h"
 #include "Transaction.h"
+#include "Serialize.h"
+#include "RecordVersion.h"
+#include "Bitmap.h"
+#include "Format.h"
+#include "Table.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;
 #endif
 
-BackLog::BackLog(Database *db)
+BackLog::BackLog(Database *db, const char *fileName)
 {
 	database = db;
-	dbb = new Dbb(database);
-	section = new Section(dbb, 0, NO_TRANSACTION);
+	dbb = new Dbb(database->dbb, 0);
+	dbb->createPath(fileName);
+	dbb->create(fileName, dbb->pageSize, 0, HdrTableSpace, 0, NULL, 0);
+	dbb->noLog = true;
+	dbb->tableSpaceId = -1;
+	int32 sectionId = Section::createSection (dbb, NO_TRANSACTION);
+	section = new Section(dbb, sectionId, NO_TRANSACTION);
 }
 
 BackLog::~BackLog(void)
 {
 	delete section;
 	delete dbb;
+}
+
+int32 BackLog::save(RecordVersion* record)
+{
+	Serialize stream;
+	record->serialize(&stream);
+	int32 backlogId = section->insertStub(NO_TRANSACTION);
+	section->updateRecord(backlogId, &stream, NO_TRANSACTION, false);
+	
+	return backlogId + 1;
+}
+
+RecordVersion* BackLog::fetch(int32 backlogId)
+{
+	Serialize stream;
+	section->fetchRecord(backlogId - 1, &stream, NO_TRANSACTION);
+	RecordVersion *record = new RecordVersion(database, &stream);
+	
+	return record;
+}
+
+void BackLog::deleteRecord(int32 backlogId)
+{
+	section->expungeRecord(backlogId - 1);
+}
+
+void BackLog::update(int32 backlogId, RecordVersion* record)
+{
+	Serialize stream;
+	record->serialize(&stream);
+	section->updateRecord(backlogId - 1, &stream, NO_TRANSACTION, false);
+}
+
+void BackLog::rollbackRecords(Bitmap* records, Transaction *transaction)
+{
+	for (int backlogId = 0; (backlogId = records->nextSet(backlogId)) >= 0; ++backlogId)
+		{
+		RecordVersion *record = fetch(backlogId);
+		
+		if (record->transactionId != transaction->transactionId)
+			{
+			record->release();
+			
+			continue;
+			}
+		
+		Table *table = record->format->table;
+		
+		if (!table->insert(record, NULL, record->recordNumber))
+			{
+			record->release();
+			int32 recordNumber = record->recordNumber;
+			Record *rec = table->fetch(recordNumber);
+			
+			if (rec)
+				{
+				if (rec->getTransactionId() == transaction->transactionId)
+					record->rollback();
+				else
+					record->release();
+				}
+				
+			continue;
+			}
+			
+		record->rollback();
+#ifdef CHECK_RECORD_ACTIVITY
+		record->active = false;
+#endif
+		record->release();
+		}
 }

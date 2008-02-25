@@ -421,6 +421,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	utf8 = false;
 	stepNumber = 0;
 	shuttingDown = false;
+	lowMemory = false;
 	pendingIOErrors = 0;
 	noSchedule = 0;
 	//noSchedule = 1;
@@ -1767,6 +1768,16 @@ void Database::retireRecords(bool forced)
 			}
 
 		syncTbl.unlock();
+		
+		// Check for low memory 
+		
+		if (recordScavenge.spaceRemaining > recordScavengeFloor)
+			setLowMemory();
+		/***
+		else
+			lowMemory = false;
+		***/
+			
 		Log::log(LogScavenge, "%d: Scavenged %d records, " I64FORMAT " bytes in %d seconds\n", 
 					deltaTime, recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed, deltaTime - scavengeStart);
 			
@@ -2463,3 +2474,17 @@ void Database::flushWait(void)
 	{
 	cache->flushWait();
 	}
+
+void Database::setLowMemory(void)
+{
+	if (!backLog)
+		{	
+		Sync lock(&syncScavenge, "Database::setLowMemory");
+		lock.lock(Exclusive);
+
+		if (!backLog)
+			backLog = new BackLog(this, "_backlog.fts");
+		}
+
+	lowMemory = true;
+}

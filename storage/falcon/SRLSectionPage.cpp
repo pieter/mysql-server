@@ -42,6 +42,7 @@ SRLSectionPage::~SRLSectionPage()
 
 void SRLSectionPage::append(Dbb *dbb, TransId transId, int32 parent, int32 page, int slot, int id, int seq, int lvl)
 {
+	ASSERT(dbb->tableSpaceId >= 0);
 	START_RECORD(srlSectionPage, "SRLSectionPage::append");
 	
 	if (transId)

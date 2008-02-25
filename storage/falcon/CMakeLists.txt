@@ -206,6 +206,7 @@ ADD_LIBRARY(ha_falcon
 		Sequence.cpp
 		SequenceManager.cpp 
 		SequenceResultSet.cpp
+		Serialize.cpp
 		SerialLogAction.cpp 
 		SerialLogControl.cpp 
 		SerialLog.cpp
@@ -480,6 +481,7 @@ ADD_LIBRARY(ha_falcon
 		SequenceManager.h 
 		SequencePage.h 
 		SequenceResultSet.h
+		Serialize.h
 		SerialLogAction.h 
 		SerialLogControl.h 
 		SerialLog.h

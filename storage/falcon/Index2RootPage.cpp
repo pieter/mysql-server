@@ -848,7 +848,7 @@ void Index2RootPage::setIndexRoot(Dbb* dbb, int indexId, int32 pageNumber, Trans
 	SectionPage *sections = (SectionPage*) bdb->buffer;
 	sections->pages[slot] = pageNumber;
 	
-	if (!dbb->serialLog->recovering)
+	if (!dbb->serialLog->recovering && !dbb->noLog)
 		dbb->serialLog->logControl->sectionPage.append(dbb, transId, bdb->pageNumber, pageNumber, slot, INDEX_ROOT, sequence, 0);
 
 	bdb->release(REL_HISTORY);

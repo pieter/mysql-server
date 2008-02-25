@@ -59,6 +59,7 @@ class Value;
 class Stream;
 class Database;
 class RecordScavenge;
+class Serialize;
 CLASS(Field);
 
 extern char	*RecordAllocate (int size, const char *file, int line);
@@ -85,7 +86,9 @@ public:
 	virtual int		thaw();
 	virtual const char*	getEncodedRecord();
 	virtual int		setRecordData(const UCHAR *dataIn, int dataLength);
-	
+	virtual void	serialize(Serialize* stream);
+	virtual int		getSize(void);
+
 	const UCHAR*	getEncoding (int index);
 	int				setEncodedRecord(Stream *stream, bool interlocked);
 	void			getValue (int fieldId, Value* value);
@@ -107,7 +110,8 @@ public:
 	void			expungeRecord(void);
 	
 	Record (Table *table, Format *recordFormat);
-	Record(Table *table, int32 recordNumber, Stream *stream);
+	Record (Table *table, int32 recordNumber, Stream *stream);
+	Record (Database *database, Serialize* stream);
 
 	inline int		hasRecord()
 		{

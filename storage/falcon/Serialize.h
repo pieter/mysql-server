@@ -13,31 +13,36 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#ifndef _BACKLOG_H_
-#define _BACKLOG_H_
+#ifndef _SERIALIZE_H_
+#define _SERIALIZE_H_
 
-class Database;
-class Dbb;
-class Section;
-class RecordVersion;
-class Bitmap;
-class Transaction;
+#include "Stream.h"
 
-class BackLog
+class Serialize : public Stream
 {
 public:
-	BackLog(Database *database, const char *fileNam);
-	virtual ~BackLog(void);
-
-	RecordVersion*	fetch(int32 backlogId);
-	int32			save(RecordVersion* record);
-	void			update(int32 backlogId, RecordVersion* record);
-	void			deleteRecord(int32 backlogId);
-	void			rollbackRecords(Bitmap* records, Transaction *transaction);
+	Serialize(void);
+	virtual ~Serialize(void);
 	
-	Database	*database;
-	Dbb			*dbb;
-	Section		*section;
+	void	putInt(int value);
+	void	putInt64(int64 value);
+	void	putData(uint length, const UCHAR* data);
+	int		getInt(void);
+	int64	getInt64(void);
+	int		getDataLength(void);
+	void	getData(uint length, UCHAR* buffer);
+	UCHAR*	reserve(uint length);
+	UCHAR	getByte(void);
+
+	void	release(uint actualLength)
+		{
+		totalLength += actualLength;
+		current->length += actualLength;
+		}
+		
+	Segment	*segment;
+	UCHAR	*data;
+	UCHAR	*end;
 };
 
 #endif

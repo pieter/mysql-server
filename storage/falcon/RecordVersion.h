@@ -32,6 +32,7 @@ class RecordVersion : public Record
 {
 public:
 	RecordVersion(Table *tbl, Format *fmt, Transaction *tran, Record *oldVersion);
+	RecordVersion(Database* database, Serialize *stream);
 
 	virtual bool		isSuperceded();
 	virtual Transaction* getTransaction();
@@ -51,6 +52,8 @@ public:
 	virtual uint64		getVirtualOffset();
 	virtual int			thaw();
 	virtual void		print(void);
+	virtual int			getSize(void);
+	virtual void		serialize(Serialize* stream);
 
 	void				commit();
 

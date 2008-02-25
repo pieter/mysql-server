@@ -20,7 +20,10 @@
 
 #include "Engine.h"
 #include "SavePoint.h"
+#include "Table.h"
 #include "Bitmap.h"
+#include "RecordVersion.h"
+#include "Format.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -56,4 +59,15 @@ void SavePoint::clear(void)
 {
 	delete savepoints;
 	savepoints = NULL;
+	delete backloggedRecords;
+	backloggedRecords = NULL;
+}
+
+void SavePoint::backlogRecord(RecordVersion* record)
+{
+	if (!backloggedRecords)
+		backloggedRecords = new Bitmap;
+	
+	int32 backlogId = record->format->table->backlogRecord(record);
+	backloggedRecords->set(backlogId);
 }

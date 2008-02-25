@@ -23,6 +23,7 @@
 #include "Configuration.h"
 #include "RecordVersion.h"
 #include "Transaction.h"
+#include "TransactionManager.h"
 #include "Table.h"
 #include "Connection.h"
 #include "SerialLogControl.h"
@@ -30,6 +31,12 @@
 #include "Dbb.h"
 #include "RecordScavenge.h"
 #include "Format.h"
+#include "Serialize.h"
+
+#ifdef _DEBUG
+#undef THIS_FILE
+static const char THIS_FILE[]=__FILE__;
+#endif
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -54,6 +61,25 @@ RecordVersion::RecordVersion(Table *tbl, Format *format, Transaction *trans, Rec
 		}
 	else
 		recordNumber = -1;
+}
+
+RecordVersion::RecordVersion(Database* database, Serialize *stream) : Record(database, stream)
+{
+	virtualOffset = stream->getInt64();
+	transactionId = stream->getInt();
+	int priorType = stream->getInt();
+	superceded = false;
+
+	if (priorType == 0)
+		priorVersion = new Record(database, stream);
+	else if (priorType == 1)
+		priorVersion = new RecordVersion(database, stream);
+	else
+		priorVersion = NULL;
+	
+	if ( (transaction = database->transactionManager->findTransaction(transactionId)) )
+		if (!transaction->writePending)
+			transaction = NULL;
 }
 
 RecordVersion::~RecordVersion()
@@ -350,4 +376,24 @@ void RecordVersion::print(void)
 	
 	if (priorVersion)
 		priorVersion->print();
+}
+
+int RecordVersion::getSize(void)
+{
+	return sizeof(*this);
+}
+
+void RecordVersion::serialize(Serialize* stream)
+{
+	Record::serialize(stream);
+	stream->putInt64(virtualOffset);
+	stream->putInt(transactionId);
+	
+	if (priorVersion)
+		{
+		stream->putInt(priorVersion->isVersion());
+		priorVersion->serialize(stream);
+		}
+	else
+		stream->putInt(2);
 }

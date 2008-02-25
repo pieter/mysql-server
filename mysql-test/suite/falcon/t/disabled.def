@@ -31,3 +31,4 @@ falcon_deadlock     : Bug#34182 2008-01-31 hakank Bug in SELECT ... FOR UPDATE
 index_merge_falcon  : Bug#32696 index_merge_falcon.test fails
 ps_8falcon          : Bug#32683  Test ps_8falcon fails in 6.0
 read_many_rows_falcon : Bug#23783 2006-10-30 ML Get pushbuild green
+falcon_ts           : Bug32993 2008-02-25 hakank Open bug

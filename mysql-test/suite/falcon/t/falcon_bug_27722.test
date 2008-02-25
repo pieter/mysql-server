@@ -10,7 +10,7 @@
 # --- Initialisation                                --- #
 # ----------------------------------------------------- #
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+SET FALCON_CONSISTENT_READ=OFF;
 SET @@storage_engine = Falcon;
 SET @@autocommit = 0;
 
@@ -27,6 +27,7 @@ INSERT INTO t1 VALUES (15);
 
 --echo # Establish connection conn1
 connect (conn1,localhost,root,,);
+SET FALCON_CONSISTENT_READ=OFF;
 SET @@storage_engine = Falcon;
 SET @@autocommit = 0;
 
@@ -64,4 +65,3 @@ SELECT * FROM t1;
 connection default;
 disconnect conn1;
 DROP TABLE t1;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;

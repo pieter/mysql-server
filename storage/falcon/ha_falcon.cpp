@@ -113,6 +113,7 @@ static struct st_mysql_show_var falconStatus[] =
 };
 
 extern THD*		current_thd;
+static int getTransactionIsolation( THD * thd);
 
 static handler *falcon_create_handler(handlerton *hton,
                                       TABLE_SHARE *table, MEM_ROOT *mem_root)
@@ -148,6 +149,7 @@ int StorageInterface::falcon_init(void *p)
 {
 	DBUG_ENTER("falcon_init");
 	falcon_hton = (handlerton *)p;
+	my_bool error = false;
 
 	if (!storageHandler)
 		storageHandler = getFalconStorageHandler(sizeof(THR_LOCK));
@@ -190,24 +192,33 @@ int StorageInterface::falcon_init(void *p)
 	falcon_hton->flags = HTON_NO_FLAGS;
 	storageHandler->addNfsLogger(falcon_debug_mask, StorageInterface::logger, NULL);
 
-	int newRepeatableRead = (falcon_consistent_read ? 
-		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
-	if (isolation_levels[ISO_REPEATABLE_READ] != newRepeatableRead)
-		{
-		int oldRepeatableRead = isolation_levels[ISO_REPEATABLE_READ];
-		for (int i = 0; i < 4; i++)
-			if (isolation_levels[i] == oldRepeatableRead)
-				isolation_levels[i] = newRepeatableRead;
-		}
-
 	if (falcon_debug_server)
 		storageHandler->startNfsServer();
 
-	//TimeTest timeTest;
-	//timeTest.testScaled(16, 2, 100000);
+	try
+		{
+		storageHandler->initialize();
+		}
+	catch(SQLException &e)
+		{
+		sql_print_error("Falcon : exception '%s'during initialization",
+			e.getText());
+		error = true;
+		}
+	catch(...)
+		{
+		sql_print_error(" Falcon : general exception in initialization");
+		error = true;
+		}
 
-	//pluginHandler = new NfsPluginHandler;
 
+	if (error)
+		{
+			// Cleanup after error
+			delete storageHandler;
+			storageHandler = 0;
+			DBUG_RETURN(1);
+		}
 	DBUG_RETURN(0);
 }
 
@@ -225,7 +236,7 @@ int falcon_strnxfrm (void *cs,
 {
 	CHARSET_INFO *charset = (CHARSET_INFO*) cs;
 
-	return charset->coll->strnxfrm(charset, (uchar *) dst, dstlen, nweights,
+	return (int)charset->coll->strnxfrm(charset, (uchar *) dst, dstlen, nweights,
 	                              (uchar *) src, srclen, 0);
 }
 
@@ -1002,6 +1013,7 @@ uint StorageInterface::max_supported_keys(void) const
 	DBUG_RETURN(MAX_KEY);
 }
 
+
 int StorageInterface::write_row(uchar *buff)
 {
 	DBUG_ENTER("StorageInterface::write_row");
@@ -1050,7 +1062,7 @@ int StorageInterface::write_row(uchar *buff)
 			case SQLCOM_ALTER_TABLE:
 			case SQLCOM_CREATE_TABLE:
 				storageHandler->commit(mySqlThread);
-				storageConnection->startTransaction(isolation_levels[thd_tx_isolation(mySqlThread)]);
+				storageConnection->startTransaction(getTransactionIsolation(mySqlThread));
 				storageConnection->markVerb();
 				insertCount = 0;
 				break;
@@ -1229,9 +1241,11 @@ void StorageInterface::startTransaction(void)
 {
 	threadSwitch(table->in_use);
 
+	int isolation = getTransactionIsolation(mySqlThread);
+
 	if (!storageConnection->transactionActive)
 		{
-		storageConnection->startTransaction(isolation_levels[thd_tx_isolation(mySqlThread)]);
+		storageConnection->startTransaction(isolation);
 		
 		if (storageTable)
 			storageTable->setTruncateLock();
@@ -1868,12 +1882,12 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			default:
 				break;
 			}
-
+		int isolation = getTransactionIsolation(thd);
 		if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
 			{
 			checkBinLog();
 			
-			if (storageConnection->startTransaction(isolation_levels[thd_tx_isolation(thd)]))
+			if (storageConnection->startTransaction(isolation))
 				{
 				if (!isTruncate && storageTable)
 					storageTable->setTruncateLock();
@@ -1888,7 +1902,7 @@ int StorageInterface::external_lock(THD *thd, int lock_type)
 			{
 			checkBinLog();
 			
-			if (storageConnection->startImplicitTransaction(isolation_levels[thd_tx_isolation(thd)]))
+			if (storageConnection->startImplicitTransaction(isolation))
 				{
 				if (!isTruncate && storageTable)
 					storageTable->setTruncateLock();
@@ -3049,56 +3063,38 @@ static void updateIndexChillThreshold(MYSQL_THD thd,
                                       struct st_mysql_sys_var *var,
                                       void *var_ptr, void *save)
 {
-	// TBD; Apply this setting to all configurations associated with 'thd'.
-	//uint newFalconIndexChillThreshold = *((uint *) save);
+	falcon_index_chill_threshold = *(uint *)save;
+	if(storageHandler)
+		storageHandler->setIndexChillThreshold(falcon_index_chill_threshold * 1024 * 1024);
 }
 
 static void updateRecordChillThreshold(MYSQL_THD thd,
                                       struct st_mysql_sys_var *var,
                                       void *var_ptr, void *save)
 {
-	// TBD; Apply this setting to all configurations associated with 'thd'.
-	//uint newFalconRecordChillThreshold = *((uint *) save);
+	falcon_record_chill_threshold = *(uint *)save;
+	if(storageHandler)
+		storageHandler->setRecordChillThreshold(falcon_record_chill_threshold * 1024 * 1024);
 }
 
-void StorageInterface::updateConsistentRead(MYSQL_THD thd, struct st_mysql_sys_var* variable, void *var_ptr, void *save)
-{
-	falcon_consistent_read = (my_bool) (*(int *) save ? 1 : 0);
 
-	int newRepeatableRead = (falcon_consistent_read ? 
-		TRANSACTION_CONSISTENT_READ : TRANSACTION_WRITE_COMMITTED);
-
-	if (isolation_levels[ISO_REPEATABLE_READ] != newRepeatableRead)
-		{
-		int oldRepeatableRead = isolation_levels[ISO_REPEATABLE_READ];
-		for (int i = 0; i < 4; i++)
-			if (isolation_levels[i] == oldRepeatableRead)
-				isolation_levels[i] = newRepeatableRead;
-		}
-}
 
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
 	falcon_record_memory_max = *(ulonglong*) save;
-
-	if (storageHandler)
-		storageHandler->setRecordMemoryMax(falcon_record_memory_max);
+	storageHandler->setRecordMemoryMax(falcon_record_memory_max);
 }
 
 void StorageInterface::updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
-	falcon_record_scavenge_threshold = *(int*) save;
-
-	if (storageHandler)
-		storageHandler->setRecordScavengeThreshold(falcon_record_scavenge_threshold);
+	falcon_record_scavenge_threshold = *(uint*) save;
+	storageHandler->setRecordScavengeThreshold(falcon_record_scavenge_threshold);
 }
 
 void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
-	falcon_record_scavenge_floor = *(int*) save;
-
-	if (storageHandler)
-		storageHandler->setRecordScavengeFloor(falcon_record_scavenge_floor);
+	falcon_record_scavenge_floor = *(uint*) save;
+	storageHandler->setRecordScavengeFloor(falcon_record_scavenge_floor);
 }
 
 
@@ -3168,6 +3164,7 @@ static MYSQL_SYSVAR_ULONGLONG(initial_allocation, falcon_initial_allocation,
   "Initial allocation (in bytes) of falcon user tablespace.",
   NULL, NULL, 0, 0, LL(4000000000), LL(1)<<20);
 
+
 /***
 static MYSQL_SYSVAR_UINT(allocation_extent, falcon_allocation_extent,
   PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
@@ -3180,10 +3177,28 @@ static MYSQL_SYSVAR_ULONGLONG(page_cache_size, falcon_page_cache_size,
   "The amount of memory to be used for the database page cache.",
   NULL, NULL, LL(4)<<20, LL(2)<<20, (ulonglong) ~0, LL(1)<<20);
 
+static MYSQL_THDVAR_BOOL(consistent_read, PLUGIN_VAR_OPCMDARG,
+   "Enable Consistent Read Mode for Repeatable Reads",
+   NULL, NULL,1);
+
+static int getTransactionIsolation(THD * thd)
+{
+	int level = isolation_levels[thd_tx_isolation(thd)];
+
+	// TRANSACTION_CONSISTENT_READ  mapped to TRANSACTION_WRITE_COMMITTED,
+	// if falcon_consistent_read is not set
+	if(level == TRANSACTION_CONSISTENT_READ && !THDVAR(thd,consistent_read))
+		return TRANSACTION_WRITE_COMMITTED;
+
+	return level;
+}
+
+
 static struct st_mysql_sys_var* falconVariables[]= {
 
 #define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) MYSQL_SYSVAR(_name),
 #define PARAMETER_BOOL(_name, _text, _default, _flags, _update_function) MYSQL_SYSVAR(_name),
+
 #include "StorageParameters.h"
 #undef PARAMETER_UINT
 #undef PARAMETER_BOOL
@@ -3196,6 +3211,7 @@ static struct st_mysql_sys_var* falconVariables[]= {
 	MYSQL_SYSVAR(initial_allocation),
 	//MYSQL_SYSVAR(allocation_extent),
 	MYSQL_SYSVAR(page_cache_size),
+	MYSQL_SYSVAR(consistent_read),
 	NULL
 };
 

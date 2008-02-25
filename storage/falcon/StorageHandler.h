@@ -103,6 +103,8 @@ public:
 	virtual void		getTransactionSummaryInfo(InfoTable* infoTable);
 	virtual void		getTablesInfo(InfoTable* infoTable);
 
+	virtual void		setIndexChillThreshold(uint value);
+	virtual void		setRecordChillThreshold(uint value);
 	virtual void		setRecordMemoryMax(uint64 size);
 	virtual void		setRecordScavengeThreshold(int value);
 	virtual void		setRecordScavengeFloor(int value);

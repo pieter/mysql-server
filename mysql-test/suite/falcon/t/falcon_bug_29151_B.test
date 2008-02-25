@@ -11,7 +11,7 @@
 # --- Initialization for Falcon's Consistent Read
 # -----------------------------------------------------
 eval SET @@storage_engine = Falcon;
-SET GLOBAL falcon_consistent_read = on;
+SET falcon_consistent_read = on;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -33,6 +33,7 @@ INSERT INTO t1 VALUES(490, 0, 'inserted');
 # -------------------------------------------------------------------
 --echo # Switch to connection conn1
 connection conn1;
+SET falcon_consistent_read = on;
 BEGIN;
 UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
@@ -41,6 +42,7 @@ SELECT * FROM t1;
 
 --echo # Switch to connection conn2
 connection conn2;
+SET falcon_consistent_read = on;
 BEGIN;
 SELECT * FROM t1;
 # This one blocks in case the other transaction aborts.

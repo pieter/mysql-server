@@ -42,6 +42,14 @@ SELECT @@GLOBAL.falcon_record_memory_max;
 SET GLOBAL falcon_record_memory_max = 536870912;
 SELECT @@GLOBAL.falcon_record_memory_max;
 
+SELECT @@GLOBAL.falcon_index_chill_threshold INTO @previous_falcon_index_chill_threshold;
+SET GLOBAL falcon_index_chill_threshold = 1024;
+SELECT @@GLOBAL.falcon_index_chill_threshold;
+
+SELECT @@GLOBAL.falcon_record_chill_threshold INTO @previous_falcon_record_chill_threshold;
+SET GLOBAL falcon_record_chill_threshold = 1024;
+SELECT @@GLOBAL.falcon_record_chill_threshold;
+
 
 # Test INFORMATION_SCHEMA access to variables.
 --sorted_result
@@ -52,3 +60,5 @@ SELECT * FROM INFORMATION_SCHEMA.global_variables
 SET GLOBAL falcon_debug_mask = @previous_falcon_debug_mask;
 SET GLOBAL falcon_max_transaction_backlog =  @previous_falcon_max_transaction_backlog;
 SET GLOBAL falcon_record_memory_max =  @previous_falcon_record_memory_max;
+SET GLOBAL falcon_index_chill_threshold = @previous_falcon_index_chill_threshold;
+SET GLOBAL falcon_record_chill_threshold = @previous_falcon_record_chill_threshold;

@@ -7,7 +7,6 @@
 --echo *** Bug #263 ***
 
 SET storage_engine = Falcon;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -16,16 +15,19 @@ DROP TABLE IF EXISTS t1;
 --echo # Establish connection 1 (REPEATABLE READ)
 connect (conn1,localhost,root,,);
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET FALCON_CONSISTENT_READ=ON;
 select @@TX_ISOLATION;
 
 --echo # Establish connection 2 (READ COMMITTED)
 connect (conn2,localhost,root,,);
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET FALCON_CONSISTENT_READ=ON;
 select @@TX_ISOLATION;
 
 --echo # Switch to connection default (REPEATABLE READ)
 connection default;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET FALCON_CONSISTENT_READ=ON;
 select @@TX_ISOLATION;
 CREATE TABLE t1 (a int, primary key (a)) ENGINE=falcon;
 INSERT INTO t1 VALUES (0);
@@ -110,7 +112,18 @@ INSERT INTO t1 VALUES (0);
 --echo ############################################################
 --echo # #3 - client 2 (with InnoDB Compatibility) does not block on a vestigial record
 --echo ############################################################
-SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+--echo # Set consistent read=off for all connections
+--echo # default
+SET  FALCON_CONSISTENT_READ=OFF;
+--echo #conn1
+connection conn1;
+SET  FALCON_CONSISTENT_READ=OFF;
+--echo #conn2
+connection conn2;
+SET  FALCON_CONSISTENT_READ=OFF;
+--echo #back to default
+connection default;
+
 START TRANSACTION;
 UPDATE t1 SET a = 10;
 SELECT * FROM t1;
@@ -134,7 +147,17 @@ SELECT * FROM t1;
 connection default;
 DELETE FROM t1;
 INSERT INTO t1 VALUES (0);
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+--echo # Set consistent read=on for all connections
+--echo # default
+SET  FALCON_CONSISTENT_READ=ON;
+--echo # conn1
+connection conn1;
+SET  FALCON_CONSISTENT_READ=ON;
+--echo # conn2
+connection conn2;
+SET  FALCON_CONSISTENT_READ=ON;
+--echo #back to default
+connection default;
 
 --echo ############################################################
 --echo # #4 - make sure client 2 does not block on a vestigial records 

@@ -1,6 +1,7 @@
 *** Bug #34164 ***
 SET @@storage_engine = 'Falcon';
 DROP DATABASE IF EXISTS test2;
+SELECT @@GLOBAL.falcon_consistent_read INTO @previous_falcon_consistent_read;
 SET GLOBAL FALCON_CONSISTENT_READ=OFF;
 CREATE DATABASE test2;
 USE test2;
@@ -209,4 +210,5 @@ a	b
 4	44
 # Switch to default connection and cleanup other connections
 DROP DATABASE test2;
+SET GLOBAL falcon_consistent_read = @previous_falcon_consistent_read;
 USE test;

@@ -351,7 +351,8 @@ unpack_row(Relay_log_info const *rli,
   @retval 0                       Success
   @retval ER_NO_DEFAULT_FOR_FIELD Default value could not be set for a field
  */ 
-int prepare_record(TABLE *const table, 
+int prepare_record(const Slave_reporting_capability *const log,
+                   TABLE *const table, 
                    const MY_BITMAP *cols, uint width, const bool check)
 {
   DBUG_ENTER("prepare_record");

@@ -1,0 +1,293 @@
+
+Starting Test - Backup
+
+Setting SQL_MODE = PIPES_AS_CONCAT
+SET SQL_MODE = 'PIPES_AS_CONCAT';
+Change client connection charset
+SET character_set_client = 'latin2';
+DROP DATABASE IF EXISTS bup_objects;
+CREATE DATABASE bup_objects;
+con1: Creating table
+CREATE TABLE bup_objects.t1 (col_a int, col_b CHAR(40)) ENGINE=INNODB;
+CREATE TABLE bup_objects.t2 (col_a int, col_b CHAR(40)) ENGINE=INNODB;
+con1: Loading data
+INSERT INTO bup_objects.t1 VALUES (01, "101 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (02, "102 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (03, "103 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (04, "201 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (05, "202 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (06, "203 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (07, "301 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (08, "302 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (09, "303 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (10, "401 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (11, "402 Some data to test");
+INSERT INTO bup_objects.t1 VALUES (12, "403 Some data to test");
+INSERT INTO bup_objects.t2 VALUES (01, "101 Some data to test");
+INSERT INTO bup_objects.t2 VALUES (02, "102 Some data to test");
+INSERT INTO bup_objects.t2 VALUES (03, "103 Some data to test");
+CREATE VIEW bup_objects.v1 AS SELECT * FROM bup_objects.t1 WHERE col_a < 5;
+CREATE VIEW bup_objects.v2 AS SELECT * FROM bup_objects.t1 WHERE col_a >= 5;
+CREATE TRIGGER bup_objects.ins_t1 AFTER INSERT ON bup_objects.t1 FOR EACH ROW 
+BEGIN
+DELETE FROM bup_objects.t2 WHERE col_a > 1;
+END;
+||
+CREATE EVENT bup_objects.e1 ON SCHEDULE EVERY 1 YEAR DO
+DELETE FROM bup_objects.t2 WHERE col_a > 100;
+||
+CREATE PROCEDURE bup_objects.p1()
+BEGIN
+UPDATE bup_objects.t1 SET col_b = "Procedure p1 was here." WHERE col_a < 3;
+END;
+||
+CREATE FUNCTION bup_objects.f1() RETURNS INTEGER
+BEGIN
+DECLARE v_out INT;
+SELECT count(*) FROM bup_objects.t1 INTO v_out;
+RETURN v_out;
+END;
+||
+Using the objects.
+INSERT INTO bup_objects.t1 VALUES (30, "a new row.");
+CALL bup_objects.p1();
+SELECT bup_objects.f1();
+bup_objects.f1()
+13
+Showing objects and create statements.
+SHOW CREATE DATABASE bup_objects;;
+Database	bup_objects
+Create Database	CREATE DATABASE `bup_objects` /*!40100 DEFAULT CHARACTER SET latin1 */
+SHOW CREATE TABLE bup_objects.t1;;
+Table	t1
+Create Table	CREATE TABLE `t1` (
+  `col_a` int(11) DEFAULT NULL,
+  `col_b` char(40) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SHOW CREATE TABLE bup_objects.t2;;
+Table	t2
+Create Table	CREATE TABLE `t2` (
+  `col_a` int(11) DEFAULT NULL,
+  `col_b` char(40) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SHOW CREATE VIEW bup_objects.v1;;
+View	v1
+Create View	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `bup_objects`.`v1` AS select `bup_objects`.`t1`.`col_a` AS `col_a`,`bup_objects`.`t1`.`col_b` AS `col_b` from `bup_objects`.`t1` where (`bup_objects`.`t1`.`col_a` < 5)
+character_set_client	latin2
+collation_connection	latin1_swedish_ci
+SHOW CREATE VIEW bup_objects.v2;;
+View	v2
+Create View	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `bup_objects`.`v2` AS select `bup_objects`.`t1`.`col_a` AS `col_a`,`bup_objects`.`t1`.`col_b` AS `col_b` from `bup_objects`.`t1` where (`bup_objects`.`t1`.`col_a` >= 5)
+character_set_client	latin2
+collation_connection	latin1_swedish_ci
+SHOW CREATE PROCEDURE bup_objects.p1;;
+Procedure	p1
+sql_mode	PIPES_AS_CONCAT
+Create Procedure	CREATE DEFINER=`root`@`localhost` PROCEDURE `p1`()
+BEGIN
+UPDATE bup_objects.t1 SET col_b = "Procedure p1 was here." WHERE col_a < 3;
+END
+character_set_client	latin2
+collation_connection	latin1_swedish_ci
+Database Collation	latin1_swedish_ci
+SHOW CREATE FUNCTION bup_objects.f1;;
+Function	f1
+sql_mode	PIPES_AS_CONCAT
+Create Function	CREATE DEFINER=`root`@`localhost` FUNCTION `f1`() RETURNS int(11)
+BEGIN
+DECLARE v_out INT;
+SELECT count(*) FROM bup_objects.t1 INTO v_out;
+RETURN v_out;
+END
+character_set_client	latin2
+collation_connection	latin1_swedish_ci
+Database Collation	latin1_swedish_ci
+SHOW CREATE TRIGGER bup_objects.ins_t1;;
+Trigger	ins_t1
+sql_mode	PIPES_AS_CONCAT
+SQL Original Statement	CREATE DEFINER=`root`@`localhost` TRIGGER bup_objects.ins_t1 AFTER INSERT ON bup_objects.t1 FOR EACH ROW 
+BEGIN
+DELETE FROM bup_objects.t2 WHERE col_a > 1;
+END
+character_set_client	latin2
+collation_connection	latin1_swedish_ci
+Database Collation	latin1_swedish_ci
+SELECT * FROM INFORMATION_SCHEMA.EVENTS WHERE event_schema = 'bup_objects' AND event_name = 'e1';;
+EVENT_CATALOG	NULL
+EVENT_SCHEMA	bup_objects
+EVENT_NAME	e1
+DEFINER	root@localhost
+TIME_ZONE	SYSTEM
+EVENT_BODY	SQL
+EVENT_DEFINITION	DELETE FROM bup_objects.t2 WHERE col_a > 100
+EVENT_TYPE	RECURRING
+EXECUTE_AT	NULL
+INTERVAL_VALUE	1
+INTERVAL_FIELD	YEAR
+SQL_MODE	PIPES_AS_CONCAT
+STARTS	#
+ENDS	#
+STATUS	ENABLED
+ON_COMPLETION	NOT PRESERVE
+CREATED	#
+LAST_ALTERED	#
+LAST_EXECUTED	#
+EVENT_COMMENT	
+ORIGINATOR	1
+CHARACTER_SET_CLIENT	latin2
+COLLATION_CONNECTION	latin1_swedish_ci
+DATABASE_COLLATION	latin1_swedish_ci
+SELECT table_name FROM INFORMATION_SCHEMA.TABLES
+WHERE table_schema = 'bup_objects';
+table_name
+t1
+t2
+v1
+v2
+SELECT table_name as view_name FROM INFORMATION_SCHEMA.VIEWS
+WHERE table_schema = 'bup_objects';
+view_name
+v1
+v2
+SELECT routine_name as proc_name FROM INFORMATION_SCHEMA.ROUTINES
+WHERE routine_schema = 'bup_objects' AND routine_type = 'PROCEDURE';
+proc_name
+p1
+SELECT routine_name as func_name FROM INFORMATION_SCHEMA.ROUTINES
+WHERE routine_schema = 'bup_objects' AND routine_type = 'FUNCTION';
+func_name
+f1
+SELECT trigger_name, event_manipulation, event_object_table
+FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_schema = 'bup_objects';
+trigger_name	event_manipulation	event_object_table
+ins_t1	INSERT	t1
+SELECT event_name FROM INFORMATION_SCHEMA.EVENTS
+WHERE event_schema = 'bup_objects';
+event_name
+e1
+Backup data.
+BACKUP DATABASE bup_objects TO 'bup_objects.bak';
+backup_id
+#
+Dropping database.
+DROP DATABASE bup_objects;
+Setting SQL_MODE = ''
+SET SQL_MODE = '';
+Change client connection charset
+SET character_set_client = 'latin1';
+RESTORE FROM 'bup_objects.bak';
+backup_id
+#
+Showing objects and create statements.
+SHOW CREATE DATABASE bup_objects;;
+Database	bup_objects
+Create Database	CREATE DATABASE `bup_objects` /*!40100 DEFAULT CHARACTER SET latin1 */
+SHOW CREATE TABLE bup_objects.t1;;
+Table	t1
+Create Table	CREATE TABLE `t1` (
+  `col_a` int(11) DEFAULT NULL,
+  `col_b` char(40) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SHOW CREATE TABLE bup_objects.t2;;
+Table	t2
+Create Table	CREATE TABLE `t2` (
+  `col_a` int(11) DEFAULT NULL,
+  `col_b` char(40) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SHOW CREATE VIEW bup_objects.v1;;
+View	v1
+Create View	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select `t1`.`col_a` AS `col_a`,`t1`.`col_b` AS `col_b` from `t1` where (`t1`.`col_a` < 5)
+character_set_client	latin1
+collation_connection	latin1_swedish_ci
+SHOW CREATE VIEW bup_objects.v2;;
+View	v2
+Create View	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v2` AS select `t1`.`col_a` AS `col_a`,`t1`.`col_b` AS `col_b` from `t1` where (`t1`.`col_a` >= 5)
+character_set_client	latin1
+collation_connection	latin1_swedish_ci
+SHOW CREATE PROCEDURE bup_objects.p1;;
+Procedure	p1
+sql_mode	PIPES_AS_CONCAT
+Create Procedure	CREATE DEFINER=`root`@`localhost` PROCEDURE `p1`()
+BEGIN
+UPDATE bup_objects.t1 SET col_b = "Procedure p1 was here." WHERE col_a < 3;
+END
+character_set_client	latin2
+collation_connection	latin1_swedish_ci
+Database Collation	latin1_swedish_ci
+SHOW CREATE FUNCTION bup_objects.f1;;
+Function	f1
+sql_mode	PIPES_AS_CONCAT
+Create Function	CREATE DEFINER=`root`@`localhost` FUNCTION `f1`() RETURNS int(11)
+BEGIN
+DECLARE v_out INT;
+SELECT count(*) FROM bup_objects.t1 INTO v_out;
+RETURN v_out;
+END
+character_set_client	latin2
+collation_connection	latin1_swedish_ci
+Database Collation	latin1_swedish_ci
+SHOW CREATE TRIGGER bup_objects.ins_t1;;
+Trigger	ins_t1
+sql_mode	PIPES_AS_CONCAT
+SQL Original Statement	CREATE DEFINER=`root`@`localhost` TRIGGER bup_objects.ins_t1 AFTER INSERT ON bup_objects.t1 FOR EACH ROW 
+BEGIN
+DELETE FROM bup_objects.t2 WHERE col_a > 1;
+END
+character_set_client	latin2
+collation_connection	latin1_swedish_ci
+Database Collation	latin1_swedish_ci
+SELECT * FROM INFORMATION_SCHEMA.EVENTS WHERE event_schema = 'bup_objects' AND event_name = 'e1';;
+EVENT_CATALOG	NULL
+EVENT_SCHEMA	bup_objects
+EVENT_NAME	e1
+DEFINER	root@localhost
+TIME_ZONE	SYSTEM
+EVENT_BODY	SQL
+EVENT_DEFINITION	DELETE FROM bup_objects.t2 WHERE col_a > 100
+EVENT_TYPE	RECURRING
+EXECUTE_AT	NULL
+INTERVAL_VALUE	1
+INTERVAL_FIELD	YEAR
+SQL_MODE	PIPES_AS_CONCAT
+STARTS	#
+ENDS	#
+STATUS	ENABLED
+ON_COMPLETION	NOT PRESERVE
+CREATED	#
+LAST_ALTERED	#
+LAST_EXECUTED	#
+EVENT_COMMENT	
+ORIGINATOR	1
+CHARACTER_SET_CLIENT	latin2
+COLLATION_CONNECTION	latin1_swedish_ci
+DATABASE_COLLATION	latin1_swedish_ci
+SELECT table_name FROM INFORMATION_SCHEMA.TABLES
+WHERE table_schema = 'bup_objects';
+table_name
+t1
+t2
+v1
+v2
+SELECT table_name as view_name FROM INFORMATION_SCHEMA.VIEWS
+WHERE table_schema = 'bup_objects';
+view_name
+v1
+v2
+SELECT routine_name as proc_name FROM INFORMATION_SCHEMA.ROUTINES
+WHERE routine_schema = 'bup_objects' AND routine_type = 'PROCEDURE';
+proc_name
+p1
+SELECT routine_name as func_name FROM INFORMATION_SCHEMA.ROUTINES
+WHERE routine_schema = 'bup_objects' AND routine_type = 'FUNCTION';
+func_name
+f1
+SELECT trigger_name, event_manipulation, event_object_table
+FROM INFORMATION_SCHEMA.TRIGGERS WHERE trigger_schema = 'bup_objects';
+trigger_name	event_manipulation	event_object_table
+ins_t1	INSERT	t1
+SELECT event_name FROM INFORMATION_SCHEMA.EVENTS
+WHERE event_schema = 'bup_objects';
+event_name
+e1
+Cleanup
+DROP DATABASE bup_objects;

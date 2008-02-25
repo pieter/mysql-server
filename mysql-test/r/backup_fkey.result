@@ -1,0 +1,122 @@
+DROP DATABASE IF EXISTS backup_fkey;
+CREATE DATABASE backup_fkey;
+Test 1:
+Create tables and add data.
+CREATE TABLE backup_fkey.parent (id INT NOT NULL, PRIMARY KEY (id)) ENGINE=INNODB;
+CREATE TABLE backup_fkey.child (id INT, parent_id INT, INDEX par_ind (parent_id),
+FOREIGN KEY (parent_id) REFERENCES parent(id)
+ON DELETE CASCADE) ENGINE=INNODB;
+Turn on foreign key constraints.
+SET foreign_key_checks = 1;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+Variable_name	Value
+foreign_key_checks	ON
+INSERT INTO backup_fkey.parent VALUES (1);
+INSERT INTO backup_fkey.parent VALUES (2);
+INSERT INTO backup_fkey.parent VALUES (3);
+INSERT INTO backup_fkey.parent VALUES (4);
+INSERT INTO backup_fkey.parent VALUES (5);
+INSERT INTO backup_fkey.child VALUES (1, 1);
+INSERT INTO backup_fkey.child VALUES (2, 5);
+INSERT INTO backup_fkey.child VALUES (2, 4);
+INSERT INTO backup_fkey.child VALUES (3, 2);
+INSERT INTO backup_fkey.child VALUES (4, 6);
+ERROR 23000: Cannot add or update a child row: a foreign key constraint fails (`backup_fkey`.`child`, CONSTRAINT `child_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `parent` (`id`) ON DELETE CASCADE)
+Backup the database originally.
+BACKUP DATABASE backup_fkey TO 'backup_fkey_orig.bak';
+backup_id
+#
+Turn off foreign key constraints.
+SET foreign_key_checks = 0;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+Variable_name	Value
+foreign_key_checks	OFF
+Drop the parent table.
+DROP TABLE backup_fkey.parent;
+Backup the database without the parent table.
+BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
+backup_id
+#
+Turn on foreign key constraints.
+SET foreign_key_checks = 1;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+Variable_name	Value
+foreign_key_checks	ON
+Now restore the database.
+RESTORE FROM 'backup_fkey.bak';
+backup_id
+#
+RESTORE FROM 'backup_fkey_orig.bak';
+backup_id
+#
+Show data
+SELECT * FROM backup_fkey.parent;
+id
+1
+2
+3
+4
+5
+SELECT * FROM backup_fkey.child;
+id	parent_id
+1	1
+2	5
+2	4
+3	2
+DROP TABLE backup_fkey.child, backup_fkey.parent;
+Test 2:
+Create table and add data.
+CREATE TABLE backup_fkey.t1 (a char(40)) ENGINE=MEMORY;
+INSERT INTO backup_fkey.t1 VALUES ("01 Test #2 - foreign key constraints");
+INSERT INTO backup_fkey.t1 VALUES ("02 Test #2 - foreign key constraints");
+INSERT INTO backup_fkey.t1 VALUES ("03 Test #2 - foreign key constraints");
+INSERT INTO backup_fkey.t1 VALUES ("04 Test #2 - foreign key constraints");
+INSERT INTO backup_fkey.t1 VALUES ("05 Test #2 - foreign key constraints");
+INSERT INTO backup_fkey.t1 VALUES ("06 Test #2 - foreign key constraints");
+INSERT INTO backup_fkey.t1 VALUES ("07 Test #2 - foreign key constraints");
+Backup the data
+BACKUP DATABASE backup_fkey TO 'backup_fkey.bak';
+backup_id
+#
+Turn on foreign key constraints.
+SET foreign_key_checks = 1;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+Variable_name	Value
+foreign_key_checks	ON
+Restoring data
+RESTORE FROM 'backup_fkey.bak';
+backup_id
+#
+Verify foreign_key_checks = ON
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+Variable_name	Value
+foreign_key_checks	ON
+Turn off foreign key constraints.
+SET foreign_key_checks = 0;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+Variable_name	Value
+foreign_key_checks	OFF
+Restoring data
+RESTORE FROM 'backup_fkey.bak';
+backup_id
+#
+Verify foreign_key_checks = OFF
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+Variable_name	Value
+foreign_key_checks	OFF
+SELECT * FROM backup_fkey.t1;
+a
+01 Test #2 - foreign key constraints
+02 Test #2 - foreign key constraints
+03 Test #2 - foreign key constraints
+04 Test #2 - foreign key constraints
+05 Test #2 - foreign key constraints
+06 Test #2 - foreign key constraints
+07 Test #2 - foreign key constraints
+Turn on foreign key constraints.
+SET foreign_key_checks = 1;
+SHOW VARIABLES LIKE 'foreign_key_checks%';
+Variable_name	Value
+foreign_key_checks	ON
+Cleanup
+DROP DATABASE backup_fkey;

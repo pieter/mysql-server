@@ -26,7 +26,7 @@
 
 #include <memory.h>
 #include "Btn.h"
-#include "RootPage.h"
+#include "Page.h"
 
 #define SHIFT(n)	(1 << n)
 

@@ -971,7 +971,7 @@ Record* Table::backlogFetch(int32 recordNumber)
 	return NULL;	
 }
 
-Record* Table::rollbackRecord(RecordVersion * recordToRollback)
+Record* Table::rollbackRecord(RecordVersion * recordToRollback, Transaction *transaction)
 {
 #ifdef CHECK_RECORD_ACTIVITY
 	recordToRollback->active = false;
@@ -1000,9 +1000,9 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback)
 		}
 
 	if (!priorRecord && recordToRollback->recordNumber >= 0)
-		deleteRecord(recordToRollback);
+		deleteRecord(recordToRollback, transaction);
 
-	garbageCollect(recordToRollback, priorRecord, recordToRollback->transaction, true);
+	garbageCollect(recordToRollback, priorRecord, transaction, true);
 
 	if (backloggedRecords)
 		deleteRecordBacklog(recordToRollback->recordNumber);
@@ -2820,7 +2820,7 @@ void Table::clearIndexesRebuild()
 	END_FOR;
 }
 
-void Table::deleteRecord(RecordVersion *record)
+void Table::deleteRecord(RecordVersion *record, Transaction *transaction)
 {
 	if (record->recordNumber >= 0)
 		dbb->logRecord(dataSectionId, record->recordNumber, NULL, record->transaction);

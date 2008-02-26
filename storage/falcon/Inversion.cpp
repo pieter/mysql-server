@@ -35,7 +35,6 @@
 #include "Log.h"
 #include "IndexKey.h"
 #include "Index2Node.h"
-#include "RootPage.h"
 
 #define STACK_SIZE	512
 

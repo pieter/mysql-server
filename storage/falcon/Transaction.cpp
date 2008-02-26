@@ -45,7 +45,7 @@
 #include "Bitmap.h"
 #include "BackLog.h"
 
-//#define DEBUG_BACKLOG
+#define DEBUG_BACKLOG
 
 extern uint		falcon_lock_wait_timeout;
 
@@ -435,7 +435,7 @@ void Transaction::rollback()
 		if (record->state == recLock)
 			record->format->table->unlockRecord(record, false);
 		else
-			record->rollback();
+			record->rollback(this);
 		
 		record->transaction = rollbackTransaction;
 		record->release();
@@ -1225,7 +1225,7 @@ void Transaction::rollbackSavepoint(int savePointId)
 			RecordVersion *rec = stack;
 			stack = rec->nextInTrans;
 			rec->nextInTrans = NULL;
-			rec->rollback();
+			rec->rollback(this);
 #ifdef CHECK_RECORD_ACTIVITY
 			rec->active = false;
 #endif

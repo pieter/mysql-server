@@ -44,7 +44,7 @@ public:
 	virtual bool		scavenge(RecordScavenge *recordScavenge);
 	virtual void		scavenge(TransId targetTransactionId, int oldestActiveSavePoint);
 	virtual bool		isVersion();
-	virtual Record*		rollback();
+	virtual Record*		rollback(Transaction *transaction);
 	virtual Record*		fetchVersion (Transaction *transaction);
 	virtual Record*		releaseNonRecursive();
 	virtual void		setPriorVersion (Record *oldVersion);

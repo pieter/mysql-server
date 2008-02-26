@@ -105,7 +105,7 @@ void BackLog::rollbackRecords(Bitmap* records, Transaction *transaction)
 			if (rec)
 				{
 				if (rec->getTransactionId() == transaction->transactionId)
-					record->rollback();
+					record->rollback(transaction);
 				else
 					record->release();
 				}
@@ -113,7 +113,7 @@ void BackLog::rollbackRecords(Bitmap* records, Transaction *transaction)
 			continue;
 			}
 			
-		record->rollback();
+		record->rollback(transaction);
 #ifdef CHECK_RECORD_ACTIVITY
 		record->active = false;
 #endif

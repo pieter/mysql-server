@@ -25,19 +25,6 @@
 #endif // _MSC_VER >= 1000
 
 #include "Page.h"
-
-static const int END_BUCKET	= -1;
-static const int END_LEVEL	= -2;
-
-enum AddNodeResult
-    {
-	NodeAdded = 0,
-	Duplicate,
-	SplitMiddle,
-	SplitEnd,
-	NextPage
-	};
-
 class RootPage : public Page  
 {
 public:

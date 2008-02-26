@@ -34,7 +34,6 @@
 #include "SerialLog.h"
 #include "SerialLogControl.h"
 #include "SQLError.h"
-#include "RootPage.h"
 #include "Index.h"
 
 #ifdef _DEBUG

@@ -8973,8 +8973,8 @@ static void test_sqlmode()
   strmov(c1, "My"); strmov(c2, "SQL");
   rc= mysql_stmt_execute(stmt);
   check_execute(stmt, rc);
-
   mysql_stmt_close(stmt);
+
   verify_col_data("test_piping", "name", "MySQL");
 
   rc= mysql_query(mysql, "DELETE FROM test_piping");
@@ -13282,7 +13282,7 @@ from t2);");
 static void test_bug8378()
 {
 #if defined(HAVE_CHARSET_gbk) && !defined(EMBEDDED_LIBRARY)
-  MYSQL *old_mysql=mysql;
+  MYSQL *lmysql;
   char out[9]; /* strlen(TEST_BUG8378)*2+1 */
   char buf[256];
   int len, rc;
@@ -13291,17 +13291,17 @@ static void test_bug8378()
 
   if (!opt_silent)
     fprintf(stdout, "\n Establishing a test connection ...");
-  if (!(mysql= mysql_init(NULL)))
+  if (!(lmysql= mysql_init(NULL)))
   {
     myerror("mysql_init() failed");
     exit(1);
   }
-  if (mysql_options(mysql, MYSQL_SET_CHARSET_NAME, "gbk"))
+  if (mysql_options(lmysql, MYSQL_SET_CHARSET_NAME, "gbk"))
   {
     myerror("mysql_options() failed");
     exit(1);
   }
-  if (!(mysql_real_connect(mysql, opt_host, opt_user,
+  if (!(mysql_real_connect(lmysql, opt_host, opt_user,
                            opt_password, current_db, opt_port,
                            opt_unix_socket, 0)))
   {
@@ -13311,19 +13311,17 @@ static void test_bug8378()
   if (!opt_silent)
     fprintf(stdout, "OK");
 
-  len= mysql_real_escape_string(mysql, out, TEST_BUG8378_IN, 4);
+  len= mysql_real_escape_string(lmysql, out, TEST_BUG8378_IN, 4);
 
   /* No escaping should have actually happened. */
   DIE_UNLESS(memcmp(out, TEST_BUG8378_OUT, len) == 0);
 
   sprintf(buf, "SELECT '%s'", out);
   
-  rc=mysql_real_query(mysql, buf, strlen(buf));
+  rc=mysql_real_query(lmysql, buf, strlen(buf));
   myquery(rc);
 
-  mysql_close(mysql);
-
-  mysql=old_mysql;
+  mysql_close(lmysql);
 #endif
 }
 
@@ -15164,7 +15162,7 @@ static void test_opt_reconnect()
   if (mysql_options(lmysql, MYSQL_OPT_RECONNECT, &my_true))
   {
     myerror("mysql_options failed: unknown option MYSQL_OPT_RECONNECT\n");
-    exit(1);
+    DIE_UNLESS(0);
   }
 
   /* reconnect should be 1 */
@@ -15177,7 +15175,7 @@ static void test_opt_reconnect()
                            opt_unix_socket, 0)))
   {
     myerror("connection failed");
-    exit(1);
+    DIE_UNLESS(0);
   }
 
   /* reconnect should still be 1 */
@@ -15191,7 +15189,7 @@ static void test_opt_reconnect()
   if (!(lmysql= mysql_init(NULL)))
   {
     myerror("mysql_init() failed");
-    exit(1);
+    DIE_UNLESS(0);
   }
 
   if (!opt_silent)
@@ -15203,7 +15201,7 @@ static void test_opt_reconnect()
                            opt_unix_socket, 0)))
   {
     myerror("connection failed");
-    exit(1);
+    DIE_UNLESS(0);
   }
 
   /* reconnect should still be 0 */
@@ -15221,32 +15219,32 @@ static void test_opt_reconnect()
 static void test_bug12744()
 {
   MYSQL_STMT *prep_stmt = NULL;
+  MYSQL *lmysql;
   int rc;
   myheader("test_bug12744");
 
-  prep_stmt= mysql_stmt_init(mysql);
+  lmysql= mysql_init(NULL);
+  DIE_UNLESS(lmysql);
+
+  if (!mysql_real_connect(lmysql, opt_host, opt_user, opt_password,
+                          current_db, opt_port, opt_unix_socket, 0))
+  {
+    fprintf(stderr, "Failed to connect to the database\n");
+    DIE_UNLESS(0);
+  }
+
+  prep_stmt= mysql_stmt_init(lmysql);
   rc= mysql_stmt_prepare(prep_stmt, "SELECT 1", 8);
-  DIE_UNLESS(rc==0);
+  DIE_UNLESS(rc == 0);
 
-  mysql_close(mysql);
+  mysql_close(lmysql);
 
-  if ((rc= mysql_stmt_execute(prep_stmt)))
-  {
-    if ((rc= mysql_stmt_reset(prep_stmt)))
-      printf("OK!\n");
-    else
-    {
-      printf("Error!");
-      DIE_UNLESS(1==0);
-    }
-  }
-  else
-  {
-    fprintf(stderr, "expected error but no error occured\n");
-    DIE_UNLESS(1==0);
-  }
+  rc= mysql_stmt_execute(prep_stmt);
+  DIE_UNLESS(rc);
+  rc= mysql_stmt_reset(prep_stmt);
+  DIE_UNLESS(rc);
   rc= mysql_stmt_close(prep_stmt);
-  client_connect(0);
+  DIE_UNLESS(rc == 0);
 }
 
 #endif /* EMBEDDED_LIBRARY */
@@ -16110,6 +16108,7 @@ static void test_bug24179()
            mysql_stmt_error(stmt));
   }
   DIE_UNLESS(mysql_stmt_errno(stmt) == 1323);
+  mysql_stmt_close(stmt);
 
   DBUG_VOID_RETURN;
 }
@@ -17329,6 +17328,65 @@ static void test_bug31669()
   DBUG_VOID_RETURN;
 }
 
+
+/**
+  Bug#28386 the general log is incomplete
+*/
+
+static void test_bug28386()
+{
+  int rc;
+  MYSQL_STMT *stmt;
+  MYSQL_RES *result;
+  MYSQL_BIND bind;
+  const char hello[]= "hello world!";
+
+  DBUG_ENTER("test_bug28386");
+  myheader("test_bug28386");
+
+  rc= mysql_query(mysql, "truncate mysql.general_log");
+  myquery(rc);
+
+  stmt= mysql_simple_prepare(mysql, "SELECT ?");
+  check_stmt(stmt);
+
+  memset(&bind, 0, sizeof(bind));
+
+  bind.buffer_type= MYSQL_TYPE_STRING;
+  bind.buffer= (void *) hello;
+  bind.buffer_length= sizeof(hello);
+
+  mysql_stmt_bind_param(stmt, &bind);
+  mysql_stmt_send_long_data(stmt, 0, hello, sizeof(hello));
+
+  rc= mysql_stmt_execute(stmt);
+  check_execute(stmt, rc);
+
+  rc= my_process_stmt_result(stmt);
+  DIE_UNLESS(rc == 1);
+
+  rc= mysql_stmt_reset(stmt);
+  check_execute(stmt, rc);
+
+  rc= mysql_stmt_close(stmt);
+  DIE_UNLESS(!rc);
+
+  rc= mysql_query(mysql, "select * from mysql.general_log where "
+                         "command_type='Close stmt' or "
+                         "command_type='Reset stmt' or "
+                         "command_type='Long Data'");
+  myquery(rc);
+
+  result= mysql_store_result(mysql);
+  mytest(result);
+
+  DIE_UNLESS(mysql_num_rows(result) == 3);
+
+  mysql_free_result(result);
+
+  DBUG_VOID_RETURN;
+}
+
 /*
   Read and parse arguments and MySQL options from my.cnf
 */
@@ -17634,7 +17692,7 @@ static struct my_tests_st my_tests[]= {
   { "test_bug20023", test_bug20023 },
   { "test_bug31418", test_bug31418 },
   { "test_bug31669", test_bug31669 },
-  { "test_change_user", test_change_user },
+  { "test_bug28386", test_bug28386 },
   { 0, 0 }
 };
 

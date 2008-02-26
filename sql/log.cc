@@ -4130,7 +4130,7 @@ err:
 void MYSQL_BIN_LOG::wait_for_update_relay_log(THD* thd)
 {
   const char *old_msg;
-  DBUG_ENTER("wait_for_update");
+  DBUG_ENTER("wait_for_update_relay_log");
   old_msg= thd->enter_cond(&update_cond, &LOCK_log,
                            "Slave has read all relay log; " 
                            "waiting for the slave I/O "

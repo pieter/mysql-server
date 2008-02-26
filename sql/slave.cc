@@ -897,10 +897,11 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
         (::server_id == strtoul(master_row[1], 0, 10)) &&
         !mi->rli.replicate_same_server_id)
     {
-      err_msg.append("The slave I/O thread stops because master and slave have equal"
-                     " MySQL server ids; these ids must be different for replication to work (or"
-                     " the --replicate-same-server-id option must be used on slave but this does"
-                     " not always make sense; please check the manual before using it).");
+      errmsg=
+        "The slave I/O thread stops because master and slave have equal"
+        " MySQL server ids; these ids must be different for replication to work (or"
+        " the --replicate-same-server-id option must be used on slave but this does"
+        " not always make sense; please check the manual before using it).";
       err_code= ER_SLAVE_FATAL_ERROR;
       sprintf(err_buff, ER(err_code), errmsg);
       err_msg.append(err_buff);
@@ -939,9 +940,10 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     if ((master_row= mysql_fetch_row(master_res)) &&
         strcmp(master_row[0], global_system_variables.collation_server->name))
     {
-      err_msg.append("The slave I/O thread stops because master and slave have"
-                     " different values for the COLLATION_SERVER global variable."
-                     " The values must be equal for replication to work");
+      errmsg=
+        "The slave I/O thread stops because master and slave have"
+        " different values for the COLLATION_SERVER global variable."
+        " The values must be equal for replication to work";
       err_code= ER_SLAVE_FATAL_ERROR;
       sprintf(err_buff, ER(err_code), errmsg);
       err_msg.append(err_buff);
@@ -974,9 +976,10 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
         strcmp(master_row[0],
                global_system_variables.time_zone->get_name()->ptr()))
     {
-      err_msg.append("The slave I/O thread stops because master and slave have"
-                     " different values for the TIME_ZONE global variable."
-                     " The values must be equal for replication to work");
+      errmsg=
+        "The slave I/O thread stops because master and slave have"
+        " different values for the TIME_ZONE global variable."
+        " The values must be equal for replication to work";
       err_code= ER_SLAVE_FATAL_ERROR;
       sprintf(err_buff, ER(err_code), errmsg);
       err_msg.append(err_buff);

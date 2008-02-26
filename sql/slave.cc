@@ -776,9 +776,14 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
 {
   char error_buf[512];
   String err_msg(error_buf, sizeof(error_buf), &my_charset_bin);
-  err_msg.length(0);
+  char err_buff[MAX_SLAVE_ERRMSG];
+  const char* errmsg= 0;
+  int err_code= 0;
+  MYSQL_RES *master_res= 0;
+  MYSQL_ROW master_row;
   DBUG_ENTER("get_master_version_and_clock");
 
+  err_msg.length(0);
   /*
     Free old description_event_for_queue (that is needed if we are in
     a reconnection).
@@ -787,7 +792,12 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
   mi->rli.relay_log.description_event_for_queue= 0;
 
   if (!my_isdigit(&my_charset_bin,*mysql->server_version))
-    err_msg.append("Master reported unrecognized MySQL version");
+  {
+    errmsg = "Master reported unrecognized MySQL version";
+    err_code= ER_SLAVE_FATAL_ERROR;
+    sprintf(err_buff, ER(err_code), errmsg);
+    err_msg.append(err_buff);
+  }
   else
   {
     /*
@@ -798,7 +808,10 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     case '0':
     case '1':
     case '2':
-      err_msg.append("Master reported unrecognized MySQL version");
+      errmsg = "Master reported unrecognized MySQL version";
+      err_code= ER_SLAVE_FATAL_ERROR;
+      sprintf(err_buff, ER(err_code), errmsg);
+      err_msg.append(err_buff);
       break;
     case '3':
       mi->rli.relay_log.description_event_for_queue= new
@@ -831,26 +844,22 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
   */
 
   if (err_msg.length() != 0)
-  {
-    sql_print_error(err_msg.ptr());
-    DBUG_RETURN(1);
-  }
+    goto err;
 
   /* as we are here, we tried to allocate the event */
   if (!mi->rli.relay_log.description_event_for_queue)
   {
-    mi->report(ERROR_LEVEL, ER_SLAVE_CREATE_EVENT_FAILURE,
-               ER(ER_SLAVE_CREATE_EVENT_FAILURE),
-               "default Format_description_log_event");
-    DBUG_RETURN(1);
+    errmsg= "default Format_description_log_event";
+    err_code= ER_SLAVE_CREATE_EVENT_FAILURE;
+    sprintf(err_buff, ER(err_code), errmsg);
+    err_msg.append(err_buff);
+    goto err;
   }
 
   /*
     Compare the master and slave's clock. Do not die if master's clock is
     unavailable (very old master not supporting UNIX_TIMESTAMP()?).
   */
-  MYSQL_RES *master_res= 0;
-  MYSQL_ROW master_row;
 
   if (!mysql_real_query(mysql, STRING_WITH_LEN("SELECT UNIX_TIMESTAMP()")) &&
       (master_res= mysql_store_result(mysql)) &&
@@ -887,11 +896,18 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     if ((master_row= mysql_fetch_row(master_res)) &&
         (::server_id == strtoul(master_row[1], 0, 10)) &&
         !mi->rli.replicate_same_server_id)
+    {
       err_msg.append("The slave I/O thread stops because master and slave have equal"
                      " MySQL server ids; these ids must be different for replication to work (or"
                      " the --replicate-same-server-id option must be used on slave but this does"
                      " not always make sense; please check the manual before using it).");
+      err_code= ER_SLAVE_FATAL_ERROR;
+      sprintf(err_buff, ER(err_code), errmsg);
+      err_msg.append(err_buff);
+    }
     mysql_free_result(master_res);
+    if (errmsg)
+      goto err;
   }
 
   /*
@@ -922,10 +938,17 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
   {
     if ((master_row= mysql_fetch_row(master_res)) &&
         strcmp(master_row[0], global_system_variables.collation_server->name))
+    {
       err_msg.append("The slave I/O thread stops because master and slave have"
                      " different values for the COLLATION_SERVER global variable."
                      " The values must be equal for replication to work");
+      err_code= ER_SLAVE_FATAL_ERROR;
+      sprintf(err_buff, ER(err_code), errmsg);
+      err_msg.append(err_buff);
+    }
     mysql_free_result(master_res);
+    if (errmsg)
+      goto err;
   }
 
   /*
@@ -950,10 +973,18 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     if ((master_row= mysql_fetch_row(master_res)) &&
         strcmp(master_row[0],
                global_system_variables.time_zone->get_name()->ptr()))
+    {
       err_msg.append("The slave I/O thread stops because master and slave have"
                      " different values for the TIME_ZONE global variable."
                      " The values must be equal for replication to work");
+      err_code= ER_SLAVE_FATAL_ERROR;
+      sprintf(err_buff, ER(err_code), errmsg);
+      err_msg.append(err_buff);
+    }
     mysql_free_result(master_res);
+
+    if (errmsg)
+      goto err;
   }
 
   if (mi->heartbeat_period != 0.0)
@@ -988,6 +1019,8 @@ err:
   if (err_msg.length() != 0)
   {
     sql_print_error(err_msg.ptr());
+    DBUG_ASSERT(err_code != 0);
+    mi->report(ERROR_LEVEL, err_code, err_msg.ptr());
     DBUG_RETURN(1);
   }
 

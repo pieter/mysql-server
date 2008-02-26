@@ -1858,6 +1858,20 @@ void Connection::setRecordScavengeFloor(int value)
 		database->setRecordScavengeFloor(value);
 }
 
+
+void Connection::setIndexChillThreshold(uint value)
+{
+	if(database && database->configuration)
+		database->configuration->indexChillThreshold = value;
+}
+
+void Connection::setRecordChillThreshold(uint value)
+{
+	if(database && database->configuration)
+		database->configuration->recordChillThreshold = value;
+}
+
+
 int Connection::recoverGetNextLimbo(int xidSize, unsigned char *xid)
 {
 	if (database)

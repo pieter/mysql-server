@@ -8,7 +8,7 @@
 SET storage_engine = Falcon;
 SET @@autocommit = 0;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+SET FALCON_CONSISTENT_READ=OFF;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -19,6 +19,7 @@ DROP PROCEDURE IF EXISTS p1;
 connect (conn1,localhost,root,,);
 SET storage_engine = Falcon;
 SET @@autocommit = 0;
+SET FALCON_CONSISTENT_READ=OFF;
 
 --echo # Switch to connection default
 connection default;
@@ -69,4 +70,3 @@ COMMIT;
 disconnect conn1;
 DROP TABLE t1;
 DROP PROCEDURE p1;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;

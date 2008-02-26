@@ -1,0 +1,68 @@
+#
+# Bug#33041: Cannot set FALCON_CONSISTENT_READ for local session
+#
+# The test tests the scope of falcon_consistent_read variable
+# the scope is "both" meaning per-connection and global.
+# 1) new connections get the global value of falcon_consistent_read
+# 2) existing connections are not affected by "set global falcon_consistent_read"
+# 3) within connection it is possible to change falcon_consistent_read with
+#   "set falcon_consistent_read" and the change does not affect existing connections
+#
+--echo *** Bug#33041 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+SELECT @@GLOBAL.falcon_consistent_read INTO @previous_falcon_consistent_read;
+
+SET GLOBAL falcon_consistent_read = OFF;
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+--echo #connect (conn1,localhost,root,,);
+connect (conn1,localhost,root,,);
+
+#--echo #connect (conn2,localhost,root,,);
+connect (conn2,localhost,root,,);
+
+--echo #connection conn1;
+connection conn1;
+SET falcon_consistent_read = on;
+--echo #check that it worked
+show variables like 'falcon_consistent_read';
+
+
+--echo #verify local setting for conn1 does not affect other connections 
+--echo #connection conn2;
+connection conn2;
+show variables like 'falcon_consistent_read';
+--echo #connection conn1;
+connection conn1;
+
+--echo #verify that local setting does NOT affect global value
+SELECT @@GLOBAL.falcon_consistent_read;
+--echo #change global setting and verify it worked
+SET global falcon_consistent_read = on;
+SELECT @@GLOBAL.falcon_consistent_read;
+
+
+--echo #check that "set global" does  NOT affect existing connections
+--echo #connection conn2;
+connection conn2;
+show variables like 'falcon_consistent_read';
+
+--echo #check that "set global" DOES  affect new connection
+--echo connect (conn3,localhost,root,,);
+connect (conn3,localhost,root,,);
+show variables like 'falcon_consistent_read';
+
+
+# Final cleanup.
+connection default;
+disconnect conn1;
+disconnect conn2;
+disconnect conn3;
+SET @@GLOBAL.falcon_consistent_read = @previous_falcon_consistent_read;
+

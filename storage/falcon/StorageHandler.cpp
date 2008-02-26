@@ -921,31 +921,24 @@ void StorageHandler::initialize(void)
 		// lead to "recreate" and data loss.
 		int err = e.getSqlcode();
 		if(err == OUT_OF_MEMORY_ERROR || err == FILE_ACCESS_ERROR)
-			return;
-		try
-			{
-			defaultDatabase->createDatabase();
-			IO::deleteFile(FALCON_USER);
-			IO::deleteFile(FALCON_TEMPORARY);
-			dictionaryConnection = defaultDatabase->getOpenConnection();
-			Statement *statement = dictionaryConnection->createStatement();
+			throw;
+		defaultDatabase->createDatabase();
+		IO::deleteFile(FALCON_USER);
+		IO::deleteFile(FALCON_TEMPORARY);
+		dictionaryConnection = defaultDatabase->getOpenConnection();
+		Statement *statement = dictionaryConnection->createStatement();
 
-			JString createTableSpace;
-			createTableSpace.Format(
-					"create tablespace " DEFAULT_TABLESPACE " filename '" FALCON_USER "' allocation " I64FORMAT,
-					falcon_initial_allocation);
-			statement->executeUpdate(createTableSpace);
+		JString createTableSpace;
+		createTableSpace.Format(
+				"create tablespace " DEFAULT_TABLESPACE " filename '" FALCON_USER "' allocation " I64FORMAT,
+				falcon_initial_allocation);
+		statement->executeUpdate(createTableSpace);
 			
-			for (const char **ddl = falconSchema; *ddl; ++ddl)
-				statement->executeUpdate(*ddl);
-			
-			statement->close();
-			dictionaryConnection->commit();
-			}
-		catch(...)
-			{
-			return;
-			}
+		for (const char **ddl = falconSchema; *ddl; ++ddl)
+			statement->executeUpdate(*ddl);
+		
+		statement->close();
+		dictionaryConnection->commit();
 		}
 }
 
@@ -1078,6 +1071,20 @@ void StorageHandler::setRecordScavengeFloor(int value)
 	if (dictionaryConnection)
 		dictionaryConnection->setRecordScavengeFloor(value);
 }
+
+void StorageHandler::setIndexChillThreshold(uint value)
+{
+	if (dictionaryConnection)
+		dictionaryConnection->setIndexChillThreshold(value);
+}
+
+
+void StorageHandler::setRecordChillThreshold(uint value)
+{
+	if (dictionaryConnection)
+		dictionaryConnection->setRecordChillThreshold(value);
+}
+
 
 void StorageHandler::cleanFileName(const char* pathname, char* filename, int filenameLength)
 {

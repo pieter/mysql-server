@@ -1,19 +1,21 @@
 *** Bug #263 ***
 SET storage_engine = Falcon;
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
 DROP TABLE IF EXISTS t1;
 # Establish connection 1 (REPEATABLE READ)
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET FALCON_CONSISTENT_READ=ON;
 select @@TX_ISOLATION;
 @@TX_ISOLATION
 REPEATABLE-READ
 # Establish connection 2 (READ COMMITTED)
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET FALCON_CONSISTENT_READ=ON;
 select @@TX_ISOLATION;
 @@TX_ISOLATION
 READ-COMMITTED
 # Switch to connection default (REPEATABLE READ)
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET FALCON_CONSISTENT_READ=ON;
 select @@TX_ISOLATION;
 @@TX_ISOLATION
 REPEATABLE-READ
@@ -115,7 +117,14 @@ INSERT INTO t1 VALUES (0);
 ############################################################
 # #3 - client 2 (with InnoDB Compatibility) does not block on a vestigial record
 ############################################################
-SET GLOBAL FALCON_CONSISTENT_READ=OFF;
+# Set consistent read=off for all connections
+# default
+SET  FALCON_CONSISTENT_READ=OFF;
+#conn1
+SET  FALCON_CONSISTENT_READ=OFF;
+#conn2
+SET  FALCON_CONSISTENT_READ=OFF;
+#back to default
 START TRANSACTION;
 UPDATE t1 SET a = 10;
 SELECT * FROM t1;
@@ -146,7 +155,14 @@ a
 # Switch to connection default (REPEATABLE READ)
 DELETE FROM t1;
 INSERT INTO t1 VALUES (0);
-SET GLOBAL FALCON_CONSISTENT_READ=ON;
+# Set consistent read=on for all connections
+# default
+SET  FALCON_CONSISTENT_READ=ON;
+# conn1
+SET  FALCON_CONSISTENT_READ=ON;
+# conn2
+SET  FALCON_CONSISTENT_READ=ON;
+#back to default
 ############################################################
 # #4 - make sure client 2 does not block on a vestigial records 
 # that were never committed.

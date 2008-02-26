@@ -43,19 +43,25 @@
 #include "config.h"
 #endif
 
-#ifdef TARGET_OS_LINUX
+#ifdef  __linux__
 #include <linux/unistd.h>
+#include <sys/utsname.h>
+static  int getLinuxVersion();
+#define KERNEL_VERSION(a, b, c)	((a)<<16 | (b)<<8 | (c))
+#define haveBrokenODirect()	(getLinuxVersion() < KERNEL_VERSION(2,6,0))
 #else
-#define   LOCK_SH   1	/* shared lock */
-#define   LOCK_EX   2	/* exclusive lock */
-#define   LOCK_NB   4	/* don't block when locking */
-#define   LOCK_UN   8	/* unlock */
+#define LOCK_SH   1	/* shared lock */
+#define LOCK_EX   2	/* exclusive lock */
+#define LOCK_NB   4	/* don't block when locking */
+#define LOCK_UN   8	/* unlock */
+#define haveBrokenODirect()	0
 #endif
 #include <sys/file.h>
 #define O_BINARY		0
 #define O_RANDOM		0
 #define MKDIR(dir)			mkdir(dir, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)
 #endif
+
 
 #ifndef O_SYNC
 #define O_SYNC		0
@@ -630,7 +636,7 @@ void IO::reportWrites(void)
 int IO::getWriteMode(int attempt)
 {
 #ifdef O_DIRECT
-	if (attempt == 0 && falcon_direct_io > 0)
+	if (attempt == 0 && falcon_direct_io > 0 && !haveBrokenODirect())
 		return O_DIRECT;
 #endif
 
@@ -639,3 +645,25 @@ int IO::getWriteMode(int attempt)
 	
 	return 0;
 }
+
+#ifdef __linux__
+static int getLinuxVersion()
+{
+	static int vers = -1;
+
+	if(vers != -1)
+		return vers;
+
+	struct utsname utsname;
+
+	if(uname(&utsname) == -1)
+		return vers = 0;
+
+	int major, minor ,release;
+
+	if (sscanf(utsname.release,"%d.%d.%d",&major, &minor,&release) != 3)
+		return vers = 0;
+
+	return vers = KERNEL_VERSION(major,minor,release);
+}
+#endif

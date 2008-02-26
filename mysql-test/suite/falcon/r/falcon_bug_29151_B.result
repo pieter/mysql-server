@@ -1,12 +1,13 @@
 *** Bug #29151 ***
 SET @@storage_engine = Falcon;
-SET GLOBAL falcon_consistent_read = on;
+SET falcon_consistent_read = on;
 DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (a int, b int, c char(10), PRIMARY KEY (a));
 # Establish connection conn1
 # Establish connection conn2
 INSERT INTO t1 VALUES(490, 0, 'inserted');
 # Switch to connection conn1
+SET falcon_consistent_read = on;
 BEGIN;
 UPDATE t1 SET c = 'updated' WHERE a = 490;
 DELETE FROM t1 WHERE a = 490;
@@ -15,6 +16,7 @@ SELECT * FROM t1;
 a	b	c
 490	1	inserted
 # Switch to connection conn2
+SET falcon_consistent_read = on;
 BEGIN;
 SELECT * FROM t1;
 a	b	c

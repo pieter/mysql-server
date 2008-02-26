@@ -14,7 +14,7 @@ concurrent_innodb        : BUG#21579 2006-08-11 mleich innodb_concurrent random 
 order_by             : WL#2475: spetrunia producing ordered streams is not handled correctly
 federated_transactions   : Bug#29523 Transactions do not work
 subselect2 : BUG#31464 SergeyP will fix
-log_tables : BUG#31580 1007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
+log_tables : BUG#31580 2007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
 show_check      : Bug #32682    Test show_check fails in 6.0
 lowercase_table3         : Bug#32667 lowercase_table3.test reports to error log
 innodb_mysql         : Bug#32724: innodb_mysql.test fails randomly

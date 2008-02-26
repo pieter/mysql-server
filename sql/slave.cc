@@ -134,9 +134,6 @@ static int connect_to_master(THD* thd, MYSQL* mysql, Master_info* mi,
                              bool reconnect, bool suppress_warnings);
 static int safe_sleep(THD* thd, int sec, CHECK_KILLED_FUNC thread_killed,
                       void* thread_killed_arg);
-static int request_table_dump(MYSQL* mysql, const char* db, const char* table);
-static int create_table_from_dump(THD* thd, MYSQL *mysql, const char* db,
-                                  const char* table_name, bool overwrite);
 static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi);
 static Log_event* next_event(Relay_log_info* rli);
 static int queue_event(Master_info* mi,const char* buf,ulong event_len);
@@ -242,18 +239,15 @@ int init_slave()
   }
 
   if (init_master_info(active_mi,master_info_file,relay_log_info_file,
-                       !master_host, (SLAVE_IO | SLAVE_SQL)))
+                       1, (SLAVE_IO | SLAVE_SQL)))
   {
     sql_print_error("Failed to initialize the master info structure");
     goto err;
   }
 
-  if (server_id && !master_host && active_mi->host[0])
-    master_host= active_mi->host;
-
   /* If server id is not set, start_slave_thread() will say it */
 
-  if (master_host && !opt_skip_slave_start)
+  if (active_mi->host[0] && !opt_skip_slave_start)
   {
     if (start_slave_threads(1 /* need mutex */,
                             0 /* no wait for start*/,
@@ -731,6 +725,39 @@ int init_intvar_from_file(int* var, IO_CACHE* f, int default_val)
   DBUG_RETURN(1);
 }
 
+int init_floatvar_from_file(float* var, IO_CACHE* f, float default_val)
+{
+  char buf[16];
+  DBUG_ENTER("init_floatvar_from_file");
+
+
+  if (my_b_gets(f, buf, sizeof(buf)))
+  {
+    if (sscanf(buf, "%f", var) != 1)
+      DBUG_RETURN(1);
+    else
+      DBUG_RETURN(0);
+  }
+  else if (default_val != 0.0)
+  {
+    *var = default_val;
+    DBUG_RETURN(0);
+  }
+  DBUG_RETURN(1);
+}
+
+static bool check_io_slave_killed(THD *thd, Master_info *mi, const char *info)
+{
+  if (io_slave_killed(thd, mi))
+  {
+    if (info && global_system_variables.log_warnings)
+      sql_print_information(info);
+    return TRUE;
+  }
+  return FALSE;
+}
+
+
 /*
   Note that we rely on the master's version (3.23, 4.0.14 etc) instead of
   relying on the binlog's version. This is not perfect: imagine an upgrade
@@ -747,6 +774,8 @@ int init_intvar_from_file(int* var, IO_CACHE* f, int default_val)
 
 static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
 {
+  char error_buf[512];
+  String err_msg(error_buf, sizeof(error_buf), &my_charset_bin);
   char err_buff[MAX_SLAVE_ERRMSG];
   const char* errmsg= 0;
   int err_code= 0;
@@ -754,6 +783,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
   MYSQL_ROW master_row;
   DBUG_ENTER("get_master_version_and_clock");
 
+  err_msg.length(0);
   /*
     Free old description_event_for_queue (that is needed if we are in
     a reconnection).
@@ -766,6 +796,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     errmsg = "Master reported unrecognized MySQL version";
     err_code= ER_SLAVE_FATAL_ERROR;
     sprintf(err_buff, ER(err_code), errmsg);
+    err_msg.append(err_buff);
   }
   else
   {
@@ -780,6 +811,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
       errmsg = "Master reported unrecognized MySQL version";
       err_code= ER_SLAVE_FATAL_ERROR;
       sprintf(err_buff, ER(err_code), errmsg);
+      err_msg.append(err_buff);
       break;
     case '3':
       mi->rli.relay_log.description_event_for_queue= new
@@ -811,7 +843,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
      events sent by the master, and there will be error messages.
   */
 
-  if (errmsg)
+  if (err_msg.length() != 0)
     goto err;
 
   /* as we are here, we tried to allocate the event */
@@ -820,6 +852,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
     errmsg= "default Format_description_log_event";
     err_code= ER_SLAVE_CREATE_EVENT_FAILURE;
     sprintf(err_buff, ER(err_code), errmsg);
+    err_msg.append(err_buff);
     goto err;
   }
 
@@ -864,12 +897,14 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
         (::server_id == strtoul(master_row[1], 0, 10)) &&
         !mi->rli.replicate_same_server_id)
     {
-      errmsg= "The slave I/O thread stops because master and slave have equal \
-MySQL server ids; these ids must be different for replication to work (or \
-the --replicate-same-server-id option must be used on slave but this does \
-not always make sense; please check the manual before using it).";
+      errmsg=
+        "The slave I/O thread stops because master and slave have equal"
+        " MySQL server ids; these ids must be different for replication to work (or"
+        " the --replicate-same-server-id option must be used on slave but this does"
+        " not always make sense; please check the manual before using it).";
       err_code= ER_SLAVE_FATAL_ERROR;
       sprintf(err_buff, ER(err_code), errmsg);
+      err_msg.append(err_buff);
     }
     mysql_free_result(master_res);
     if (errmsg)
@@ -905,11 +940,13 @@ not always make sense; please check the manual before using it).";
     if ((master_row= mysql_fetch_row(master_res)) &&
         strcmp(master_row[0], global_system_variables.collation_server->name))
     {
-      errmsg= "The slave I/O thread stops because master and slave have \
-different values for the COLLATION_SERVER global variable. The values must \
-be equal for replication to work";
+      errmsg=
+        "The slave I/O thread stops because master and slave have"
+        " different values for the COLLATION_SERVER global variable."
+        " The values must be equal for replication to work";
       err_code= ER_SLAVE_FATAL_ERROR;
       sprintf(err_buff, ER(err_code), errmsg);
+      err_msg.append(err_buff);
     }
     mysql_free_result(master_res);
     if (errmsg)
@@ -939,11 +976,13 @@ be equal for replication to work";
         strcmp(master_row[0],
                global_system_variables.time_zone->get_name()->ptr()))
     {
-      errmsg= "The slave I/O thread stops because master and slave have \
-different values for the TIME_ZONE global variable. The values must \
-be equal for replication to work";
+      errmsg=
+        "The slave I/O thread stops because master and slave have"
+        " different values for the TIME_ZONE global variable."
+        " The values must be equal for replication to work";
       err_code= ER_SLAVE_FATAL_ERROR;
       sprintf(err_buff, ER(err_code), errmsg);
+      err_msg.append(err_buff);
     }
     mysql_free_result(master_res);
 
@@ -951,208 +990,44 @@ be equal for replication to work";
       goto err;
   }
 
-err:
-  if (errmsg)
+  if (mi->heartbeat_period != 0.0)
   {
+    char llbuf[22];
+    const char query_format[]= "SET @master_heartbeat_period= %s";
+    char query[sizeof(query_format) - 2 + sizeof(llbuf)];
+    /* 
+       the period is an ulonglong of nano-secs. 
+    */
+    llstr((ulonglong) (mi->heartbeat_period*1000000000UL), llbuf);
+    my_sprintf(query, (query, query_format, llbuf));
+
+    if (mysql_real_query(mysql, query, strlen(query))
+        && !check_io_slave_killed(mi->io_thd, mi, NULL))
+    {
+      err_msg.append("The slave I/O thread stops because querying master with '");
+      err_msg.append(query);
+      err_msg.append("' failed;");
+      err_msg.append(" error: ");
+      err_msg.qs_append(mysql_errno(mysql));
+      err_msg.append("  '");
+      err_msg.append(mysql_error(mysql));
+      err_msg.append("'");
+      mysql_free_result(mysql_store_result(mysql));
+      goto err;
+    }
+    mysql_free_result(mysql_store_result(mysql));
+  }
+  
+err:
+  if (err_msg.length() != 0)
+  {
+    sql_print_error(err_msg.ptr());
     DBUG_ASSERT(err_code != 0);
-    mi->report(ERROR_LEVEL, err_code, err_buff);
+    mi->report(ERROR_LEVEL, err_code, err_msg.ptr());
     DBUG_RETURN(1);
   }
 
   DBUG_RETURN(0);
-}
-
-/*
-  Used by fetch_master_table (used by LOAD TABLE tblname FROM MASTER and LOAD
-  DATA FROM MASTER). Drops the table (if 'overwrite' is true) and recreates it
-  from the dump. Honours replication inclusion/exclusion rules.
-  db must be non-zero (guarded by assertion).
-
-  RETURN VALUES
-    0           success
-    1           error
-*/
-
-static int create_table_from_dump(THD* thd, MYSQL *mysql, const char* db,
-                                  const char* table_name, bool overwrite)
-{
-  ulong packet_len;
-  char *query, *save_db;
-  uint32 save_db_length;
-  Vio* save_vio;
-  HA_CHECK_OPT check_opt;
-  TABLE_LIST tables;
-  int error= 1;
-  handler *file;
-  ulonglong save_options;
-  NET *net= &mysql->net;
-  const char *found_semicolon= NULL;
-  DBUG_ENTER("create_table_from_dump");
-
-  packet_len= my_net_read(net); // read create table statement
-  if (packet_len == packet_error)
-  {
-    my_message(ER_MASTER_NET_READ, ER(ER_MASTER_NET_READ), MYF(0));
-    DBUG_RETURN(1);
-  }
-  if (net->read_pos[0] == 255) // error from master
-  {
-    char *err_msg;
-    err_msg= (char*) net->read_pos + ((mysql->server_capabilities &
-                                       CLIENT_PROTOCOL_41) ?
-                                      3+SQLSTATE_LENGTH+1 : 3);
-    my_error(ER_MASTER, MYF(0), err_msg);
-    DBUG_RETURN(1);
-  }
-  thd->command = COM_TABLE_DUMP;
-  thd->query_length= packet_len;
-  /* Note that we should not set thd->query until the area is initalized */
-  if (!(query = thd->strmake((char*) net->read_pos, packet_len)))
-  {
-    sql_print_error("create_table_from_dump: out of memory");
-    my_message(ER_GET_ERRNO, "Out of memory", MYF(0));
-    DBUG_RETURN(1);
-  }
-  thd->query= query;
-  thd->is_slave_error = 0;
-
-  bzero((char*) &tables,sizeof(tables));
-  tables.db = (char*)db;
-  tables.alias= tables.table_name= (char*)table_name;
-
-  /* Drop the table if 'overwrite' is true */
-  if (overwrite)
-  {
-    if (mysql_rm_table(thd,&tables,1,0)) /* drop if exists */
-    {
-      sql_print_error("create_table_from_dump: failed to drop the table");
-      goto err;
-    }
-    else
-    {
-      /* Clear the OK result of mysql_rm_table(). */
-      thd->main_da.reset_diagnostics_area();
-    }
-  }
-
-  /* Create the table. We do not want to log the "create table" statement */
-  save_options = thd->options;
-  thd->options &= ~ (OPTION_BIN_LOG);
-  thd_proc_info(thd, "Creating table from master dump");
-  // save old db in case we are creating in a different database
-  save_db = thd->db;
-  save_db_length= thd->db_length;
-  thd->db = (char*)db;
-  DBUG_ASSERT(thd->db != 0);
-  thd->db_length= strlen(thd->db);
-  mysql_parse(thd, thd->query, packet_len, &found_semicolon); // run create table
-  thd->db = save_db;            // leave things the way the were before
-  thd->db_length= save_db_length;
-  thd->options = save_options;
-
-  if (thd->is_slave_error)
-    goto err;                   // mysql_parse took care of the error send
-
-  thd_proc_info(thd, "Opening master dump table");
-  thd->main_da.reset_diagnostics_area(); /* cleanup from CREATE_TABLE */
-  /*
-    Note: If this function starts to fail for MERGE tables,
-    change the next two lines to these:
-    tables.table= NULL; // was set by mysql_rm_table()
-    if (!open_n_lock_single_table(thd, &tables, TL_WRITE))
-  */
-  tables.lock_type = TL_WRITE;
-  if (!open_ltable(thd, &tables, TL_WRITE, 0))
-  {
-    sql_print_error("create_table_from_dump: could not open created table");
-    goto err;
-  }
-
-  file = tables.table->file;
-  thd_proc_info(thd, "Reading master dump table data");
-  /* Copy the data file */
-  if (file->net_read_dump(net))
-  {
-    my_message(ER_MASTER_NET_READ, ER(ER_MASTER_NET_READ), MYF(0));
-    sql_print_error("create_table_from_dump: failed in\
- handler::net_read_dump()");
-    goto err;
-  }
-
-  check_opt.init();
-  check_opt.flags|= T_VERY_SILENT | T_CALC_CHECKSUM | T_QUICK;
-  thd_proc_info(thd, "Rebuilding the index on master dump table");
-  /*
-    We do not want repair() to spam us with messages
-    just send them to the error log, and report the failure in case of
-    problems.
-  */
-  save_vio = thd->net.vio;
-  thd->net.vio = 0;
-  /* Rebuild the index file from the copied data file (with REPAIR) */
-  error=file->ha_repair(thd,&check_opt) != 0;
-  thd->net.vio = save_vio;
-  if (error)
-    my_error(ER_INDEX_REBUILD, MYF(0), tables.table->s->table_name.str);
-
-err:
-  close_thread_tables(thd);
-  DBUG_RETURN(error);
-}
-
-
-int fetch_master_table(THD *thd, const char *db_name, const char *table_name,
-                       Master_info *mi, MYSQL *mysql, bool overwrite)
-{
-  int error= 1;
-  const char *errmsg=0;
-  bool called_connected= (mysql != NULL);
-  DBUG_ENTER("fetch_master_table");
-  DBUG_PRINT("enter", ("db_name: '%s'  table_name: '%s'",
-                       db_name,table_name));
-
-  if (!called_connected)
-  {
-    if (!(mysql = mysql_init(NULL)))
-    {
-      DBUG_RETURN(1);
-    }
-    if (connect_to_master(thd, mysql, mi))
-    {
-      my_error(ER_CONNECT_TO_MASTER, MYF(0), mysql_error(mysql));
-      /*
-        We need to clear the active VIO since, theoretically, somebody
-        might issue an awake() on this thread.  If we are then in the
-        middle of closing and destroying the VIO inside the
-        mysql_close(), we will have a problem.
-       */
-#ifdef SIGNAL_WITH_VIO_CLOSE
-      thd->clear_active_vio();
-#endif
-      mysql_close(mysql);
-      DBUG_RETURN(1);
-    }
-    if (thd->killed)
-      goto err;
-  }
-
-  if (request_table_dump(mysql, db_name, table_name))
-  {
-    error= ER_UNKNOWN_ERROR;
-    errmsg= "Failed on table dump request";
-    goto err;
-  }
-  if (create_table_from_dump(thd, mysql, db_name,
-                             table_name, overwrite))
-    goto err;    // create_table_from_dump have sent the error already
-  error = 0;
-
- err:
-  if (!called_connected)
-    mysql_close(mysql);
-  if (errmsg && thd->vio_ok())
-    my_message(error, errmsg, MYF(0));
-  DBUG_RETURN(test(error));                     // Return 1 on error
 }
 
 
@@ -1639,43 +1514,12 @@ static int request_dump(MYSQL* mysql, Master_info* mi,
     else
       sql_print_error("Error on COM_BINLOG_DUMP: %d  %s, will retry in %d secs",
                       mysql_errno(mysql), mysql_error(mysql),
-                      master_connect_retry);
+                      mi->connect_retry);
     DBUG_RETURN(1);
   }
 
   DBUG_RETURN(0);
 }
-
-
-static int request_table_dump(MYSQL* mysql, const char* db, const char* table)
-{
-  uchar buf[1024], *p = buf;
-  DBUG_ENTER("request_table_dump");
-
-  uint table_len = (uint) strlen(table);
-  uint db_len = (uint) strlen(db);
-  if (table_len + db_len > sizeof(buf) - 2)
-  {
-    sql_print_error("request_table_dump: Buffer overrun");
-    DBUG_RETURN(1);
-  }
-
-  *p++ = db_len;
-  memcpy(p, db, db_len);
-  p += db_len;
-  *p++ = table_len;
-  memcpy(p, table, table_len);
-
-  if (simple_command(mysql, COM_TABLE_DUMP, buf, p - buf + table_len, 1))
-  {
-    sql_print_error("request_table_dump: Error sending the table dump \
-command");
-    DBUG_RETURN(1);
-  }
-
-  DBUG_RETURN(0);
-}
-
 
 /*
   Read one event from the master
@@ -2063,7 +1907,7 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
 
     if (slave_trans_retries)
     {
-      int temp_err;
+      int temp_err= 0;
       if (exec_res && (temp_err= has_temporary_error(thd)))
       {
         const char *errmsg;
@@ -2141,18 +1985,6 @@ relay log, you will be able to know their names by issuing 'SHOW SLAVE STATUS' \
 on this slave.\
 ");
   DBUG_RETURN(1);
-}
-
-
-static bool check_io_slave_killed(THD *thd, Master_info *mi, const char *info)
-{
-  if (io_slave_killed(thd, mi))
-  {
-    if (info && global_system_variables.log_warnings)
-      sql_print_information(info);
-    return TRUE;
-  }
-  return FALSE;
 }
 
 
@@ -2436,12 +2268,8 @@ Stopping slave I/O thread due to out-of-memory error from master");
 
       retry_count=0;                    // ok event, reset retry counter
       thd_proc_info(thd, "Queueing master event to the relay log");
-      if (queue_event(mi,(const char*)mysql->net.read_pos + 1,
-                      event_len))
+      if (queue_event(mi,(const char*)mysql->net.read_pos + 1, event_len))
       {
-        mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
-                   ER(ER_SLAVE_RELAY_LOG_WRITE_FAILURE),
-                   "could not queue event from master");
         goto err;
       }
       if (flush_master_info(mi, 1))
@@ -2736,7 +2564,7 @@ Slave SQL thread aborted. Can't execute init_slave query");
             "position %s", RPL_LOG_NAME, llstr(rli->group_master_log_pos, 
             llbuff));
         else
-          sql_print_error("\
+        sql_print_error("\
 Error running query, slave SQL thread aborted. Fix the problem, and restart \
 the slave SQL thread with \"SLAVE START\". We stopped at log \
 '%s' position %s", RPL_LOG_NAME, llstr(rli->group_master_log_pos, llbuff));
@@ -3207,6 +3035,7 @@ static int queue_old_event(Master_info *mi, const char *buf,
 static int queue_event(Master_info* mi,const char* buf, ulong event_len)
 {
   int error= 0;
+  String error_msg;
   ulong inc_pos;
   Relay_log_info *rli= &mi->rli;
   pthread_mutex_t *log_lock= rli->relay_log.get_log_lock();
@@ -3241,7 +3070,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
     Rotate_log_event rev(buf,event_len,mi->rli.relay_log.description_event_for_queue);
     if (unlikely(process_io_rotate(mi,&rev)))
     {
-      error= 1;
+      error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
       goto err;
     }
     /*
@@ -3268,7 +3097,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
           Log_event::read_log_event(buf, event_len, &errmsg,
                                     mi->rli.relay_log.description_event_for_queue)))
     {
-      error= 2;
+      error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
       goto err;
     }
     delete mi->rli.relay_log.description_event_for_queue;
@@ -3287,6 +3116,56 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
 
   }
   break;
+
+  case HEARTBEAT_LOG_EVENT:
+  {
+    /*
+      HB (heartbeat) cannot come before RL (Relay)
+    */
+    char  llbuf[22];
+    Heartbeat_log_event hb(buf, event_len, mi->rli.relay_log.description_event_for_queue);
+    if (!hb.is_valid())
+    {
+      error= ER_SLAVE_HEARTBEAT_FAILURE;
+      error_msg.append(STRING_WITH_LEN("inconsistent heartbeat event content;"));
+      error_msg.append(STRING_WITH_LEN("the event's data: log_file_name "));
+      error_msg.append(hb.get_log_ident(), (uint) strlen(hb.get_log_ident()));
+      error_msg.append(STRING_WITH_LEN(" log_pos "));
+      llstr(hb.log_pos, llbuf);
+      error_msg.append(llbuf, strlen(llbuf));
+      goto err;
+    }
+    mi->received_heartbeats++;
+    /* 
+       compare local and event's versions of log_file, log_pos.
+       
+       Heartbeat is sent only after an event corresponding to the corrdinates
+       the heartbeat carries.
+       Slave can not have a difference in coordinates except in the only
+       special case when mi->master_log_name, master_log_pos have never
+       been updated by Rotate event i.e when slave does not have any history
+       with the master (and thereafter mi->master_log_pos is NULL).
+
+       TODO: handling `when' for SHOW SLAVE STATUS' snds behind
+    */
+    if ((memcmp(mi->master_log_name, hb.get_log_ident(), hb.get_ident_len())
+         && mi->master_log_name != NULL)
+        || mi->master_log_pos != hb.log_pos)
+    {
+      /* missed events of heartbeat from the past */
+      error= ER_SLAVE_HEARTBEAT_FAILURE;
+      error_msg.append(STRING_WITH_LEN("heartbeat is not compatible with local info;"));
+      error_msg.append(STRING_WITH_LEN("the event's data: log_file_name "));
+      error_msg.append(hb.get_log_ident(), (uint) strlen(hb.get_log_ident()));
+      error_msg.append(STRING_WITH_LEN(" log_pos "));
+      llstr(hb.log_pos, llbuf);
+      error_msg.append(llbuf, strlen(llbuf));
+      goto err;
+    }
+    goto skip_relay_logging;
+  }
+  break;
+    
   default:
     inc_pos= event_len;
     break;
@@ -3347,15 +3226,23 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       rli->relay_log.harvest_bytes_written(&rli->log_space_total);
     }
     else
-      error= 3;
+    {
+      error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
+    }
     rli->ign_master_log_name_end[0]= 0; // last event is not ignored
   }
   pthread_mutex_unlock(log_lock);
 
-
+skip_relay_logging:
+  
 err:
   pthread_mutex_unlock(&mi->data_lock);
   DBUG_PRINT("info", ("error: %d", error));
+  if (error)
+    mi->report(ERROR_LEVEL, error, ER(error), 
+               (error == ER_SLAVE_RELAY_LOG_WRITE_FAILURE)?
+               "could not queue event from master" :
+               error_msg.ptr());
   DBUG_RETURN(error);
 }
 
@@ -3827,8 +3714,8 @@ static Log_event* next_event(Relay_log_info* rli)
         */
         pthread_mutex_unlock(&rli->log_space_lock);
         pthread_cond_broadcast(&rli->log_space_cond);
-        // Note that wait_for_update unlocks lock_log !
-        rli->relay_log.wait_for_update(rli->sql_thd, 1);
+        // Note that wait_for_update_relay_log unlocks lock_log !
+        rli->relay_log.wait_for_update_relay_log(rli->sql_thd);
         // re-acquire data lock since we released it earlier
         pthread_mutex_lock(&rli->data_lock);
         rli->last_master_timestamp= save_timestamp;

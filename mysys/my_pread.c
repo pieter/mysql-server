@@ -16,8 +16,80 @@
 #include "mysys_priv.h"
 #include "mysys_err.h"
 #include <errno.h>
-#ifdef HAVE_PREAD
+#if defined (HAVE_PREAD) && !defined(__WIN__)
 #include <unistd.h>
+#endif
+
+#ifdef __WIN__
+extern void  _dosmaperr(DWORD);
+
+/*
+  Positional read and write on Windows.
+
+  NOTE: 
+  - this functions require NT-based kernel.
+  - they can read/write at most 4GB at once.
+  - unlike Posix pread/pwrite, they change file pointer position.
+*/
+static size_t pread(File Filedes, uchar *Buffer, size_t Count, my_off_t offset)
+{
+  DWORD         nBytesRead;
+  HANDLE        hFile;
+  OVERLAPPED    ov={0};
+  LARGE_INTEGER li;
+
+  if(!Count)
+    return 0;
+#ifdef _WIN64
+  if(Count > UINT_MAX)
+    Count = UINT_MAX;
+#endif
+
+  hFile=         (HANDLE)_get_osfhandle(Filedes);
+  li.QuadPart=   offset;
+  ov.Offset=     li.LowPart;
+  ov.OffsetHigh= li.HighPart;
+
+  if(!ReadFile(hFile, Buffer, (DWORD)Count, &nBytesRead, &ov))
+  {
+    DWORD lastError = GetLastError();
+    if(lastError == ERROR_HANDLE_EOF)
+       return 0; /*return 0 at EOF*/
+    _dosmaperr(lastError);
+    return -1;
+  }
+  else
+    return nBytesRead;
+}
+
+static size_t pwrite(File Filedes, const uchar *Buffer, size_t Count, my_off_t offset)
+{
+  DWORD         nBytesWritten;
+  HANDLE        hFile;
+  OVERLAPPED    ov={0};
+  LARGE_INTEGER li;
+
+  if(!Count)
+    return 0;
+
+#ifdef _WIN64
+  if(Count > UINT_MAX)
+    Count = UINT_MAX;
+#endif
+
+  hFile=         (HANDLE)_get_osfhandle(Filedes);
+  li.QuadPart=   offset;
+  ov.Offset=     li.LowPart;
+  ov.OffsetHigh= li.HighPart;
+
+  if(!WriteFile(hFile, Buffer, (DWORD)Count, &nBytesWritten, &ov))
+  {
+    _dosmaperr(GetLastError());
+    return -1;
+  }
+  else
+    return nBytesWritten;
+}
 #endif
 
 /*
@@ -55,7 +127,7 @@ size_t my_pread(File Filedes, uchar *Buffer, size_t Count, my_off_t offset,
 #ifndef __WIN__
     errno=0;					/* Linux doesn't reset this */
 #endif
-#ifndef HAVE_PREAD
+#if !defined (HAVE_PREAD) && !defined (__WIN__)
     pthread_mutex_lock(&my_file_info[Filedes].mutex);
     readbytes= (uint) -1;
     error= (lseek(Filedes, offset, MY_SEEK_SET) == (my_off_t) -1 ||
@@ -131,7 +203,7 @@ size_t my_pwrite(int Filedes, const uchar *Buffer, size_t Count,
 
   for (;;)
   {
-#ifndef HAVE_PREAD
+#if !defined (HAVE_PREAD) && !defined (__WIN__)
     int error;
     writenbytes= (size_t) -1;
     pthread_mutex_lock(&my_file_info[Filedes].mutex);

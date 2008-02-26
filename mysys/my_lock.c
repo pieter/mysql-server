@@ -48,6 +48,10 @@ int my_lock(File fd, int locktype, my_off_t start, my_off_t length,
 #ifdef __NETWARE__
   int nxErrno;
 #endif
+#ifdef __WIN__
+  DWORD lastError;
+#endif
+
   DBUG_ENTER("my_lock");
   DBUG_PRINT("my",("Fd: %d  Op: %d  start: %ld  Length: %ld  MyFlags: %d",
 		   fd,locktype,(long) start,(long) length,MyFlags));
@@ -97,29 +101,42 @@ int my_lock(File fd, int locktype, my_off_t start, my_off_t length,
         DBUG_RETURN(0);
     }
   }
-#elif defined(HAVE_LOCKING)
-  /* Windows */
+#elif defined(__WIN__)
   {
-    my_bool error= FALSE;
-    pthread_mutex_lock(&my_file_info[fd].mutex);
-    if (MyFlags & MY_SEEK_NOT_DONE) 
+    
+    LARGE_INTEGER liOffset,liLength;
+    DWORD dwFlags;
+    OVERLAPPED ov= {0};
+    HANDLE hFile= (HANDLE)_get_osfhandle(fd);
+
+    lastError= 0;
+
+    liOffset.QuadPart= start;
+    liLength.QuadPart= length;
+
+    ov.Offset=      liOffset.LowPart;
+    ov.OffsetHigh=  liOffset.HighPart;
+
+    if (locktype == F_UNLCK)
     {
-      if( my_seek(fd,start,MY_SEEK_SET,MYF(MyFlags & ~MY_SEEK_NOT_DONE))
-           == MY_FILEPOS_ERROR )
-      {
-        /*
-          If my_seek fails my_errno will already contain an error code;
-          just unlock and return error code.
-         */
-        DBUG_PRINT("error",("my_errno: %d (%d)",my_errno,errno));
-        pthread_mutex_unlock(&my_file_info[fd].mutex);
-        DBUG_RETURN(-1);
-      }
+      /* The lock flags are currently ignored by Windows */
+      if(UnlockFileEx(hFile, 0, liLength.LowPart, liLength.HighPart, &ov))
+        DBUG_RETURN(0);
+      else
+        lastError= GetLastError();
     }
-    error= locking(fd,locktype,(ulong) length) && errno != EINVAL;
-    pthread_mutex_unlock(&my_file_info[fd].mutex);
-    if (!error)
-      DBUG_RETURN(0);
+    else if (locktype == F_RDLCK)
+        /* read lock is mapped to a shared lock. */
+        dwFlags= 0;
+    else
+        /* write lock is mapped to an exclusive lock. */
+        dwFlags= LOCKFILE_EXCLUSIVE_LOCK;
+
+    if (MyFlags & MY_DONT_WAIT)
+       dwFlags|= LOCKFILE_FAIL_IMMEDIATELY;
+
+    if (LockFileEx(hFile, dwFlags, 0, liLength.LowPart, liLength.HighPart, &ov))
+        DBUG_RETURN(0);
   }
 #else
 #if defined(HAVE_FCNTL)
@@ -171,6 +188,8 @@ int my_lock(File fd, int locktype, my_off_t start, my_off_t length,
 
 #ifdef __NETWARE__
   my_errno = nxErrno;
+#elif defined(__WIN__)
+  my_errno = (lastError == ERROR_IO_PENDING)? EAGAIN:lastError?lastError : -1;
 #else
 	/* We got an error. We don't want EACCES errors */
   my_errno=(errno == EACCES) ? EAGAIN : errno ? errno : -1;

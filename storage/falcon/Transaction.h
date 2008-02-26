@@ -150,6 +150,7 @@ public:
 	DeferredIndex	*deferredIndexes;
 	Thread			*thread;
 	Record			*blockingRecord;
+	Bitmap			*backloggedRecords;
 	time_t			startTime;
 	int				deferredIndexCount;
 	int				statesAllocated;

@@ -89,6 +89,7 @@ Dbb::Dbb(Database *dbase)
 	defaultIndexVersion = INDEX_VERSION_1;
 	tableSpaceSectionId = 0;
 	tableSpaceId = 0;
+	noLog = false;
 }
 
 
@@ -110,7 +111,7 @@ Dbb::Dbb(Dbb *dbb, int tblSpaceId)
 	shadows = NULL;
 	highPage = 0;
 	defaultIndexVersion = dbb->defaultIndexVersion;
-	//recovering = false;
+	noLog = false;
 }
 
 Dbb::~Dbb()

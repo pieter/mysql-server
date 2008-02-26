@@ -118,7 +118,9 @@ falcon_headers= Agent.h Alias.h Application.h \
 		SearchWords.h Section.h \
 		SectionPage.h \
 		SectionRootPage.h Sequence.h SequenceManager.h SequencePage.h \
-		SequenceResultSet.h SerialLogAction.h SerialLogControl.h \
+		SequenceResultSet.h \
+		Serialize.h \
+		SerialLogAction.h SerialLogControl.h \
 		SerialLogFile.h SerialLog.h SerialLogRecord.h \
 		SerialLogTransaction.h SerialLogWindow.h \
 		Server.h \
@@ -287,6 +289,7 @@ falcon_sources= Agent.cpp Alias.cpp \
 		SearchHit.cpp SearchWords.cpp Section.cpp \
 		SectionPage.cpp SectionRootPage.cpp Sequence.cpp \
 		SequenceManager.cpp SequenceResultSet.cpp \
+		Serialize.cpp \
 		SerialLogAction.cpp SerialLogControl.cpp SerialLog.cpp \
 		SerialLogFile.cpp SerialLogRecord.cpp SerialLogTransaction.cpp \
 		SerialLogWindow.cpp \

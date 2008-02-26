@@ -222,6 +222,7 @@ public:
 	void			setIOError(SQLException* exception);
 	void			clearIOError(void);
 	void			flushWait(void);
+	void			setLowMemory(void);
 
 
 	Dbb					*dbb;
@@ -249,6 +250,7 @@ public:
 	bool				panicShutdown;
 	bool				shuttingDown;
 	bool				longSync;
+	bool				lowMemory;
 	int					useCount;
 	int					sequence;
 	int					stepNumber;

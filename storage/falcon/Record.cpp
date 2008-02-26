@@ -35,6 +35,7 @@
 #include "Interlock.h"
 #include "EncodedRecord.h"
 #include "Field.h"
+#include "Serialize.h"
 
 #undef new
 
@@ -68,7 +69,7 @@ Record::Record(Table *table, int32 recordNum, Stream *stream)
 	state = recData;
 	recordNumber = recordNum;
 	const short *p = (short*) stream->segments->address;
-	size = sizeof (*this);
+	size = getSize();
 	generation = table->database->currentGeneration;
 #ifdef CHECK_RECORD_ACTIVITY
 	active = false;
@@ -129,6 +130,41 @@ Record::Record(Table * tbl, Format *fmt)
 	data.record = NULL;
 }
 
+
+Record::Record(Database *database, Serialize* stream)
+{
+	useCount = 1;
+	recordNumber = stream->getInt();
+	int tableId = stream->getInt();
+	Table *table = database->getTable(tableId);
+	int formatVersion = stream->getInt();
+	format = table->getFormat(formatVersion);
+	state = stream->getInt();
+	int len = stream->getDataLength();
+	
+#ifdef CHECK_RECORD_ACTIVITY
+	active = true;
+#endif
+	
+	if (len)
+		{
+		encoding = shortVector;
+		int vectorLength = format->count * sizeof(short);
+		int totalLength = vectorLength + len;
+		data.record = allocRecordData(len);
+		memset(data.record, 0, vectorLength);
+		stream->getData(len, (UCHAR*) data.record + vectorLength);
+		((USHORT*)data.record)[0] = (USHORT) (vectorLength + sizeof(short));
+		highWater = 0;
+		size = sizeof (*this) + vectorLength + len;
+		generation = database->currentGeneration;
+		}
+	else
+		{
+		data.record = NULL;
+		size = sizeof (*this);
+		}
+}
 
 Record::~Record()
 {
@@ -596,7 +632,7 @@ int Record::getEncodedSize()
 			return format->length;
 
 		case shortVector:
-			return size - format->count * sizeof(USHORT) - ((isVersion()) ? sizeof(RecordVersion) : sizeof(Record));
+			return size - format->count * sizeof(USHORT) - getSize();
 
 		case noEncoding:
 			if (!data.record)
@@ -966,4 +1002,22 @@ Record* Record::getGCPriorVersion(void)
 void Record::expungeRecord(void)
 {
 	format->table->expungeRecord(recordNumber);
+}
+
+void Record::serialize(Serialize* stream)
+{
+	stream->putInt(recordNumber);
+	stream->putInt(format->table->tableId);
+	stream->putInt(format->version);
+	stream->putInt(state);
+	
+	if (data.record)
+		stream->putData(getEncodedSize(), (UCHAR*) data.record + ((USHORT*) data.record)[0]);
+	else
+		stream->putData(0, NULL);
+}
+
+int Record::getSize(void)
+{
+	return sizeof(*this);
 }

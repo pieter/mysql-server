@@ -200,6 +200,7 @@ public:
 	short		sequencesPerPage;
 	int			sequencesPerSection;
 	bool		utf8;
+	bool		noLog;
 	Section		**sections;
 	int			debug;
 	int			sequence;

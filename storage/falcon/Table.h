@@ -44,7 +44,9 @@ static const int checkUniqueWaited	= 0;
 static const int checkUniqueIsDone	= 1;
 static const int checkUniqueNext	= 2;
 
-#define FORMAT_HASH_SIZE		20
+static const int BL_SIZE			= 128;
+static const int FORMAT_HASH_SIZE	= 20;
+
 #define FOR_FIELDS(field,table)	{for (Field *field=table->fields; field; field = field->next){
 #define FOR_INDEXES(index,table)	{for (Index *index=table->indexes; index; index = index->next){
 
@@ -191,6 +193,11 @@ public:
 	void		optimize(Connection *connection);
 	void		findSections(void);
 	bool		validateUpdate(int32 recordNumber, TransId transactionId);
+	Record*		treeFetch(int32 recordNumber);
+	
+	int32			backlogRecord(RecordVersion* record);
+	Record*			backlogFetch(int32 recordNumber);
+	void			deleteRecordBacklog(int32 recordNumber);
 	
 	RecordVersion*	allocRecordVersion(Format* format, Transaction* transaction, Record* priorVersion);
 	Record*			allocRecord(int recordNumber, Stream* stream);
@@ -201,16 +208,16 @@ public:
 	void			unlockRecord(int recordNumber);
 	void			unlockRecord(RecordVersion* record, bool remove);
 
-	void		insert (Transaction *transaction, int count, Field **fields, Value **values);
-	uint		insert (Transaction *transaction, Stream *stream);
-	bool		insert (Record *record, Record *prior, int recordNumber);
+	void			insert (Transaction *transaction, int count, Field **fields, Value **values);
+	uint			insert (Transaction *transaction, Stream *stream);
+	bool			insert (Record *record, Record *prior, int recordNumber);
 	
-	void		update (Transaction *transaction, Record *record, int numberFields, Field **fields, Value** values);
-	void		update(Transaction * transaction, Record *oldRecord, Stream *stream);
+	void			update (Transaction *transaction, Record *record, int numberFields, Field **fields, Value** values);
+	void			update(Transaction * transaction, Record *oldRecord, Stream *stream);
 	
-	void		deleteRecord (Transaction *transaction, Record *record);
-	void		deleteRecord (int recordNumber);
-	void		deleteRecord (RecordVersion *record);
+	void			deleteRecord (Transaction *transaction, Record *record);
+	void			deleteRecord (int recordNumber);
+	void			deleteRecord (RecordVersion *record);
 
 	Dbb				*dbb;
 	SyncObject		syncObject;
@@ -234,7 +241,7 @@ public:
 	Trigger			*triggers;
 	Bitmap			*recordBitmap;
 	Bitmap			*emptySections;
-	SparseArray<int32, 128>	*backloggedRecords;
+	SparseArray<int32, BL_SIZE>	*backloggedRecords;
 	Section			*dataSection;
 	Section			*blobSection;
 	TableSpace		*tableSpace;
@@ -260,8 +267,6 @@ public:
 
 protected:
 	const char		*type;
-public:
-	Record* treeFetch(int32 recordNumber);
 };
 
 #endif // !defined(AFX_TABLE_H__02AD6A42_A433_11D2_AB5B_0000C01D2301__INCLUDED_)

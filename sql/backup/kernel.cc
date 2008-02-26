@@ -1867,7 +1867,7 @@ bool send_summary(THD *thd, const Image_info &info, bool backup)
   protocol->store(buf, system_charset_info);
   protocol->write();
 
-  send_eof(thd);
+  my_eof(thd);
   DBUG_RETURN(ret);
 }
 

@@ -37,6 +37,20 @@
 #define SECTION_ROOT	2
 #define INDEX_ROOT		3
 
+
+static const int END_BUCKET	= -1;
+static const int END_LEVEL	= -2;
+
+enum AddNodeResult
+    {
+	NodeAdded = 0,
+	Duplicate,
+	SplitMiddle,
+	SplitEnd,
+	NextPage
+	};
+
+
 class Validation;
 class Dbb;
 

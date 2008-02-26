@@ -77,8 +77,10 @@ RecordVersion::RecordVersion(Database* database, Serialize *stream) : Record(dat
 	else
 		priorVersion = NULL;
 	
+	/***
 	if ( (transaction = database->transactionManager->findTransaction(transactionId)) )
 		if (!transaction->writePending)
+	***/
 			transaction = NULL;
 }
 
@@ -142,12 +144,12 @@ Record* RecordVersion::fetchVersion(Transaction * trans)
 	return priorVersion->fetchVersion(trans);
 }
 
-Record* RecordVersion::rollback()
+Record* RecordVersion::rollback(Transaction *transaction)
 {
 	if (superceded)
 		return NULL;
 
-	return format->table->rollbackRecord (this);
+	return format->table->rollbackRecord (this, transaction);
 }
 
 bool RecordVersion::isVersion()

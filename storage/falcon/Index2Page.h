@@ -24,7 +24,7 @@
 #pragma once
 #endif // _MSC_VER >= 1000
 
-#include "RootPage.h"
+#include "Page.h"
 #include "Btn.h"
 
 class Dbb;

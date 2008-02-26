@@ -26,25 +26,9 @@
 
 #include "Page.h"
 #include "Btn.h"
-#include "RootPage.h"
 #include "IndexNode.h"
 
 static const int SUPERNODES = 16;
-
-/***
-static const int END_BUCKET	= -1;
-static const int END_LEVEL	= -2;
-static const int SUPERNODES = 16;
-
-enum AddNodeResult
-    {
-	NodeAdded = 0,
-	Duplicate,
-	SplitMiddle,
-	SplitEnd,
-	NextPage
-	};
-***/
 
 class Dbb;
 class Bdb;

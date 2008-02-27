@@ -1119,6 +1119,16 @@ bool Protocol::net_store_data(const uchar *from, size_t length)
 }
 
 
+int vprint_msg_to_log(enum loglevel level __attribute__((unused)),
+                       const char *format, va_list argsi)
+{
+  vsnprintf(mysql_server_last_error, sizeof(mysql_server_last_error),
+           format, argsi);
+  mysql_server_last_errno= CR_UNKNOWN_ERROR;
+  return 0;
+}
+
+
 bool Protocol::net_store_data(const uchar *from, size_t length,
                               CHARSET_INFO *from_cs, CHARSET_INFO *to_cs)
 {
@@ -1140,13 +1150,4 @@ bool Protocol::net_store_data(const uchar *from, size_t length,
   ++next_field;
   ++next_mysql_field;
   return false;
-}
-
-
-void vprint_msg_to_log(enum loglevel level __attribute__((unused)),
-                       const char *format, va_list argsi)
-{
-  vsnprintf(mysql_server_last_error, sizeof(mysql_server_last_error),
-           format, argsi);
-  mysql_server_last_errno= CR_UNKNOWN_ERROR;
 }

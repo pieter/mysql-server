@@ -1345,7 +1345,7 @@ END_OF_INPUT
 %type <NONE>
         '-' '+' '*' '/' '%' '(' ')'
         ',' '!' '{' '}' '&' '|' AND_SYM OR_SYM OR_OR_SYM BETWEEN_SYM CASE_SYM
-        THEN_SYM WHEN_SYM DIV_SYM MOD_SYM OR2_SYM AND_AND_SYM
+        THEN_SYM WHEN_SYM DIV_SYM MOD_SYM OR2_SYM AND_AND_SYM DELETE_SYM
 %%
 
 /*
@@ -9167,7 +9167,7 @@ delete:
             lex->ignore= 0;
             lex->select_lex.init_order();
           }
-          opt_delete_options single_multi {}
+          opt_delete_options single_multi
         ;
 
 single_multi:
@@ -9182,38 +9182,38 @@ single_multi:
         | table_wild_list
           { mysql_init_multi_delete(Lex); }
           FROM join_table_list where_clause
-          { 
+          {
             if (multi_delete_set_locks_and_link_aux_tables(Lex))
               MYSQL_YYABORT;
           }
         | FROM table_alias_ref_list
           { mysql_init_multi_delete(Lex); }
           USING join_table_list where_clause
-          { 
+          {
             if (multi_delete_set_locks_and_link_aux_tables(Lex))
               MYSQL_YYABORT;
           }
         ;
 
 table_wild_list:
-          table_wild_one {}
-        | table_wild_list ',' table_wild_one {}
+          table_wild_one
+        | table_wild_list ',' table_wild_one
         ;
 
 table_wild_one:
-          ident opt_wild opt_table_alias
+          ident opt_wild
           {
             if (!Select->add_table_to_list(YYTHD, new Table_ident($1),
-                                           $3,
+                                           NULL,
                                            TL_OPTION_UPDATING | TL_OPTION_ALIAS,
                                            Lex->lock_option))
               MYSQL_YYABORT;
           }
-        | ident '.' ident opt_wild opt_table_alias
+        | ident '.' ident opt_wild
           {
             if (!Select->add_table_to_list(YYTHD,
                                            new Table_ident(YYTHD, $1, $3, 0),
-                                           $5, 
+                                           NULL,
                                            TL_OPTION_UPDATING | TL_OPTION_ALIAS,
                                            Lex->lock_option))
               MYSQL_YYABORT;

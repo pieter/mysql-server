@@ -452,11 +452,11 @@ lock tables t1 read;
 let $tlwa= `show status like 'Table_locks_waited'`;
 connect (waiter,localhost,root,,);
 connection waiter;
---send insert into t1 values(1);
+send insert into t1 values(1);
 connection default;
 let $wait_condition=
   select count(*) = 1 from information_schema.processlist
-  where state = "Table Lock" and info = "insert into t1 values(1)";
+  where state = "Table lock" and info = "insert into t1 values(1)";
 --source include/wait_condition.inc
 let $tlwb= `show status like 'Table_locks_waited'`;
 unlock tables;

@@ -928,7 +928,7 @@ int bstream_wr_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
 {
   void *iter;
   struct st_bstream_dbitem_info *item;
-  int ret;
+  int ret= 0;
   bool catalogue_empty= TRUE;
 
   iter= bcat_db_iterator_get(cat, db_info);

@@ -1117,6 +1117,12 @@ struct TABLE_LIST
   int           lock_timeout;           /* NOWAIT or WAIT [X]               */
   bool          lock_transactional;     /* If transactional lock requested. */
   bool          internal_tmp_table;
+  /** TRUE if an alias for this table was specified in the SQL. */
+  bool          is_alias;
+  /** TRUE if the table is referred to in the statement using a fully
+      qualified name (<db_name>.<table_name>).
+  */
+  bool          is_fqtn;
 
 
   /* View creation context. */

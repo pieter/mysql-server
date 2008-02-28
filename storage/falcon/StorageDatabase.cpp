@@ -233,16 +233,13 @@ int StorageDatabase::nextRow(StorageTable* storageTable, int recordNumber, bool 
 	Table *table = storageTable->share->table;
 	Transaction *transaction = connection->getTransaction();
 	Record *candidate;
-	Record *record;
+	Record *record = NULL;
 	
 	try
 		{
-		for (;; ++recordNumber)
+		for (;;)
 			{
-			record = NULL;
-			candidate = NULL;
 			candidate = table->fetchNext(recordNumber);
-			
 			if (!candidate)
 				return StorageErrorRecordNotFound;
 
@@ -255,6 +252,7 @@ int StorageDatabase::nextRow(StorageTable* storageTable, int recordNumber, bool 
 				if (!lockForUpdate)
 					candidate->release();
 					
+				recordNumber = candidate->recordNumber + 1;
 				continue;
 				}
 			

@@ -738,14 +738,14 @@ bool Transaction::needToLock(Record* record)
 		if (visible(transaction, transId, FOR_WRITING))
 			if (candidate->state == recDeleted)
 				if (!transaction || transaction->state == Committed)
-					return FALSE; // Committed and deleted
+					return false; // Committed and deleted
 				else
-					return TRUE; // Just in case this rolls back.
+					return true; // Just in case this rolls back.
 			else
-				return TRUE;
+				return true;
 		}
 
-	return FALSE;
+	return false;
 }
 
 void Transaction::releaseDependencies()

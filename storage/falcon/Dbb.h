@@ -54,6 +54,7 @@
 #define DEBUG_DEFERRED_INDEX     1 << 11
 #define DEBUG_RECORD_SCAVENGE    1 << 12
 #define DEBUG_PAGE_LEVEL         1 << 13
+#define DEBUG_RECORD_LOCKS       1 << 14
 #define DEBUG_ALL               -1
 
 static const int FillLevels = 5;

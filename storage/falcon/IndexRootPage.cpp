@@ -463,7 +463,7 @@ void IndexRootPage::scanIndex  (Dbb *dbb,
 			
 			if (number < 0)
 				break;
-				
+
 			bitmap->set (number);
 			}
 

@@ -2434,9 +2434,9 @@ int Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transactio
 
 		if (!dup->hasRecord())
 			{
-			// If the record is locked, keep looking for a dup.
+			// If the record is locked or being unlocked keep looking for a dup.
 
-			if (dup->state == recLock)
+			if ((dup->state == recLock) || (dup->state == recUnlocked))
 				continue;  // Next record version.
 
 			// The record has been deleted.

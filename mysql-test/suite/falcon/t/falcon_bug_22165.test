@@ -17,9 +17,9 @@ DROP EVENT IF EXISTS db1.e2;
 DROP DATABASE IF EXISTS db1;
 --enable_warnings
 
+CREATE DATABASE db1;
+USE db1;
 delimiter //;
-CREATE DATABASE db1//
-USE db1//
 CREATE PROCEDURE p1 ()
 begin
   declare v int default 0;
@@ -28,8 +28,8 @@ begin
     declare continue handler for sqlexception begin end;
     ALTER TABLE t1 MODIFY COLUMN c timestamp;
   end;
+  SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
   while v < 10 do
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
     START TRANSACTION;
     INSERT INTO t1 (a, b) VALUES (v, 'a');
     UPDATE t1 SET c = current_timestamp WHERE a = v;

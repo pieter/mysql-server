@@ -578,12 +578,18 @@ StorageTableShare* StorageHandler::preDeleteTable(const char* pathname)
 				return tableShare;
 		}
 
-	tableShare = new StorageTableShare(this, filename, NULL, mySqlLockSize, false);
-	JString path = tableShare->lookupPathName();
-	delete tableShare;
-	
-	if (path == pathname)
-		return findTable(pathname);
+	try
+		{
+		tableShare = new StorageTableShare(this, filename, NULL, mySqlLockSize, false);
+		JString path = tableShare->lookupPathName();
+		delete tableShare;
+		
+		if (path == pathname)
+			return findTable(pathname);
+		}
+	catch (...)
+		{
+		}
 	
 	return NULL;
 }

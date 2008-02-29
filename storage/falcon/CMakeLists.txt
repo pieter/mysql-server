@@ -202,7 +202,6 @@ ADD_LIBRARY(ha_falcon
 		SearchWords.cpp 
 		Section.cpp 
 		SectionPage.cpp 
-		SectionRootPage.cpp 
 		Sequence.cpp
 		SequenceManager.cpp 
 		SequenceResultSet.cpp
@@ -476,7 +475,6 @@ ADD_LIBRARY(ha_falcon
 		SearchWords.h 
 		Section.h 
 		SectionPage.h 
-		SectionRootPage.h 
 		Sequence.h
 		SequenceManager.h 
 		SequencePage.h 

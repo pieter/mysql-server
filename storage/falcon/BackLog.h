@@ -16,6 +16,8 @@
 #ifndef _BACKLOG_H_
 #define _BACKLOG_H_
 
+#define DEBUG_BACKLOG
+
 class Database;
 class Dbb;
 class Section;

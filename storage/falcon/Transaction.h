@@ -129,6 +129,7 @@ public:
 	void		printBlocking(int level);
 	void		releaseDeferredIndexes(void);
 	void		releaseDeferredIndexes(Table* table);
+	void		backlogRecords(void);
 
 	inline bool isActive()
 		{
@@ -178,6 +179,7 @@ public:
 	uint32			debugThawedRecords;
 	uint32			debugThawedBytes;
 	uint32			committedRecords;	// committed record count
+	uint32			numberRecords;		// total records minus backlogged records
 	RecordVersion	**chillPoint;		// points to a pointer to the first non-chilled record
 	int				scanIndexCount;
 
@@ -190,7 +192,7 @@ public:
 protected:
 	RecordVersion	*firstRecord;
 	RecordVersion	*lastRecord;
-	RecordVersion	**recordPtr;
+	//RecordVersion	**recordPtr;
 
 	virtual ~Transaction();
 };

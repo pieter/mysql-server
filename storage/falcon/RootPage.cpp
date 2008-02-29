@@ -19,6 +19,8 @@
 
 #include "Engine.h"
 #include "RootPage.h"
+#include "Dbb.h"
+#include "BDB.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -35,3 +37,14 @@ RootPage::~RootPage()
 
 }
 ***/
+
+void RootPage::createSectionRoot(Dbb * dbb, TransId transId)
+{
+	Bdb *bdb = dbb->fakePage (SECTION_ROOT, PAGE_sections, transId);
+	BDB_HISTORY(bdb);
+	RootPage *sections = (RootPage*) bdb->buffer;
+	sections->section = -1;
+	sections->level = 0;
+	sections->sequence = 0;
+	bdb->release(REL_HISTORY);
+}

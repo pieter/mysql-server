@@ -25,11 +25,13 @@
 #endif // _MSC_VER >= 1000
 
 #include "Page.h"
+
 class RootPage : public Page  
 {
 public:
 	//RootPage();
 	//~RootPage();
+	static void createSectionRoot (Dbb *dbb, TransId transId);
 
 	int			section;
 	int			sequence;		/* sequence in level */			

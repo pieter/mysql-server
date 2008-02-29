@@ -45,14 +45,19 @@
 
 //#define NO_OPTIMIZE
 #define VALIDATE
+#define DEBUG_BACKLOG
 
 #ifndef MIN
 #define MIN(a,b)			((a <= b) ? (a) : (b))
 #define MAX(a,b)			((a >= b) ? (a) : (b))
 #endif
 
+#ifdef DEBUG_BACKLOG
+static const uint LOAD_AUTOCOMMIT_RECORDS = 10000000;
+#else
 static const uint LOAD_AUTOCOMMIT_RECORDS = 10000;
-//static const uint LOAD_AUTOCOMMIT_RECORDS = 10000000;
+#endif
+
 static const char falcon_hton_name[] = "Falcon";
 
 static const char *falcon_extensions[] = {

@@ -22,7 +22,6 @@
 #include "Engine.h"
 #include "Dbb.h"
 #include "Cache.h"
-#include "SectionRootPage.h"
 #include "PageInventoryPage.h"
 #include "RecordLocatorPage.h"
 #include "SectionPage.h"
@@ -155,14 +154,14 @@ Cache* Dbb::create(const char * fileName, int pageSz, int64 cacheSize, FileType 
 	odsMinorVersion = ODS_MINOR_VERSION;
 	sequence = 1;
 
-	init (pageSz, (int) ((cacheSize + pageSz - 1) / pageSz));
+	init(pageSz, (int) ((cacheSize + pageSz - 1) / pageSz));
 	createFile(fileName, initialAllocation);
 	try
 		{
-		Hdr::create (this, fileType, transId, logRoot);
-		PageInventoryPage::create (this, transId);
-		SectionRootPage::create (this, transId);
-		IndexRootPage::create (this, transId);
+		Hdr::create(this, fileType, transId, logRoot);
+		PageInventoryPage::create(this, transId);
+		RootPage::createSectionRoot(this, transId);
+		IndexRootPage::create(this, transId);
 		}
 	catch(...)
 		{

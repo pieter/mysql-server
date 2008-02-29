@@ -33,15 +33,15 @@ public:
 	//SavePoint();
 	//virtual ~SavePoint();
 
-	void setIncludedSavepoint(int savepointId);
+	void	setIncludedSavepoint(int savepointId);
+	void	clear(void);
+	void	backlogRecord(RecordVersion* record);
 
 	SavePoint		*next;
 	Bitmap			*savepoints;
 	Bitmap			*backloggedRecords;
 	RecordVersion	**records;
 	int				id;
-	void clear(void);
-	void backlogRecord(RecordVersion* record);
 };
 
 #endif // !defined(AFX_SAVEPOINT_H__00C992AB_072D_4582_846E_5311807625B5__INCLUDED_)

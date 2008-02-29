@@ -45,8 +45,6 @@
 #include "Bitmap.h"
 #include "BackLog.h"
 
-#define DEBUG_BACKLOG
-
 extern uint		falcon_lock_wait_timeout;
 
 static const char *stateNames [] = {
@@ -65,6 +63,7 @@ static const char *stateNames [] = {
 	};
 
 static const int INDENT = 5;
+static const int MAX_LOW_MEMORY_RECORDS = 1000;
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -100,7 +99,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	transactionId = seq;
 	firstRecord = NULL;
 	lastRecord = NULL;
-	recordPtr = &firstRecord;
+	//recordPtr = &firstRecord;
 	chillPoint = &firstRecord;
 	dependencies = 0;
 	commitTriggers = false;
@@ -127,6 +126,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	committedRecords = 0;
 	numberStates = 0;
 	blockedBy = 0;
+	numberRecords = 0;
 	inList = true;
 	thread = NULL;
 	syncObject.setName("Transaction::syncObject");
@@ -213,7 +213,7 @@ Transaction::~Transaction()
 	delete [] xid;
 	delete backloggedRecords;
 	chillPoint = &firstRecord;
-	recordPtr = &firstRecord;
+	//recordPtr = &firstRecord;
 
 	for (RecordVersion *record; (record = firstRecord);)
 		{
@@ -408,7 +408,7 @@ void Transaction::rollback()
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
 	//state = RolledBack;
 	chillPoint = &firstRecord;
-	recordPtr = &firstRecord;
+	//recordPtr = &firstRecord;
 	totalRecordData = 0;
 	totalRecords = 0;
 
@@ -541,44 +541,14 @@ void Transaction::chillRecords()
 	uint32 chilledBefore = chilledRecords;
 	uint64 totalDataBefore = totalRecordData;
 	database->dbb->logUpdatedRecords(this, *chillPoint, true);
-	SavePoint *savePoint;
 	
-	for (savePoint = savePoints; savePoint; savePoint = savePoint->next)
+	for (SavePoint *savePoint = savePoints; savePoint; savePoint = savePoint->next)
 		if (savePoint->id != curSavePointId)
 			savePoint->setIncludedSavepoint(curSavePointId);
 	
 	if (database->lowMemory)
-		{
-		savePoint = savePoints;
-		
-		for (RecordVersion *record; (record = lastRecord);)
-			{
-			if (savePoints)
-				for (; record->savePointId < savePoint->id; savePoint->next)
-					ASSERT(savePoint->next != NULL);
-		
-			lastRecord = record->prevInTrans;
-			
-			if (savePoint)
-				savePoint->backlogRecord(record);
-			else
-				{
-				if (!backloggedRecords)
-					backloggedRecords = new Bitmap;
-				
-				int32 backlogId = record->format->table->backlogRecord(record);
-				backloggedRecords->set(backlogId);
-				}
-			
-			record->release();
-			}
-		
+		backlogRecords();
 
-		firstRecord = NULL;
-		chillPoint = &firstRecord;
-		recordPtr = &firstRecord;
-		}
-		
 	Log::debug("Record Chill:      trxId=%-5ld records=%7ld  bytes=%8ld\n",
 				transactionId, chilledRecords-chilledBefore, (uint32)(totalDataBefore-totalRecordData), committedRecords);
 }
@@ -636,7 +606,8 @@ void Transaction::addRecord(RecordVersion * record)
 		hasLocks = true;
 		
 	totalRecordData += record->getEncodedSize();
-	totalRecords++;
+	++totalRecords;
+	++numberRecords;
 	
 	if (totalRecordData > database->configuration->recordChillThreshold)
 		{
@@ -654,12 +625,22 @@ void Transaction::addRecord(RecordVersion * record)
 		}
 
 	record->addRef();
-	ASSERT((lastRecord == NULL) || (recordPtr == &lastRecord->nextInTrans));
+	//ASSERT((lastRecord == NULL) || (recordPtr == &lastRecord->nextInTrans));
+	
+	if ( (record->prevInTrans = lastRecord) )
+		lastRecord->nextInTrans = record;
+	else
+		firstRecord = record;
+		
 	record->nextInTrans = NULL;
-	record->prevInTrans = lastRecord;
 	lastRecord = record;
-	*recordPtr = record;
-	recordPtr = &record->nextInTrans;
+	//*recordPtr = record;
+	//recordPtr = &record->nextInTrans;
+	
+	/***
+	if (database->lowMemory && numberRecords > MAX_LOW_MEMORY_RECORDS)
+		backlogRecords();
+	***/
 }
 
 void Transaction::removeRecord(RecordVersion *record)
@@ -687,9 +668,11 @@ void Transaction::removeRecord(RecordVersion *record)
 	record->nextInTrans = NULL;
 	record->transaction = NULL;
 
+	/***
 	if (recordPtr == &record->nextInTrans)
 		recordPtr = ptr;
-
+	***/
+	
 	for (SavePoint *savePoint = savePoints; savePoint; savePoint = savePoint->next)
 		if (savePoint->records == &record->nextInTrans)
 			savePoint->records = ptr;
@@ -698,16 +681,19 @@ void Transaction::removeRecord(RecordVersion *record)
 		chillPoint = ptr;
 
 	// Adjust total record data count
+	
 	if (record->state != recChilled)
 		{
 		uint32 size = record->getEncodedSize();
+		
 		if (totalRecordData >= size)
 			totalRecordData -= size;
 		}
 
 	if (totalRecords > 0)
-		totalRecords--;
+		--totalRecords;
 	
+	--numberRecords;
 	record->release();
 }
 
@@ -803,7 +789,7 @@ void Transaction::commitRecords()
 		if (recordList && COMPARE_EXCHANGE_POINTER(&firstRecord, recordList, NULL))
 			{
 			chillPoint = &firstRecord;
-			recordPtr = &firstRecord;
+			//recordPtr = &firstRecord;
 			lastRecord = NULL;
 
 			for (RecordVersion *record; (record = recordList);)
@@ -1056,7 +1042,8 @@ int Transaction::createSavepoint()
 	else
 		savePoint = new SavePoint;
 	
-	savePoint->records = recordPtr;
+	//savePoint->records = recordPtr;
+	savePoint->records = (lastRecord) ? &lastRecord->nextInTrans : &firstRecord;
 	savePoint->id = ++curSavePointId;
 	savePoint->next = savePoints;
 	savePoint->savepoints = NULL;
@@ -1110,20 +1097,17 @@ void Transaction::releaseSavepoint(int savePointId)
 			if (savePoint->savepoints)
 				savePoint->clear();
 
-			savePoint->next = freeSavePoints;
-			freeSavePoints = savePoint;
-			ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
-
 			// commit pending record versions to the next pending savepoint
 			
-			RecordVersion *record = *savePoint->records;
-			
-			while ( (record) && (record->savePointId == savePointId) )
+			for (RecordVersion *record = *savePoint->records; record && record->savePointId == savePointId; record = record->nextInTrans)
 				{
 				record->savePointId = nextLowerSavePointId;
 				record->scavenge(transactionId, nextLowerSavePointId);
-				record = record->nextInTrans;
 				}
+
+			savePoint->next = freeSavePoints;
+			freeSavePoints = savePoint;
+			ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
 
 			return;
 			}
@@ -1201,11 +1185,11 @@ void Transaction::rollbackSavepoint(int savePointId)
 
 		RecordVersion *record = *savePoint->records;
 		
-		if (record)
-			lastRecord = record->prevInTrans;
+		if (record && (lastRecord = record->prevInTrans) )
+			lastRecord->nextInTrans = NULL;
 			
-		recordPtr = savePoint->records;
-		*recordPtr = NULL;
+		//recordPtr = savePoint->records;
+		//*recordPtr = NULL;
 		RecordVersion *stack = NULL;
 
 		while (record)
@@ -1218,6 +1202,7 @@ void Transaction::rollbackSavepoint(int savePointId)
 			rec->prevInTrans = NULL;
 			rec->nextInTrans = stack;
 			stack = rec;
+			--numberRecords;
 			}
 
 		while (stack)
@@ -1454,4 +1439,77 @@ void Transaction::releaseDeferredIndexes(Table* table)
 		else
 			ptr = &deferredIndex->next;
 		}
+}
+
+void Transaction::backlogRecords(void)
+{
+	SavePoint *savePoint = savePoints;
+	
+	for (RecordVersion *record = lastRecord, *prior; record; record = prior)
+		{
+		prior = record->prevInTrans;
+		
+		if (!record->hasRecord())
+			{
+			if (savePoints)
+				for (; record->savePointId < savePoint->id; savePoint->next)
+					ASSERT(savePoint->next != NULL);
+					
+			if (savePoint)
+				{
+				savePoint->backlogRecord(record);
+				}
+			else
+				{
+				if (!backloggedRecords)
+					backloggedRecords = new Bitmap;
+				
+				int32 backlogId = record->format->table->backlogRecord(record);
+				backloggedRecords->set(backlogId);
+				}
+				
+			if (record->nextInTrans)
+				record->nextInTrans->prevInTrans = record->prevInTrans;
+			else
+				lastRecord = record->prevInTrans;
+			
+			if (record->prevInTrans)
+				record->prevInTrans->nextInTrans = record->nextInTrans;
+			else
+				firstRecord = record->nextInTrans;
+			
+			if (chillPoint == &record->nextInTrans)
+				chillPoint = (record->prevInTrans) ? &record->prevInTrans->nextInTrans : & firstRecord;
+				
+			record->release();
+			--numberRecords;
+			}
+		}
+	
+	/***	
+	for (RecordVersion *record; (record = lastRecord);)
+		{
+		if (savePoints)
+			for (; record->savePointId < savePoint->id; savePoint->next)
+				ASSERT(savePoint->next != NULL);
+	
+		lastRecord = record->prevInTrans;
+		
+		if (savePoint)
+			savePoint->backlogRecord(record);
+		else
+			{
+			if (!backloggedRecords)
+				backloggedRecords = new Bitmap;
+			
+			int32 backlogId = record->format->table->backlogRecord(record);
+			backloggedRecords->set(backlogId);
+			}
+		
+		record->release();
+		}
+
+	firstRecord = NULL;
+	recordPtr = &firstRecord;
+	***/
 }

@@ -73,7 +73,12 @@ RecordVersion::RecordVersion(Database* database, Serialize *stream) : Record(dat
 	if (priorType == 0)
 		priorVersion = new Record(database, stream);
 	else if (priorType == 1)
+		{
 		priorVersion = new RecordVersion(database, stream);
+		
+		if (priorVersion->getTransactionId() == transactionId)
+			superceded = true;
+		}
 	else
 		priorVersion = NULL;
 	

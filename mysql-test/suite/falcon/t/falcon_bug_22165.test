@@ -60,8 +60,8 @@ SET GLOBAL event_scheduler = 0;
 # ----------------------------------------------------- #
 # --- Final cleanup                                 --- #
 # ----------------------------------------------------- #
+USE test;
 DROP EVENT db1.e1;
 DROP EVENT db1.e2;
 DROP PROCEDURE db1.p1;
 DROP DATABASE db1;
-USE test;

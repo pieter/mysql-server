@@ -66,6 +66,7 @@ COMMIT;
 # Switch to connection conn1
 SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
 t1_autoinc
+COMMIT;
 # Test #3 Filter on INT With a transaction
 # Switch to connection default
 START TRANSACTION;

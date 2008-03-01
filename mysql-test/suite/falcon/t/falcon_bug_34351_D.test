@@ -92,6 +92,7 @@ COMMIT;
 connection conn1;
 reap;
 SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+COMMIT;
 
 
 # ----------------------------------------------------- #

@@ -232,7 +232,7 @@ int StorageDatabase::nextRow(StorageTable* storageTable, int recordNumber, bool 
 	Connection *connection = storageConnection->connection;
 	Table *table = storageTable->share->table;
 	Transaction *transaction = connection->getTransaction();
-	Record *candidate;
+	Record *candidate = NULL;
 	Record *record = NULL;
 	
 	try

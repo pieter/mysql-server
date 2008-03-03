@@ -5,6 +5,7 @@
 # for implementation details.
 
 source include/ndb_master-slave.inc;
+source include/have_innodb.inc;
 source include/have_ndb.inc;
 source include/have_debug.inc;
 

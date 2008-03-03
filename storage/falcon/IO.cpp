@@ -62,7 +62,6 @@ static  int getLinuxVersion();
 #define MKDIR(dir)			mkdir(dir, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)
 #endif
 
-
 #ifndef O_SYNC
 #define O_SYNC		0
 #endif

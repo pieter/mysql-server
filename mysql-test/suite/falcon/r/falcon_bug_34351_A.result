@@ -1,0 +1,42 @@
+*** Bug #34351 A ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+DROP PROCEDURE IF EXISTS p1;
+# Establish connection conn1 (user = root)
+SET @@autocommit = 1;
+# Switch to connection default
+SET @@autocommit = 1;
+CREATE TABLE t1 (
+t1_autoinc INTEGER NOT NULL AUTO_INCREMENT,
+t1_uuid CHAR(36),
+PRIMARY KEY (t1_autoinc), KEY (t1_uuid)
+) ENGINE = Falcon;
+CREATE PROCEDURE p1 ()
+begin
+DECLARE my_count INT DEFAULT 0;
+DECLARE my_uuid CHAR(36) DEFAULT 0;
+while my_count < 10000 do
+SET my_uuid = UUID();
+START TRANSACTION;
+INSERT INTO t1 (t1_uuid) VALUES (my_uuid);
+DELETE FROM t1 WHERE t1_uuid IN (my_uuid);
+COMMIT;
+SET my_count = my_count + 1;
+end while;
+end//
+# Send call p1() to the server but do not pull the results
+CALL p1();
+# Switch to connection conn1
+CALL p1();
+# Switch to connection default
+# Pull the results of the preceeding call p1()
+# Send call p1() to the server but do not pull the results
+CALL p1();
+# Switch to connection conn1
+CALL p1();
+# Switch to connection default
+# Pull the results of the preceeding call p1()
+SELECT count(*) FROM t1;
+count(*)
+0
+DROP PROCEDURE p1;

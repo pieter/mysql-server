@@ -1018,7 +1018,6 @@ uint StorageInterface::max_supported_keys(void) const
 	DBUG_RETURN(MAX_KEY);
 }
 
-
 int StorageInterface::write_row(uchar *buff)
 {
 	DBUG_ENTER("StorageInterface::write_row");
@@ -3080,8 +3079,6 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 		storageHandler->setRecordChillThreshold(falcon_record_chill_threshold * 1024 * 1024);
 }
 
-
-
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
 	falcon_record_memory_max = *(ulonglong*) save;
@@ -3166,7 +3163,6 @@ static MYSQL_SYSVAR_ULONGLONG(initial_allocation, falcon_initial_allocation,
   PLUGIN_VAR_RQCMDARG, // | PLUGIN_VAR_READONLY,
   "Initial allocation (in bytes) of falcon user tablespace.",
   NULL, NULL, 0, 0, LL(4000000000), LL(1)<<20);
-
 
 /***
 static MYSQL_SYSVAR_UINT(allocation_extent, falcon_allocation_extent,

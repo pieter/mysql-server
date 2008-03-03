@@ -20,3 +20,4 @@
 #rpl_ndb_innodb_trans     : Bug#34454: Some test cases from the 'rpl_ndb' suite fail
 rpl_ndb_innodb2ndb       : Bug#34725 2008-02-26 hakank Currently failing.
 rpl_ndb_myisam2ndb       : Bug#34725 2008-02-26 hakank Currently failing.
+rpl_ndb_sync             : Bug#34923 2008-02-28 hakank Currently failing.

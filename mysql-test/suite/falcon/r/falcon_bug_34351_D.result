@@ -1,0 +1,98 @@
+*** Bug #34351 D ***
+SET @@storage_engine = 'Falcon';
+DROP TABLE IF EXISTS t1;
+# Establish connection conn1 (user = root)
+SET @@autocommit = 1;
+SET FALCON_CONSISTENT_READ=OFF;
+# Switch to connection default
+SET @@autocommit = 1;
+SET FALCON_CONSISTENT_READ=OFF;
+CREATE TABLE t1 (
+t1_autoinc INTEGER NOT NULL AUTO_INCREMENT,
+t1_uuid CHAR(36),
+PRIMARY KEY (t1_autoinc), KEY (t1_uuid)
+) ENGINE = Falcon;
+# Test #1  Filter on UUID Without a transaction
+SET @default_uuid = UUID();
+INSERT INTO t1 (t1_uuid) VALUES (@default_uuid);
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+1
+START TRANSACTION;
+DELETE FROM t1 WHERE t1_uuid = (@default_uuid);
+# Switch to connection conn1
+SET @conn1_uuid = UUID();
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+1
+INSERT INTO t1 (t1_uuid) VALUES (@conn1_uuid);
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+1
+2
+DELETE FROM t1 WHERE t1_uuid = (@conn1_uuid);
+# Switch to connection default
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+COMMIT;
+# Switch to connection conn1
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+# Test #2 Filter on UUID With a transaction
+# Switch to connection default
+START TRANSACTION;
+SET @default_uuid = UUID();
+INSERT INTO t1 (t1_uuid) VALUES (@default_uuid);
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+3
+DELETE FROM t1 WHERE t1_uuid = (@default_uuid);
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+# Switch to connection conn1
+SET @conn1_uuid = UUID();
+START TRANSACTION;
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+INSERT INTO t1 (t1_uuid) VALUES (@conn1_uuid);
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+4
+DELETE FROM t1 WHERE t1_uuid = (@conn1_uuid);
+# Switch to connection default
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+COMMIT;
+# Switch to connection conn1
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+COMMIT;
+# Test #3 Filter on INT With a transaction
+# Switch to connection default
+START TRANSACTION;
+SET @default_uuid = UUID();
+INSERT INTO t1 VALUES (11, @default_uuid);
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+11
+DELETE FROM t1 WHERE t1_uuid = (@default_uuid);
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+# Switch to connection conn1
+SET @conn1_uuid = UUID();
+INSERT INTO t1 VALUES (12, @conn1_uuid);
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+12
+DELETE FROM t1 WHERE t1_autoinc = 12;
+# Switch to connection default
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+COMMIT;
+# Switch to connection conn1
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+# Switch to connection default
+SELECT t1_autoinc FROM t1 ORDER BY t1_autoinc;
+t1_autoinc
+DROP TABLE IF EXISTS t1;

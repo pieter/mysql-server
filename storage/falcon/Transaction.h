@@ -94,6 +94,7 @@ public:
 	void		commitRecords();
 	void		releaseDependencies();
 	bool		visible (Transaction *transaction, TransId transId, int forWhat);
+	bool		needToLock(Record* record);
 	void		addRecord (RecordVersion *record);
 	void		prepare(int xidLength, const UCHAR *xid);
 	void		rollback();

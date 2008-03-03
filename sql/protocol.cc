@@ -183,7 +183,7 @@ net_send_ok(THD *thd,
 {
   NET *net= &thd->net;
   uchar buff[MYSQL_ERRMSG_SIZE+10],*pos;
-  DBUG_ENTER("send_ok");
+  DBUG_ENTER("my_ok");
 
   if (! net->vio)	// hack for re-parsing queries
   {
@@ -473,8 +473,8 @@ void net_end_statement(THD *thd)
 
 
 /****************************************************************************
-  Functions used by the protocol functions (like send_ok) to store strings
-  and numbers in the header result packet.
+  Functions used by the protocol functions (like net_send_ok) to store
+  strings and numbers in the header result packet.
 ****************************************************************************/
 
 /* The following will only be used for short strings < 65K */

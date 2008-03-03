@@ -35,3 +35,10 @@ ps_8falcon          : Bug#32683  Test ps_8falcon fails in 6.0
 read_many_rows_falcon : Bug#23783 2006-10-30 ML Get pushbuild green
 falcon_ts           : Bug#32993 2008-02-25 hakank Open bug
 falcon_record_cache_memory_leak2    : Bug#34894 2008-02-27 hakank Fails on Pushbuild Windows
+index_merge_falcon    : Bug#32696 index_merge_falcon.test fails
+falcon_bug_26433      : Bug#32697 falcon_bug_26433.test fails randomly
+falcon_bug_27951      : Bug#32731 falcon_bug_27951 fails randomly
+ps_8falcon	    : Bug #32683  	Test ps_8falcon fails in 6.0
+falcon_bug_22173a    : Bug#32963: falcon_bug_22173a fails
+falcon_read-committed: Bug#32992: falcon_read-committed.test causes a server crash occasionally
+falcon_ts            : Bug#32993: falcon_ts.test fails sporadically

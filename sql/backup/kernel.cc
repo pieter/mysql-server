@@ -1867,7 +1867,7 @@ bool send_summary(THD *thd, const Image_info &info, bool backup)
   protocol->store(buf, system_charset_info);
   protocol->write();
 
-  send_eof(thd);
+  my_eof(thd);
   DBUG_RETURN(ret);
 }
 
@@ -1999,9 +1999,9 @@ int silent_exec_query(THD *thd, ::String &query)
   {
     DBUG_PRINT("restore",
               ("error executing query %s!", thd->query));
-    DBUG_PRINT("restore",("last error (%d): %s",thd->net.client_last_errno
-                                               ,thd->net.client_last_error));
-    return thd->net.client_last_errno ? (int)thd->net.client_last_errno : -1;
+    DBUG_PRINT("restore",("last error (%d): %s",thd->net.last_errno
+                                               ,thd->net.last_error));
+    return thd->net.last_errno ? (int)thd->net.last_errno : -1;
   }
 
   return 0;

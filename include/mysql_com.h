@@ -232,12 +232,12 @@ typedef struct st_net {
     Unused, please remove with the next incompatible ABI change.
   */
   unsigned char *unused;
-  unsigned int client_last_errno;
+  unsigned int last_errno;
   unsigned char error; 
   my_bool unused4; /* Please remove with the next incompatible ABI change. */
   my_bool unused5; /* Please remove with the next incompatible ABI change. */
   /** Client library error message buffer. Actually belongs to struct MYSQL. */
-  char client_last_error[MYSQL_ERRMSG_SIZE];
+  char last_error[MYSQL_ERRMSG_SIZE];
   /** Client library sqlstate buffer. Set along with the error message. */
   char sqlstate[SQLSTATE_LENGTH+1];
   void *extension;

@@ -34,4 +34,9 @@ backup_security       :BUG#34235 pending replacement of test facility with WL#42
 backup_snapshot       :BUG#34235 pending replacement of test facility with WL#4259
 csv_alter_table      : Bug#33696 2008-01-21 pcrews no .result file - bug allows NULL columns in CSV tables
 ctype_latin2_ch      : BUG #33791 2008-01-18 mats Wrong ORDER BY with latin2_czech_cs
-query_cache_debug    : Bug#34424: query_cache_debug.test leads to valgrind warnings
+
+backup_errors        : Bug#34858 2008-Feb-28 Server crashes by backup tests
+backup_fkey          : Bug#34858 2008-Feb-28 Server crashes by backup tests
+backup_no_data       : Bug#34858 2008-Feb-28 Server crashes by backup tests
+backup_no_engine     : Bug#34858 2008-Feb-28 Server crashes by backup tests
+backup_objects       : Bug#34858 2008-Feb-28 Server crashes by backup tests

@@ -1,0 +1,65 @@
+--source include/have_falcon.inc
+#
+# Bug #34174 - Infinite loop checking rolled back record in select for update
+#
+--echo *** Bug #34174 ***
+
+# ----------------------------------------------------- #
+# --- Initialisation                                --- #
+# ----------------------------------------------------- #
+let $engine = 'Falcon';
+eval SET @@storage_engine = $engine;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (f1 int primary key, f2 int);
+
+--echo # establishing conn1
+connect (conn1,localhost,root,,);
+
+# ----------------------------------------------------- #
+# --- Test                                          --- #
+# ----------------------------------------------------- #
+
+--echo # switching to default connection
+connection default;
+START TRANSACTION;
+INSERT INTO t1 VALUES (0,0);
+
+--echo # switching to conn1
+connection conn1;
+START TRANSACTION;
+SELECT * FROM t1;
+INSERT INTO t1 VALUES (1,1);
+--send INSERT INTO t1 VALUES (0,3)
+#UPDATE t1 SET f1 = 0, f2 = 5;
+#INSERT INTO t1 VALUES (0,6);
+
+--echo # switching to default connection
+connection default;
+SELECT * FROM t1;
+--error ER_LOCK_DEADLOCK
+UPDATE t1 SET f1 = 1, f2 = 4;
+SELECT * FROM t1;
+ROLLBACK;
+
+--echo # switching to conn1
+connection conn1;
+--reap
+COMMIT;
+
+# ----------------------------------------------------- #
+# --- Check                                         --- #
+# ----------------------------------------------------- #
+SELECT * FROM t1;
+
+# ----------------------------------------------------- #
+# --- Final cleanup                                 --- #
+# ----------------------------------------------------- #
+--echo # switching to default connection
+connection default;
+disconnect conn1;
+DROP TABLE t1;
+

@@ -1,6 +1,11 @@
 --source include/have_falcon.inc
 #
 # Bug #22160: REPLACE crash with two interleaving transactions
+# The changes for Bug#34351 means that the second transaction
+# in this test does not atempt to lock the inserted record
+# since it is not visible, even after it was committed.
+# So the result is now 132 (ER_KEY_NOT_FOUND) instead of
+# 1020 (ER_CHECKREAD or UpdateConflict)
 #
 --echo *** Bug #22160 ***
 
@@ -47,7 +52,7 @@ COMMIT;
 --echo # Switch to connection conn1
 connection conn1;
 --real_sleep 1
---error ER_CHECKREAD
+--error ER_KEY_NOT_FOUND
 REPLACE INTO t1 VALUES (1);
 COMMIT;
 

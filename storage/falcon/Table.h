@@ -40,10 +40,6 @@ static const int PostDelete = 32;
 static const int PreCommit	= 64;
 static const int PostCommit	= 128;
 
-static const int checkUniqueWaited	= 0;
-static const int checkUniqueIsDone	= 1;
-static const int checkUniqueNext	= 2;
-
 #define FORMAT_HASH_SIZE		20
 #define FOR_FIELDS(field,table)	{for (Field *field=table->fields; field; field = field->next){
 #define FOR_INDEXES(index,table)	{for (Index *index=table->indexes; index; index = index->next){
@@ -103,9 +99,9 @@ public:
 	bool		foreignKeyMember (ForeignKey *key);
 	void		makeNotSearchable (Field *field, Transaction *transaction);
 	bool		dropForeignKey (int fieldCount, Field **fields, Table *references);
-	bool		checkUniqueIndexes (Transaction *transaction, RecordVersion *record, Sync *sync);
-	bool		checkUniqueIndex(Index *index, Transaction *transaction, RecordVersion *record, Sync *sync);
-	int			checkUniqueRecordVersion(int32 recordNumber, Index *index, Transaction *transaction, RecordVersion *record, Sync *sync);
+	void		checkUniqueIndexes (Transaction *transaction, RecordVersion *record);
+	bool		checkUniqueIndex(Index *index, Transaction *transaction, RecordVersion *record);
+	bool		checkUniqueRecordVersion(int32 recordNumber, Index *index, Transaction *transaction, RecordVersion *record);
 	bool		isDuplicate (Index *index, Record *record1, Record *record2);
 	void		checkDrop();
 	Field*		findField (const WCString *fieldName);

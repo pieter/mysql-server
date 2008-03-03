@@ -363,7 +363,7 @@ void Transaction::commitNoUpdates(void)
 			thread = Thread::getThread("Transaction::commitNoUpdates");
 		}
 	
-	ASSERT(dependencies == 0);	
+	ASSERT(dependencies == 0);
 	sync.unlock();
 	delete [] xid;
 	xid = NULL;
@@ -718,6 +718,34 @@ bool Transaction::visible(Transaction * transaction, TransId transId, int forWha
 			return false;
 
 	return true;
+}
+
+/***
+@brief		Determine if there is a need to lock this record for update.
+***/
+
+bool Transaction::needToLock(Record* record)
+{
+	// Find the first visible record version
+
+	for (Record* candidate = record; 
+		 candidate != NULL;
+		 candidate = candidate->getPriorVersion())
+		{
+		Transaction *transaction = candidate->getTransaction();
+		TransId transId = candidate->getTransactionId();
+
+		if (visible(transaction, transId, FOR_WRITING))
+			if (candidate->state == recDeleted)
+				if (!transaction || transaction->state == Committed)
+					return false; // Committed and deleted
+				else
+					return true; // Just in case this rolls back.
+			else
+				return true;
+		}
+
+	return false;
 }
 
 void Transaction::releaseDependencies()
@@ -1101,7 +1129,7 @@ void Transaction::rollbackSavepoint(int savePointId)
 	if (systemTransaction)
 		sync.lock(Exclusive);
 
-	// Be sure the target savepoint is valid before rollong them back.
+	// Be sure the target savepoint is valid before rolling them back.
 	
 	for (savePoint = savePoints; savePoint; savePoint = savePoint->next)
 		if (savePoint->id <= savePointId)

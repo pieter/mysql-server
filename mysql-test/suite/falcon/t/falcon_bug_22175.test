@@ -1,7 +1,12 @@
 --source include/have_falcon.inc
 --source include/have_innodb.inc
+#--disable_abort_on_error
 #
 # Bug #22175: Mixing with InnoDB table leads to an anomaly
+# The second client running a read-committed transaction should
+# not wait on any pending transaction.  It only deletes the 
+# committed record (5).  Since record (6) is committed later,
+# it is not deleted by conn1
 #
 --echo #---- Bug 22175 ----
 --disable_warnings
@@ -33,6 +38,7 @@ START TRANSACTION;
 
 --echo # Switch to connection default
 connection default;
+SELECT * FROM t2;
 COMMIT;
 
 --echo # Switch to connection conn1

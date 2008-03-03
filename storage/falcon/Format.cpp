@@ -158,8 +158,6 @@ void Format::save(Table * table)
 
 	saved = true;
 	Database *database = table->database;
-	Sync sync (&database->syncSysConnection, "Format::save");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"insert Formats (version, tableId, fieldId, datatype, offset, length, scale, maxId) values (?,?,?,?,?,?,?,?)");

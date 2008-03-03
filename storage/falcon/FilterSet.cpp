@@ -99,9 +99,6 @@ void FilterSet::setText(const char *string)
 
 void FilterSet::save()
 {
-	Sync sync (&database->syncSysConnection, "FilterSet::save");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"replace system.filtersets (filtersetname,schema,text) values (?,?,?)");
 	statement->setString (1, name);
@@ -109,7 +106,6 @@ void FilterSet::save()
 	statement->setString (3, sql);
 	statement->executeUpdate();
 	statement->close();
-	sync.unlock();
 
 	database->commitSystemTransaction();
 }

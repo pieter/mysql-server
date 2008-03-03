@@ -224,8 +224,6 @@ void Field::makeNotSearchable(Transaction *transaction, bool populate)
 void Field::update()
 {
 	Database *database = table->database;
-	Sync sync (&database->syncSysConnection, "Field::update");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"update Fields set flags=?,datatype=?,scale=?,length=?,collationsequence=?,repositoryName=?\n"
@@ -252,7 +250,6 @@ void Field::update()
 	statement->setString (n++, name);
 	statement->executeUpdate();
 	statement->close();
-	sync.unlock();
 
 	database->commitSystemTransaction();
 }
@@ -270,8 +267,6 @@ JdbcType Field::getSqlType()
 void Field::save()
 {
 	Database *database = table->database;
-	Sync sync (&database->syncSysConnection, "Field::save");
-	sync.lock (Shared);
 
 	const char *sql = (database->fieldExtensions) ?
 		"insert Fields (tableName, field, fieldId, datatype, scale, length, flags,schema,collationsequence,repositoryName, precision)"
@@ -312,8 +307,6 @@ void Field::save()
 void Field::drop()
 {
 	Database *database = table->database;
-	Sync sync (&database->syncSysConnection, "Field::drop");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from Fields where tableName=? and schema=? and field=?");

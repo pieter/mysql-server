@@ -472,11 +472,10 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	syncTables.setName("Database::syncTables");
 	syncStatements.setName("Database::syncStatements");
 	syncAddStatement.setName("Database::syncAddStatement");
-	syncSysConnection.setName("Database::syncSysConnection");
 	syncResultSets.setName("Database::syncResultSets");
 	syncConnectionStatements.setName("Database::syncConnectionStatements");
 	syncScavenge.setName("Database::syncScavenge");
-	syncDDL.setName("Database::syncDDL");
+	syncSysDDL.setName("Database::syncSysDDL");
 }
 
 
@@ -636,6 +635,10 @@ void Database::createDatabase(const char * filename)
 		odsVersion = dbb->odsVersion;
 		dbb->createInversion(0);
 		Table *table;
+		
+		Sync syncDDL(&syncSysDDL, "Database::createDatabase");
+		syncDDL.lock(Exclusive);
+		
 		Transaction *sysTrans = getSystemTransaction();
 		
 		for (table = tableList; table; table = table->next)
@@ -981,8 +984,10 @@ Table* Database::findTable (const char *schema, const char *name)
 
 	schema = symbolManager->getSymbol (schema);
 	name = symbolManager->getSymbol (name);
-	Sync sync (&syncTables, "Database::findTable");
-	sync.lock (Shared);
+
+	Sync syncTbl (&syncTables, "Database::findTable");
+	syncTbl.lock (Shared);
+	
 	int slot = HASH (name, TABLE_HASH_SIZE);
 	Table *table;
 
@@ -990,15 +995,15 @@ Table* Database::findTable (const char *schema, const char *name)
 		if (table->name == name && table->schemaName == schema)
 			return table;
 
-	sync.unlock();
+	syncTbl.unlock();
 
 	for (UnTable *untable = unTables [slot]; untable;
 		 untable = untable->collision)
 		if (untable->name == name && untable->schemaName == schema)
 			return NULL;
 
-	Sync syncSystemTransaction(&syncSysConnection, "Database::findTable");
-	syncSystemTransaction.lock(Shared);
+	Sync syncDDL(&syncSysDDL, "Database::findTable");
+	syncDDL.lock(Shared);
 	
 	PStatement statement = prepareStatement (
 		(fieldExtensions) ?
@@ -1127,15 +1132,19 @@ PreparedStatement* Database::prepareStatement(Connection *connection, const WCSt
 
 CompiledStatement* Database::getCompiledStatement(Connection *connection, const char * sqlString)
 {
-	Sync sync (&syncStatements, "Database::getCompiledStatement(1)");
-	sync.lock (Shared);
+	Sync syncDDL(&syncSysDDL, "Database::getCompiledStatement(1)");
+	syncDDL.lock(Shared);
+
+	Sync syncStmt(&syncStatements, "Database::getCompiledStatement(1)");
+	syncStmt.lock(Shared);
+	
 	//printf("%s\n", (const char*) sqlString);
 
 	for (CompiledStatement *statement = compiledStatements; statement; statement = statement->next)
 		if (statement->sqlString == sqlString && statement->validate (connection))
 			{
 			statement->addRef();
-			sync.unlock();
+			syncStmt.unlock();
 			try
 				{
 				statement->checkAccess (connection);
@@ -1148,16 +1157,19 @@ CompiledStatement* Database::getCompiledStatement(Connection *connection, const 
 			return statement;
 			}
 
-	sync.unlock();
+	syncStmt.unlock();
 
 	return compileStatement (connection, sqlString);
 }
 
-
 CompiledStatement* Database::getCompiledStatement(Connection *connection, const WCString *sqlString)
 {
-	Sync sync (&syncStatements, "Database::getCompiledStatement(WC)");
-	sync.lock (Shared);
+	Sync syncDDL(&syncSysDDL, "Database::getCompiledStatement(WC)");
+	syncDDL.lock(Shared);
+	
+	Sync syncStmt(&syncStatements, "Database::getCompiledStatement(WC)");
+	syncStmt.lock(Shared);
+	
 	//JString str(sqlString);
 	//printf("%s\n", (const char*) str);
 	
@@ -1165,7 +1177,7 @@ CompiledStatement* Database::getCompiledStatement(Connection *connection, const 
 		if (statement->sqlString == sqlString && statement->validate (connection))
 			{
 			statement->addRef();
-			sync.unlock();
+			syncStmt.unlock();
 			try
 				{
 				statement->checkAccess (connection);
@@ -1178,7 +1190,7 @@ CompiledStatement* Database::getCompiledStatement(Connection *connection, const 
 			return statement;
 			}
 
-	sync.unlock();
+	syncStmt.unlock();
 	JString sql (sqlString);
 
 	return compileStatement (connection, sql);
@@ -1186,6 +1198,9 @@ CompiledStatement* Database::getCompiledStatement(Connection *connection, const 
 
 CompiledStatement* Database::compileStatement(Connection *connection, JString sqlString)
 {
+	Sync syncDDL(&syncSysDDL, "Database::getCompiledStatement(WC)");
+	syncDDL.lock(Shared);
+	
 	CompiledStatement *statement = new CompiledStatement (connection);
 
 	try
@@ -1202,10 +1217,10 @@ CompiledStatement* Database::compileStatement(Connection *connection, JString sq
 	if (statement->useable && 
 		(statement->numberParameters > 0 || !statement->filters.isEmpty()))
 		{
-		Sync sync (&syncStatements, "Database::compileStatement(1)");
-		sync.lock (Shared);
-		Sync sync2 (&syncAddStatement, "Database::compileStatement(2)");
-		sync2.lock (Exclusive);
+		Sync syncStmt (&syncStatements, "Database::compileStatement(1)");
+		syncStmt.lock (Shared);
+		Sync syncAddStmt (&syncAddStatement, "Database::compileStatement(2)");
+		syncAddStmt.lock (Exclusive);
 		statement->addRef();
 		statement->next = compiledStatements;
 		compiledStatements = statement;
@@ -1233,14 +1248,14 @@ bool Database::flush(int64 arg)
 
 void Database::commitSystemTransaction()
 {
-	Sync sync (&syncSysConnection, "Database::commitSystemTransaction");
+	Sync sync (&syncSysDDL, "Database::commitSystemTransaction");
 	sync.lock (Exclusive);
 	systemConnection->commit();
 }
 
 void Database::rollbackSystemTransaction(void)
 {
-	Sync sync (&syncSysConnection, "Database::commitSystemTransaction");
+	Sync sync (&syncSysDDL, "Database::commitSystemTransaction");
 	sync.lock (Exclusive);
 	systemConnection->rollback();
 }
@@ -1286,6 +1301,9 @@ Table* Database::getTable(int tableId)
 {
 	Table *table;
 
+	Sync syncDDL(&syncSysDDL, "Database::getTable");
+	syncDDL.lock(Shared);
+	
 	for (table = tablesModId [tableId % TABLE_HASH_SIZE]; table; 
 		 table = table->idCollision)
 		if (table->tableId == tableId)
@@ -1303,8 +1321,11 @@ Table* Database::getTable(int tableId)
 
 Table* Database::loadTable(ResultSet * resultSet)
 {
-	Sync sync(&syncTables, "Database::loadTable");
+	Sync syncDDL(&syncSysDDL, "Database::loadTable");
+	syncDDL.lock(Shared);
 
+	Sync syncObj(&syncTables, "Database::loadTable");
+	
 	if (!resultSet->next())
 		return NULL;
 
@@ -1348,7 +1369,8 @@ Table* Database::loadTable(ResultSet * resultSet)
 		}
 
 	table->loadStuff();
-	sync.lock(Exclusive);
+	
+	syncObj.lock(Exclusive);
 	addTable(table);
 
 	return table;
@@ -1365,8 +1387,11 @@ void Database::flushInversion(Transaction *transaction)
 	dbb->inversion->flush (TRANSACTION_ID(transaction));
 }
 
-void Database::dropTable(Table * table, Transaction *transaction)
+void Database::dropTable(Table *table, Transaction *transaction)
 {
+	Sync syncDDL(&syncSysDDL, "Database::dropTable");
+	syncDDL.lock(Exclusive);
+	
 	table->checkDrop();
 
 	// Check for records in active transactions.  If so, barf
@@ -1379,8 +1404,8 @@ void Database::dropTable(Table * table, Transaction *transaction)
 	
 	transactionManager->dropTable(table, transaction);
 
-	Sync sync (&syncTables, "Database::dropTable");
-	sync.lock (Exclusive);
+	Sync syncTbl(&syncTables, "Database::dropTable");
+	syncTbl.lock(Exclusive);
 
 	// Remove table from linear table list
 
@@ -1413,9 +1438,7 @@ void Database::dropTable(Table * table, Transaction *transaction)
 			break;
 			}
 
-	sync.unlock();
-	
-	sync.lock(Shared);
+	syncTbl.unlock();
 	
 	invalidateCompiledStatements(table);
 	table->drop(transaction);
@@ -1423,8 +1446,11 @@ void Database::dropTable(Table * table, Transaction *transaction)
 	delete table;
 }
 
-void Database::truncateTable(Table *table, Transaction *transaction)
+void Database::truncateTable(Table *table, Sequence *sequence, Transaction *transaction)
 {
+	Sync syncDDL(&syncSysDDL, "Database::truncateTable");
+	syncDDL.lock(Exclusive);
+	
 	table->checkDrop();
 	
 	// Check for records in active transactions
@@ -1433,28 +1459,21 @@ void Database::truncateTable(Table *table, Transaction *transaction)
 		throw SQLError(UNCOMMITTED_UPDATES, "table %s.%s has uncommitted updates and cannot be truncated",
 						table->schemaName, table->name);
 						   
-	// Keep scavenger out of the way
+	// Block table drop/add, table list scans ok
 	
-	Sync scavenge(&table->syncScavenge, "Database::truncateTable");
-	scavenge.lock(Shared);
+	Sync syncTbl(&syncTables, "Database::truncateTable");
+	syncTbl.lock(Shared);
 	
-	// Block drop/add, table list scans ok
+	// No table access until truncate completes
 	
-	Sync sync(&syncTables, "Database::truncateTable");
-	sync.lock(Shared);
-	
-	// No access until truncate completes
-	
-	table->deleting = true;
 	Sync syncObj(&table->syncObject, "Database::truncateTable");
 	syncObj.lock(Exclusive);
+	
+	table->deleting = true;
 	
 	// Purge records out of committed transactions
 	
 	transactionManager->truncateTable(table, transaction);
-	
-	Sync syncConnection(&syncSysConnection, "Table::truncate");
-	syncConnection.lock(Shared);
 	
 	Transaction *sysTransaction = getSystemTransaction();
 	
@@ -1462,9 +1481,12 @@ void Database::truncateTable(Table *table, Transaction *transaction)
 	
 	table->truncate(sysTransaction);
 	
-	syncConnection.unlock();
-	
 	commitSystemTransaction();
+	
+	// Delete and recreate the sequence
+	
+	if (sequence)
+		sequence = sequence->recreate();
 }
 
 void Database::addTable(Table * table)
@@ -1600,14 +1622,19 @@ void Database::invalidateCompiledStatements(Table * table)
 			ptr = &(*ptr)->next;
 }
 
-
 User* Database::createUser(const char * account, const char * password, bool encrypted, Coterie *coterie)
 {
+	Sync syncDDL(&syncSysDDL, "Database::createUser");
+	syncDDL.lock(Exclusive);
+	
 	return roleModel->createUser (getSymbol (account), password, encrypted, coterie);
 }
 
 User* Database::findUser(const char * account)
 {
+	Sync syncDDL(&syncSysDDL, "Database::findUser");
+	syncDDL.lock(Shared);
+
 	return roleModel->findUser (symbolManager->getSymbol (account));
 }
 
@@ -1618,7 +1645,6 @@ Role* Database::findRole(const char * schemaName, const char * roleName)
 	return roleModel->findRole (schema, role);
 }
 
-
 Role* Database::findRole(const WCString *schemaName, const WCString *roleName)
 {
 	return roleModel->findRole (symbolManager->getSymbol (schemaName), 
@@ -1627,16 +1653,18 @@ Role* Database::findRole(const WCString *schemaName, const WCString *roleName)
 
 void Database::validate(int optionMask)
 {
-	Sync sync (&syncObject, "Database::validate");
-	sync.lock (Exclusive);
+	Sync syncDDL(&syncSysDDL, "Database::validate");
+	syncDDL.lock(Shared);
+	
+	Sync syncObj(&syncObject, "Database::validate");
+	syncObj.lock (Exclusive);
+	
 	Log::debug ("Validation:\n");
 	dbb->validate (optionMask);
 	tableSpaceManager->validate(optionMask);
 	
 	if (optionMask & validateBlobs)
 		{
-		Sync sync2 (&syncSysConnection, "Database::validate");
-		sync2.lock (Shared);
 		PreparedStatement *statement = prepareStatement (
 			"select tableId,viewDefinition from system.tables");
 		ResultSet *resultSet = statement->executeQuery();
@@ -1662,8 +1690,9 @@ void Database::scavenge()
 	// Start by scavenging compiled statements.  If they're moldy and not in use,
 	// off with their heads!
 
-	Sync sync (&syncStatements, "Database::scavenge");
-	sync.lock (Exclusive);
+	Sync syncStmt(&syncStatements, "Database::scavenge");
+	syncStmt.lock (Exclusive);
+	
 	time_t threshold = timestamp - STATEMENT_RETIREMENT_AGE;
 	lastScavenge = timestamp;
 
@@ -1676,7 +1705,7 @@ void Database::scavenge()
 			statement->release();
 			}
 	
-	sync.unlock();
+	syncStmt.unlock();
 
 	// Next, scavenge tables
 
@@ -1708,9 +1737,23 @@ void Database::scavenge()
 
 void Database::retireRecords(bool forced)
 {
+	Sync syncDDL(&syncSysDDL, "Database::retireRecords");
+	syncDDL.lock(Shared);
+
+	// Commit pending system transactions before proceeding
+	
+	if (!forced && systemConnection->transaction)
+		{
+		syncDDL.unlock();
+		if (systemConnection->transaction)
+			commitSystemTransaction();
+		syncDDL.lock(Shared);
+		}
+		
+	Sync syncScavenger(&syncScavenge, "Database::retireRecords");
+	syncScavenger.lock(Exclusive);
+
 	int cycle = scavengeCycle;
-	Sync lock(&syncScavenge, "Database::retireRecords");
-	lock.lock(Exclusive);
 	
 	if (forced && scavengeCycle > cycle)
 		return;
@@ -1720,9 +1763,6 @@ void Database::retireRecords(bool forced)
 	if (forced)
 		Log::log("Forced record scavenge cycle\n");
 	
-	if (!forced && systemConnection->transaction)
-		commitSystemTransaction();
-		
 	transactionManager->purgeTransactions();
 	TransId oldestActiveTransaction = transactionManager->findOldestActive();
 	int threshold = 0;
@@ -1737,8 +1777,10 @@ void Database::retireRecords(bool forced)
 		{
 		//LogStream stream;
 		//recordDataPool->analyze(0, &stream, NULL, NULL);
-		Sync syncTbl (&syncTables, "Database::retireRecords");
-		syncTbl.lock (Shared);
+		
+		Sync syncTbl(&syncTables, "Database::retireRecords");
+		syncTbl.lock(Shared);
+		
 		Table *table;
 		time_t scavengeStart = deltaTime;
 		
@@ -1770,6 +1812,7 @@ void Database::retireRecords(bool forced)
 			}
 
 		syncTbl.unlock();
+		
 		Log::log(LogScavenge, "%d: Scavenged %d records, " I64FORMAT " bytes in %d seconds\n", 
 					deltaTime, recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed, deltaTime - scavengeStart);
 			
@@ -1865,6 +1908,9 @@ const char* Database::getString(const char *string)
 
 void Database::upgradeSystemTables()
 {
+	Sync syncDDL(&syncSysDDL, "Database::upgradeSystemTables");
+	syncDDL.lock(Shared);
+
 	for (const char **tableName = changedTables; *tableName; ++tableName)
 		{
 		Table *table = findTable("SYSTEM", *tableName);
@@ -1931,7 +1977,7 @@ JString Database::analyze(int mask)
 {
 	Stream stream;
 	stream.setMalloc (true);
-	Sync syncSystemTransaction(&syncSysConnection, "Database::analyze");
+	Sync syncDDL(&syncSysDDL, "Database::analyze");
 
 	if (mask & analyzeMemory)
 		MemMgrAnalyze (mask, &stream);
@@ -1973,8 +2019,8 @@ JString Database::analyze(int mask)
 	if (mask & analyzeStatements)
 		{
 		stream.putSegment ("\nStatements\n");
-		Sync sync (&syncStatements, "Database::analyze");
-		sync.lock (Shared);
+		Sync syncStmt(&syncStatements, "Database::analyze");
+		syncStmt.lock(Shared);
 
 		for (CompiledStatement *statement = compiledStatements; statement;
 			 statement = statement->next)
@@ -1983,12 +2029,12 @@ JString Database::analyze(int mask)
 			stream.format ("\t(%d)\n", statement->countInstances());
 			}
 		stream.putCharacter ('\n');
-		sync.unlock();
+		syncStmt.unlock();
 		}
 
 	if (mask & analyzeTables)
 		{
-		syncSystemTransaction.lock(Shared);
+		syncDDL.lock(Shared);
 		PreparedStatement *statement = prepareStatement (
 			"select schema,tableName,dataSection,blobSection,tablespace from tables order by schema, tableName");
 		PreparedStatement *indexQuery = prepareStatement(
@@ -2121,13 +2167,16 @@ Schema* Database::getSchema(const char *name)
 	int slot = HASH (name, TABLE_HASH_SIZE);
 	Schema *schema;
 
-	for (schema = schemas [slot]; schema; schema = schema->collision)
+	Sync syncDDL(&syncSysDDL, "Database::getSchema");
+	syncDDL.lock(Shared);
+
+	for (schema = schemas[slot]; schema; schema = schema->collision)
 		if (schema->name == name)
 			return schema;
 
 	schema = new Schema (this, name);
-	schema->collision = schemas [slot];
-	schemas [slot] = schema;
+	schema->collision = schemas[slot];
+	schemas[slot] = schema;
 
 	return schema;
 }
@@ -2271,10 +2320,12 @@ void Database::getTransactionSummaryInfo(InfoTable* infoTable)
 
 void Database::updateCardinalities(void)
 {
-	Sync sync (&syncTables, "Database::updateCardinalities");
-	sync.lock (Shared);
-	Sync syncSystemTransaction(&syncSysConnection, "Database::updateCardinalities");
-	syncSystemTransaction.lock(Shared);
+	Sync syncDDL(&syncSysDDL, "Database::updateCardinalities");
+	syncDDL.lock(Shared);
+	
+	Sync syncTbl(&syncTables, "Database::updateCardinalities");
+	syncTbl.lock(Shared);
+	
 	bool hit = false;
 	
 	try
@@ -2306,8 +2357,9 @@ void Database::updateCardinalities(void)
 		{
 		}
 	
-	sync.unlock();
-	syncSystemTransaction.unlock();
+	syncTbl.unlock();
+	syncDDL.unlock();
+
 	commitSystemTransaction();
 }
 

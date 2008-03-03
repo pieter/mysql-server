@@ -154,8 +154,6 @@ int Index::matchField(Field * fld)
 void Index::save()
 {
 	ASSERT (indexId != -1);
-	Sync sync (&database->syncSysConnection, "Index::save");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"insert Indexes (indexName,schema,tableName,indexType,fieldCount,indexId)values(?,?,?,?,?,?);");
@@ -487,9 +485,6 @@ void Index::setIndex(int32 id)
 
 void Index::loadFields()
 {
-	Sync sync (&database->syncSysConnection, "Index::loadFields");
-	sync.lock (Shared);
-
 	memset (fields, 0, sizeof (Field*) * numberFields);
 	const char *sql = (database->fieldExtensions) ?
 		"select field,position,partial,records_per_value from IndexFields where indexName=? and schema=? and tableName=?" :
@@ -623,9 +618,6 @@ bool Index::duplicateKey(IndexKey *key, Record * record)
 
 JString Index::getTableName(Database *database, const char *schema, const char *indexName)
 {
-	Sync sync (&database->syncSysConnection, "Index::getTableName");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"select tableName from system.indexes where schema=? and indexName=?");
 	int n = 1;
@@ -645,9 +637,6 @@ JString Index::getTableName(Database *database, const char *schema, const char *
 
 void Index::deleteIndex(Database *database, const char *schema, const char *indexName)
 {
-	Sync sync (&database->syncSysConnection, "Index::deleteIndex");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from system.indexes where schema=? and indexName=?");
 	int n = 1;
@@ -691,8 +680,6 @@ void Index::rebuildIndex(Transaction *transaction)
 	if (damaged)
 		damageCheck();
 
-	Sync sync (&database->syncSysConnection, "Index::rebuildIndex");
-	sync.lock (Shared);
 	int oldId = indexId;
 	indexId = dbb->createIndex(TRANSACTION_ID(transaction), indexVersion);
 

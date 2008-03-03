@@ -92,9 +92,6 @@ Privilege* Role::getPrivilege(PrivilegeObject * object)
 
 	if (!database->formatting)
 		{
-		Sync syncConnection (&database->syncSysConnection, "Role::getPrivilege");
-		syncConnection.lock (Shared);
-
 		PreparedStatement *statement = database->prepareStatement (
 			"select privilegeMask from system.privileges where "
 				"holderType=? and "

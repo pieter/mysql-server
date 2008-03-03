@@ -233,14 +233,13 @@ void RepositoryVolume::create()
 {
 	IO::createPath (fileName);
 	dbb->create(fileName, dbb->pageSize, 0, HdrRepositoryFile, 0, NULL, 0);
-	Sync syncSystem(&database->syncSysConnection, "RepositoryVolume::create");
+	Sync syncDDL(&database->syncSysDDL, "RepositoryVolume::create");
 	Transaction *transaction = database->getSystemTransaction();
-	syncSystem.lock(Exclusive);
+	syncDDL.lock(Exclusive);
 	dbb->createIndex(transaction->transactionId, VOLUME_INDEX_VERSION);
 	dbb->createSection(transaction->transactionId);
-	syncSystem.unlock();
+	syncDDL.unlock();
 	database->commitSystemTransaction();
-	
 	Bdb *bdb = dbb->fetchPage(HEADER_PAGE, PAGE_header, Exclusive);
 	BDB_HISTORY(bdb);
 	bdb->mark (0);

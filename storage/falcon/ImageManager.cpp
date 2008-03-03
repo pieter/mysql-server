@@ -82,6 +82,9 @@ ImageManager::~ImageManager()
 
 Images* ImageManager::getImages(const char * name, Application *extends)
 {
+//	Sync syncDDL(&database->syncSysDDL, "ImageManager::getImages");
+//	syncDDL.lock(Shared);
+	
 	const char *applicationName = database->getSymbol (name);
 	int slot = HASH (applicationName, IMAGES_HASH_SIZE);
     Images *images;
@@ -216,6 +219,9 @@ void ImageManager::updateCommit(Table * table, RecordVersion * record)
 
 void ImageManager::checkAccess(Table *table, RecordVersion *recordVersion)
 {
+//	Sync syncDDL(&database->syncSysDDL, "ImageManager::checkAccess");
+//	syncDDL.lock(Shared);
+	
 	if (nameId < 0)
 		{
 		nameId = table->getFieldId ("NAME");

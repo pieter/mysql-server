@@ -72,9 +72,6 @@ void SequenceManager::initialize()
 		for (const char **p = ddl; *p; ++p)
 			database->execute (*p);
 
-	Sync sync (&database->syncSysConnection, "SequenceManager::initialize");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"select schema, sequenceName, id from system.sequences");
 	ResultSet *resultSet = statement->executeQuery();
@@ -116,8 +113,6 @@ Sequence* SequenceManager::createSequence(const char *schema, const char *name, 
 {
 	int id = database->createSequence (initialValue);
 	Sequence *sequence = new Sequence (database, schema, name, id);
-	Sync sync (&database->syncSysConnection, "SequenceManager::createSequence");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"insert into system.sequences (schema,sequenceName,id) values (?,?,?)");
@@ -125,12 +120,12 @@ Sequence* SequenceManager::createSequence(const char *schema, const char *name, 
 	statement->setString (2, sequence->name);
 	statement->setLong(3, sequence->id);
 	statement->executeUpdate();
-	sync.unlock();
 	statement->close();
+
 	database->commitSystemTransaction();
 
-	sync.setObject (&syncObject);
-	sync.lock (Exclusive);
+	Sync syncObj(&syncObject, "SequenceManager::createSequence");
+	syncObj.lock (Exclusive);
 	int slot = HASH (sequence->name, SEQUENCE_HASH_SIZE);
 	ASSERT (slot >= 0 && slot < SEQUENCE_HASH_SIZE);
 	sequence->collision = sequences [slot];
@@ -150,21 +145,18 @@ Sequence* SequenceManager::recreateSequence(Sequence *oldSequence)
 
 void SequenceManager::deleteSequence(const char *schema, const char *name)
 {
-	Sync sync (&database->syncSysConnection, "SequenceManager::deleteSequence");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from system.sequences where schema=? and sequenceName=?");
 	statement->setString (1, schema);
 	statement->setString (2, name);
 	statement->executeUpdate();
 	statement->close();
-	sync.unlock();
+
 	database->commitSystemTransaction();
 
 	int slot = HASH (name, SEQUENCE_HASH_SIZE);
-	sync.setObject (&syncObject);
-	sync.lock (Exclusive);
+	Sync syncObj(&syncObject, "SequenceManager::deleteSequence");
+	syncObj.lock (Exclusive);
 	
 	for (Sequence *sequence, **ptr = sequences + slot; (sequence = *ptr); ptr = &sequence->collision)
 		if (sequence->schemaName == schema && sequence->name == name)

@@ -105,7 +105,7 @@ Application* Applications::getApplication(const char *applicationName)
 		database->execute (populate);
 		}
 	
-	Sync sync (&database->syncSysConnection, "Applications::getApplication");
+	Sync syncDDL(&database->syncSysDDL, "Applications::getApplication");
 
 	PreparedStatement *statement = database->prepareStatement (
 		"select extends,classname"
@@ -115,7 +115,7 @@ Application* Applications::getApplication(const char *applicationName)
 
 	for (n = 0; !application && n < 2; ++n)
 		{
-		sync.lock (Shared);
+		syncDDL.lock (Shared);
 		ResultSet *resultSet = statement->executeQuery();
 		
 		if (resultSet->next())
@@ -128,7 +128,7 @@ Application* Applications::getApplication(const char *applicationName)
 				
 			JString className = resultSet->getString (2);
 			resultSet->close();
-			sync.unlock();
+			syncDDL.unlock();
 			bool mandatory = className == "netfrastructure/model/Application";
 			Manifest *manifest = database->java->findManifest (className);
 			
@@ -158,7 +158,7 @@ Application* Applications::getApplication(const char *applicationName)
 		else
 			{
 			resultSet->close();
-			sync.unlock();
+			syncDDL.unlock();
 			}
 		if (!application && !strcmp (applicationName, BASE))
 			{

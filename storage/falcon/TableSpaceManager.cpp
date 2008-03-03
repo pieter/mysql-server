@@ -83,23 +83,24 @@ void TableSpaceManager::add(TableSpace *tableSpace)
 
 TableSpace* TableSpaceManager::findTableSpace(const char *name)
 {
-	Sync sync(&syncObject, "TableSpaceManager::findTableSpace");
-	sync.lock(Shared);
+	Sync syncObj(&syncObject, "TableSpaceManager::findTableSpace");
+	syncObj.lock(Shared);
 	TableSpace *tableSpace;
 
 	for (tableSpace = nameHash[JString::hash(name, TS_HASH_SIZE)]; tableSpace; tableSpace = tableSpace->nameCollision)
 		if (tableSpace->name == name)
 			return tableSpace;
 
-	sync.unlock();
-	sync.lock(Exclusive);
+	syncObj.unlock();
+	syncObj.lock(Exclusive);
 
 	for (tableSpace = nameHash[JString::hash(name, TS_HASH_SIZE)]; tableSpace; tableSpace = tableSpace->nameCollision)
 		if (tableSpace->name == name)
 			return tableSpace;
 
-	Sync syncSystem (&database->syncSysConnection, "TableSpaceManager::findTableSpace");
-	syncSystem.lock (Shared);
+	Sync syncDDL(&database->syncSysDDL, "TableSpaceManager::findTableSpace");
+	syncDDL.lock(Shared);
+	
 	PStatement statement = database->prepareStatement(
 		"select tablespace_id,filename,status from system.tablespaces where tablespace=?");
 	statement->setString(1, name);
@@ -145,8 +146,8 @@ TableSpace* TableSpaceManager::getTableSpace(const char *name)
 
 TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fileName, uint64 initialAllocation, bool repository)
 {
-	Sync syncSystem(&database->syncSysConnection, "TableSpaceManager::createTableSpace");
-	syncSystem.lock(Shared);
+	Sync syncDDL(&database->syncSysDDL, "TableSpaceManager::createTableSpace");
+	syncDDL.lock(Shared);
 	Sequence *sequence = database->sequenceManager->getSequence(database->getSymbol("SYSTEM"), database->getSymbol("TABLESPACE_IDS"));
 	int type = (repository) ? TABLESPACE_TYPE_REPOSITORY : TABLESPACE_TYPE_TABLESPACE;
 	int id = (int) sequence->update(1, database->getSystemTransaction());
@@ -165,7 +166,7 @@ TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fi
 		if (!repository)
 			tableSpace->create();
 			
-		syncSystem.unlock();
+		syncDDL.unlock();
 		database->commitSystemTransaction();
 		add(tableSpace);
 		}
@@ -201,7 +202,7 @@ void TableSpaceManager::bootstrap(int sectionId)
 		p = EncodedDataStream::decode(p, &fileName, true);
 		p = EncodedDataStream::decode(p, &status, true);
 		TableSpace *tableSpace = new TableSpace(database, name.getString(), id.getInt(), fileName.getString(), 0, status.getInt());
-		Log::debug("New Table space %s, id %d, type %d, filename %s\n", (const char*) tableSpace->name, tableSpace->tableSpaceId, tableSpace->type, (const char*) tableSpace->filename);
+		Log::debug("New table space %s, id %d, type %d, filename %s\n", (const char*) tableSpace->name, tableSpace->tableSpaceId, tableSpace->type, (const char*) tableSpace->filename);
 		
 		if (tableSpace->type == TABLESPACE_TYPE_TABLESPACE)
 			try
@@ -257,10 +258,12 @@ void TableSpaceManager::dropDatabase(void)
 
 void TableSpaceManager::dropTableSpace(TableSpace* tableSpace)
 {
-	Sync sync(&syncObject, "TableSpaceManager::dropTableSpace");
-	sync.lock(Exclusive);
-	Sync syncSystem(&database->syncSysConnection, "TableSpaceManager::dropTableSpace");
-	syncSystem.lock(Shared);
+	Sync syncObj(&syncObject, "TableSpaceManager::dropTableSpace");
+	syncObj.lock(Exclusive);
+
+	Sync syncDDL(&database->syncSysDDL, "TableSpaceManager::dropTableSpace");
+	syncDDL.lock(Shared);
+	
 	PStatement statement = database->prepareStatement(
 		"delete from system.tablespaces where tablespace=?");
 	statement->setString(1, tableSpace->name);
@@ -268,8 +271,10 @@ void TableSpaceManager::dropTableSpace(TableSpace* tableSpace)
 	Transaction *transaction = database->getSystemTransaction();
 	transaction->hasUpdates = true;
 	database->serialLog->logControl->dropTableSpace.append(tableSpace, transaction);
-	syncSystem.unlock();
+
+	syncDDL.unlock();
 	database->commitSystemTransaction();
+	
 	int slot = tableSpace->name.hash(TS_HASH_SIZE);
 
 	for (TableSpace **ptr = nameHash + slot; *ptr; ptr = &(*ptr)->nameCollision)
@@ -280,7 +285,7 @@ void TableSpaceManager::dropTableSpace(TableSpace* tableSpace)
 			break;
 			}
 			
-	sync.unlock();
+	syncObj.unlock();
 	tableSpace->active = false;
 }
 
@@ -402,16 +407,16 @@ void TableSpaceManager::redoCreateTableSpace(int id, int nameLength, const char*
 
 void TableSpaceManager::initialize(void)
 {
-	Sync sync(&syncObject, "TableSpaceManager::initialize");
-	sync.lock(Shared);
+	Sync syncObj(&syncObject, "TableSpaceManager::initialize");
+	syncObj.lock(Shared);
 
 	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
 		if (tableSpace->needSave)
 			{
-			Sync syncSystem(&database->syncSysConnection, "TableSpaceManager::dropTableSpace");
-			syncSystem.lock(Shared);
+			Sync syncDDL(&database->syncSysDDL, "TableSpaceManager::dropTableSpace");
+			syncDDL.lock(Shared);
 			tableSpace->save();
-			syncSystem.unlock();
+			syncDDL.unlock();
 			database->commitSystemTransaction();
 			}
 }

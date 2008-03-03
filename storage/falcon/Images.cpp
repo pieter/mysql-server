@@ -135,8 +135,6 @@ void Images::load()
 {
 	database->commitSystemTransaction();
 	rehash();
-	Sync sync (&database->syncSysConnection, "Images::load");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 			"select name,alias,width,height from system.images where application=?");

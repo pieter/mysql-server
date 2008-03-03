@@ -45,8 +45,6 @@ Schema::~Schema()
 
 void Schema::update()
 {
-	Sync sync (&database->syncSysConnection, "Schema::update");
-	sync.lock (Shared);
 	PreparedStatement *statement = database->prepareStatement (
 		"replace system.schemas (schema,sequence_interval,system_id) values (?,?,?)");
 	int n = 1;
@@ -54,7 +52,7 @@ void Schema::update()
 	statement->setInt (n++, sequenceInterval);
 	statement->setInt (n++, systemId);
 	statement->executeUpdate();
-	sync.unlock();
+
 	database->commitSystemTransaction();
 }
 
@@ -78,8 +76,6 @@ void Schema::setSystemId(int newId)
 
 void Schema::refresh()
 {
-	Sync sync (&database->syncSysConnection, "Schema::refresh");
-	sync.lock (Shared);
 	PreparedStatement *statement = database->prepareStatement (
 		"select sequence_interval, system_id from system.schemas where schema=?");
 	statement->setString (1, name);

@@ -185,8 +185,8 @@ void Scheduler::start()
 		initialize();
 
 #ifndef STORAGE_ENGINE
-	Sync sync (&database->syncSysConnection, "Scheduler::start");
-	sync.lock (Shared);
+	Sync syncDDL(&database->syncSysDDL, "Scheduler::start");
+	syncDDL.lock(Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"select application, eventName from system.schedule");
@@ -210,8 +210,8 @@ void Scheduler::start()
 
 void Scheduler::updateSchedule(const char *appName, const char *eventName, User *user, const char *schedule)
 {
-	Sync sync (&syncObject, "Scheduler::updateSchedule");
-	sync.lock (Exclusive);
+	Sync syncObj(&syncObject, "Scheduler::updateSchedule");
+	syncObj.lock(Exclusive);
 
 	// Ditch old event
 
@@ -227,8 +227,8 @@ void Scheduler::updateSchedule(const char *appName, const char *eventName, User 
 
 	// If no schedule, we're done
 
-	Sync syncConnection (&database->syncSysConnection, "Scheduler::updateSchedule(2)");
-	syncConnection.lock (Exclusive);
+	Sync syncDDL (&database->syncSysDDL, "Scheduler::updateSchedule(2)");
+	syncDDL.lock (Exclusive);
 
 	if (!schedule || !schedule[0])
 		{
@@ -238,8 +238,8 @@ void Scheduler::updateSchedule(const char *appName, const char *eventName, User 
 		statement->setString (2, eventName);
 		statement->executeUpdate();
 		statement->close();
-		syncConnection.unlock();
-		sync.unlock();
+		syncDDL.unlock();
+		syncObj.unlock();
 		database->commitSystemTransaction();
 		return;
 		}
@@ -253,10 +253,10 @@ void Scheduler::updateSchedule(const char *appName, const char *eventName, User 
 	statement->setString (n++, schedule);
 	statement->executeUpdate();
 	statement->close();
-	syncConnection.unlock();
-	sync.unlock();
+	syncDDL.unlock();
+	syncObj.unlock();
 	database->commitSystemTransaction();
-	sync.lock (Exclusive);
+	//syncObj.lock (Exclusive);
 
 #ifndef STORAGE_ENGINE
 	Application *application = database->getApplication (appName);
@@ -298,8 +298,8 @@ void Scheduler::loadEvents(Application *application)
 		initialize();
 
 #ifndef STORAGE_ENGINE
-	Sync sync (&database->syncSysConnection, "Scheduler::loadEvents");
-	sync.lock (Shared);
+	Sync syncDDL(&database->syncSysDDL, "Scheduler::loadEvents");
+	syncDDL.lock(Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"select * from system.schedule where application=?");

@@ -279,6 +279,7 @@ static BOOLEAN InList(struct link *linkp,const char *cp);
 static void dbug_flush(CODE_STATE *);
 static void DbugExit(const char *why);
 static const char *DbugStrTok(const char *s);
+static void DbugFprintf(FILE *stream, const char* format, va_list args);
 
 #ifndef THREAD
         /* Open profile output stream */
@@ -1133,12 +1134,23 @@ void _db_doprnt_(const char *format,...)
     else
       (void) fprintf(cs->stack->out_file, "%s: ", cs->func);
     (void) fprintf(cs->stack->out_file, "%s: ", cs->u_keyword);
-    (void) vfprintf(cs->stack->out_file, format, args);
-    (void) fputc('\n',cs->stack->out_file);
+    DbugFprintf(cs->stack->out_file, format, args);
     dbug_flush(cs);
     errno=save_errno;
   }
   va_end(args);
+}
+
+/*
+ * fprintf clone with consistent, platform independent output for 
+ * problematic formats like %p, %zd and %lld.
+ */
+static void DbugFprintf(FILE *stream, const char* format, va_list args)
+{
+  char cvtbuf[1024];
+  size_t len;
+  len = my_vsnprintf(cvtbuf, sizeof(cvtbuf), format, args);
+  (void) fprintf(stream, "%s\n", cvtbuf);
 }
 
 
@@ -1235,7 +1247,7 @@ static struct link *ListAdd(struct link *head,
 {
   const char *start;
   struct link *new_malloc;
-  int len;
+  size_t len;
 
   while (ctlp < end)
   {
@@ -1278,7 +1290,7 @@ static struct link *ListDel(struct link *head,
 {
   const char *start;
   struct link **cur;
-  int len;
+  size_t len;
 
   while (ctlp < end)
   {
@@ -1327,7 +1339,7 @@ static struct link *ListCopy(struct link *orig)
 {
   struct link *new_malloc;
   struct link *head;
-  int len;
+  size_t len;
 
   head= NULL;
   while (orig != NULL)
@@ -1802,7 +1814,7 @@ static void DBUGOpenFile(CODE_STATE *cs,
   {
     if (end)
     {
-      int len=end-name;
+      size_t len=end-name;
       memcpy(cs->stack->name, name, len);
       cs->stack->name[len]=0;
     }
@@ -1826,13 +1838,7 @@ static void DBUGOpenFile(CODE_STATE *cs,
       else
       {
         newfile= !EXISTS(name);
-        if (!(fp= fopen(name,
-#if defined(MSDOS) || defined(__WIN__)
-		append ? "a+c" : "wc"
-#else
-                append ? "a+" : "w"
-#endif
-		)))
+        if (!(fp= fopen(name, append ? "a+" : "w")))
         {
           (void) fprintf(stderr, ERR_OPEN, cs->process, name);
           perror("");

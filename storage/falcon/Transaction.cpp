@@ -1225,6 +1225,9 @@ void Transaction::rollbackSavepoint(int savePointId)
 			if (chillPoint == &record->nextInTrans)
 				chillPoint = savePoint->records;
 
+			if (!record->prevInTrans)
+				firstRecord = NULL;
+	
 			RecordVersion *rec = record;
 			record = rec->nextInTrans;
 			rec->prevInTrans = NULL;

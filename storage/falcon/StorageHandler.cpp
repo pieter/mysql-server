@@ -900,7 +900,6 @@ void StorageHandler::getTransactionSummaryInfo(InfoTable* infoTable)
 
 void StorageHandler::initialize(void)
 {
-
 	if (initialized)
 		return;
 	
@@ -909,8 +908,8 @@ void StorageHandler::initialize(void)
 	
 	if (initialized)
 		return;
-	initialized = true;
 		
+	initialized = true;
 	defaultDatabase = getStorageDatabase(MASTER_NAME, MASTER_PATH);
 	
 	try
@@ -918,6 +917,7 @@ void StorageHandler::initialize(void)
 		defaultDatabase->getOpenConnection();
 		dictionaryConnection = defaultDatabase->getOpenConnection();
 		dropTempTables();
+		dictionaryConnection->commit();
 		}
 	catch (SQLException &e)
 		{
@@ -925,9 +925,12 @@ void StorageHandler::initialize(void)
 		// On FILE_ACCESS_ERROR, an external application can temporarily lock the file.
 		// In this both cases, trying to create database in this case could eventually
 		// lead to "recreate" and data loss.
+		
 		int err = e.getSqlcode();
-		if(err == OUT_OF_MEMORY_ERROR || err == FILE_ACCESS_ERROR)
+		
+		if (err == OUT_OF_MEMORY_ERROR || err == FILE_ACCESS_ERROR)
 			throw;
+			
 		defaultDatabase->createDatabase();
 		IO::deleteFile(FALCON_USER);
 		IO::deleteFile(FALCON_TEMPORARY);
@@ -973,19 +976,6 @@ void StorageHandler::dropTempTables(void)
 	catch(...)
 		{
 		}
-	
-	/***
-	try
-		{
-		statement->executeUpdate(dropTempSpace);
-		}
-	catch(SQLException& exception)
-		{
-		Log::log("Can't delete temporary tablespace: %s\n", exception.getText());
-		}
-
-	IO::deleteFile(FALCON_TEMPORARY);
-	***/
 	
 	try
 		{

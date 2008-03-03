@@ -294,6 +294,10 @@ void SerialLog::recover()
 	// Find read block
 
 	uint64 readBlockNumber = lastBlock->readBlockNumber;
+	
+	if (readBlockNumber == 0)
+		readBlockNumber = lastBlock->blockNumber;
+		
 	Log::log("recovery read block is " I64FORMAT "\n", readBlockNumber);
 	nextBlockNumber = lastBlock->blockNumber + 1;
 	lastWindow->deactivateWindow();

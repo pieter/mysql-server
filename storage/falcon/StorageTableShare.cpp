@@ -505,7 +505,13 @@ bool StorageTableShare::tableExists(void)
 {
 	JString path = lookupPathName();
 	
-	return !path.IsEmpty();
+	if (path.IsEmpty())
+		return false;
+	
+	if (storageDatabase && storageDatabase->findTable(name, schemaName))
+		return true;
+	
+	return false;
 }
 
 JString StorageTableShare::lookupPathName(void)

@@ -2656,7 +2656,7 @@ end_with_restore_list:
       */
       if (lex->only_view)
       {
-        if (check_table_access(thd, SELECT_ACL, first_table, FALSE, FALSE))
+        if (check_table_access(thd, SELECT_ACL, first_table, FALSE, FALSE,1))
         {
           my_error(ER_TABLEACCESS_DENIED_ERROR, MYF(0),
                   "SHOW", thd->security_ctx->priv_user,
@@ -3239,7 +3239,7 @@ end_with_restore_list:
     break;
   case SQLCOM_LOCK_TABLES:
     if (check_table_access(thd, LOCK_TABLES_ACL | SELECT_ACL, all_tables,
-                           UINT_MAX, FALSE))
+                           FALSE, FALSE, UINT_MAX))
       goto error;
     /*
       We try to take transactional locks if
@@ -7263,12 +7263,13 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
       }
     }
 #endif
-    if (tables && check_table_access(thd, SELECT_ACL, tables, FALSE, FALSE, UINT_MAX))
+    if (tables && check_table_access(thd, SELECT_ACL, tables, FALSE, FALSE,
+                                     UINT_MAX))
       goto err;
   }
   else if (lex->create_info.options & HA_LEX_CREATE_TABLE_LIKE)
   {
-    if (check_table_access(thd, SELECT_ACL, tables, 0, FALSE))
+    if (check_table_access(thd, SELECT_ACL, tables, FALSE, FALSE, UINT_MAX))
       goto err;
   }
   error= FALSE;

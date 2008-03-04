@@ -53,13 +53,13 @@ DROP VIEW v1;
 #
 # Locking INFORMATION_SCHEMA fails on missing privileges.
 LOCK TABLE information_schema.tables IN SHARE MODE;
-ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'test'
 LOCK TABLE information_schema.tables IN EXCLUSIVE MODE;
-ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'test'
 LOCK TABLE information_schema.tables READ;
-ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'test'
 LOCK TABLE information_schema.tables WRITE;
-ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'test'
 #
 # The new keywords EXCLUSIVE and NOWAIT are not reserved words.
 CREATE TABLE t4 (exclusive INT, nowait INT) ENGINE=MyISAM;

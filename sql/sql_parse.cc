@@ -5178,7 +5178,7 @@ check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
     the given table list refers to the list for prelocking (contains tables
     of other queries). For simple queries first_not_own_table is 0.
   */
-  for (; i < number && tables != first_not_own_table;
+  for (; i < number && tables != first_not_own_table && tables;
        tables= tables->next_global, i++)
   {
     if (tables->security_ctx)
@@ -5230,7 +5230,7 @@ check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
   thd->security_ctx= backup_ctx;
   return check_grant(thd,want_access,org_tables,
                      any_combination_of_privileges_will_do,
-                     UINT_MAX, no_errors);
+                     number, no_errors);
 deny:
   thd->security_ctx= backup_ctx;
   return TRUE;

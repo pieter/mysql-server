@@ -105,7 +105,7 @@ create user user_1@localhost;
 grant all on mysqltest.* to user_1@localhost;
 connect (con28181_1,localhost,user_1,,mysqltest);
 
---error 1044
+--error ER_ACCESS_DENIED_ERROR 
 eval select schema_name
 into outfile "../tmp/outfile-test.4"
 fields terminated by ',' optionally enclosed by '"'

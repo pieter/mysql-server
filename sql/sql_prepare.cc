@@ -1280,7 +1280,7 @@ static int mysql_test_select(Prepared_statement *stmt,
   ulong privilege= lex->exchange ? SELECT_ACL | FILE_ACL : SELECT_ACL;
   if (tables)
   {
-    if (check_table_access(thd, privilege, tables, UINT_MAX, FALSE))
+    if (check_table_access(thd, privilege, tables, FALSE, FALSE, UINT_MAX))
       goto error;
   }
   else if (check_access(thd, privilege, any_db,0,0,0,0))
@@ -1350,7 +1350,7 @@ static bool mysql_test_do_fields(Prepared_statement *stmt,
   THD *thd= stmt->thd;
 
   DBUG_ENTER("mysql_test_do_fields");
-  if (tables && check_table_access(thd, SELECT_ACL, tables, UINT_MAX, FALSE))
+  if (tables && check_table_access(thd, SELECT_ACL, tables, FALSE, FALSE, UINT_MAX))
     DBUG_RETURN(TRUE);
 
   if (open_normal_and_derived_tables(thd, tables, 0))
@@ -1381,7 +1381,7 @@ static bool mysql_test_set_fields(Prepared_statement *stmt,
   THD *thd= stmt->thd;
   set_var_base *var;
 
-  if (tables && check_table_access(thd, SELECT_ACL, tables, UINT_MAX, FALSE) ||
+  if (tables && check_table_access(thd, SELECT_ACL, tables, FALSE, FALSE, UINT_MAX) ||
       open_normal_and_derived_tables(thd, tables, 0))
     goto error;
 

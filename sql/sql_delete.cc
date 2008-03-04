@@ -25,6 +25,14 @@
 #include "sql_trigger.h"
 #include "backup/debug.h"
 
+/**
+  Implement DELETE SQL word.
+
+  @note Like implementations of other DDL/DML in MySQL, this function
+  relies on the caller to close the thread tables. This is done in the
+  end of dispatch_command().
+*/
+
 bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
                   SQL_LIST *order, ha_rows limit, ulonglong options,
                   bool reset_auto_increment)
@@ -152,7 +160,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
     free_underlaid_joins(thd, select_lex);
     thd->row_count_func= 0;
     MYSQL_DELETE_END();
-    send_ok(thd, (ha_rows) thd->row_count_func);  // No matching records
+    my_ok(thd, (ha_rows) thd->row_count_func);  // No matching records
     DBUG_RETURN(0);
   }
 #endif
@@ -170,7 +178,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, COND *conds,
     free_underlaid_joins(thd, select_lex);
     thd->row_count_func= 0;
     MYSQL_DELETE_END();
-    send_ok(thd, (ha_rows) thd->row_count_func);
+    my_ok(thd, (ha_rows) thd->row_count_func);
     /*
       We don't need to call reset_auto_increment in this case, because
       mysql_truncate always gives a NULL conds argument, hence we never
@@ -383,11 +391,6 @@ cleanup:
   }
   DBUG_ASSERT(transactional_table || !deleted || thd->transaction.stmt.modified_non_trans_table);
   free_underlaid_joins(thd, select_lex);
-  if (transactional_table)
-  {
-    if (ha_autocommit_or_rollback(thd,error >= 0))
-      error=1;
-  }
 
   /*
     Breakpoints for backup testing.
@@ -397,16 +400,11 @@ cleanup:
     BACKUP_BREAKPOINT("backup_commit_blocker");
   }
 
-  if (thd->lock)
-  {
-    mysql_unlock_tables(thd, thd->lock);
-    thd->lock=0;
-  }
   MYSQL_DELETE_END();
   if (error < 0 || (thd->lex->ignore && !thd->is_fatal_error))
   {
     thd->row_count_func= deleted;
-    send_ok(thd, (ha_rows) thd->row_count_func);
+    my_ok(thd, (ha_rows) thd->row_count_func);
     DBUG_PRINT("info",("%ld records deleted",(long) deleted));
   }
   DBUG_RETURN(error >= 0 || thd->is_error());
@@ -767,11 +765,9 @@ void multi_delete::abort()
     The same if all tables are transactional, regardless of where we are.
     In all other cases do attempt deletes ...
   */
-  if ((table_being_deleted == delete_tables &&
-       table_being_deleted->table->file->has_transactions()) ||
-      !normal_tables)
-    ha_rollback_stmt(thd);
-  else if (do_delete)
+  if (do_delete && normal_tables &&
+      (table_being_deleted != delete_tables ||
+       !table_being_deleted->table->file->has_transactions()))
   {
     /*
       We have to execute the recorded do_deletes() and write info into the
@@ -937,15 +933,10 @@ bool multi_delete::send_eof()
   if (local_error != 0)
     error_handled= TRUE; // to force early leave from ::send_error()
 
-  /* Commit or rollback the current SQL statement */
-  if (transactional_tables)
-    if (ha_autocommit_or_rollback(thd,local_error > 0))
-      local_error=1;
-
   if (!local_error)
   {
     thd->row_count_func= deleted;
-    ::send_ok(thd, (ha_rows) thd->row_count_func);
+    ::my_ok(thd, (ha_rows) thd->row_count_func);
   }
   return 0;
 }
@@ -1002,7 +993,7 @@ bool mysql_truncate(THD *thd, TABLE_LIST *table_list, bool dont_send_ok)
     my_free((char*) table,MYF(0));
     /*
       If we return here we will not have logged the truncation to the bin log
-      and we will not send_ok() to the client.
+      and we will not my_ok() to the client.
     */
     goto end;
   }
@@ -1048,7 +1039,7 @@ end:
         we don't test current_stmt_binlog_row_based.
       */
       write_bin_log(thd, TRUE, thd->query, thd->query_length);
-      send_ok(thd);		// This should return record count
+      my_ok(thd);		// This should return record count
     }
     VOID(pthread_mutex_lock(&LOCK_open));
     unlock_table_name(thd, table_list);
@@ -1074,6 +1065,12 @@ trunc_by_del:
   error= mysql_delete(thd, table_list, (COND*) 0, (SQL_LIST*) 0,
                       HA_POS_ERROR, LL(0), TRUE);
   ha_enable_transaction(thd, TRUE);
+  /*
+    Safety, in case the engine ignored ha_enable_transaction(FALSE)
+    above. Also clears thd->transaction.*.
+  */
+  error= ha_autocommit_or_rollback(thd, error);
+  ha_commit(thd);
   thd->options= save_options;
   thd->current_stmt_binlog_row_based= save_binlog_row_based;
   DBUG_RETURN(error);

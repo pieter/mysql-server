@@ -264,7 +264,7 @@ const char *set_thd_proc_info(THD *thd, const char *info,
 extern "C"
 void **thd_ha_data(const THD *thd, const struct handlerton *hton)
 {
-  return (void **) thd->ha_data + hton->slot;
+  return (void **) &thd->ha_data[hton->slot].ha_ptr;
 }
 
 extern "C"
@@ -774,6 +774,10 @@ void THD::init_for_queries()
 
 void THD::change_user(void)
 {
+  pthread_mutex_lock(&LOCK_status);
+  add_to_status(&global_status_var, &status_var);
+  pthread_mutex_unlock(&LOCK_status);
+
   cleanup();
   killed= NOT_KILLED;
   cleanup_done= 0;
@@ -1578,7 +1582,7 @@ bool select_send::send_eof()
     mysql_unlock_tables(thd, thd->lock);
     thd->lock=0;
   }
-  ::send_eof(thd);
+  ::my_eof(thd);
   is_result_set_started= 0;
   return FALSE;
 }
@@ -1613,7 +1617,7 @@ bool select_to_file::send_eof()
       function, SELECT INTO has to have an own SQLCOM.
       TODO: split from SQLCOM_SELECT
     */
-    ::send_ok(thd,row_count);
+    ::my_ok(thd,row_count);
   }
   file= -1;
   return error;
@@ -2550,7 +2554,7 @@ bool select_dumpvar::send_data(List<Item> &items)
       suv->update();
     }
   }
-  DBUG_RETURN(0);
+  DBUG_RETURN(thd->is_error());
 }
 
 bool select_dumpvar::send_eof()
@@ -2563,7 +2567,7 @@ bool select_dumpvar::send_eof()
     function, SELECT INTO has to have an own SQLCOM.
     TODO: split from SQLCOM_SELECT
   */
-  ::send_ok(thd,row_count);
+  ::my_ok(thd,row_count);
   return 0;
 }
 

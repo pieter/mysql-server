@@ -1117,6 +1117,12 @@ struct TABLE_LIST
   int           lock_timeout;           /* NOWAIT or WAIT [X]               */
   bool          lock_transactional;     /* If transactional lock requested. */
   bool          internal_tmp_table;
+  /** TRUE if an alias for this table was specified in the SQL. */
+  bool          is_alias;
+  /** TRUE if the table is referred to in the statement using a fully
+      qualified name (<db_name>.<table_name>).
+  */
+  bool          is_fqtn;
 
 
   /* View creation context. */
@@ -1170,7 +1176,7 @@ struct TABLE_LIST
     return derived || view || schema_table || create && !table->db_stat ||
            !table;
   }
-  void print(THD *thd, String *str);
+  void print(THD *thd, String *str, enum_query_type query_type);
   bool check_single_table(TABLE_LIST **table, table_map map,
                           TABLE_LIST *view);
   bool set_insert_values(MEM_ROOT *mem_root);

@@ -994,7 +994,8 @@ bool reload_acl_and_cache(THD *thd, ulong options, TABLE_LIST *tables,
 bool check_access(THD *thd, ulong access, const char *db, ulong *save_priv,
 		  bool no_grant, bool no_errors, bool schema_db);
 bool check_table_access(THD *thd, ulong want_access, TABLE_LIST *tables,
-			bool no_errors);
+                        bool no_errors,
+                        bool any_combination_of_privileges_will_do);
 bool check_global_access(THD *thd, ulong want_access);
 
 /*

@@ -469,6 +469,18 @@ void Statement::start(NNode * node)
 	transaction->addRef();
 	int savePoint = transaction->createSavepoint();
 
+	// System transactions should hold syncSysDDL, and update verbs should hold it exclusively
+	
+	/***
+	if (transaction->systemTransaction)
+		{
+		if (node->isUpdateVerb())
+			ASSERT(database->syncSysDDL.ourExclusiveLock());
+		else
+			ASSERT(database->syncSysDDL.isLocked());
+		}
+	***/
+	
 	try
 		{
 		active = true;

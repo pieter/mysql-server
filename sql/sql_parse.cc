@@ -2646,6 +2646,7 @@ end_with_restore_list:
     goto error;
 #else
     {
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
       /*
         Access check:
         SHOW CREATE TABLE require any privileges on the table level (ie
@@ -2690,14 +2691,14 @@ end_with_restore_list:
           goto error;
         }
       }
-
+#endif /* NO_EMBDEDDED_ACCESS_CHECKS */
       /*
         Access is granted. Execute command.
       */
       res= mysqld_show_create(thd, first_table);
       break;
     }
-#endif
+#endif /* DONT_ALLOW_SHOW_COMMANDS */
   case SQLCOM_CHECKSUM:
   {
     DBUG_ASSERT(first_table == all_tables && first_table != 0);

@@ -6188,61 +6188,65 @@ slave_until_opts:
         ;
 
 restore:
-          RESTORE_SYM 
+          RESTORE_SYM
+          FROM
+          TEXT_STRING_sys
           {
-            if (Lex->sphead)
+            LEX *lex= Lex;
+            if (lex->sphead)
             {
               my_error(ER_SP_BADSTATEMENT, MYF(0), "RESTORE");
               MYSQL_YYABORT;
             }
-            Lex->sql_command = SQLCOM_RESTORE;
-            Lex->db_list.empty();
-          }
-          FROM TEXT_STRING_sys
-          {
-            Lex->backup_dir = $4; 
+            lex->sql_command = SQLCOM_RESTORE;
+            lex->db_list.empty();
+            lex->backup_dir = $3; 
           }
         ;
 
 backup:
-          BACKUP_SYM 
+          BACKUP_SYM
+          DATABASE
+          database_list
+          TO_SYM
+          TEXT_STRING_sys
           {
-            if (Lex->sphead)
+            LEX *lex= Lex;
+            if (lex->sphead)
             {
               my_error(ER_SP_BADSTATEMENT, MYF(0), "BACKUP");
               MYSQL_YYABORT;
             }
+            lex->sql_command = SQLCOM_BACKUP;
+            lex->backup_dir = $5; 
           }
-          DATABASE
-          {
-            Lex->sql_command = SQLCOM_BACKUP;
-            Lex->db_list.empty();
-          }
-          database_list TO_SYM TEXT_STRING_sys
-          {
-            Lex->backup_dir = $7; 
-          }
-          | BACKUP_TEST_SYM 
+        | BACKUP_TEST_SYM
+          database_list
           {
 #ifdef BACKUP_TEST
             Lex->sql_command = SQLCOM_BACKUP_TEST;
-            Lex->db_list.empty();
 #endif
           }
-          database_list
-          { }
         ;
 
 database_list:
           '*'
-          {}
-        | ident
           {
-            if (Lex->db_list.push_back((LEX_STRING*)
+            Lex->db_list.empty();
+          }
+        | database_ident_list
+        ;
+
+database_ident_list:
+          ident
+          {
+            LEX *lex= Lex;
+            lex->db_list.empty();
+            if (lex->db_list.push_back((LEX_STRING*)
                 sql_memdup(&$1, sizeof(LEX_STRING))))
               YYABORT;
           }
-        | database_list ',' ident
+        | database_ident_list ',' ident
           {
             if (Lex->db_list.push_back((LEX_STRING*)
                 sql_memdup(&$3, sizeof(LEX_STRING))))

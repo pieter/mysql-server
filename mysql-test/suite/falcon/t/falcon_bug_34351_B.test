@@ -1,9 +1,9 @@
 --source include/have_falcon.inc
 #--disable_abort_on_error
 #
-# Bug #34351: Update Conflict on non-overlapping transactions
+# Bug #34351_B: Update Conflict on non-overlapping transactions
 #
---echo *** Bug #34351 ***
+--echo *** Bug #34351_B ***
 
 # ----------------------------------------------------- #
 # --- Initialisation                                --- #

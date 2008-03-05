@@ -1,4 +1,4 @@
-*** Bug #34351 D ***
+*** Bug #34351_D ***
 SET @@storage_engine = 'Falcon';
 DROP TABLE IF EXISTS t1;
 # Establish connection conn1 (user = root)

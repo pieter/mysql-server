@@ -1,4 +1,4 @@
-*** Bug #34351 A ***
+*** Bug #34351_C ***
 SET @@storage_engine = 'Falcon';
 DROP TABLE IF EXISTS t1;
 DROP PROCEDURE IF EXISTS p1;

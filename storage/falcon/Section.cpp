@@ -334,7 +334,6 @@ int32 Section::insertStub(TransId transId)
 		if (reservedRecordNumbers && reservedRecordNumbers->isSet(line))
 			continue;
 
-		sync.unlock();
 		int32 indexSequence = line / linesPerPage;
 		RecordLocatorPage *page;
 
@@ -357,7 +356,6 @@ int32 Section::insertStub(TransId transId)
 				bdb->release(REL_HISTORY);
 				bdb = NULL;
 				line = (line + linesPerSection) / linesPerSection * linesPerSection - 1;
-				sync.lock(Exclusive);
 				
 				continue;
 				}
@@ -418,7 +416,6 @@ int32 Section::insertStub(TransId transId)
 
 			if (reservedRecordNumbers || freeLines)
 				{
-				sync.lock(Shared);
 				int next = nextLine;
 
 				if (reservedRecordNumbers)
@@ -438,7 +435,6 @@ int32 Section::insertStub(TransId transId)
 					}
 
 				int nextSequence = next / linesPerSection;
-				sync.unlock();
 				
 				if (nextSequence > sequence)
 					markFull(true, sequence, transId);
@@ -465,7 +461,6 @@ int32 Section::insertStub(TransId transId)
 			markFull(true, indexSequence / dbb->pagesPerSection, transId);
 			}
 			
-		sync.lock(Exclusive);
 		}
 }
 

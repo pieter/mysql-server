@@ -1,10 +1,10 @@
 --source include/have_falcon.inc
 #
-# Bug #34351 A: Update Conflict on non-overlapping transactions
+# Bug #34351_A: Update Conflict on non-overlapping transactions
 # This test works because the INSERT and DELETE are in the same 
 # transaction and so the INSERT is not seen by other transactions.
 #
---echo *** Bug #34351 A ***
+--echo *** Bug #34351_A ***
 
 # ----------------------------------------------------- #
 # --- Initialisation                                --- #

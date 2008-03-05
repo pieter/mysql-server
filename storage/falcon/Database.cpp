@@ -1737,19 +1737,14 @@ void Database::scavenge()
 
 void Database::retireRecords(bool forced)
 {
-	Sync syncDDL(&syncSysDDL, "Database::retireRecords");
-	syncDDL.lock(Shared);
-
 	// Commit pending system transactions before proceeding
 	
 	if (!forced && systemConnection->transaction)
-		{
-		syncDDL.unlock();
-		if (systemConnection->transaction)
-			commitSystemTransaction();
-		syncDDL.lock(Shared);
-		}
-		
+		commitSystemTransaction();
+
+	Sync syncDDL(&syncSysDDL, "Database::retireRecords");
+	syncDDL.lock(Shared);
+
 	Sync syncScavenger(&syncScavenge, "Database::retireRecords");
 	syncScavenger.lock(Exclusive);
 

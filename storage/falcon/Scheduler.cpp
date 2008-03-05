@@ -163,7 +163,7 @@ void Scheduler::addEvent(Schedule * schedule)
 	schedule->addRef();
 	Sync sync (&syncObject, "Scheduler::addEvent");
 	sync.lock (Exclusive);
-    Schedule **ptr;
+	Schedule **ptr;
 
 	for (ptr = &next; *ptr && (*ptr)->eventTime < schedule->eventTime;
 		 ptr = &(*ptr)->next)
@@ -210,6 +210,9 @@ void Scheduler::start()
 
 void Scheduler::updateSchedule(const char *appName, const char *eventName, User *user, const char *schedule)
 {
+	Sync syncDDL (&database->syncSysDDL, "Scheduler::updateSchedule(2)");
+	syncDDL.lock (Exclusive);
+
 	Sync syncObj(&syncObject, "Scheduler::updateSchedule");
 	syncObj.lock(Exclusive);
 
@@ -227,8 +230,6 @@ void Scheduler::updateSchedule(const char *appName, const char *eventName, User 
 
 	// If no schedule, we're done
 
-	Sync syncDDL (&database->syncSysDDL, "Scheduler::updateSchedule(2)");
-	syncDDL.lock (Exclusive);
 
 	if (!schedule || !schedule[0])
 		{
@@ -238,8 +239,8 @@ void Scheduler::updateSchedule(const char *appName, const char *eventName, User 
 		statement->setString (2, eventName);
 		statement->executeUpdate();
 		statement->close();
-		syncDDL.unlock();
 		syncObj.unlock();
+		syncDDL.unlock();
 		database->commitSystemTransaction();
 		return;
 		}
@@ -253,12 +254,12 @@ void Scheduler::updateSchedule(const char *appName, const char *eventName, User 
 	statement->setString (n++, schedule);
 	statement->executeUpdate();
 	statement->close();
-	syncDDL.unlock();
 	syncObj.unlock();
+	syncDDL.unlock();
 	database->commitSystemTransaction();
-	//syncObj.lock (Exclusive);
 
 #ifndef STORAGE_ENGINE
+	syncObj.lock (Exclusive);
 	Application *application = database->getApplication (appName);
 
 	if (application)

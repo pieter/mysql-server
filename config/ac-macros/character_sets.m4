@@ -214,7 +214,7 @@ do
       ;;
     *)
       AC_MSG_ERROR([Charset '$cs' not available. (Available are: $CHARSETS_AVAILABLE).
-      See the Installation chapter in the Reference Manual.]);
+      See the Installation chapter in the Reference Manual.])
   esac
 done
 
@@ -437,7 +437,7 @@ case $default_charset in
       ;;
     *)
       AC_MSG_ERROR([Charset $cs not available. (Available are: $CHARSETS_AVAILABLE).
-      See the Installation chapter in the Reference Manual.]);
+      See the Installation chapter in the Reference Manual.])
 esac
 
 if test "$default_collation" = default; then
@@ -462,7 +462,7 @@ else
       Collation $default_collation is not valid for character set $default_charset.
       Valid collations are: $default_charset_collations.
       See the Installation chapter in the Reference Manual.
-  ]);
+  ])
 fi
 
 AC_DEFINE_UNQUOTED([MYSQL_DEFAULT_CHARSET_NAME], ["$default_charset"],

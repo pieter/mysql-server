@@ -507,6 +507,9 @@ Record* Table::fetchNext(int32 start)
 			if (records && (record = records->fetch(bitNumber)))
 				break;
 
+			if (backloggedRecords && (record = backlogFetch(bitNumber)))
+				break;
+				
 			sync.unlock();
 			
 			for (int n = 0; (record = databaseFetch(bitNumber)); ++n)
@@ -1459,7 +1462,10 @@ void Table::deleteRecord(Transaction * transaction, Record * orgRecord)
 	scavenge.lock(Shared);
 
 	if (wasLock)
+		{
 		record->state = recDeleted;
+		--transaction->deletedRecords;
+		}
 	else
 		{
 		try
@@ -2814,7 +2820,7 @@ void Table::clearIndexesRebuild()
 void Table::deleteRecord(RecordVersion *record, Transaction *transaction)
 {
 	if (record->recordNumber >= 0)
-		dbb->logRecord(dataSectionId, record->recordNumber, NULL, record->transaction);
+		dbb->logRecord(dataSectionId, record->recordNumber, NULL, transaction);
 }
 
 void Table::bind(Table *table)

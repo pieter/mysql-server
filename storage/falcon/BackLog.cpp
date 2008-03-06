@@ -26,6 +26,7 @@
 #include "Bitmap.h"
 #include "Format.h"
 #include "Table.h"
+#include "Log.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -42,6 +43,10 @@ BackLog::BackLog(Database *db, const char *fileName)
 	dbb->tableSpaceId = -1;
 	int32 sectionId = Section::createSection (dbb, NO_TRANSACTION);
 	section = new Section(dbb, sectionId, NO_TRANSACTION);
+	recordsBacklogged = 0;
+	recordsReconstituted = 0;
+	priorBacklogged = 0;
+	priorReconstituted = 0;
 }
 
 BackLog::~BackLog(void)
@@ -56,6 +61,7 @@ int32 BackLog::save(RecordVersion* record)
 	record->serialize(&stream);
 	int32 backlogId = section->insertStub(NO_TRANSACTION);
 	section->updateRecord(backlogId, &stream, NO_TRANSACTION, false);
+	++recordsBacklogged;
 	
 	return backlogId + 1;
 }
@@ -65,6 +71,7 @@ RecordVersion* BackLog::fetch(int32 backlogId)
 	Serialize stream;
 	section->fetchRecord(backlogId - 1, &stream, NO_TRANSACTION);
 	RecordVersion *record = new RecordVersion(database, &stream);
+	++recordsReconstituted;
 	
 	return record;
 }
@@ -119,4 +126,18 @@ void BackLog::rollbackRecords(Bitmap* records, Transaction *transaction)
 #endif
 		record->release();
 		}
+}
+
+void BackLog::reportStatistics(void)
+{
+	if (recordsBacklogged == priorBacklogged && recordsReconstituted == priorReconstituted)
+		return;
+		
+	int deltaBacklogged = recordsBacklogged - priorBacklogged;
+	int deltaReconstituted = recordsReconstituted = priorReconstituted;
+	priorBacklogged = recordsBacklogged;
+	priorReconstituted = recordsReconstituted;
+	
+	Log::log (LogInfo, "%d: Backlog: %d records backlogged, %d records reconstituted\n",
+				database->deltaTime, deltaBacklogged, deltaReconstituted);
 }

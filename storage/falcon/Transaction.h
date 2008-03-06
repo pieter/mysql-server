@@ -180,7 +180,7 @@ public:
 	uint32			debugThawedRecords;
 	uint32			debugThawedBytes;
 	uint32			committedRecords;	// committed record count
-	uint32			numberRecords;		// total records minus backlogged records
+	uint32			deletedRecords;		// active deleted records (exclusive of backllogged ones)
 	RecordVersion	**chillPoint;		// points to a pointer to the first non-chilled record
 	int				scanIndexCount;
 
@@ -193,7 +193,6 @@ public:
 protected:
 	RecordVersion	*firstRecord;
 	RecordVersion	*lastRecord;
-	//RecordVersion	**recordPtr;
 
 	virtual ~Transaction();
 };

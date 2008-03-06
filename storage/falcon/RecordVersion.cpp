@@ -82,10 +82,8 @@ RecordVersion::RecordVersion(Database* database, Serialize *stream) : Record(dat
 	else
 		priorVersion = NULL;
 	
-	/***
 	if ( (transaction = database->transactionManager->findTransaction(transactionId)) )
 		if (!transaction->writePending)
-	***/
 			transaction = NULL;
 }
 

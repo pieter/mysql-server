@@ -18,6 +18,8 @@
 
 #define DEBUG_BACKLOG
 
+static const char *BACKLOG_FILE		= "_falcon_backlog.fts";
+
 class Database;
 class Dbb;
 class Section;
@@ -36,10 +38,15 @@ public:
 	void			update(int32 backlogId, RecordVersion* record);
 	void			deleteRecord(int32 backlogId);
 	void			rollbackRecords(Bitmap* records, Transaction *transaction);
+	void			reportStatistics(void);
 	
 	Database	*database;
 	Dbb			*dbb;
 	Section		*section;
+	int			recordsBacklogged;
+	int			recordsReconstituted;
+	int			priorBacklogged;
+	int			priorReconstituted;
 };
 
 #endif

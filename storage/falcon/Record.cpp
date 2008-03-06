@@ -62,9 +62,7 @@ static int offsetVectorSize;
 
 Record::Record(Table *table, int32 recordNum, Stream *stream)
 {
-	//ASSERT (tbl);
 	useCount = 1;
-	//table = tbl;
 	format = table->getCurrentFormat();
 	state = recData;
 	recordNumber = recordNum;
@@ -81,7 +79,6 @@ Record::Record(Table *table, int32 recordNum, Stream *stream)
 		data.record = stream->decompress(table->tableId, recordNumber);
 		format = table->getFormat (*(short*) data.record);
 		size += format->length;
-		//setAgeGroup();
 		
 		if (stream->decompressedLength != format->length)
 			throw SQLEXCEPTION (RUNTIME_ERROR,
@@ -111,7 +108,6 @@ Record::Record(Table * tbl, Format *fmt)
 	if ( !(format = fmt) )
 		format = tbl->getCurrentFormat();
 		
-	//table = tbl;
 	size = sizeof (RecordVersion);
 	encoding = noEncoding;
 	state = recData;
@@ -140,7 +136,10 @@ Record::Record(Database *database, Serialize* stream)
 	int formatVersion = stream->getInt();
 	format = table->getFormat(formatVersion);
 	state = stream->getInt();
+	size = stream->getInt();
 	int len = stream->getDataLength();
+	highWater = 0;
+	generation = database->currentGeneration;
 	
 #ifdef CHECK_RECORD_ACTIVITY
 	active = true;
@@ -155,15 +154,9 @@ Record::Record(Database *database, Serialize* stream)
 		memset(data.record, 0, vectorLength);
 		stream->getData(len, (UCHAR*) data.record + vectorLength);
 		((USHORT*)data.record)[0] = (USHORT) (vectorLength + sizeof(short));
-		highWater = 0;
-		size = sizeof (*this) + vectorLength + len;
-		generation = database->currentGeneration;
 		}
 	else
-		{
 		data.record = NULL;
-		size = sizeof (*this);
-		}
 }
 
 Record::~Record()
@@ -171,10 +164,6 @@ Record::~Record()
 #ifdef CHECK_RECORD_ACTIVITY
 	ASSERT(!active);
 #endif
-	/***
-	if (table)
-		unsetAgeGroup();
-	***/
 	
 	deleteData();
 }
@@ -351,14 +340,11 @@ void Record::getValue(int fieldId, Value * value)
 
 void Record::getRawValue(int fieldId, Value * value)
 {
-	//ASSERT (table);
 	ASSERT (format);
 	value->clear();
 
 	if (!this)
 		return;
-
-	//ASSERT (fieldId <= format->maxId);
 
 	if (fieldId >= format->maxId)
 		return;
@@ -477,21 +463,11 @@ void Record::getRawValue(int fieldId, Value * value)
 			break;
 
 		case Asciiblob:
-			{
-			//AsciiBlob *blob = format->table->getAsciiBlob (*(int32*) ptr);
-			//value->setValue (blob);
-			//blob->release();
 			value->setAsciiBlob(*(int32*) ptr);
-			}
 			break;
 
 		case Binaryblob:
-			{
-			//BinaryBlob *blob = format->table->getBinaryBlob (*(int32*) ptr);
-			//value->setValue (blob);
-			//blob->release();
 			value->setBinaryBlob(*(int32*) ptr);
-			}
 			break;
 
 		default:
@@ -731,7 +707,6 @@ int Record::setEncodedRecord(Stream *stream, bool interlocked)
 	
 	highWater = 0;
 	size +=  vectorLength + stream->totalLength;
-	//setAgeGroup();
 	generation = format->table->database->currentGeneration;
 
 	if (interlocked)
@@ -843,32 +818,6 @@ bool Record::isNull(int fieldId)
 	return true;
 }
 
-// Set age group and add size to database
-
-/***
-void Record::setAgeGroup()
-{
-	Database *database = table->database;
-	generation = database->currentGeneration;
-	//database->ageGroupSizes [0] += size;
-	INTERLOCKED_ADD(database->ageGroupSizes + 0, size);
-}
-
-void Record::unsetAgeGroup(void)
-{
-	if (table)
-		{
-		Database *database = table->database;
-		int n = database->currentGeneration - generation;
-		
-		if (n >= AGE_GROUPS)
-			INTERLOCKED_ADD(&database->overflowSize, -size);
-		else
-			INTERLOCKED_ADD(database->ageGroupSizes + n, -size);
-		}
-
-}
-***/
 
 void Record::poke()
 {
@@ -876,25 +825,6 @@ void Record::poke()
 	
 	if (generation != gen)
 		generation = gen;
-	
-	/***
-	Database *database = table->database;
-	int32 currentGeneration = database->currentGeneration;
-	int32 n = currentGeneration - generation;
-
-	if (n == 0)
-		return;
-
-	ASSERT (n > 0);
-	generation = currentGeneration;
-
-	if (n >= AGE_GROUPS)
-		INTERLOCKED_ADD(&database->overflowSize, -size);
-	else
-		INTERLOCKED_ADD(database->ageGroupSizes + n, -size);
-
-	INTERLOCKED_ADD(database->ageGroupSizes + 0, size);
-	***/
 }
 
 Record* Record::releaseNonRecursive(void)
@@ -919,14 +849,10 @@ int Record::setRecordData(const UCHAR * dataIn, int dataLength)
 	encoding = shortVector;
 	int vectorLength = format->count * sizeof(short);
 	int totalLength = vectorLength + dataLength;
-	//char *dataBuffer = ALLOCATE_RECORD(totalLength);
 	char *dataBuffer = allocRecordData(totalLength);
-	
 	memset(dataBuffer, 0, vectorLength);
 	memcpy(dataBuffer + vectorLength, dataIn, dataLength);
-	
 	((USHORT*) dataBuffer)[0] = (USHORT) (vectorLength + sizeof(short));
-	
 	char **ptr = &data.record;
 	
 	// If data.record has changed since allocating the new buffer, then free the new buffer
@@ -1010,6 +936,7 @@ void Record::serialize(Serialize* stream)
 	stream->putInt(format->table->tableId);
 	stream->putInt(format->version);
 	stream->putInt(state);
+	stream->putInt(size);
 	
 	if (data.record)
 		stream->putData(getEncodedSize(), (UCHAR*) data.record + ((USHORT*) data.record)[0]);

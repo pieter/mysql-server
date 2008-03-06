@@ -478,6 +478,7 @@ Database::Database(const char *dbName, Configuration *config, Threads *parent)
 	syncConnectionStatements.setName("Database::syncConnectionStatements");
 	syncScavenge.setName("Database::syncScavenge");
 	syncDDL.setName("Database::syncDDL");
+	IO::deleteFile(BACKLOG_FILE);
 }
 
 
@@ -1704,6 +1705,9 @@ void Database::scavenge()
 	dbb->reportStatistics();
 	tableSpaceManager->reportStatistics();
 	repositoryManager->reportStatistics();
+	
+	if (backLog)
+		backLog->reportStatistics();
 }
 
 
@@ -2486,7 +2490,7 @@ void Database::setLowMemory(void)
 		lock.lock(Exclusive);
 
 		if (!backLog)
-			backLog = new BackLog(this, "_backlog.fts");
+			backLog = new BackLog(this, BACKLOG_FILE);
 		}
 
 	lowMemory = true;

@@ -99,7 +99,6 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	transactionId = seq;
 	firstRecord = NULL;
 	lastRecord = NULL;
-	//recordPtr = &firstRecord;
 	chillPoint = &firstRecord;
 	dependencies = 0;
 	commitTriggers = false;
@@ -126,7 +125,7 @@ void Transaction::initialize(Connection* cnct, TransId seq)
 	committedRecords = 0;
 	numberStates = 0;
 	blockedBy = 0;
-	numberRecords = 0;
+	deletedRecords = 0;
 	inList = true;
 	thread = NULL;
 	syncObject.setName("Transaction::syncObject");
@@ -213,7 +212,6 @@ Transaction::~Transaction()
 	delete [] xid;
 	delete backloggedRecords;
 	chillPoint = &firstRecord;
-	//recordPtr = &firstRecord;
 
 	for (RecordVersion *record; (record = firstRecord);)
 		{
@@ -393,9 +391,6 @@ void Transaction::rollback()
 	if (!isActive())
 		throw SQLEXCEPTION (RUNTIME_ERROR, "transaction is not active");
 
-	//Sync sync(&syncObject, "Transaction::rollback");
-	//sync.lock(Exclusive);
-	
 	if (deferredIndexes)
 		{
 		Sync sync(&syncIndexes, "Transaction::rollback");
@@ -408,7 +403,6 @@ void Transaction::rollback()
 	Transaction *rollbackTransaction = transactionManager->rolledBackTransaction;
 	//state = RolledBack;
 	chillPoint = &firstRecord;
-	//recordPtr = &firstRecord;
 	totalRecordData = 0;
 	totalRecords = 0;
 
@@ -440,6 +434,10 @@ void Transaction::rollback()
 		record->transaction = rollbackTransaction;
 		record->release();
 		}
+
+	for (SavePoint *savePoint = savePoints; savePoint; savePoint = savePoint->next)
+		if (savePoint->backloggedRecords)
+			database->backLog->rollbackRecords(savePoint->backloggedRecords, this);
 
 	if (backloggedRecords)
 		database->backLog->rollbackRecords(backloggedRecords, this);
@@ -549,7 +547,7 @@ void Transaction::chillRecords()
 	if (database->lowMemory)
 		backlogRecords();
 
-	Log::debug("Record Chill:      trxId=%-5ld records=%7ld  bytes=%8ld\n",
+	Log::debug("%d: Record Chill: trxId=%-5ld records=%7ld  bytes=%8ld\n", database->deltaTime, 
 				transactionId, chilledRecords-chilledBefore, (uint32)(totalDataBefore-totalRecordData), committedRecords);
 }
 
@@ -604,10 +602,11 @@ void Transaction::addRecord(RecordVersion * record)
 	
 	if (record->state == recLock)
 		hasLocks = true;
+	else if (record->state == recDeleted)
+		++deletedRecords;
 		
 	totalRecordData += record->getEncodedSize();
 	++totalRecords;
-	++numberRecords;
 	
 	if (totalRecordData > database->configuration->recordChillThreshold)
 		{
@@ -625,7 +624,6 @@ void Transaction::addRecord(RecordVersion * record)
 		}
 
 	record->addRef();
-	//ASSERT((lastRecord == NULL) || (recordPtr == &lastRecord->nextInTrans));
 	
 	if ( (record->prevInTrans = lastRecord) )
 		lastRecord->nextInTrans = record;
@@ -634,13 +632,9 @@ void Transaction::addRecord(RecordVersion * record)
 		
 	record->nextInTrans = NULL;
 	lastRecord = record;
-	//*recordPtr = record;
-	//recordPtr = &record->nextInTrans;
 	
-	/***
-	if (database->lowMemory && numberRecords > MAX_LOW_MEMORY_RECORDS)
+	if (database->lowMemory && deletedRecords > MAX_LOW_MEMORY_RECORDS)
 		backlogRecords();
-	***/
 }
 
 void Transaction::removeRecord(RecordVersion *record)
@@ -668,11 +662,6 @@ void Transaction::removeRecord(RecordVersion *record)
 	record->nextInTrans = NULL;
 	record->transaction = NULL;
 
-	/***
-	if (recordPtr == &record->nextInTrans)
-		recordPtr = ptr;
-	***/
-	
 	for (SavePoint *savePoint = savePoints; savePoint; savePoint = savePoint->next)
 		if (savePoint->records == &record->nextInTrans)
 			savePoint->records = ptr;
@@ -690,10 +679,9 @@ void Transaction::removeRecord(RecordVersion *record)
 			totalRecordData -= size;
 		}
 
-	if (totalRecords > 0)
-		--totalRecords;
+	if (record->state == recDeleted && deletedRecords > 0)
+		--deletedRecords;
 	
-	--numberRecords;
 	record->release();
 }
 
@@ -817,7 +805,6 @@ void Transaction::commitRecords()
 		if (recordList && COMPARE_EXCHANGE_POINTER(&firstRecord, recordList, NULL))
 			{
 			chillPoint = &firstRecord;
-			//recordPtr = &firstRecord;
 			lastRecord = NULL;
 
 			for (RecordVersion *record; (record = recordList);)
@@ -1070,7 +1057,6 @@ int Transaction::createSavepoint()
 	else
 		savePoint = new SavePoint;
 	
-	//savePoint->records = recordPtr;
 	savePoint->records = (lastRecord) ? &lastRecord->nextInTrans : &firstRecord;
 	savePoint->id = ++curSavePointId;
 	savePoint->next = savePoints;
@@ -1213,11 +1199,9 @@ void Transaction::rollbackSavepoint(int savePointId)
 
 		RecordVersion *record = *savePoint->records;
 		
-		if (record && (lastRecord = record->prevInTrans) )
+		if (record && (lastRecord == record->prevInTrans) )
 			lastRecord->nextInTrans = NULL;
 			
-		//recordPtr = savePoint->records;
-		//*recordPtr = NULL;
 		RecordVersion *stack = NULL;
 
 		while (record)
@@ -1226,14 +1210,19 @@ void Transaction::rollbackSavepoint(int savePointId)
 				chillPoint = savePoint->records;
 
 			if (!record->prevInTrans)
+				{
 				firstRecord = NULL;
+				lastRecord = NULL;
+				}
 	
 			RecordVersion *rec = record;
 			record = rec->nextInTrans;
 			rec->prevInTrans = NULL;
 			rec->nextInTrans = stack;
 			stack = rec;
-			--numberRecords;
+			
+			if (rec->state == recDeleted)
+				--deletedRecords;
 			}
 
 		while (stack)
@@ -1483,13 +1472,11 @@ void Transaction::backlogRecords(void)
 		if (!record->hasRecord())
 			{
 			if (savePoints)
-				for (; record->savePointId < savePoint->id; savePoint->next)
-					ASSERT(savePoint->next != NULL);
-					
+				for (; savePoint && record->savePointId < savePoint->id; savePoint = savePoint->next)
+					;	
+									
 			if (savePoint)
-				{
 				savePoint->backlogRecord(record);
-				}
 			else
 				{
 				if (!backloggedRecords)
@@ -1498,49 +1485,8 @@ void Transaction::backlogRecords(void)
 				int32 backlogId = record->format->table->backlogRecord(record);
 				backloggedRecords->set(backlogId);
 				}
-				
-			if (record->nextInTrans)
-				record->nextInTrans->prevInTrans = record->prevInTrans;
-			else
-				lastRecord = record->prevInTrans;
 			
-			if (record->prevInTrans)
-				record->prevInTrans->nextInTrans = record->nextInTrans;
-			else
-				firstRecord = record->nextInTrans;
-			
-			if (chillPoint == &record->nextInTrans)
-				chillPoint = (record->prevInTrans) ? &record->prevInTrans->nextInTrans : & firstRecord;
-				
-			record->release();
-			--numberRecords;
+			removeRecord(record);
 			}
 		}
-	
-	/***	
-	for (RecordVersion *record; (record = lastRecord);)
-		{
-		if (savePoints)
-			for (; record->savePointId < savePoint->id; savePoint->next)
-				ASSERT(savePoint->next != NULL);
-	
-		lastRecord = record->prevInTrans;
-		
-		if (savePoint)
-			savePoint->backlogRecord(record);
-		else
-			{
-			if (!backloggedRecords)
-				backloggedRecords = new Bitmap;
-			
-			int32 backlogId = record->format->table->backlogRecord(record);
-			backloggedRecords->set(backlogId);
-			}
-		
-		record->release();
-		}
-
-	firstRecord = NULL;
-	recordPtr = &firstRecord;
-	***/
 }

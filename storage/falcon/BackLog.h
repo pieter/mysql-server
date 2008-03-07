@@ -16,7 +16,7 @@
 #ifndef _BACKLOG_H_
 #define _BACKLOG_H_
 
-#define DEBUG_BACKLOG
+//#define DEBUG_BACKLOG
 
 static const char *BACKLOG_FILE		= "_falcon_backlog.fts";
 

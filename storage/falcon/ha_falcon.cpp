@@ -45,7 +45,7 @@
 
 //#define NO_OPTIMIZE
 #define VALIDATE
-#define DEBUG_BACKLOG
+//#define DEBUG_BACKLOG
 
 #ifndef MIN
 #define MIN(a,b)			((a <= b) ? (a) : (b))

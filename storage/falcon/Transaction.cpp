@@ -1070,6 +1070,7 @@ int Transaction::createSavepoint()
 
 void Transaction::releaseSavepoint(int savePointId)
 {
+	validateRecords();
 	Sync sync(&syncSavepoints, "Transaction::releaseSavepoint");
 
 	// System transactions require an exclusive lock for concurrent access
@@ -1122,6 +1123,7 @@ void Transaction::releaseSavepoint(int savePointId)
 			savePoint->next = freeSavePoints;
 			freeSavePoints = savePoint;
 			ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
+			validateRecords();
 
 			return;
 			}
@@ -1162,6 +1164,7 @@ void Transaction::releaseSavepoints(void)
 
 void Transaction::rollbackSavepoint(int savePointId)
 {
+	validateRecords();
 	Sync sync(&syncSavepoints, "Transaction::rollbackSavepoints");
 	SavePoint *savePoint;
 
@@ -1192,29 +1195,29 @@ void Transaction::rollbackSavepoint(int savePointId)
 	
 	while (savePoint)
 		{
+		validateRecords();
+		
 		if (savePoint->id < savePointId)
 			break;
 
 		// Purge out records from this savepoint
 
 		RecordVersion *record = *savePoint->records;
-		
-		if (record && (lastRecord == record->prevInTrans) )
-			lastRecord->nextInTrans = NULL;
-			
 		RecordVersion *stack = NULL;
 
+		if (record)
+			{
+			if ( (lastRecord = record->prevInTrans) )
+				lastRecord->nextInTrans = NULL;
+			else
+				firstRecord = NULL;
+			}
+	
 		while (record)
 			{
 			if (chillPoint == &record->nextInTrans)
 				chillPoint = savePoint->records;
 
-			if (!record->prevInTrans)
-				{
-				firstRecord = NULL;
-				lastRecord = NULL;
-				}
-	
 			RecordVersion *rec = record;
 			record = rec->nextInTrans;
 			rec->prevInTrans = NULL;
@@ -1255,6 +1258,8 @@ void Transaction::rollbackSavepoint(int savePointId)
 			}
 		else
 			savePoint = savePoint->next;
+
+		validateRecords();
 		}
 }
 
@@ -1489,4 +1494,19 @@ void Transaction::backlogRecords(void)
 			removeRecord(record);
 			}
 		}
+}
+
+void Transaction::validateRecords(void)
+{
+	RecordVersion *record;
+	
+	for (record = firstRecord; record && record->nextInTrans; record = record->nextInTrans)
+		;
+	
+	ASSERT(lastRecord == record);
+	
+	for (record = lastRecord; record && record->prevInTrans; record = record->prevInTrans)
+		;
+	
+	ASSERT(firstRecord == record);	
 }

@@ -127,6 +127,7 @@ public:
 	void		releaseCommittedTransaction(void);
 	void		commitNoUpdates(void);
 	void		validateDependencies(bool noDependencies);
+	void		validateRecords(void);
 	void		printBlocking(int level);
 	void		releaseDeferredIndexes(void);
 	void		releaseDeferredIndexes(Table* table);

@@ -1070,7 +1070,7 @@ int Transaction::createSavepoint()
 
 void Transaction::releaseSavepoint(int savePointId)
 {
-	validateRecords();
+	//validateRecords();
 	Sync sync(&syncSavepoints, "Transaction::releaseSavepoint");
 
 	// System transactions require an exclusive lock for concurrent access
@@ -1123,7 +1123,7 @@ void Transaction::releaseSavepoint(int savePointId)
 			savePoint->next = freeSavePoints;
 			freeSavePoints = savePoint;
 			ASSERT((savePoints || freeSavePoints) ? (savePoints != freeSavePoints) : true);
-			validateRecords();
+			//validateRecords();
 
 			return;
 			}
@@ -1164,7 +1164,7 @@ void Transaction::releaseSavepoints(void)
 
 void Transaction::rollbackSavepoint(int savePointId)
 {
-	validateRecords();
+	//validateRecords();
 	Sync sync(&syncSavepoints, "Transaction::rollbackSavepoints");
 	SavePoint *savePoint;
 
@@ -1195,7 +1195,7 @@ void Transaction::rollbackSavepoint(int savePointId)
 	
 	while (savePoint)
 		{
-		validateRecords();
+		//validateRecords();
 		
 		if (savePoint->id < savePointId)
 			break;
@@ -1259,7 +1259,7 @@ void Transaction::rollbackSavepoint(int savePointId)
 		else
 			savePoint = savePoint->next;
 
-		validateRecords();
+		//validateRecords();
 		}
 }
 

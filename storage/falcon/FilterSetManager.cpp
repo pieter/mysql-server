@@ -82,9 +82,6 @@ FilterSet* FilterSetManager::findFilterSet(const char *schema, const char *name)
 		    filterSet->schema == schema)
 			return filterSet;
 
-	Sync sync (&database->syncSysConnection, "FilterSetManager::findFilterSet");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"select text from system.filtersets where filtersetname=? and schema=?");
 	statement->setString (1, name);
@@ -121,9 +118,6 @@ void FilterSetManager::deleteFilterset(FilterSet *filterSet)
 			*ptr = node->collision;
 			break;
 			}
-
-	Sync sync (&database->syncSysConnection, "FilterSetManager::deleteFilterset");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from system.filtersets where filtersetname=? and schema=?");

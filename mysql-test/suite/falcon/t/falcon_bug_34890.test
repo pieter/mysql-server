@@ -1,9 +1,11 @@
 --source include/have_falcon.inc
 #
-# Bug #34351_C: Update Conflict on non-overlapping transactions
+# Bug #34890: Update Conflict on non-overlapping transactions
 # This test works because it uses FALCON_CONSISTENT_READ=OFF
+# This test is different from 34351_C in that there is no index
+# on t1_uuid.
 #
---echo *** Bug #34351_C ***
+--echo *** Bug #34890 ***
 
 # ----------------------------------------------------- #
 # --- Initialisation                                --- #
@@ -27,7 +29,7 @@ SET @@autocommit = 1;
 CREATE TABLE t1 (
   t1_autoinc INTEGER NOT NULL AUTO_INCREMENT,
   t1_uuid CHAR(36),
-  PRIMARY KEY (t1_autoinc), key(t1_uuid)
+  PRIMARY KEY (t1_autoinc)
 ) ENGINE = Falcon;
 
 #   declare continue handler for sqlexception

@@ -226,9 +226,6 @@ void Table::create(const char * tableType, Transaction *transaction)
 
 void Table::save()
 {
-	Sync sync(&database->syncSysConnection, "Table::save");
-	sync.lock(Shared);
-
 	PreparedStatement *statement = database->prepareStatement(
 		(database->fieldExtensions) ?
 			"insert Tables (tableName,tableId,dataSection,blobSection,currentVersion,type,schema,viewDefinition,tablespace) values (?,?,?,?,?,?,?,?,?);" :
@@ -263,8 +260,6 @@ void Table::save()
 	FOR_FIELDS(field, this)
 		field->save();
 	END_FOR;
-
-	sync.unlock();
 
 	if (view)
 		view->save(database);
@@ -410,11 +405,11 @@ Format* Table::getFormat(int version)
 		 if (format->version == version)
 			return format;
 
-	Sync sync(&syncObject, "Table::getFormat");
-	sync.lock(Exclusive);
+	Sync syncObj(&syncObject, "Table::getFormat");
+	syncObj.lock(Exclusive);
 
-	Sync sync2(&database->syncSysConnection, "Table::save");
-	sync2.lock(Shared);
+	Sync syncDDL(&database->syncSysDDL, "Table::getFormat");
+	syncDDL.lock(Shared);
 
 	PStatement statement = database->prepareStatement(
 		"select version, fieldId, dataType, offset, length, scale, maxId from system.Formats where tableId=? and version=?");
@@ -422,7 +417,7 @@ Format* Table::getFormat(int version)
 	statement->setInt(2, version);
 	RSet set = statement->executeQuery();
 	format = NEW Format(this, set);
-	sync2.unlock();
+	syncDDL.unlock();
 	addFormat(format);
 
 	return format;
@@ -444,9 +439,6 @@ void Table::reformat()
 	if (!database->formatting)
 		{
 		format->save(this);
-		Sync sync(&database->syncSysConnection, "Table::reformat");
-		sync.lock(Shared);
-
 		PreparedStatement *statement = database->prepareStatement(
 			"update Tables set currentVersion=? where tableName=? and schema=?");
 		int n = 1;
@@ -701,9 +693,6 @@ void Table::setBlobSection(int32 section)
 
 void Table::loadFields()
 {
-	Sync sync (&database->syncSysConnection, "Table::loadFields");
-	sync.lock (Shared);
-
 	const char *sql = (database->fieldExtensions) ?
 		"select field,fieldId,dataType,length,scale,flags,collationsequence,repositoryName,domainName,precision"
 				" from system.Fields where tableName=? and schema=?" :
@@ -755,9 +744,6 @@ void Table::loadFields()
 
 void Table::loadIndexes()
 {
-	Sync sync (&database->syncSysConnection, "Table::loadIndexes");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"select indexName,indexType,indexId,fieldCount from system.Indexes where tableName=? and schema=?");
 	statement->setString (1, name);
@@ -1535,9 +1521,6 @@ void Table::drop(Transaction *transaction)
 		}
 
 
-	Sync sync(&database->syncSysConnection, "Table::drop");
-	sync.lock(Shared);
-	
 	Transaction *sysTransaction = database->getSystemTransaction();
 
 	for (Index *index = indexes; index; index = index->next)
@@ -1571,8 +1554,6 @@ void Table::drop(Transaction *transaction)
 	if (view)
 		view->drop(database);
 			
-	sync.unlock();
-	
 	database->commitSystemTransaction();
 }
 
@@ -1778,10 +1759,8 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 	if (!records)
 		return 0;
 
-	Sync scavenge(&syncScavenge, "Table::retireRecords");
-	scavenge.lock(Exclusive);
-	Sync sync(&syncObject, "Table::retireRecords");
-	sync.lock(Shared);
+	Sync syncObj(&syncObject, "Table::retireRecords");
+	syncObj.lock(Shared);
 
 	if (!records)
 		return 0;
@@ -1792,8 +1771,8 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 
 	if (count == 0)
 		{
-		sync.unlock();
-		sync.lock(Exclusive);
+		syncObj.unlock();
+		syncObj.lock(Exclusive);
 
 		// Confirm that tree is still empty
 		
@@ -1812,8 +1791,8 @@ int Table::retireRecords(RecordScavenge *recordScavenge)
 		
 		if (emptySections->count > 0)
 			{
-			sync.unlock();
-			sync.lock(Exclusive);
+			syncObj.unlock();
+			syncObj.lock(Exclusive);
 
 			for (int recordNumber = 0; (recordNumber = emptySections->nextSet(recordNumber)) >= 0;)
 				{
@@ -2842,8 +2821,6 @@ void Table::deleteRecord(int recordNumber)
 
 void Table::refreshFields()
 {
-	Sync sync(&database->syncSysConnection, "Table::loadFields");
-	sync.lock(Shared);
 	const char *sql = (database->fieldExtensions) ?
 		"select field, fieldId, dataType, length, scale, flags, collationsequence, precision\
 				from system.Fields where tableName=? and schema=?" :
@@ -3156,9 +3133,6 @@ void Table::update(Transaction * transaction, Record *orgRecord, Stream *stream)
 
 void Table::rename(const char *newSchema, const char *newName)
 {
-	Sync sync(&database->syncSysConnection, "Statement::renameTables");
-	sync.lock(Exclusive);
-	
 	try
 		{
 		for (const char **tbl = relatedTables; *tbl; ++tbl)
@@ -3178,7 +3152,6 @@ void Table::rename(const char *newSchema, const char *newName)
 			}
 
 		database->commitSystemTransaction();
-		sync.unlock();
 		Index *primaryKey = getPrimaryKey();
 		database->renameTable(this, newSchema, newName);
 		

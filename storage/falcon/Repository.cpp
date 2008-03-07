@@ -339,8 +339,8 @@ void Repository::setVolume(int volume)
 
 void Repository::save()
 {
-	Sync sync (&database->syncSysConnection, "Repository::update");
-	sync.lock (Shared);
+	Sync syncDDL(&database->syncSysDDL, "Repository::update");
+	syncDDL.lock (Shared);
 	PreparedStatement *statement = database->prepareStatement (
 		"replace into system.repositories (repositoryName,schema,sequenceName,filename,rollovers,currentVolume)"
 		"values (?,?,?,?,?,?)");
@@ -353,7 +353,7 @@ void Repository::save()
 	statement->setInt (n++, currentVolume);
 	statement->executeUpdate();
 	statement->close();
-	sync.unlock();
+	syncDDL.unlock();
 	database->commitSystemTransaction();
 }
 
@@ -443,16 +443,13 @@ void Repository::setRollover(const char *string)
 
 void Repository::drop()
 {
-	Sync sync (&database->syncSysConnection, "Repository::drop");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from system.repositories where schema=? and repositoryName=?");
 	statement->setString (1, schema);
 	statement->setString (2, name);
 	statement->executeUpdate();
 	statement->close();
-	sync.unlock();		
+
 	database->commitSystemTransaction();	
 }
 

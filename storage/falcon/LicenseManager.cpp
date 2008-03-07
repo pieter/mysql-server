@@ -144,8 +144,8 @@ LicenseProduct* LicenseManager::getProduct(const char *name)
 
 	try
 		{
-		Sync sync (&database->syncSysConnection, "LicenseManager::getProduct");
-		sync.lock (Shared);
+		Sync syncDDL(&database->syncSysDDL, "LicenseManager::getProduct");
+		syncDDL.lock(Shared);
 
 		PreparedStatement *statement = database->prepareStatement (
 			"select id,license from system.licenses where product=?");

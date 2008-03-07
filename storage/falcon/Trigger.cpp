@@ -122,9 +122,6 @@ void Trigger::loadClass()
 
 void Trigger::save()
 {
-	Sync sync (&database->syncSysConnection, "Trigger::save");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"replace into system.triggers "
 		"(schema,triggerName,tableName,type_mask,position,active,classname,methodname)"
@@ -160,8 +157,6 @@ void Trigger::save()
 void Trigger::getTableTriggers(Table *table)
 {
 	Database *database = table->database;
-	Sync sync (&database->syncSysConnection, "Trigger::getTableTriggers");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"select triggerName,type_mask,position,active,classname,methodname "
@@ -255,9 +250,6 @@ void Trigger::fireTrigger(Transaction *transaction, int operation, Record *prior
 
 JString Trigger::getTableName(Database *database, const char *schema, const char *name)
 {
-	Sync sync (&database->syncSysConnection, "Trigger::getTableName");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"select tableName from system.triggers where schema=? and triggerName=?");
 	int n = 1;
@@ -285,9 +277,6 @@ void Trigger::deleteTrigger()
 
 void Trigger::deleteTrigger(Database *database, const char *schema, const char *name)
 {
-	Sync sync (&database->syncSysConnection, "Trigger::deleteTrigger");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from system.triggers where schema=? and triggerName=?");
 	int n = 1;

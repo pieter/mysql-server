@@ -529,16 +529,12 @@ int StorageDatabase::truncateTable(StorageConnection* storageConnection, Storage
 	Connection *connection = storageConnection->connection;
 	Transaction *transaction = connection->transaction;
 	Database *database = connection->database;
-	Sequence *sequence = tableShare->sequence;
 	
 	int res = 0;
 	
 	try
 		{
-		database->truncateTable(tableShare->table, transaction);
-	
-		if (sequence)
-			sequence = sequence->recreate();
+		database->truncateTable(tableShare->table, tableShare->sequence, transaction);
 		}
 	catch (SQLException& exception)
 		{
@@ -682,15 +678,12 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 			++numberIndexes;
 			}
 
-		Sync syncDDL (&database->syncDDL, "StorageDatabase::renameTable");
+		Sync syncDDL(&database->syncSysDDL, "StorageDatabase::renameTable");
 		syncDDL.lock(Exclusive);
 		
-		Sync syncTables (&database->syncTables, "StorageDatabase::renameTable");
-		syncTables.lock (Exclusive);
+		Sync syncTables(&database->syncTables, "StorageDatabase::renameTable");
+		syncTables.lock(Exclusive);
 		
-		Sync syncSysConn(&database->syncSysConnection, "StorageDatabase::renameTable");
-		syncSysConn.lock(Exclusive);
-
 		for (int n = firstIndex; n < numberIndexes; ++n)
 			{
 			char indexName[256];
@@ -709,7 +702,6 @@ int StorageDatabase::renameTable(StorageConnection* storageConnection, Table* ta
 		if (sequence)
 			sequence->rename(tableName);
 
-		syncSysConn.unlock();
 		syncTables.unlock();
 		syncDDL.unlock();
 		

@@ -107,9 +107,6 @@ ForeignKey::~ForeignKey()
 
 void ForeignKey::save(Database * database)
 {
-	Sync sync (&database->syncSysConnection, "ForeignKey::save");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 			"replace into ForeignKeys\
 				(primaryTableId, primaryFieldId, foreignTableId, foreignFieldId,\
@@ -154,9 +151,6 @@ void ForeignKey::loadRow(Database * database, ResultSet * resultSet)
 
 void ForeignKey::loadPrimaryKeys(Database *database, Table *table)
 {
-	Sync sync (&database->syncSysConnection, "ForeignKey::loadPrimaryKeys");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 			"select\
 				primaryTableId, primaryFieldId, foreignTableId, foreignFieldId,\
@@ -193,9 +187,6 @@ void ForeignKey::loadPrimaryKeys(Database *database, Table *table)
 
 void ForeignKey::loadForeignKeys(Database *database, Table *table)
 {
-	Sync sync (&database->syncSysConnection, "ForeignKey::loadForeignKeys");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 			"select\
 				primaryTableId, primaryFieldId, foreignTableId, foreignFieldId,\
@@ -314,8 +305,6 @@ bool ForeignKey::matches(ForeignKey * key, Database *database)
 void ForeignKey::drop()
 {
 	Database *database = primaryTable->database;
-	Sync sync (&database->syncSysConnection, "ForeignKey::drop");
-	sync.lock (Shared);
 	PreparedStatement *statement;
 
 	if (foreignTable)

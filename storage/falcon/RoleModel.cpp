@@ -174,8 +174,6 @@ User* RoleModel::createUser(const char *userName, const char *password, bool enc
 		createTables();
 
 	JString encryptedPassword = (encrypted) ? (JString) password : User::encryptPassword (password);
-	Sync sync (&database->syncSysConnection, "RoleModel::createUser");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 			"insert into system.users (username,password,coterie) values (?,?,?)");
@@ -190,9 +188,8 @@ User* RoleModel::createUser(const char *userName, const char *password, bool enc
 	statement->execute();
 	statement->close();
 
-	sync.unlock();
-
 	database->commitSystemTransaction();
+	
 	User *user = new User (database, userName, encryptedPassword, coterie, false);
 	insertUser (user);
 
@@ -228,9 +225,6 @@ User* RoleModel::findUser(const char * name)
 		}
 	***/
 	
-	Sync sync (&database->syncSysConnection, "RoleModel::findUser");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 			"select password, coterie from system.users where userName=?");
 	statement->setString (1, userName);
@@ -298,9 +292,6 @@ Role* RoleModel::findRole(const char * schema, const char * name)
 		if (role->name == name && role->schemaName == schema)
 			return role;
 
-	Sync sync (&database->syncSysConnection, "RoleModel::findRole");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"select roleName from system.roles where schema=? and roleName=?");
 	statement->setString (1, JString::upcase (schema));
@@ -326,16 +317,12 @@ void RoleModel::createRole(User *owner, const char *schema, const char * name)
 	if (!tablesCreated)
 		createTables();
 
-	Sync sync (&database->syncSysConnection, "RoleModel::createRole");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 			"insert into system.roles (schema, roleName) values (?,?)");
 	statement->setString (1, schema);
 	statement->setString (2, name);
 	statement->execute();
 	statement->close();
-	sync.unlock();
 
 	int slot = HASH (name, ROLE_HASH_SIZE);
 	Role *role = new Role (database, schema, name);
@@ -344,6 +331,7 @@ void RoleModel::createRole(User *owner, const char *schema, const char * name)
 
 	addUserRole (owner, role, true, 1);
 	addPrivilege (owner, role, -1);
+	
 	database->commitSystemTransaction();
 }
 
@@ -378,9 +366,6 @@ void RoleModel::addUserPrivilege(User * user, PrivilegeObject * object, int32 ma
 
 void RoleModel::addUserRole(User *user, Role * role, bool defaultRole, int options)
 {
-	Sync sync (&database->syncSysConnection, "RoleModel::addUserRole");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"replace into system.userRoles"
 			"(userName,roleSchema,roleName,defaultRole,options) values (?,?,?,?,?)");
@@ -395,7 +380,6 @@ void RoleModel::addUserRole(User *user, Role * role, bool defaultRole, int optio
 		{
 		statement->executeUpdate();
 		statement->close();
-		sync.unlock();
 		}
 	catch (...)
 		{
@@ -429,9 +413,6 @@ User* RoleModel::getUser(const char * userName)
 
 bool RoleModel::updatePrivilege(Role * role, PrivilegeObject * object, int32 mask)
 {
-	Sync sync (&database->syncSysConnection, "RoleModel::updatePrivilege");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"update system.privileges set privilegeMask=? where "
 			"holderType=? and "
@@ -469,9 +450,6 @@ void RoleModel::changePassword(User *user, const char * password, bool encrypted
 	if (password)
 		encryptedPassword = (encrypted) ? (JString) password : User::encryptPassword (password);
 
-	Sync sync (&database->syncSysConnection, "RoleModel::changePassword");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"update system.users set password=?,coterie=? where userName=?");
 	statement->setString (1, encryptedPassword);
@@ -490,16 +468,12 @@ void RoleModel::changePassword(User *user, const char * password, bool encrypted
 	if (count < 1)
 		throw SQLEXCEPTION (DDL_ERROR, "couldn't change password");
 
-	sync.unlock();
 	database->commitSystemTransaction();
 	user->changePassword (encryptedPassword);
 }
 
 void RoleModel::revokeUserRole(User * user, Role * role)
 {
-	Sync sync (&database->syncSysConnection, "RoleModel::revokeUserRole");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from system.userRoles where userName=? and roleSchema=? and roleName=?");
 	int n = 1;
@@ -511,7 +485,6 @@ void RoleModel::revokeUserRole(User * user, Role * role)
 		{
 		statement->executeUpdate();
 		statement->close();
-		sync.unlock();
 		}
 	catch (...)
 		{
@@ -528,8 +501,6 @@ void RoleModel::dropRole(Role *role)
 	if (!tablesCreated)
 		createTables();
 
-	Sync sync (&database->syncSysConnection, "RoleModel::dropRole");
-	sync.lock (Shared);
 	deletePrivileges (role);
 	PreparedStatement *statement = database->prepareStatement (
 			"delete from system.roles where schema=? and roleName=?");
@@ -545,7 +516,6 @@ void RoleModel::dropRole(Role *role)
 	statement->execute();
 	statement->close();
 
-	sync.unlock();
 	database->commitSystemTransaction();
 
 	int slot = HASH (role->name, ROLE_HASH_SIZE);
@@ -566,9 +536,6 @@ void RoleModel::dropRole(Role *role)
 
 void RoleModel::insertPrivilege(Role * role, PrivilegeObject * object, int32 mask)
 {
-	Sync sync (&database->syncSysConnection, "RoleModel::insertPrivilege");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"insert into system.privileges"
 			"(holderType, holderSchema,holderName,objectType,objectSchema,objectName,privilegeMask)"
@@ -586,7 +553,6 @@ void RoleModel::insertPrivilege(Role * role, PrivilegeObject * object, int32 mas
 		{
 		statement->executeUpdate();
 		statement->close();
-		sync.unlock();
 		}
 	catch (...)
 		{
@@ -612,8 +578,6 @@ void RoleModel::removePrivilege(Role *role, PrivilegeObject *object, int32 mask)
 void RoleModel::dropObject(PrivilegeObject *object)
 {
 	PrivObject type = object->getPrivilegeType();
-	Sync sync (&database->syncSysConnection, "RoleModel::dropObject");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from system.privileges where objectType=? and objectSchema=? and objectName=?");
@@ -632,8 +596,6 @@ void RoleModel::dropObject(PrivilegeObject *object)
 		statement->close();
 		throw;
 		}
-
-	sync.unlock();
 
 	for (n = 0; n < ROLE_HASH_SIZE; ++n)
 		for (Role *role = roles [n]; role; role = role->collision)
@@ -657,9 +619,6 @@ Coterie* RoleModel::findCoterie(const char *name)
 	for (coterie = coteries; coterie; coterie = coterie->next)
 		if (coterie->name == name)
 			return coterie;
-
-	Sync sync (&database->syncSysConnection, "RoleModel::findCoterie");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"select ip_start,ip_end from system.coteries where coterie=?");
@@ -715,9 +674,6 @@ void RoleModel::insertCoterie(Coterie *coterie)
 void RoleModel::updateCoterie(Coterie *coterie)
 {
 #ifndef STORAGE_ENGINE
-	Sync sync (&database->syncSysConnection, "RoleModel::updateCoterie");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"delete from system.coteries where coterie=?");
 	statement->setString (1, coterie->name);
@@ -736,7 +692,6 @@ void RoleModel::updateCoterie(Coterie *coterie)
 		statement->executeUpdate();
 		}
 
-	sync.unlock();
 	database->commitSystemTransaction();
 	statement->close();
 #endif
@@ -745,9 +700,6 @@ void RoleModel::updateCoterie(Coterie *coterie)
 void RoleModel::dropCoterie(Coterie *coterie)
 {
 #ifndef STORAGE_ENGINE
-	Sync sync (&database->syncSysConnection, "RoleModel::dropCoterie");
-	sync.lock (Shared);
-
 	PreparedStatement *statement = database->prepareStatement (
 		"select username from system.users where coterie=?");
 	statement->setString (1, coterie->name);
@@ -773,15 +725,13 @@ void RoleModel::dropCoterie(Coterie *coterie)
 			break;
 			}
 
-	sync.unlock();
 	dropObject (coterie);
-	sync.lock (Shared);
 	statement = database->prepareStatement (
 			"delete from system.coteries where coterie=?");
 	statement->setString (1, coterie->name);
 	statement->execute();
 	statement->close();
-	sync.unlock();
+
 	database->commitSystemTransaction();
 
 	delete coterie;
@@ -800,15 +750,13 @@ void RoleModel::dropUser(User *user)
 			break;
 			}
 
-	Sync sync (&database->syncSysConnection, "RoleModel::dropUser");
-	sync.lock (Shared);
 	deletePrivileges (user);
 	PreparedStatement *statement = database->prepareStatement (
 			"delete from system.users where username=?");
 	statement->setString (1, user->name);
 	statement->execute();
 	statement->close();
-	sync.unlock();
+
 	database->commitSystemTransaction();
 
 	user->release();

@@ -171,7 +171,7 @@ public:
 	void			shutdown();
 	void			execute (const char *sql);
 	void			addTable (Table *table);
-	void			truncateTable(Table *table, Transaction *transaction);
+	void			truncateTable(Table *table, Sequence *sequence, Transaction *transaction);
 	void			dropTable (Table *table, Transaction *transaction);
 	void			flushInversion(Transaction *transaction);
 	bool			matches (const char *fileName);
@@ -261,11 +261,10 @@ public:
 	SyncObject			syncTables;
 	SyncObject			syncStatements;   // exclusive lock ok only if syncTables not exclusive
 	SyncObject			syncAddStatement;
-	SyncObject			syncSysConnection;
 	SyncObject			syncResultSets;
 	SyncObject			syncConnectionStatements;
 	SyncObject			syncScavenge;
-	SyncObject			syncDDL;
+	SyncObject			syncSysDDL;
 	PriorityScheduler	*ioScheduler;
 	Threads				*threads;
 	Scheduler			*scheduler;

@@ -221,13 +221,10 @@ void Statement::createTable(Syntax * syntax)
 
 	if (!database->formatting)
 		{
-		Sync sync (&database->syncSysConnection, "Statement::createTable");
-		sync.lock(Exclusive);
 		Transaction *sysTransaction = database->getSystemTransaction();
 		table->create ((connection == database->systemConnection) ? "SYSTEM TABLE" : "TABLE", sysTransaction);
 		table->save();
 		database->roleModel->addUserPrivilege (connection->user, table, ALL_PRIVILEGES);
-		sync.unlock();
 		database->commitSystemTransaction();
 		}
 
@@ -250,9 +247,6 @@ void Statement::createIndex(Syntax * syntax, bool upgrade)
 
 	if (!database->formatting)
 		{
-		Sync sync (&database->syncSysConnection, "Statement::createIndex");
-		sync.lock (Shared);
-
 		PreparedStatement *check = database->prepareStatement (
 			"select tableName from system.indexes where schema=? and indexName=?");
 		check->setString (1, table->schemaName);
@@ -475,6 +469,18 @@ void Statement::start(NNode * node)
 	transaction->addRef();
 	int savePoint = transaction->createSavepoint();
 
+	// System transactions should hold syncSysDDL, and update verbs should hold it exclusively
+	
+	/***
+	if (transaction->systemTransaction)
+		{
+		if (node->isUpdateVerb())
+			ASSERT(database->syncSysDDL.ourExclusiveLock());
+		else
+			ASSERT(database->syncSysDDL.isLocked());
+		}
+	***/
+	
 	try
 		{
 		active = true;
@@ -712,8 +718,8 @@ void Statement::executeDDL()
 	ASSERT (syntax);
 	Syntax *child;
 	
-	Sync sync(&database->syncDDL, "Statement::executeDDL");
-	sync.lock(Exclusive);
+	Sync syncDDL(&database->syncSysDDL, "Statement::executeDDL");
+	syncDDL.lock(Exclusive);
 
 	switch (syntax->type)
 		{
@@ -2831,8 +2837,6 @@ void Statement::dropRepository(Syntax *syntax)
 	const char *name = getName (node);
 	const char *schema = getSchemaName (node);
 	Repository *repository = database->getRepository (schema, name);
-	Sync sync (&database->syncSysConnection, "Statement::dropRepository");
-	sync.lock (Shared);
 
 	PreparedStatement *statement = database->prepareStatement (
 		"select field,tableName from system.fields where schema=? and repositoryName=?");
@@ -2851,7 +2855,6 @@ void Statement::dropRepository(Syntax *syntax)
 						name, (const char*) fieldName, (const char*) tableName);
 		}
 
-	sync.unlock();
 	resultSet->close();
 	statement->close();
 	database->deleteRepository (repository);
@@ -2965,9 +2968,6 @@ void Statement::dropTableSpace(Syntax* syntax)
 	if (!tableSpace)
 		throw SQLError(TABLESPACE_NOT_EXIST_ERROR, "table space \"%s\" is not defined", name);
 
-	Sync sync (&database->syncSysConnection, "Statement::createIndex");
-	sync.lock (Shared);
-
 	PStatement statement = database->prepareStatement (
 		"select * from system.tables where tablespace=?");
 	statement->setString (1, name);
@@ -2978,6 +2978,6 @@ void Statement::dropTableSpace(Syntax* syntax)
 	
 	resultSet.close();
 	statement.close();
-	sync.unlock();
+
 	tableSpaceManager->dropTableSpace(tableSpace);
 }

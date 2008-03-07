@@ -5200,7 +5200,7 @@ check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
         if (!no_errors)
           my_error(ER_DBACCESS_DENIED_ERROR, MYF(0),
                   sctx->priv_user, sctx->priv_host,
-                  (thd->db ? thd->db : "unknown"));
+                  INFORMATION_SCHEMA_NAME.str);
         goto deny;
       }
     }

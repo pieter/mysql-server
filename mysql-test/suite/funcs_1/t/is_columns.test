@@ -72,6 +72,8 @@ eval SHOW TABLES FROM information_schema LIKE '$is_table';
 # PRIVILEGES (shows the privileges available to the user on the column),
 # COLUMN_COMMENT (shows the comment, if any, defined for the comment;
 #       otherwise NULL).
+# STORAGE (NDB specific)
+# FORMAT (NDB specific)
 #
 --source suite/funcs_1/datadict/datadict_bug_12777.inc
 eval DESCRIBE          information_schema.$is_table;

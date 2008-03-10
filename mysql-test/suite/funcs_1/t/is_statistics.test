@@ -63,6 +63,7 @@ eval SHOW TABLES FROM information_schema LIKE '$is_table';
 # NULLABLE (shows whether the index column may contain NULL values),
 # INDEX_TYPE (shows the index type; either BTREE, FULLTEXT, HASH or RTREE),
 # COMMENT (shows a comment on the index, if any).
+# INDEX_COMMENT 
 #
 --source suite/funcs_1/datadict/datadict_bug_12777.inc
 eval DESCRIBE          information_schema.$is_table;

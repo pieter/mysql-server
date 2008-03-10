@@ -16,7 +16,7 @@
 
 if (`SELECT @@version_comment NOT LIKE '%Source%'
      OR NOT EXISTS (SELECT 1 FROM information_schema.collations
-                    WHERE collation_name = 'utf8_general_cs')`)
+                    WHERE collation_name = 'utf8mb3_general_cs')`)
 {
   skip Test needs Source build with "max";
 }

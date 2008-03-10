@@ -924,7 +924,8 @@ int64 DateTime::getSeconds(tm *time, const TimeZone *timeZone)
 
 bool DateTime::isDayLightSavings(tm *time)
 {
-	if (!time->tm_isdst)
+	//if (!time->tm_isdst)
+	if (!daylight)
 		return false;
 
 	// Jan to March and November and December are definitely no
@@ -1257,6 +1258,8 @@ int DateTime::timeRule(tm *time, int64 first, const ZoneRule *rule)
 		while (changeDay + 7 < max)
 			changeDay += 7;
 		}
+
+	++changeDay;
 
 	if (time->tm_mday < changeDay)
 		return -1;

@@ -613,10 +613,6 @@ int StorageDatabase::deleteRow(StorageConnection *storageConnection, Table* tabl
 				code = StorageErrorLockTimeout;
 				break;
 
-			case LOCK_TIMEOUT:
-				code = StorageErrorLockTimeout;
-				break;
-
 			case UPDATE_CONFLICT:
 				code = StorageErrorUpdateConflict;
 				break;

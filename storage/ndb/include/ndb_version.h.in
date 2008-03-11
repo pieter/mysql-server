@@ -156,8 +156,7 @@ ndb_check_prep_copy_frag_version(Uint32 version)
   {
     if (version >= NDBD_PREPARE_COPY_FRAG_V2_51)
       return 2;
-  }
-    
+  }  
   return 0;
 }
 

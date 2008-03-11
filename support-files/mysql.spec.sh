@@ -328,8 +328,13 @@ BuildMySQL "--enable-shared \
 		--with-example-storage-engine \
 		--with-blackhole-storage-engine \
 		--with-federated-storage-engine \
-	        --with-partition \
-	        --with-big-tables \
+%ifarch i386 x86_64
+		--with-falcon \
+%else
+		--without-falcon \
+%endif
+		--with-partition \
+		--with-big-tables \
 		--with-comment=\"MySQL Community Server - Debug (GPL)\"")
 
 # We might want to save the config log file
@@ -357,9 +362,14 @@ BuildMySQL "--enable-shared \
 		--with-example-storage-engine \
 		--with-blackhole-storage-engine \
 		--with-federated-storage-engine \
-	        --with-partition \
+%ifarch i386 x86_64
+		--with-falcon \
+%else
+		--without-falcon \
+%endif
+		--with-partition \
 		--with-embedded-server \
-	        --with-big-tables \
+		--with-big-tables \
 		--with-comment=\"MySQL Community Server (GPL)\"")
 # We might want to save the config log file
 if test -n "$MYSQL_CONFLOG_DEST"
@@ -423,11 +433,9 @@ install -m 644 $MBD/libmysqld/libmysqld.a $RBR%{_libdir}/mysql/
 # will appreciate that, as all services usually offer this.
 ln -s %{_sysconfdir}/init.d/mysql $RPM_BUILD_ROOT%{_sbindir}/rcmysql
 
-# Touch the place where the my.cnf config file and mysqlmanager.passwd
-# (MySQL Instance Manager password file) might be located
-# Just to make sure it's in the file list and marked as a config file
+# Touch the place where the my.cnf config file might be located.
+# Just to make sure it's in the file list and marked as a config file.
 touch $RBR%{_sysconfdir}/my.cnf
-touch $RBR%{_sysconfdir}/mysqlmanager.passwd
 
 %pre server
 # Check if we can safely upgrade.  An upgrade is only safe if it's from one
@@ -620,7 +628,6 @@ fi
 %doc %attr(644, root, man) %{_mandir}/man1/mysql_upgrade.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysqlhotcopy.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysqlman.1*
-%doc %attr(644, root, man) %{_mandir}/man8/mysqlmanager.8*
 %doc %attr(644, root, man) %{_mandir}/man1/mysql.server.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysqltest.1*
 %doc %attr(644, root, man) %{_mandir}/man1/mysql_tzinfo_to_sql.1*
@@ -629,7 +636,6 @@ fi
 %doc %attr(644, root, man) %{_mandir}/man1/replace.1*
 
 %ghost %config(noreplace,missingok) %{_sysconfdir}/my.cnf
-%ghost %config(noreplace,missingok) %{_sysconfdir}/mysqlmanager.passwd
 
 %attr(755, root, root) %{_bindir}/my_print_defaults
 %attr(755, root, root) %{_bindir}/myisam_ftdump
@@ -658,7 +664,6 @@ fi
 
 %attr(755, root, root) %{_sbindir}/mysqld
 %attr(755, root, root) %{_sbindir}/mysqld-debug
-%attr(755, root, root) %{_sbindir}/mysqlmanager
 %attr(755, root, root) %{_sbindir}/rcmysql
 
 %attr(644, root, root) %config(noreplace,missingok) %{_sysconfdir}/logrotate.d/mysql
@@ -801,6 +806,14 @@ fi
 
 - Require a manual upgrade if the alread-installed mysql-server is
   from another vendor, or is of a different major version.
+
+* Fri Dec 21 2007 Joerg Bruehe <joerg@mysql.com>
+
+- "mysqlmanager" got removed from version 6.0, all references deleted.
+
+* Thu Dec 06 2007 Jonathan Perkin <jperkin@mysql.com>
+
+- Enabled the "Falcon" storage engine on i386/x86_64.
 
 * Wed May 02 2007 Joerg Bruehe <joerg@mysql.com>
 

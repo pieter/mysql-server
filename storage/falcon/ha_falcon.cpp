@@ -553,6 +553,35 @@ int StorageInterface::repair(THD* thd, HA_CHECK_OPT* check_opt)
 #endif
 }
 
+
+int StorageInterface::check(THD* thd, HA_CHECK_OPT* check_opt)
+{
+#ifdef VALIDATE
+	DBUG_ENTER("StorageInterface::check");
+
+	if (storageConnection)
+		storageConnection->validate(0);
+		
+	DBUG_RETURN(0);
+#else
+	return HA_ADMIN_NOT_IMPLEMENTED;
+#endif
+}
+
+int StorageInterface::repair(THD* thd, HA_CHECK_OPT* check_opt)
+{
+#ifdef VALIDATE
+	DBUG_ENTER("StorageInterface::repair");
+	
+	if (storageConnection)
+		storageConnection->validate(VALIDATE_REPAIR);
+
+	DBUG_RETURN(0);
+#else
+	return HA_ADMIN_NOT_IMPLEMENTED;
+#endif
+}
+
 int StorageInterface::rnd_next(uchar *buf)
 {
 	DBUG_ENTER("StorageInterface::rnd_next");
@@ -3075,8 +3104,6 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 	if(storageHandler)
 		storageHandler->setRecordChillThreshold(falcon_record_chill_threshold * 1024 * 1024);
 }
-
-
 
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {

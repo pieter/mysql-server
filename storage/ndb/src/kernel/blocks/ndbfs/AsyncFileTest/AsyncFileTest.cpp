@@ -40,7 +40,7 @@
 #define MAXFILESIZE 4096
 #define DEFAULT_FILESIZE 2048
 #define FVERSION 0x01000000
-#define PAGESIZE 8192
+#define NDB_PAGESIZE 8192
 
 #define TIMER_START { Uint64 starttick = NdbTick_CurrentMillisecond()
 #define TIMER_PRINT(str, ops) Uint64 stoptick = NdbTick_CurrentMillisecond();\
@@ -64,8 +64,8 @@ AsyncFile* openFiles[MAXFILES];
 Pool<Request>* theRequestPool;
 MemoryChannelMultipleWriter<Request>* theReportChannel;
 
-char WritePages[MAXFILES][PAGESIZE];
-char ReadPages[MAXFILES][PAGESIZE];
+char WritePages[MAXFILES][NDB_PAGESIZE];
+char ReadPages[MAXFILES][NDB_PAGESIZE];
 
 int readArguments(int argc, const char** argv);
 int openFile(int fileNum);
@@ -100,10 +100,10 @@ NDB_COMMAND(aftest, "aftest", "aftest [-n <Number of files>] [-r <Number of simu
 
   // initialize data to write to files
   for (int i = 0; i < MAXFILES; i++) {
-    for (int j = 0; j < PAGESIZE; j++){
+    for (int j = 0; j < NDB_PAGESIZE; j++){
       WritePages[i][j] = (64+i+j)%256;
     }
-      //      memset(&WritePages[i][0], i+64, PAGESIZE);
+      //      memset(&WritePages[i][0], i+64, NDB_PAGESIZE);
   }
 
   // Set file directory and name
@@ -324,16 +324,16 @@ int writeFile( int fileNum, int pagenum)
 
   // Write only one page, choose the correct page for each file using fileNum
   request->par.readWrite.pages[0].buf = &WritePages[fileNum][0];
-  request->par.readWrite.pages[0].size = PAGESIZE;
+  request->par.readWrite.pages[0].size = NDB_PAGESIZE;
   if (writeFilesReverse == 1)
   {
     // write the last page in the files first
     // This is a normal way for the Blocks in Ndb to write to a file
-     request->par.readWrite.pages[0].offset = (fileSize - pagenum - 1) * PAGESIZE;
+     request->par.readWrite.pages[0].offset = (fileSize - pagenum - 1) * NDB_PAGESIZE;
   }
   else
   {
-     request->par.readWrite.pages[0].offset = pagenum * PAGESIZE;
+     request->par.readWrite.pages[0].offset = pagenum * NDB_PAGESIZE;
   }
   request->par.readWrite.numberOfPages = 1;
   
@@ -361,8 +361,8 @@ int writeSyncFile( int fileNum, int pagenum)
 
   // Write only one page, choose the correct page for each file using fileNum
   request->par.readWrite.pages[0].buf = &WritePages[fileNum][0];
-  request->par.readWrite.pages[0].size = PAGESIZE;
-  request->par.readWrite.pages[0].offset = pagenum * PAGESIZE;
+  request->par.readWrite.pages[0].size = NDB_PAGESIZE;
+  request->par.readWrite.pages[0].offset = pagenum * NDB_PAGESIZE;
   request->par.readWrite.numberOfPages = 1;
   
   if (!forward(file,request)) {
@@ -389,8 +389,8 @@ int readFile( int fileNum, int pagenum)
 
   // Read only one page, choose the correct page for each file using fileNum
   request->par.readWrite.pages[0].buf = &ReadPages[fileNum][0];
-  request->par.readWrite.pages[0].size = PAGESIZE;
-  request->par.readWrite.pages[0].offset = pagenum * PAGESIZE;
+  request->par.readWrite.pages[0].size = NDB_PAGESIZE;
+  request->par.readWrite.pages[0].offset = pagenum * NDB_PAGESIZE;
   request->par.readWrite.numberOfPages = 1;
   
   if (!forward(file,request)) {
@@ -558,10 +558,10 @@ int readFileWait()
 #ifdef TESTDEBUG
 	      ndbout << "readFileWait"<<request->theFilePointer<<", " << request->theUserPointer<<" "<< request->file->fileName().c_str() << endl;
 #endif
-	      if (memcmp(&(ReadPages[request->theFilePointer][0]), &(WritePages[request->theFilePointer][0]), PAGESIZE)!=0) 
+	      if (memcmp(&(ReadPages[request->theFilePointer][0]), &(WritePages[request->theFilePointer][0]), NDB_PAGESIZE)!=0) 
 		{
 		  ndbout <<"Verification error!" << endl;
-		  for (int i = 0; i < PAGESIZE; i++ ){
+		  for (int i = 0; i < NDB_PAGESIZE; i++ ){
 		    ndbout <<" Compare Page " <<  i << " : " << ReadPages[request->theFilePointer][i] <<", " <<WritePages[request->theFilePointer][i] << endl;;
 		    if( ReadPages[request->theFilePointer][i] !=WritePages[request->theFilePointer][i])
 		

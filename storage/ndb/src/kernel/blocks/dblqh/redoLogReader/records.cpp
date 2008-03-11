@@ -219,7 +219,7 @@ bool NextLogRecord::check() {
 }
 
 Uint32 NextLogRecord::getLogRecordSize(Uint32 pageIndex) {
-  return PAGESIZE - pageIndex;
+  return NDB_PAGESIZE - pageIndex;
 }
 
 NdbOut& operator<<(NdbOut& no, const NextLogRecord& nl) {

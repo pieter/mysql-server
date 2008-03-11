@@ -2,5 +2,5 @@
 DROP TABLESPACE tablespace1 Engine Falcon;
 CREATE TABLESPACE tablespace1 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
 CREATE TABLESPACE tablespace2 ADD DATAFILE 'falcon_tablespace.fts' Engine Falcon;
-ERROR HY000: Tablespace 'tablespace2' already exists
+ERROR HY000: Tablespace 'tablespace2' already exist
 DROP TABLESPACE tablespace1 Engine Falcon;

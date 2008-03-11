@@ -69,7 +69,9 @@ extern uint64		falcon_page_cache_size;
 extern char*		falcon_checkpoint_schedule;
 extern char*		falcon_scavenge_schedule;
 extern char*		falcon_serial_log_dir;
+
 #else
+
 #define CONFIG_FILE	"netfraserver.conf"
 #define PARAMETER_UINT(_name, _text, _min, _default, _max, _flags, _update_function) \
 	uint falcon_##_name = _default;
@@ -168,6 +170,7 @@ Configuration::Configuration(const char *configFile)
 	indexChillThreshold			= 4 * ONE_MB;
 	recordChillThreshold		= 5 * ONE_MB;
 	maxTransactionBacklog		= MAX_TRANSACTION_BACKLOG;
+	falcon_lock_wait_timeout	= 0;
 #endif
 
 	maxMemoryAddress = max_memory_address;

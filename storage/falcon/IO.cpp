@@ -90,6 +90,12 @@ static  int getLinuxVersion();
 #include "Debug.h"
 #include "Synchronize.h"
 
+#ifndef STORAGE_ENGINE
+#ifndef _WINDOWS
+#define HAVE_PREAD
+#endif
+#endif
+
 #define TRACE_FILE							"io.trace"
 //#define SIMULATE_DISK_FULL					1000000;
 

@@ -664,7 +664,7 @@ int ha_partition::drop_partitions(const char *path)
     partition info struct referenced from the handler object
 */
 
-int ha_partition::rename_partitions(const char *path)
+int ha_partition::rename_partitions(THD *thd, const char *path)
 {
   List_iterator<partition_element> part_it(m_part_info->partitions);
   List_iterator<partition_element> temp_it(m_part_info->temp_partitions);
@@ -807,13 +807,15 @@ int ha_partition::rename_partitions(const char *path)
                               TRUE);
         if (part_elem->part_state == PART_IS_CHANGED)
         {
-          file= m_reorged_file[part_count++];
+          file= get_new_handler(0, thd->mem_root,
+                                m_reorged_file[part_count++]->ht);
           DBUG_PRINT("info", ("Delete partition %s", norm_name_buff));
           if ((ret_error= file->ha_delete_table(norm_name_buff)))
             error= ret_error;
           else if (deactivate_ddl_log_entry(part_elem->log_entry->entry_pos))
             error= 1;
           VOID(sync_ddl_log());
+          delete file;
         }
         file= m_new_file[i];
         create_partition_name(part_name_buff, path,

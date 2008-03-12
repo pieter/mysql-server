@@ -63,7 +63,7 @@ static const char *stateNames [] = {
 	};
 
 static const int INDENT = 5;
-static const int MAX_LOW_MEMORY_RECORDS = 1000;
+static const uint32 MAX_LOW_MEMORY_RECORDS = 1000;
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -528,7 +528,7 @@ void Transaction::chillRecords()
 {
 #ifdef DEBUG_BACKLOG
 	database->setLowMemory();
-#endif'
+#endif
 
 	// chillPoint points to a pointer to the first non-chilled record. If any
 	// records have been thawed, then reset chillPoint.

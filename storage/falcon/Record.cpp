@@ -149,7 +149,6 @@ Record::Record(Database *database, Serialize* stream)
 		{
 		encoding = shortVector;
 		int vectorLength = format->count * sizeof(short);
-		int totalLength = vectorLength + len;
 		data.record = allocRecordData(len);
 		memset(data.record, 0, vectorLength);
 		stream->getData(len, (UCHAR*) data.record + vectorLength);

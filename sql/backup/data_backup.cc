@@ -1617,7 +1617,7 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
 namespace backup {
 
 Block_writer::Block_writer(byte snap_no, size_t size, OStream &s):
-  m_str(s), buf_size(size), taken(FALSE), snap_no(snap_no)
+  snap_no(snap_no), m_str(s), buf_size(size), taken(FALSE)
 {
   data_buf= (byte*)my_malloc(buf_size,MYF(0));
 }

@@ -4213,13 +4213,16 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
   {
     Field *field;
     Create_field *field_def;
-
+    String tmp_string;
     if (routine_type == TYPE_ENUM_FUNCTION)
     {
       restore_record(table, s->default_values);
       table->field[1]->store(sp_db.ptr(), sp_db.length(), cs);
       table->field[2]->store(sp_name.ptr(), sp_name.length(), cs);
       table->field[3]->store((longlong) 0, TRUE);
+      get_field(thd->mem_root, proc_table->field[MYSQL_PROC_MYSQL_TYPE],
+                &tmp_string);
+      table->field[14]->store(tmp_string.ptr(), tmp_string.length(), cs);
       field_def= &sp->m_return_field_def;
       field= make_field(&share, (uchar*) 0, field_def->length,
                         (uchar*) "", 0, field_def->pack_flag,
@@ -4269,6 +4272,9 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
       table->field[4]->set_notnull();
       table->field[5]->store(spvar->name.str, spvar->name.length, cs);
       table->field[5]->set_notnull();
+      get_field(thd->mem_root, proc_table->field[MYSQL_PROC_MYSQL_TYPE],
+                &tmp_string);
+      table->field[14]->store(tmp_string.ptr(), tmp_string.length(), cs);
 
       field= make_field(&share, (uchar*) 0, field_def->length,
                         (uchar*) "", 0, field_def->pack_flag,
@@ -5781,8 +5787,9 @@ ST_SCHEMA_TABLE *get_schema_table(enum enum_schema_tables schema_table_idx)
 
   @param
     thd	       	          thread handler
-  @param
-    schema_table          pointer to 'shema_tables' element
+
+  @param table_list Used to pass I_S table information(fields info, tables
+  parameters etc) and table name.
 
   @retval  \#             Pointer to created table
   @retval  NULL           Can't create table
@@ -5833,6 +5840,7 @@ TABLE *create_schema_table(THD *thd, TABLE_LIST *table_list)
         DBUG_RETURN(NULL);
       break;
     case MYSQL_TYPE_DECIMAL:
+    case MYSQL_TYPE_NEWDECIMAL:
       if (!(item= new Item_decimal((longlong) fields_info->value, false)))
       {
         DBUG_RETURN(0);
@@ -6182,7 +6190,7 @@ int make_schema_select(THD *thd, SELECT_LEX *sel,
 {
   ST_SCHEMA_TABLE *schema_table= get_schema_table(schema_table_idx);
   LEX_STRING db, table;
-  DBUG_ENTER("mysql_schema_select");
+  DBUG_ENTER("make_schema_select");
   DBUG_PRINT("enter", ("mysql_schema_select: %s", schema_table->table_name));
   /*
      We have to make non const db_name & table_name
@@ -6913,6 +6921,7 @@ ST_FIELD_INFO parameters_fields_info[]=
   {"CHARACTER_SET_NAME", 64, MYSQL_TYPE_STRING, 0, 1, 0, OPEN_FULL_TABLE},
   {"COLLATION_NAME", 64, MYSQL_TYPE_STRING, 0, 1, 0, OPEN_FULL_TABLE},
   {"DTD_IDENTIFIER", 65535, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE},
+  {"ROUTINE_TYPE", 9, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE}
 };
 

@@ -1078,7 +1078,7 @@ QUICK_SELECT_I::QUICK_SELECT_I()
 QUICK_RANGE_SELECT::QUICK_RANGE_SELECT(THD *thd, TABLE *table, uint key_nr,
                                        bool no_alloc, MEM_ROOT *parent_alloc,
                                        bool *create_error)
-  :dont_free(0),free_file(0),cur_range(NULL),last_range(0)
+  :free_file(0),cur_range(NULL),last_range(0),dont_free(0)
 {
   my_bitmap_map *bitmap;
   DBUG_ENTER("QUICK_RANGE_SELECT::QUICK_RANGE_SELECT");
@@ -7443,7 +7443,7 @@ ha_rows check_quick_select(PARAM *param, uint idx, bool index_only,
     param->is_ror_scan= FALSE;
   
   *mrr_flags= param->force_default_mrr? HA_MRR_USE_DEFAULT_IMPL: 0;
-  *mrr_flags= HA_MRR_NO_ASSOCIATION;
+  *mrr_flags|= HA_MRR_NO_ASSOCIATION;
 
   bool pk_is_clustered= file->primary_key_is_clustered();
   if (index_only && 
@@ -7901,6 +7901,7 @@ QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,
   QUICK_RANGE *range;
   uint part;
   bool create_err= FALSE;
+  COST_VECT cost;
 
   old_root= thd->mem_root;
   /* The following call may change thd->mem_root */
@@ -7980,7 +7981,6 @@ QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,
 #endif
 
   quick->mrr_buf_size= thd->variables.read_rnd_buff_size;
-  COST_VECT cost;
   if (table->file->multi_range_read_info(quick->index, 1, (uint)records,
                                          &quick->mrr_buf_size,
                                          &quick->mrr_flags, &cost))

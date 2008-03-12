@@ -116,7 +116,6 @@ bool Protocol::net_store_data(const uchar *from, size_t length,
 #endif
 
 
-/*
 /**
   Send a error string to client.
 

@@ -230,13 +230,8 @@ char *ip_to_hostname(struct sockaddr_storage *in, int addrLen, uint *errors)
       When this code was written there were issues with winsock in pusbuild, 
       this define is in this place for this reason.
     */
-#if defined( __WIN__)
     DBUG_PRINT("error",("getaddrinfo returned %d", gxi_error));
     if (gxi_error == EAI_NODATA )
-#else
-    DBUG_PRINT("error",("getaddrinfo returned %s", gai_strerror(gxi_error)));
-    if (gxi_error == EAI_ADDRFAMILY || gxi_error == EAI_NODATA )
-#endif
       add_wrong_ip(in);
 
     my_free(name,MYF(0));

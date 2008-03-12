@@ -236,7 +236,7 @@ int execute_backup_test_command(THD *thd, List<LEX_STRING> *db_list)
 
   delete it;
 
-  send_eof(thd);
+  my_eof(thd);
 //  delete i;
   DBUG_RETURN(res);
 }

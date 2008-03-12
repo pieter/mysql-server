@@ -51,7 +51,7 @@ void SRLUpdateIndex::append(DeferredIndex* deferredIndex)
 	uint64 virtualOffsetAtEnd = 0;
 
 	// Remember where this is logged
-	
+
 	virtualOffset = log->writeWindow->getNextVirtualOffset();
 
 	for (DINode *node = walker.next(); node;)

@@ -66,6 +66,10 @@ static  int getLinuxVersion();
 #define O_SYNC		0
 #endif
 
+#ifndef O_SYNC
+#define O_SYNC		0
+#endif
+
 #ifndef LSEEK
 #define LSEEK		lseek
 #define SEEK_OFFSET	off_t

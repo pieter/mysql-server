@@ -997,7 +997,7 @@ int print_backup_summary(THD *thd, ulonglong backup_id)
   protocol->store(buf, system_charset_info);
   protocol->write();
 
-  send_eof(thd);
+  my_eof(thd);
   DBUG_RETURN(ret);
 }
 

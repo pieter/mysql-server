@@ -18,7 +18,7 @@
 
 //#define DEBUG_BACKLOG
 
-static const char *BACKLOG_FILE		= "_falcon_backlog.fts";
+#define BACKLOG_FILE		"_falcon_backlog.fts"
 
 class Database;
 class Dbb;

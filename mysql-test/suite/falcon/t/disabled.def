@@ -11,6 +11,7 @@
 ##############################################################################
 
 falcon_bug_22150    : Bug#34890 2008-02-27 hakank Open bug
+falcon_bug_22165    : Bug#35255 2008-03-12 hakank Open bug
 falcon_bug_22166    : Bug#22166 2006-08-24 hakank Open bug
 falcon_bug_22169    : Bug#22169 2006-08-24 hakank Too long run time for PB
 falcon_bug_22182    : Disabled until runtime team provides RENAME DATABASE replacement. See WL#4030

@@ -202,7 +202,7 @@ public:
                                 const uchar *pack_frm_data,
                                 size_t pack_frm_len);
   virtual int drop_partitions(const char *path);
-  virtual int rename_partitions(const char *path);
+  virtual int rename_partitions(THD *thd, const char *path);
   bool get_no_parts(const char *name, uint *no_parts)
   {
     DBUG_ENTER("ha_partition::get_no_parts");

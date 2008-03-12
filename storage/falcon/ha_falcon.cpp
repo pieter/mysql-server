@@ -3063,7 +3063,7 @@ int NfsPluginHandler::deinitSyncInfo(void *p)
 
 static void updateIndexChillThreshold(MYSQL_THD thd,
                                       struct st_mysql_sys_var *var,
-                                      void *var_ptr, void *save)
+                                      void *var_ptr, const void *save)
 {
 	falcon_index_chill_threshold = *(uint *)save;
 	if(storageHandler)
@@ -3072,33 +3072,33 @@ static void updateIndexChillThreshold(MYSQL_THD thd,
 
 static void updateRecordChillThreshold(MYSQL_THD thd,
                                       struct st_mysql_sys_var *var,
-                                      void *var_ptr, void *save)
+                                      void *var_ptr, const void *save)
 {
 	falcon_record_chill_threshold = *(uint *)save;
 	if(storageHandler)
 		storageHandler->setRecordChillThreshold(falcon_record_chill_threshold * 1024 * 1024);
 }
 
-void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, const void* save)
 {
 	falcon_record_memory_max = *(ulonglong*) save;
 	storageHandler->setRecordMemoryMax(falcon_record_memory_max);
 }
 
-void StorageInterface::updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+void StorageInterface::updateRecordScavengeThreshold(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, const void* save)
 {
 	falcon_record_scavenge_threshold = *(uint*) save;
 	storageHandler->setRecordScavengeThreshold(falcon_record_scavenge_threshold);
 }
 
-void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+void StorageInterface::updateRecordScavengeFloor(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, const void* save)
 {
 	falcon_record_scavenge_floor = *(uint*) save;
 	storageHandler->setRecordScavengeFloor(falcon_record_scavenge_floor);
 }
 
 
-void StorageInterface::updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
+void StorageInterface::updateDebugMask(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, const void* save)
 {
 	falcon_debug_mask = *(uint*) save;
 	storageHandler->deleteNfsLogger(StorageInterface::logger, NULL);

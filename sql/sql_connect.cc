@@ -947,7 +947,7 @@ bool setup_connection_thread_globals(THD *thd)
 */
 
 
-static bool login_connection(THD *thd)
+bool login_connection(THD *thd)
 {
   NET *net= &thd->net;
   int error;
@@ -987,7 +987,7 @@ static bool login_connection(THD *thd)
     This mainly updates status variables
 */
 
-static void end_connection(THD *thd)
+void end_connection(THD *thd)
 {
   NET *net= &thd->net;
   plugin_thdvar_cleanup(thd);

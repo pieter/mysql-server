@@ -3076,8 +3076,6 @@ static void updateRecordChillThreshold(MYSQL_THD thd,
 		storageHandler->setRecordChillThreshold(falcon_record_chill_threshold * 1024 * 1024);
 }
 
-
-
 void StorageInterface::updateRecordMemoryMax(MYSQL_THD thd, struct st_mysql_sys_var* variable, void* var_ptr, void* save)
 {
 	falcon_record_memory_max = *(ulonglong*) save;

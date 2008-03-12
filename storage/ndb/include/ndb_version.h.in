@@ -43,9 +43,9 @@ void ndbPrintVersion();
 Uint32 ndbMakeVersion(Uint32 major, Uint32 minor, Uint32 build);
 
 Uint32 ndbGetMajor(Uint32 version);
-  
+
 Uint32 ndbGetMinor(Uint32 version);
-  
+
 Uint32 ndbGetBuild(Uint32 version);
 
 const char* ndbGetVersionString(Uint32 version, Uint32 mysql_version, const char * status,
@@ -63,7 +63,7 @@ Uint32 ndbGetOwnVersion();
 #define NDB_VERSION ndbGetOwnVersion()
 
 /**
- * Version id 
+ * Version id
  *
  *  Used by transporter and when communicating with
  *     managment server
@@ -72,7 +72,7 @@ Uint32 ndbGetOwnVersion();
 
 /**
  * From which version do we support rowid
- */ 
+ */
 #define NDBD_ROWID_VERSION (NDB_MAKE_VERSION(5,1,6))
 #define NDBD_INCL_NODECONF_VERSION_4 NDB_MAKE_VERSION(4,1,17)
 #define NDBD_INCL_NODECONF_VERSION_5 NDB_MAKE_VERSION(5,0,18)
@@ -97,7 +97,7 @@ static
 inline
 int
 ndb_check_micro_gcp(Uint32 version)
-{	
+{
   if (version == NDB_VERSION_D)
     return 1;
   {
@@ -127,7 +127,7 @@ static
 inline
 int
 ndb_check_prep_copy_frag_version(Uint32 version)
-{	
+{
   const Uint32 major = (version >> 16) & 0xFF;
   const Uint32 minor = (version >>  8) & 0xFF;
 
@@ -157,9 +157,7 @@ ndb_check_prep_copy_frag_version(Uint32 version)
     if (version >= NDBD_PREPARE_COPY_FRAG_V2_51)
       return 2;
   }
-    
   return 0;
 }
 
 #endif
- 

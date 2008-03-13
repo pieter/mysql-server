@@ -40,6 +40,8 @@
 #define DICTIONARY_PW			"mysql"
 #define FALCON_USER				DEFAULT_TABLESPACE_PATH
 #define FALCON_TEMPORARY		TEMPORARY_PATH
+#define WHITE_SPACE				" \t\n\r"
+#define PUNCTUATION_CHARS		".+-*/%()*<>=!;,?{}[]:~^|"
 
 #define HASH(address,size)				(int)(((UIPTR) address >> 2) % size)
 
@@ -79,10 +81,27 @@ extern Server*	startServer(int port, const char *configFile);
 
 static StorageHandler *storageHandler;
 
+static char charTable[256];
+static int init();
+static int foo = init();
+
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;
 #endif
+
+int init()
+{
+	const char *p;
+	
+	for (p = WHITE_SPACE; *p;)
+		charTable[*p++] = 1;
+	
+	for (p = PUNCTUATION_CHARS; *p;)
+		charTable[*p++] = 1;
+	
+	return 1;
+}
 
 StorageHandler*	getFalconStorageHandler(int lockSize)
 {
@@ -1114,3 +1133,19 @@ int StorageHandler::recoverGetNextLimbo(int xidLength, unsigned char* xid)
 
 	return 0;
 	}
+
+const char* StorageHandler::normalizeName(const char* name, int bufferSize, char* buffer)
+{
+	char *q = buffer;
+	char *end = buffer + bufferSize - 1;
+	
+	for (const char *p = name; *p && q < end; ++p)
+		if (charTable[*p])
+			return name;
+		else
+			*q++ = UPPER(*p);
+	
+	*q = 0;
+	
+	return buffer;
+}

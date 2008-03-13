@@ -109,6 +109,8 @@ public:
 	virtual void		setRecordScavengeThreshold(int value);
 	virtual void		setRecordScavengeFloor(int value);
 	virtual	StorageTableShare* preDeleteTable(const char* pathname);
+	virtual void		getFalconVersionInfo(InfoTable* infoTable);
+	virtual const char* normalizeName(const char* name, int bufferSize, char* buffer);
 
 	StorageDatabase*	getStorageDatabase(const char* dbName, const char* path);
 	void				remove(StorageConnection* storageConnection);
@@ -137,7 +139,6 @@ public:
 	Connection			*dictionaryConnection;
 	int					mySqlLockSize;
 	bool				initialized;
-	virtual void getFalconVersionInfo(InfoTable* infoTable);
 };
 
 #endif

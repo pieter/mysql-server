@@ -233,6 +233,8 @@ void select_describe(JOIN *join, bool need_tmp_table,bool need_order,
 static Item *remove_additional_cond(Item* conds);
 static void add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab);
 static bool test_if_ref(Item_field *left_item,Item *right_item);
+static bool replace_where_subcondition(JOIN *join, Item *old_cond, 
+                                       Item *new_cond, bool fix_fields);
 
 /*
   This is used to mark equalities that were made from i-th IN-equality.
@@ -391,10 +393,10 @@ fix_inner_refs(THD *thd, List<Item> &all_fields, SELECT_LEX *select,
       }
     }
     new_ref= direct_ref ?
-              new Item_direct_ref(ref->context, item_ref, ref->field_name,
-                          ref->table_name, ref->alias_name_used) :
-              new Item_ref(ref->context, item_ref, ref->field_name,
-                          ref->table_name, ref->alias_name_used);
+              new Item_direct_ref(ref->context, item_ref, ref->table_name,
+                          ref->field_name, ref->alias_name_used) :
+              new Item_ref(ref->context, item_ref, ref->table_name,
+                          ref->field_name, ref->alias_name_used);
     if (!new_ref)
       return TRUE;
     ref->outer_ref= new_ref;
@@ -3261,19 +3263,6 @@ bool convert_subq_to_sj(JOIN *parent_join, Item_in_subselect *subq_pred)
 
   if (subq_pred->left_expr->cols() == 1)
   {
-    /*
-      psergey-insideout-todo: 
-      Figure out if we can just collect a list of items or will need 
-      to wrap them into item-refs instead, like this:
-
-      (and if we do wrap, we will have to use a permanent place to store
-      pointers. (is that one of ref-pointer-array's functions?))
-
-      new Item_direct_view_ref(&subq_lex->context,
-                               subq_lex->ref_pointer_array[0],
-                               (char *)"<no matter>",
-                               (char *)"<list ref>");
-    */
     nested_join->sj_outer_expr_list.push_back(subq_pred->left_expr);
 
     Item *item_eq= new Item_func_eq(subq_pred->left_expr, 
@@ -3383,14 +3372,15 @@ bool JOIN::flatten_subqueries()
   */
   sj_subselects.sort(subq_sj_candidate_cmp);
   // #tables-in-parent-query + #tables-in-subquery < MAX_TABLES
-  /* Replace all subqueries to be flattened for Item_int(1) */
+  /* Replace all subqueries to be flattened with Item_int(1) */
   arena= thd->activate_stmt_arena_if_needed(&backup);
   for (in_subq= sj_subselects.front(); 
        in_subq != in_subq_end && 
        tables + ((*in_subq)->sj_convert_priority % MAX_TABLES) < MAX_TABLES;
        in_subq++)
   {
-    *((*in_subq)->ref_ptr)= new Item_int(1);
+    if (replace_where_subcondition(this, *in_subq, new Item_int(1), FALSE))
+      DBUG_RETURN(TRUE);
   }
  
   for (in_subq= sj_subselects.front(); 
@@ -3415,11 +3405,12 @@ bool JOIN::flatten_subqueries()
     if (res == Item_subselect::RES_ERROR)
       DBUG_RETURN(TRUE);
 
-    *((*in_subq)->ref_ptr)= (*in_subq)->substitution;
     (*in_subq)->changed= 1;
     (*in_subq)->fixed= 1;
-    if (!(*in_subq)->substitution->fixed &&
-      (*in_subq)->substitution->fix_fields(thd, (*in_subq)->ref_ptr))
+
+    Item *substitute= (*in_subq)->substitution;
+    bool do_fix_fields= !(*in_subq)->substitution->fixed;
+    if (replace_where_subcondition(this, *in_subq, substitute, do_fix_fields))
       DBUG_RETURN(TRUE);
 
     //if ((*in_subq)->fix_fields(thd, (*in_subq)->ref_ptr))
@@ -4246,7 +4237,9 @@ merge_key_fields(KEY_FIELD *start,KEY_FIELD *new_fields,KEY_FIELD *end,
 	  }
 	}
 	else if (old->eq_func && new_fields->eq_func &&
-		 old->val->eq(new_fields->val, old->field->binary()))
+                 old->val->eq_by_collation(new_fields->val, 
+                                           old->field->binary(),
+                                           old->field->charset()))
 
 	{
 	  old->level= and_level;
@@ -12330,8 +12323,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   table->copy_blobs= 1;
   table->in_use= thd;
   table->quick_keys.init();
-  table->covering_keys.init(); //psergey-todo: check if we need to set a bit there 
-  //table->used_keys.init();
+  table->covering_keys.init();
   table->keys_in_use_for_query.init();
 
   table->s= share;
@@ -13606,7 +13598,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab,
         we found a row, as no new rows can be added to the result.
       */
       if (not_used_in_distinct && found_records != join->found_records)
-        return NESTED_LOOP_OK;
+        return NESTED_LOOP_NO_MORE_ROWS;
     }
     else
       join_tab->read_record.file->unlock_row();
@@ -14026,6 +14018,9 @@ join_read_key(JOIN_TAB *tab)
 
   DESCRIPTION
     This is "read_fist" function for the "ref" access method.
+   
+    The functon must leave the index initialized when it returns.
+    ref_or_null access implementation depends on that.
 
   RETURN
     0  - Ok
@@ -14038,7 +14033,11 @@ join_read_always_key(JOIN_TAB *tab)
 {
   int error;
   TABLE *table= tab->table;
-  
+
+  /* Initialize the index first */
+  if (!table->file->inited)
+    table->file->ha_index_init(tab->ref.key, tab->sorted);
+ 
   /* Perform "Late NULLs Filtering" (see internals manual for explanations) */
   for (uint i= 0 ; i < tab->ref.key_parts ; i++)
   {
@@ -14046,10 +14045,6 @@ join_read_always_key(JOIN_TAB *tab)
         return -1;
   }
 
-  if (!table->file->inited)
-  {
-    table->file->ha_index_init(tab->ref.key, tab->sorted);
-  }
   if (cp_buffer_from_ref(tab->join->thd, table, &tab->ref))
     return -1;
   if ((error=table->file->index_read_map(table->record[0],
@@ -14921,6 +14916,48 @@ static bool test_if_ref(Item_field *left_item,Item *right_item)
   return 0;					// keep test
 }
 
+/**
+   @brief Replaces an expression destructively inside the expression tree of
+   the WHERE clase.
+
+   @note Because of current requirements for semijoin flattening, we do not
+   need to recurse here, hence this function will only examine the top-level
+   AND conditions. (see JOIN::prepare, comment above the line 
+   'if (do_materialize)'
+   
+   @param join The top-level query.
+   @param old_cond The expression to be replaced.
+   @param new_cond The expression to be substituted.
+   @param do_fix_fields If true, Item::fix_fields(THD*, Item**) is called for
+   the new expression.
+   @return <code>true</code> if there was an error, <code>false</code> if
+   successful.
+*/
+static bool replace_where_subcondition(JOIN *join, Item *old_cond, 
+                                       Item *new_cond, bool do_fix_fields)
+{
+  if (join->conds == old_cond) {
+    join->conds= new_cond;
+    if (do_fix_fields)
+      new_cond->fix_fields(join->thd, &join->conds);
+    return FALSE;
+  }
+  
+  if (join->conds->type() == Item::COND_ITEM) {
+    List_iterator<Item> li(*((Item_cond*)join->conds)->argument_list());
+    Item *item;
+    while ((item= li++))
+      if (item == old_cond) 
+      {
+        li.replace(new_cond);
+        if (do_fix_fields)
+          new_cond->fix_fields(join->thd, li.ref());
+        return FALSE;
+      }
+  }
+
+  return TRUE;
+}
 
 /*
   Extract a condition that can be checked after reading given table
@@ -15509,12 +15546,12 @@ test_if_skip_sort_order(JOIN_TAB *tab,ORDER *order,ha_rows select_limit,
       */
       if (table->covering_keys.is_set(ref_key))
 	usable_keys.intersect(table->covering_keys);
+      if (tab->pre_idx_push_select_cond)
+        tab->select_cond= tab->select->cond= tab->pre_idx_push_select_cond;
       if ((new_ref_key= test_if_subkey(order, table, ref_key, ref_key_parts,
 				       &usable_keys)) < MAX_KEY)
       {
 	/* Found key that can be used to retrieve data in sorted order */
-        if (tab->pre_idx_push_select_cond)
-          tab->select_cond= tab->select->cond= tab->pre_idx_push_select_cond;
 	if (tab->ref.key >= 0)
 	{
           /*
@@ -18759,7 +18796,10 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
         else if (tab->select && tab->select->quick)
           keyno = tab->select->quick->index;
 
-        tab->table->file->add_explain_extra_info(keyno, &extra);
+        if (keyno != MAX_KEY && keyno == table->file->pushed_idx_cond_keyno &&
+            table->file->pushed_idx_cond)
+          extra.append(STRING_WITH_LEN("; Using index condition"));
+
         if (quick_type == QUICK_SELECT_I::QS_TYPE_ROR_UNION || 
             quick_type == QUICK_SELECT_I::QS_TYPE_ROR_INTERSECT ||
             quick_type == QUICK_SELECT_I::QS_TYPE_INDEX_MERGE)

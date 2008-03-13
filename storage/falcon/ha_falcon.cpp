@@ -811,11 +811,13 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 
 	gen.gen (")");
 	const char *tableSpace = NULL;
+	char tableSpaceName[512];
+	
 
 	if (tempTable)
 		tableSpace = TEMPORARY_TABLESPACE;
 	else if (info->tablespace)
-		tableSpace = info->tablespace;
+		tableSpace = storageHandler->normalizeName(info->tablespace, sizeof(tableSpaceName), tableSpaceName);
 	else
 		tableSpace = DEFAULT_TABLESPACE;
 
@@ -2012,14 +2014,17 @@ int StorageInterface::alter_tablespace(handlerton* hton, THD* thd, st_alter_tabl
 		ENGINE [=] engine
 	*/
 
+	char buffer[512];
+	const char *tableSpaceName = storageHandler->normalizeName(ts_info->tablespace_name, sizeof(buffer), buffer);
+	
 	switch (ts_info->ts_cmd_type)
 		{
 		case CREATE_TABLESPACE:
-			ret = storageHandler->createTablespace(ts_info->tablespace_name, ts_info->data_file_name);
+			ret = storageHandler->createTablespace(tableSpaceName, ts_info->data_file_name);
 			break;
 
 		case DROP_TABLESPACE:
-			ret = storageHandler->deleteTablespace(ts_info->tablespace_name);
+			ret = storageHandler->deleteTablespace(tableSpaceName);
 			break;
 
 		default:
@@ -3205,10 +3210,8 @@ static struct st_mysql_sys_var* falconVariables[]= {
 	MYSQL_SYSVAR(serial_log_dir),
 	MYSQL_SYSVAR(checkpoint_schedule),
 	MYSQL_SYSVAR(scavenge_schedule),
-	//MYSQL_SYSVAR(debug_mask),
 	MYSQL_SYSVAR(record_memory_max),
 	MYSQL_SYSVAR(initial_allocation),
-	//MYSQL_SYSVAR(allocation_extent),
 	MYSQL_SYSVAR(page_cache_size),
 	MYSQL_SYSVAR(consistent_read),
 	NULL

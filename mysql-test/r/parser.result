@@ -547,3 +547,7 @@ UPDATE t3 SET a4={d '1789-07-14'} WHERE a1=0;
 SELECT a1, a4 FROM t2 WHERE a4 LIKE {fn UCASE('1789-07-14')};
 a1	a4
 DROP TABLE t1, t2, t3;
+BACKUP DATABASE *, test to 'broken.bak';
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ' test to 'broken.bak'' at line 1
+BACKUP DATABASE *, db1, db2, db3 to 'broken.bak';
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ' db1, db2, db3 to 'broken.bak'' at line 1

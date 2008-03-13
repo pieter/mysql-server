@@ -275,7 +275,7 @@ class Snapshot_info
 
  protected:
 
-  Snapshot_info(): m_no(0), version(0)
+  Snapshot_info(): version(0), m_no(0)
   {}
 
   // Methods for adding and accessing tables stored in the table list.

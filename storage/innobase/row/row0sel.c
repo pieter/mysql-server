@@ -4175,7 +4175,7 @@ idx_cond_check:
           if (res == 2)
           {
             err = DB_RECORD_NOT_FOUND;
-            goto normal_return;
+            goto idx_cond_failed;
           }
         }
 
@@ -4327,6 +4327,9 @@ got_row:
 	HANDLER command where the user can move the cursor with PREV or NEXT
 	even after a unique search. */
 
+	err = DB_SUCCESS;
+
+idx_cond_failed:
 	if (!unique_search_from_clust_index
 	    || prebuilt->select_lock_type != LOCK_NONE
 	    || prebuilt->used_in_HANDLER) {
@@ -4335,8 +4338,6 @@ got_row:
 
 		btr_pcur_store_position(pcur, &mtr);
 	}
-
-	err = DB_SUCCESS;
 
 	goto normal_return;
 

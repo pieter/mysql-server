@@ -11,16 +11,14 @@
 ##############################################################################
 innodb          : WL#1213: Waiting for InnoDB team to add support for 4-byte character sets.
 concurrent_innodb        : BUG#21579 2006-08-11 mleich innodb_concurrent random failures with varying differences
-order_by             : WL#2475: spetrunia producing ordered streams is not handled correctly
+##order_by             : WL#2475: spetrunia producing ordered streams is not handled correctly
 federated_transactions   : Bug#29523 Transactions do not work
 subselect2 : BUG#31464 SergeyP will fix
-log_tables : BUG#31580 2007-10-13 SergeyP log_tables.test fails on all windows platforms in pushbuild
 show_check      : Bug #32682    Test show_check fails in 6.0
 lowercase_table3         : Bug#32667 lowercase_table3.test reports to error log
 innodb_mysql         : Bug#32724: innodb_mysql.test fails randomly
 events_bugs          : Bug#32771 events_bugs.test fails randomly
 rpl_log_pos          : Bug#8693 Test 'rpl_log_pos' fails sometimes
-wait_timeout         : Bug#32801 wait_timeout.test fails randomly
 subselect_sj         : Bug#32994: subselect_sj fails sporadically (timeout)
 ctype_create         : Bug#32965 main.ctype_create fails
 status               : Bug#32966 main.status fails

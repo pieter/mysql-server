@@ -1112,7 +1112,7 @@ double Item_func_plus::real_op()
   double value= args[0]->val_real() + args[1]->val_real();
   if ((null_value=args[0]->null_value || args[1]->null_value))
     return 0.0;
-  return value;
+  return fix_result(value);
 }
 
 
@@ -1190,7 +1190,7 @@ double Item_func_minus::real_op()
   double value= args[0]->val_real() - args[1]->val_real();
   if ((null_value=args[0]->null_value || args[1]->null_value))
     return 0.0;
-  return value;
+  return fix_result(value);
 }
 
 
@@ -1230,7 +1230,7 @@ double Item_func_mul::real_op()
   double value= args[0]->val_real() * args[1]->val_real();
   if ((null_value=args[0]->null_value || args[1]->null_value))
     return 0.0;
-  return value;
+  return fix_result(value);
 }
 
 
@@ -1288,7 +1288,7 @@ double Item_func_div::real_op()
     signal_divide_by_null();
     return 0.0;
   }
-  return value/val2;
+  return fix_result(value/val2);
 }
 
 
@@ -1662,7 +1662,7 @@ double Item_func_exp::val_real()
   double value= args[0]->val_real();
   if ((null_value=args[0]->null_value))
     return 0.0; /* purecov: inspected */
-  return exp(value);
+  return fix_result(exp(value));
 }
 
 double Item_func_sqrt::val_real()
@@ -1681,7 +1681,7 @@ double Item_func_pow::val_real()
   double val2= args[1]->val_real();
   if ((null_value=(args[0]->null_value || args[1]->null_value)))
     return 0.0; /* purecov: inspected */
-  return pow(value,val2);
+  return fix_result(pow(value,val2));
 }
 
 // Trigonometric functions
@@ -1693,7 +1693,7 @@ double Item_func_acos::val_real()
   volatile double value= args[0]->val_real();
   if ((null_value=(args[0]->null_value || (value < -1.0 || value > 1.0))))
     return 0.0;
-  return fix_result(acos(value));
+  return acos(value);
 }
 
 double Item_func_asin::val_real()
@@ -1703,7 +1703,7 @@ double Item_func_asin::val_real()
   volatile double value= args[0]->val_real();
   if ((null_value=(args[0]->null_value || (value < -1.0 || value > 1.0))))
     return 0.0;
-  return fix_result(asin(value));
+  return asin(value);
 }
 
 double Item_func_atan::val_real()
@@ -1719,7 +1719,7 @@ double Item_func_atan::val_real()
       return 0.0;
     return fix_result(atan2(value,val2));
   }
-  return fix_result(atan(value));
+  return atan(value);
 }
 
 double Item_func_cos::val_real()
@@ -1728,7 +1728,7 @@ double Item_func_cos::val_real()
   double value= args[0]->val_real();
   if ((null_value=args[0]->null_value))
     return 0.0;
-  return fix_result(cos(value));
+  return cos(value);
 }
 
 double Item_func_sin::val_real()
@@ -1737,7 +1737,7 @@ double Item_func_sin::val_real()
   double value= args[0]->val_real();
   if ((null_value=args[0]->null_value))
     return 0.0;
-  return fix_result(sin(value));
+  return sin(value);
 }
 
 double Item_func_tan::val_real()
@@ -3673,18 +3673,28 @@ longlong Item_func_benchmark::val_int()
   String tmp(buff,sizeof(buff), &my_charset_bin);
   my_decimal tmp_decimal;
   THD *thd=current_thd;
-  ulong loop_count;
+  ulonglong loop_count;
 
-  loop_count= (ulong) args[0]->val_int();
+  loop_count= (ulonglong) args[0]->val_int();
 
-  if (args[0]->null_value)
+  if (args[0]->null_value ||
+      (!args[0]->unsigned_flag && (((longlong) loop_count) < 0)))
   {
+    if (!args[0]->null_value)
+    {
+      char buff[22];
+      llstr(((longlong) loop_count), buff);
+      push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_ERROR,
+                          ER_WRONG_VALUE_FOR_TYPE, ER(ER_WRONG_VALUE_FOR_TYPE),
+                          "count", buff, "benchmark");
+    }
+
     null_value= 1;
     return 0;
   }
 
   null_value=0;
-  for (ulong loop=0 ; loop < loop_count && !thd->killed; loop++)
+  for (ulonglong loop=0 ; loop < loop_count && !thd->killed; loop++)
   {
     switch (args[1]->result_type()) {
     case REAL_RESULT:
@@ -5531,6 +5541,8 @@ Item_func_sp::make_field(Send_field *tmp_field)
   DBUG_ENTER("Item_func_sp::make_field");
   DBUG_ASSERT(sp_result_field);
   sp_result_field->make_field(tmp_field);
+  if (name)
+    tmp_field->col_name= name;
   DBUG_VOID_RETURN;
 }
 

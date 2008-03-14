@@ -292,6 +292,7 @@ private:
 };
 
 uint32 get_next_partition_id_range(struct st_partition_iter* part_iter);
+bool check_partition_dirs(partition_info *part_info);
 
 /* Initialize the iterator to return a single partition with given part_id */
 

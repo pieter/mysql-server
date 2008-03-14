@@ -925,8 +925,6 @@ int64 DateTime::getSeconds(tm *time, const TimeZone *timeZone)
 bool DateTime::isDayLightSavings(tm *time)
 {
 	if (!time->tm_isdst)
-	// This does not work on Mac OS X and FreeBSD.
-	//if (!daylight)
 		return false;
 
 	// Jan to March and November and December are definitely no

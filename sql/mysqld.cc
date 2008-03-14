@@ -4885,6 +4885,9 @@ static void create_new_thread(THD *thd)
 
   ++connection_count;
 
+  if (connection_count > max_used_connections)
+    max_used_connections= connection_count;
+
   pthread_mutex_unlock(&LOCK_connection_count);
 
   /* Start a new thread to handle connection. */
@@ -4899,9 +4902,6 @@ static void create_new_thread(THD *thd)
   thd->thread_id= thd->variables.pseudo_thread_id= thread_id++;
 
   thread_count++;
-
-  if (thread_count - delayed_insert_threads > max_used_connections)
-    max_used_connections= thread_count - delayed_insert_threads;
 
   thread_scheduler.add_connection(thd);
 

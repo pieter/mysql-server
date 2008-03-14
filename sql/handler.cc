@@ -3270,11 +3270,11 @@ handler::ha_change_partitions(HA_CREATE_INFO *create_info,
 */
 
 int
-handler::ha_drop_partitions(const char *path)
+handler::ha_drop_partitions(THD *thd, const char *path)
 {
   mark_trx_read_write();
 
-  return drop_partitions(path);
+  return drop_partitions(thd, path);
 }
 
 
@@ -3285,11 +3285,11 @@ handler::ha_drop_partitions(const char *path)
 */
 
 int
-handler::ha_rename_partitions(const char *path)
+handler::ha_rename_partitions(THD *thd, const char *path)
 {
   mark_trx_read_write();
 
-  return rename_partitions(path);
+  return rename_partitions(thd, path);
 }
 
 

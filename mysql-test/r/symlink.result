@@ -153,3 +153,11 @@ DROP TABLE t1;
 CREATE TABLE t1(a INT)
 INDEX DIRECTORY='TEST_DIR/master-data_var';
 ERROR HY000: Can't create/write to file 'TEST_DIR/master-data_var/t1.MYI' (Errcode: 2)
+SET @OLD_SQL_MODE=@@SQL_MODE, @@SQL_MODE='NO_DIR_IN_CREATE';
+CREATE TABLE t1(a INT) DATA DIRECTORY='MYSQLTEST_VARDIR/tmp' INDEX DIRECTORY='MYSQLTEST_VARDIR/tmp';
+Warnings:
+Warning	0	DATA DIRECTORY option ignored
+Warning	0	INDEX DIRECTORY option ignored
+DROP TABLE t1;
+SET @@SQL_MODE=@OLD_SQL_MODE;
+End of 5.1 tests

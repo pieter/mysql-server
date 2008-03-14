@@ -3559,7 +3559,7 @@ bool mysql_create_table_no_lock(THD *thd,
 #endif /* WITH_PARTITION_STORAGE_ENGINE */
 
   if (!my_use_symdir || (thd->variables.sql_mode & MODE_NO_DIR_IN_CREATE))
-#endif
+#endif /* HAVE_READLINK */
   {
     if (create_info->data_file_name)
       push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN, 0,

@@ -329,7 +329,7 @@ A ---äÖüß@µ*$--	 ---äÖüß@µ*$--	4
 A-1	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select concat(_latin1'A',`t1_values`.`my_char_30`) AS `CONCAT('A',my_char_30)`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select concat('A',`t1_values`.`my_char_30`) AS `CONCAT('A',my_char_30)`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 192 OR select_id IS NULL) order by id;
@@ -461,7 +461,7 @@ my_decimal, id FROM t1_values
 WHERE select_id = 183 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'-',_latin1' - -ABC',`t1_values`.`my_decimal`) AS `LOCATE('-', ' - -ABC', my_decimal)`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('-',' - -ABC',`t1_values`.`my_decimal`) AS `LOCATE('-', ' - -ABC', my_decimal)`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 183 OR select_id IS NULL) order by id;
@@ -475,7 +475,7 @@ my_double, id FROM t1_values
 WHERE select_id = 182 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'-',_latin1' - -ABC',`t1_values`.`my_double`) AS `LOCATE('-', ' - -ABC', my_double)`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('-',' - -ABC',`t1_values`.`my_double`) AS `LOCATE('-', ' - -ABC', my_double)`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 182 OR select_id IS NULL) order by id;
@@ -489,7 +489,7 @@ my_bigint, id FROM t1_values
 WHERE select_id = 181 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'-',_latin1' - -ABC',`t1_values`.`my_bigint`) AS `LOCATE('-', ' - -ABC', my_bigint)`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('-',' - -ABC',`t1_values`.`my_bigint`) AS `LOCATE('-', ' - -ABC', my_bigint)`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 181 OR select_id IS NULL) order by id;
@@ -503,7 +503,7 @@ my_varbinary_1000, id FROM t1_values
 WHERE select_id = 180 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'-',`t1_values`.`my_varbinary_1000`,3) AS `LOCATE('-', my_varbinary_1000, 3)`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('-',`t1_values`.`my_varbinary_1000`,3) AS `LOCATE('-', my_varbinary_1000, 3)`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 180 OR select_id IS NULL) order by id;
@@ -517,7 +517,7 @@ my_binary_30, id FROM t1_values
 WHERE select_id = 179 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'-',`t1_values`.`my_binary_30`,3) AS `LOCATE('-', my_binary_30, 3)`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('-',`t1_values`.`my_binary_30`,3) AS `LOCATE('-', my_binary_30, 3)`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 179 OR select_id IS NULL) order by id;
@@ -531,7 +531,7 @@ my_varchar_1000, id FROM t1_values
 WHERE select_id = 178 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'-',`t1_values`.`my_varchar_1000`,3) AS `LOCATE('-', my_varchar_1000, 3)`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('-',`t1_values`.`my_varchar_1000`,3) AS `LOCATE('-', my_varchar_1000, 3)`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 178 OR select_id IS NULL) order by id;
@@ -545,7 +545,7 @@ my_char_30, id FROM t1_values
 WHERE select_id = 177 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'-',`t1_values`.`my_char_30`,3) AS `LOCATE('-', my_char_30, 3)`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('-',`t1_values`.`my_char_30`,3) AS `LOCATE('-', my_char_30, 3)`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 177 OR select_id IS NULL) order by id;
@@ -783,7 +783,7 @@ my_varbinary_1000, id FROM t1_values
 WHERE select_id = 160 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'char',`t1_values`.`my_varbinary_1000`) AS `LOCATE('char', my_varbinary_1000)`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('char',`t1_values`.`my_varbinary_1000`) AS `LOCATE('char', my_varbinary_1000)`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 160 OR select_id IS NULL) order by id;
@@ -797,7 +797,7 @@ my_binary_30, id FROM t1_values
 WHERE select_id = 159 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'char',`t1_values`.`my_binary_30`) AS `LOCATE('char', my_binary_30)`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('char',`t1_values`.`my_binary_30`) AS `LOCATE('char', my_binary_30)`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 159 OR select_id IS NULL) order by id;
@@ -811,7 +811,7 @@ my_varchar_1000, id FROM t1_values
 WHERE select_id = 158 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'char',`t1_values`.`my_varchar_1000`) AS `LOCATE('char', my_varchar_1000)`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('char',`t1_values`.`my_varchar_1000`) AS `LOCATE('char', my_varchar_1000)`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 158 OR select_id IS NULL) order by id;
@@ -825,7 +825,7 @@ my_char_30, id FROM t1_values
 WHERE select_id = 157 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'char',`t1_values`.`my_char_30`) AS `LOCATE('char', my_char_30)`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('char',`t1_values`.`my_char_30`) AS `LOCATE('char', my_char_30)`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 157 OR select_id IS NULL) order by id;
@@ -848,7 +848,7 @@ LOAD_FILE('../tmp/func_view.dat')	id
 	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select load_file(_latin1'../tmp/func_view.dat') AS `LOAD_FILE('../tmp/func_view.dat')`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select load_file('../tmp/func_view.dat') AS `LOAD_FILE('../tmp/func_view.dat')`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 156 OR select_id IS NULL) order by id;
@@ -936,7 +936,7 @@ Warning	1292	Truncated incorrect INTEGER value: '-1.7976931348623e308'
 Warning	1292	Truncated incorrect INTEGER value: '1.7976931348623e308'
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select left(_latin1'AaBbCcDdEeFfGgHhIiJjÄäÜüÖö',`t1_values`.`my_double`) AS `LEFT('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö', my_double)`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select left('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö',`t1_values`.`my_double`) AS `LEFT('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö', my_double)`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 151 OR select_id IS NULL) order by id;
@@ -966,7 +966,7 @@ Error	1292	Truncated incorrect DECIMAL value: ''
 Error	1292	Truncated incorrect DECIMAL value: ''
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select left(_latin1'AaBbCcDdEeFfGgHhIiJjÄäÜüÖö',`t1_values`.`my_decimal`) AS `LEFT('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö', my_decimal)`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select left('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö',`t1_values`.`my_decimal`) AS `LEFT('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö', my_decimal)`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 150 OR select_id IS NULL) order by id;
@@ -993,7 +993,7 @@ AaBbCcDdEeFfGgHhIiJjÄäÜüÖö	9223372036854775807	3
 	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select left(_latin1'AaBbCcDdEeFfGgHhIiJjÄäÜüÖö',`t1_values`.`my_bigint`) AS `LEFT('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö', my_bigint)`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select left('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö',`t1_values`.`my_bigint`) AS `LEFT('AaBbCcDdEeFfGgHhIiJjÄäÜüÖö', my_bigint)`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 149 OR select_id IS NULL) order by id;
@@ -1123,7 +1123,7 @@ my_char_30, id FROM t1_values
 WHERE select_id = 143 OR select_id IS NULL order by id;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate(_latin1'char',`t1_values`.`my_char_30`) AS `INSTR(my_char_30, 'char')`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select locate('char',`t1_values`.`my_char_30`) AS `INSTR(my_char_30, 'char')`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 143 OR select_id IS NULL) order by id;
@@ -1247,7 +1247,7 @@ IS_NULL	NULL	1
 2005	2005	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_year`,_latin1'IS_NULL') AS `IFNULL(my_year,'IS_NULL')`,`t1_values`.`my_year` AS `my_year`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_year`,'IS_NULL') AS `IFNULL(my_year,'IS_NULL')`,`t1_values`.`my_year` AS `my_year`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 138 OR select_id IS NULL) order by id;
@@ -1273,7 +1273,7 @@ IS_NULL	NULL	1
 10:00:00	10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_time`,_latin1'IS_NULL') AS `IFNULL(my_time,'IS_NULL')`,`t1_values`.`my_time` AS `my_time`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_time`,'IS_NULL') AS `IFNULL(my_time,'IS_NULL')`,`t1_values`.`my_time` AS `my_time`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 137 OR select_id IS NULL) order by id;
@@ -1299,7 +1299,7 @@ IFNULL(my_timestamp,'IS_NULL')	my_timestamp	id
 2005-06-28 10:00:00	2005-06-28 10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_timestamp`,_latin1'IS_NULL') AS `IFNULL(my_timestamp,'IS_NULL')`,`t1_values`.`my_timestamp` AS `my_timestamp`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_timestamp`,'IS_NULL') AS `IFNULL(my_timestamp,'IS_NULL')`,`t1_values`.`my_timestamp` AS `my_timestamp`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 136 OR select_id IS NULL) order by id;
@@ -1325,7 +1325,7 @@ IS_NULL	NULL	1
 2005-06-28	2005-06-28	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_date`,_latin1'IS_NULL') AS `IFNULL(my_date,'IS_NULL')`,`t1_values`.`my_date` AS `my_date`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_date`,'IS_NULL') AS `IFNULL(my_date,'IS_NULL')`,`t1_values`.`my_date` AS `my_date`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 135 OR select_id IS NULL) order by id;
@@ -1351,7 +1351,7 @@ IS_NULL	NULL	1
 2005-06-28 10:00:00	2005-06-28 10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_datetime`,_latin1'IS_NULL') AS `IFNULL(my_datetime,'IS_NULL')`,`t1_values`.`my_datetime` AS `my_datetime`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_datetime`,'IS_NULL') AS `IFNULL(my_datetime,'IS_NULL')`,`t1_values`.`my_datetime` AS `my_datetime`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 134 OR select_id IS NULL) order by id;
@@ -1377,7 +1377,7 @@ IS_NULL	NULL	1
 -1	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_double`,_latin1'IS_NULL') AS `IFNULL(my_double,'IS_NULL')`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_double`,'IS_NULL') AS `IFNULL(my_double,'IS_NULL')`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 133 OR select_id IS NULL) order by id;
@@ -1403,7 +1403,7 @@ IS_NULL	NULL	1
 -1.000000000000000000000000000000	-1.000000000000000000000000000000	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_decimal`,_latin1'IS_NULL') AS `IFNULL(my_decimal,'IS_NULL')`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_decimal`,'IS_NULL') AS `IFNULL(my_decimal,'IS_NULL')`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 132 OR select_id IS NULL) order by id;
@@ -1429,7 +1429,7 @@ IS_NULL	NULL	1
 -1	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_bigint`,_latin1'IS_NULL') AS `IFNULL(my_bigint,'IS_NULL')`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_bigint`,'IS_NULL') AS `IFNULL(my_bigint,'IS_NULL')`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 131 OR select_id IS NULL) order by id;
@@ -1455,7 +1455,7 @@ IS_NULL	NULL	1
 -1	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_varbinary_1000`,_latin1'IS_NULL') AS `IFNULL(my_varbinary_1000,'IS_NULL')`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_varbinary_1000`,'IS_NULL') AS `IFNULL(my_varbinary_1000,'IS_NULL')`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 130 OR select_id IS NULL) order by id;
@@ -1481,7 +1481,7 @@ IS_NULL	NULL	1
 -1                            	-1                            	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_binary_30`,_latin1'IS_NULL') AS `IFNULL(my_binary_30,'IS_NULL')`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_binary_30`,'IS_NULL') AS `IFNULL(my_binary_30,'IS_NULL')`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 129 OR select_id IS NULL) order by id;
@@ -1507,7 +1507,7 @@ IS_NULL	NULL	1
 -1	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_varchar_1000`,_latin1'IS_NULL') AS `IFNULL(my_varchar_1000,'IS_NULL')`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_varchar_1000`,'IS_NULL') AS `IFNULL(my_varchar_1000,'IS_NULL')`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 128 OR select_id IS NULL) order by id;
@@ -1533,7 +1533,7 @@ IS_NULL	NULL	1
 -1	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_char_30`,_latin1'IS_NULL') AS `IFNULL(my_char_30,'IS_NULL')`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select ifnull(`t1_values`.`my_char_30`,'IS_NULL') AS `IFNULL(my_char_30,'IS_NULL')`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 127 OR select_id IS NULL) order by id;
@@ -1560,7 +1560,7 @@ IS NOT NULL	2000	4
 IS NOT NULL	2005	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_year`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_year IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_year`),'IS     NULL','IS NOT NULL') AS `IF(my_year IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_year` AS `my_year`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1589,7 +1589,7 @@ IS NOT NULL	13:00:00	4
 IS NOT NULL	10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_time`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_time IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_time`),'IS     NULL','IS NOT NULL') AS `IF(my_time IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_time` AS `my_time`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1618,7 +1618,7 @@ IS NOT NULL	2004-02-29 23:59:59	4
 IS NOT NULL	2005-06-28 10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_timestamp`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_timestamp IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_timestamp`),'IS     NULL','IS NOT NULL') AS `IF(my_timestamp IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_timestamp` AS `my_timestamp`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1647,7 +1647,7 @@ IS NOT NULL	2004-02-29	4
 IS NOT NULL	2005-06-28	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_date`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_date IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_date`),'IS     NULL','IS NOT NULL') AS `IF(my_date IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_date` AS `my_date`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1676,7 +1676,7 @@ IS NOT NULL	2004-02-29 23:59:59	4
 IS NOT NULL	2005-06-28 10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_datetime`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_datetime IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_datetime`),'IS     NULL','IS NOT NULL') AS `IF(my_datetime IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_datetime` AS `my_datetime`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1705,7 +1705,7 @@ IS NOT NULL	0	4
 IS NOT NULL	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_double`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_double IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_double`),'IS     NULL','IS NOT NULL') AS `IF(my_double IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1734,7 +1734,7 @@ IS NOT NULL	0.000000000000000000000000000000	4
 IS NOT NULL	-1.000000000000000000000000000000	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_decimal`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_decimal IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_decimal`),'IS     NULL','IS NOT NULL') AS `IF(my_decimal IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1763,7 +1763,7 @@ IS NOT NULL	0	4
 IS NOT NULL	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_bigint`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_bigint IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_bigint`),'IS     NULL','IS NOT NULL') AS `IF(my_bigint IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1792,7 +1792,7 @@ IS NOT NULL	 ---äÖüß@µ*$-- 	4
 IS NOT NULL	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_varbinary_1000`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_varbinary_1000 IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_varbinary_1000`),'IS     NULL','IS NOT NULL') AS `IF(my_varbinary_1000 IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1821,7 +1821,7 @@ IS NOT NULL	 ---äÖüß@µ*$--           	4
 IS NOT NULL	-1                            	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_binary_30`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_binary_30 IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_binary_30`),'IS     NULL','IS NOT NULL') AS `IF(my_binary_30 IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1850,7 +1850,7 @@ IS NOT NULL	 ---äÖüß@µ*$-- 	4
 IS NOT NULL	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_varchar_1000`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_varchar_1000 IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_varchar_1000`),'IS     NULL','IS NOT NULL') AS `IF(my_varchar_1000 IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1879,7 +1879,7 @@ IS NOT NULL	 ---äÖüß@µ*$--	4
 IS NOT NULL	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_char_30`),_latin1'IS     NULL',_latin1'IS NOT NULL') AS `IF(my_char_30 IS NULL, 'IS     NULL',
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(isnull(`t1_values`.`my_char_30`),'IS     NULL','IS NOT NULL') AS `IF(my_char_30 IS NULL, 'IS     NULL',
 'IS NOT NULL')`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
@@ -1907,7 +1907,7 @@ IS     TRUE	2000	4
 IS     TRUE	2005	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_year`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_year, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_year` AS `my_year`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_year`,'IS     TRUE','IS NOT TRUE') AS `IF(my_year, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_year` AS `my_year`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 114 OR select_id IS NULL) order by id;
@@ -1933,7 +1933,7 @@ IS     TRUE	13:00:00	4
 IS     TRUE	10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_time`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_time, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_time` AS `my_time`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_time`,'IS     TRUE','IS NOT TRUE') AS `IF(my_time, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_time` AS `my_time`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 113 OR select_id IS NULL) order by id;
@@ -1959,7 +1959,7 @@ IS     TRUE	2004-02-29 23:59:59	4
 IS     TRUE	2005-06-28 10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_timestamp`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_timestamp, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_timestamp` AS `my_timestamp`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_timestamp`,'IS     TRUE','IS NOT TRUE') AS `IF(my_timestamp, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_timestamp` AS `my_timestamp`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 112 OR select_id IS NULL) order by id;
@@ -1985,7 +1985,7 @@ IS     TRUE	2004-02-29	4
 IS     TRUE	2005-06-28	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_date`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_date, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_date` AS `my_date`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_date`,'IS     TRUE','IS NOT TRUE') AS `IF(my_date, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_date` AS `my_date`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 111 OR select_id IS NULL) order by id;
@@ -2011,7 +2011,7 @@ IS     TRUE	2004-02-29 23:59:59	4
 IS     TRUE	2005-06-28 10:00:00	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_datetime`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_datetime, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_datetime` AS `my_datetime`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_datetime`,'IS     TRUE','IS NOT TRUE') AS `IF(my_datetime, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_datetime` AS `my_datetime`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 110 OR select_id IS NULL) order by id;
@@ -2037,7 +2037,7 @@ IS NOT TRUE	0	4
 IS     TRUE	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_double`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_double, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_double`,'IS     TRUE','IS NOT TRUE') AS `IF(my_double, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_double` AS `my_double`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 109 OR select_id IS NULL) order by id;
@@ -2063,7 +2063,7 @@ IS NOT TRUE	0.000000000000000000000000000000	4
 IS     TRUE	-1.000000000000000000000000000000	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_decimal`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_decimal, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_decimal`,'IS     TRUE','IS NOT TRUE') AS `IF(my_decimal, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_decimal` AS `my_decimal`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 108 OR select_id IS NULL) order by id;
@@ -2089,7 +2089,7 @@ IS NOT TRUE	0	4
 IS     TRUE	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_bigint`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_bigint, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_bigint`,'IS     TRUE','IS NOT TRUE') AS `IF(my_bigint, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_bigint` AS `my_bigint`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 107 OR select_id IS NULL) order by id;
@@ -2115,7 +2115,7 @@ IS NOT TRUE	 ---äÖüß@µ*$-- 	4
 IS     TRUE	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_varbinary_1000`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_varbinary_1000, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_varbinary_1000`,'IS     TRUE','IS NOT TRUE') AS `IF(my_varbinary_1000, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_varbinary_1000` AS `my_varbinary_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 106 OR select_id IS NULL) order by id;
@@ -2146,7 +2146,7 @@ Warning	1292	Truncated incorrect DOUBLE value: ' ---����@�*$-- '
 Warning	1292	Truncated incorrect DOUBLE value: '-1'
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_binary_30`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_binary_30, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_binary_30`,'IS     TRUE','IS NOT TRUE') AS `IF(my_binary_30, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_binary_30` AS `my_binary_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 105 OR select_id IS NULL) order by id;
@@ -2177,7 +2177,7 @@ IS NOT TRUE	 ---äÖüß@µ*$-- 	4
 IS     TRUE	-1	5
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_varchar_1000`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_varchar_1000, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_varchar_1000`,'IS     TRUE','IS NOT TRUE') AS `IF(my_varchar_1000, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_varchar_1000` AS `my_varchar_1000`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 104 OR select_id IS NULL) order by id;
@@ -2206,7 +2206,7 @@ Warning	1292	Truncated incorrect DOUBLE value: '<--------30 characters------->'
 Warning	1292	Truncated incorrect DOUBLE value: ' ---����@�*$--           '
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_char_30`,_latin1'IS     TRUE',_latin1'IS NOT TRUE') AS `IF(my_char_30, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select if(`t1_values`.`my_char_30`,'IS     TRUE','IS NOT TRUE') AS `IF(my_char_30, 'IS     TRUE', 'IS NOT TRUE')`,`t1_values`.`my_char_30` AS `my_char_30`,`t1_values`.`id` AS `id` from `t1_values`	latin1	latin1_swedish_ci
 SELECT v1.* FROM v1
 WHERE v1.id IN (SELECT id FROM t1_values
 WHERE select_id = 103 OR select_id IS NULL) order by id;

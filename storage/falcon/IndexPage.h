@@ -40,11 +40,13 @@ class IndexPage : public Page
 {
 public:
 	AddNodeResult addNode (Dbb *dbb, IndexKey *key, int32 recordNumber);
+	AddNodeResult addNode (Dbb *dbb, IndexKey *key, int32 recordNumber,IndexNode *node, IndexKey *priorKey, IndexKey *nextKey);
 	Btn*		appendNode (IndexKey *indexKey, int32 recordNumber, int pageSize);
 	int			deleteNode (Dbb *dbb, IndexKey *key, int32 recordNumber);
 	Btn*		findNodeInBranch (IndexKey *indexKey, int32 recordNumber);
 	Btn*		findNodeInLeaf (IndexKey *key, IndexKey *foundKey);
 	Btn*		findInsertionPoint (IndexKey *indexKey, int32 recordNumber, IndexKey *expandedKey);
+	Btn*		findInsertionPoint(int level, IndexKey* indexKey, int32 recordNumber, IndexKey* expandedKey, Btn* from, Btn* bucketEnd);
 	Bdb*		splitPage (Dbb *dbb, Bdb *bdb, TransId transId);
 	Bdb*		splitIndexPageEnd(Dbb *dbb, Bdb *bdb, TransId transId, IndexKey *insertKey, int recordNumber);
 	Bdb*		splitIndexPageMiddle(Dbb *dbb, Bdb *bdb, IndexKey *splitKey, TransId transId);
@@ -55,6 +57,13 @@ public:
 	void		validateNodes (Dbb *dbb, Validation *validation, Bitmap *children, int32 parentPageNumber);
 	void		validate (Dbb *dbb, Validation *validation, Bitmap *pages, int32 parentPageNumber);
 	void		validate(void *before);
+	bool		checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *indexKey, int recordNumber, int offset);
+	void		moveMemory(void *dst,void *src);
+	void		addSupernode(Btn *where);
+	bool		deleteSupernode(Btn *where);
+	Btn*		findSupernode(int level, IndexKey *searchKey, int32 recordNumber, Btn *after);
+	Btn*		findPriorNodeForSupernode(Btn *where,IndexKey *priorKey);
+
 
 	static int		computePrefix (IndexKey *key1, IndexKey *key2);
 	static Bdb*		findLevel (Dbb *dbb, int32 indexId, Bdb *bdb, int level, IndexKey *indexKey, int32 recordNumber);
@@ -67,7 +76,7 @@ public:
 	static void		printNode(IndexPage *page, int32 pageNumber, Btn *node, bool inversion = false);
 	static int32	getRecordNumber(const UCHAR *ptr);
 	static void		logIndexPage (Bdb *bdb, TransId transId);
-	static Btn*		findInsertionPoint(int level, IndexKey* indexKey, int32 recordNumber, IndexKey* expandedKey, Btn* nodes, Btn* bucketEnd);
+
 
 	int32	parentPage;
 	int32	priorPage;

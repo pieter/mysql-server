@@ -47,18 +47,9 @@ static const char THIS_FILE[]=__FILE__;
 
 AddNodeResult IndexPage::addNode(Dbb *dbb, IndexKey *indexKey, int32 recordNumber)
 {
-	if (dbb->debug & (DEBUG_KEYS | DEBUG_NODES_ADDED | DEBUG_PAGE_LEVEL))
-		{
-		Log::debug("\n***** addNode(%d) - ", recordNumber);
-		Btn::printKey ("New key", indexKey, 0, false);
-		}
-		
-	if (dbb->debug & (DEBUG_PAGES | DEBUG_NODES_ADDED))
-		printPage (this, 0, false);
+
 
 	// Find the insertion point.  In the process, compute the prior key
-
-	//validate(NULL);
 	UCHAR *key = indexKey->key;
 	IndexKey priorKey;
 
@@ -73,47 +64,70 @@ AddNodeResult IndexPage::addNode(Dbb *dbb, IndexKey *indexKey, int32 recordNumbe
 	// We got the prior key value.  Get key value for insertion point
 
 	IndexKey nextKey (priorKey);
+	return addNode(dbb, indexKey, recordNumber, &node, &priorKey, &nextKey);
+}
+
+// Add node (with already known insertion point)
+AddNodeResult IndexPage::addNode (Dbb *dbb, IndexKey *indexKey, int32 recordNumber, IndexNode *node, IndexKey *priorKey, IndexKey *nextKey)
+{
+
+	UCHAR *key = indexKey->key;
+
+	if (dbb->debug & (DEBUG_KEYS | DEBUG_NODES_ADDED | DEBUG_PAGE_LEVEL))
+		{
+		Log::debug("\n***** addNode(%d) - ", recordNumber);
+		Btn::printKey ("New key", indexKey, 0, false);
+		}
+		
+	if (dbb->debug & (DEBUG_PAGES | DEBUG_NODES_ADDED))
+		printPage (this, 0, false);
+	//validate(NULL);
 
 	// Compute delta size of new node
+	int offset1 = computePrefix (priorKey, indexKey);
 
-	int offset1 = computePrefix (&priorKey, indexKey);
+	// Check whether inserted node shall be supernode. If yes, does not compress the prefix.
+	bool addSuper = checkAddSuperNode(dbb->pageSize, node, indexKey, recordNumber, offset1);
+	if (addSuper)
+		offset1 = 0;
+
 	int length1 = indexKey->keyLength - offset1;
 	int delta = IndexNode::nodeLength(offset1, length1, recordNumber);
 	int32 nextNumber;
 	int offset2;
 	
-	if ((UCHAR*) node.node == (UCHAR*) this + length)
+	if ((UCHAR*) node->node == (UCHAR*) this + length)
 		{
 		offset2 = -1;
 		nextNumber = 0;
 		}
 	else
 		{
-		node.expandKey (&nextKey);
-		offset2 = computePrefix(indexKey, &nextKey);
-		int deltaOffset = offset2 - node.offset;
+		node->expandKey (nextKey);
+		offset2 = computePrefix(indexKey, nextKey);
+		int deltaOffset = offset2 - node->offset;
 		
-		if (node.length >= 128 && (node.length - deltaOffset) < 128)
+		if (node->length >= 128 && (node->length - deltaOffset) < 128)
 			--delta;
 
-		if (node.offset < 128 && (node.offset + deltaOffset) >= 128)
+		if (node->offset < 128 && (node->offset + deltaOffset) >= 128)
 			++delta;
 			
 		delta -= deltaOffset;
-		nextNumber = node.getNumber();
+		nextNumber = node->getNumber();
 		}
 
 	// If new node doesn't fit on page, split the page now
 
 	if (length + delta > dbb->pageSize)
 		{
-		if ((char*) node.nextNode < (char*) this + length)
+		if ((char*) node->nextNode < (char*) this + length)
 			return SplitMiddle;
 
-		if (node.getNumber() == END_LEVEL)
+		if (node->getNumber() == END_LEVEL)
 			return SplitEnd;
 
-		if (offset2 == -1 || nextKey.compare(indexKey) >= 0)
+		if (offset2 == -1 || nextKey->compare(indexKey) >= 0)
 			return NextPage;
 
 		return SplitEnd;
@@ -124,34 +138,45 @@ AddNodeResult IndexPage::addNode(Dbb *dbb, IndexKey *indexKey, int32 recordNumbe
 			index, recordNumber, (CHAR*) node - (CHAR*) page);
 	***/
 
+	// Check whether there was a supernode at the insertion point
+	// If yes, delete it fow now. Supernode will be reinstalled at another position later,
+	// unless it gets prefix-compressed.
+	bool wasSuper = deleteSupernode(node->node);
+
 	// Slide tail of bucket forward to make room
 
 	if (offset2 >= 0)
 		{
-		UCHAR *tail = (UCHAR*) node.nextNode;
+		UCHAR *tail = (UCHAR*) node->nextNode;
 		int tailLength = (int) ((UCHAR*) this + length - tail);
 		ASSERT (tailLength >= 0);
 		
 		if (tailLength > 0)
-			memmove (tail + delta, tail, tailLength);
+			moveMemory(tail + delta, tail);
 		}
 
 	// Insert new node
 
 	IndexNode newNode;
-	newNode.insert (node.node, offset1, length1, key, recordNumber);
+	newNode.insert (node->node, offset1, length1, key, recordNumber);
 
 	// If necessary, rebuild next node
+	if (wasSuper && (offset2 == 0))
+		addSupernode(newNode.nextNode);
 
 	if (offset2 >= 0)
-		newNode.insert (newNode.nextNode, offset2, nextKey.keyLength - offset2, nextKey.key, nextNumber);
+		newNode.insert (newNode.nextNode, offset2, nextKey->keyLength - offset2, nextKey->key, nextNumber);
+
+	if (addSuper)
+		addSupernode(node->node);
+
+
 
 	length += delta;
 	//validate(NULL);
 
 	if (dbb->debug & (DEBUG_PAGES | DEBUG_NODES_ADDED))
 		printPage (this, 0, false);
-
 	return NodeAdded;
 }
 
@@ -168,6 +193,8 @@ Btn* IndexPage::findNodeInLeaf(IndexKey *indexKey, IndexKey *foundKey)
 	UCHAR *key = indexKey->key;
 	UCHAR *keyEnd = key + indexKey->keyLength;
 	Btn *bucketEnd = getEnd();
+	Btn *super;
+
 
 	if (indexKey->keyLength == 0)
 		{
@@ -177,7 +204,9 @@ Btn* IndexPage::findNodeInLeaf(IndexKey *indexKey, IndexKey *foundKey)
 		return nodes;
 		}
 
-	IndexNode node (this);
+	super = findSupernode(level, indexKey, 0, 0);
+
+	IndexNode node(super);
 
 	for (;; node.getNext(bucketEnd))
 		{
@@ -239,6 +268,12 @@ Btn* IndexPage::findNodeInLeaf(IndexKey *indexKey, IndexKey *foundKey)
 
 	if (foundKey)
 		foundKey->keyLength = priorLength;
+
+	if (foundKey && foundKey->keyLength==0 && node.node == super && node.node != nodes)
+		{
+		/* hit on left supernode, find prior key*/
+		findPriorNodeForSupernode(node.node,foundKey);
+		}
 
 	return node.node;
 }
@@ -306,11 +341,13 @@ Bdb* IndexPage::splitIndexPageMiddle(Dbb * dbb, Bdb *bdb, IndexKey *splitKey, Tr
 		node = prevNode;
 
 	int tailLength = (int) (((UCHAR*) this + length) - (UCHAR*) node.nextNode);
-
+	
+	int delta = (int)(node.nextNode - nodes);
 	if (tailLength < 0)
 		{
 		node.parseNode(nodes);
 		tailLength = (int) (((UCHAR*) this + length) - (UCHAR*) node.nextNode);
+		delta = (int) (node.nextNode - nodes);
 		}
 
 	// If we didn't find a break, use the last one.  This may be the first node
@@ -328,6 +365,7 @@ Bdb* IndexPage::splitIndexPageMiddle(Dbb * dbb, Bdb *bdb, IndexKey *splitKey, Tr
 	int32 recordNumber = node.getNumber();
 	IndexNode newNode;
 	newNode.insert(split->nodes, 0, kLength, key, recordNumber);
+	int newNodeSize = IndexNode::nodeLength(0, kLength, recordNumber);
 
 	memcpy(newNode.nextNode, node.nextNode, tailLength);
 
@@ -344,7 +382,28 @@ Bdb* IndexPage::splitIndexPageMiddle(Dbb * dbb, Bdb *bdb, IndexKey *splitKey, Tr
 
 	if (level == 0)
 		splitKey->appendRecordNumber(recordNumber);
-		
+	
+
+
+	// Split supernodes
+	memset(split->superNodes,0, sizeof(split->superNodes));
+	int i = 0;
+	for (i = 0; nodes + superNodes[i] < node.node; i++) ;
+
+	int j = 0;
+	for (; i < SUPERNODES && superNodes[i]; i++)
+	{
+		short newVal = superNodes[i] - delta + newNodeSize;
+		ASSERT(newVal >=0);
+		if(newVal == 0)
+			continue;
+		split->superNodes[j++] = newVal;
+		superNodes[i] = 0;
+	}
+
+	//validate(NULL);
+	//split->validate(NULL);
+
 	if (dbb->debug & (DEBUG_PAGES | DEBUG_SPLIT_PAGE))
 		{
 		printPage (this, 0, false);
@@ -356,6 +415,7 @@ Bdb* IndexPage::splitIndexPageMiddle(Dbb * dbb, Bdb *bdb, IndexKey *splitKey, Tr
 	return splitBdb;
 }
 
+
 Btn* IndexPage::findNodeInBranch(IndexKey *searchKey, int32 searchRecordNumber)
 {
 	ASSERT(level > 0);
@@ -366,11 +426,14 @@ Btn* IndexPage::findNodeInBranch(IndexKey *searchKey, int32 searchRecordNumber)
 		keyEnd -= searchKey->getAppendedRecordNumberLength();
 
 	Btn *bucketEnd = (Btn*) ((UCHAR*) this + length);
-	Btn *prior = nodes;
 	UCHAR *key = searchKey->key;
 
-	for (IndexNode node (this); node.node < bucketEnd; prior = node.node, node.getNext(bucketEnd))
+	Btn *super = findSupernode(level, searchKey, searchRecordNumber, 0);
+	Btn *prior = super;
+
+	for (IndexNode node(super) ; node.node < bucketEnd ; prior = node.node, node.getNext(bucketEnd))
 		{
+
 		if (node.offset < matchedOffset)
 			return prior;
 
@@ -418,7 +481,36 @@ void IndexPage::validate(void *before)
 {
 	Btn *bucketEnd = getEnd();
 	UCHAR key [MAX_PHYSICAL_KEY_LENGTH];
-	int keyLength = 0;
+	int priorKeyLength = 0;
+	int keyLength;
+	int recordNumber;
+	int priorRecordNumber=0;
+	int superIdx = 0;
+	int supernodeCount = 0;
+
+
+
+	for (int i=0; i< SUPERNODES; i++)
+	{
+		if(superNodes[i] ==0)
+			{
+			for(;i<SUPERNODES;i++)
+				if(superNodes[i] != 0)
+					FATAL("Index validate: unexpected non-zero supernode index");
+			break;
+			}
+		if (superNodes[i] < 0)
+			FATAL ("Index validate: negative supernode");
+
+		if (i> 0 && superNodes[i-1] >= superNodes[i])
+			FATAL ("Index validate: entries in supernode array not increasing");
+
+		if (nodes + superNodes[i] > bucketEnd)
+			FATAL ("Index validate: superNodes behind the end of page");
+
+		supernodeCount++;
+	}
+
 
 	for (IndexNode node (this);; node.getNext(bucketEnd))
 		{
@@ -435,19 +527,65 @@ void IndexPage::validate(void *before)
 				
 			break;
 			}
-			
-		int l = MIN(keyLength, node.keyLength());
-		int recordNumber = node.getNumber();
-		
-		if (recordNumber == END_BUCKET)
-			ASSERT(nextPage != 0);
 
+		bool isSuper = false;
+		if (superIdx < SUPERNODES && superNodes[superIdx])
+		{
+			int delta = superNodes[superIdx] - (short) (node.node - nodes);
+			if(delta == 0)
+				{
+				superIdx++;
+				isSuper=true;
+				if(node.offset != 0)
+					FATAL ("Non-zero offset in supernode");
+				}
+			else if( delta < 0)
+				FATAL ("Index validate: next supernode offset < current offset");
+		}
+
+		keyLength = node.keyLength();
+		if (level > 0)
+			keyLength -= node.getAppendedRecordNumberLength();
+
+		if(isSuper && keyLength==0)
+			FATAL("Supernode with 0 key length");
+
+		int l = MIN(priorKeyLength, keyLength);
+		if  (level == 0)
+			recordNumber = node.getNumber();
+		else
+			recordNumber = node.getAppendedRecordNumber();
+
+		if (node.number == END_BUCKET)
+			{
+			ASSERT(nextPage != 0);
+			break;
+			}
+
+		if (node.number == END_LEVEL)
+			break;
+
+		if (node.node != nodes && l>0 && node.length > 0)
+			{
+			if(node.offset == 0 && node.key[0] == key[0] && !isSuper)
+				FATAL("node not correctly prefix-compressed");
+			}
+
+
+		if(node.length == 0 && recordNumber < priorRecordNumber)
+			FATAL ("Index validate:  record numbers out of order");
+
+
+		bool equalKeys = (priorKeyLength == keyLength);
 		for (UCHAR *p = node.key, *q = key + node.offset, *end = key + l; q < end; p++, q++)
 			{
 			if (*p > *q)		// current > previous, good
+				{
+				equalKeys = false;
 				break;
+				}
 			else if (*p == *q)	// current == previous, good so far
-				continue;     
+				continue;
 			else if (*p < *q)	// current < previous, bad
 				{
 				if (before)
@@ -457,9 +595,15 @@ void IndexPage::validate(void *before)
 				FATAL("Mal-formed index page");
 				}
 			}
-
-		keyLength = node.expandKey(key);
+			if( isSuper && equalKeys)
+				FATAL("supernode key equal to previous node");
+			node.expandKey(key);
+			priorKeyLength = keyLength;
+			priorRecordNumber = recordNumber;
 		}
+		
+	if (superIdx != supernodeCount)
+		FATAL("lost supernodes");
 }
 
 void IndexPage::printPage(Bdb * bdb, bool inversion)
@@ -579,6 +723,8 @@ int IndexPage::deleteNode(Dbb * dbb, IndexKey *indexKey, int32 recordNumber)
 			{
 			IndexNode next (node.nextNode);
 			
+			deleteSupernode(node.node);
+
 			if (next.node >= bucketEnd)
 				length = (int) ((char*) node.node - (char*) this);
 			else
@@ -595,6 +741,15 @@ int IndexPage::deleteNode(Dbb * dbb, IndexKey *indexKey, int32 recordNumber)
 				// Compute new prefix length; rebuild node
 
 				int prefix = computePrefix(&priorKey, &nextKey);
+				
+				// Check whether next node is a supernode.
+				// If yes, delete it for now. Supernode will be reinstalled later,
+				// if it does not get prefix-compressed.
+
+				Btn *nextSuper = 0;
+				if(deleteSupernode(node.nextNode) && (prefix == 0) && node.node != nodes)
+					nextSuper = node.node;
+
 				int32 num = next.getNumber();
 				node.insert(node.node, prefix, nextKey.keyLength - prefix, nextKey.key, num);
 
@@ -603,7 +758,10 @@ int IndexPage::deleteNode(Dbb * dbb, IndexKey *indexKey, int32 recordNumber)
 				Btn *newTail = node.nextNode;
 				
 				if (tailLength > 0)
-					memmove(newTail, tail, tailLength);
+					moveMemory(newTail, tail);
+
+				if (nextSuper)
+					addSupernode(nextSuper);
 
 				length = (int) ((char*) newTail + tailLength - (char*) this);
 				//validate(NULL);
@@ -703,7 +861,7 @@ void IndexPage::printPage(IndexPage *page, int32 pageNum, bool printDetail, bool
 				page->nextPage,
 				page->parentPage);
 
-	int length = (UCHAR*) node.node - (UCHAR*) page;
+	int length = (int)((UCHAR*) node.node - (UCHAR*) page);
 
 	if (length != page->length)
 		Log::debug ("**** bad bucket length -- should be %d ***\n", length);
@@ -972,8 +1130,11 @@ Bdb* IndexPage::splitIndexPageEnd(Dbb *dbb, Bdb *bdb, TransId transId, IndexKey 
 	int nodeOverhead = 3 + (offset >= 128) + (insertKey->keyLength - offset >= 128);
 	char *nextNextNode = (char*) node.nextNode - node.length + insertKey->keyLength - offset + nodeOverhead;
 
+
+	Btn *splitPos;
 	if (nextNextNode >= (char*) this + dbb->pageSize)
 		{
+		splitPos = priorNode;
 		node.parseNode(priorNode);
 		int number = node.getNumber();
 		//node.setNumber(END_BUCKET);
@@ -983,13 +1144,21 @@ Bdb* IndexPage::splitIndexPageEnd(Dbb *dbb, Bdb *bdb, TransId transId, IndexKey 
 		}
 	else
 		{
+		splitPos = node.node;
 		int offset = computePrefix(&tempKey, insertKey);
+		deleteSupernode(node.node);
 		node.insert(node.node, offset, insertKey->keyLength - offset, insertKey->key, END_BUCKET);
 		length = (int) ((char*)(node.nextNode) - (char*) this);
 		}
 
+	for(int i=0; i< SUPERNODES; i++)
+		if(nodes + superNodes[i] >= splitPos)
+			superNodes[i]=0;
+
+	//validate(NULL);
 	split->appendNode(insertKey, recordNumber, dbb->pageSize);
 	split->appendNode(&rolloverKey, rolloverNumber, dbb->pageSize);
+	//split->validate(NULL);
 	//printf ("splitIndexPage: level %d, %d -> %d\n", level, bdb->pageNumber, nextPage);
 	//validate( splitBdb->buffer);
 
@@ -1085,20 +1254,36 @@ void IndexPage::logIndexPage(Bdb *bdb, TransId transId)
 	
 	dbb->serialLog->logControl->indexPage.append(dbb, transId, INDEX_VERSION_1, bdb->pageNumber, indexPage->level, 
 												 indexPage->parentPage, indexPage->priorPage, indexPage->nextPage,  
-												 indexPage->length - OFFSET (IndexPage*, nodes), 
-												 (const UCHAR*) indexPage->nodes);
+												 indexPage->length - OFFSET (IndexPage*, superNodes), 
+												 (const UCHAR*) indexPage->superNodes);
 }
-
-Btn* IndexPage::findInsertionPoint(int level, IndexKey* indexKey, int32 recordNumber, IndexKey* expandedKey, Btn* nodes, Btn* bucketEnd)
+ 
+Btn* IndexPage::findInsertionPoint(int level, IndexKey* indexKey, int32 recordNumber, IndexKey* expandedKey, Btn* from, Btn* bucketEnd)
 {
 	UCHAR *key = indexKey->key;
 	const UCHAR *keyEnd = key + indexKey->keyLength;
-	IndexNode node(nodes);
 	uint matchedOffset = 0;
 	uint priorLength = 0;
 
 	if (level && indexKey->recordNumber)
 		keyEnd -= indexKey->getAppendedRecordNumberLength();
+
+
+	Btn *super = findSupernode(level, indexKey,(level > 0)?indexKey->recordNumber:recordNumber ,from);
+	IndexNode node;
+	if (super > from)
+		node.parseNode(super);
+	else
+		node.parseNode(from);
+	
+
+	if (node.node != nodes)
+		{
+		node.expandKey (expandedKey);
+		priorLength = expandedKey->keyLength;
+		if (level)
+			expandedKey->recordNumber = node.getAppendedRecordNumber();
+		}
 
 	if (node.offset)
 		{
@@ -1190,6 +1375,12 @@ Btn* IndexPage::findInsertionPoint(int level, IndexKey* indexKey, int32 recordNu
 
 	expandedKey->keyLength = priorLength;
 
+	if (expandedKey && expandedKey->keyLength==0 && node.node == super && node.node != nodes)
+		{
+		/* hit on start supernode, find prior key */
+		findPriorNodeForSupernode(node.node,expandedKey);
+		}
+
 	return node.node;
 }
 
@@ -1197,3 +1388,219 @@ Btn* IndexPage::getEnd(void)
 {
 	return (Btn*) ((UCHAR*) this + length);
 }
+
+/* During node insertion, check whether supernode should be added at insertion point */
+bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *indexKey, int recordNumber, int offset)
+{
+	Btn *insertionPoint = node->node;
+
+	if (insertionPoint == nodes) // no supernode at the start of the page
+		return false;
+
+	if (offset >= pageSize/SUPERNODES/2) //compression is too good, no super
+		return false;
+
+	if (superNodes[SUPERNODES-1]) // supernode array is full
+		return false;
+
+
+	int keyLen = indexKey->keyLength;
+
+	if (level)
+		keyLen -= indexKey->getAppendedRecordNumberLength();
+
+	if (keyLen == offset) // no supernode on duplicate entry (yet)
+		return false;
+
+	int position = (int)(insertionPoint - nodes);
+
+
+	int i;
+	// Find superNodes corresponding to insertion point
+	for(i = 0; i< SUPERNODES;i++)
+		{
+		if (!superNodes[i])
+			break;
+		if (nodes + superNodes[i] >= insertionPoint)
+			break;
+		}
+
+	// Avoid 2 superNodes adjacent to each other
+	if (nodes + superNodes[i] == insertionPoint)
+		return false;
+
+	int nodeLen =
+		IndexNode::nodeLength(offset, indexKey->keyLength - offset, recordNumber);
+	
+	/* Ideal distance between supernodes , assume page will get 90% full*/
+	int idealDistance = pageSize/(SUPERNODES+1)*9/10;
+
+	
+	int distLeft, distRight;
+
+	distLeft = position;
+
+	if (i > 0)
+		distLeft -= superNodes[i-1];
+
+	// last node, make supernode, if distance from prior >= idealDistance
+	if(superNodes[i] == 0)
+		{
+		if (distLeft >= idealDistance)
+			return true;
+		return false;
+		}
+
+	// between two supernodes, make new one , if distance 
+	// from both neighbours is at least idealSize*0.5
+
+	distRight = 
+		superNodes[i] + nodeLen - position;
+	ASSERT(distRight >=0 );
+
+	// Distance between existing supernodes
+	int d= (i > 0)? superNodes[i] - superNodes[i-1] + nodeLen :superNodes[0] + nodeLen;
+
+	if ( d >= idealDistance*3/2 && distLeft >= idealDistance/2 && distRight >= idealDistance/2 )
+		return true;
+
+	return false;
+}
+
+// Helper routine, used with findNodeInLeaf/Branch and findInsertionPoint
+Btn* 	IndexPage::findPriorNodeForSupernode(Btn *where,IndexKey *priorKey)
+{
+	Btn *prior = nodes;
+	bool found = false;
+
+
+	// Scan supernode array for prior super
+	for(int i=0; i < SUPERNODES && superNodes[i]; i++)
+		{
+		Btn* current = nodes + superNodes[i];
+		if(current == where)
+			{
+			found = true;
+			break;
+			}
+		prior = current;
+		}
+
+	ASSERT(found);
+
+	IndexNode priorNode(prior);
+	for (;; priorNode.getNext(where))
+		{
+		ASSERT(priorNode.nextNode <= where);
+		priorNode.expandKey(priorKey);
+		if (priorNode.nextNode == where)
+			return priorNode.node;
+		}
+
+	ASSERT(false);
+}
+
+
+// Move nodes, adjust supernode array
+void IndexPage::moveMemory(void *dst,void *src)
+{
+	UCHAR* end = (UCHAR *)getEnd();
+	size_t size = (dst > src)?(end - (UCHAR *)src) : (end-(UCHAR *)dst);
+
+	memmove(dst, src, size);
+
+	short delta = (short)((UCHAR *)dst - (UCHAR *)src);
+
+	for(int i=0; i< SUPERNODES && superNodes[i]; i++)
+		if(nodes + superNodes[i] >= src)
+			superNodes[i] += delta;
+}
+
+// Add entry to supernode array
+void IndexPage::addSupernode(Btn *where)
+{
+	int i;
+	short offset = (short)((UCHAR *)where - (UCHAR *)nodes);
+	for (i=0; i< SUPERNODES && superNodes[i] ;i++)
+		{
+		ASSERT(superNodes[i] != offset);
+		if(superNodes[i] > offset)
+			{
+			if(i != SUPERNODES -1)
+				memmove(&superNodes[i+1],&superNodes[i], (SUPERNODES-i-1)*sizeof(superNodes[0]));
+			break;
+			}
+		}
+	ASSERT(i < SUPERNODES);
+	superNodes[i] = (short)((UCHAR *)where - (UCHAR*)nodes);
+}
+
+
+// Delete entry from supernode array.
+// Returns true if supernode was present at given position and false otherwise
+bool IndexPage::deleteSupernode(Btn *where)
+{
+	short offset = (short)((UCHAR *)where - (UCHAR *)nodes);
+	ASSERT(where > 0);
+	for (int i=0; i< SUPERNODES && superNodes[i];i++)
+		{
+		if(superNodes[i] == offset)
+			{
+			if (i !=  SUPERNODES -1)
+				memmove(&superNodes[i],&superNodes[i+1], (SUPERNODES-i-1)*sizeof(superNodes[0]));
+			superNodes[SUPERNODES-1] = 0;
+			return true;
+			}
+		}
+	return false;
+}
+
+
+// Given a key, find the maximum supernode smaller or equal to the search key
+// Optional parameter "after" tells to skip supernodes smaller than its value
+
+Btn * IndexPage::findSupernode(int level, IndexKey *searchKey, int32 recordNumber, Btn *after)
+{
+
+	int	keylen = searchKey->keyLength;
+	UCHAR*	key = searchKey->key;
+
+	Btn *retval = nodes;
+
+	for(int i=0; i< SUPERNODES && superNodes[i];i++)
+		{
+		Btn *pos = nodes +superNodes[i];
+
+		if (after && (pos < after))
+			continue;
+
+		IndexNode node(pos);
+		int len = node.keyLength();
+
+		if (level)
+			len =- node.getAppendedRecordNumberLength();
+
+		int result = memcmp(key, node.key, MIN(keylen,len));
+
+		if (result == 0)
+			result = keylen - len;
+
+
+		if (result == 0)
+			{
+			int number= (level == 0)? node.number : node.getAppendedRecordNumber();
+			if ( (level > 0 && recordNumber == 0) || number == END_BUCKET)
+				result = -1;
+			else
+				result = recordNumber - number;
+			}
+
+		if (result < 0)
+			break;
+
+		retval = node.node;
+		}
+	return retval;
+}
+
+

@@ -656,7 +656,12 @@ uchar *query_cache_query_get_key(const uchar *record, size_t *length,
 void query_cache_insert(const char *packet, ulong length,
                         unsigned pkt_nr)
 {
-  query_cache.insert(&current_thd->query_cache_tls,
+  THD *thd= current_thd;
+
+  if (!thd)
+    return;
+
+  query_cache.insert(&thd->query_cache_tls,
                      packet, length,
                      pkt_nr);
 }

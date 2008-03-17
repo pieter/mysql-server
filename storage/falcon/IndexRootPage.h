@@ -56,7 +56,7 @@ public:
 	static void		analyzeIndex(Dbb* dbb, int indexId, IndexAnalysis *indexAnalysis);
 	static int32	getIndexRoot(Dbb* dbb, int indexId);
 
-	static void		redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPageNumber, int level, int32 prior, int32 next, int length, const UCHAR *data);
+	static void		redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPageNumber, int level, int32 prior, int32 next, int length, const UCHAR *data, bool haveSuperNodes);
 	static void		setIndexRoot(Dbb* dbb, int indexId, int32 pageNumber, TransId transId);
 	static void		redoIndexDelete(Dbb* dbb, int indexId);
 	static void		redoCreateIndex(Dbb* dbb, int indexId);

@@ -2527,9 +2527,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 
   while ((key=key_iterator++))
   {
-    DBUG_PRINT("info", ("key name: '%s'  type: %d", key->name ? key->name :
+    DBUG_PRINT("info", ("key name: '%s'  type: %d", key->name.str ? key->name.str :
                         "(none)" , key->type));
-    LEX_STRING key_name_str;
     if (key->type == Key::FOREIGN_KEY)
     {
       fk_key_count++;
@@ -2538,7 +2537,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 	  fk_key->ref_columns.elements != fk_key->columns.elements)
       {
         my_error(ER_WRONG_FK_DEF, MYF(0),
-                 (fk_key->name ?  fk_key->name : "foreign key without name"),
+                 (fk_key->name.str ? fk_key->name.str :
+                                     "foreign key without name"),
                  ER(ER_KEY_REF_DO_NOT_MATCH_TABLE_REF));
 	DBUG_RETURN(TRUE);
       }
@@ -2551,9 +2551,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       my_error(ER_TOO_MANY_KEY_PARTS,MYF(0),tmp);
       DBUG_RETURN(TRUE);
     }
-    key_name_str.str= (char*) key->name;
-    key_name_str.length= key->name ? strlen(key->name) : 0;
-    if (check_identifier_name(&key_name_str, ER_TOO_LONG_IDENT))
+    if (check_identifier_name(&key->name, ER_TOO_LONG_IDENT))
       DBUG_RETURN(TRUE);
     key_iterator2.rewind ();
     if (key->type != Key::FOREIGN_KEY)
@@ -2566,7 +2564,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
           Then we do not need the generated shorter key.
         */
         if ((key2->type != Key::FOREIGN_KEY &&
-             key2->name != ignore_key &&
+             key2->name.str != ignore_key &&
              !foreign_key_prefix(key, key2)))
         {
           /* TODO: issue warning message */
@@ -2574,10 +2572,10 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
           if (!key2->generated ||
               (key->generated && key->columns.elements <
                key2->columns.elements))
-            key->name= ignore_key;
+            key->name.str= ignore_key;
           else
           {
-            key2->name= ignore_key;
+            key2->name.str= ignore_key;
             key_parts-= key2->columns.elements;
             (*key_count)--;
           }
@@ -2585,14 +2583,14 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
         }
       }
     }
-    if (key->name != ignore_key)
+    if (key->name.str != ignore_key)
       key_parts+=key->columns.elements;
     else
       (*key_count)--;
-    if (key->name && !tmp_table && (key->type != Key::PRIMARY) &&
-	!my_strcasecmp(system_charset_info,key->name,primary_key_name))
+    if (key->name.str && !tmp_table && (key->type != Key::PRIMARY) &&
+	!my_strcasecmp(system_charset_info,key->name.str, primary_key_name))
     {
-      my_error(ER_WRONG_NAME_FOR_INDEX, MYF(0), key->name);
+      my_error(ER_WRONG_NAME_FOR_INDEX, MYF(0), key->name.str);
       DBUG_RETURN(TRUE);
     }
   }
@@ -2615,12 +2613,12 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     uint key_length=0;
     Key_part_spec *column;
 
-    if (key->name == ignore_key)
+    if (key->name.str == ignore_key)
     {
       /* ignore redundant keys */
       do
 	key=key_iterator++;
-      while (key && key->name == ignore_key);
+      while (key && key->name.str == ignore_key);
       if (!key)
 	break;
     }
@@ -2763,22 +2761,22 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       field=0;
       while ((sql_field=it++) &&
 	     my_strcasecmp(system_charset_info,
-			   column->field_name,
+			   column->field_name.str,
 			   sql_field->field_name))
 	field++;
       if (!sql_field)
       {
-	my_error(ER_KEY_COLUMN_DOES_NOT_EXITS, MYF(0), column->field_name);
+	my_error(ER_KEY_COLUMN_DOES_NOT_EXITS, MYF(0), column->field_name.str);
 	DBUG_RETURN(TRUE);
       }
       while ((dup_column= cols2++) != column)
       {
         if (!my_strcasecmp(system_charset_info,
-	     	           column->field_name, dup_column->field_name))
+	     	           column->field_name.str, dup_column->field_name.str))
 	{
 	  my_printf_error(ER_DUP_FIELDNAME,
 			  ER(ER_DUP_FIELDNAME),MYF(0),
-			  column->field_name);
+			  column->field_name.str);
 	  DBUG_RETURN(TRUE);
 	}
       }
@@ -2792,7 +2790,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 	    sql_field->charset->mbminlen > 1 || // ucs2 doesn't work yet
 	    (ft_key_charset && sql_field->charset != ft_key_charset))
 	{
-	    my_error(ER_BAD_FT_COLUMN, MYF(0), column->field_name);
+	    my_error(ER_BAD_FT_COLUMN, MYF(0), column->field_name.str);
 	    DBUG_RETURN(-1);
 	}
 	ft_key_charset=sql_field->charset;
@@ -2820,7 +2818,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 	{
 	  if (!(file->ha_table_flags() & HA_CAN_INDEX_BLOBS))
 	  {
-	    my_error(ER_BLOB_USED_AS_KEY, MYF(0), column->field_name);
+	    my_error(ER_BLOB_USED_AS_KEY, MYF(0), column->field_name.str);
 	    DBUG_RETURN(TRUE);
 	  }
           if (f_is_geom(sql_field->pack_flag) && sql_field->geom_type ==
@@ -2828,7 +2826,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
             column->length= 25;
 	  if (!column->length)
 	  {
-	    my_error(ER_BLOB_KEY_WITHOUT_LENGTH, MYF(0), column->field_name);
+	    my_error(ER_BLOB_KEY_WITHOUT_LENGTH, MYF(0), column->field_name.str);
 	    DBUG_RETURN(TRUE);
 	  }
 	}
@@ -2859,7 +2857,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
             key_info->flags|= HA_NULL_PART_KEY;
             if (!(file->ha_table_flags() & HA_NULL_IN_KEY))
             {
-              my_error(ER_NULL_COLUMN_IN_INDEX, MYF(0), column->field_name);
+              my_error(ER_NULL_COLUMN_IN_INDEX, MYF(0), column->field_name.str);
               DBUG_RETURN(TRUE);
             }
             if (key->type == Key::SPATIAL)
@@ -2924,7 +2922,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       }
       else if (length == 0)
       {
-	my_error(ER_WRONG_KEY_COLUMN, MYF(0), column->field_name);
+	my_error(ER_WRONG_KEY_COLUMN, MYF(0), column->field_name.str);
 	  DBUG_RETURN(TRUE);
       }
       if (length > file->max_key_part_length() && key->type != Key::FULLTEXT)
@@ -2982,7 +2980,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 	  key_name=primary_key_name;
 	  primary_key=1;
 	}
-	else if (!(key_name = key->name))
+	else if (!(key_name= key->name.str))
 	  key_name=make_unique_key_name(sql_field->field_name,
 					*key_info_buffer, key_info);
 	if (check_if_keyname_exists(key_name, *key_info_buffer, key_info))
@@ -6073,6 +6071,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
       }
       key_part_length /= key_part->field->charset()->mbmaxlen;
       key_parts.push_back(new Key_part_spec(cfield->field_name,
+                                            strlen(cfield->field_name),
 					    key_part_length));
     }
     if (key_parts.elements)
@@ -6104,9 +6103,9 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
       else
         key_type= Key::MULTIPLE;
 
-      key= new Key(key_type, key_name,
-                                 &key_create_info,
-                                 test(key_info->flags & HA_GENERATED_KEY),
+      key= new Key(key_type, key_name, strlen(key_name),
+                   &key_create_info,
+                   test(key_info->flags & HA_GENERATED_KEY),
                    key_parts);
       new_key_list.push_back(key);
     }
@@ -6117,8 +6116,8 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     {
       if (key->type != Key::FOREIGN_KEY)
         new_key_list.push_back(key);
-      if (key->name &&
-	  !my_strcasecmp(system_charset_info,key->name,primary_key_name))
+      if (key->name.str &&
+	  !my_strcasecmp(system_charset_info, key->name.str, primary_key_name))
       {
 	my_error(ER_WRONG_NAME_FOR_INDEX, MYF(0), key->name);
         goto err;

@@ -810,17 +810,8 @@ ALTER VIEW v1 AS SELECT f2 FROM t1;
 ERROR 42000: Access denied; you need the SUPER privilege for this operation
 ALTER VIEW v2 AS SELECT f2 FROM t1;
 ERROR 42000: Access denied; you need the SUPER privilege for this operation
-SHOW CREATE VIEW v2;
-View	Create View	character_set_client	collation_connection
-v2	CREATE ALGORITHM=UNDEFINED DEFINER=`u29908_1`@`localhost` SQL SECURITY INVOKER VIEW `v2` AS select `t1`.`f1` AS `f1` from `t1`	latin1	latin1_swedish_ci
 ALTER VIEW v1 AS SELECT f2 FROM t1;
-SHOW CREATE VIEW v1;
-View	Create View	character_set_client	collation_connection
-v1	CREATE ALGORITHM=UNDEFINED DEFINER=`u29908_1`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select `t1`.`f2` AS `f2` from `t1`	latin1	latin1_swedish_ci
 ALTER VIEW v2 AS SELECT f2 FROM t1;
-SHOW CREATE VIEW v2;
-View	Create View	character_set_client	collation_connection
-v2	CREATE ALGORITHM=UNDEFINED DEFINER=`u29908_1`@`localhost` SQL SECURITY INVOKER VIEW `v2` AS select `t1`.`f2` AS `f2` from `t1`	latin1	latin1_swedish_ci
 ALTER VIEW v1 AS SELECT f1 FROM t1;
 SHOW CREATE VIEW v1;
 View	Create View	character_set_client	collation_connection

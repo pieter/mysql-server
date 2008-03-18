@@ -88,7 +88,9 @@ extern "C" void free_user_var(user_var_entry *entry)
 
 bool Key_part_spec::operator==(const Key_part_spec& other) const
 {
-  return length == other.length && !strcmp(field_name, other.field_name);
+  return length == other.length &&
+         field_name.length == other.field_name.length &&
+         !strcmp(field_name.str, other.field_name.str);
 }
 
 /**
@@ -395,8 +397,11 @@ Diagnostics_area::set_ok_status(THD *thd, ha_rows affected_rows_arg,
 {
   DBUG_ASSERT(! is_set());
 #ifdef DBUG_OFF
-  /* In production, refuse to overwrite an error with an OK packet. */
-  if (is_error())
+  /*
+    In production, refuse to overwrite an error or a custom response
+    with an OK packet.
+  */
+  if (is_error() || is_disabled())
     return;
 #endif
   /** Only allowed to report success if has not yet reported an error */
@@ -424,8 +429,11 @@ Diagnostics_area::set_eof_status(THD *thd)
 
   DBUG_ASSERT(! is_set());
 #ifdef DBUG_OFF
-  /* In production, refuse to overwrite an error with an EOF packet. */
-  if (is_error())
+  /*
+    In production, refuse to overwrite an error or a custom response
+    with an EOF packet.
+  */
+  if (is_error() || is_disabled())
     return;
 #endif
 
@@ -454,6 +462,14 @@ Diagnostics_area::set_error_status(THD *thd, uint sql_errno_arg,
     an error can happen during the flush.
   */
   DBUG_ASSERT(! is_set() || can_overwrite_status);
+#ifdef DBUG_OFF
+  /*
+    In production, refuse to overwrite a custom response with an
+    ERROR packet.
+  */
+  if (is_disabled())
+    return;
+#endif
 
   m_sql_errno= sql_errno_arg;
   strmake(m_message, message_arg, sizeof(m_message) - 1);

@@ -69,3 +69,10 @@ coercibility(weight_string('test'))
 select coercibility(weight_string('test' collate latin1_swedish_ci));
 coercibility(weight_string('test' collate latin1_swedish_ci))
 0
+create table t1 (s1 varchar(5));
+insert into t1 values ('a'),(null);
+select hex(weight_string(s1)) from t1 order by s1;
+hex(weight_string(s1))
+NULL
+41
+drop table t1;

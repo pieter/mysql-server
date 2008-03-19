@@ -1377,6 +1377,12 @@ public:
   /** Interface with bison, value of the last token parsed. */
   LEX_YYSTYPE yylval;
 
+  /** LALR(2) resolution, look ahead token.*/
+  int lookahead_token;
+
+  /** LALR(2) resolution, value of the look ahead token.*/
+  LEX_YYSTYPE lookahead_yylval;
+
 private:
   /** Pointer to the current position in the raw input stream. */
   const char *m_ptr;

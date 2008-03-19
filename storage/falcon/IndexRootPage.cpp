@@ -138,9 +138,8 @@ bool IndexRootPage::addIndexEntry(Dbb * dbb, int32 indexId, IndexKey *key, int32
 
 		for (;;)
 			{
-			IndexKey priorKey;
 			page = (IndexPage*) bdb->buffer;
-			Btn *node = page->findNodeInLeaf(key, &priorKey);
+			Btn *node = page->findNodeInLeaf(key, NULL);
 			Btn *bucketEnd = (Btn*) ((char*) page + page->length);
 
 			if (node < bucketEnd || page->nextPage == 0)

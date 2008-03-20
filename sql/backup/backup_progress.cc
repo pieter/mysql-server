@@ -27,6 +27,12 @@
 #include "backup_progress.h"
 #include "be_thread.h"
 
+/* BACKUP_HISTORY_LOG name */
+LEX_STRING BACKUP_HISTORY_LOG_NAME= {C_STRING_WITH_LEN("online_backup")};
+
+/* BACKUP_PROGRESS_LOG name */
+LEX_STRING BACKUP_PROGRESS_LOG_NAME= {C_STRING_WITH_LEN("online_backup_progress")};
+
 /**
    Check online backup progress tables.
 
@@ -70,139 +76,6 @@ my_bool check_ob_progress_tables(THD *thd)
 }
 
 /**
-   Open backup progress table.
-
-   This method opens the online backup table specified. It uses the locking
-   thread mechanism in be_thread.cc to open the table in a separate thread.
-
-   @param char *         table_name  The name of the table to open.
-   @param thr_lock_type  lock        The lock type -- TL_WRITE or TL_READ.
-
-   @returns 0 = success
-   @returns 1 = failed to open table
-
-   @todo : Replace poling loop with signal.
-  */
-Locking_thread_st *open_backup_progress_table(const char *table_name,
-                                              enum thr_lock_type lock)
-{
-  TABLE_LIST tables;                    // List of tables (1 in this case)
-  Locking_thread_st *locking_thd;       // The locking thread
-
-  DBUG_ENTER("open_backup_progress_table()");
-
-  /*
-    The locking thread will, via open_table(), fail if the table does not
-    exist.
-  */
-
-  /*
-    Create a new thread to open and lock the tables.
-  */
-  locking_thd= new Locking_thread_st();
-  if (locking_thd == NULL)
-    DBUG_RETURN(locking_thd);    
-
-  locking_thd->tables_in_backup= (TABLE_LIST*)my_malloc(sizeof(TABLE_LIST), MYF(MY_WME));
-  locking_thd->tables_in_backup->init_one_table("mysql", table_name, lock);
-
-
-  /*
-    Start the locking thread and wait until it is ready.
-  */
-  locking_thd->start_locking_thread("backup progress locking thread");
-
-  /*
-    Poll the locking thread until ready.
-  */
-  while (locking_thd && (locking_thd->lock_state != LOCK_ACQUIRED) &&
-         (locking_thd->lock_state != LOCK_ERROR))
-    my_sleep(1);
-  if (locking_thd->lock_state == LOCK_ERROR)
-  {
-    delete locking_thd;
-    locking_thd= NULL;
-  }
-  DBUG_RETURN(locking_thd);
-}
-
-/**
-   Close backup progress table.
-
-   This method closes the online backup table specified. It uses the locking
-   thread mechanism in be_thread.cc to close the table in a separate thread.
-
-   @param Locking_thread_st *locking_thd  The locking thread.
-
-   @returns 0 = success
-   @returns 1 = failed to close table
-
-   @todo : Replace poling loop with signal.
-  */
-int close_backup_progress_table(Locking_thread_st *locking_thd)
-{
-  DBUG_ENTER("close_backup_progress_table()");
-
-  /*
-    Tell locking thread to die.
-  */
-  locking_thd->kill_locking_thread();
-
-  /*
-    Poll the locking thread until ready.
-  */
-  while (locking_thd && (locking_thd->lock_state != LOCK_DONE) &&
-         (locking_thd->lock_state != LOCK_ERROR))
-    my_sleep(1);
-  if (locking_thd->lock_state == LOCK_ERROR)
-    DBUG_RETURN(1);
-  my_free(locking_thd->tables_in_backup, MYF(0));
-  delete locking_thd;
-  locking_thd= NULL;
-  DBUG_RETURN(0);
-}
-
-/**
-   Find the row in the table that matches the backup_id.
-
-   This method locates the row in the online backup table that matches the
-   backup_id passed.
-
-   @param TABLE *    table      The table to search.
-   @param ulonglong  backup_id  The id of the row to locate.
-
-   @returns 0 = success
-   @returns 1 = failed to find row
-  */
-my_bool find_online_backup_row(TABLE *table, ulonglong backup_id)
-{
-  uchar key[MAX_KEY_LENGTH]; // key buffer for search
-
-  DBUG_ENTER("find_online_backup_row()");
-
-  /*
-    Create key to find row. We have to use field->store() to be able to
-    handle VARCHAR and CHAR fields.
-    Assumption here is that the two first fields in the table are
-    'db' and 'name' and the first key is the primary key over the
-    same fields.
-  */
-  table->field[ET_FIELD_BACKUP_ID]->store(backup_id, TRUE);
-
-  key_copy(key, table->record[0], table->key_info, table->key_info->key_length);
-
-  if (table->file->index_read_idx_map(table->record[0], 0, key, HA_WHOLE_KEY,
-                                      HA_READ_KEY_EXACT))
-  {
-    DBUG_PRINT("info", ("Row not found"));
-    DBUG_RETURN(TRUE);
-  }
-
-  DBUG_PRINT("info", ("Row found!"));
-  DBUG_RETURN(FALSE);
-}
-
-/**
    Get text string for state.
 
    @param enum_backup_state  state        The current state of the operation
@@ -241,129 +114,484 @@ void get_state_string(enum_backup_state state, String *str)
 }
 
 /**
-   Update an integer field for the row in the table that matches the backup_id.
+  Write the backup log entry for the backup history log to a table.
 
-   This method locates the row in the online backup table that matches the
-   backup_id passed and updates the field specified.
+  This method creates a new row in the backup history log with the
+  information provided.
 
-   @param ulonglong            backup_id   The id of the row to locate.
-   @param char *               table_name  The name of the table to open.
-   @param enum_ob_table_field  fld         Field to update.
-   @param ulonglong            value       Value to set field to.
+  @param[IN]   thd          The current thread
+  @param[OUT]  backup_id    The new row id for the backup history
+  @param[IN]   process_id   The process id of the operation 
+  @param[IN]   state        The current state of the operation
+  @param[IN]   operation    The current operation (backup or restore)
+  @param[IN]   error_num    The error number
+  @param[IN]   user_comment The user's comment specified in the
+                            command (not implemented yet)
+  @param[IN]   backup_file  The name of the target file
+  @param[IN]   command      The actual command entered
 
-   @returns 0 = success
-   @returns 1 = failed to find row
-  */
-int update_online_backup_int_field(ulonglong backup_id, 
-                                   const char *table_name,
-                                   enum_ob_table_field fld, 
-                                   ulonglong value)
+  @retval TRUE if error.
+
+  @todo Add internal error handler to handle errors that occur on
+        open. See  thd->push_internal_handler(&error_handler).
+*/
+bool backup_history_log_write(THD *thd, 
+                              ulonglong *backup_id,
+                              int process_id,
+                              enum_backup_state state,
+                              enum_backup_operation operation,
+                              int error_num,
+                              const char *user_comment,
+                              const char *backup_file,
+                              const char *command)
 {
-  TABLE *table= NULL;                   // table to open
-  TABLE_LIST tables;                    // List of tables (1 in this case)
-  int ret= 0;                           // return value
-  Locking_thread_st *locking_thd= NULL; // The locking thread
+  TABLE_LIST table_list;
+  TABLE *table= NULL;
+  bool result= TRUE;
+  bool need_close= FALSE;
+  bool need_pop= FALSE;
+  bool need_rnd_end= FALSE;
+  Open_tables_state open_tables_backup;
+  bool save_time_zone_used;
+  char *host= current_thd->security_ctx->host; // host name
+  char *user= current_thd->security_ctx->user; // user name
 
-  DBUG_ENTER("update_int_field()");
+  save_time_zone_used= thd->time_zone_used;
+  bzero(& table_list, sizeof(TABLE_LIST));
+  table_list.alias= table_list.table_name= BACKUP_HISTORY_LOG_NAME.str;
+  table_list.table_name_length= BACKUP_HISTORY_LOG_NAME.length;
 
-  locking_thd= open_backup_progress_table(table_name, TL_WRITE);
-  if (!locking_thd)
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(0);
-  }
+  table_list.lock_type= TL_WRITE_CONCURRENT_INSERT;
 
-  table= locking_thd->tables_in_backup->table;
-  table->use_all_columns();
+  table_list.db= MYSQL_SCHEMA_NAME.str;
+  table_list.db_length= MYSQL_SCHEMA_NAME.length;
 
-  if (find_online_backup_row(table, backup_id))
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(1);
-  }
+  if (!(table= open_performance_schema_table(thd, & table_list,
+                                             & open_tables_backup)))
+    goto err;
 
-  store_record(table, record[1]);
+  need_close= TRUE;
+
+  if (table->file->extra(HA_EXTRA_MARK_AS_LOG_TABLE) ||
+      table->file->ha_rnd_init(0))
+    goto err;
+
+  need_rnd_end= TRUE;
+
+  /* Honor next number columns if present */
+  table->next_number_field= table->found_next_number_field;
+
+  /*
+    Get defaults for new record.
+  */
+  restore_record(table, s->default_values); 
+
+  /* check that all columns exist */
+  if (table->s->fields < ET_OBH_FIELD_COUNT)
+    goto err;
 
   /*
     Fill in the data.
   */
-  table->field[fld]->store(value, TRUE);
-  table->field[fld]->set_notnull();
+  table->field[ET_OBH_FIELD_PROCESS_ID]->store(process_id, TRUE);
+  table->field[ET_OBH_FIELD_PROCESS_ID]->set_notnull();
+  table->field[ET_OBH_FIELD_BACKUP_STATE]->store(state, TRUE);
+  table->field[ET_OBH_FIELD_BACKUP_STATE]->set_notnull();
+  table->field[ET_OBH_FIELD_OPER]->store(operation, TRUE);
+  table->field[ET_OBH_FIELD_OPER]->set_notnull();
+  table->field[ET_OBH_FIELD_ERROR_NUM]->store(error_num, TRUE);
+  table->field[ET_OBH_FIELD_ERROR_NUM]->set_notnull();
+
+  if (host)
+  {
+    if(table->field[ET_OBH_FIELD_HOST_OR_SERVER]->store(host, 
+       strlen(host), system_charset_info))
+      goto err;
+    table->field[ET_OBH_FIELD_HOST_OR_SERVER]->set_notnull();
+  }
+
+  if (user)
+  {
+    if (table->field[ET_OBH_FIELD_USERNAME]->store(user,
+        strlen(user), system_charset_info))
+      goto err;
+    table->field[ET_OBH_FIELD_USERNAME]->set_notnull();
+  }
+
+  if (user_comment)
+  {
+    if (table->field[ET_OBH_FIELD_COMMENT]->store(user_comment,
+        strlen(user_comment), system_charset_info))
+      goto err;
+    table->field[ET_OBH_FIELD_COMMENT]->set_notnull();
+  }
+
+  if (backup_file)
+  {
+    if (table->field[ET_OBH_FIELD_BACKUP_FILE]->store(backup_file, 
+        strlen(backup_file), system_charset_info))
+      goto err;
+    table->field[ET_OBH_FIELD_BACKUP_FILE]->set_notnull();
+  }
+
+  if (command)
+  {
+    if (table->field[ET_OBH_FIELD_COMMAND]->store(command,
+        strlen(command), system_charset_info))
+      goto err;
+    table->field[ET_OBH_FIELD_COMMAND]->set_notnull();
+  }
+
+  /* log table entries are not replicated */
+  if (table->file->ha_write_row(table->record[0]))
+    goto err;
 
   /*
-    Update the row.
+    Get last insert id for row.
   */
-  if ((ret= table->file->ha_update_row(table->record[1], table->record[0])))
-    table->file->print_error(ret, MYF(0));
+  *backup_id= table->file->insert_id_for_cur_row;
 
-  ret= close_backup_progress_table(locking_thd);
-  DBUG_RETURN(ret);
+  result= FALSE;
+
+err:
+  if (result && !thd->killed)
+    push_warning_printf(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
+                        ER_BACKUP_LOG_WRITE_ERROR,
+                        (ER(ER_BACKUP_LOG_WRITE_ERROR),
+                        "mysql.online_backup"));
+
+  if (need_rnd_end)
+  {
+    table->file->ha_rnd_end();
+    table->file->ha_release_auto_increment();
+  }
+  if (need_close)
+    close_performance_schema_table(thd, & open_tables_backup);
+
+  thd->time_zone_used= save_time_zone_used;
+  return result;
 }
 
 /**
-   Update a datetime field for the row in the table that matches the backup_id.
+  Update a backup history log entry for the given backup_id to a table.
 
-   This method locates the row in the online backup table that matches the
-   backup_id passed and updates the field specified.
+  This method updates a row in the backup history log using one
+  of four data types as determined by the field (see fld).
 
-   @param ulonglong            backup_id   The id of the row to locate.
-   @param char *               table_name  The name of the table to open.
-   @param enum_ob_table_field  fld         Field to update.
-   @param my_time_t            value       Value to set field to.
+  @param[IN]   thd          The current thread
+  @param[IN]   backup_id    The row id for the backup history to be updated
+  @param[IN]   fld          The enum for the field to be updated 
+  @param[IN]   val_long     The value for long fields
+  @param[IN]   val_time     The value for time fields
+  @param[IN]   val_str      The value for char * fields
+  @param[IN]   val_state    The value for state fields
 
-   @returns 0 = success
-   @returns 1 = failed to find row
-  */
-int update_online_backup_datetime_field(ulonglong backup_id, 
-                                        const char *table_name,
-                                        enum_ob_table_field fld, 
-                                        time_t value)
+  @retval TRUE if error.
+
+  @todo Add internal error handler to handle errors that occur on
+        open. See  thd->push_internal_handler(&error_handler).
+*/
+bool backup_history_log_update(THD *thd, 
+                               ulonglong backup_id,
+                               enum_backup_history_table_field fld,
+                               ulonglong val_long,
+                               time_t val_time,
+                               const char *val_str,
+                               int val_state)
 {
-  TABLE *table= NULL;                   // table to open
-  TABLE_LIST tables;                    // List of tables (1 in this case)
-  int ret= 0;                           // return value
-  Locking_thread_st *locking_thd= NULL; // The locking thread
+  TABLE_LIST table_list;
+  TABLE *table= NULL;
+  bool result= TRUE;
+  bool need_close= FALSE;
+  bool need_pop= FALSE;
+  bool need_rnd_end= FALSE;
+  Open_tables_state open_tables_backup;
+  bool save_time_zone_used;
+  int ret= 0;
 
-  DBUG_ENTER("update_int_field()");
+  save_time_zone_used= thd->time_zone_used;
 
-  locking_thd= open_backup_progress_table(table_name, TL_WRITE);
-  if (!locking_thd)
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(0);
-  }
+  bzero(& table_list, sizeof(TABLE_LIST));
+  table_list.alias= table_list.table_name= BACKUP_HISTORY_LOG_NAME.str;
+  table_list.table_name_length= BACKUP_HISTORY_LOG_NAME.length;
 
-  table= locking_thd->tables_in_backup->table;
-  table->use_all_columns();
+  table_list.lock_type= TL_WRITE_CONCURRENT_INSERT;
 
-  if (find_online_backup_row(table, backup_id))
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(1);
-  }
+  table_list.db= MYSQL_SCHEMA_NAME.str;
+  table_list.db_length= MYSQL_SCHEMA_NAME.length;
+
+  if (!(table= open_performance_schema_table(thd, & table_list,
+                                             & open_tables_backup)))
+    goto err;
+
+  if (find_backup_history_row(table, backup_id))
+    goto err;
+
+  need_close= TRUE;
 
   store_record(table, record[1]);
 
   /*
     Fill in the data.
   */
-  if (value)
-  {
-    MYSQL_TIME time;
-    my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)value);
+  switch (fld) {
+    case ET_OBH_FIELD_BINLOG_POS:
+    case ET_OBH_FIELD_ERROR_NUM:
+    case ET_OBH_FIELD_NUM_OBJ:
+    case ET_OBH_FIELD_TOTAL_BYTES:
+    {
+      table->field[fld]->store(val_long, TRUE);
+      table->field[fld]->set_notnull();
+      break;
+    }
+    case ET_OBH_FIELD_BINLOG_FILE:
+    {
+      if (val_str)
+      {
+        if(table->field[fld]->store(val_str, strlen(val_str), 
+                                    system_charset_info))
+          goto err;
+        table->field[fld]->set_notnull();
+      }
+      break;
+    }    
+    case ET_OBH_FIELD_ENGINES:
+    {
+      String str;    // engines string
+      str.length(0);
+      table->field[fld]->val_str(&str);
+      if (str.length() > 0)
+        str.append(", ");
+      str.append(val_str);
+      if (str.length() > 0)
+      {
+        if(table->field[fld]->store(str.c_ptr(), 
+           str.length(), system_charset_info))
+          goto err;
+        table->field[fld]->set_notnull();
+      }
+      break;
+    }    
+    case ET_OBH_FIELD_START_TIME:
+    case ET_OBH_FIELD_STOP_TIME:
+    case ET_OBH_FIELD_VP:
+    {
+      if (val_time)
+      {
+        MYSQL_TIME time;
+        my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)val_time);
 
-    table->field[fld]->set_notnull();
-    table->field[fld]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);
+        table->field[fld]->set_notnull();
+        table->field[fld]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);
+      }
+      break;
+    }
+    case ET_OBH_FIELD_BACKUP_STATE:
+    {
+      table->field[fld]->store(val_state, TRUE);
+      table->field[fld]->set_notnull();
+      break;
+    }
   }
 
   /*
     Update the row.
   */
   if ((ret= table->file->ha_update_row(table->record[1], table->record[0])))
-    table->file->print_error(ret, MYF(0));
+    goto err;
 
-  ret= close_backup_progress_table(locking_thd);
-  DBUG_RETURN(ret);
+  result= FALSE;
+
+err:
+  if (result && !thd->killed)
+    push_warning_printf(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
+                        ER_BACKUP_LOG_WRITE_ERROR,
+                        (ER(ER_BACKUP_LOG_WRITE_ERROR),
+                        "mysql.online_backup"));
+
+  if (need_close)
+    close_performance_schema_table(thd, & open_tables_backup);
+
+  thd->time_zone_used= save_time_zone_used;
+  return result;
+}
+
+/**
+  Write the backup log entry for the backup progress log to a table.
+
+  This method creates a new row in the backup progress log with the
+  information provided.
+
+  @param[IN]   thd         The current thread
+  @param[OUT]  backup_id   The id of the backup/restore operation for
+                           the progress information
+  @param[IN]   object      The name of the object processed
+  @param[IN]   start       Start datetime
+  @param[IN]   stop        Stop datetime
+  @param[IN]   size        Size value
+  @param[IN]   progress    Progress (percent)
+  @param[IN]   error_num   Error number (should be 0 if success)
+  @param[IN]   notes       Misc data from engine
+
+  @retval TRUE if error.
+
+  @todo Add internal error handler to handle errors that occur on
+        open. See  thd->push_internal_handler(&error_handler).
+*/
+bool backup_progress_log_write(THD *thd,
+                               ulonglong backup_id,
+                               const char *object,
+                               time_t start,
+                               time_t stop,
+                               longlong size,
+                               longlong progress,
+                               int error_num,
+                               const char *notes)
+{
+  TABLE_LIST table_list;
+  TABLE *table;
+  bool result= TRUE;
+  bool need_close= FALSE;
+  bool need_pop= FALSE;
+  bool need_rnd_end= FALSE;
+  Open_tables_state open_tables_backup;
+  bool save_time_zone_used;
+
+  save_time_zone_used= thd->time_zone_used;
+
+  bzero(& table_list, sizeof(TABLE_LIST));
+  table_list.alias= table_list.table_name= BACKUP_PROGRESS_LOG_NAME.str;
+  table_list.table_name_length= BACKUP_PROGRESS_LOG_NAME.length;
+
+  table_list.lock_type= TL_WRITE_CONCURRENT_INSERT;
+
+  table_list.db= MYSQL_SCHEMA_NAME.str;
+  table_list.db_length= MYSQL_SCHEMA_NAME.length;
+
+  if (!(table= open_performance_schema_table(thd, & table_list,
+                                             & open_tables_backup)))
+    goto err;
+
+  need_close= TRUE;
+
+  if (table->file->extra(HA_EXTRA_MARK_AS_LOG_TABLE) ||
+      table->file->ha_rnd_init(0))
+    goto err;
+
+  need_rnd_end= TRUE;
+
+  /* Honor next number columns if present */
+  table->next_number_field= table->found_next_number_field;
+
+  /*
+    Get defaults for new record.
+  */
+  restore_record(table, s->default_values); 
+
+  /* check that all columns exist */
+  if (table->s->fields < ET_OBP_FIELD_PROG_COUNT)
+    goto err;
+
+  /*
+    Fill in the data.
+  */
+  table->field[ET_OBP_FIELD_BACKUP_ID_FK]->store(backup_id, TRUE);
+  table->field[ET_OBP_FIELD_BACKUP_ID_FK]->set_notnull();
+
+  if (object)
+  {
+    if (table->field[ET_OBP_FIELD_PROG_OBJECT]->store(object,
+        strlen(object), system_charset_info))
+      goto err;
+    table->field[ET_OBP_FIELD_PROG_OBJECT]->set_notnull();
+  }
+
+  if (notes)
+  {
+    if (table->field[ET_OBP_FIELD_PROG_NOTES]->store(notes,
+        strlen(notes), system_charset_info))
+      goto err;
+    table->field[ET_OBP_FIELD_PROG_NOTES]->set_notnull();
+  }
+
+  if (start)
+  {
+    MYSQL_TIME time;
+    my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)start);
+
+    table->field[ET_OBP_FIELD_PROG_START_TIME]->set_notnull();
+    table->field[ET_OBP_FIELD_PROG_START_TIME]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);
+  }
+
+  if (stop)
+  {
+    MYSQL_TIME time;
+    my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)stop);
+
+    table->field[ET_OBP_FIELD_PROG_STOP_TIME]->set_notnull();
+    table->field[ET_OBP_FIELD_PROG_STOP_TIME]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);
+  }
+
+  table->field[ET_OBP_FIELD_PROG_SIZE]->store(size, TRUE);
+  table->field[ET_OBP_FIELD_PROG_SIZE]->set_notnull();
+  table->field[ET_OBP_FIELD_PROGRESS]->store(progress, TRUE);
+  table->field[ET_OBP_FIELD_PROGRESS]->set_notnull();
+  table->field[ET_OBP_FIELD_PROG_ERROR_NUM]->store(error_num, TRUE);
+  table->field[ET_OBP_FIELD_PROG_ERROR_NUM]->set_notnull();
+
+  /* log table entries are not replicated */
+  if (table->file->ha_write_row(table->record[0]))
+    goto err;
+
+  result= FALSE;
+
+err:
+  if (result && !thd->killed)
+    push_warning_printf(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
+                        ER_BACKUP_LOG_WRITE_ERROR,
+                        (ER(ER_BACKUP_LOG_WRITE_ERROR),
+                        "mysql.online_backup_progress"));
+
+  if (need_rnd_end)
+  {
+    table->file->ha_rnd_end();
+    table->file->ha_release_auto_increment();
+  }
+  if (need_close)
+    close_performance_schema_table(thd, & open_tables_backup);
+
+  thd->time_zone_used= save_time_zone_used;
+  return result;
+}
+
+/**
+   Find the row in the table that matches the backup_id.
+
+   This method locates the row in the online backup table that matches the
+   backup_id passed.
+
+   @param TABLE      table      The open table.
+   @param ulonglong  backup_id  The id of the row to locate.
+
+   @retval 0  success
+   @retval 1  failed to find row
+  */
+bool find_backup_history_row(TABLE *table, ulonglong backup_id)
+{
+  uchar key[MAX_KEY_LENGTH]; // key buffer for search
+  /*
+    Create key to find row. We have to use field->store() to be able to
+    handle different field types (method is overloaded).
+  */
+  table->field[ET_OBH_FIELD_BACKUP_ID]->store(backup_id, TRUE);
+
+  key_copy(key, table->record[0], table->key_info, table->key_info->key_length);
+
+  if (table->file->index_read_idx_map(table->record[0], 0, key, HA_WHOLE_KEY,
+                                      HA_READ_KEY_EXACT))
+    return true;
+
+  return false;
 }
 
 /**
@@ -372,129 +600,40 @@ int update_online_backup_datetime_field(ulonglong backup_id,
    This method inserts a new row in the online_backup table populating it
    with the initial values passed. It returns the backup_id of the new row.
 
+   @param THD                thd          The current thread class.
    @param int                process_id   The process id of the operation 
    @param enum_backup_state  state        The current state of the operation
-   @param enum_backup_op     operation    The current state of the operation
+   @param enum_backup_op     operation    The current operation 
+                                          (backup or restore)
    @param int                error_num    The error number
    @param char *             user_comment The user's comment specified in the
                                           command (not implemented yet)
    @param char *             backup_file  The name of the target file
    @param char *             command      The actual command entered
 
-   @returns long backup_id  The autoincrement value for the new row.
+   @retval long backup_id  The autoincrement value for the new row.
   */
-ulonglong report_ob_init(int process_id,
-                    enum_backup_state state,
-                    enum_backup_op operation,
-                    int error_num,
-                    const char *user_comment,
-                    const char *backup_file,
-                    const char *command)
-{
+ulonglong report_ob_init(THD *thd, 
+                         int process_id,
+                         enum_backup_state state,
+                         enum_backup_operation operation,
+                         int error_num,
+                         const char *user_comment,
+                         const char *backup_file,
+                         const char *command)
+{ 
   ulonglong backup_id= 0;
   int ret= 0;                                  // return value
-  TABLE *table= NULL;                          // table to open
-  TABLE_LIST tables;                           // List of tables (1 in this case)
-  char *host= current_thd->security_ctx->host; // host name
-  char *user= current_thd->security_ctx->user; // user name
-  Locking_thread_st *locking_thd= NULL;        // The locking thread
-
   DBUG_ENTER("report_ob_init()");
 
-  locking_thd= open_backup_progress_table("online_backup", TL_WRITE);
-  if (!locking_thd)
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(0);
-  }
-
-  table= locking_thd->tables_in_backup->table;
-  table->use_all_columns();
-
-  THD *t= table->in_use;
-  table->in_use= current_thd;
-
-  /*
-    Get defaults for new record.
-  */
-  restore_record(table, s->default_values); 
-
-  /*
-    Fill in the data.
-  */
-  table->field[ET_FIELD_PROCESS_ID]->store(process_id, TRUE);
-  table->field[ET_FIELD_PROCESS_ID]->set_notnull();
-  table->field[ET_FIELD_BACKUP_STATE]->store(state, TRUE);
-  table->field[ET_FIELD_BACKUP_STATE]->set_notnull();
-  table->field[ET_FIELD_OPER]->store(operation, TRUE);
-  table->field[ET_FIELD_OPER]->set_notnull();
-  table->field[ET_FIELD_ERROR_NUM]->store(error_num, TRUE);
-  table->field[ET_FIELD_ERROR_NUM]->set_notnull();
-
-  if (host)
-  {
-    if(table->field[ET_FIELD_HOST_OR_SERVER]->store(host, 
-       strlen(host), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_HOST_OR_SERVER]->set_notnull();
-  }
-
-  if (user)
-  {
-    if (table->field[ET_FIELD_USERNAME]->store(user,
-        strlen(user), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_USERNAME]->set_notnull();
-  }
-
-  if (user_comment)
-  {
-    if (table->field[ET_FIELD_COMMENT]->store(user_comment,
-        strlen(user_comment), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_COMMENT]->set_notnull();
-  }
-
-  if (backup_file)
-  {
-    if (table->field[ET_FIELD_BACKUP_FILE]->store(backup_file, 
-        strlen(backup_file), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_BACKUP_FILE]->set_notnull();
-  }
-
-  if (command)
-  {
-    if (table->field[ET_FIELD_COMMAND]->store(command,
-        strlen(command), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_COMMAND]->set_notnull();
-  }
-  table->in_use= t;
-
-  table->next_number_field=table->found_next_number_field;
-
-  /*
-    Write the row.
-  */
-  if ((ret= table->file->ha_write_row(table->record[0])))
-    table->file->print_error(ret, MYF(0));
-
-  /*
-    Get last insert id for row.
-  */
-  backup_id= table->file->insert_id_for_cur_row;
-  table->file->ha_release_auto_increment();
-
-end:
-
-  ret= close_backup_progress_table(locking_thd);
+  ret= backup_history_log_write(thd, &backup_id, process_id, state, operation,
+                                error_num, user_comment, backup_file, command);
   /*
     Record progress update.
   */
   String str;
   get_state_string(state, &str);
-  report_ob_progress(backup_id, "backup kernel", 0, 
+  report_ob_progress(thd, backup_id, "backup kernel", 0, 
                      0, 0, 0, 0, str.c_ptr());
   DBUG_RETURN(backup_id);
 }
@@ -505,69 +644,26 @@ end:
    This method locates the row in the online backup table that matches the
    backup_id passed and updates the binlog values.
 
+   @param THD                  thd          The current thread class.
    @param ulonglong            backup_id    The id of the row to locate.
    @param int                  backup_pos   The id of the row to locate.
    @param char *               binlog_file  The filename of the binlog.
 
-   @returns 0 = success
-   @returns 1 = failed to find row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_binlog_info(ulonglong backup_id,
+int report_ob_binlog_info(THD *thd,
+                          ulonglong backup_id,
                           int binlog_pos,
                           const char *binlog_file)
 {
-  TABLE *table= NULL;                   // table to open
-  TABLE_LIST tables;                    // List of tables (1 in this case)
   int ret= 0;                           // return value
-  Locking_thread_st *locking_thd= NULL; // The locking thread
-
   DBUG_ENTER("report_ob_binlog_info()");
 
-  locking_thd= open_backup_progress_table("online_backup", TL_WRITE);
-  if (!locking_thd)
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(0);
-  }
-
-  table= locking_thd->tables_in_backup->table;
-  table->use_all_columns();
-
-  if (find_online_backup_row(table, backup_id))
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(1);
-  }
-
-  store_record(table, record[1]);
-
-  /*
-    Fill in the data.
-  */
-  table->field[ET_FIELD_BINLOG_POS]->store(binlog_pos, TRUE);
-  table->field[ET_FIELD_BINLOG_POS]->set_notnull();
-
-  THD *t= table->in_use;
-  table->in_use= current_thd;
-
-  if (binlog_file)
-  {
-    if(table->field[ET_FIELD_BINLOG_FILE]->store(binlog_file, 
-       strlen(binlog_file), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_BINLOG_FILE]->set_notnull();
-  }
-  table->in_use= t;
-
-  /*
-    Update the row.
-  */
-  if ((ret= table->file->ha_update_row(table->record[1], table->record[0])))
-    table->file->print_error(ret, MYF(0));
-
-end:
-
-  ret= close_backup_progress_table(locking_thd);
+  ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_BINLOG_POS, 
+                                 binlog_pos, 0, 0, 0);
+  ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_BINLOG_FILE, 
+                                 0, 0, binlog_file, 0);
   DBUG_RETURN(ret);
 }
 
@@ -577,20 +673,23 @@ end:
    This method locates the row in the online backup table that matches the
    backup_id passed and updates the error number value.
 
+   @param THD        thd        The current thread class.
    @param ulonglong  backup_id  The id of the row to locate.
    @param int        error_num  New error number.
 
-   @returns 0 = success
-   @returns 1 = failed to find row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_error(ulonglong backup_id,
+int report_ob_error(THD *thd,
+                    ulonglong backup_id,
                     int error_num)
 {
   int ret= 0;  // return value
-
   DBUG_ENTER("report_ob_error()");
-  update_online_backup_int_field(backup_id, "online_backup", 
-                                 ET_FIELD_ERROR_NUM, error_num);
+
+  ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_ERROR_NUM, 
+                                 error_num, 0, 0, 0);
+
   DBUG_RETURN(ret);
 }
 
@@ -600,20 +699,23 @@ int report_ob_error(ulonglong backup_id,
    This method locates the row in the online backup table that matches the
    backup_id passed and updates the number of objects value.
 
-   @param ulonglong  backup_id   The id of the row to locate.
+   @param THD        thd         The current thread class.
+   @param ulonglong  backup_id    The id of the row to locate.
    @param int        num_objects  New error number.
 
-   @returns 0 = success
-   @returns 1 = failed to find row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_num_objects(ulonglong backup_id,
+int report_ob_num_objects(THD *thd,
+                          ulonglong backup_id,
                           int num_objects)
 {
   int ret= 0;  // return value
-
   DBUG_ENTER("report_ob_num_objects()");
-  update_online_backup_int_field(backup_id, "online_backup",
-                                 ET_FIELD_NUM_OBJ, num_objects);
+
+  ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_NUM_OBJ, 
+                                 num_objects, 0, 0, 0);
+
   DBUG_RETURN(ret);
 }
 
@@ -623,20 +725,23 @@ int report_ob_num_objects(ulonglong backup_id,
    This method locates the row in the online backup table that matches the
    backup_id passed and updates the size value.
 
+   @param THD        thd        The current thread class.
    @param ulonglong  backup_id  The id of the row to locate.
    @param int        size       New size value.
 
-   @returns 0 = success
-   @returns 1 = failed to find row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_size(ulonglong backup_id,
+int report_ob_size(THD *thd,
+                   ulonglong backup_id,
                    longlong size)
 {
   int ret= 0;  // return value
-
   DBUG_ENTER("report_ob_size()");
-  update_online_backup_int_field(backup_id, "online_backup",
-                                 ET_FIELD_TOTAL_BYTES, size);
+
+  ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_TOTAL_BYTES, 
+                                 size, 0, 0, 0);
+
   DBUG_RETURN(ret);
 }
 
@@ -646,26 +751,30 @@ int report_ob_size(ulonglong backup_id,
    This method locates the row in the online backup table that matches the
    backup_id passed and updates the start/stop values.
 
+   @param THD        thd        The current thread class.
    @param ulonglong  backup_id  The id of the row to locate.
    @param my_time_t  start      Start datetime.
    @param my_time_t  stop       Stop datetime.
 
-   @returns 0 = success
-   @returns 1 = failed to find row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_time(ulonglong backup_id,
+int report_ob_time(THD *thd,
+                   ulonglong backup_id,
                    time_t start,
                    time_t stop)
 {
   int ret= 0;  // return value
-
   DBUG_ENTER("report_ob_time()");
+
   if (start)
-    update_online_backup_datetime_field(backup_id, "online_backup",
-                                        ET_FIELD_START_TIME, start);
+    ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_START_TIME, 
+                                   0, start, 0, 0);
+
   if (stop)
-    update_online_backup_datetime_field(backup_id, "online_backup",
-                                        ET_FIELD_STOP_TIME, stop);
+    ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_STOP_TIME, 
+                                   0, stop, 0, 0);
+
   DBUG_RETURN(ret);
 }
 
@@ -675,21 +784,24 @@ int report_ob_time(ulonglong backup_id,
    This method updates the validity point time for the backup operation
    identified by backup_id.
 
+   @param THD        thd        The current thread class.
    @param ulonglong  backup_id  The id of the row to locate.
    @param my_time_t  vp_time    Validity point datetime.
 
-   @returns 0 = success
-   @returns 1 = failed to find row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_vp_time(ulonglong backup_id,
+int report_ob_vp_time(THD *thd,
+                      ulonglong backup_id,
                       time_t vp_time)
 {
   int ret= 0;  // return value
-
   DBUG_ENTER("report_ob_vp_time()");
+
   if (vp_time)
-    update_online_backup_datetime_field(backup_id, "online_backup",
-                                        ET_FIELD_VP, vp_time);
+    ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_VP, 
+                                   0, vp_time, 0, 0);
+
   DBUG_RETURN(ret);
 }
 
@@ -700,70 +812,23 @@ int report_ob_vp_time(ulonglong backup_id,
    identified by backup_id. This method appends to the those listed in the
    table for the backup_id.
 
+   @param THD        thd          The current thread class.
    @param ulonglong  backup_id    The id of the row to locate.
    @param char *     egnine_name  The name of the engine to add.
 
-   @returns 0 = success
-   @returns 1 = failed to find row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_engines(ulonglong backup_id,
+int report_ob_engines(THD *thd,
+                      ulonglong backup_id,
                       const char *engine_name)
 {
-  TABLE *table= NULL;                   // table to open
-  TABLE_LIST tables;                    // List of tables (1 in this case)
-  int ret= 0;                           // return value
-  String str;                           // engines string
-  Locking_thread_st *locking_thd= NULL; // The locking thread
-
+  int ret= 0;  // return value
   DBUG_ENTER("report_ob_engines()");
 
-  locking_thd= open_backup_progress_table("online_backup", TL_WRITE);
-  if (!locking_thd)
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(0);
-  }
+  ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_ENGINES, 
+                                 0, 0, engine_name, 0);
 
-  table= locking_thd->tables_in_backup->table;
-  table->use_all_columns();
-
-  if (find_online_backup_row(table, backup_id))
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(1);
-  }
-
-  store_record(table, record[1]);
-
-  /*
-    Fill in the data.
-  */
-  THD *t= table->in_use;
-  table->in_use= current_thd;
-
-  str.length(0);
-  table->field[ET_FIELD_ENGINES]->val_str(&str);
-  if (str.length() > 0)
-    str.append(", ");
-  str.append(engine_name);
-  if (str.length() > 0)
-  {
-    if(table->field[ET_FIELD_ENGINES]->store(str.c_ptr(), 
-       str.length(), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_ENGINES]->set_notnull();
-  }
-  table->in_use= t;
-
-  /*
-    Update the row.
-  */
-  if ((ret= table->file->ha_update_row(table->record[1], table->record[0])))
-    table->file->print_error(ret, MYF(0));
-
-end:
-
-  ret= close_backup_progress_table(locking_thd);
   DBUG_RETURN(ret);
 }
 
@@ -773,26 +838,28 @@ end:
    This method locates the row in the online backup table that matches the
    backup_id passed and updates the state value.
 
+   @param THD                thd        The current thread class.
    @param ulonglong          backup_id  The id of the row to locate.
    @param enum_backup_state  state      New state value.
 
-   @returns 0 = success
-   @returns 1 = failed to find row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_state(ulonglong backup_id,
+int report_ob_state(THD *thd, 
+                    ulonglong backup_id,
                     enum_backup_state state)
 {
   int ret= 0;  // return value
   String str;
-
   DBUG_ENTER("report_ob_state()");
-  update_online_backup_int_field(backup_id, "online_backup", 
-                                 ET_FIELD_BACKUP_STATE, state);
+
+  ret= backup_history_log_update(thd, backup_id, ET_OBH_FIELD_BACKUP_STATE, 
+                                 0, 0, 0, state);
   /*
     Record progress update.
   */
   get_state_string(state, &str);
-  report_ob_progress(backup_id, "backup kernel", 0, 
+  report_ob_progress(thd, backup_id, "backup kernel", 0, 
                      0, 0, 0, 0, str.c_ptr());
 
   DBUG_RETURN(ret);
@@ -805,6 +872,7 @@ int report_ob_state(ulonglong backup_id,
    the values passed. This method is used to insert progress information during
    the backup operation.
 
+   @param THD        thd        The current thread class.
    @param ulonglong  backup_id  The id of the master table row.
    @param char *     object     The name of the object processed.
    @param my_time_t  start      Start datetime.
@@ -814,10 +882,11 @@ int report_ob_state(ulonglong backup_id,
    @param int        error_num  Error number (should be 0 is success).
    @param char *     notes      Misc data from engine
 
-   @returns 0 = success
-   @returns 1 = failed to write row
+   @retval 0  success
+   @retval 1  failed to find row
   */
-int report_ob_progress(ulonglong backup_id,
+inline int report_ob_progress(THD *thd,
+                       ulonglong backup_id,
                        const char *object,
                        time_t start,
                        time_t stop,
@@ -827,177 +896,13 @@ int report_ob_progress(ulonglong backup_id,
                        const char *notes)
 {
   int ret= 0;                           // return value
-  TABLE *table= NULL;                   // table to open
-  TABLE_LIST tables;                    // List of tables (1 in this case)
-  Locking_thread_st *locking_thd= NULL; // The locking thread
-
   DBUG_ENTER("report_ob_progress()");
 
-  locking_thd= open_backup_progress_table("online_backup_progress", TL_WRITE);
-  if (!locking_thd)
-  {
-    ret= close_backup_progress_table(locking_thd);
-    DBUG_RETURN(0);
-  }
+  ret= backup_progress_log_write(thd, backup_id, object, start, stop, 
+                                 size, progress, error_num, notes);
 
-  table= locking_thd->tables_in_backup->table;
-  table->use_all_columns();
-
-  THD *t= table->in_use;
-  table->in_use= current_thd;
-
-  /*
-    Get defaults for new record.
-  */
-  restore_record(table, s->default_values); 
-
-  /*
-    Fill in the data.
-  */
-  table->field[ET_FIELD_BACKUP_ID_FK]->store(backup_id, TRUE);
-  table->field[ET_FIELD_BACKUP_ID_FK]->set_notnull();
-
-  if (object)
-  {
-    if (table->field[ET_FIELD_PROG_OBJECT]->store(object,
-        strlen(object), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_PROG_OBJECT]->set_notnull();
-  }
-
-  if (notes)
-  {
-    if (table->field[ET_FIELD_PROG_NOTES]->store(notes,
-        strlen(notes), system_charset_info))
-      goto end;
-    table->field[ET_FIELD_PROG_NOTES]->set_notnull();
-  }
-  table->in_use= t;
-
-  if (start)
-  {
-    MYSQL_TIME time;
-    my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)start);
-
-    table->field[ET_FIELD_PROG_START_TIME]->set_notnull();
-    table->field[ET_FIELD_PROG_START_TIME]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);
-  }
-
-  if (stop)
-  {
-    MYSQL_TIME time;
-    my_tz_OFFSET0->gmt_sec_to_TIME(&time, (my_time_t)stop);
-
-    table->field[ET_FIELD_PROG_STOP_TIME]->set_notnull();
-    table->field[ET_FIELD_PROG_STOP_TIME]->store_time(&time, MYSQL_TIMESTAMP_DATETIME);
-  }
-
-  table->field[ET_FIELD_PROG_SIZE]->store(size, TRUE);
-  table->field[ET_FIELD_PROG_SIZE]->set_notnull();
-  table->field[ET_FIELD_PROGRESS]->store(progress, TRUE);
-  table->field[ET_FIELD_PROGRESS]->set_notnull();
-  table->field[ET_FIELD_PROG_ERROR_NUM]->store(error_num, TRUE);
-  table->field[ET_FIELD_PROG_ERROR_NUM]->set_notnull();
-
-  /*
-    Write the row.
-  */
-  if ((ret= table->file->ha_write_row(table->record[0])))
-    table->file->print_error(ret, MYF(0));
-
-end:
-
-  ret= close_backup_progress_table(locking_thd);
   DBUG_RETURN(ret);
 }
 
-/**
-   Sums the sizes for the row that matches the backup_id.
 
-   This method sums the size entries from the online backup progress rows
-   for the backup operation identified by backup_id.
-
-   @param ulonglong          backup_id  The id of the row to locate.
-
-   @returns  ulonglong  Total size of all backup progress rows
-  */
-ulonglong sum_progress_rows(ulonglong backup_id)
-{
-  int last_read_res;                    // result of last read
-  TABLE *table= NULL;                   // table to open
-  TABLE_LIST tables;                    // List of tables (1 in this case)
-  ulonglong size= 0;                    // total size
-  handler *hdl;                         // handler pointer
-  Locking_thread_st *locking_thd= NULL; // The locking thread
-
-  DBUG_ENTER("sum_progress_rows()");
-
-  locking_thd= open_backup_progress_table("online_backup_progress", TL_READ);
-  if (!locking_thd)
-  {
-    close_backup_progress_table(locking_thd);
-    DBUG_RETURN(0);
-  }
-
-  table= locking_thd->tables_in_backup->table;
-  table->use_all_columns();
-
-  hdl= table->file;
-  last_read_res= hdl->ha_rnd_init(1);
-  THD *t= table->in_use;
-  table->in_use= current_thd;
-  while (!hdl->rnd_next(table->record[0]))
-    if ((table->field[ET_FIELD_PROGRESS]->val_int() == 100) &&
-        (table->field[ET_FIELD_PROG_ERROR_NUM]->val_int() == 0) &&
-        ((ulonglong)table->field[ET_FIELD_BACKUP_ID_FK]->val_int() == backup_id))
-      size+= table->field[ET_FIELD_PROG_SIZE]->val_int();
-  table->in_use= t;
-
-  hdl->ha_rnd_end();
-
-  close_backup_progress_table(locking_thd);
-  DBUG_RETURN(size);
-}
-
-/**
-   Print summary for the row that matches the backup_id.
-
-   This method prints the summary information for the backup operation
-   identified by backup_id.
-
-   @param ulonglong  backup_id  The id of the row to locate.
-
-   @returns 0 = success
-   @returns 1 = failed to find row
-  */
-int print_backup_summary(THD *thd, ulonglong backup_id)
-{
-  Protocol *protocol= thd->protocol;    // client comms
-  List<Item> field_list;                // list of fields to send
-  String     op_str;                    // operations string
-  int ret= 0;                           // return value
-  char buf[255];                        // buffer for summary information
-  String str;
-
-  DBUG_ENTER("print_backup_summary()");
-
-  /*
-    Send field list.
-  */
-  op_str.length(0);
-  op_str.append("backup_id");
-  field_list.push_back(new Item_empty_string(op_str.c_ptr(), op_str.length()));
-  protocol->send_fields(&field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
-
-  /*
-    Send field data.
-  */
-  protocol->prepare_for_resend();
-  llstr(backup_id,buf);
-  protocol->store(buf, system_charset_info);
-  protocol->write();
-
-  my_eof(thd);
-  DBUG_RETURN(ret);
-}
 

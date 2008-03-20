@@ -149,6 +149,9 @@ execute_backup_command(THD *thd, LEX *lex)
   {
     backup::IStream *stream= open_for_read(*loc);
 
+    backup_prog_id= report_ob_init(thd, thd->id, BUP_STARTING, OP_RESTORE, 
+                                   0, "", lex->backup_dir.str, thd->query);
+
     if (!stream)
     {
       my_error(ER_BACKUP_READ_LOC,MYF(0),loc->describe());
@@ -164,9 +167,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
       start= my_time(0);
       
-      backup_prog_id= report_ob_init(thd->id, BUP_STARTING, OP_RESTORE, 
-                                     0, "", lex->backup_dir.str, thd->query);
-      report_ob_time(backup_prog_id, start, 0);
+      report_ob_time(thd, backup_prog_id, start, 0);
       BACKUP_BREAKPOINT("bp_starting_state");
 
       Restore_info info(thd,*stream);
@@ -182,7 +183,7 @@ execute_backup_command(THD *thd, LEX *lex)
       info.report_error(log_level::INFO,ER_BACKUP_RESTORE_START);
       info.save_start_time(start);
 
-      report_ob_state(backup_prog_id, BUP_RUNNING);
+      report_ob_state(thd, backup_prog_id, BUP_RUNNING);
       BACKUP_BREAKPOINT("bp_running_state");
 
       /*
@@ -217,10 +218,10 @@ execute_backup_command(THD *thd, LEX *lex)
         goto restore_error;
       }
 
-      report_ob_num_objects(backup_prog_id, info.table_count);
-      report_ob_size(backup_prog_id, info.data_size);
-      report_ob_time(backup_prog_id, 0, stop);
-      report_ob_state(backup_prog_id, BUP_COMPLETE);
+      report_ob_num_objects(thd, backup_prog_id, info.table_count);
+      report_ob_size(thd, backup_prog_id, info.data_size);
+      report_ob_time(thd, backup_prog_id, 0, stop);
+      report_ob_state(thd, backup_prog_id, BUP_COMPLETE);
       BACKUP_BREAKPOINT("bp_complete_state");
 
       info.report_error(log_level::INFO,ER_BACKUP_RESTORE_DONE);
@@ -233,12 +234,12 @@ execute_backup_command(THD *thd, LEX *lex)
 
     res= res ? res : ERROR;
 
-    report_ob_error(backup_prog_id, res);
+    report_ob_error(thd, backup_prog_id, res);
     
     if (stop)
-      report_ob_time(backup_prog_id, 0, stop);
+      report_ob_time(thd, backup_prog_id, 0, stop);
 
-    report_ob_state(backup_prog_id, BUP_ERRORS);
+    report_ob_state(thd, backup_prog_id, BUP_ERRORS);
     BACKUP_BREAKPOINT("bp_error_state");
    
    finish_restore:
@@ -260,6 +261,9 @@ execute_backup_command(THD *thd, LEX *lex)
     /* if set to true, backup location will be removed (e.g., upon failure) */
     bool remove_location= FALSE; 
     backup::OStream *stream= open_for_write(*loc);
+
+    backup_prog_id= report_ob_init(thd, thd->id, BUP_STARTING, OP_BACKUP,
+                                   0, "", lex->backup_dir.str, thd->query);
 
     if (!stream)
     {
@@ -283,9 +287,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
       Backup_info info(thd);
 
-      backup_prog_id= report_ob_init(thd->id, BUP_STARTING, OP_BACKUP,
-                                     0, "", lex->backup_dir.str, thd->query);
-      report_ob_time(backup_prog_id, start, 0);
+      report_ob_time(thd, backup_prog_id, start, 0);
       BACKUP_BREAKPOINT("bp_starting_state");
 
       info.backup_prog_id= backup_prog_id;
@@ -295,7 +297,7 @@ execute_backup_command(THD *thd, LEX *lex)
 
       info.report_error(log_level::INFO,ER_BACKUP_BACKUP_START);
       info.save_start_time(start);
-      report_ob_state(backup_prog_id, BUP_RUNNING);
+      report_ob_state(thd, backup_prog_id, BUP_RUNNING);
       BACKUP_BREAKPOINT("bp_running_state");
 
       info.save_errors();
@@ -320,7 +322,7 @@ execute_backup_command(THD *thd, LEX *lex)
         goto backup_error;
       }
 
-      report_ob_num_objects(backup_prog_id, info.table_count);
+      report_ob_num_objects(thd, backup_prog_id, info.table_count);
 
       if (check_info(thd,info))
       {
@@ -350,9 +352,9 @@ execute_backup_command(THD *thd, LEX *lex)
         goto backup_error;
       }
 
-      report_ob_size(info.backup_prog_id, info.data_size);
-      report_ob_time(info.backup_prog_id, 0, stop);
-      report_ob_state(info.backup_prog_id, BUP_COMPLETE);
+      report_ob_size(thd, info.backup_prog_id, info.data_size);
+      report_ob_time(thd, info.backup_prog_id, 0, stop);
+      report_ob_state(thd, info.backup_prog_id, BUP_COMPLETE);
       BACKUP_BREAKPOINT("bp_complete_state");
 
       info.report_error(log_level::INFO,ER_BACKUP_BACKUP_DONE);
@@ -366,11 +368,11 @@ execute_backup_command(THD *thd, LEX *lex)
 
     res= res ? res : ERROR;
 
-    report_ob_error(backup_prog_id, res);
-    report_ob_state(backup_prog_id, BUP_ERRORS);
+    report_ob_error(thd, backup_prog_id, res);
+    report_ob_state(thd, backup_prog_id, BUP_ERRORS);
 
     if (stop)
-      report_ob_time(backup_prog_id, 0, stop);
+      report_ob_time(thd, backup_prog_id, 0, stop);
 
     /*
       If the output stream was opened, a file or other system resource

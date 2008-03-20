@@ -29,43 +29,43 @@
 /**
    List of fields for online backup table.
   */
-enum enum_ob_table_field
+enum enum_backup_history_table_field
 {
-  ET_FIELD_BACKUP_ID = 0, /* start from 0 to correspond with field array */
-  ET_FIELD_PROCESS_ID,
-  ET_FIELD_BINLOG_POS,
-  ET_FIELD_BINLOG_FILE,
-  ET_FIELD_BACKUP_STATE,
-  ET_FIELD_OPER,
-  ET_FIELD_ERROR_NUM,
-  ET_FIELD_NUM_OBJ,
-  ET_FIELD_TOTAL_BYTES,
-  ET_FIELD_VP,
-  ET_FIELD_START_TIME,
-  ET_FIELD_STOP_TIME,
-  ET_FIELD_HOST_OR_SERVER,
-  ET_FIELD_USERNAME,
-  ET_FIELD_BACKUP_FILE,
-  ET_FIELD_COMMENT,
-  ET_FIELD_COMMAND,
-  ET_FIELD_ENGINES,
-  ET_FIELD_COUNT /* a cool trick to count the number of fields :) */
+  ET_OBH_FIELD_BACKUP_ID = 0, /* start from 0 to correspond with field array */
+  ET_OBH_FIELD_PROCESS_ID,
+  ET_OBH_FIELD_BINLOG_POS,
+  ET_OBH_FIELD_BINLOG_FILE,
+  ET_OBH_FIELD_BACKUP_STATE,
+  ET_OBH_FIELD_OPER,
+  ET_OBH_FIELD_ERROR_NUM,
+  ET_OBH_FIELD_NUM_OBJ,
+  ET_OBH_FIELD_TOTAL_BYTES,
+  ET_OBH_FIELD_VP,
+  ET_OBH_FIELD_START_TIME,
+  ET_OBH_FIELD_STOP_TIME,
+  ET_OBH_FIELD_HOST_OR_SERVER,
+  ET_OBH_FIELD_USERNAME,
+  ET_OBH_FIELD_BACKUP_FILE,
+  ET_OBH_FIELD_COMMENT,
+  ET_OBH_FIELD_COMMAND,
+  ET_OBH_FIELD_ENGINES,
+  ET_OBH_FIELD_COUNT /* a cool trick to count the number of fields :) */
 };
 
 /**
    List of fields for online backup progress table.
   */
-enum enum_ob_progress_table_field
+enum enum_backup_progress_table_field
 {
-  ET_FIELD_BACKUP_ID_FK = 0, /* start from 0 to correspond with field array */
-  ET_FIELD_PROG_OBJECT,
-  ET_FIELD_PROG_START_TIME,
-  ET_FIELD_PROG_STOP_TIME,
-  ET_FIELD_PROG_SIZE,
-  ET_FIELD_PROGRESS,
-  ET_FIELD_PROG_ERROR_NUM,
-  ET_FIELD_PROG_NOTES,
-  ET_FIELD_PROG_COUNT /* a cool trick to count the number of fields :) */
+  ET_OBP_FIELD_BACKUP_ID_FK = 0, /* start from 0 to correspond with field array */
+  ET_OBP_FIELD_PROG_OBJECT,
+  ET_OBP_FIELD_PROG_START_TIME,
+  ET_OBP_FIELD_PROG_STOP_TIME,
+  ET_OBP_FIELD_PROG_SIZE,
+  ET_OBP_FIELD_PROGRESS,
+  ET_OBP_FIELD_PROG_ERROR_NUM,
+  ET_OBP_FIELD_PROG_NOTES,
+  ET_OBP_FIELD_PROG_COUNT /* a cool trick to count the number of fields :) */
 };
 
 /**
@@ -73,7 +73,8 @@ enum enum_ob_progress_table_field
   */
 enum enum_backup_state
 {
-  BUP_COMPLETE = 1,
+  BUP_UNKNOWN = 0,
+  BUP_COMPLETE,
   BUP_STARTING,
   BUP_VALIDITY_POINT,
   BUP_RUNNING,
@@ -84,7 +85,7 @@ enum enum_backup_state
 /**
    List of operations for online backup table.
   */
-enum enum_backup_op
+enum enum_backup_operation
 {
   OP_BACKUP = 1,
   OP_RESTORE,
@@ -98,23 +99,72 @@ enum enum_backup_op
 */
 my_bool check_ob_progress_tables(THD *thd);
 
+
+/*
+  This method creates a new row in the backup history log with the
+  information provided.
+*/
+bool backup_history_log_write(THD *thd, 
+                              ulonglong *backup_id,
+                              int process_id,
+                              enum_backup_state state,
+                              enum_backup_operation operation,
+                              int error_num,
+                              const char *user_comment,
+                              const char *backup_file,
+                              const char *command);
+
+/*
+   This method locates the row in the online backup table that matches the
+   backup_id passed.
+*/
+bool find_backup_history_row(TABLE *table, ulonglong backup_id);
+
+/*
+  This method updates a row in the backup history log using one
+  of four data types as determined by the field (see fld).
+*/
+bool backup_history_log_update(THD *thd, 
+                               ulonglong backup_id,
+                               enum_backup_history_table_field fld,
+                               ulonglong val_long,
+                               time_t val_time,
+                               const char *val_str,
+                               int val_state);
+
+/*
+  This method creates a new row in the backup progress log with the
+  information provided.
+*/
+bool backup_progress_log_write(THD *thd,
+                               ulonglong backup_id,
+                               const char *object,
+                               time_t start,
+                               time_t stop,
+                               longlong size,
+                               longlong progress,
+                               int error_num,
+                               const char *notes);
+
 /*
   This method inserts a new row in the online_backup table populating it with
   the initial values passed. It returns the backup_id of the new row.
 */
-ulonglong report_ob_init(int process_id,
-                    enum_backup_state state,
-                    enum_backup_op operation,
-                    int error_num,
-                    const char *user_comment,
-                    const char *backup_file,
-                    const char *command);
+ulonglong report_ob_init(THD *thd,
+                         int process_id,
+                         enum_backup_state state,
+                         enum_backup_operation operation,
+                         int error_num,
+                         const char *user_comment,
+                         const char *backup_file,
+                         const char *command);
 
 /*
   This method updates the binary log information for the backup operation
   identified by backup_id.
 */
-int report_ob_binlog_info(ulonglong backup_id,
+int report_ob_binlog_info(THD *thd,
+                          ulonglong backup_id,
                           int binlog_pos,
                           const char *binlog_file);
 
@@ -122,28 +172,32 @@ int report_ob_binlog_info(ulonglong backup_id,
   This method updates the error number for the backup operation identified by
   backup_id.
 */
-int report_ob_error(ulonglong backup_id,
+int report_ob_error(THD *thd,
+                    ulonglong backup_id,
                     int error_num);
 
 /*
   This method updates the state for the backup operation identified by
   backup_id.
 */
-int report_ob_state(ulonglong backup_id,
+int report_ob_state(THD *thd,
+                    ulonglong backup_id,
                     enum_backup_state state);
 
 /*
   This method updates the number of objects for the backup operation identified by
   backup_id.
 */
-int report_ob_num_objects(ulonglong backup_id,
+int report_ob_num_objects(THD *thd,
+                          ulonglong backup_id,
                           int num_objects);
 
 /*
   This method updates the size for the backup operation identified by
   backup_id.
 */
-int report_ob_size(ulonglong backup_id,
+int report_ob_size(THD *thd,
+                   ulonglong backup_id,
                    longlong size);
 
 /*
@@ -154,7 +208,8 @@ int report_ob_size(ulonglong backup_id,
   values provided so that it can be called once for start and once again later 
   for stop).
 */
-int report_ob_time(ulonglong backup_id,
+int report_ob_time(THD *thd,
+                   ulonglong backup_id,
                    time_t start,
                    time_t stop);
 
@@ -162,7 +217,8 @@ int report_ob_time(ulonglong backup_id,
   This method updates the validity point time for the backup operation
   identified by backup_id.
 */
-int report_ob_vp_time(ulonglong backup_id,
+int report_ob_vp_time(THD *thd,
+                      ulonglong backup_id,
                       time_t vp_time);
 
 /*
@@ -170,13 +226,15 @@ int report_ob_vp_time(ulonglong backup_id,
   identified by backup_id. This method appends to the those listed in the
   table for the backup_id.
 */
-int report_ob_engines(ulonglong backup_id,
+int report_ob_engines(THD *thd,
+                      ulonglong backup_id,
                       const char *engine_name);
 
 /*
   This method inserts a new row in the progress table.
 */
-int report_ob_progress(ulonglong backup_id,
+int report_ob_progress(THD *thd,
+                       ulonglong backup_id,
                        const char *object,
                        time_t start,
                        time_t stop,
@@ -184,18 +242,6 @@ int report_ob_progress(ulonglong backup_id,
                        longlong progress,
                        int error_num,
                        const char *notes);
-
-/*
-  This method sums the size entries from the online backup progress rows
-  for the backup operation identified by backup_id.
-*/
-ulonglong sum_progress_rows(ulonglong backup_id);
-
-/*
-  This method prints the summary information for the backup operation
-  identified by backup_id.
-*/
-int print_backup_summary(THD *thd, ulonglong backup_id);
 
 #endif
 

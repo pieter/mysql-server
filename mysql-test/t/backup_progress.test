@@ -66,6 +66,7 @@ connection con2;
 send BACKUP DATABASE backup_progress to 'backup_progress_orig.bak';
 
 connection con1;
+
 # Wait for lock to be acquired and execution to reach breakpoint
 --echo con1: Checking locks.
 let $wait_condition = SELECT state = "debug_sync_point: bp_starting_state"
@@ -81,7 +82,8 @@ let $wait_condition = SELECT backup_state = "starting"
 --source include/wait_condition.inc
 
 --echo: Display progress
-INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "BACKUP DATABASE backup_progress%";
+SELECT MAX(backup_id) INTO @bup_id FROM mysql.online_backup WHERE command LIKE "BACKUP DATABASE backup_progress%";
+INSERT INTO backup_progress.t1_res (id) VALUES (@bup_id);
 SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
 
 --echo con1: Advance the lock.
@@ -172,6 +174,7 @@ DELETE FROM backup_progress.t1_res;
 send RESTORE FROM 'backup_progress_orig.bak';
 
 connection con1;
+
 # Wait for lock to be acquired and execution to reach breakpoint
 --echo con1: Checking locks.
 let $wait_condition = SELECT state = "debug_sync_point: bp_starting_state"
@@ -188,7 +191,8 @@ let $wait_condition = SELECT backup_state = "starting"
 
 --echo: Display progress
 select * from backup_progress.t1_res;
-INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM 'backup_progress_orig.bak'%";
+SELECT MAX(backup_id) INTO @bup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM%";
+INSERT INTO backup_progress.t1_res (id) VALUES (@bup_id);
 SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
 
 --echo con1: Advance the lock.
@@ -221,7 +225,8 @@ reap;
 
 #Show results
 DELETE FROM backup_progress.t1_res;
-INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM 'backup_progress_orig.bak'%";
+SELECT MAX(backup_id) INTO @bup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM%";
+INSERT INTO backup_progress.t1_res (id) VALUES (@bup_id);
 --replace_column 1 # 2 # 3 # 4 # 10 # 11 # 12 #
 --query_vertical SELECT ob.* FROM mysql.online_backup AS ob JOIN backup_progress.t1_res AS t1 ON ob.backup_id = t1.id;
 --replace_column 1 # 3 # 4 #

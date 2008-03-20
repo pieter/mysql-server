@@ -491,7 +491,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
     /*
       Record the backup id and name for this driver.
     */
-    report_ob_engines(info.backup_prog_id, p->m_name);
+    report_ob_engines(thd, info.backup_prog_id, p->m_name);
 
     if (!p || !p->is_valid())
     {
@@ -600,7 +600,7 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
     // VP creation
     DBUG_PRINT("backup_data",("-- SYNC PHASE --"));
 
-    report_ob_state(info.backup_prog_id, BUP_VALIDITY_POINT);
+    report_ob_state(thd, info.backup_prog_id, BUP_VALIDITY_POINT);
     /*
       Block commits.
 
@@ -654,12 +654,12 @@ int write_table_data(THD* thd, Backup_info &info, OStream &s)
     */
     BACKUP_BREAKPOINT("bp_vp_state");
     info.save_vp_time(vp_time);
-    report_ob_vp_time(info.backup_prog_id, vp_time);
-    report_ob_state(info.backup_prog_id, BUP_RUNNING);
+    report_ob_vp_time(thd, info.backup_prog_id, vp_time);
+    report_ob_state(thd, info.backup_prog_id, BUP_RUNNING);
     BACKUP_BREAKPOINT("bp_running_state");
 
     if (mysql_bin_log.is_open())
-      report_ob_binlog_info(info.backup_prog_id, 
+      report_ob_binlog_info(thd, info.backup_prog_id, 
                             info.binlog_pos.pos, info.binlog_pos.file);
 
     // get final data from drivers
@@ -1352,7 +1352,7 @@ namespace backup {
 /**
   Read backup image data from a backup stream and forward it to restore drivers.
  */
-int restore_table_data(THD*, Restore_info &info, IStream &s)
+int restore_table_data(THD* thd, Restore_info &info, IStream &s)
 {
   DBUG_ENTER("restore::restore_table_data");
 
@@ -1410,7 +1410,7 @@ int restore_table_data(THD*, Restore_info &info, IStream &s)
     /*
       Record the name for this driver.
     */
-    report_ob_engines(info.backup_prog_id, snap->name());
+    report_ob_engines(thd, info.backup_prog_id, snap->name());
   }
 
   {

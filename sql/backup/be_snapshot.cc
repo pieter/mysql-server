@@ -121,6 +121,7 @@ result_t Backup::get_data(Buffer &buf)
   if (locking_thd->lock_state == LOCK_SIGNAL)
   {
     locking_thd->lock_state= LOCK_DONE; // set lock done so destructor won't wait
+    ha_autocommit_or_rollback(locking_thd->m_thd, 0);
     end_active_trans(locking_thd->m_thd);
     close_thread_tables(locking_thd->m_thd);
   }

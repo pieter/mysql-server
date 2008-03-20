@@ -32,7 +32,8 @@ con2: Send backup command.
 BACKUP DATABASE backup_progress to 'backup_progress_orig.bak';
 con1: Checking locks.
 con1: Checking progress.
-INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "BACKUP DATABASE backup_progress%";
+SELECT MAX(backup_id) INTO @bup_id FROM mysql.online_backup WHERE command LIKE "BACKUP DATABASE backup_progress%";
+INSERT INTO backup_progress.t1_res (id) VALUES (@bup_id);
 SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
 backup_state
 starting
@@ -107,7 +108,8 @@ con1: Checking locks.
 con1: Checking progress.
 select * from backup_progress.t1_res;
 id
-INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM 'backup_progress_orig.bak'%";
+SELECT MAX(backup_id) INTO @bup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM%";
+INSERT INTO backup_progress.t1_res (id) VALUES (@bup_id);
 SELECT backup_state FROM mysql.online_backup AS ob JOIN backup_progress.t1_res as t1 ON ob.backup_id = t1.id;
 backup_state
 starting
@@ -128,7 +130,8 @@ con2: Finish restore command
 backup_id
 #
 DELETE FROM backup_progress.t1_res;
-INSERT INTO backup_progress.t1_res (id) SELECT backup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM 'backup_progress_orig.bak'%";
+SELECT MAX(backup_id) INTO @bup_id FROM mysql.online_backup WHERE command LIKE "RESTORE FROM%";
+INSERT INTO backup_progress.t1_res (id) VALUES (@bup_id);
 SELECT ob.* FROM mysql.online_backup AS ob JOIN backup_progress.t1_res AS t1 ON ob.backup_id = t1.id;;
 backup_id	#
 process_id	#

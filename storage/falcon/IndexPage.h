@@ -61,7 +61,7 @@ public:
 	void		moveMemory(void *dst,void *src);
 	void		addSupernode(Btn *where);
 	bool		deleteSupernode(Btn *where);
-	Btn*		findSupernode(int level, IndexKey *searchKey, int32 recordNumber, Btn *after, bool *match);
+	Btn*		findSupernode(int level, UCHAR *key, size_t len, int32 recordNumber, Btn *after, bool *match);
 	Btn*		findPriorNodeForSupernode(Btn *where,IndexKey *priorKey);
 
 

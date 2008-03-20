@@ -205,7 +205,7 @@ Btn* IndexPage::findNodeInLeaf(IndexKey *indexKey, IndexKey *foundKey)
 		}
 
 	bool hitSupernode;
-	super = findSupernode(level, indexKey, 0, 0, &hitSupernode);
+	super = findSupernode(level, key, keyEnd-key, 0, 0, &hitSupernode);
 
 	IndexNode node(super);
 
@@ -434,7 +434,7 @@ Btn* IndexPage::findNodeInBranch(IndexKey *searchKey, int32 searchRecordNumber)
 	UCHAR *key = searchKey->key;
 
 	bool hitSupernode;
-	Btn *super = findSupernode(level, searchKey, searchRecordNumber, 0, &hitSupernode);
+	Btn *super = findSupernode(level, key, keyEnd - key , searchRecordNumber, 0, &hitSupernode);
 
 	if(hitSupernode)
 		return super;
@@ -1283,7 +1283,9 @@ Btn* IndexPage::findInsertionPoint(int level, IndexKey* indexKey, int32 recordNu
 	if (level && indexKey->recordNumber)
 		keyEnd -= indexKey->getAppendedRecordNumberLength();
 
-	Btn *super = findSupernode(level, indexKey,(level > 0)?indexKey->recordNumber:recordNumber ,from, &hitSupernode);
+	Btn *super = findSupernode(level, key, keyEnd - key,
+		(level > 0)?indexKey->recordNumber:recordNumber ,from, &hitSupernode);
+
 	if (hitSupernode)
 		{
 		node.parseNode(super);
@@ -1580,11 +1582,11 @@ bool IndexPage::deleteSupernode(Btn *where)
 
 /* compare supernode to given key. Helper function, used for binary search in findSupernode*/
 
-static int compareSuper(IndexNode *node, UCHAR *key, int keylen, int recordNumber, int level)
+static int compareSuper(IndexNode *node, UCHAR *key, size_t keylen, int recordNumber, int level)
 {
 	int result;
 
-	int len = node->keyLength();
+	size_t len = node->keyLength();
 
 	if (level)
 		len =- node->getAppendedRecordNumberLength();
@@ -1592,7 +1594,7 @@ static int compareSuper(IndexNode *node, UCHAR *key, int keylen, int recordNumbe
 	result = memcmp(node->key, key, MIN(keylen,len));
 
 	if (result == 0)
-		result = len - keylen;
+		result = (int)(keylen - len);
 
 	if (result == 0)
 		{
@@ -1608,15 +1610,12 @@ static int compareSuper(IndexNode *node, UCHAR *key, int keylen, int recordNumbe
 // Given a key, find the maximum supernode smaller or equal to the search key
 // Optional parameter "after" tells to skip supernodes smaller than its value
 // Binary search is used for better speed
-Btn * IndexPage::findSupernode(int level, IndexKey *searchKey, int32 recordNumber, Btn *after, bool *found)
+Btn * IndexPage::findSupernode(int level, UCHAR *key, size_t keylen, int32 recordNumber, Btn *after, bool *found)
 {
 
 	*found = false;
 	if (superNodes[0] == 0)
 		return nodes;
-
-	int	keylen = searchKey->keyLength;
-	UCHAR*	key = searchKey->key;
 
 	int low = 0;
 	int high = SUPERNODES;

@@ -33,11 +33,11 @@ set @@sql_mode=@org_mode;
 CREATE TABLE t1(a INT)
 PARTITION BY KEY (a)
 (PARTITION p0 DATA DIRECTORY 'TEST_DIR/master-data/test');
-ERROR HY000: Incorrect arguments to DATA DIRECORY
+ERROR HY000: Incorrect arguments to DATA DIRECTORY
 CREATE TABLE t1(a INT)
 PARTITION BY KEY (a)
 (PARTITION p0 INDEX DIRECTORY 'TEST_DIR/master-data/test');
-ERROR HY000: Incorrect arguments to INDEX DIRECORY
+ERROR HY000: Incorrect arguments to INDEX DIRECTORY
 CREATE TABLE ts (id INT, purchased DATE)
 PARTITION BY RANGE(YEAR(purchased))
 SUBPARTITION BY HASH(TO_DAYS(purchased)) (
@@ -47,7 +47,7 @@ DATA DIRECTORY = 'TEST_DIR/master-data/test',
 SUBPARTITION s0b
 DATA DIRECTORY = 'TEST_DIR/master-data/test'
 ));
-ERROR HY000: Incorrect arguments to DATA DIRECORY
+ERROR HY000: Incorrect arguments to DATA DIRECTORY
 CREATE TABLE ts (id INT, purchased DATE)
 PARTITION BY RANGE(YEAR(purchased))
 SUBPARTITION BY HASH(TO_DAYS(purchased)) (
@@ -57,7 +57,7 @@ INDEX DIRECTORY = 'TEST_DIR/master-data/test',
 SUBPARTITION s0b
 INDEX DIRECTORY = 'TEST_DIR/master-data/test'
 ));
-ERROR HY000: Incorrect arguments to INDEX DIRECORY
+ERROR HY000: Incorrect arguments to INDEX DIRECTORY
 DROP TABLE IF EXISTS `example`;
 CREATE TABLE `example` (
 `ID_EXAMPLE` int(10) unsigned NOT NULL AUTO_INCREMENT,

@@ -5223,8 +5223,7 @@ static int write_locked_table_maps(THD *thd)
 }
 
 
-typedef bool Log_func(THD*, TABLE*, bool, MY_BITMAP*,
-                      uint, const uchar*, const uchar*);
+typedef bool Log_func(THD*, TABLE*, bool, const uchar*, const uchar*);
 
 static int binlog_log_row(TABLE* table,
                           const uchar *before_record,
@@ -5263,9 +5262,7 @@ static int binlog_log_row(TABLE* table,
       if (likely(!(error= write_locked_table_maps(thd))))
       {
         bool const has_trans= table->file->has_transactions();
-        error=
-          RowsEventT::binlog_row_logging_function(thd, table, has_trans,
-                                                  before_record, after_record);
+        error= (*log_func)(thd, table, has_trans, before_record, after_record);
       }
     }
   }

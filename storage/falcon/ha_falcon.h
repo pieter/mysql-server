@@ -205,9 +205,9 @@ public:
 	static int initRecordCacheSummary(void *p);
 	static int deinitRecordCacheSummary(void *p);
 
-	static int call_fillDatabaseIOTable(THD *thd, TABLE_LIST *tables, COND *cond);
-	static int initDatabaseIO(void *p);
-	static int deinitDatabaseIO(void *p);
+	static int call_fillTablespaceIOTable(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initTablespaceIO(void *p);
+	static int deinitTablespaceIO(void *p);
 
 	static int callTransactionInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initTransactionInfo(void *p);

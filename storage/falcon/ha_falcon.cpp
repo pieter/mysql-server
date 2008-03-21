@@ -2771,7 +2771,7 @@ int NfsPluginHandler::deinitRecordCacheSummary(void *p)
 //
 //*****************************************************************************
 
-int NfsPluginHandler::call_fillDatabaseIOTable(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::call_fillTablespaceIOTable(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -2793,19 +2793,19 @@ ST_FIELD_INFO databaseIOFieldInfo[]=
 	{0,					0, MYSQL_TYPE_STRING,	0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-int NfsPluginHandler::initDatabaseIO(void *p)
+int NfsPluginHandler::initTablespaceIO(void *p)
 {
-	DBUG_ENTER("initDatabaseIO");
+	DBUG_ENTER("initTablespaceIO");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = databaseIOFieldInfo;
-	schema->fill_table = NfsPluginHandler::call_fillDatabaseIOTable;
+	schema->fill_table = NfsPluginHandler::call_fillTablespaceIOTable;
 
 	DBUG_RETURN(0);
 }
 
-int NfsPluginHandler::deinitDatabaseIO(void *p)
+int NfsPluginHandler::deinitTablespaceIO(void *p)
 {
-	DBUG_ENTER("deinitDatabaseIO");
+	DBUG_ENTER("deinitTablespaceIO");
 	DBUG_RETURN(0);
 }
 
@@ -3219,7 +3219,7 @@ static st_mysql_information_schema falcon_system_memory_detail	=	{ MYSQL_INFORMA
 static st_mysql_information_schema falcon_system_memory_summary =	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_record_cache_detail	=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_record_cache_summary	=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
-static st_mysql_information_schema falcon_database_io			=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
+static st_mysql_information_schema falcon_tablespace_io			=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_transaction_info		=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_transaction_summary_info=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_sync_info				=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
@@ -3365,13 +3365,13 @@ mysql_declare_plugin(falcon)
 
 	{
 	MYSQL_INFORMATION_SCHEMA_PLUGIN,
-	&falcon_database_io,
-	"FALCON_DATABASE_IO",
+	&falcon_tablespace_io,
+	"FALCON_TABLESPACE_IO",
 	"MySQL AB",
-	"Falcon Database IO.",
+	"Falcon Tablespace IO.",
 	PLUGIN_LICENSE_GPL,
-	NfsPluginHandler::initDatabaseIO,			/* plugin init */
-	NfsPluginHandler::deinitDatabaseIO,			/* plugin deinit */
+	NfsPluginHandler::initTablespaceIO,			/* plugin init */
+	NfsPluginHandler::deinitTablespaceIO,			/* plugin deinit */
 	0x0005,
 	NULL,										/* status variables */
 	NULL,										/* system variables */

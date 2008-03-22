@@ -1587,9 +1587,9 @@ static int compareSuper(IndexNode *node, UCHAR *key, size_t keylen, int recordNu
 	int result;
 
 	int len = node->keyLength();
-
 	if (level)
-		len =- node->getAppendedRecordNumberLength();
+		len -= node->getAppendedRecordNumberLength();
+	ASSERT(len >= 0);
 
 	result = memcmp(node->key, key, MIN((int)keylen,len));
 

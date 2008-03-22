@@ -32,6 +32,7 @@ falcon_bug_30282    : Bug#30282 2007-08-21 hakank Currently failing
 falcon_bug_30480_A  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_bug_30480_B  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_bug_32413    : Bug#32413 2008-02-11 hakank Either works on 64-bit or on 32-bit, but not on both platforms. This is a test case problem and not a bug.
+falcon_bug_34351_C  : Bug#35503 2008-03-22 hakank Times out from time to time
 falcon_bug_34890    : Bug#34890 2008-02-11 klewis shows a faux lock timeout
 falcon_bug_34892    : Bug#34892 2008-03-04 hakank (Some falcon tests fail sporadically)
 falcon_deadlock     : Bug#34182 2008-01-31 hakank Bug in SELECT ... FOR UPDATE

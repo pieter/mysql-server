@@ -7766,7 +7766,7 @@ Rows_log_event::write_row(const Relay_log_info *const rli,
      values filled in and one flag to handle the case that the default
      values should be checked. Maybe these two flags can be combined.
   */
-  if ((error= prepare_record(rli, table, &m_cols, m_width,
+  if ((error= prepare_record(table, &m_cols, m_width,
                              table->file->ht->db_type != DB_TYPE_NDBCLUSTER)))
     DBUG_RETURN(error);
   
@@ -8096,7 +8096,7 @@ int Rows_log_event::find_row(const Relay_log_info *rli)
   int error;
 
   /* unpack row - missing fields get default values */
-  prepare_record(NULL, table, &m_cols, m_width, FALSE /* don't check errors */); 
+  prepare_record(table, &m_cols, m_width, FALSE /* don't check errors */); 
   error= unpack_current_row(rli, &m_cols);
 
   // Temporary fix to find out why it fails [/Matz]

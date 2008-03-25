@@ -356,7 +356,6 @@ unpack_row(Relay_log_info const *rli,
   @todo When flag is added to allow engine to handle default values
   itself, the record should not be emptied and default values not set.
 
-  @param log[in]       Used to report errors.
   @param table[in,out] Table whose record[0] buffer is prepared. 
   @param cols[in]      Vector of bits denoting columns that will be set
                        elsewhere
@@ -366,8 +365,7 @@ unpack_row(Relay_log_info const *rli,
   @retval 0                       Success
   @retval ER_NO_DEFAULT_FOR_FIELD Default value could not be set for a field
  */ 
-int prepare_record(const Slave_reporting_capability *const log,
-                   TABLE *const table, 
+int prepare_record(TABLE *const table, 
                    const MY_BITMAP *cols, uint width, const bool check)
 {
   DBUG_ENTER("prepare_record");
@@ -393,14 +391,8 @@ int prepare_record(const Slave_reporting_capability *const log,
 
       if (check && ((f->flags & mask) == mask))
       {
-        DBUG_ASSERT(log);
-        error= ER_NO_DEFAULT_FOR_FIELD;
-        log->report(ERROR_LEVEL, error,
-                    "Field `%s` of table `%s`.`%s` "
-                    "has no default value and cannot be NULL",
-                    f->field_name, table->s->db.str,
-                    table->s->table_name.str);
-        my_error(error, MYF(0), f->field_name);
+        my_error(ER_NO_DEFAULT_FOR_FIELD, MYF(0), f->field_name);
+        error = HA_ERR_ROWS_EVENT_APPLY;
       }
       else
       {

@@ -495,12 +495,20 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 		Log::debug("UpdateRecord %d in section %d/%d\n", recordNumber, sectionId, dbb->tableSpaceId);
 #endif
 
+	// Since different gopher threads are processing different 
+	// committed transations, and a later smaller transaction 
+	// can be proccessed faster than an earlier larger transaction, 
+	// be sure this record update will not wipe out a later change.
+
+	if (!dbb->serialLog->recovering && table && !table->validateUpdate(recordNumber, transId))
+		return;
+
 	// Do some fancy accounting to avoid premature use of record number.
 	// If the record number has been reserved, don't bother to delete it.
 
 	if (!stream)
 		reserveRecordNumber(recordNumber);
-	
+
 	// Find section page and slot for record number within section
 
 	int32 slot = recordNumber / dbb->linesPerPage;
@@ -514,13 +522,6 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 	bdb = dbb->handoffPage (bdb, pageNumber, PAGE_record_locator, Exclusive);
 	BDB_HISTORY(bdb);
 	
-	if (!dbb->serialLog->recovering && table && !table->validateUpdate(recordNumber, transId))
-		{
-		bdb->release();
-		
-		return;
-		}
-
 	// We've found the section index page.  Mark it
 
 	bdb->mark(transId);

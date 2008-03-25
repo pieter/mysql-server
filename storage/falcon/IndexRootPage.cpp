@@ -818,7 +818,6 @@ void IndexRootPage::redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPage, 
 		memset(indexPage->superNodes, 0, sizeof(indexPage->superNodes));
 		}
 
-	
 	// If we have a parent page, propogate the first node upward
 
 	if (parentPage && indexPage->priorPage != 0)

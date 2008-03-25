@@ -352,11 +352,12 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 	thread->lockPending = sync;
 	++thread->activeLocks;
 	mutex.release();
+	bool wakeup = 0;
 
 	if (timeout)
-		for (;;)
+		while (!thread->lockGranted)
 			{
-			thread->sleep (timeout);
+			wakeup = thread->sleep (timeout);
 			
 			if (thread->lockGranted)
 				return;
@@ -379,13 +380,14 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 					}
 			
 			mutex.unlock();
-			timedout(timeout);
+			if (!wakeup)
+				timedout(timeout);
 			}
 		
 		
 	while (!thread->lockGranted)
 		{
-		bool wakeup = thread->sleep (10000);
+		wakeup = thread->sleep (10000);
 		
 		if (thread->lockGranted)
 			{

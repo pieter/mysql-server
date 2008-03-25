@@ -346,7 +346,6 @@ void Table::insert(Transaction *transaction, int count, Field **fieldVector, Val
 
 		// Make insert/update atomic, then check for unique index duplicats
 		
-		Sync sync(&syncUpdate, "Table::insert");
 		recordNumber = record->recordNumber = dbb->insertStub(dataSection, transaction);
 		
 		if (indexes)
@@ -837,7 +836,6 @@ void Table::init(int id, const char *schema, const char *tableName, TableSpace *
 	syncObject.setName("Table::syncObject");
 	syncTriggers.setName("Table::syncTriggers");
 	syncScavenge.setName("Table::syncScavenge");
-	syncUpdate.setName("Table::syncUpdate");
 	syncAlter.setName("Table::syncAlter");
 }
 
@@ -2942,8 +2940,6 @@ uint Table::insert(Transaction *transaction, Stream *stream)
 		
 		// Make insert/update atomic, then check for unique index duplicats
 
-		Sync sync(&syncUpdate, "Table::insert");
-		
 		if (indexes)
 			{
 			checkUniqueIndexes(transaction, record);

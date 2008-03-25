@@ -77,7 +77,6 @@ public:
 	static int32	getRecordNumber(const UCHAR *ptr);
 	static void		logIndexPage (Bdb *bdb, TransId transId);
 
-
 	int32	parentPage;
 	int32	priorPage;
 	int32	nextPage;

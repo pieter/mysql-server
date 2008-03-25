@@ -385,8 +385,6 @@ Bdb* IndexPage::splitIndexPageMiddle(Dbb * dbb, Bdb *bdb, IndexKey *splitKey, Tr
 
 	if (level == 0)
 		splitKey->appendRecordNumber(recordNumber);
-	
-
 
 	// Split supernodes
 	memset(split->superNodes,0, sizeof(split->superNodes));
@@ -420,7 +418,6 @@ Bdb* IndexPage::splitIndexPageMiddle(Dbb * dbb, Bdb *bdb, IndexKey *splitKey, Tr
 	return splitBdb;
 }
 
-
 Btn* IndexPage::findNodeInBranch(IndexKey *searchKey, int32 searchRecordNumber)
 {
 	ASSERT(level > 0);
@@ -443,7 +440,6 @@ Btn* IndexPage::findNodeInBranch(IndexKey *searchKey, int32 searchRecordNumber)
 
 	for (IndexNode node(super) ; node.node < bucketEnd ; prior = node.node, node.getNext(bucketEnd))
 		{
-
 		if (node.offset < matchedOffset)
 			return prior;
 
@@ -580,10 +576,8 @@ void IndexPage::validate(void *before)
 				FATAL("node not correctly prefix-compressed");
 			}
 
-
 		if(node.length == 0 && recordNumber < priorRecordNumber)
 			FATAL ("Index validate:  record numbers out of order");
-
 
 		bool equalKeys = (priorKeyLength == keyLength);
 		for (UCHAR *p = node.key, *q = key + node.offset, *end = key + l; q < end; p++, q++)
@@ -789,8 +783,6 @@ int IndexPage::deleteNode(Dbb * dbb, IndexKey *indexKey, int32 recordNumber)
 
 	return 0;
 }
-
-
 
 void IndexPage::printPage(IndexPage * page, int32 pageNumber, bool inversion)
 {
@@ -1143,7 +1135,6 @@ Bdb* IndexPage::splitIndexPageEnd(Dbb *dbb, Bdb *bdb, TransId transId, IndexKey 
 	int nodeOverhead = 3 + (offset >= 128) + (insertKey->keyLength - offset >= 128);
 	char *nextNextNode = (char*) node.nextNode - node.length + insertKey->keyLength - offset + nodeOverhead;
 
-
 	Btn *splitPos;
 	if (nextNextNode >= (char*) this + dbb->pageSize)
 		{
@@ -1408,7 +1399,6 @@ Btn* IndexPage::getEnd(void)
 {
 	return (Btn*) ((UCHAR*) this + length);
 }
-
 
 /* During node insertion, check whether supernode should be added at insertion point */
 bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *indexKey, int recordNumber, int offset)

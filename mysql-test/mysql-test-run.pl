@@ -141,6 +141,14 @@ our @extra_suites=
  ["mysql-5.1-telco-6.2-merge", "ndb_team"],
  ["mysql-5.1-telco-6.3",       "ndb_team"],
  ["mysql-6.0-ndb",             "ndb_team"],
+ ["mysql-5.0-rpl",             "rpl_team"],
+ ["mysql-5.1-new-rpl",         "rpl_team"],
+ ["mysql-6.0-rpl",             "rpl_team"],
+ ["mysql-6.0-falcon",          "falcon_team"],
+ ["mysql-6.0-falcon-team",     "falcon_team"],
+ ["mysql-6.0-falcon-wlad",     "falcon_team"],
+ ["mysql-6.0-falcon-chris",    "falcon_team"],
+ ["mysql-6.0-falcon-kevin",    "falcon_team"],
 );
 
 

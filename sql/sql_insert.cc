@@ -62,6 +62,7 @@
 #include "slave.h"
 #include "rpl_mi.h"
 #include "backup/debug.h"
+#include "sql_audit.h"
 
 #ifndef EMBEDDED_LIBRARY
 static bool delayed_get_table(THD *thd, TABLE_LIST *table_list);
@@ -2355,6 +2356,7 @@ pthread_handler_t handle_delayed_insert(void *arg)
       while (!thd->killed)
       {
 	int error;
+        mysql_audit_release(thd);
 #if defined(HAVE_BROKEN_COND_TIMEDWAIT)
 	error=pthread_cond_wait(&di->cond,&di->mutex);
 #else
@@ -2435,6 +2437,7 @@ pthread_handler_t handle_delayed_insert(void *arg)
       di->table->file->ha_release_auto_increment();
       mysql_unlock_tables(thd, lock);
       di->group_count=0;
+      mysql_audit_release(thd);
       pthread_mutex_lock(&di->mutex);
     }
     if (di->tables_in_use)

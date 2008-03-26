@@ -29,6 +29,7 @@
 #include "sql_trigger.h"
 #include <ddl_blocker.h>
 #include "backup/debug.h"
+#include "sql_audit.h"
 
 #ifdef BACKUP_TEST
 #include "backup/backup_test.h"
@@ -1399,6 +1400,15 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   thd->proc_info= "closing tables";
   /* Free tables */
   close_thread_tables(thd);
+
+  if (!thd->is_error() && !thd->killed_errno())
+  {
+    mysql_audit_general(thd,MYSQL_AUDIT_GENERAL_RESULT,0,my_time(0),
+                        0,0,0,0,
+                        thd->query,thd->query_length,
+                        thd->variables.character_set_client,
+                        thd->row_count);  
+  }
 
   log_slow_statement(thd);
 

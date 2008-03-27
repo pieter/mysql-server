@@ -289,13 +289,18 @@ namespace {
 
 }
 
-#define DBUG_PRINT_BITSET(N,FRM,BS)                \
-  do {                                             \
-    char buf[256];                                 \
-    for (uint i = 0 ; i < (BS)->n_bits ; ++i)      \
-      buf[i] = bitmap_is_set((BS), i) ? '1' : '0'; \
-    buf[(BS)->n_bits] = '\0';                      \
-    DBUG_PRINT((N), ((FRM), buf));                 \
+/*
+  One test in mysqldump.test has 330 columns!
+  So have a sufficient buffer and check its limit anyway.
+*/
+#define DBUG_PRINT_BITSET(N,FRM,BS)                             \
+  do {                                                          \
+    char buf[MAX_FIELDS+1];                                     \
+    uint i;                                                     \
+    for (i = 0 ; i < (BS)->n_bits && i < MAX_FIELDS ; ++i)      \
+      buf[i] = bitmap_is_set((BS), i) ? '1' : '0';              \
+    buf[i] = '\0';                                              \
+    DBUG_PRINT((N), ((FRM), buf));                              \
   } while (0)
 
 #endif /* RPL_UTILITY_H */

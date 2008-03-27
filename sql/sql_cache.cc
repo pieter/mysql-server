@@ -656,9 +656,18 @@ uchar *query_cache_query_get_key(const uchar *record, size_t *length,
 void query_cache_insert(const char *packet, ulong length,
                         unsigned pkt_nr)
 {
-  query_cache.insert(&current_thd->query_cache_tls,
-                     packet, length,
-                     pkt_nr);
+  THD *thd= current_thd;
+
+  /*
+    Current_thd can be NULL when a new connection is immediately ended
+    due to "Too many connections". thd->store_globals() has not been
+    called at this time and hence my_pthread_setspecific_ptr(THR_THD,
+    this) has not been called for this thread.
+  */
+  if (thd)
+    query_cache.insert(&thd->query_cache_tls,
+                       packet, length,
+                       pkt_nr);
 }
 
 

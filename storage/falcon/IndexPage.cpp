@@ -1217,7 +1217,6 @@ Bdb* IndexPage::splitPage(Dbb *dbb, Bdb *bdb, TransId transId)
 		Bdb *nextBdb = dbb->fetchPage (split->nextPage, PAGE_btree, Exclusive);
 		BDB_HISTORY(bdb);
 		IndexPage *next = (IndexPage*) nextBdb->buffer;
-		dbb->setPrecedence(bdb, splitBdb->pageNumber);
 		nextBdb->mark(transId);
 		next->priorPage = splitBdb->pageNumber;
 		nextBdb->release(REL_HISTORY);

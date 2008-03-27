@@ -1,3 +1,4 @@
+#ifdef USE_PRECEDENCE
 /* Copyright (C) 2006 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
@@ -44,3 +45,4 @@ void PagePrecedence::setPrecedence(Bdb* low, Bdb* high)
 	nextLow = higher->lower;
 	higher->lower = this;
 }
+#endif /* USE_PRECEDENCE */

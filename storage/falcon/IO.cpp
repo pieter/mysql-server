@@ -631,7 +631,6 @@ void IO::reportWrites(void)
 		(const char*) fileName,
 		writeTypes[WRITE_TYPE_FORCE],
 		writeTypes[WRITE_TYPE_FLUSH],
-		writeTypes[WRITE_TYPE_PRECEDENCE],
 		writeTypes[WRITE_TYPE_REUSE],
 		writeTypes[WRITE_TYPE_PAGE_WRITER]);
 		

@@ -574,8 +574,6 @@ bool IndexRootPage::splitIndexPage(Dbb * dbb, int32 indexId, Bdb * bdb, TransId 
 			page->printPage(splitPage, 0, false, false);
 			}
 		
-		dbb->setPrecedence(leftBdb, splitBdb->pageNumber);
-		dbb->setPrecedence(bdb, leftBdb->pageNumber);
 		splitBdb->release(REL_HISTORY);
 		leftBdb->release(REL_HISTORY);
 		bdb->release(REL_HISTORY);
@@ -608,7 +606,6 @@ bool IndexRootPage::splitIndexPage(Dbb * dbb, int32 indexId, Bdb * bdb, TransId 
 
 		if (result == NodeAdded || result == Duplicate)
 			{
-			dbb->setPrecedence(bdb, splitPageNumber);
 			splitBdb = dbb->fetchPage (splitPageNumber, PAGE_btree, Exclusive);
 			BDB_HISTORY(splitBdb);
 			splitBdb->mark (transId);
@@ -906,7 +903,6 @@ void IndexRootPage::setIndexRoot(Dbb* dbb, int indexId, int32 pageNumber, TransI
 	int slot = indexId % dbb->pagesPerSection;
 	Bdb *bdb = Section::getSectionPage (dbb, INDEX_ROOT, sequence, Exclusive, transId);
 	BDB_HISTORY(bdb);
-	dbb->setPrecedence(bdb, pageNumber);
 	bdb->mark(transId);
 	SectionPage *sections = (SectionPage*) bdb->buffer;
 	sections->pages[slot] = pageNumber;

@@ -136,7 +136,6 @@ int32 Section::createSection(Dbb * dbb, TransId transId)
 				page->section = id;
 				sectionBdb->release(REL_HISTORY);
 				
-				dbb->setPrecedence(sectionsBdb, sectionPageNumber);
 				sectionsBdb->mark(transId);
 				sections->pages [slot] = sectionPageNumber;
 				dbb->nextSection = (sectionSkipped) ? sectionSkipped : (id + 1);
@@ -280,7 +279,6 @@ Bdb* Section::getSectionPage(Dbb *dbb, int32 root, int32 sequence, LockType requ
 				newPage->sequence = sequence;
 				newPage->level = page->level - 1;
 
-				dbb->setPrecedence(bdb, newPageNumber);
 				bdb->mark(transId);
 				page->pages [slot] = newPageNumber;
 				int32 parentPage = bdb->pageNumber;
@@ -372,7 +370,6 @@ int32 Section::insertStub(TransId transId)
 				Bdb *newBdb = dbb->allocPage(PAGE_record_locator, transId);
 				BDB_HISTORY(newBdb);
 
-				dbb->setPrecedence(bdb, newBdb->pageNumber);
 				bdb->mark(transId);
 				pages->pages[indexSlot] = newBdb->pageNumber;
 				bdb->release(REL_HISTORY);
@@ -571,7 +568,6 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 			locatorPage->setIndexSlot(line, index->page, index->line, spaceAvailable);
 			VALIDATE_SPACE_SLOTS(locatorPage);
 			dataBdb->release(REL_HISTORY);
-			dbb->setPrecedence(bdb, index->page);
 			bdb->release(REL_HISTORY);
 
 			return;
@@ -588,7 +584,6 @@ void Section::updateRecord(int32 recordNumber, Stream *stream, TransId transId, 
 	if (stream)
 		{
 		storeRecord(locatorPage, bdb->pageNumber, index, stream, transId, earlyWrite);
-		dbb->setPrecedence(bdb, index->page);
 		}
 
 	bdb->release(REL_HISTORY);

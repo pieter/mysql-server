@@ -1115,7 +1115,9 @@ bool reload_acl_and_cache(THD *thd, ulong options, TABLE_LIST *tables,
 bool check_access(THD *thd, ulong access, const char *db, ulong *save_priv,
 		  bool no_grant, bool no_errors, bool schema_db);
 bool check_table_access(THD *thd, ulong want_access, TABLE_LIST *tables,
-			uint number, bool no_errors);
+                        bool no_errors,
+                        bool any_combination_of_privileges_will_do,
+			uint number);
 #else
 inline bool check_access(THD *thd, ulong access, const char *db,
                          ulong *save_priv, bool no_grant, bool no_errors,
@@ -1126,7 +1128,9 @@ inline bool check_access(THD *thd, ulong access, const char *db,
   return false;
 }
 inline bool check_table_access(THD *thd, ulong want_access, TABLE_LIST *tables,
-			uint number, bool no_errors)
+                        bool no_errors,
+                        bool any_combination_of_privileges_will_do,
+			uint number)
 { return false; }
 #endif /*NO_EMBEDDED_ACCESS_CHECKS*/
 
@@ -1980,6 +1984,7 @@ extern bool opt_disable_networking, opt_skip_show_db;
 extern my_bool opt_character_set_client_handshake;
 extern bool volatile abort_loop, shutdown_in_progress;
 extern uint volatile thread_count, thread_running, global_read_lock;
+extern uint connection_count;
 extern my_bool opt_sql_bin_update, opt_safe_user_create, opt_no_mix_types;
 extern my_bool opt_safe_show_db, opt_local_infile, opt_myisam_use_mmap;
 extern my_bool opt_slave_compressed_protocol, use_temp_pool;
@@ -2018,7 +2023,7 @@ extern pthread_mutex_t LOCK_mysql_create_db,LOCK_Acl,LOCK_open, LOCK_lock_db,
        LOCK_slave_list, LOCK_active_mi, LOCK_manager, LOCK_global_read_lock,
        LOCK_global_system_variables, LOCK_user_conn,
        LOCK_prepared_stmt_count,
-       LOCK_bytes_sent, LOCK_bytes_received;
+       LOCK_bytes_sent, LOCK_bytes_received, LOCK_connection_count;
 #ifdef HAVE_OPENSSL
 extern pthread_mutex_t LOCK_des_key_file;
 #endif

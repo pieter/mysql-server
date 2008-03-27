@@ -913,13 +913,13 @@ SHOW CREATE VIEW  mysqltest2.v_ny;
 View	Create View	character_set_client	collation_connection
 v_ny	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `mysqltest2`.`v_ny` AS select `mysqltest2`.`t_nn`.`c1` AS `c1` from `mysqltest2`.`t_nn`	latin1	latin1_swedish_ci
 SHOW CREATE TABLE mysqltest3.t_nn;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 't_nn'
+ERROR 42000: SHOW command denied to user 'mysqltest_1'@'localhost' for table 't_nn'
 SHOW CREATE VIEW  mysqltest3.t_nn;
 ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 't_nn'
 SHOW CREATE VIEW  mysqltest3.v_nn;
 ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 'v_nn'
 SHOW CREATE TABLE mysqltest3.v_nn;
-ERROR 42000: SELECT command denied to user 'mysqltest_1'@'localhost' for table 'v_nn'
+ERROR 42000: SHOW command denied to user 'mysqltest_1'@'localhost' for table 'v_nn'
 SHOW CREATE TABLE mysqltest2.t_nn;
 Table	Create Table
 t_nn	CREATE TABLE `t_nn` (
@@ -1218,6 +1218,12 @@ DROP USER mysqltest_1@localhost;
 DROP DATABASE db27878;
 use test;
 DROP TABLE t1;
+#
+#  Bug#33275 Server crash when creating temporary table mysql.user
+#
+CREATE TEMPORARY TABLE mysql.user (id INT);
+FLUSH PRIVILEGES;
+DROP TABLE mysql.user;
 drop table if exists test;
 Warnings:
 Note	1051	Unknown table 'test'

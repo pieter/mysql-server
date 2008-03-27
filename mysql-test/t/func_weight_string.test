@@ -95,3 +95,12 @@ select 1 as weight_string, 2 as reverse;
 #
 select coercibility(weight_string('test'));
 select coercibility(weight_string('test' collate latin1_swedish_ci));
+
+#
+# Bug#33663 Character sets: weight_string function,
+# varchar column, wrong result
+#
+create table t1 (s1 varchar(5));
+insert into t1 values ('a'),(null);
+select hex(weight_string(s1)) from t1 order by s1;
+drop table t1;

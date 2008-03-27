@@ -2979,8 +2979,7 @@ String *Item_func_weight_string::val_str(String *str)
   uint tmp_length, frm_length;
   DBUG_ASSERT(fixed == 1);
 
-  if (args[0]->null_value ||
-      args[0]->result_type() != STRING_RESULT ||
+  if (args[0]->result_type() != STRING_RESULT ||
       !(res= args[0]->val_str(str)))
     goto nl;
   

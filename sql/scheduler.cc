@@ -22,6 +22,7 @@
 #endif
 
 #include <mysql_priv.h>
+#include "sql_audit.h"
 
 
 /*
@@ -666,6 +667,8 @@ static bool libevent_needs_immediate_processing(THD *thd)
 static void libevent_thd_add(THD* thd)
 {
   char c=0;
+  /* release any audit resources, this thd is going to sleep */
+  mysql_audit_release(thd);  
   pthread_mutex_lock(&LOCK_thd_add);
   /* queue for libevent */
   thds_need_adding= list_add(thds_need_adding, &thd->scheduler.list);

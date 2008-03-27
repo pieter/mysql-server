@@ -19,6 +19,7 @@
 */
 
 #include "mysql_priv.h"
+#include "sql_audit.h"
 
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /*
@@ -403,10 +404,11 @@ check_user(THD *thd, enum enum_server_command command,
 
       if (check_count)
       {
-        VOID(pthread_mutex_lock(&LOCK_thread_count));
-        bool count_ok= thread_count <= max_connections + delayed_insert_threads
-                       || (thd->main_security_ctx.master_access & SUPER_ACL);
-        VOID(pthread_mutex_unlock(&LOCK_thread_count));
+        pthread_mutex_lock(&LOCK_connection_count);
+        bool count_ok= connection_count <= max_connections ||
+                       (thd->main_security_ctx.master_access & SUPER_ACL);
+        VOID(pthread_mutex_unlock(&LOCK_connection_count));
+
         if (!count_ok)
         {                                         // too many connections
           my_error(ER_CON_COUNT_ERROR, MYF(0));
@@ -1119,6 +1121,7 @@ pthread_handler_t handle_one_connection(void *arg)
     while (!net->error && net->vio != 0 &&
            !(thd->killed == THD::KILL_CONNECTION))
     {
+      mysql_audit_release(thd);
       if (do_command(thd))
 	break;
     }

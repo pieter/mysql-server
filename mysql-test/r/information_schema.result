@@ -1651,6 +1651,8 @@ show open tables where f1()=0;
 show open tables where f1()=0;
 drop table t1;
 drop function f1;
+select * from information_schema.tables where 1=sleep(100000);
+select * from information_schema.columns where 1=sleep(100000);
 End of 5.1 tests.
 create function f1 (p1 int, p2 datetime, p3 decimal(10,2))
 returns char(10) return null;

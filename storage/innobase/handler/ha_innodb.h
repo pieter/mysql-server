@@ -286,3 +286,4 @@ int thd_binlog_format(const MYSQL_THD thd);
 */
 void thd_mark_transaction_to_rollback(MYSQL_THD thd, bool all);
 }
+FORCE CONFLICT; WILL BE REMOVED DURING NULL MERGE OF 5.1-ss2360

@@ -4742,3 +4742,4 @@ row_search_max_autoinc(
 
 	return(error);
 }
+FORCE CONFLICT; WILL BE REMOVED DURING NULL MERGE OF 5.1-ss2360

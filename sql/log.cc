@@ -28,6 +28,7 @@
 #include "sql_repl.h"
 #include "rpl_filter.h"
 #include "rpl_rli.h"
+#include "sql_audit.h"
 
 #include <my_dir.h>
 #include <stdarg.h>
@@ -1005,6 +1006,14 @@ bool LOGGER::general_log_write(THD *thd, enum enum_server_command command,
                                                           user_host_buff;
 
   current_time= my_time(0);
+
+  mysql_audit_general(thd, MYSQL_AUDIT_GENERAL_LOG, 0, current_time,
+                      user_host_buff, user_host_len,
+                      command_name[(uint) command].str,
+                      command_name[(uint) command].length,
+                      query, query_length,
+                      thd->variables.character_set_client,0);
+                        
   while (*current_handler)
     error+= (*current_handler++)->
       log_general(thd, current_time, user_host_buff,
@@ -4481,7 +4490,8 @@ static void print_buffer_to_nt_eventlog(enum loglevel level, char *buff,
 */
 
 #ifndef EMBEDDED_LIBRARY
-static void print_buffer_to_file(enum loglevel level, const char *buffer)
+static void print_buffer_to_file(enum loglevel level, int error_code,
+                                 const char *buffer, size_t buffer_length)
 {
   time_t skr;
   struct tm tm_tmp;
@@ -4517,10 +4527,12 @@ int vprint_msg_to_log(enum loglevel level, const char *format, va_list args)
 {
   char   buff[1024];
   size_t length;
+  int error_code= errno;
   DBUG_ENTER("vprint_msg_to_log");
 
   length= my_vsnprintf(buff, sizeof(buff), format, args);
-  print_buffer_to_file(level, buff);
+
+  print_buffer_to_file(level, error_code, buff, length);
 
 #ifdef __NT__
   print_buffer_to_nt_eventlog(level, buff, length, sizeof(buff));

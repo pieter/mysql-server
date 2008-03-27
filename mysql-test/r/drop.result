@@ -122,4 +122,20 @@ create table `#mysql50#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`
 ERROR 42000: Incorrect table name '#mysql50#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 use test;
 drop database mysqltestbug26703;
+
+# --
+# -- Bug#29958: Weird message on DROP DATABASE if mysql.proc does not
+# -- exist.
+# --
+DROP DATABASE IF EXISTS mysql_test;
+CREATE DATABASE mysql_test;
+DROP TABLE mysql.proc;
+DROP DATABASE mysql_test;
+Warnings:
+Error	1146	Table 'mysql.proc' doesn't exist
+
+# --
+# -- End of Bug#29958.
+# --
+
 End of 5.1 tests

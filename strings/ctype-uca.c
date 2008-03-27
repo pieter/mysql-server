@@ -6983,18 +6983,18 @@ static int my_uca_scanner_next_any(my_uca_scanner *scanner)
                                           scanner->send)) <= 0))
       return -1;
     
+    scanner->sbeg+= mb_len;
     if (wc > 0xFFFF)
     {
-      /* Replacement character for non-BMP */
-      scanner->page= 0xFF;
-      scanner->code= 0xFD;
+      /* Return 0xFFFD as weight for all characters outside BMP */
+      scanner->wbeg= nochar;
+      return 0xFFFD;
     }
     else
     {
       scanner->page= wc >> 8;
       scanner->code= wc & 0xFF;
     }
-    scanner->sbeg+= mb_len;
     
     if (scanner->contractions && !scanner->page &&
         (scanner->code > 0x40) && (scanner->code < 0x80))

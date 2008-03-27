@@ -308,7 +308,6 @@ class Item_num_op :public Item_func_numhybrid
 
   void find_num_type();
   String *str_op(String *str) { DBUG_ASSERT(0); return 0; }
-  bool check_partition_func_processor(uchar *int_arg) {return FALSE;}
 };
 
 
@@ -394,6 +393,7 @@ class Item_func_additive_op :public Item_num_op
 public:
   Item_func_additive_op(Item *a,Item *b) :Item_num_op(a,b) {}
   void result_precision();
+  bool check_partition_func_processor(uchar *int_arg) {return FALSE;}
 };
 
 
@@ -428,6 +428,7 @@ public:
   double real_op();
   my_decimal *decimal_op(my_decimal *);
   void result_precision();
+  bool check_partition_func_processor(uchar *int_arg) {return FALSE;}
 };
 
 
@@ -473,6 +474,7 @@ public:
   const char *func_name() const { return "%"; }
   void result_precision();
   void fix_length_and_dec();
+  bool check_partition_func_processor(uchar *int_arg) {return FALSE;}
 };
 
 

@@ -19,6 +19,7 @@
 */
 
 #include "mysql_priv.h"
+#include "sql_audit.h"
 
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /*
@@ -1119,6 +1120,7 @@ pthread_handler_t handle_one_connection(void *arg)
     while (!net->error && net->vio != 0 &&
            !(thd->killed == THD::KILL_CONNECTION))
     {
+      mysql_audit_release(thd);
       if (do_command(thd))
 	break;
     }

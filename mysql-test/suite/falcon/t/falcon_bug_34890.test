@@ -52,7 +52,7 @@ begin
   DECLARE my_count INT DEFAULT 0;
   DECLARE my_uuid CHAR(36) DEFAULT 0;
   SET FALCON_CONSISTENT_READ=OFF;
-  while my_count < 5000 do
+  while my_count < 1000 do
     SET my_uuid = UUID();
     INSERT INTO t1 (t1_uuid) VALUES (my_uuid);
     DELETE FROM t1 WHERE t1_uuid IN (my_uuid);

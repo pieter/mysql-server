@@ -1,0 +1,32 @@
+--source include/have_falcon.inc
+SET @@storage_engine = Falcon;
+
+--echo
+--echo #
+--echo # Bug#25393: Falcon: TRUNCATE causes activation of DELETE trigger
+--echo #
+
+--echo
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+--enable_warnings
+
+--echo
+CREATE TABLE t1 (c1 INT) ENGINE=falcon;
+CREATE TABLE t2 (c1 INT) ENGINE=falcon;
+
+--echo
+CREATE TRIGGER t1_ad AFTER DELETE ON t1 FOR EACH ROW INSERT INTO t2 VALUES (1);
+
+--echo
+INSERT INTO t1 VALUES (1);
+
+--echo
+TRUNCATE TABLE t1;
+
+--echo
+SELECT * FROM t2;
+
+--echo
+DROP TABLE t1, t2;

@@ -1223,8 +1223,8 @@ bool mysql_make_view(THD *thd, File_parser *parser, TABLE_LIST *table,
     if (!table->prelocking_placeholder &&
         (old_lex->sql_command == SQLCOM_SELECT && old_lex->describe))
     {
-      if (check_table_access(thd, SELECT_ACL, view_tables, UINT_MAX, TRUE) &&
-          check_table_access(thd, SHOW_VIEW_ACL, table, UINT_MAX, TRUE))
+      if (check_table_access(thd, SELECT_ACL, view_tables, TRUE, FALSE, UINT_MAX) &&
+          check_table_access(thd, SHOW_VIEW_ACL, table, TRUE, FALSE, UINT_MAX))
       {
         my_message(ER_VIEW_NO_EXPLAIN, ER(ER_VIEW_NO_EXPLAIN), MYF(0));
         goto err;
@@ -1234,7 +1234,7 @@ bool mysql_make_view(THD *thd, File_parser *parser, TABLE_LIST *table,
              (old_lex->sql_command == SQLCOM_SHOW_CREATE) &&
              !table->belong_to_view)
     {
-      if (check_table_access(thd, SHOW_VIEW_ACL, table, UINT_MAX, FALSE))
+      if (check_table_access(thd, SHOW_VIEW_ACL, table, FALSE, FALSE, UINT_MAX))
         goto err;
     }
 

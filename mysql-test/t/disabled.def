@@ -38,3 +38,5 @@ backup_fkey          : Bug#34858 2008-Feb-28 Server crashes by backup tests
 backup_no_data       : Bug#34858 2008-Feb-28 Server crashes by backup tests
 backup_no_engine     : Bug#34858 2008-Feb-28 Server crashes by backup tests
 backup_objects       : Bug#34858 2008-Feb-28 Server crashes by backup tests
+
+cast                 : Bug#35594 2008-03-27 main.cast fails on Windows2003-64

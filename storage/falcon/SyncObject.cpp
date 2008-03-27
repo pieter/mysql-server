@@ -256,6 +256,8 @@ void SyncObject::lock(Sync *sync, LockType type, int timeout)
 			}
 		}
 
+    // mutex is held going into wait() It is released before coming out.
+
 	wait(type, thread, sync, timeout);
 	DEBUG_FREEZE;
 }
@@ -319,6 +321,8 @@ void SyncObject::downGrade(LockType type)
 
 void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 {
+	// mutex is currently held
+
 	++stalls;
 	BUMP(waitCount);
 
@@ -351,23 +355,16 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 	thread->lockGranted = false;
 	thread->lockPending = sync;
 	++thread->activeLocks;
-	mutex.release();
-	bool wakeup = 0;
+	bool wokeup = 0;
 
 	if (timeout)
 		while (!thread->lockGranted)
 			{
-			wakeup = thread->sleep (timeout);
-			
-			if (thread->lockGranted)
-				return;
-			
-			mutex.lock();
+			wokeup = thread->sleep (timeout, &mutex);
 			
 			if (thread->lockGranted)
 				{
-				mutex.unlock();
-				
+				mutex.release();
 				return;
 				}
 			
@@ -379,30 +376,34 @@ void SyncObject::wait(LockType type, Thread *thread, Sync *sync, int timeout)
 					break;
 					}
 			
-			mutex.unlock();
-			if (!wakeup)
+			if (!wokeup)
+				{
+				mutex.release();
 				timedout(timeout);
+				}
 			}
 		
 		
 	while (!thread->lockGranted)
 		{
-		wakeup = thread->sleep (10000);
+		wokeup = thread->sleep (10000, &mutex);
 		
 		if (thread->lockGranted)
 			{
-			if (!wakeup)
+			if (!wokeup)
 				Log::debug("Apparent lost thread wakeup\n");
 
 			break;
 			}
 			
-		if (!wakeup)
+		if (!wokeup)
 			{
 			stalled (thread);
 			break;
 			}
 		}
+
+	mutex.release();
 
 	while (!thread->lockGranted)
 		thread->sleep();

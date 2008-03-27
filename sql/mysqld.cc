@@ -854,16 +854,16 @@ static void close_connections(void)
   (void) pthread_mutex_lock(&LOCK_manager);
   if (manager_thread_in_use)
   {
-    DBUG_PRINT("quit", ("killing manager thread: 0x%lx",
-                        (ulong)manager_thread));
+    DBUG_PRINT("quit", ("killing manager thread: %p",
+                        manager_thread));
    (void) pthread_cond_signal(&COND_manager);
   }
   (void) pthread_mutex_unlock(&LOCK_manager);
 
   /* kill connection thread */
 #if !defined(__WIN__) && !defined(__NETWARE__)
-  DBUG_PRINT("quit", ("waiting for select thread: 0x%lx",
-                      (ulong) select_thread));
+  DBUG_PRINT("quit", ("waiting for select thread: %p",
+                      select_thread));
   (void) pthread_mutex_lock(&LOCK_thread_count);
 
   while (select_thread_in_use)
@@ -1890,7 +1890,7 @@ extern "C" sig_handler end_thread_signal(int sig __attribute__((unused)))
 void unlink_thd(THD *thd)
 {
   DBUG_ENTER("unlink_thd");
-  DBUG_PRINT("enter", ("thd: 0x%lx", (long) thd));
+  DBUG_PRINT("enter", ("thd: %p", thd));
   thd->cleanup();
   (void) pthread_mutex_lock(&LOCK_thread_count);
   thread_count--;
@@ -3700,7 +3700,7 @@ static void init_ssl()
     ssl_acceptor_fd= new_VioSSLAcceptorFd(opt_ssl_key, opt_ssl_cert,
 					  opt_ssl_ca, opt_ssl_capath,
 					  opt_ssl_cipher);
-    DBUG_PRINT("info",("ssl_acceptor_fd: 0x%lx", (long) ssl_acceptor_fd));
+    DBUG_PRINT("info",("ssl_acceptor_fd: %p", ssl_acceptor_fd));
     if (!ssl_acceptor_fd)
     {
       sql_print_warning("Failed to setup SSL");

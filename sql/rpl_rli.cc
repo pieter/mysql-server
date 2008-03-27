@@ -852,7 +852,7 @@ void Relay_log_info::close_temporary_tables()
       Don't ask for disk deletion. For now, anyway they will be deleted when
       slave restarts, but it is a better intention to not delete them.
     */
-    DBUG_PRINT("info", ("table: 0x%lx", (long) table));
+    DBUG_PRINT("info", ("table: %p", table));
     close_temporary(table, 1, 0);
   }
   save_temporary_tables= 0;

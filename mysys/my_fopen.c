@@ -103,7 +103,7 @@ int my_fclose(FILE *fd, myf MyFlags)
 {
   int err,file;
   DBUG_ENTER("my_fclose");
-  DBUG_PRINT("my",("stream: 0x%lx  MyFlags: %d", (long) fd, MyFlags));
+  DBUG_PRINT("my",("stream: %p  MyFlags: %d", fd, MyFlags));
 
   pthread_mutex_lock(&THR_LOCK_open);
   file=fileno(fd);
@@ -163,7 +163,7 @@ FILE *my_fdopen(File Filedes, const char *name, int Flags, myf MyFlags)
     pthread_mutex_unlock(&THR_LOCK_open);
   }
 
-  DBUG_PRINT("exit",("stream: 0x%lx", (long) fd));
+  DBUG_PRINT("exit",("stream: %p", fd));
   DBUG_RETURN(fd);
 } /* my_fdopen */
 

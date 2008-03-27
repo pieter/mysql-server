@@ -3238,9 +3238,9 @@ end_with_restore_list:
       - no non-transactional locks exist (!thd->locked_tables).
     */
     DBUG_PRINT("lock_info", ("lex->lock_transactional: %d  "
-                             "thd->locked_tables: 0x%lx",
+                             "thd->locked_tables: %p",
                              lex->lock_transactional,
-                             (long) thd->locked_tables));
+                             thd->locked_tables));
     if (lex->lock_transactional && !thd->locked_tables)
     {
       int rc;
@@ -3287,8 +3287,8 @@ end_with_restore_list:
       thd->locked_tables=thd->lock;
       thd->lock=0;
       (void) set_handler_table_locks(thd, all_tables, FALSE);
-      DBUG_PRINT("lock_info", ("thd->locked_tables: 0x%lx",
-                               (long) thd->locked_tables));
+      DBUG_PRINT("lock_info", ("thd->locked_tables: %p",
+                               thd->locked_tables));
       my_ok(thd);
     }
     else

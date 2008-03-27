@@ -75,8 +75,8 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
   unsigned int null_bits= (1U << 8) - 1;
   // Mask to mask out the correct but among the null bits
   unsigned int null_mask= 1U;
-  DBUG_PRINT("debug", ("null ptr: 0x%lx; row start: %p; null bytes: %d",
-                       (ulong) null_ptr, row_data, null_byte_count));
+  DBUG_PRINT("debug", ("null ptr: %p; row start: %p; null bytes: %d",
+                       null_ptr, row_data, null_byte_count));
   DBUG_PRINT_BITSET("debug", "cols: %s", cols);
   for ( ; (field= *p_field) ; p_field++)
   {
@@ -109,10 +109,10 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
 #endif
         pack_ptr= field->pack(pack_ptr, field->ptr + offset,
                               field->max_data_length(), TRUE);
-        DBUG_PRINT("debug", ("Packed into row; pack_ptr: 0x%lx;"
-                             " pack_ptr':0x%lx; bytes: %d",
-                             (ulong) old_pack_ptr,
-                             (ulong) pack_ptr,
+        DBUG_PRINT("debug", ("Packed into row; pack_ptr: %p;"
+                             " pack_ptr':%p; bytes: %d",
+                             old_pack_ptr,
+                             pack_ptr,
                              (int) (pack_ptr - old_pack_ptr)));
       }
 
@@ -275,8 +275,8 @@ unpack_row(Relay_log_info const *rli,
 #endif
         pack_ptr= f->unpack(f->ptr, pack_ptr, metadata, TRUE);
 	DBUG_PRINT("debug", ("Unpacked; metadata: 0x%x;"
-                             " pack_ptr: 0x%lx; pack_ptr': 0x%lx; bytes: %d",
-                             metadata, (ulong) old_pack_ptr, (ulong) pack_ptr,
+                             " pack_ptr: %p; pack_ptr': %p; bytes: %d",
+                             metadata, old_pack_ptr, pack_ptr,
                              (int) (pack_ptr - old_pack_ptr)));
       }
 

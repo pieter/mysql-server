@@ -1348,8 +1348,8 @@ binlog_end_trans(THD *thd, binlog_trx_data *trx_data,
   DBUG_ENTER("binlog_end_trans");
   int error=0;
   IO_CACHE *trans_log= &trx_data->trans_log;
-  DBUG_PRINT("enter", ("transaction: %s  end_ev: 0x%lx",
-                       all ? "all" : "stmt", (long) end_ev));
+  DBUG_PRINT("enter", ("transaction: %s  end_ev: %p",
+                       all ? "all" : "stmt", end_ev));
   DBUG_PRINT("info", ("thd->options={ %s%s}",
                       FLAGSTR(thd->options, OPTION_NOT_AUTOCOMMIT),
                       FLAGSTR(thd->options, OPTION_BEGIN)));
@@ -3376,8 +3376,8 @@ THD::binlog_start_trans_and_stmt()
 {
   binlog_trx_data *trx_data= (binlog_trx_data*) thd_get_ha_data(this, binlog_hton);
   DBUG_ENTER("binlog_start_trans_and_stmt");
-  DBUG_PRINT("enter", ("trx_data: 0x%lx  trx_data->before_stmt_pos: %lu",
-                       (long) trx_data,
+  DBUG_PRINT("enter", ("trx_data: %p  trx_data->before_stmt_pos: %lu",
+                       trx_data,
                        (trx_data ? (ulong) trx_data->before_stmt_pos :
                         (ulong) 0)));
 
@@ -3427,8 +3427,8 @@ int THD::binlog_write_table_map(TABLE *table, bool is_trans)
 {
   int error;
   DBUG_ENTER("THD::binlog_write_table_map");
-  DBUG_PRINT("enter", ("table: 0x%lx  (%s: #%lu)",
-                       (long) table, table->s->table_name.str,
+  DBUG_PRINT("enter", ("table: %p  (%s: #%lu)",
+                       table, table->s->table_name.str,
                        table->s->table_map_id));
 
   /* Pre-conditions */
@@ -3491,7 +3491,7 @@ MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
 {
   DBUG_ENTER("MYSQL_BIN_LOG::flush_and_set_pending_rows_event(event)");
   DBUG_ASSERT(mysql_bin_log.is_open());
-  DBUG_PRINT("enter", ("event: 0x%lx", (long) event));
+  DBUG_PRINT("enter", ("event: %p", event));
 
   int error= 0;
 
@@ -3500,7 +3500,7 @@ MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
 
   DBUG_ASSERT(trx_data);
 
-  DBUG_PRINT("info", ("trx_data->pending(): 0x%lx", (long) trx_data->pending()));
+  DBUG_PRINT("info", ("trx_data->pending(): %p", trx_data->pending()));
 
   if (Rows_log_event* pending= trx_data->pending())
   {

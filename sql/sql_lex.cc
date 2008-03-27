@@ -370,7 +370,7 @@ void lex_start(THD *thd)
 void lex_end(LEX *lex)
 {
   DBUG_ENTER("lex_end");
-  DBUG_PRINT("enter", ("lex: 0x%lx", (long) lex));
+  DBUG_PRINT("enter", ("lex: %p", lex));
   if (lex->yacc_yyss)
   {
     my_free(lex->yacc_yyss, MYF(0));
@@ -1868,7 +1868,7 @@ bool st_select_lex::add_order_to_list(THD *thd, Item *item, bool asc)
 bool st_select_lex::add_item_to_list(THD *thd, Item *item)
 {
   DBUG_ENTER("st_select_lex::add_item_to_list");
-  DBUG_PRINT("info", ("Item: 0x%lx", (long) item));
+  DBUG_PRINT("info", ("Item: %p", item));
   DBUG_RETURN(item_list.push_back(item));
 }
 

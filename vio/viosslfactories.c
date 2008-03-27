@@ -78,8 +78,8 @@ static int
 vio_set_cert_stuff(SSL_CTX *ctx, const char *cert_file, const char *key_file)
 {
   DBUG_ENTER("vio_set_cert_stuff");
-  DBUG_PRINT("enter", ("ctx: 0x%lx  cert_file: %s  key_file: %s",
-		       (long) ctx, cert_file, key_file));
+  DBUG_PRINT("enter", ("ctx: %p  cert_file: %s  key_file: %s",
+		       ctx, cert_file, key_file));
   if (cert_file)
   {
     if (SSL_CTX_use_certificate_file(ctx, cert_file, SSL_FILETYPE_PEM) <= 0)
@@ -132,7 +132,7 @@ vio_verify_callback(int ok, X509_STORE_CTX *ctx)
   X509 *err_cert;
 
   DBUG_ENTER("vio_verify_callback");
-  DBUG_PRINT("enter", ("ok: %d  ctx: 0x%lx", ok, (long) ctx));
+  DBUG_PRINT("enter", ("ok: %d  ctx: %p", ok, ctx));
 
   err_cert= X509_STORE_CTX_get_current_cert(ctx);
   X509_NAME_oneline(X509_get_subject_name(err_cert), buf, sizeof(buf));

@@ -32,8 +32,8 @@ int mi_rkey(MI_INFO *info, uchar *buf, int inx, const uchar *key,
   uint myisam_search_flag;
   int res= 0;
   DBUG_ENTER("mi_rkey");
-  DBUG_PRINT("enter", ("base: 0x%lx  buf: 0x%lx  inx: %d  search_flag: %d",
-                       (long) info, (long) buf, inx, search_flag));
+  DBUG_PRINT("enter", ("base: %p  buf: %p  inx: %d  search_flag: %d",
+                       info, buf, inx, search_flag));
 
   if ((inx = _mi_check_index(info,inx)) < 0)
     DBUG_RETURN(my_errno);

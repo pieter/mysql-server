@@ -966,7 +966,7 @@ void add_diff_to_status(STATUS_VAR *to_var, STATUS_VAR *from_var,
 void THD::awake(THD::killed_state state_to_set)
 {
   DBUG_ENTER("THD::awake");
-  DBUG_PRINT("enter", ("this: 0x%lx", (long) this));
+  DBUG_PRINT("enter", ("this: %p", this));
   THD_CHECK_SENTRY(this);
   safe_mutex_assert_owner(&LOCK_delete); 
 
@@ -2578,7 +2578,7 @@ bool select_dumpvar::send_eof()
 void TMP_TABLE_PARAM::init()
 {
   DBUG_ENTER("TMP_TABLE_PARAM::init");
-  DBUG_PRINT("enter", ("this: 0x%lx", (ulong)this));
+  DBUG_PRINT("enter", ("this: %p", this));
   field_count= sum_func_count= func_count= hidden_field_count= 0;
   group_parts= group_length= group_null_parts= 0;
   quick_group= 1;

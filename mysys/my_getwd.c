@@ -47,8 +47,8 @@ int my_getwd(char * buf, size_t size, myf MyFlags)
 {
   char * pos;
   DBUG_ENTER("my_getwd");
-  DBUG_PRINT("my",("buf: 0x%lx  size: %u  MyFlags %d",
-                   (long) buf, (uint) size, MyFlags));
+  DBUG_PRINT("my",("buf: %p  size: %u  MyFlags %d",
+                   buf, (uint) size, MyFlags));
 
   if (curr_dir[0])				/* Current pos is saved here */
     VOID(strmake(buf,&curr_dir[0],size-1));

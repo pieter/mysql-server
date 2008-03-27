@@ -275,8 +275,8 @@ void thr_end_alarm(thr_alarm_t *alarmed)
     if (*alarmed)
       fprintf(stderr,"Warning: Didn't find alarm 0x%lx in queue of %d alarms\n",
 	      (long) *alarmed, alarm_queue.elements);
-    DBUG_PRINT("warning",("Didn't find alarm 0x%lx in queue\n",
-			  (long) *alarmed));
+    DBUG_PRINT("warning",("Didn't find alarm %p in queue\n",
+			  *alarmed));
   }
   pthread_mutex_unlock(&LOCK_alarm);
 #ifndef USE_ONE_SIGNAL_HAND

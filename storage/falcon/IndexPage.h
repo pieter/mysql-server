@@ -57,7 +57,7 @@ public:
 	void		validateNodes (Dbb *dbb, Validation *validation, Bitmap *children, int32 parentPageNumber);
 	void		validate (Dbb *dbb, Validation *validation, Bitmap *pages, int32 parentPageNumber);
 	void		validate(void *before);
-	bool		checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *indexKey, int recordNumber, int offset);
+	bool		checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *indexKey, int recordNumber, int offset,  bool *makeNextSuper);
 	void		moveMemory(void *dst,void *src);
 	void		addSupernode(Btn *where);
 	bool		deleteSupernode(Btn *where);

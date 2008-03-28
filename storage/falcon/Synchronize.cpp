@@ -204,9 +204,10 @@ bool Synchronize::sleep(int milliseconds, Mutex *callersMutex)
 
 	sleeping = false;
 	wakeup = false;
+	pthread_mutex_unlock(&mutex);
 	if (callersMutex)
 		callersMutex->lock();
-	pthread_mutex_unlock(&mutex);
+
 	DEBUG_FREEZE;
 
 	return ret != ETIMEDOUT;

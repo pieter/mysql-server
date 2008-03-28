@@ -256,7 +256,7 @@ void SyncObject::lock(Sync *sync, LockType type, int timeout)
 			}
 		}
 
-    // mutex is held going into wait() It is released before coming out.
+	// mutex is held going into wait() It is released before coming out.
 
 	wait(type, thread, sync, timeout);
 	DEBUG_FREEZE;

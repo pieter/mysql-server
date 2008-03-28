@@ -19,6 +19,7 @@ MYSQLDATAdir =		$(localstatedir)
 MYSQLSHAREdir =		$(pkgdatadir)
 MYSQLBASEdir=		$(prefix)
 MYSQLLIBdir=            $(pkglibdir)
+pkgplugindir =		$(pkglibdir)/plugin
 INCLUDES =		@ZLIB_INCLUDES@ \
 			-I$(top_builddir)/include -I$(top_srcdir)/include \
 			-I$(top_srcdir)/regex -I$(srcdir) $(openssl_includes) \
@@ -86,7 +87,7 @@ noinst_HEADERS =	item.h item_func.h item_sum.h item_cmpfunc.h \
 			sql_plugin.h authors.h \
 			event_data_objects.h event_scheduler.h \
 			sql_partition.h partition_info.h partition_element.h \
-			probes.h \
+			probes.h sql_audit.h \
 			contributors.h sql_servers.h ddl_blocker.h si_objects.h
 
 mysqld_SOURCES =	sql_lex.cc sql_handler.cc sql_partition.cc \
@@ -131,7 +132,7 @@ mysqld_SOURCES =	sql_lex.cc sql_handler.cc sql_partition.cc \
                         event_queue.cc event_db_repository.cc events.cc \
 			sql_plugin.cc sql_binlog.cc \
 			sql_builtin.cc sql_tablespace.cc partition_info.cc \
-			sql_servers.cc sha2.cc \
+			sql_servers.cc sql_audit.cc sha2.cc \
 			ddl_blocker.cc si_objects.cc
 
 if HAVE_DTRACE
@@ -156,7 +157,7 @@ DEFS =			-DMYSQL_SERVER \
 			-DDEFAULT_MYSQL_HOME="\"$(MYSQLBASEdir)\"" \
 			-DDATADIR="\"$(MYSQLDATAdir)\"" \
 			-DSHAREDIR="\"$(MYSQLSHAREdir)\"" \
-			-DLIBDIR="\"$(MYSQLLIBdir)\"" \
+			-DPLUGINDIR="\"$(pkgplugindir)\"" \
 			@DEFS@
 
 BUILT_MAINT_SRC =	sql_yacc.cc sql_yacc.h

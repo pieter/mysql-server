@@ -21,6 +21,7 @@ MYSQLDATAdir =		$(localstatedir)
 MYSQLSHAREdir =		$(pkgdatadir)
 MYSQLBASEdir=		$(prefix)
 MYSQLLIBdir=            $(libdir)
+pkgplugindir =		$(pkglibdir)/plugin
 
 EXTRA_DIST =		libmysqld.def CMakeLists.txt
 DEFS =			-DEMBEDDED_LIBRARY -DMYSQL_SERVER \
@@ -28,7 +29,8 @@ DEFS =			-DEMBEDDED_LIBRARY -DMYSQL_SERVER \
 			-DDATADIR="\"$(MYSQLDATAdir)\"" \
 			-DSHAREDIR="\"$(MYSQLSHAREdir)\"" \
 			@DEFS@ \
-			-DLIBDIR="\"$(MYSQLLIBdir)\""
+			-DLIBDIR="\"$(MYSQLLIBdir)\"" \
+			-DPLUGINDIR="\"$(pkgplugindir)\""
 INCLUDES=		-I$(top_builddir)/include -I$(top_srcdir)/include \
 			-I$(top_builddir)/sql -I$(top_srcdir)/sql \
 			-I$(top_srcdir)/sql/examples \
@@ -80,7 +82,7 @@ sqlsources = derror.cc field.cc field_conv.cc strfunc.cc filesort.cc \
 	rpl_filter.cc sql_partition.cc sql_builtin.cc sql_plugin.cc \
 	sql_tablespace.cc \
 	rpl_injector.cc my_user.c partition_info.cc \
-	sql_servers.cc ddl_blocker.cc si_objects.cc
+	sql_servers.cc ddl_blocker.cc si_objects.cc sql_audit.cc
 
 libmysqld_int_a_SOURCES= $(libmysqld_sources)
 nodist_libmysqld_int_a_SOURCES= $(libmysqlsources) $(sqlsources)

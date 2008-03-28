@@ -18,7 +18,8 @@
 BUILT_SOURCES =		$(HEADERS_GEN) link_sources
 HEADERS_GEN =		mysql_version.h my_config.h
 HEADERS_ABI =		mysql.h mysql_com.h mysql_time.h \
-			my_list.h my_alloc.h typelib.h mysql/plugin.h
+			my_list.h my_alloc.h typelib.h mysql/plugin.h \
+			mysql/plugin_audit.h mysql/plugin_ftparser.h
 pkginclude_HEADERS =	$(HEADERS_ABI) my_dbug.h m_string.h my_sys.h \
 			my_xml.h mysql_embed.h \
 		  	my_pthread.h my_no_pthread.h \

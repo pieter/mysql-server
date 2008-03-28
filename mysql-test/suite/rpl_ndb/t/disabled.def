@@ -21,3 +21,4 @@ rpl_ndb_circular_simplex : Bug#33849 COMMIT event missing in cluster circular re
 rpl_ndb_innodb2ndb       : Bug#34725 2008-02-26 hakank Currently failing.
 rpl_ndb_myisam2ndb       : Bug#34725 2008-02-26 hakank Currently failing.
 rpl_ndb_sync             : Bug#34923 2008-02-28 hakank Currently failing.
+rpl_ndb_extraCol	: Bug #22045 2008-03-22 Got error 839 'Illegal null attribute' from NDBCLUSTER when 'Replace Into'

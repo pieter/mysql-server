@@ -4505,7 +4505,7 @@ create_table_option:
             Lex->create_info.used_fields|= HA_CREATE_USED_ROW_FORMAT;
             Lex->alter_info.flags|= ALTER_ROW_FORMAT;
           }
-        | UNION_SYM opt_equal '(' table_list ')'
+        | UNION_SYM opt_equal '(' opt_table_list ')'
           {
             /* Move the union list to the merge_list */
             LEX *lex=Lex;
@@ -7757,6 +7757,7 @@ variable_aux:
           }
         | '@' opt_var_ident_type ident_or_text opt_component
           {
+            /* disallow "SELECT @@global.global.variable" */
             if ($3.str && $4.str && check_reserved_words(&$3))
             {
               my_parse_error(ER(ER_SYNTAX_ERROR));
@@ -7764,6 +7765,8 @@ variable_aux:
             }
             if (!($$= get_system_var(YYTHD, $2, $3, $4)))
               MYSQL_YYABORT;
+            if (!((Item_func_get_system_var*) $$)->is_written_to_binlog())
+              Lex->set_stmt_unsafe();
           }
         ;
 

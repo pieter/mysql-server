@@ -20,6 +20,7 @@
 #pragma interface			/* gcc class implementation */
 #endif
 
+#include <mysql/plugin_audit.h>
 #include "log.h"
 #include "rpl_tblmap.h"
 
@@ -1319,7 +1320,6 @@ public:
     Public interface to write RBR events to the binlog
   */
   void binlog_start_trans_and_stmt();
-  int binlog_flush_transaction_cache();
   void binlog_set_stmt_begin();
   int binlog_write_table_map(TABLE *table, bool is_transactional);
   int binlog_write_row(TABLE* table, bool is_transactional,
@@ -1773,6 +1773,20 @@ public:
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   partition_info *work_part_info;
+#endif
+
+#ifndef EMBEDDED_LIBRARY
+  /**
+    Array of active audit plugins which have been used by this THD.
+    This list is later iterated to invoke release_thd() on those
+    plugins.
+  */
+  DYNAMIC_ARRAY audit_class_plugins;
+  /**
+    Array of bits indicating which audit classes have already been
+    added to the list of audit plugins which are currently in use.
+  */
+  unsigned long audit_class_mask[MYSQL_AUDIT_CLASS_MASK_SIZE];
 #endif
 
   THD();

@@ -22,7 +22,7 @@ AUTOMAKE_OPTIONS =	foreign
 EXTRA_DIST =	fulltext/configure.in	
 
 SUBDIRS =	@mysql_pg_dirs@
-DIST_SUBDIRS =	daemon_example fulltext
+DIST_SUBDIRS =	audit_null daemon_example fulltext
 
 # Don't update the files from bitkeeper
 %::SCCS/s.%

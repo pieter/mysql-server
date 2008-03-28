@@ -854,7 +854,7 @@ static void close_connections(void)
   (void) pthread_mutex_lock(&LOCK_manager);
   if (manager_thread_in_use)
   {
-    DBUG_PRINT("quit", ("killing manager thread: 0x%llx,
+    DBUG_PRINT("quit", ("killing manager thread: 0x%llx",
                         (ulonglong)manager_thread));
    (void) pthread_cond_signal(&COND_manager);
   }

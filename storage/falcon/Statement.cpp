@@ -2964,6 +2964,8 @@ void Statement::createTableSpace(Syntax *syntax)
 			case nod_nodegroup:	 tsInit.nodegroup	= child->getChild(0)->getNumber(); break;
 			case nod_wait:		 tsInit.wait		= child->getChild(0)->getNumber(); break;
 			case nod_comment:	 tsInit.comment		= child->getChild(0)->getString(); break;
+			default:
+				break;
 			}
 		}
 		

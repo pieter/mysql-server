@@ -1774,10 +1774,10 @@ bool sp_process_definer(THD *thd)
     TRUE        Error
 */
 
-bool
+int
 mysql_execute_command(THD *thd)
 {
-  bool res= FALSE;
+  int res= FALSE;
   bool need_start_waiting= FALSE; // have protection against global read lock
   int  up_result= 0;
   LEX  *lex= thd->lex;

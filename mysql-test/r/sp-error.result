@@ -1611,3 +1611,15 @@ end loop label1;
 end loop;
 end|
 ERROR 42000: End-label label1 without match
+drop procedure if exists proc_8759;
+create procedure proc_8759()
+begin
+declare should_be_illegal condition for sqlstate '00000';
+declare continue handler for should_be_illegal set @x=0;
+end$$
+ERROR 42000: Bad SQLSTATE: '00000'
+create procedure proc_8759()
+begin
+declare continue handler for sqlstate '00000' set @x=0;
+end$$
+ERROR 42000: Bad SQLSTATE: '00000'

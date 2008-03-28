@@ -14,6 +14,7 @@ falcon_bug_22150    : Bug#34890 2008-02-27 hakank Open bug
 falcon_bug_22165    : Bug#35255 2008-03-12 hakank Open bug
 falcon_bug_22166    : Bug#22166 2006-08-24 hakank Open bug
 falcon_bug_22169    : Bug#22169 2006-08-24 hakank Too long run time for PB
+falcon_bug_22173a   : Bug#35656 2008-03-27 hakank Some Falcon tests fail sporadically
 falcon_bug_22182    : Disabled until runtime team provides RENAME DATABASE replacement. See WL#4030
 falcon_bug_22185    : Bug#34890 2008-03-07 hakank Bogus timeout problem
 falcon_bug_22187    : Bug#22187 2006-08-24 hakank Get pushbuild green
@@ -27,17 +28,21 @@ falcon_bug_26433    : Bug#32697 falcon_bug_26433.test fails randomly
 falcon_bug_27951    : Bug#32731 falcon_bug_27951 fails randomly
 falcon_bug_27997    : Bug#27997 2007-04-21 hakank Currently failing
 falcon_bug_28006    : Bug#28006 2007-08-22 hakank Won't fix, see also Bug#15491
+falcon_bug_28095_I  : Bug#35656 2008-03-27 hakank Some Falcon tests fail sporadically
+falcon_bug_28095_II : Bug#35656 2008-03-27 hakank Some Falcon tests fail sporadically
 falcon_bug_29246    : Bug#29246 2007-06-21 hakank Currently failing
 falcon_bug_30282    : Bug#30282 2007-08-21 hakank Currently failing
 falcon_bug_30480_A  : Bug#30282 2007-09-07 klewis Currently failing
 falcon_bug_30480_B  : Bug#30282 2007-09-07 klewis Currently failing
+falcon_bug_30826    : Bug#20129 2008-02-24 mattiasj disabled until wl#4176
 falcon_bug_32413    : Bug#32413 2008-02-11 hakank Either works on 64-bit or on 32-bit, but not on both platforms. This is a test case problem and not a bug.
+falcon_bug_34174    : Bug#35656 2008-03-27 hakank Some Falcon tests fail sporadically
+falcon_bug_34351_B  : Bug#35656 2008-03-27 hakank Some Falcon tests fail sporadically
 #falcon_bug_34351_C  : Bug#35503 2008-03-22 hakank Times out from time to time
-#falcon_bug_34890    : Bug#34890 2008-02-11 klewis shows a faux lock timeout
+falcon_bug_34890    : Bug#34890 2008-02-11 klewis shows a faux lock timeout
 falcon_bug_34892    : Bug#34892 2008-03-04 hakank (Some falcon tests fail sporadically)
 falcon_deadlock     : Bug#34182 2008-01-31 hakank Bug in SELECT ... FOR UPDATE
 falcon_record_cache_memory_leak2    : Bug#34894 2008-02-27 hakank Fails on Pushbuild Windows
 falcon_ts           : Bug#32993 2008-02-25 hakank Open bug
 ps_8falcon          : Bug#32683  Test ps_8falcon fails in 6.0
 read_many_rows_falcon : Bug#23783 2006-10-30 ML Get pushbuild green
-falcon_bug_30826     : Bug#20129 2008-02-24 mattiasj disabled until wl#4176

@@ -3270,11 +3270,11 @@ handler::ha_change_partitions(HA_CREATE_INFO *create_info,
 */
 
 int
-handler::ha_drop_partitions(const char *path)
+handler::ha_drop_partitions(THD *thd, const char *path)
 {
   mark_trx_read_write();
 
-  return drop_partitions(path);
+  return drop_partitions(thd, path);
 }
 
 
@@ -3285,11 +3285,11 @@ handler::ha_drop_partitions(const char *path)
 */
 
 int
-handler::ha_rename_partitions(const char *path)
+handler::ha_rename_partitions(THD *thd, const char *path)
 {
   mark_trx_read_write();
 
-  return rename_partitions(path);
+  return rename_partitions(thd, path);
 }
 
 
@@ -5237,33 +5237,17 @@ static int binlog_log_row(TABLE* table,
 
   if (check_table_binlog_row_based(thd, table))
   {
-    MY_BITMAP cols;
-    /* Potential buffer on the stack for the bitmap */
-    uint32 bitbuf[BITMAP_STACKBUF_SIZE/sizeof(uint32)];
-    uint n_fields= table->s->fields;
-    my_bool use_bitbuf= n_fields <= sizeof(bitbuf)*8;
-
+    DBUG_DUMP("read_set 10", (uchar*) table->read_set->bitmap,
+              (table->s->fields + 7) / 8);
     /*
       If there are no table maps written to the binary log, this is
       the first row handled in this statement. In that case, we need
       to write table maps for all locked tables to the binary log.
     */
-    if (likely(!(error= bitmap_init(&cols,
-                                    use_bitbuf ? bitbuf : NULL,
-                                    (n_fields + 7) & ~7UL,
-                                    FALSE))))
+    if (likely(!(error= write_locked_table_maps(thd))))
     {
-      DBUG_DUMP("read_set 10", (uchar*) table->read_set->bitmap, (table->s->fields + 7) / 8);
-      /*
-        If there are no table maps written to the binary log, this is
-        the first row handled in this statement. In that case, we need
-        to write table maps for all locked tables to the binary log.
-      */
-      if (likely(!(error= write_locked_table_maps(thd))))
-      {
-        bool const has_trans= table->file->has_transactions();
-        error= (*log_func)(thd, table, has_trans, before_record, after_record);
-      }
+      bool const has_trans= table->file->has_transactions();
+      error= (*log_func)(thd, table, has_trans, before_record, after_record);
     }
   }
   return error ? HA_ERR_RBR_LOGGING_FAILED : 0;

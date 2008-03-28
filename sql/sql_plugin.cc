@@ -16,6 +16,7 @@
 #include "mysql_priv.h"
 #include <my_pthread.h>
 #include <my_getopt.h>
+#include <mysql/plugin_audit.h>
 #define REPORT_TO_LOG  1
 #define REPORT_TO_USER 2
 
@@ -42,11 +43,15 @@ const LEX_STRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   { C_STRING_WITH_LEN("STORAGE ENGINE") },
   { C_STRING_WITH_LEN("FTPARSER") },
   { C_STRING_WITH_LEN("DAEMON") },
-  { C_STRING_WITH_LEN("INFORMATION SCHEMA") }
+  { C_STRING_WITH_LEN("INFORMATION SCHEMA") },
+  { C_STRING_WITH_LEN("AUDIT") }
 };
 
 extern int initialize_schema_table(st_plugin_int *plugin);
 extern int finalize_schema_table(st_plugin_int *plugin);
+
+extern int initialize_audit_plugin(st_plugin_int *plugin);
+extern int finalize_audit_plugin(st_plugin_int *plugin);
 
 /*
   The number of elements in both plugin_type_initialize and
@@ -55,12 +60,14 @@ extern int finalize_schema_table(st_plugin_int *plugin);
 */
 plugin_type_init plugin_type_initialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 {
-  0,ha_initialize_handlerton,0,0,initialize_schema_table
+  0,ha_initialize_handlerton,0,0,initialize_schema_table,
+  initialize_audit_plugin
 };
 
 plugin_type_init plugin_type_deinitialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 {
-  0,ha_finalize_handlerton,0,0,finalize_schema_table
+  0,ha_finalize_handlerton,0,0,finalize_schema_table,
+  finalize_audit_plugin
 };
 
 #ifdef HAVE_DLOPEN
@@ -81,7 +88,8 @@ static int min_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   MYSQL_HANDLERTON_INTERFACE_VERSION,
   MYSQL_FTPARSER_INTERFACE_VERSION,
   MYSQL_DAEMON_INTERFACE_VERSION,
-  MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION
+  MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION,
+  MYSQL_AUDIT_INTERFACE_VERSION
 };
 static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 {
@@ -89,7 +97,8 @@ static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   MYSQL_HANDLERTON_INTERFACE_VERSION,
   MYSQL_FTPARSER_INTERFACE_VERSION,
   MYSQL_DAEMON_INTERFACE_VERSION,
-  MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION
+  MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION,
+  MYSQL_AUDIT_INTERFACE_VERSION
 };
 
 static bool initialized= 0;
@@ -349,7 +358,8 @@ static st_plugin_dl *plugin_dl_add(const LEX_STRING *dl, int report)
     plugin directory are used (to make this even remotely secure).
   */
   if (my_strchr(files_charset_info, dl->str, dl->str + dl->length, FN_LIBCHAR) ||
-      check_identifier_name((LEX_STRING *) dl) ||
+      check_string_char_length((LEX_STRING *) dl, "", NAME_CHAR_LEN,
+                               system_charset_info, 1) ||
       plugin_dir_len + dl->length + 1 >= FN_REFLEN)
   {
     if (report & REPORT_TO_USER)
@@ -1182,9 +1192,8 @@ int plugin_init(int *argc, char **argv, int flags)
   /* Register all dynamic plugins */
   if (!(flags & PLUGIN_INIT_SKIP_DYNAMIC_LOADING))
   {
-    if (opt_plugin_load &&
-        plugin_load_list(&tmp_root, argc, argv, opt_plugin_load))
-      goto err;
+    if (opt_plugin_load)
+      plugin_load_list(&tmp_root, argc, argv, opt_plugin_load);
     if (!(flags & PLUGIN_INIT_SKIP_PLUGIN_TABLE))
       plugin_load(&tmp_root, argc, argv);
   }
@@ -1313,27 +1322,23 @@ end:
 */
 static void plugin_load(MEM_ROOT *tmp_root, int *argc, char **argv)
 {
+  THD thd;
   TABLE_LIST tables;
   TABLE *table;
   READ_RECORD read_record_info;
   int error;
-  THD *new_thd;
+  THD *new_thd= &thd;
 #ifdef EMBEDDED_LIBRARY
   bool table_exists;
 #endif /* EMBEDDED_LIBRARY */
   DBUG_ENTER("plugin_load");
 
-  if (!(new_thd= new THD))
-  {
-    sql_print_error("Can't allocate memory for plugin structures");
-    delete new_thd;
-    DBUG_VOID_RETURN;
-  }
   new_thd->thread_stack= (char*) &tables;
   new_thd->store_globals();
   lex_start(new_thd);
   new_thd->db= my_strdup("mysql", MYF(0));
   new_thd->db_length= 5;
+  bzero((char*) &thd.net, sizeof(thd.net));
   bzero((uchar*)&tables, sizeof(tables));
   tables.alias= tables.table_name= (char*)"plugin";
   tables.lock_type= TL_READ;
@@ -1391,7 +1396,6 @@ static void plugin_load(MEM_ROOT *tmp_root, int *argc, char **argv)
   new_thd->version--; // Force close to free memory
 end:
   close_thread_tables(new_thd);
-  delete new_thd;
   /* Remember that we don't have a THD */
   my_pthread_setspecific_ptr(THR_THD, 0);
   DBUG_VOID_RETURN;
@@ -1413,7 +1417,11 @@ static bool plugin_load_list(MEM_ROOT *tmp_root, int *argc, char **argv,
   while (list)
   {
     if (p == buffer + sizeof(buffer) - 1)
-      break;
+    {
+      sql_print_error("plugin-load parameter too long");
+      DBUG_RETURN(TRUE);
+    }
+
     switch ((*(p++)= *(list++))) {
     case '\0':
       list= NULL; /* terminate the loop */
@@ -1422,10 +1430,17 @@ static bool plugin_load_list(MEM_ROOT *tmp_root, int *argc, char **argv,
     case ':':     /* can't use this as delimiter as it may be drive letter */
 #endif
     case ';':
-      name.str[name.length]= '\0';
-      if (str != &dl)  // load all plugins in named module
+      str->str[str->length]= '\0';
+      if (str == &name)  // load all plugins in named module
       {
+        if (!name.length)
+        {
+          p--;    /* reset pointer */
+          continue;
+        }
+
         dl= name;
+        pthread_mutex_lock(&LOCK_plugin);
         if ((plugin_dl= plugin_dl_add(&dl, REPORT_TO_LOG)))
         {
           for (plugin= plugin_dl->plugins; plugin->info; plugin++)
@@ -1435,7 +1450,10 @@ static bool plugin_load_list(MEM_ROOT *tmp_root, int *argc, char **argv,
 
             free_root(tmp_root, MYF(MY_MARK_BLOCKS_FREE));
             if (plugin_add(tmp_root, &name, &dl, argc, argv, REPORT_TO_LOG))
+            {
+              pthread_mutex_unlock(&LOCK_plugin);
               goto error;
+            }
           }
           plugin_dl_del(&dl); // reduce ref count
         }
@@ -1443,9 +1461,14 @@ static bool plugin_load_list(MEM_ROOT *tmp_root, int *argc, char **argv,
       else
       {
         free_root(tmp_root, MYF(MY_MARK_BLOCKS_FREE));
+        pthread_mutex_lock(&LOCK_plugin);
         if (plugin_add(tmp_root, &name, &dl, argc, argv, REPORT_TO_LOG))
+        {
+          pthread_mutex_unlock(&LOCK_plugin);
           goto error;
+        }
       }
+      pthread_mutex_unlock(&LOCK_plugin);
       name.length= dl.length= 0;
       dl.str= NULL; name.str= p= buffer;
       str= &name;
@@ -1454,6 +1477,7 @@ static bool plugin_load_list(MEM_ROOT *tmp_root, int *argc, char **argv,
     case '#':
       if (str == &name)
       {
+        name.str[name.length]= '\0';
         str= &dl;
         str->str= p;
         continue;
@@ -2045,35 +2069,35 @@ err:
 
 
 static void update_func_bool(THD *thd, struct st_mysql_sys_var *var,
-                             void *tgt, void *save)
+                             void *tgt, const void *save)
 {
   *(my_bool *) tgt= *(int *) save ? 1 : 0;
 }
 
 
 static void update_func_int(THD *thd, struct st_mysql_sys_var *var,
-                             void *tgt, void *save)
+                             void *tgt, const void *save)
 {
   *(int *)tgt= *(int *) save;
 }
 
 
 static void update_func_long(THD *thd, struct st_mysql_sys_var *var,
-                             void *tgt, void *save)
+                             void *tgt, const void *save)
 {
   *(long *)tgt= *(long *) save;
 }
 
 
 static void update_func_longlong(THD *thd, struct st_mysql_sys_var *var,
-                             void *tgt, void *save)
+                             void *tgt, const void *save)
 {
   *(longlong *)tgt= *(ulonglong *) save;
 }
 
 
 static void update_func_str(THD *thd, struct st_mysql_sys_var *var,
-                             void *tgt, void *save)
+                             void *tgt, const void *save)
 {
   char *old= *(char **) tgt;
   *(char **)tgt= *(char **) save;
@@ -2630,7 +2654,8 @@ bool sys_var_pluginvar::check(THD *thd, set_var *var)
 
 void sys_var_pluginvar::set_default(THD *thd, enum_var_type type)
 {
-  void *tgt, *src;
+  const void *src;
+  void *tgt;
 
   DBUG_ASSERT(is_readonly() || plugin_var->update);
 
@@ -2643,9 +2668,34 @@ void sys_var_pluginvar::set_default(THD *thd, enum_var_type type)
 
   if (plugin_var->flags & PLUGIN_VAR_THDLOCAL)
   {
-    src= ((int*) (plugin_var + 1) + 1);
     if (type != OPT_GLOBAL)
       src= real_value_ptr(thd, OPT_GLOBAL);
+    else
+    switch (plugin_var->flags & PLUGIN_VAR_TYPEMASK) {
+	case PLUGIN_VAR_INT:
+	  src= &((thdvar_uint_t*) plugin_var)->def_val;
+	  break;
+	case PLUGIN_VAR_LONG:
+	  src= &((thdvar_ulong_t*) plugin_var)->def_val;
+	  break;
+	case PLUGIN_VAR_LONGLONG:
+	  src= &((thdvar_ulonglong_t*) plugin_var)->def_val;
+	  break;
+	case PLUGIN_VAR_ENUM:
+	  src= &((thdvar_enum_t*) plugin_var)->def_val;
+	  break;
+	case PLUGIN_VAR_SET:
+	  src= &((thdvar_set_t*) plugin_var)->def_val;
+	  break;
+	case PLUGIN_VAR_BOOL:
+	  src= &((thdvar_bool_t*) plugin_var)->def_val;
+	  break;
+	case PLUGIN_VAR_STR:
+	  src= &((thdvar_str_t*) plugin_var)->def_val;
+	  break;
+	default:
+	  DBUG_ASSERT(0);
+	}
   }
 
   /* thd must equal current_thd if PLUGIN_VAR_THDLOCAL flag is set */
@@ -2733,25 +2783,25 @@ static void plugin_opt_set_limits(struct my_option *options,
   case PLUGIN_VAR_ENUM:
     options->var_type= GET_ENUM;
     options->typelib= ((sysvar_enum_t*) opt)->typelib;
-    options->def_value= *(ulong*) ((int*) (opt + 1) + 1);
+    options->def_value= ((sysvar_enum_t*) opt)->def_val;
     options->min_value= options->block_size= 0;
     options->max_value= options->typelib->count - 1;
     break;
   case PLUGIN_VAR_SET:
     options->var_type= GET_SET;
     options->typelib= ((sysvar_set_t*) opt)->typelib;
-    options->def_value= *(ulonglong*) ((int*) (opt + 1) + 1);
+    options->def_value= ((sysvar_set_t*) opt)->def_val;
     options->min_value= options->block_size= 0;
     options->max_value= (ULL(1) << options->typelib->count) - 1;
     break;
   case PLUGIN_VAR_BOOL:
     options->var_type= GET_BOOL;
-    options->def_value= *(my_bool*) ((void**)(opt + 1) + 1);
+    options->def_value= ((sysvar_bool_t*) opt)->def_val;
     break;
   case PLUGIN_VAR_STR:
     options->var_type= ((opt->flags & PLUGIN_VAR_MEMALLOC) ?
                         GET_STR_ALLOC : GET_STR);
-    options->def_value= (ulonglong)(intptr) *((char**) ((void**) (opt + 1) + 1));
+    options->def_value= (intptr) ((sysvar_str_t*) opt)->def_val;
     break;
   /* threadlocal variables */
   case PLUGIN_VAR_INT | PLUGIN_VAR_THDLOCAL:
@@ -2775,25 +2825,25 @@ static void plugin_opt_set_limits(struct my_option *options,
   case PLUGIN_VAR_ENUM | PLUGIN_VAR_THDLOCAL:
     options->var_type= GET_ENUM;
     options->typelib= ((thdvar_enum_t*) opt)->typelib;
-    options->def_value= *(ulong*) ((int*) (opt + 1) + 1);
+    options->def_value= ((thdvar_enum_t*) opt)->def_val;
     options->min_value= options->block_size= 0;
     options->max_value= options->typelib->count - 1;
     break;
   case PLUGIN_VAR_SET | PLUGIN_VAR_THDLOCAL:
     options->var_type= GET_SET;
     options->typelib= ((thdvar_set_t*) opt)->typelib;
-    options->def_value= *(ulonglong*) ((int*) (opt + 1) + 1);
+    options->def_value= ((thdvar_set_t*) opt)->def_val;
     options->min_value= options->block_size= 0;
     options->max_value= (ULL(1) << options->typelib->count) - 1;
     break;
   case PLUGIN_VAR_BOOL | PLUGIN_VAR_THDLOCAL:
     options->var_type= GET_BOOL;
-    options->def_value= *(my_bool*) ((int*) (opt + 1) + 1);
+    options->def_value= ((thdvar_bool_t*) opt)->def_val;
     break;
   case PLUGIN_VAR_STR | PLUGIN_VAR_THDLOCAL:
     options->var_type= ((opt->flags & PLUGIN_VAR_MEMALLOC) ?
                         GET_STR_ALLOC : GET_STR);
-    options->def_value= (intptr) *((char**) ((void**) (opt + 1) + 1));
+    options->def_value= (intptr) ((thdvar_str_t*) opt)->def_val;
     break;
   default:
     DBUG_ASSERT(0);
@@ -2975,7 +3025,8 @@ static int construct_options(MEM_ROOT *mem_root, struct st_plugin_int *tmp,
       DBUG_RETURN(-1);
     }
 
-    if (opt->flags & PLUGIN_VAR_NOCMDOPT)
+    if ((opt->flags & (PLUGIN_VAR_NOCMDOPT | PLUGIN_VAR_THDLOCAL))
+                    == PLUGIN_VAR_NOCMDOPT)
       continue;
 
     if (!opt->name)
@@ -2985,7 +3036,7 @@ static int construct_options(MEM_ROOT *mem_root, struct st_plugin_int *tmp,
       DBUG_RETURN(-1);
     }
 
-    if (!(v= find_bookmark(name, opt->name, opt->flags)))
+    if (!(opt->flags & PLUGIN_VAR_THDLOCAL))
     {
       optnamelen= strlen(opt->name);
       optname= (char*) alloc_root(mem_root, namelen + optnamelen + 2);
@@ -2993,7 +3044,23 @@ static int construct_options(MEM_ROOT *mem_root, struct st_plugin_int *tmp,
       optnamelen= namelen + optnamelen + 1;
     }
     else
-      optname= (char*) memdup_root(mem_root, v->key + 1, (optnamelen= v->name_len) + 1);
+    {
+      /* this should not fail because register_var should create entry */
+      if (!(v= find_bookmark(name, opt->name, opt->flags)))
+      {
+        sql_print_error("Thread local variable '%s' not allocated "
+                        "in plugin '%s'.", opt->name, plugin_name);
+        DBUG_RETURN(-1);
+      }
+
+      *(int*)(opt + 1)= offset= v->offset;
+
+      if (opt->flags & PLUGIN_VAR_NOCMDOPT)
+        continue;
+
+      optname= (char*) memdup_root(mem_root, v->key + 1, 
+                                   (optnamelen= v->name_len) + 1);
+    }
 
     /* convert '_' to '-' */
     for (p= optname; *p; p++)
@@ -3005,20 +3072,13 @@ static int construct_options(MEM_ROOT *mem_root, struct st_plugin_int *tmp,
     options->app_type= opt;
     options->id= (options-1)->id + 1;
 
-    if (opt->flags & PLUGIN_VAR_THDLOCAL)
-      *(int*)(opt + 1)= offset= v->offset;
-
     plugin_opt_set_limits(options, opt);
 
-    if ((opt->flags & PLUGIN_VAR_TYPEMASK) != PLUGIN_VAR_ENUM &&
-        (opt->flags & PLUGIN_VAR_TYPEMASK) != PLUGIN_VAR_SET)
-    {
-      if (opt->flags & PLUGIN_VAR_THDLOCAL)
-        options->value= options->u_max_value= (uchar**)
-          (global_system_variables.dynamic_variables_ptr + offset);
-      else
-        options->value= options->u_max_value= *(uchar***) (opt + 1);
-    }
+    if (opt->flags & PLUGIN_VAR_THDLOCAL)
+      options->value= options->u_max_value= (uchar**)
+        (global_system_variables.dynamic_variables_ptr + offset);
+    else
+      options->value= options->u_max_value= *(uchar***) (opt + 1);
 
     options[1]= options[0];
     options[1].name= p= (char*) alloc_root(mem_root, optnamelen + 8);

@@ -156,7 +156,7 @@ template <> class Bitmap<64>
 {
   ulonglong map;
 public:
-  Bitmap<64>() { }
+  Bitmap<64>() { map= 0; }
 #if defined(__NETWARE__) || defined(__MWERKS__)
   /*
     Metwork compiler gives error on Bitmap<64>

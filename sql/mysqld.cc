@@ -27,6 +27,7 @@
 #include "mysys_err.h"
 #include "events.h"
 #include "ddl_blocker.h"
+#include "sql_audit.h"
 
 #include "../storage/myisam/ha_myisam.h"
 
@@ -659,7 +660,8 @@ pthread_mutex_t LOCK_mysql_create_db, LOCK_Acl, LOCK_open, LOCK_thread_count,
 		LOCK_delayed_insert, LOCK_delayed_status, LOCK_delayed_create,
 		LOCK_crypt, LOCK_bytes_sent, LOCK_bytes_received,
 	        LOCK_global_system_variables,
-		LOCK_user_conn, LOCK_slave_list, LOCK_active_mi;
+		LOCK_user_conn, LOCK_slave_list, LOCK_active_mi,
+                LOCK_connection_count;
 pthread_mutex_t LOCK_backup;
 
 /**
@@ -795,6 +797,11 @@ struct st_VioSSLFd *ssl_acceptor_fd;
 #endif
 #endif /* HAVE_OPENSSL */
 
+/**
+  Number of currently active user connections. The variable is protected by
+  LOCK_connection_count.
+*/
+uint connection_count= 0;
 
 /* Function declarations */
 
@@ -830,6 +837,7 @@ static void close_server_sock();
 static void clean_up_mutexes(void);
 static void wait_for_signal_thread_to_end(void);
 static void create_pid_file();
+static void mysqld_exit(int exit_code) __attribute__((noreturn));
 #endif
 static void end_ssl();
 
@@ -1238,6 +1246,7 @@ void unireg_end(void)
 #endif
 }
 
+
 extern "C" void unireg_abort(int exit_code)
 {
   DBUG_ENTER("unireg_abort");
@@ -1248,12 +1257,20 @@ extern "C" void unireg_abort(int exit_code)
     usage();
   clean_up(!opt_help && (exit_code || !opt_bootstrap)); /* purecov: inspected */
   DBUG_PRINT("quit",("done with cleanup in unireg_abort"));
+  mysqld_exit(exit_code);
+}
+
+
+static void mysqld_exit(int exit_code)
+{
   wait_for_signal_thread_to_end();
+  mysql_audit_finalize();
   clean_up_mutexes();
   my_end(opt_endinfo ? MY_CHECK_ERROR | MY_GIVE_INFO : 0);
   exit(exit_code); /* purecov: inspected */
 }
-#endif
+
+#endif /* !EMBEDDED_LIBRARY */
 
 
 void clean_up(bool print_message)
@@ -1414,6 +1431,7 @@ static void clean_up_mutexes()
   (void) pthread_mutex_destroy(&LOCK_bytes_sent);
   (void) pthread_mutex_destroy(&LOCK_bytes_received);
   (void) pthread_mutex_destroy(&LOCK_user_conn);
+  (void) pthread_mutex_destroy(&LOCK_connection_count);
   (void) pthread_mutex_destroy(&LOCK_backup);
   Events::destroy_mutexes();
 #ifdef HAVE_OPENSSL
@@ -1892,6 +1910,11 @@ void unlink_thd(THD *thd)
   DBUG_ENTER("unlink_thd");
   DBUG_PRINT("enter", ("thd: 0x%lx", (long) thd));
   thd->cleanup();
+
+  pthread_mutex_lock(&LOCK_connection_count);
+  --connection_count;
+  pthread_mutex_unlock(&LOCK_connection_count);
+
   (void) pthread_mutex_lock(&LOCK_thread_count);
   thread_count--;
   delete thd;
@@ -2895,6 +2918,13 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
   */
   if ((thd= current_thd))
   {
+    mysql_audit_general(thd,MYSQL_AUDIT_GENERAL_ERROR,error,my_time(0),
+                        0,0,str,str ? strlen(str) : 0,
+                        thd->query,thd->query_length,
+                        thd->variables.character_set_client,
+                        thd->row_count);
+
+
     /*
       TODO: There are two exceptions mechanism (THD and sp_rcontext),
       this could be improved by having a common stack of handlers.
@@ -3565,6 +3595,7 @@ static int init_thread_environment()
   (void) pthread_mutex_init(&LOCK_global_read_lock, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_prepared_stmt_count, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_uuid_generator, MY_MUTEX_INIT_FAST);
+  (void) pthread_mutex_init(&LOCK_connection_count, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_backup, MY_MUTEX_INIT_FAST);
 #ifdef HAVE_OPENSSL
   (void) pthread_mutex_init(&LOCK_des_key_file,MY_MUTEX_INIT_FAST);
@@ -4234,6 +4265,9 @@ int main(int argc, char **argv)
   thr_kill_signal= SIGINT;
 #endif
 
+  /* Initialize audit interface globals. Audit plugins are inited later. */
+  mysql_audit_initialize();
+
   /*
     Perform basic logger initialization logger. Should be called after
     MY_INIT, as it initializes mutexes. Log tables are inited later.
@@ -4500,15 +4534,10 @@ int main(int argc, char **argv)
   }
 #endif
   clean_up(1);
-  wait_for_signal_thread_to_end();
-  clean_up_mutexes();
-  my_end(opt_endinfo ? MY_CHECK_ERROR | MY_GIVE_INFO : 0);
-
-  exit(0);
-  return(0);					/* purecov: deadcode */
+  mysqld_exit(0);
 }
 
-#endif /* EMBEDDED_LIBRARY */
+#endif /* !EMBEDDED_LIBRARY */
 
 
 /****************************************************************************
@@ -4812,6 +4841,11 @@ void create_thread_to_handle_connection(THD *thd)
       thread_count--;
       thd->killed= THD::KILL_CONNECTION;			// Safety
       (void) pthread_mutex_unlock(&LOCK_thread_count);
+
+      pthread_mutex_lock(&LOCK_connection_count);
+      --connection_count;
+      pthread_mutex_unlock(&LOCK_connection_count);
+
       statistic_increment(aborted_connects,&LOCK_status);
       /* Can't use my_error() since store_globals has not been called. */
       my_snprintf(error_message_buff, sizeof(error_message_buff),
@@ -4847,15 +4881,34 @@ static void create_new_thread(THD *thd)
 {
   DBUG_ENTER("create_new_thread");
 
-  /* don't allow too many connections */
-  if (thread_count - delayed_insert_threads >= max_connections+1 || abort_loop)
+  /*
+    Don't allow too many connections. We roughly check here that we allow
+    only (max_connections + 1) connections.
+  */
+
+  pthread_mutex_lock(&LOCK_connection_count);
+
+  if (connection_count >= max_connections + 1 || abort_loop)
   {
+    pthread_mutex_unlock(&LOCK_connection_count);
+
     DBUG_PRINT("error",("Too many connections"));
     close_connection(thd, ER_CON_COUNT_ERROR, 1);
     delete thd;
     DBUG_VOID_RETURN;
   }
+
+  ++connection_count;
+
+  if (connection_count > max_used_connections)
+    max_used_connections= connection_count;
+
+  pthread_mutex_unlock(&LOCK_connection_count);
+
+  /* Start a new thread to handle connection. */
+
   pthread_mutex_lock(&LOCK_thread_count);
+
   /*
     The initialization of thread_id is done in create_embedded_thd() for
     the embedded library.
@@ -4863,13 +4916,10 @@ static void create_new_thread(THD *thd)
   */
   thd->thread_id= thd->variables.pseudo_thread_id= thread_id++;
 
-  /* Start a new thread to handle connection */
   thread_count++;
 
-  if (thread_count - delayed_insert_threads > max_used_connections)
-    max_used_connections= thread_count - delayed_insert_threads;
-
   thread_scheduler.add_connection(thd);
+
   DBUG_VOID_RETURN;
 }
 #endif /* EMBEDDED_LIBRARY */

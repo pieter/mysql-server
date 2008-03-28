@@ -85,7 +85,12 @@ public:
 	virtual int			rollbackByXid(int xidLength, const unsigned char* xis);
 
 	virtual Connection*	getDictionaryConnection(void);
-	virtual int			createTablespace(const char* tableSpaceName, const char* filename);
+	virtual int			createTablespace(const char* tableSpaceName, const char* filename,
+											unsigned long long initialSize = 0,
+											unsigned long long extentSize = 0,
+											unsigned long long autoextendSize = 0,
+											unsigned long long maxSize = 0,
+											int nodegroup = 0, bool wait = false, const char* comment = NULL);
 	virtual int			deleteTablespace(const char* tableSpaceName);
 
 	virtual StorageTableShare* findTable(const char* pathname);
@@ -101,6 +106,7 @@ public:
 	virtual void		getSerialLogInfo(InfoTable* infoTable);
 	virtual void		getSyncInfo(InfoTable* infoTable);
 	virtual void		getTransactionSummaryInfo(InfoTable* infoTable);
+	virtual void		getTableSpaceInfo(InfoTable* infoTable);
 	virtual void		getTablesInfo(InfoTable* infoTable);
 
 	virtual void		setIndexChillThreshold(uint value);
@@ -125,6 +131,12 @@ public:
 	void				initialize(void);
 	void				dropTempTables(void);
 	void				cleanFileName(const char* pathname, char* filename, int filenameLength);
+	JString				genCreateTableSpace(const char* tableSpaceName, const char* filename,
+											unsigned long long initialSize = 0,
+											unsigned long long extentSize = 0,
+											unsigned long long autoextendSize = 0,
+											unsigned long long maxSize = 0,
+											int nodegroup = 0, bool wait = false, const char* comment = NULL);
 	
 	StorageConnection	*connections[connectionHashSize];
 	StorageDatabase		*defaultDatabase;

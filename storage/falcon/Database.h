@@ -206,6 +206,7 @@ public:
 	void			commitByXid(int xidLength, const UCHAR* xid);
 	void			rollbackByXid(int xidLength, const UCHAR* xid);
 	void			getTransactionSummaryInfo(InfoTable* infoTable);
+	void			getTableSpaceInfo(InfoTable* infoTable);
 	void			updateCardinalities(void);
 	void			getIOInfo(InfoTable* infoTable);
 	void			getTransactionInfo(InfoTable* infoTable);

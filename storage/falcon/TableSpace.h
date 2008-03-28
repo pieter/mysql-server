@@ -27,6 +27,18 @@
 static const int TABLESPACE_TYPE_TABLESPACE		= 0;
 static const int TABLESPACE_TYPE_REPOSITORY		= 1;
 
+struct TableSpaceInit
+{
+	int64	allocation;
+	int64	extent;
+	int64	autoExtend;
+	int64	maxSize;
+	int		nodegroup;
+	int		wait;
+	JString	comment;
+	TableSpaceInit(): allocation(0), extent(0), autoExtend(0), maxSize(0), nodegroup(0), wait(0), comment("") {}
+};
+
 class Dbb;
 class Database;
 class InfoTable;
@@ -34,7 +46,7 @@ class InfoTable;
 class TableSpace  
 {
 public:
-	TableSpace(Database *database, const char *spaceName, int spaceId, const char *spaceFilename, uint64 initialAllocation, int tsType);
+	TableSpace(Database *database, const char *spaceName, int spaceId, const char *spaceFilename,  int tsType, TableSpaceInit *tsInit);
 	virtual ~TableSpace();
 
 	void	create();
@@ -46,6 +58,7 @@ public:
 	void	sync(void);
 	void	save(void);
 	void	getIOInfo(InfoTable* infoTable);
+	void	getTableSpaceInfo(InfoTable* infoTable);
 
 	JString		name;
 	JString		filename;
@@ -54,11 +67,19 @@ public:
 	TableSpace	*next;
 	Dbb			*dbb;
 	Database	*database;
-	uint64		initialAllocation;
+
 	int			tableSpaceId;
 	int			type;
 	bool		active;
 	bool		needSave;
+	
+	int64		allocation;
+	int64		extent;
+	int64		autoExtend;
+	int64		maxSize;
+	int			nodegroup;
+	int			wait;
+	JString		comment;
 };
 
 #endif // !defined(AFX_TABLESPACE_H__FAD68264_27D0_4E8B_B19C_911F9DC25A89__INCLUDED_)

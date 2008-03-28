@@ -189,25 +189,25 @@ public:
 	StorageConnection	*storageConnection;
 	StorageTable		*storageTable;
 
-	static int call_fillSystemMemoryDetailTable(THD *thd, TABLE_LIST *tables, COND *cond);
-	static int initSystemMemoryDetail(void *p);
-	static int deinitSystemMemoryDetail(void *p);
+	static int callSystemMemoryDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initSystemMemoryDetailInfo(void *p);
+	static int deinitSystemMemoryDetailInfo(void *p);
 	
-	static int call_fillSystemMemorySummaryTable(THD *thd, TABLE_LIST *tables, COND *cond);
-	static int initSystemMemorySummary(void *p);
-	static int deinitSystemMemorySummary(void *p);
+	static int callSystemMemorySummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initSystemMemorySummaryInfo(void *p);
+	static int deinitSystemMemorySummaryInfo(void *p);
 
-	static int call_fillRecordCacheDetailTable(THD *thd, TABLE_LIST *tables, COND *cond);
-	static int initRecordCacheDetail(void *p);
-	static int deinitRecordCacheDetail(void *p);
+	static int callRecordCacheDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initRecordCacheDetailInfo(void *p);
+	static int deinitRecordCacheDetailInfo(void *p);
 
-	static int call_fillRecordCacheSummaryTable(THD *thd, TABLE_LIST *tables, COND *cond);
-	static int initRecordCacheSummary(void *p);
-	static int deinitRecordCacheSummary(void *p);
+	static int callRecordCacheSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initRecordCacheSummaryInfo(void *p);
+	static int deinitRecordCacheSummaryInfo(void *p);
 
-	static int call_fillTablespaceIOTable(THD *thd, TABLE_LIST *tables, COND *cond);
-	static int initTablespaceIO(void *p);
-	static int deinitTablespaceIO(void *p);
+	static int callTableSpaceIOInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initTableSpaceIOInfo(void *p);
+	static int deinitTableSpaceIOInfo(void *p);
 
 	static int callTransactionInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initTransactionInfo(void *p);
@@ -228,6 +228,10 @@ public:
 	static int callSyncInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initSyncInfo(void *p);
 	static int deinitSyncInfo(void *p);
+
+	static int callTableSpaceInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initTableSpaceInfo(void *p);
+	static int deinitTableSpaceInfo(void *p);
 
 	static int callTablesInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initTablesInfo(void *p);

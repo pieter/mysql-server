@@ -48,6 +48,14 @@ public:
 	int			nameLength;
 	int			filenameLength;
 	int			type;
+	int64		allocation;
+	int64		extent;
+	int64		autoExtend;
+	int64		maxSize;
+	int			nodegroup;
+	int			wait;
+	const char	*comment;
+	int			commentLength;
 };
 
 #endif // !defined(AFX_SRLCREATETABLESPACE_H__1D7C8978_EEA6_49B0_9A65_0BEFDDB9ABA8__INCLUDED_)

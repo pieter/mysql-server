@@ -41,6 +41,9 @@
 static const char THIS_FILE[]=__FILE__;
 #endif
 
+// Do not make supernode, if there is too much loss for prefix compression
+#define SUPERNODE_COMPRESSION_LOSS_LIMIT(pageSize) (pageSize)/(SUPERNODES+1)/2
+
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -87,8 +90,9 @@ AddNodeResult IndexPage::addNode (Dbb *dbb, IndexKey *indexKey, int32 recordNumb
 	int offset1 = computePrefix (priorKey, indexKey);
 
 	// Check whether inserted node shall be supernode. If yes, does not compress the prefix.
-	bool addSuper = checkAddSuperNode(dbb->pageSize, node, indexKey, recordNumber, offset1);
-	if (addSuper)
+	bool makeNextSuper;
+	bool makeSuper = checkAddSuperNode(dbb->pageSize, node, indexKey, recordNumber, offset1, &makeNextSuper);
+	if (makeSuper)
 		offset1 = 0;
 
 	int length1 = indexKey->keyLength - offset1;
@@ -105,6 +109,12 @@ AddNodeResult IndexPage::addNode (Dbb *dbb, IndexKey *indexKey, int32 recordNumb
 		{
 		node->expandKey (nextKey);
 		offset2 = computePrefix(indexKey, nextKey);
+
+		if (offset2 > SUPERNODE_COMPRESSION_LOSS_LIMIT(dbb->pageSize))
+			makeNextSuper = false; // compresses well, no supenode
+		else if (makeNextSuper)
+			offset2 = 0; // we'll make supernode, so don't prefix compress
+
 		int deltaOffset = offset2 - node->offset;
 		
 		if (node->length >= 128 && (node->length - deltaOffset) < 128)
@@ -138,10 +148,9 @@ AddNodeResult IndexPage::addNode (Dbb *dbb, IndexKey *indexKey, int32 recordNumb
 			index, recordNumber, (CHAR*) node - (CHAR*) page);
 	***/
 
-	// Check whether there was a supernode at the insertion point
-	// If yes, delete it fow now. Supernode will be reinstalled at another position later,
-	// unless it gets prefix-compressed.
-	bool wasSuper = deleteSupernode(node->node);
+	// Delete supernode at the insertion point, if there was one
+	// It might be reinstalled later
+	deleteSupernode(node->node);
 
 	// Slide tail of bucket forward to make room
 
@@ -158,17 +167,19 @@ AddNodeResult IndexPage::addNode (Dbb *dbb, IndexKey *indexKey, int32 recordNumb
 	// Insert new node
 
 	IndexNode newNode;
+
+	if (makeSuper)
+		addSupernode(node->node);
+
 	newNode.insert (node->node, offset1, length1, key, recordNumber);
 
 	// If necessary, rebuild next node
-	if (wasSuper && (offset2 == 0))
+	if (makeNextSuper)
 		addSupernode(newNode.nextNode);
 
 	if (offset2 >= 0)
 		newNode.insert (newNode.nextNode, offset2, nextKey->keyLength - offset2, nextKey->key, nextNumber);
 
-	if (addSuper)
-		addSupernode(node->node);
 
 
 
@@ -579,14 +590,10 @@ void IndexPage::validate(void *before)
 		if(node.length == 0 && recordNumber < priorRecordNumber)
 			FATAL ("Index validate:  record numbers out of order");
 
-		bool equalKeys = (priorKeyLength == keyLength);
 		for (UCHAR *p = node.key, *q = key + node.offset, *end = key + l; q < end; p++, q++)
 			{
 			if (*p > *q)		// current > previous, good
-				{
-				equalKeys = false;
 				break;
-				}
 			else if (*p == *q)	// current == previous, good so far
 				continue;
 			else if (*p < *q)	// current < previous, bad
@@ -598,10 +605,7 @@ void IndexPage::validate(void *before)
 				FATAL("Mal-formed index page");
 				}
 			}
-#ifndef SUPERNODES_ON_DUPLICATE_KEYS
-			if( isSuper && equalKeys)
-				FATAL("supernode key equal to previous node");
-#endif
+
 			node.expandKey(key);
 			priorKeyLength = keyLength;
 			priorRecordNumber = recordNumber;
@@ -748,12 +752,19 @@ int IndexPage::deleteNode(Dbb * dbb, IndexKey *indexKey, int32 recordNumber)
 				int prefix = computePrefix(&priorKey, &nextKey);
 				
 				// Check whether next node is a supernode.
-				// If yes, delete it for now. Supernode will be reinstalled later,
-				// if it does not get prefix-compressed.
+				// If yes, delete it for now. Supernode will be reinstalled
+				// at current position, if it makes sense.
 
-				Btn *nextSuper = 0;
-				if(deleteSupernode(node.nextNode) && (prefix == 0) && node.node != nodes)
-					nextSuper = node.node;
+				Btn *supernodePosition = 0;
+
+				if(deleteSupernode(node.nextNode))
+					{
+					if (checkAddSuperNode(dbb->pageSize, &node, &nextKey, next.getNumber(), prefix, 0))
+						{
+						prefix = 0;
+						supernodePosition = node.node;
+						}
+					}
 
 				int32 num = next.getNumber();
 				node.insert(node.node, prefix, nextKey.keyLength - prefix, nextKey.key, num);
@@ -765,8 +776,8 @@ int IndexPage::deleteNode(Dbb * dbb, IndexKey *indexKey, int32 recordNumber)
 				if (tailLength > 0)
 					moveMemory(newTail, tail);
 
-				if (nextSuper)
-					addSupernode(nextSuper);
+				if (supernodePosition)
+					addSupernode(supernodePosition);
 
 				length = (int) ((char*) newTail + tailLength - (char*) this);
 				//validate(NULL);
@@ -801,11 +812,24 @@ void IndexPage::printPage(IndexPage * page, int32 pageNumber, bool inversion)
 	Btn *end = (Btn*) ((UCHAR*) page + page->length);
 	IndexNode node (page);
 
+	Log::debug("Supernodes:");
+	for (int i=0; i < SUPERNODES && page->superNodes[i]; i++)
+		Log::debug("%d ",page->superNodes[i]);
+	Log::debug("\n");
+
+	int superIdx = 0;
+
 	for (; node.node < end; node.getNext(end))
 		{
-		Log::debug ("   %d. offset %d, length %d, %d: ",
-				(char*) node.node - (char*) page, 
-				node.offset, node.length, node.getNumber());
+		bool isSuper = false;
+		if (superIdx < SUPERNODES && (node.node - page->nodes == page->superNodes[superIdx]) )
+				{
+				superIdx++;
+				isSuper = true;
+				}
+		Log::debug ("   %d%s. offset %d, length %d, %d: ",
+			(char*) node.node - (char*) page, (isSuper ? "(super)" : ""),
+			node.offset, node.length, node.getNumber());
 		node.expandKey (key);
 		node.printKey ("", key, inversion);
 		}
@@ -1163,9 +1187,7 @@ Bdb* IndexPage::splitIndexPageEnd(Dbb *dbb, Bdb *bdb, TransId transId, IndexKey 
 	split->appendNode(insertKey, recordNumber, dbb->pageSize);
 	split->appendNode(&rolloverKey, rolloverNumber, dbb->pageSize);
 	//split->validate(NULL);
-	//printf ("splitIndexPage: level %d, %d -> %d\n", level, bdb->pageNumber, nextPage);
-	//validate( splitBdb->buffer);
-
+	
 	if (dbb->debug & (DEBUG_PAGES | DEBUG_SPLIT_PAGE))
 		{
 		printPage (this, 0, false);
@@ -1401,14 +1423,28 @@ Btn* IndexPage::getEnd(void)
 }
 
 /* During node insertion, check whether supernode should be added at insertion point */
-bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *indexKey, int recordNumber, int offset)
+bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *indexKey,
+				int recordNumber, int offset, bool *makeNextSuper)
 {
+
+
 	Btn *insertionPoint = node->node;
 
-	if (insertionPoint == nodes) // no supernode at the start of the page
-		return false;
+	if (makeNextSuper)
+		*makeNextSuper = false;
 
-	if (offset >= pageSize/SUPERNODES/2) //compression is too good, no super
+	if (insertionPoint == nodes) 
+		{
+
+		// Make supernode at the following node, if the
+		// gap from the start of the page to the first supernode is too large.
+		if (makeNextSuper && superNodes[0] > pageSize/(SUPERNODES+1) && !superNodes[SUPERNODES-1])
+			*makeNextSuper = true;
+
+		return false; // no supernode at the start of the page
+		}
+
+	if (offset >= SUPERNODE_COMPRESSION_LOSS_LIMIT(pageSize)) //compression is too good, no super
 		return false;
 
 	if (superNodes[SUPERNODES-1]) // supernode array is full
@@ -1421,11 +1457,6 @@ bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *index
 
 	if (keyLen == 0)
 		return false;
-
-#ifndef SUPERNODES_ON_DUPLICATE_KEYS
-	if (keyLen == offset) // no supernode on duplicate entry (yet)
-		return false;
-#endif
 
 	int position = (int)(insertionPoint - nodes);
 
@@ -1441,12 +1472,17 @@ bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *index
 
 	// Avoid 2 superNodes adjacent to each other
 	if (nodes + superNodes[i] == insertionPoint)
+		{
+		// Retain existing supernode
+		if (makeNextSuper)
+			*makeNextSuper = true;
 		return false;
+		}
 
 	int nodeLen =
 		IndexNode::nodeLength(offset, indexKey->keyLength - offset, recordNumber);
 	
-	/* Ideal distance between supernodes , assume page will get 90% full*/
+	/* Ideal distance between supernodes*/
 	int idealDistance = pageSize/(SUPERNODES+1);
 
 	

@@ -41,7 +41,8 @@ static const int srlVersion11		= 11;	// Added table space type (repository suppo
 static const int srlVersion12		= 12;	// Added index version number to SRLIndexPage	February 13, 2008
 static const int srlVersion13		= 13;	// Added savepoint id to SRLUpdateRecords		February 14, 2008
 static const int srlVersion14		= 14;	// Added supernodes logging	March 7, 2008
-static const int srlCurrentVersion	= srlVersion14;
+static const int srlVersion15		= 15;	// Added tablespace parameters to SRLCreateTableSpace	March 27, 2008
+static const int srlCurrentVersion	= srlVersion15;
 
 class SRLVersion : public SerialLogRecord  
 {

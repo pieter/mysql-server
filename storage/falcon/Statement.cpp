@@ -2931,7 +2931,6 @@ void Statement::createTableSpace(Syntax *syntax)
 	const char *name = syntax->getChild(0)->getString();
 	const char *fileName = syntax->getChild(1)->getString();
 	TableSpace *tableSpace = tableSpaceManager->findTableSpace(name);
-	uint64 initialAllocation = 0;
 	
 	if (tableSpace)
 		{
@@ -2950,13 +2949,26 @@ void Statement::createTableSpace(Syntax *syntax)
 	if (syntax->type == nod_upgrade_tablespace && tableSpace && tableSpace->filename != fileName)
 		throw SQLError(DDL_ERROR, "can't change filename for tablespace");
 
-	Syntax *alloc = syntax->getChild(2);
+	Syntax *options = syntax->getChild(2);
+	TableSpaceInit tsInit;
 	
-	if (alloc)
-		initialAllocation = alloc->getUInt64();
+	for (int n = 0; n < options->count; ++n)
+		{
+		Syntax *child = options->children[n];
+		switch (child->type)
+			{
+			case nod_allocation: tsInit.allocation	= child->getChild(0)->getQuad(); break;
+			case nod_extent:	 tsInit.extent		= child->getChild(0)->getQuad(); break;
+			case nod_autoextend: tsInit.autoExtend	= child->getChild(0)->getQuad(); break;
+			case nod_max_size:	 tsInit.maxSize		= child->getChild(0)->getQuad(); break;
+			case nod_nodegroup:	 tsInit.nodegroup	= child->getChild(0)->getNumber(); break;
+			case nod_wait:		 tsInit.wait		= child->getChild(0)->getNumber(); break;
+			case nod_comment:	 tsInit.comment		= child->getChild(0)->getString(); break;
+			}
+		}
 		
 	if (!tableSpace)
-		tableSpaceManager->createTableSpace(name, fileName, initialAllocation, false);
+		tableSpaceManager->createTableSpace(name, fileName, false, &tsInit);
 }
 
 void Statement::dropTableSpace(Syntax* syntax)

@@ -37,7 +37,7 @@ static const char THIS_FILE[]=__FILE__;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-TableSpace::TableSpace(Database *db, const char *spaceName, int spaceId, const char *spaceFilename, uint64 allocation, int tsType)
+TableSpace::TableSpace(Database *db, const char *spaceName, int spaceId, const char *spaceFilename, int tsType, TableSpaceInit *tsInit)
 {
 	database = db;
 	name = spaceName;
@@ -45,9 +45,18 @@ TableSpace::TableSpace(Database *db, const char *spaceName, int spaceId, const c
 	filename = spaceFilename;
 	dbb = new Dbb(database->dbb, tableSpaceId);
 	active = false;
-	initialAllocation = allocation;
 	needSave = false;
 	type = tsType;
+	
+	TableSpaceInit spaceInit;
+	TableSpaceInit *init = (tsInit ? tsInit : &spaceInit);
+	allocation	= init->allocation;
+	extent		= init->extent;
+	autoExtend	= init->autoExtend;
+	maxSize		= init->maxSize;
+	nodegroup	= init->nodegroup;
+	wait		= init->wait;
+	comment		= init->comment;
 }
 
 TableSpace::~TableSpace()
@@ -121,7 +130,7 @@ void TableSpace::open()
 void TableSpace::create()
 {
 	dbb->createPath(filename);
-	dbb->create(filename, dbb->pageSize, 0, HdrTableSpace, 0, NULL, initialAllocation);
+	dbb->create(filename, dbb->pageSize, 0, HdrTableSpace, 0, NULL, allocation);
 	active = true;
 	dbb->flush();
 }
@@ -152,12 +161,20 @@ void TableSpace::sync(void)
 void TableSpace::save(void)
 {
 	PStatement statement = database->prepareStatement(
-		"replace into system.tablespaces (tablespace,tablespace_id,filename,status) values (?,?,?,?)");
+		"replace into system.tablespaces (tablespace, tablespace_id, filename, type, allocation, extent,"
+											"autoextend, max_size, nodegroup, wait, comment) values (?,?,?,?,?,?,?,?,?,?,?)");
 	int n = 1;
 	statement->setString(n++, name);
 	statement->setInt(n++, tableSpaceId);
 	statement->setString(n++, filename);
 	statement->setInt(n++, type);
+	statement->setLong(n++, allocation);
+	statement->setLong(n++, extent);
+	statement->setLong(n++, autoExtend);
+	statement->setLong(n++, maxSize);
+	statement->setInt(n++, nodegroup);
+	statement->setInt(n++, wait);
+	statement->setString(n++, comment);
 	statement->executeUpdate();
 	needSave = false;
 }
@@ -175,6 +192,25 @@ void TableSpace::getIOInfo(InfoTable* infoTable)
 	infoTable->putRecord();
 }
 
+void TableSpace::getTableSpaceInfo(InfoTable* infoTable)
+{
+	int n = 0;
+	infoTable->putString(n++, name);
+	infoTable->putInt(n++, tableSpaceId);
+	infoTable->putString(n++, filename);
+	infoTable->putInt64(n++, allocation);
+	infoTable->putInt64(n++, extent);
+	infoTable->putInt64(n++, autoExtend);
+	infoTable->putInt64(n++, maxSize);
+	infoTable->putInt(n++, nodegroup);
+	infoTable->putInt(n++, wait);
+	infoTable->putString(n++, comment);
+	infoTable->putInt(n++, type);
+	infoTable->putInt(n++, active);
+	infoTable->putInt(n++, needSave);
+	infoTable->putRecord();
+}
+		
 void TableSpace::close(void)
 {
 	dbb->close();

@@ -2919,6 +2919,9 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
   */
   if ((thd= current_thd))
   {
+    if (MyFlags & ME_FATALERROR)
+      thd->is_fatal_error= 1;
+
     mysql_audit_general(thd,MYSQL_AUDIT_GENERAL_ERROR,error,my_time(0),
                         0,0,str,str ? strlen(str) : 0,
                         thd->query,thd->query_length,
@@ -2966,7 +2969,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
       If a continue handler is found, the error message will be cleared
       by the stored procedures code.
     */
-    if (thd->spcont &&
+    if (!thd->is_fatal_error && thd->spcont &&
         thd->spcont->handle_error(error, MYSQL_ERROR::WARN_LEVEL_ERROR, thd))
     {
       /*
@@ -2976,7 +2979,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
       DBUG_RETURN(0);
     }
 
-    if (!thd->no_warnings_for_error)
+    if (!thd->no_warnings_for_error && !thd->is_fatal_error)
     {
       /*
         Suppress infinite recursion if there a memory allocation error

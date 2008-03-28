@@ -5409,8 +5409,7 @@ bool check_stack_overrun(THD *thd, long margin,
   {
     sprintf(errbuff[0],ER(ER_STACK_OVERRUN_NEED_MORE),
             stack_used,thread_stack,margin);
-    my_message(ER_STACK_OVERRUN_NEED_MORE,errbuff[0],MYF(0));
-    thd->fatal_error();
+    my_message(ER_STACK_OVERRUN_NEED_MORE,errbuff[0],MYF(ME_FATALERROR));
     return 1;
   }
 #ifndef DBUG_OFF

@@ -1262,7 +1262,7 @@ sp_head::execute(THD *thd)
 	continue;
       }
     }
-  } while (!err_status && !thd->killed);
+  } while (!err_status && !thd->killed && !thd->is_fatal_error);
 
 #if defined(ENABLED_PROFILING)
   thd->profiling.finish_current_query();
@@ -3942,10 +3942,7 @@ sp_add_to_query_tables(THD *thd, LEX *lex,
   TABLE_LIST *table;
 
   if (!(table= (TABLE_LIST *)thd->calloc(sizeof(TABLE_LIST))))
-  {
-    thd->fatal_error();
     return NULL;
-  }
   table->db_length= strlen(db);
   table->db= thd->strmake(db, table->db_length);
   table->table_name_length= strlen(name);

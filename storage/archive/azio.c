@@ -334,7 +334,6 @@ int get_byte(s)
   if (s->stream.avail_in == 0) 
   {
     errno = 0;
-    get_block(s);
     if (s->stream.avail_in == 0) 
     {
       s->z_eof = 1;

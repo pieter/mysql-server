@@ -353,7 +353,7 @@ from information_schema.tables
 where table_schema='information_schema' limit 2;
 show tables from information_schema like "T%";
 
---error 1044
+--error ER_DBACCESS_DENIED_ERROR
 create database information_schema;
 use information_schema;
 show full tables like "T%";
@@ -705,7 +705,7 @@ drop table t1;
 #
 --error ER_PARSE_ERROR
 alter database information_schema;
---error 1044
+--error ER_DBACCESS_DENIED_ERROR
 drop database information_schema;
 --error 1044
 drop table information_schema.tables;

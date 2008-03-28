@@ -664,10 +664,13 @@ void query_cache_insert(const char *packet, ulong length,
     called at this time and hence my_pthread_setspecific_ptr(THR_THD,
     this) has not been called for this thread.
   */
-  if (thd)
-    query_cache.insert(&thd->query_cache_tls,
-                       packet, length,
-                       pkt_nr);
+
+  if (!thd)
+    return;
+
+  query_cache.insert(&thd->query_cache_tls,
+                     packet, length,
+                     pkt_nr);
 }
 
 
@@ -1390,7 +1393,7 @@ def_week_frmt: %lu",
     table_list.db = table->db();
     table_list.alias= table_list.table_name= table->table();
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
-    if (check_table_access(thd,SELECT_ACL,&table_list, 1, TRUE))
+    if (check_table_access(thd,SELECT_ACL,&table_list, TRUE, FALSE, 1))
     {
       DBUG_PRINT("qcache",
 		 ("probably no SELECT access to %s.%s =>  return to normal processing",

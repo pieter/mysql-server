@@ -208,7 +208,7 @@ void TableSpaceManager::bootstrap(int sectionId)
 
 	for (int n = 0; (n = dbb->findNextRecord(section, n, &stream)) >= 0; ++n)
 		{
-		int slen = stream.getSegment(0, sizeof(buffer), buffer);
+		stream.getSegment(0, sizeof(buffer), buffer);
 		const UCHAR *p = buffer + 2;
 		Value name, id, fileName, type, allocation, extent, autoExtend, maxSize, nodegroup, wait, comment;
 		

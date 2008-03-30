@@ -29,6 +29,8 @@
 
 #define CHECK_RECORD_ACTIVITY
 
+#include "SynchronizationObject.h"
+
 enum RecordEncoding {
 	noEncoding = 0,
 	traditional,
@@ -73,7 +75,7 @@ public:
 	virtual int		getSavePointId();
 	virtual void	setSuperceded (bool flag);
 	virtual Record* fetchVersion (Transaction *transaction);
-	virtual bool	scavenge(RecordScavenge *recordScavenge);
+	virtual bool	scavenge(RecordScavenge *recordScavenge, LockType lockType);
 	virtual void	scavenge(TransId targetTransactionId, int oldestActiveSavePointId);
 	virtual bool	isVersion();
 	virtual bool	isSuperceded();

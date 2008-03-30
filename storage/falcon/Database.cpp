@@ -1836,14 +1836,14 @@ void Database::retireRecords(bool forced)
 		}
 	else if ((total - lastRecordMemory) < recordScavengeThreshold / AGE_GROUPS)
 		{
-		recordScavenge.scavengeGeneration = -1;
+		recordScavenge.scavengeGeneration = UNDEFINED;
 		cleanupRecords (&recordScavenge);
 		
 		return;
 		}
 	else
 		{
-		recordScavenge.scavengeGeneration = -1;
+		recordScavenge.scavengeGeneration = UNDEFINED;
 		cleanupRecords (&recordScavenge);
 		}
 

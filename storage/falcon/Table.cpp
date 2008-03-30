@@ -3617,8 +3617,10 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 		
 		if (!transaction || transaction->state == Committed)
 			{
+#ifdef CHECK_RECORD_ACTIVITY
+			record->active = false;
+#endif
 			record->release();
-			
 			return false;
 			}
 		

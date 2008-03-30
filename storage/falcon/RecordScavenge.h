@@ -17,6 +17,7 @@
 #define _RECORD_SCAVENGE_H_
 
 static const int AGE_GROUPS = 20;
+static const int UNDEFINED = -1;
 
 class Database;
 class Record;

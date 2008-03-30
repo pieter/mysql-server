@@ -480,7 +480,7 @@ bool Record::isVersion()
 }
 
 
-bool Record::scavenge(RecordScavenge *recordScavenge)
+bool Record::scavenge(RecordScavenge *recordScavenge, LockType lockType)
 {
 	return true;
 }

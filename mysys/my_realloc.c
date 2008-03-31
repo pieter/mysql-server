@@ -26,7 +26,7 @@ void* my_realloc(void* oldpoint, size_t size, myf my_flags)
 {
   void *point;
   DBUG_ENTER("my_realloc");
-  DBUG_PRINT("my",("ptr: 0x%lx  size: %lu  my_flags: %d", (long) oldpoint,
+  DBUG_PRINT("my",("ptr: %p  size: %lu  my_flags: %d", oldpoint,
                    (ulong) size, my_flags));
 
   if (!oldpoint && (my_flags & MY_ALLOW_ZERO_PTR))
@@ -59,6 +59,6 @@ void* my_realloc(void* oldpoint, size_t size, myf my_flags)
       my_error(EE_OUTOFMEMORY, MYF(ME_BELL+ME_WAITTANG), size);
   }
 #endif
-  DBUG_PRINT("exit",("ptr: 0x%lx", (long) point));
+  DBUG_PRINT("exit",("ptr: %p", point));
   DBUG_RETURN(point);
 } /* my_realloc */

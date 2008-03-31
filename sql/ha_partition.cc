@@ -3126,8 +3126,8 @@ int ha_partition::rnd_init(bool scan)
   }
 
   /* Now we see what the index of our first important partition is */
-  DBUG_PRINT("info", ("m_part_info->used_partitions: 0x%lx",
-                      (long) m_part_info->used_partitions.bitmap));
+  DBUG_PRINT("info", ("m_part_info->used_partitions: %p",
+                      m_part_info->used_partitions.bitmap));
   part_id= bitmap_get_first_set(&(m_part_info->used_partitions));
   DBUG_PRINT("info", ("m_part_spec.start_part %d", part_id));
 

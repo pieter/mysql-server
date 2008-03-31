@@ -1433,11 +1433,11 @@ sp_find_routine(THD *thd, int type, sp_name *name, sp_cache **cp,
     */
     String retstr(64);
 
-    DBUG_PRINT("info", ("found: 0x%lx", (ulong)sp));
+    DBUG_PRINT("info", ("found: %p", sp));
     if (sp->m_first_free_instance)
     {
-      DBUG_PRINT("info", ("first free: 0x%lx  level: %lu  flags %x",
-                          (ulong)sp->m_first_free_instance,
+      DBUG_PRINT("info", ("first free: %p  level: %lu  flags %x",
+                          sp->m_first_free_instance,
                           sp->m_first_free_instance->m_recursion_level,
                           sp->m_first_free_instance->m_flags));
       DBUG_ASSERT(!(sp->m_first_free_instance->m_flags & sp_head::IS_INVOKED));
@@ -1478,8 +1478,8 @@ sp_find_routine(THD *thd, int type, sp_name *name, sp_cache **cp,
       new_sp->m_recursion_level= level;
       new_sp->m_first_instance= sp;
       sp->m_last_cached_sp= sp->m_first_free_instance= new_sp;
-      DBUG_PRINT("info", ("added level: 0x%lx, level: %lu, flags %x",
-                          (ulong)new_sp, new_sp->m_recursion_level,
+      DBUG_PRINT("info", ("added level: %p, level: %lu, flags %x",
+                          new_sp, new_sp->m_recursion_level,
                           new_sp->m_flags));
       DBUG_RETURN(new_sp);
     }
@@ -1490,8 +1490,8 @@ sp_find_routine(THD *thd, int type, sp_name *name, sp_cache **cp,
     if (db_find_routine(thd, type, name, &sp) == SP_OK)
     {
       sp_cache_insert(cp, sp);
-      DBUG_PRINT("info", ("added new: 0x%lx, level: %lu, flags %x",
-                          (ulong)sp, sp->m_recursion_level,
+      DBUG_PRINT("info", ("added new: %p, level: %lu, flags %x",
+                          sp, sp->m_recursion_level,
                           sp->m_flags));
     }
   }

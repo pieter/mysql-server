@@ -836,8 +836,8 @@ int g_get_ndb_blobs_value(NdbBlob *ndb_blob, void *arg)
       uint32 len= ha->m_blobs_buffer_size - offset;
       if (ndb_blob->readData(buf, len) != 0)
           ERR_RETURN(ndb_blob->getNdbError());
-      DBUG_PRINT("info", ("[%u] offset: %u  buf: 0x%lx  len=%u",
-                          i, offset, (long) buf, len));
+      DBUG_PRINT("info", ("[%u] offset: %u  buf: %p  len=%u",
+                          i, offset, buf, len));
       DBUG_ASSERT(len == len64);
       if (ha->m_blob_destination_record)
       {
@@ -958,8 +958,8 @@ ha_ndbcluster::set_blob_values(NdbOperation *ndb_op, my_ptrdiff_t row_offset,
         blob_ptr= (uchar*)"";
       }
 
-      DBUG_PRINT("value", ("set blob ptr: 0x%lx  len: %u",
-                           (long) blob_ptr, blob_len));
+      DBUG_PRINT("value", ("set blob ptr: %p  len: %u",
+                           blob_ptr, blob_len));
       DBUG_DUMP("value", blob_ptr, min(blob_len, 26));
 
       // No callback needed to write value
@@ -1020,8 +1020,8 @@ int get_ndb_blobs_value(TABLE* table, NdbValue* value_array,
           uint32 len= 0xffffffff;  // Max uint32
           if (ndb_blob->readData(buf, len) != 0)
             ERR_RETURN(ndb_blob->getNdbError());
-          DBUG_PRINT("info", ("[%u] offset: %u  buf: 0x%lx  len=%u  [ptrdiff=%d]",
-                              i, offset, (long) buf, len, (int)ptrdiff));
+          DBUG_PRINT("info", ("[%u] offset: %u  buf: %p  len=%u  [ptrdiff=%d]",
+                              i, offset, buf, len, (int)ptrdiff));
           DBUG_ASSERT(len == len64);
           // Ugly hack assumes only ptr needs to be changed
           field_blob->set_ptr_offset(ptrdiff, len, buf);
@@ -1328,8 +1328,8 @@ int ha_ndbcluster::add_index_handle(THD *thd, NDBDICT *dict, KEY *key_info,
       index= dict->getIndexGlobal(index_name, *m_table);
       if (!index)
         ERR_RETURN(dict->getNdbError());
-      DBUG_PRINT("info", ("index: 0x%lx  id: %d  version: %d.%d  status: %d",
-                          (long) index,
+      DBUG_PRINT("info", ("index: %p  id: %d  version: %d.%d  status: %d",
+                          index,
                           index->getObjectId(),
                           index->getObjectVersion() & 0xFFFFFF,
                           index->getObjectVersion() >> 24,
@@ -1372,8 +1372,8 @@ int ha_ndbcluster::add_index_handle(THD *thd, NDBDICT *dict, KEY *key_info,
       index= dict->getIndexGlobal(unique_index_name, *m_table);
       if (!index)
         ERR_RETURN(dict->getNdbError());
-      DBUG_PRINT("info", ("index: 0x%lx  id: %d  version: %d.%d  status: %d",
-                          (long) index,
+      DBUG_PRINT("info", ("index: %p  id: %d  version: %d.%d  status: %d",
+                          index,
                           index->getObjectId(),
                           index->getObjectVersion() & 0xFFFFFF,
                           index->getObjectVersion() >> 24,
@@ -4950,8 +4950,8 @@ int ha_ndbcluster::init_handler_for_statement(THD *thd, Thd_ndb *thd_ndb)
       thd_ndb_share->stat.no_uncommitted_rows_count= 0;
       thd_ndb_share->stat.records= ~(ha_rows)0;
     }
-    DBUG_PRINT("exit", ("thd_ndb_share: 0x%lx  key: 0x%lx",
-                        (long) thd_ndb_share, (long) key));
+    DBUG_PRINT("exit", ("thd_ndb_share: %p  key: %p",
+                        thd_ndb_share, key));
     m_table_info= &thd_ndb_share->stat;
   }
   else
@@ -4980,9 +4980,9 @@ int ha_ndbcluster::external_lock(THD *thd, int lock_type)
   Thd_ndb *thd_ndb= get_thd_ndb(thd);
   Ndb *ndb= thd_ndb->ndb;
 
-  DBUG_PRINT("enter", ("this: 0x%lx  thd: 0x%lx  thd_ndb: %lx  "
+  DBUG_PRINT("enter", ("this: %p  thd: %p  thd_ndb: %lx  "
                        "thd_ndb->lock_count: %d",
-                       (long) this, (long) thd, (long) thd_ndb,
+                       this, thd, (long) thd_ndb,
                        thd_ndb->lock_count));
 
   if (lock_type != F_UNLCK)
@@ -5789,7 +5789,7 @@ int ha_ndbcluster::create(const char *name,
     DBUG_RETURN(2);
   }
   DBUG_PRINT("info",
-             ("setFrm data: 0x%lx  len: %lu", (long) pack_data,
+             ("setFrm data: %p  len: %lu", pack_data,
               (ulong) pack_length));
   tab.setFrm(pack_data, pack_length);      
   my_free((char*)data, MYF(0));

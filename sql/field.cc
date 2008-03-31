@@ -7799,9 +7799,9 @@ uchar *Field_blob::pack(uchar *to, const uchar *from,
                         uint max_length, bool low_byte_first)
 {
   DBUG_ENTER("Field_blob::pack");
-  DBUG_PRINT("enter", ("to: 0x%lx; from: 0x%lx;"
+  DBUG_PRINT("enter", ("to: %p; from: %p;"
                        " max_length: %u; low_byte_first: %d",
-                       (ulong) to, (ulong) from,
+                       to, from,
                        max_length, low_byte_first));
   DBUG_DUMP("record", from, table->s->reclength);
   uchar *save= ptr;
@@ -7852,9 +7852,9 @@ const uchar *Field_blob::unpack(uchar *to,
                                 bool low_byte_first)
 {
   DBUG_ENTER("Field_blob::unpack");
-  DBUG_PRINT("enter", ("to: 0x%lx; from: 0x%lx;"
+  DBUG_PRINT("enter", ("to: %p; from: %p;"
                        " param_data: %u; low_byte_first: %d",
-                       (ulong) to, (ulong) from, param_data, low_byte_first));
+                       to, from, param_data, low_byte_first));
   uint const master_packlength=
     param_data > 0 ? param_data & 0xFF : packlength;
   uint32 const length= get_length(from, master_packlength, low_byte_first);
@@ -8643,8 +8643,8 @@ Field_bit::do_last_null_byte() const
     bits. On systems with CHAR_BIT > 8 (not very common), the storage
     will lose the extra bits.
   */
-  DBUG_PRINT("test", ("bit_ofs: %d, bit_len: %d  bit_ptr: 0x%lx",
-                      bit_ofs, bit_len, (long) bit_ptr));
+  DBUG_PRINT("test", ("bit_ofs: %d, bit_len: %d  bit_ptr: %p",
+                      bit_ofs, bit_len, bit_ptr));
   uchar *result;
   if (bit_len == 0)
     result= null_ptr;

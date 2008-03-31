@@ -7762,8 +7762,8 @@ make_join_select(JOIN *join,SQL_SELECT *select,COND *cond)
             tmp_cond= new Item_func_trig_cond(tmp_cond,
                                               &first_inner_tab->
                                               not_null_compl);
-            DBUG_PRINT("info", ("Item_func_trig_cond 0x%lx",
-                                (ulong) tmp_cond));
+            DBUG_PRINT("info", ("Item_func_trig_cond %p",
+                                tmp_cond));
             if (tmp_cond)
               tmp_cond->quick_fix_field();
 	    /* Add the predicate to other pushed down predicates */
@@ -7771,8 +7771,8 @@ make_join_select(JOIN *join,SQL_SELECT *select,COND *cond)
             cond_tab->select_cond= !cond_tab->select_cond ? tmp_cond :
 	                          new Item_cond_and(cond_tab->select_cond,
                                                     tmp_cond);
-            DBUG_PRINT("info", ("Item_cond_and 0x%lx",
-                                (ulong)cond_tab->select_cond));
+            DBUG_PRINT("info", ("Item_cond_and %p",
+                                cond_tab->select_cond));
             if (!cond_tab->select_cond)
 	      DBUG_RETURN(1);
             cond_tab->select_cond->quick_fix_field();
@@ -13494,7 +13494,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab,
     join->thd->send_kill_message();
     return NESTED_LOOP_KILLED;               /* purecov: inspected */
   }
-  DBUG_PRINT("info", ("select cond 0x%lx", (ulong)select_cond));
+  DBUG_PRINT("info", ("select cond %p", select_cond));
   if (!select_cond || select_cond->val_int())
   {
     /*
@@ -18454,8 +18454,8 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
   CHARSET_INFO *cs= system_charset_info;
   int quick_type;
   DBUG_ENTER("select_describe");
-  DBUG_PRINT("info", ("Select 0x%lx, type %s, message %s",
-		      (ulong)join->select_lex, join->select_lex->type,
+  DBUG_PRINT("info", ("Select %p, type %s, message %s",
+		      join->select_lex, join->select_lex->type,
 		      message ? message : "NULL"));
   /* Don't log this into the slow query log */
   thd->server_status&= ~(SERVER_QUERY_NO_INDEX_USED | SERVER_QUERY_NO_GOOD_INDEX_USED);

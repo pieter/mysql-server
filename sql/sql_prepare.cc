@@ -2328,7 +2328,7 @@ void mysql_stmt_execute(THD *thd, char *packet_arg, uint packet_length)
   thd->profiling.set_query_source(stmt->query, stmt->query_length);
 #endif
   DBUG_PRINT("exec_query", ("%s", stmt->query));
-  DBUG_PRINT("info",("stmt: 0x%lx", (long) stmt));
+  DBUG_PRINT("info",("stmt: %p", stmt));
 
   sp_cache_flush_obsolete(&thd->sp_proc_cache);
   sp_cache_flush_obsolete(&thd->sp_func_cache);
@@ -2414,7 +2414,7 @@ void mysql_sql_stmt_execute(THD *thd)
     DBUG_VOID_RETURN;
   }
 
-  DBUG_PRINT("info",("stmt: 0x%lx", (long) stmt));
+  DBUG_PRINT("info",("stmt: %p", stmt));
 
   /*
     If the free_list is not empty, we'll wrongly free some externally
@@ -2793,8 +2793,8 @@ void Prepared_statement::setup_set_params()
 Prepared_statement::~Prepared_statement()
 {
   DBUG_ENTER("Prepared_statement::~Prepared_statement");
-  DBUG_PRINT("enter",("stmt: 0x%lx  cursor: 0x%lx",
-                      (long) this, (long) cursor));
+  DBUG_PRINT("enter",("stmt: %p  cursor: %p",
+                      this, cursor));
   delete cursor;
   /*
     We have to call free on the items even if cleanup is called as some items,
@@ -2816,7 +2816,7 @@ Query_arena::Type Prepared_statement::type() const
 void Prepared_statement::cleanup_stmt()
 {
   DBUG_ENTER("Prepared_statement::cleanup_stmt");
-  DBUG_PRINT("enter",("stmt: 0x%lx", (long) this));
+  DBUG_PRINT("enter",("stmt: %p", this));
 
   DBUG_ASSERT(lex->sphead == 0);
   /* The order is important */

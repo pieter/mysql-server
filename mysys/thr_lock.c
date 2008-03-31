@@ -501,9 +501,9 @@ thr_lock(THR_LOCK_DATA *data, THR_LOCK_OWNER *owner,
   data->type=lock_type;
   data->owner= owner;                           /* Must be reset ! */
   VOID(pthread_mutex_lock(&lock->mutex));
-  DBUG_PRINT("lock",("data: 0x%lx  thread: 0x%lx  lock: 0x%lx  type: %d",
-                     (long) data, data->owner->info->thread_id,
-                     (long) lock, (int) lock_type));
+  DBUG_PRINT("lock",("data: %p  thread: 0x%lx  lock: %p  type: %d",
+                     data, data->owner->info->thread_id,
+                     lock, (int) lock_type));
   check_locks(lock,(uint) lock_type <= (uint) TL_READ_NO_INSERT ?
 	      "enter read_lock" : "enter write_lock",0);
   if ((int) lock_type <= (int) TL_READ_NO_INSERT)
@@ -633,8 +633,8 @@ thr_lock(THR_LOCK_DATA *data, THR_LOCK_OWNER *owner,
           We have already got a write lock or all locks are
           TL_WRITE_ALLOW_WRITE
         */
-        DBUG_PRINT("info", ("write_wait.data: 0x%lx  old_type: %d",
-                            (ulong) lock->write_wait.data,
+        DBUG_PRINT("info", ("write_wait.data: %p  old_type: %d",
+                            lock->write_wait.data,
                             lock->write.data->type));
 
 	(*lock->write.last)=data;	/* Add to running fifo */
@@ -651,8 +651,8 @@ thr_lock(THR_LOCK_DATA *data, THR_LOCK_OWNER *owner,
     }
     else
     {
-      DBUG_PRINT("info", ("write_wait.data: 0x%lx",
-                          (ulong) lock->write_wait.data));
+      DBUG_PRINT("info", ("write_wait.data: %p",
+                          lock->write_wait.data));
       if (!lock->write_wait.data)
       {						/* no scheduled write locks */
         my_bool concurrent_insert= 0;
@@ -765,8 +765,8 @@ void thr_unlock(THR_LOCK_DATA *data)
   THR_LOCK *lock=data->lock;
   enum thr_lock_type lock_type=data->type;
   DBUG_ENTER("thr_unlock");
-  DBUG_PRINT("lock",("data: 0x%lx  thread: 0x%lx  lock: 0x%lx",
-                     (long) data, data->owner->info->thread_id, (long) lock));
+  DBUG_PRINT("lock",("data: %p  thread: 0x%lx  lock: %p",
+                     data, data->owner->info->thread_id, lock));
   pthread_mutex_lock(&lock->mutex);
   check_locks(lock,"start of release lock",0);
 
@@ -964,7 +964,7 @@ thr_multi_lock(THR_LOCK_DATA **data, uint count, THR_LOCK_OWNER *owner)
 {
   THR_LOCK_DATA **pos,**end;
   DBUG_ENTER("thr_multi_lock");
-  DBUG_PRINT("lock",("data: 0x%lx  count: %d", (long) data, count));
+  DBUG_PRINT("lock",("data: %p  count: %d", data, count));
   if (count > 1)
     sort_locks(data,count);
   /* lock everything */
@@ -1037,7 +1037,7 @@ void thr_multi_unlock(THR_LOCK_DATA **data,uint count)
 {
   THR_LOCK_DATA **pos,**end;
   DBUG_ENTER("thr_multi_unlock");
-  DBUG_PRINT("lock",("data: 0x%lx  count: %d", (long) data, count));
+  DBUG_PRINT("lock",("data: %p  count: %d", data, count));
 
   for (pos=data,end=data+count; pos < end ; pos++)
   {
@@ -1050,9 +1050,9 @@ void thr_multi_unlock(THR_LOCK_DATA **data,uint count)
       thr_unlock(*pos);
     else
     {
-      DBUG_PRINT("lock",("Free lock: data: 0x%lx  thread: 0x%lx  lock: 0x%lx",
-                         (long) *pos, (*pos)->owner->info->thread_id,
-                         (long) (*pos)->lock));
+      DBUG_PRINT("lock",("Free lock: data: %p  thread: 0x%lx  lock: %p",
+                         *pos, (*pos)->owner->info->thread_id,
+                         (*pos)->lock));
     }
   }
   DBUG_VOID_RETURN;

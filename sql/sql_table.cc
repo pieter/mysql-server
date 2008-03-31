@@ -1601,9 +1601,9 @@ int mysql_rm_table_part2(THD *thd, TABLE_LIST *tables, bool if_exists,
     handlerton *table_type;
     enum legacy_db_type frm_db_type;
 
-    DBUG_PRINT("table", ("table_l: '%s'.'%s'  table: 0x%lx  s: 0x%lx",
-                         table->db, table->table_name, (long) table->table,
-                         table->table ? (long) table->table->s : (long) -1));
+    DBUG_PRINT("table", ("table_l: '%s'.'%s'  table: %p  s: %p",
+                         table->db, table->table_name, table->table,
+                         table->table ? table->table->s : (TABLE_SHARE *)-1));
 
     error= drop_temporary_table(thd, table);
 
@@ -1729,8 +1729,8 @@ int mysql_rm_table_part2(THD *thd, TABLE_LIST *tables, bool if_exists,
         wrong_tables.append(',');
       wrong_tables.append(String(table->table_name,system_charset_info));
     }
-    DBUG_PRINT("table", ("table: 0x%lx  s: 0x%lx", (long) table->table,
-                         table->table ? (long) table->table->s : (long) -1));
+    DBUG_PRINT("table", ("table: %p  s: %p", table->table,
+                         table->table ? table->table->s : (TABLE_SHARE *)-1));
   }
   /*
     It's safe to unlock LOCK_open: we have an exclusive lock
@@ -3845,8 +3845,8 @@ void wait_while_table_is_used(THD *thd, TABLE *table,
                               enum ha_extra_function function)
 {
   DBUG_ENTER("wait_while_table_is_used");
-  DBUG_PRINT("enter", ("table: '%s'  share: 0x%lx  db_stat: %u  version: %lu",
-                       table->s->table_name.str, (ulong) table->s,
+  DBUG_PRINT("enter", ("table: '%s'  share: %p  db_stat: %u  version: %lu",
+                       table->s->table_name.str, table->s,
                        table->db_stat, table->s->version));
 
   safe_mutex_assert_owner(&LOCK_open);
@@ -4146,7 +4146,7 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
       table->next_local= save_next_local;
       thd->open_options&= ~extra_open_options;
     }
-    DBUG_PRINT("admin", ("table: 0x%lx", (long) table->table));
+    DBUG_PRINT("admin", ("table: %p", table->table));
 
     if (prepare_func)
     {

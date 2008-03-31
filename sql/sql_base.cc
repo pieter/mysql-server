@@ -412,8 +412,8 @@ TABLE_SHARE *get_table_share(THD *thd, TABLE_LIST *table_list, char *key,
     DBUG_RETURN(0);
   }
   share->ref_count++;				// Mark in use
-  DBUG_PRINT("exit", ("share: 0x%lx  ref_count: %u",
-                      (ulong) share, share->ref_count));
+  DBUG_PRINT("exit", ("share: %p  ref_count: %u",
+                      share, share->ref_count));
   (void) pthread_mutex_unlock(&share->mutex);
   DBUG_RETURN(share);
 
@@ -466,8 +466,8 @@ found:
     VOID(hash_delete(&table_def_cache, (uchar*) oldest_unused_share));
   }
 
-  DBUG_PRINT("exit", ("share: 0x%lx  ref_count: %u",
-                      (ulong) share, share->ref_count));
+  DBUG_PRINT("exit", ("share: %p  ref_count: %u",
+                      share, share->ref_count));
   DBUG_RETURN(share);
 }
 
@@ -578,8 +578,8 @@ void release_table_share(TABLE_SHARE *share, enum release_type type)
   bool to_be_deleted= 0;
   DBUG_ENTER("release_table_share");
   DBUG_PRINT("enter",
-             ("share: 0x%lx  table: %s.%s  ref_count: %u  version: %lu",
-              (ulong) share, share->db.str, share->table_name.str,
+             ("share: %p  table: %s.%s  ref_count: %u  version: %lu",
+              share, share->db.str, share->table_name.str,
               share->ref_count, share->version));
 
   safe_mutex_assert_owner(&LOCK_open);
@@ -840,10 +840,10 @@ OPEN_TABLE_LIST *list_open_tables(THD *thd, const char *db, const char *wild)
 void intern_close_table(TABLE *table)
 {						// Free all structures
   DBUG_ENTER("intern_close_table");
-  DBUG_PRINT("tcache", ("table: '%s'.'%s' 0x%lx",
+  DBUG_PRINT("tcache", ("table: '%s'.'%s' %p",
                         table->s ? table->s->db.str : "?",
                         table->s ? table->s->table_name.str : "?",
-                        (long) table));
+                        table));
 
   free_io_cache(table);
   delete table->triggers;
@@ -1240,7 +1240,7 @@ static void close_open_tables(THD *thd)
 
   VOID(pthread_mutex_lock(&LOCK_open));
 
-  DBUG_PRINT("info", ("thd->open_tables: 0x%lx", (long) thd->open_tables));
+  DBUG_PRINT("info", ("thd->open_tables: %p", thd->open_tables));
 
   while (thd->open_tables)
     found_old_table|= close_thread_table(thd, &thd->open_tables);
@@ -1287,8 +1287,8 @@ void close_thread_tables(THD *thd)
 #ifdef EXTRA_DEBUG
   DBUG_PRINT("tcache", ("open tables:"));
   for (table= thd->open_tables; table; table= table->next)
-    DBUG_PRINT("tcache", ("table: '%s'.'%s' 0x%lx", table->s->db.str,
-                          table->s->table_name.str, (long) table));
+    DBUG_PRINT("tcache", ("table: '%s'.'%s' %p", table->s->db.str,
+                          table->s->table_name.str, table));
 #endif
 
   /*
@@ -1420,8 +1420,8 @@ bool close_thread_table(THD *thd, TABLE **table_ptr)
   DBUG_ENTER("close_thread_table");
   DBUG_ASSERT(table->key_read == 0);
   DBUG_ASSERT(!table->file || table->file->inited == handler::NONE);
-  DBUG_PRINT("tcache", ("table: '%s'.'%s' 0x%lx", table->s->db.str,
-                        table->s->table_name.str, (long) table));
+  DBUG_PRINT("tcache", ("table: '%s'.'%s' %p", table->s->db.str,
+                        table->s->table_name.str, table));
 
   *table_ptr=table->next;
   /*
@@ -1899,9 +1899,9 @@ void close_temporary_table(THD *thd, TABLE *table,
                            bool free_share, bool delete_table)
 {
   DBUG_ENTER("close_temporary_table");
-  DBUG_PRINT("tmptable", ("closing table: '%s'.'%s' 0x%lx  alias: '%s'",
+  DBUG_PRINT("tmptable", ("closing table: '%s'.'%s' %p  alias: '%s'",
                           table->s->db.str, table->s->table_name.str,
-                          (long) table, table->alias));
+                          table, table->alias));
 
   /*
     When closing a MERGE parent or child table, detach the children
@@ -2830,8 +2830,8 @@ TABLE *open_table(THD *thd, TABLE_LIST *table_list, MEM_ROOT *mem_root,
        table= (TABLE*) hash_next(&open_cache, (uchar*) key, key_length,
                                  &state))
   {
-    DBUG_PRINT("tcache", ("in_use table: '%s'.'%s' 0x%lx", table->s->db.str,
-                          table->s->table_name.str, (long) table));
+    DBUG_PRINT("tcache", ("in_use table: '%s'.'%s' %p", table->s->db.str,
+                          table->s->table_name.str, table));
     /*
       Here we flush tables marked for flush.
       Normally, table->s->version contains the value of
@@ -2920,8 +2920,8 @@ TABLE *open_table(THD *thd, TABLE_LIST *table_list, MEM_ROOT *mem_root,
   }
   if (table)
   {
-    DBUG_PRINT("tcache", ("unused table: '%s'.'%s' 0x%lx", table->s->db.str,
-                          table->s->table_name.str, (long) table));
+    DBUG_PRINT("tcache", ("unused table: '%s'.'%s' %p", table->s->db.str,
+                          table->s->table_name.str, table));
     /* Unlink the table from "unused_tables" list. */
     if (table == unused_tables)
     {						// First unused
@@ -3004,9 +3004,9 @@ TABLE *open_table(THD *thd, TABLE_LIST *table_list, MEM_ROOT *mem_root,
       VOID(pthread_mutex_unlock(&LOCK_open));
       DBUG_RETURN(0); // VIEW
     }
-    DBUG_PRINT("info", ("inserting table '%s'.'%s' 0x%lx into the cache",
+    DBUG_PRINT("info", ("inserting table '%s'.'%s' %p into the cache",
                         table->s->db.str, table->s->table_name.str,
-                        (long) table));
+                        table));
     VOID(my_hash_insert(&open_cache,(uchar*) table));
   }
 
@@ -3096,8 +3096,8 @@ bool reopen_table(TABLE *table)
   TABLE_LIST table_list;
   THD *thd= table->in_use;
   DBUG_ENTER("reopen_table");
-  DBUG_PRINT("tcache", ("table: '%s'.'%s' 0x%lx", table->s->db.str,
-                        table->s->table_name.str, (long) table));
+  DBUG_PRINT("tcache", ("table: '%s'.'%s' %p", table->s->db.str,
+                        table->s->table_name.str, table));
 
   DBUG_ASSERT(table->s->ref_count == 0);
   DBUG_ASSERT(!table->sort.io_cache);
@@ -3280,9 +3280,9 @@ static bool reattach_merge(THD *thd, TABLE **err_tables_p)
   for (table= thd->open_tables; table; table= next)
   {
     next= table->next;
-    DBUG_PRINT("tcache", ("check table: '%s'.'%s' 0x%lx  next: 0x%lx",
+    DBUG_PRINT("tcache", ("check table: '%s'.'%s' %p  next: %p",
                           table->s->db.str, table->s->table_name.str,
-                          (long) table, (long) next));
+                          table, next));
     /* Reattach children for MERGE tables with "closed data files" only. */
     if (table->child_l && !table->children_attached)
     {
@@ -3303,9 +3303,9 @@ static bool reattach_merge(THD *thd, TABLE **err_tables_p)
       else
       {
         table->children_attached= TRUE;
-        DBUG_PRINT("myrg", ("attached parent: '%s'.'%s' 0x%lx",
+        DBUG_PRINT("myrg", ("attached parent: '%s'.'%s' %p",
                             table->s->db.str,
-                            table->s->table_name.str, (long) table));
+                            table->s->table_name.str, table));
       }
     }
     prv_p= &table->next;
@@ -3373,10 +3373,10 @@ bool reopen_tables(THD *thd, bool get_locks, bool mark_share_as_old)
   {
     uint db_stat=table->db_stat;
     next=table->next;
-    DBUG_PRINT("tcache", ("open table: '%s'.'%s' 0x%lx  "
-                          "parent: 0x%lx  db_stat: %u",
+    DBUG_PRINT("tcache", ("open table: '%s'.'%s' %p  "
+                          "parent: %p  db_stat: %u",
                           table->s->db.str, table->s->table_name.str,
-                          (long) table, (long) table->parent, db_stat));
+                          table, table->parent, db_stat));
     if (table->child_l && !db_stat)
       merge_table_found= TRUE;
     if (!tables || (!db_stat && reopen_table(table)))
@@ -3484,9 +3484,9 @@ static void close_old_data_files(THD *thd, TABLE *table, bool morph_locks,
 
   for (; table ; table=table->next)
   {
-    DBUG_PRINT("tcache", ("checking table: '%s'.'%s' 0x%lx",
+    DBUG_PRINT("tcache", ("checking table: '%s'.'%s' %p",
                           table->s->db.str, table->s->table_name.str,
-                          (long) table));
+                          table));
     DBUG_PRINT("tcache", ("needs refresh: %d  is open: %u",
                           table->needs_reopen_or_name_lock(), table->db_stat));
     /*
@@ -3580,10 +3580,10 @@ bool table_is_used(TABLE *table, bool wait_for_name_lock)
          search= (TABLE*) hash_next(&open_cache, (uchar*) key,
                                     key_length, &state))
     {
-      DBUG_PRINT("info", ("share: 0x%lx  "
+      DBUG_PRINT("info", ("share: %p  "
                           "open_placeholder: %d  locked_by_name: %d "
                           "db_stat: %u  version: %lu",
-                          (ulong) search->s,
+                          search->s,
                           search->open_placeholder, search->locked_by_name,
                           search->db_stat,
                           search->s->version));
@@ -4032,8 +4032,8 @@ static int add_merge_table_list(TABLE_LIST *tlist)
   TABLE       *parent= tlist->table;
   TABLE_LIST  *child_l;
   DBUG_ENTER("add_merge_table_list");
-  DBUG_PRINT("myrg", ("table: '%s'.'%s' 0x%lx", parent->s->db.str,
-                      parent->s->table_name.str, (long) parent));
+  DBUG_PRINT("myrg", ("table: '%s'.'%s' %p", parent->s->db.str,
+                      parent->s->table_name.str, parent));
 
   /* Must not call this with attached children. */
   DBUG_ASSERT(!parent->children_attached);
@@ -4101,8 +4101,8 @@ static int attach_merge_children(TABLE_LIST *tlist)
   TABLE *parent= tlist->parent_l->table;
   int error;
   DBUG_ENTER("attach_merge_children");
-  DBUG_PRINT("myrg", ("table: '%s'.'%s' 0x%lx", parent->s->db.str,
-                      parent->s->table_name.str, (long) parent));
+  DBUG_PRINT("myrg", ("table: '%s'.'%s' %p", parent->s->db.str,
+                      parent->s->table_name.str, parent));
 
   /* Must not call this with attached children. */
   DBUG_ASSERT(!parent->children_attached);
@@ -4132,8 +4132,8 @@ static int attach_merge_children(TABLE_LIST *tlist)
   }
 
   parent->children_attached= TRUE;
-  DBUG_PRINT("myrg", ("attached parent: '%s'.'%s' 0x%lx", parent->s->db.str,
-                      parent->s->table_name.str, (long) parent));
+  DBUG_PRINT("myrg", ("attached parent: '%s'.'%s' %p", parent->s->db.str,
+                      parent->s->table_name.str, parent));
 
   /*
     Note that we have the cildren in the thd->open_tables list at this
@@ -4187,11 +4187,11 @@ void detach_merge_children(TABLE *table, bool clear_refs)
     child_l set.
   */
   DBUG_ASSERT(parent && parent->child_l);
-  DBUG_PRINT("myrg", ("table: '%s'.'%s' 0x%lx  clear_refs: %d",
+  DBUG_PRINT("myrg", ("table: '%s'.'%s' %p  clear_refs: %d",
                       table->s->db.str, table->s->table_name.str,
-                      (long) table, clear_refs));
-  DBUG_PRINT("myrg", ("parent: '%s'.'%s' 0x%lx", parent->s->db.str,
-                      parent->s->table_name.str, (long) parent));
+                      table, clear_refs));
+  DBUG_PRINT("myrg", ("parent: '%s'.'%s' %p", parent->s->db.str,
+                      parent->s->table_name.str, parent));
 
   /*
     In a open_tables() loop it can happen that not all tables have their
@@ -4202,8 +4202,8 @@ void detach_merge_children(TABLE *table, bool clear_refs)
   {
     VOID(parent->file->extra(HA_EXTRA_DETACH_CHILDREN));
     parent->children_attached= FALSE;
-    DBUG_PRINT("myrg", ("detached parent: '%s'.'%s' 0x%lx", parent->s->db.str,
-                        parent->s->table_name.str, (long) parent));
+    DBUG_PRINT("myrg", ("detached parent: '%s'.'%s' %p", parent->s->db.str,
+                        parent->s->table_name.str, parent));
   }
   else
     DBUG_PRINT("myrg", ("parent is already detached"));
@@ -4289,8 +4289,8 @@ bool fix_merge_after_open(TABLE_LIST *old_child_list, TABLE_LIST **old_last,
 {
   bool mismatch= FALSE;
   DBUG_ENTER("fix_merge_after_open");
-  DBUG_PRINT("myrg", ("old last addr: 0x%lx  new last addr: 0x%lx",
-                      (long) old_last, (long) new_last));
+  DBUG_PRINT("myrg", ("old last addr: %p  new last addr: %p",
+                      old_last, new_last));
 
   /* Terminate the lists for easier check of list end. */
   if (old_last)
@@ -4300,8 +4300,8 @@ bool fix_merge_after_open(TABLE_LIST *old_child_list, TABLE_LIST **old_last,
 
   for (;;)
   {
-    DBUG_PRINT("myrg", ("old list item: 0x%lx  new list item: 0x%lx",
-                        (long) old_child_list, (long) new_child_list));
+    DBUG_PRINT("myrg", ("old list item: %p  new list item: %p",
+                        old_child_list, new_child_list));
     /* Break if one of the list is at its end. */
     if (!old_child_list || !new_child_list)
       break;
@@ -4320,9 +4320,9 @@ bool fix_merge_after_open(TABLE_LIST *old_child_list, TABLE_LIST **old_last,
       Copy TABLE reference. Child TABLE objects are still in place
       though not necessarily open yet.
     */
-    DBUG_PRINT("myrg", ("old table ref: 0x%lx  replaces new table ref: 0x%lx",
-                        (long) old_child_list->table,
-                        (long) new_child_list->table));
+    DBUG_PRINT("myrg", ("old table ref: %p  replaces new table ref: %p",
+                        old_child_list->table,
+                        new_child_list->table));
     new_child_list->table= old_child_list->table;
     /* Step both lists. */
     old_child_list= old_child_list->next_global;
@@ -4435,8 +4435,8 @@ int open_tables(THD *thd, TABLE_LIST **start, uint *counter, uint flags)
   */
   for (tables= *start; tables ;tables= tables->next_global)
   {
-    DBUG_PRINT("tcache", ("opening table: '%s'.'%s'  item: 0x%lx",
-                          tables->db, tables->table_name, (long) tables));
+    DBUG_PRINT("tcache", ("opening table: '%s'.'%s'  item: %p",
+                          tables->db, tables->table_name, tables));
 
     safe_to_ignore_table= FALSE;
 
@@ -4490,9 +4490,9 @@ int open_tables(THD *thd, TABLE_LIST **start, uint *counter, uint flags)
         tables->table= open_table(thd, tables, &new_frm_mem, &refresh, flags);
     }
     else
-      DBUG_PRINT("tcache", ("referenced table: '%s'.'%s' 0x%lx",
+      DBUG_PRINT("tcache", ("referenced table: '%s'.'%s' %p",
                             tables->db, tables->table_name,
-                            (long) tables->table));
+                            tables->table));
 
     if (!tables->table)
     {
@@ -5400,8 +5400,8 @@ TABLE *open_temporary_table(THD *thd, const char *path, const char *db,
       slave_open_temp_tables++;
   }
   tmp_table->pos_in_table_list= 0;
-  DBUG_PRINT("tmptable", ("opened table: '%s'.'%s' 0x%lx", tmp_table->s->db.str,
-                          tmp_table->s->table_name.str, (long) tmp_table));
+  DBUG_PRINT("tmptable", ("opened table: '%s'.'%s' %p", tmp_table->s->db.str,
+                          tmp_table->s->table_name.str, tmp_table));
   DBUG_RETURN(tmp_table);
 }
 
@@ -5522,8 +5522,8 @@ find_field_in_view(THD *thd, TABLE_LIST *table_list,
 {
   DBUG_ENTER("find_field_in_view");
   DBUG_PRINT("enter",
-             ("view: '%s', field name: '%s', item name: '%s', ref 0x%lx",
-              table_list->alias, name, item_name, (ulong) ref));
+             ("view: '%s', field name: '%s', item name: '%s', ref %p",
+              table_list->alias, name, item_name, ref));
   Field_iterator_view field_it;
   field_it.set(table_list);
   Query_arena *arena= 0, backup;  
@@ -5611,8 +5611,8 @@ find_field_in_natural_join(THD *thd, TABLE_LIST *table_ref, const char *name,
   Field *found_field;
   Query_arena *arena, backup;
   DBUG_ENTER("find_field_in_natural_join");
-  DBUG_PRINT("enter", ("field name: '%s', ref 0x%lx",
-		       name, (ulong) ref));
+  DBUG_PRINT("enter", ("field name: '%s', ref %p",
+		       name, ref));
   DBUG_ASSERT(table_ref->is_natural_join && table_ref->join_columns);
   DBUG_ASSERT(*actual_table == NULL);
 
@@ -5826,8 +5826,8 @@ find_field_in_table_ref(THD *thd, TABLE_LIST *table_list,
   DBUG_ASSERT(name);
   DBUG_ASSERT(item_name);
   DBUG_PRINT("enter",
-             ("table: '%s'  field name: '%s'  item name: '%s'  ref 0x%lx",
-              table_list->alias, name, item_name, (ulong) ref));
+             ("table: '%s'  field name: '%s'  item name: '%s'  ref %p",
+              table_list->alias, name, item_name, ref));
 
   /*
     Check that the table and database that qualify the current field name
@@ -7559,7 +7559,7 @@ insert_fields(THD *thd, Name_resolution_context *context, const char *db_name,
   bool found;
   char name_buff[NAME_LEN+1];
   DBUG_ENTER("insert_fields");
-  DBUG_PRINT("arena", ("stmt arena: 0x%lx", (ulong)thd->stmt_arena));
+  DBUG_PRINT("arena", ("stmt arena: %p", thd->stmt_arena));
 
   if (db_name && lower_case_table_names)
   {
@@ -8234,8 +8234,8 @@ bool remove_table_from_cache(THD *thd, const char *db, const char *table_name,
                                    &state))
     {
       THD *in_use;
-      DBUG_PRINT("tcache", ("found table: '%s'.'%s' 0x%lx", table->s->db.str,
-                            table->s->table_name.str, (long) table));
+      DBUG_PRINT("tcache", ("found table: '%s'.'%s' %p", table->s->db.str,
+                            table->s->table_name.str, table));
 
       table->s->version=0L;		/* Free when thread is ready */
       if (!(in_use=table->in_use))

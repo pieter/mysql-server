@@ -1713,10 +1713,10 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   uchar *record, *bitmaps;
   Field **field_ptr;
   DBUG_ENTER("open_table_from_share");
-  DBUG_PRINT("enter",("name: '%s.%s'  form: 0x%lx, open mode:%s",
+  DBUG_PRINT("enter",("name: '%s.%s'  form: %p, open mode:%s",
                       share->db.str,
                       share->table_name.str,
-                      (long) outparam,
+                      outparam,
                       (open_mode == OTM_OPEN)?"open":
                       ((open_mode == OTM_CREATE)?"create":"alter")));
 
@@ -2052,7 +2052,7 @@ int closefrm(register TABLE *table, bool free_share)
   uint idx;
   KEY *key_info;
   DBUG_ENTER("closefrm");
-  DBUG_PRINT("enter", ("table: 0x%lx", (long) table));
+  DBUG_PRINT("enter", ("table: %p", table));
 
   if (table->db_stat)
     error=table->file->close();

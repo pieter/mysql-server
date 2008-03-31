@@ -611,9 +611,13 @@ void SerialLog::createNewWindow(void)
 void SerialLog::shutdown()
 {
 	finishing = true;
-	
+
+	// Wake up gophers that are not currently doing anything.  
+	// If they are active, they will see the shutdownInProgress flag.
+
 	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
-		gopher->wakeup();
+		if ((gopher->workerThread) && gopher->workerThread->sleeping && !gopher->active)
+			gopher->wakeup();
 
 	// Wait for all gopher threads to exit
 	
@@ -705,7 +709,7 @@ void SerialLog::endRecord(void)
 void SerialLog::wakeup()
 {	
 	for (Gopher *gopher = gophers; gopher; gopher = gopher->next)
-		if ((gopher->workerThread) && gopher->workerThread->sleeping)
+		if ((gopher->workerThread) && gopher->workerThread->sleeping && !gopher->active)
 			{
 			gopher->wakeup();
 			break;

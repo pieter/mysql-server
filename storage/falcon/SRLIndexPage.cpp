@@ -110,7 +110,11 @@ void SRLIndexPage::pass2()
 					break;
 				
 				case INDEX_VERSION_1:
-					IndexRootPage::redoIndexPage(log->getDbb(tableSpaceId), pageNumber, parent, level, prior, next, length, data);
+					{
+					bool haveSuperNodes = (control->version >=srlVersion14);
+					IndexRootPage::redoIndexPage(log->getDbb(tableSpaceId), pageNumber, parent, level, prior, next, length, data,
+						haveSuperNodes);
+					}
 					break;
 				
 				default:

@@ -54,7 +54,9 @@ void Gopher::gopherThread(void)
 				log->unblockUpdates();
 
 			sync.unlock();
+			active = false;
 			workerThread->sleep();
+			active = true;
 			sync.lock(Exclusive);
 
 			continue;
@@ -63,7 +65,9 @@ void Gopher::gopherThread(void)
 		SerialLogTransaction *transaction = log->pending.first;
 		log->pending.remove(transaction);
 		sync.unlock();
+
 		transaction->doAction();
+
 		sync.lock(Exclusive);
 		log->inactions.append(transaction);
 		

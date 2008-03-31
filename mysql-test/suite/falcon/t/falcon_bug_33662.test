@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug #33662: autoincrement value not show in "show create table"
 #
@@ -18,6 +19,7 @@ DROP TABLE IF EXISTS t1;
 # ----------------------------------------------------- #
 CREATE TABLE t1 (i int NOT NULL AUTO_INCREMENT, PRIMARY KEY (i)) AUTO_INCREMENT=2 
 DEFAULT CHARSET=latin1;
+
 # ----------------------------------------------------- #
 # --- Check                                         --- #
 # ----------------------------------------------------- #
@@ -26,6 +28,7 @@ SHOW CREATE TABLE t1;
 INSERT INTO t1 VALUES();
 #--check auto_increment is 3 after insert
 SHOW CREATE TABLE t1;
+
 # ----------------------------------------------------- #
 # --- Final cleanup                                 --- #
 # ----------------------------------------------------- #

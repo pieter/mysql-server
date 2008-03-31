@@ -66,10 +66,6 @@ static  int getLinuxVersion();
 #define O_SYNC		0
 #endif
 
-#ifndef O_SYNC
-#define O_SYNC		0
-#endif
-
 #ifndef LSEEK
 #define LSEEK		lseek
 #define SEEK_OFFSET	off_t
@@ -635,7 +631,6 @@ void IO::reportWrites(void)
 		(const char*) fileName,
 		writeTypes[WRITE_TYPE_FORCE],
 		writeTypes[WRITE_TYPE_FLUSH],
-		writeTypes[WRITE_TYPE_PRECEDENCE],
 		writeTypes[WRITE_TYPE_REUSE],
 		writeTypes[WRITE_TYPE_PAGE_WRITER]);
 		

@@ -109,6 +109,7 @@ public:
 	void getTransactionInfo(InfoTable* infoTable);
 	void getSerialLogInfo(InfoTable* infoTable);
 	void getTransactionSummaryInfo(InfoTable* infoTable);
+	void getTableSpaceInfo(InfoTable* infoTable);
 };
 
 #endif

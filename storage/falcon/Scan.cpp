@@ -317,11 +317,12 @@ int Scan::compare(int count, int32 * nums)
 void Scan::setKey(const char * word)
 {
 	UCHAR *p = key;
+	UCHAR *end = key + sizeof(key) - 1;
 	char c;
 	searchMask = 0;
 	rootEnd = NULL;
 
-	for (int n = 0; (c = word [n]); ++n)
+	for (int n = 0; p < end && (c = word [n]); ++n)
 		{
 		char c = word [n];
 

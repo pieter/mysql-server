@@ -1221,10 +1221,6 @@ void Dbb::validateCache(void)
 	cache->validate();
 }
 
-void Dbb::setPrecedence(Bdb *lower, int32 higherPageNumber)
-{
-	cache->setPrecedence(lower, higherPageNumber);
-}
 
 void Dbb::redoRecordLocatorPage(int sectionId, int sequence, int32 pageNumber, bool isPostFlush)
 {

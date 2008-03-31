@@ -122,6 +122,7 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 	sync.lock(Shared);
 	
 	// Get a shared lock to find at least one record to scavenge
+	// If scavengeGeneration == UNDEFINED then just count the records in the leaf.
 	
 	for (ptr = records, end = records + RECORD_SLOTS; ptr < end; ++ptr)
 		{
@@ -129,10 +130,11 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 		
 		if (record)
 			{
-			if (record->isVersion())
+			if (recordScavenge->scavengeGeneration == UNDEFINED)
+				++count;
+			else if (record->isVersion())
 				{
-				if ((record->scavenge(recordScavenge)) &&
-				    ((!record->hasRecord()) || ((record->useCount == 1) && (record->generation <= recordScavenge->scavengeGeneration))))
+				if (record->scavenge(recordScavenge, Shared))
 				    break;
 				else
 					++count;
@@ -161,8 +163,7 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 			{
 			if (record->isVersion())
 				{
-				if ((record->scavenge(recordScavenge)) &&
-				    ((!record->hasRecord()) || ((record->useCount == 1) && (record->generation <= recordScavenge->scavengeGeneration))))
+				if (record->scavenge(recordScavenge, Exclusive))
 					{
 					*ptr = NULL;
 					recordScavenge->spaceReclaimed += record->size;

@@ -29,6 +29,7 @@
 
 static const int TS_HASH_SIZE = 101;
 
+struct TableSpaceInit;
 class TableSpace;
 class Database;
 class Transaction;
@@ -43,7 +44,7 @@ public:
 	TableSpace*		getTableSpace (int id);
 	TableSpace*		findTableSpace(int id);
 	void			bootstrap (int sectionId);
-	TableSpace*		createTableSpace (const char *name, const char *fileName, uint64 initialAllocation, bool repository);
+	TableSpace*		createTableSpace (const char *name, const char *fileName, bool repository, TableSpaceInit *tsInit);
 	TableSpace*		getTableSpace (const char *name);
 	TableSpace*		findTableSpace(const char *name);
 	void			add (TableSpace *tableSpace);
@@ -52,11 +53,12 @@ public:
 	void			dropTableSpace(TableSpace* tableSpace);
 	void			reportStatistics(void);
 	void			getIOInfo(InfoTable* infoTable);
+	void			getTableSpaceInfo(InfoTable* infoTable);
 	void			validate(int optionMask);
 	void			sync();
 	void			expungeTableSpace(int tableSpaceId);
 	void			reportWrites(void);
-	void			redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName, int type);
+	void			redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName, int type, TableSpaceInit* tsInit);
 	void			initialize(void);
 
 	Database	*database;

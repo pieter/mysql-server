@@ -24,6 +24,8 @@
 #pragma once
 #endif // _MSC_VER >= 1000
 
+#include <Mutex.h>
+
 #ifdef _PTHREADS
 #include <pthread.h>
 #endif
@@ -51,6 +53,7 @@ public:
 	virtual void shutdown();
 	virtual void wake();
 	virtual bool sleep (int milliseconds);
+	virtual bool sleep (int milliseconds, Mutex *callersMutex);
 	virtual void sleep();
 	Synchronize();
 	virtual ~Synchronize();

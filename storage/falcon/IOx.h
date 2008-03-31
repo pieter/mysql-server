@@ -29,19 +29,18 @@
 
 
 static const int WRITE_TYPE_FORCE		= 0;
-static const int WRITE_TYPE_PRECEDENCE	= 1;
-static const int WRITE_TYPE_REUSE		= 2;
-static const int WRITE_TYPE_SHUTDOWN	= 3;
-static const int WRITE_TYPE_PAGE_WRITER	= 4;
-static const int WRITE_TYPE_CLONE		= 5;
-static const int WRITE_TYPE_FLUSH		= 6;
-static const int WRITE_TYPE_MAX			= 7;
+static const int WRITE_TYPE_REUSE		= 1;
+static const int WRITE_TYPE_SHUTDOWN	= 2;
+static const int WRITE_TYPE_PAGE_WRITER	= 3;
+static const int WRITE_TYPE_CLONE		= 4;
+static const int WRITE_TYPE_FLUSH		= 5;
+static const int WRITE_TYPE_MAX			= 6;
 
 class Bdb;
 class Hdr;
 class Dbb;
 
-class IO  
+class IO
 {
 public:
 	IO();

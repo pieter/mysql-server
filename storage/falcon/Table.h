@@ -219,7 +219,6 @@ public:
 	SyncObject		syncObject;
 	SyncObject		syncTriggers;
 	SyncObject		syncScavenge;
-	SyncObject		syncUpdate;
 	SyncObject		syncAlter;				// prevent concurrent Alter statements.
 	Table			*collision;				// Hash collision in database
 	Table			*idCollision;			// mod(id) collision in database

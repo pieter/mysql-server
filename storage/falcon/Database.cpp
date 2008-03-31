@@ -322,8 +322,14 @@ static const char *createTableSpaces =
 		"tablespace varchar(128) not null primary key,"
 		"tablespace_id int not null,"
 		"filename varchar(512) not null,"
-		"status int,"
-		"max_size int)";
+		"type int,"
+		"allocation bigint,"
+		"extent bigint,"
+		"autoextend bigint,"
+		"max_size bigint,"
+		"nodegroup int,"
+		"wait int,"
+		"comment varchar(1024))";
 
 static const char *createTableSpaceSequence = 
 	"upgrade sequence tablespace_ids";
@@ -1830,14 +1836,14 @@ void Database::retireRecords(bool forced)
 		}
 	else if ((total - lastRecordMemory) < recordScavengeThreshold / AGE_GROUPS)
 		{
-		recordScavenge.scavengeGeneration = -1;
+		recordScavenge.scavengeGeneration = UNDEFINED;
 		cleanupRecords (&recordScavenge);
 		
 		return;
 		}
 	else
 		{
-		recordScavenge.scavengeGeneration = -1;
+		recordScavenge.scavengeGeneration = UNDEFINED;
 		cleanupRecords (&recordScavenge);
 		}
 
@@ -2326,6 +2332,11 @@ void Database::getSerialLogInfo(InfoTable* infoTable)
 void Database::getTransactionSummaryInfo(InfoTable* infoTable)
 {
 	transactionManager->getSummaryInfo(infoTable);
+}
+
+void Database::getTableSpaceInfo(InfoTable* infoTable)
+{
+	tableSpaceManager->getTableSpaceInfo(infoTable);
 }
 
 void Database::updateCardinalities(void)

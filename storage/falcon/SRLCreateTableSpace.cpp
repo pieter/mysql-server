@@ -52,6 +52,16 @@ void SRLCreateTableSpace::append(TableSpace *tableSpace)
 	putInt(len);
 	putData(len, (const UCHAR*) p);
 	putInt(tableSpace->type);
+	putInt64(tableSpace->allocation);
+	putInt64(tableSpace->extent);
+	putInt64(tableSpace->autoExtend);
+	putInt64(tableSpace->maxSize);
+	putInt(tableSpace->nodegroup);
+	putInt(tableSpace->wait);
+	p = tableSpace->comment;
+	len = (int)strlen(p);
+	putInt(len);
+	putData(len, (const UCHAR*)p);
 }
 
 void SRLCreateTableSpace::read()
@@ -66,11 +76,44 @@ void SRLCreateTableSpace::read()
 		type = getInt();
 	else
 		type = TABLESPACE_TYPE_TABLESPACE;
+		
+	if (control->version >= srlVersion15)
+		{
+		allocation	= getInt64();
+		extent		= getInt64();
+		autoExtend	= getInt64();
+		maxSize		= getInt64();
+		nodegroup	= getInt();
+		wait		= getInt();
+		commentLength = getInt();
+		comment = (const char*) getData(commentLength);
+		}
+	else
+		{
+		allocation	= 0;
+		extent		= 0;
+		autoExtend	= 0;
+		maxSize		= 0;
+		nodegroup	= 0;
+		wait		= 0;
+		commentLength = 0;
+		comment = NULL;
+		}
 }
 
 void SRLCreateTableSpace::pass1()
 {
-	log->database->tableSpaceManager->redoCreateTableSpace(tableSpaceId, nameLength, name, filenameLength, filename, type);
+	TableSpaceInit tsInit;
+	
+	tsInit.allocation	= allocation;
+	tsInit.extent		= extent;
+	tsInit.autoExtend	= autoExtend;
+	tsInit.maxSize		= maxSize;
+	tsInit.nodegroup	= nodegroup;
+	tsInit.wait			= wait;
+	tsInit.comment		= comment;
+		
+	log->database->tableSpaceManager->redoCreateTableSpace(tableSpaceId, nameLength, name, filenameLength, filename, type, &tsInit);
 }
 
 void SRLCreateTableSpace::pass2()

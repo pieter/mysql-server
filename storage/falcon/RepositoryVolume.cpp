@@ -66,7 +66,7 @@ RepositoryVolume::RepositoryVolume(Repository *repo, int volume, JString file)
 	tableSpace = database->tableSpaceManager->findTableSpace(volumeName);
 	
 	if (!tableSpace)
-		tableSpace = database->tableSpaceManager->createTableSpace(volumeName, fileName, 0, true);
+		tableSpace = database->tableSpaceManager->createTableSpace(volumeName, fileName, true, NULL);
 	
 	dbb = tableSpace->dbb;
 	//dbb = new Dbb (database->dbb, -1);

@@ -445,7 +445,27 @@ Connection* StorageHandler::getDictionaryConnection(void)
 	return dictionaryConnection;
 }
 
-int StorageHandler::createTablespace(const char* tableSpaceName, const char* filename)
+JString StorageHandler::genCreateTableSpace(const char* tableSpaceName, const char* filename,
+												unsigned long long initialSize,
+												unsigned long long extentSize,
+												unsigned long long autoextendSize,
+												unsigned long long maxSize,
+												int nodegroup, bool wait, const char* comment)
+{
+	CmdGen gen;
+	gen.gen("create tablespace \"%s\" filename '%s' allocation " I64FORMAT " extent " I64FORMAT
+				" autoextend " I64FORMAT " max_size " I64FORMAT " nodegroup %d wait %d comment '%s'",
+				tableSpaceName, filename, initialSize, extentSize, autoextendSize, maxSize, nodegroup,
+				(int)wait, comment ? comment : "");
+	return (gen.getString());
+}
+
+int StorageHandler::createTablespace(const char* tableSpaceName, const char* filename,
+										unsigned long long initialSize,
+										unsigned long long extentSize,
+										unsigned long long autoextendSize,
+										unsigned long long maxSize,
+										int nodegroup, bool wait, const char* comment)
 {
 	if (!defaultDatabase)
 		initialize();
@@ -458,12 +478,12 @@ int StorageHandler::createTablespace(const char* tableSpaceName, const char* fil
 	
 	try
 		{
-		CmdGen gen;
-		gen.gen("create tablespace \"%s\" filename '%s'", tableSpaceName, filename);
+		JString cmd = genCreateTableSpace(tableSpaceName, filename, initialSize, extentSize,
+											autoextendSize, maxSize, nodegroup, wait, comment);
 		Sync sync(&dictionarySyncObject, "StorageHandler::createTablespace");
 		sync.lock(Exclusive);
 		Statement *statement = dictionaryConnection->createStatement();
-		statement->executeUpdate(gen.getString());
+		statement->executeUpdate(cmd);
 		statement->close();
 		}
 	catch (SQLException& exception)
@@ -898,6 +918,15 @@ void StorageHandler::getTransactionSummaryInfo(InfoTable* infoTable)
 		storageDatabase->getTransactionSummaryInfo(infoTable);
 }
 
+void StorageHandler::getTableSpaceInfo(InfoTable* infoTable)
+{
+	Sync sync(&hashSyncObject, "StorageHandler::getTableSpaceInfo");
+	sync.lock(Shared);
+	
+	for (StorageDatabase *storageDatabase = databaseList; storageDatabase; storageDatabase = storageDatabase->next)
+		storageDatabase->getTableSpaceInfo(infoTable);
+}
+
 void StorageHandler::initialize(void)
 {
 	if (initialized)
@@ -936,11 +965,7 @@ void StorageHandler::initialize(void)
 		IO::deleteFile(FALCON_TEMPORARY);
 		dictionaryConnection = defaultDatabase->getOpenConnection();
 		Statement *statement = dictionaryConnection->createStatement();
-
-		JString createTableSpace;
-		createTableSpace.Format(
-				"create tablespace " DEFAULT_TABLESPACE " filename '" FALCON_USER "' allocation " I64FORMAT,
-				falcon_initial_allocation);
+		JString createTableSpace = genCreateTableSpace(DEFAULT_TABLESPACE, FALCON_USER, falcon_initial_allocation);
 		statement->executeUpdate(createTableSpace);
 			
 		for (const char **ddl = falconSchema; *ddl; ++ddl)

@@ -102,7 +102,7 @@ TableSpace* TableSpaceManager::findTableSpace(const char *name)
 	syncDDL.lock(Shared);
 	
 	PStatement statement = database->prepareStatement(
-		"select tablespace_id,filename,status from system.tablespaces where tablespace=?");
+		"select tablespace_id, filename, type, allocation, extent, autoextend, max_size, nodegroup, wait, comment from system.tablespaces where tablespace=?");
 	statement->setString(1, name);
 	RSet resultSet = statement->executeQuery();
 
@@ -111,7 +111,17 @@ TableSpace* TableSpaceManager::findTableSpace(const char *name)
 		int id = resultSet->getInt(1);
 		const char *fileName = resultSet->getString(2);
 		int type = resultSet->getInt(3);
-		tableSpace = new TableSpace(database, name, id, fileName, 0, type);
+		
+		TableSpaceInit tsInit;
+		tsInit.allocation	= resultSet->getLong(4);
+		tsInit.extent		= resultSet->getLong(5);
+		tsInit.autoExtend	= resultSet->getLong(6);
+		tsInit.maxSize		= resultSet->getLong(7);
+		tsInit.nodegroup	= resultSet->getInt(8);
+		tsInit.wait			= resultSet->getInt(9);
+		tsInit.comment		= resultSet->getString(10);
+		
+		tableSpace = new TableSpace(database, name, id, fileName, 0, &tsInit);
 
 		if (type != TABLESPACE_TYPE_REPOSITORY)
 			try
@@ -144,21 +154,28 @@ TableSpace* TableSpaceManager::getTableSpace(const char *name)
 	return tableSpace;
 }
 
-TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fileName, uint64 initialAllocation, bool repository)
+TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fileName, bool repository, TableSpaceInit *tsInit)
 {
 	Sync syncDDL(&database->syncSysDDL, "TableSpaceManager::createTableSpace");
 	syncDDL.lock(Shared);
 	Sequence *sequence = database->sequenceManager->getSequence(database->getSymbol("SYSTEM"), database->getSymbol("TABLESPACE_IDS"));
 	int type = (repository) ? TABLESPACE_TYPE_REPOSITORY : TABLESPACE_TYPE_TABLESPACE;
 	int id = (int) sequence->update(1, database->getSystemTransaction());
-	TableSpace *tableSpace = new TableSpace(database, name, id, fileName, initialAllocation, type);
+	
+	// Set unsupported parameters to reasonable values
+	
+	if (tsInit->nodegroup == 65535)
+		tsInit->nodegroup = 0;
+	if (tsInit->comment == "(null)")
+		tsInit->comment == "";
+		
+	TableSpace *tableSpace = new TableSpace(database, name, id, fileName, type, tsInit);
 	
 	if (!repository && tableSpace->dbb->doesFileExist(fileName))
 		{
 		delete tableSpace;
 		throw SQLError(TABLESPACE_EXIST_ERROR, "table space file name \"%s\" already exists\n", fileName);
 		}
-		
 	try
 		{
 		tableSpace->save();
@@ -193,15 +210,30 @@ void TableSpaceManager::bootstrap(int sectionId)
 		{
 		stream.getSegment(0, sizeof(buffer), buffer);
 		const UCHAR *p = buffer + 2;
-		Value name;
-		Value id;
-		Value fileName;
-		Value status;
+		Value name, id, fileName, type, allocation, extent, autoExtend, maxSize, nodegroup, wait, comment;
+		
 		p = EncodedDataStream::decode(p, &name, true);
 		p = EncodedDataStream::decode(p, &id, true);
 		p = EncodedDataStream::decode(p, &fileName, true);
-		p = EncodedDataStream::decode(p, &status, true);
-		TableSpace *tableSpace = new TableSpace(database, name.getString(), id.getInt(), fileName.getString(), 0, status.getInt());
+		p = EncodedDataStream::decode(p, &type, true);
+		p = EncodedDataStream::decode(p, &allocation, true);
+		p = EncodedDataStream::decode(p, &extent, true);
+		p = EncodedDataStream::decode(p, &autoExtend, true);
+		p = EncodedDataStream::decode(p, &maxSize, true);
+		p = EncodedDataStream::decode(p, &nodegroup, true);
+		p = EncodedDataStream::decode(p, &wait, true);
+		p = EncodedDataStream::decode(p, &comment, true);
+		
+		TableSpaceInit tsInit;
+		tsInit.allocation	= allocation.getQuad();
+		tsInit.extent		= extent.getQuad();
+		tsInit.autoExtend	= autoExtend.getQuad();
+		tsInit.maxSize		= maxSize.getQuad();
+		tsInit.nodegroup	= nodegroup.getInt();
+		tsInit.wait			= wait.getInt();
+		tsInit.comment		= comment.getString();
+
+		TableSpace *tableSpace = new TableSpace(database, name.getString(), id.getInt(), fileName.getString(), type.getInt(), &tsInit);
 		Log::debug("New table space %s, id %d, type %d, filename %s\n", (const char*) tableSpace->name, tableSpace->tableSpaceId, tableSpace->type, (const char*) tableSpace->filename);
 		
 		if (tableSpace->type == TABLESPACE_TYPE_TABLESPACE)
@@ -298,15 +330,6 @@ void TableSpaceManager::reportStatistics(void)
 		tableSpace->dbb->reportStatistics();
 }
 
-void TableSpaceManager::getIOInfo(InfoTable* infoTable)
-{
-	Sync sync(&syncObject, "TableSpaceManager::getIOInfo");
-	sync.lock(Shared);
-
-	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
-		tableSpace->getIOInfo(infoTable);
-}
-
 void TableSpaceManager::validate(int optionMask)
 {
 	Sync sync(&syncObject, "TableSpaceManager::validate");
@@ -374,7 +397,8 @@ void TableSpaceManager::reportWrites(void)
 		tableSpace->dbb->reportWrites();
 }
 
-void TableSpaceManager::redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName, int type)
+void TableSpaceManager::redoCreateTableSpace(int id, int nameLength, const char* name, int fileNameLength, const char* fileName,
+												int type, TableSpaceInit* tsInit)
 {
 	Sync sync(&syncObject, "TableSpaceManager::redoCreateTableSpace");
 	sync.lock(Exclusive);
@@ -390,7 +414,7 @@ void TableSpaceManager::redoCreateTableSpace(int id, int nameLength, const char*
 	char *file = buffer + nameLength + 1;
 	memcpy(file, fileName, fileNameLength);
 	file[fileNameLength] = 0;
-	tableSpace = new TableSpace(database, buffer, id, file, 0, type);
+	tableSpace = new TableSpace(database, buffer, id, file, type, tsInit);
 	tableSpace->needSave = true;
 	add(tableSpace);	
 
@@ -430,3 +454,22 @@ void TableSpaceManager::postRecovery(void)
 		if (tableSpace->active && tableSpace->type == TABLESPACE_TYPE_REPOSITORY)
 			tableSpace->close();
 }
+
+void TableSpaceManager::getIOInfo(InfoTable* infoTable)
+{
+	Sync sync(&syncObject, "TableSpaceManager::getIOInfo");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		tableSpace->getIOInfo(infoTable);
+}
+
+void TableSpaceManager::getTableSpaceInfo(InfoTable* infoTable)
+{
+	Sync sync(&syncObject, "TableSpaceManager::getTableSpaceInfo");
+	sync.lock(Shared);
+
+	for (TableSpace *tableSpace = tableSpaces; tableSpace; tableSpace = tableSpace->next)
+		tableSpace->getTableSpaceInfo(infoTable);
+}
+

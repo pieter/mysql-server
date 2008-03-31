@@ -204,7 +204,7 @@ bool RecordVersion::scavenge(RecordScavenge *recordScavenge, LockType lockType)
 		 
 		format->table->activeVersions = true;
 
-		// Scavenge criteria not met for this record, so check prior versions.
+		// Scavenge criteria not met for this base record, so check prior versions.
 		
 		if (priorVersion && recordScavenge->scavengeGeneration != UNDEFINED)
 			{

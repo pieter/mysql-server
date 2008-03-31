@@ -418,7 +418,7 @@ bool SyncObject::isLocked()
 void SyncObject::stalled(Thread *thread)
 {
 #ifdef TRACE
-	mutex.lock();
+	// assume mutex is already locked.
 	LogLock logLock;
 	LinkedList threads;
 	LinkedList syncObjects;
@@ -437,7 +437,6 @@ void SyncObject::stalled(Thread *thread)
 	END_FOR;
 
 	LOG_DEBUG ("------------------------------------\n");
-	mutex.release();
 #endif
 }
 

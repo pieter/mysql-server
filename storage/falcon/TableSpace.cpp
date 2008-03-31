@@ -199,10 +199,10 @@ void TableSpace::getTableSpaceInfo(InfoTable* infoTable)
 	infoTable->putInt(n++, tableSpaceId);
 	infoTable->putString(n++, filename);
 	infoTable->putInt64(n++, allocation);
-	infoTable->putInt64(n++, extent);
+//	infoTable->putInt64(n++, extent);		// cluster only
 	infoTable->putInt64(n++, autoExtend);
 	infoTable->putInt64(n++, maxSize);
-	infoTable->putInt(n++, nodegroup);
+//	infoTable->putInt(n++, nodegroup);		// cluster only
 	infoTable->putInt(n++, wait);
 	infoTable->putString(n++, comment);
 	infoTable->putInt(n++, type);

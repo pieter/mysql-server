@@ -505,7 +505,6 @@ void IndexPage::validate(void *before)
 	int superIdx = 0;
 	int supernodeCount = 0;
 
-
 	for (int i=0; i< SUPERNODES; i++)
 	{
 		if(superNodes[i] ==0)
@@ -526,7 +525,6 @@ void IndexPage::validate(void *before)
 
 		supernodeCount++;
 	}
-
 
 	for (IndexNode node (this);; node.getNext(bucketEnd))
 		{
@@ -1425,8 +1423,6 @@ Btn* IndexPage::getEnd(void)
 bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *indexKey,
 				int recordNumber, int offset, bool *makeNextSuper)
 {
-
-
 	Btn *insertionPoint = node->node;
 
 	if (makeNextSuper)
@@ -1434,7 +1430,6 @@ bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *index
 
 	if (insertionPoint == nodes) 
 		{
-
 		// Make supernode at the following node, if the
 		// gap from the start of the page to the first supernode is too large.
 		if (makeNextSuper && superNodes[0] > pageSize/(SUPERNODES+1) && !superNodes[SUPERNODES-1])
@@ -1484,7 +1479,6 @@ bool IndexPage::checkAddSuperNode(int pageSize, IndexNode* node, IndexKey *index
 	/* Ideal distance between supernodes*/
 	int idealDistance = pageSize/(SUPERNODES+1);
 
-	
 	int distLeft, distRight;
 
 	distLeft = position;
@@ -1637,7 +1631,6 @@ static int compareSuper(IndexNode *node, UCHAR *key, size_t keylen, int recordNu
 // Binary search is used for better speed
 Btn * IndexPage::findSupernode(int level, UCHAR *key, size_t keylen, int32 recordNumber, Btn *after, bool *found)
 {
-
 	*found = false;
 	if (superNodes[0] == 0)
 		return nodes;
@@ -1692,5 +1685,3 @@ Btn * IndexPage::findSupernode(int level, UCHAR *key, size_t keylen, int32 recor
 	
 	return nodes + superNodes[low-1];
 }
-
-

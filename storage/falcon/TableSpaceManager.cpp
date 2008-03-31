@@ -176,6 +176,7 @@ TableSpace* TableSpaceManager::createTableSpace(const char *name, const char *fi
 		delete tableSpace;
 		throw SQLError(TABLESPACE_EXIST_ERROR, "table space file name \"%s\" already exists\n", fileName);
 		}
+		
 	try
 		{
 		tableSpace->save();

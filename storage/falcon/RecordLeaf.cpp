@@ -139,7 +139,8 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 				else
 					++count;
 				}
-			else if (record->generation <= recordScavenge->scavengeGeneration && record->useCount == 1)
+			else if (   record->generation <= recordScavenge->scavengeGeneration
+			         && record->useCount == 1)
 				break;
 			else
 				++count;
@@ -183,7 +184,8 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 					++count;
 					}
 				}
-			else if (record->generation <= recordScavenge->scavengeGeneration && record->useCount == 1)
+			else if (   (record->generation <= recordScavenge->scavengeGeneration)
+			         && (record->useCount == 1))
 				{
 				*ptr = NULL;
 				recordScavenge->spaceReclaimed += record->size;

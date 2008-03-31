@@ -2556,6 +2556,8 @@ void mysql_stmt_close(THD *thd, char *packet)
   Prepared_statement *stmt;
   DBUG_ENTER("mysql_stmt_close");
 
+  thd->main_da.disable_status();
+
   if (!(stmt= find_prepared_statement(thd, stmt_id, "mysql_stmt_close")))
     DBUG_VOID_RETURN;
 
@@ -2566,8 +2568,6 @@ void mysql_stmt_close(THD *thd, char *packet)
   DBUG_ASSERT(! (stmt->flags & (uint) Prepared_statement::IS_IN_USE));
   (void) stmt->deallocate();
   general_log_print(thd, thd->command, NullS);
-
-  thd->main_da.disable_status();
 
   DBUG_VOID_RETURN;
 }

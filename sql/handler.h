@@ -1499,8 +1499,8 @@ public:
                            ulonglong *deleted,
                            const uchar *pack_frm_data,
                            size_t pack_frm_len);
-  int ha_drop_partitions(const char *path);
-  int ha_rename_partitions(const char *path);
+  int ha_drop_partitions(THD *thd, const char *path);
+  int ha_rename_partitions(THD *thd, const char *path);
   int ha_optimize_partitions(THD *thd);
   int ha_analyze_partitions(THD *thd);
   int ha_check_partitions(THD *thd);
@@ -2299,9 +2299,9 @@ private:
                                 const uchar *pack_frm_data,
                                 size_t pack_frm_len)
   { return HA_ERR_WRONG_COMMAND; }
-  virtual int drop_partitions(const char *path)
+  virtual int drop_partitions(THD *thd, const char *path)
   { return HA_ERR_WRONG_COMMAND; }
-  virtual int rename_partitions(const char *path)
+  virtual int rename_partitions(THD *thd, const char *path)
   { return HA_ERR_WRONG_COMMAND; }
   virtual int optimize_partitions(THD *thd)
   { return HA_ERR_WRONG_COMMAND; }

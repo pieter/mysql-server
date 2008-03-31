@@ -30,6 +30,7 @@
 #include "rpl_record.h"
 #include <my_bitmap.h>
 #include "log_event.h"
+#include "sql_audit.h"
 #include <m_ctype.h>
 #include <sys/stat.h>
 #include <thr_alarm.h>
@@ -253,7 +254,8 @@ const char *set_thd_proc_info(THD *thd, const char *info,
                               const unsigned int calling_line)
 {
   const char *old_info= thd->proc_info;
-  DBUG_PRINT("proc_info", ("%s:%d  %s", calling_file, calling_line, info));
+  DBUG_PRINT("proc_info", ("%s:%d  %s", calling_file, calling_line, 
+                           (info != NULL) ? info : "(null)"));
 #if defined(ENABLED_PROFILING)
   thd->profiling.status_change(info, calling_function, calling_file, calling_line);
 #endif
@@ -395,8 +397,11 @@ Diagnostics_area::set_ok_status(THD *thd, ha_rows affected_rows_arg,
 {
   DBUG_ASSERT(! is_set());
 #ifdef DBUG_OFF
-  /* In production, refuse to overwrite an error with an OK packet. */
-  if (is_error())
+  /*
+    In production, refuse to overwrite an error or a custom response
+    with an OK packet.
+  */
+  if (is_error() || is_disabled())
     return;
 #endif
   /** Only allowed to report success if has not yet reported an error */
@@ -424,8 +429,11 @@ Diagnostics_area::set_eof_status(THD *thd)
 
   DBUG_ASSERT(! is_set());
 #ifdef DBUG_OFF
-  /* In production, refuse to overwrite an error with an EOF packet. */
-  if (is_error())
+  /*
+    In production, refuse to overwrite an error or a custom response
+    with an EOF packet.
+  */
+  if (is_error() || is_disabled())
     return;
 #endif
 
@@ -454,6 +462,14 @@ Diagnostics_area::set_error_status(THD *thd, uint sql_errno_arg,
     an error can happen during the flush.
   */
   DBUG_ASSERT(! is_set() || can_overwrite_status);
+#ifdef DBUG_OFF
+  /*
+    In production, refuse to overwrite a custom response with an
+    ERROR packet.
+  */
+  if (is_disabled())
+    return;
+#endif
 
   m_sql_errno= sql_errno_arg;
   strmake(m_message, message_arg, sizeof(m_message) - 1);
@@ -560,6 +576,7 @@ THD::THD()
   dbug_sentry=THD_SENTRY_MAGIC;
 #endif
 #ifndef EMBEDDED_LIBRARY
+  mysql_audit_init_thd(this);
   net.vio=0;
 #endif
   client_capabilities= 0;                       // minimalistic client
@@ -885,6 +902,7 @@ THD::~THD()
     cleanup();
 
   ha_close_connection(this);
+  mysql_audit_release(this);
   plugin_thdvar_cleanup(this);
 
   DBUG_PRINT("info", ("freeing security context"));
@@ -905,6 +923,8 @@ THD::~THD()
     delete rli_fake;
     rli_fake= NULL;
   }
+  
+  mysql_audit_free_thd(this);
 #endif
 
   free_root(&main_mem_root, MYF(0));

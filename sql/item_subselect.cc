@@ -1648,6 +1648,19 @@ Item_in_subselect::select_in_like_transformer(JOIN *join, Comp_creator *func)
 
   DBUG_ENTER("Item_in_subselect::select_in_like_transformer");
 
+  {
+    /*
+      IN/SOME/ALL/ANY subqueries aren't support LIMIT clause. Without it
+      ORDER BY clause becomes meaningless thus we drop it here.
+    */
+    SELECT_LEX *sl= current->master_unit()->first_select();
+    for (; sl; sl= sl->next_select())
+    {
+      if (sl->join)
+        sl->join->order= 0;
+    }
+  }
+
   if (changed)
     DBUG_RETURN(RES_OK);
 
@@ -1685,6 +1698,7 @@ Item_in_subselect::select_in_like_transformer(JOIN *join, Comp_creator *func)
   if (exec_method == NOT_TRANSFORMED)
     exec_method= IN_TO_EXISTS;
   arena= thd->activate_stmt_arena_if_needed(&backup);
+
   /*
     Both transformers call fix_fields() only for Items created inside them,
     and all those items do not make permanent changes in the current item arena

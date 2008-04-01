@@ -64,5 +64,7 @@ f240 varchar(2000) unicode,
 f241 char(100) unicode
 ) engine = falcon;
 
---replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
-eval load data infile '$MYSQL_TEST_DIR/suite/funcs_1/data/innodb_tb4.txt' into table tb4 ;
+--replace_result $MYSQLTEST_VARDIR <MYSQLTEST_VARDIR>
+eval
+load data infile '$MYSQLTEST_VARDIR/std_data_ln/funcs_1/innodb_tb4.txt'
+into table tb4;

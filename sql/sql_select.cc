@@ -12305,7 +12305,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   table->s= share;
   init_tmp_table_share(thd, share, "", 0, tmpname, tmpname);
   share->blob_field= blob_field;
-  share->blob_ptr_size= mi_portable_sizeof_char_ptr;
+  share->blob_ptr_size= portable_sizeof_char_ptr;
   share->db_low_byte_first=1;                // True for HEAP and MyISAM
   share->table_charset= NULL;
   share->primary_key= MAX_KEY;               // Indicate no primary key

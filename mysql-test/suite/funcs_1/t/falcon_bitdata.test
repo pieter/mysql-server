@@ -16,4 +16,3 @@ exit;
 USE test;
 --source suite/funcs_1/include/falcon_tb4.inc
 --source suite/funcs_1/bitdata/bitdata_master.test
-

@@ -810,6 +810,7 @@ CALL h1();
 
 
 delimiter //;
+--error ER_SP_BAD_SQLSTATE
 CREATE PROCEDURE sp1()
    begin1_label:BEGIN
       declare exit handler for sqlstate '00000' set @var1 = 5;
@@ -823,12 +824,9 @@ CREATE PROCEDURE sp1()
    END begin1_label//
 delimiter ;//
 
-CALL sp1();
-
 # cleanup 3.1.2.45+50
 DROP PROCEDURE p1;
 DROP PROCEDURE h1;
-DROP PROCEDURE sp1;
 DROP TABLE res_t1;
 
 

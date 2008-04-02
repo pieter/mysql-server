@@ -28,7 +28,7 @@ static volatile int number_of_calls; /* for SHOW STATUS, see below */
   Initialize the plugin at server start or plugin installation.
 
   SYNOPSIS
-    null_audit_plugin_init()
+    audit_null_plugin_init()
 
   DESCRIPTION
     Does nothing.
@@ -38,7 +38,7 @@ static volatile int number_of_calls; /* for SHOW STATUS, see below */
     1                    failure (cannot happen)
 */
 
-static int null_audit_plugin_init(void *arg __attribute__((unused)))
+static int audit_null_plugin_init(void *arg __attribute__((unused)))
 {
   number_of_calls= 0;
   return(0);
@@ -49,7 +49,7 @@ static int null_audit_plugin_init(void *arg __attribute__((unused)))
   Terminate the plugin at server shutdown or plugin deinstallation.
 
   SYNOPSIS
-    null_audit_plugin_deinit()
+    audit_null_plugin_deinit()
     Does nothing.
 
   RETURN VALUE
@@ -58,7 +58,7 @@ static int null_audit_plugin_init(void *arg __attribute__((unused)))
 
 */
 
-static int null_audit_plugin_deinit(void *arg __attribute__((unused)))
+static int audit_null_plugin_deinit(void *arg __attribute__((unused)))
 {
   printf("audit_null was invoked %u times\n", number_of_calls);
   return(0);
@@ -69,15 +69,15 @@ static int null_audit_plugin_deinit(void *arg __attribute__((unused)))
   Foo
 
   SYNOPSIS
-    null_notify()
+    audit_null_notify()
       thd                connection context
 
   DESCRIPTION
 */
 
-static void null_notify(MYSQL_THD thd __attribute__((unused)),
-                        const struct mysql_event *event
-                        __attribute__((unused)))
+static void audit_null_notify(MYSQL_THD thd __attribute__((unused)),
+                              const struct mysql_event *event
+                              __attribute__((unused)))
 {
   /* prone to races, oh well */
   number_of_calls++;
@@ -88,11 +88,11 @@ static void null_notify(MYSQL_THD thd __attribute__((unused)),
   Plugin type-specific descriptor
 */
 
-static struct st_mysql_audit null_audit_descriptor=
+static struct st_mysql_audit audit_null_descriptor=
 {
   MYSQL_AUDIT_INTERFACE_VERSION,    /* interface version      */
   NULL,                             /* release_thd function   */
-  null_notify,                      /* notify function        */
+  audit_null_notify,                /* notify function        */
   { (unsigned long) -1 }            /* class mask             */
 };
 
@@ -102,7 +102,7 @@ static struct st_mysql_audit null_audit_descriptor=
 
 static struct st_mysql_show_var simple_status[]=
 {
-  {"null_audit_called", (char *)&number_of_calls, SHOW_INT},
+  {"audit_null_called", (char *)&number_of_calls, SHOW_INT},
   {0,0,0}
 };
 
@@ -111,16 +111,16 @@ static struct st_mysql_show_var simple_status[]=
   Plugin library descriptor
 */
 
-mysql_declare_plugin(null_audit)
+mysql_declare_plugin(audit_null)
 {
   MYSQL_AUDIT_PLUGIN,         /* type                            */
-  &null_audit_descriptor,     /* descriptor                      */
+  &audit_null_descriptor,     /* descriptor                      */
   "NULL_AUDIT",               /* name                            */
   "MySQL AB",                 /* author                          */
   "Simple NULL Audit",        /* description                     */
   PLUGIN_LICENSE_GPL,
-  null_audit_plugin_init,     /* init function (when loaded)     */
-  null_audit_plugin_deinit,   /* deinit function (when unloaded) */
+  audit_null_plugin_init,     /* init function (when loaded)     */
+  audit_null_plugin_deinit,   /* deinit function (when unloaded) */
   0x0001,                     /* version                         */
   simple_status,              /* status variables                */
   NULL,                       /* system variables                */

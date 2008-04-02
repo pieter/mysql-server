@@ -205,4 +205,4 @@ TARGET_LINK_LIBRARIES(mysqlserver)
 
 ADD_LIBRARY(libmysqld MODULE cmake_dummy.c libmysqld.def)
 ADD_DEPENDENCIES(libmysqld mysqlserver)
-TARGET_LINK_LIBRARIES(libmysqld mysqlserver wsock32)
+TARGET_LINK_LIBRARIES(libmysqld mysqlserver ws2_32)

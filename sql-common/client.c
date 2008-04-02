@@ -38,10 +38,7 @@
 
 #include "mysql.h"
 
-/* Windows lacks a netdb.h */
-#ifdef __WIN__
-#include <Ws2tcpip.h>
-#else
+#ifndef __WIN__
 #include <netdb.h>
 #endif
 

@@ -565,6 +565,7 @@ bool setup_select_in_parentheses(LEX *lex)
   enum enum_tx_isolation tx_isolation;
   enum Cast_target cast_type;
   enum Item_udftype udf_type;
+  enum ha_choice choice;
   CHARSET_INFO *charset;
   thr_lock_type lock_type;
   struct st_table_lock_info table_lock_info;
@@ -968,6 +969,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  OWNER_SYM
 %token  PACK_KEYS_SYM
 %token  PAGE_SYM
+%token  PAGE_CHECKSUM_SYM
 %token  PARAM_MARKER
 %token  PARSER_SYM
 %token  PARTIAL                       /* SQL-2003-N */
@@ -1109,6 +1111,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  TABLESPACE
 %token  TABLE_REF_PRIORITY
 %token  TABLE_SYM                     /* SQL-2003-R */
+%token  TABLE_CHECKSUM_SYM
 %token  TEMPORARY                     /* SQL-2003-N */
 %token  TEMPTABLE_SYM
 %token  TERMINATED
@@ -1257,6 +1260,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %type <ulonglong_number>
         ulonglong_num real_ulonglong_num size_number
+
+%type <choice> choice
 
 %type <p_elem_value>
         part_bit_expr
@@ -4494,6 +4499,16 @@ create_table_option:
             Lex->create_info.table_options|= $3 ? HA_OPTION_CHECKSUM : HA_OPTION_NO_CHECKSUM;
             Lex->create_info.used_fields|= HA_CREATE_USED_CHECKSUM;
           }
+        | TABLE_CHECKSUM_SYM opt_equal ulong_num
+          {
+             Lex->create_info.table_options|= $3 ? HA_OPTION_CHECKSUM : HA_OPTION_NO_CHECKSUM;
+             Lex->create_info.used_fields|= HA_CREATE_USED_CHECKSUM;
+          }
+        | PAGE_CHECKSUM_SYM opt_equal choice
+          {
+            Lex->create_info.used_fields|= HA_CREATE_USED_PAGE_CHECKSUM;
+            Lex->create_info.page_checksum= $3;
+          }
         | DELAY_KEY_WRITE_SYM opt_equal ulong_num
           {
             Lex->create_info.table_options|= $3 ? HA_OPTION_DELAY_KEY_WRITE : HA_OPTION_NO_DELAY_KEY_WRITE;
@@ -4565,11 +4580,10 @@ create_table_option:
             Lex->create_info.used_fields|= HA_CREATE_USED_KEY_BLOCK_SIZE;
             Lex->create_info.key_block_size= $3;
           }
-        | TRANSACTIONAL_SYM opt_equal ulong_num
+        | TRANSACTIONAL_SYM opt_equal choice
           {
-            Lex->create_info.used_fields|= HA_CREATE_USED_TRANSACTIONAL;
-            Lex->create_info.transactional= ($3 != 0 ? HA_CHOICE_YES :
-                                             HA_CHOICE_NO);
+	    Lex->create_info.used_fields|= HA_CREATE_USED_TRANSACTIONAL;
+            Lex->create_info.transactional= $3;
           }
         ;
 
@@ -8771,6 +8785,11 @@ dec_num:
         | FLOAT_NUM
         ;
 
+choice:
+	ulong_num { $$= $1 != 0 ? HA_CHOICE_YES : HA_CHOICE_NO; }
+	| DEFAULT { $$= HA_CHOICE_UNDEF; }
+	;
+
 procedure_clause:
           /* empty */
         | PROCEDURE ident /* Procedure name */
@@ -11045,6 +11064,7 @@ keyword_sp:
         | ONLINE_SYM               {}
         | PACK_KEYS_SYM            {}
         | PAGE_SYM                 {}
+        | PAGE_CHECKSUM_SYM	   {}
         | PARTIAL                  {}
         | PARTITIONING_SYM         {}
         | PARTITIONS_SYM           {}
@@ -11115,6 +11135,7 @@ keyword_sp:
         | SWAPS_SYM                {}
         | SWITCHES_SYM             {}
         | TABLES                   {}
+        | TABLE_CHECKSUM_SYM       {}
         | TABLESPACE               {}
         | TEMPORARY                {}
         | TEMPTABLE_SYM            {}

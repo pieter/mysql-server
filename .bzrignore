@@ -1155,6 +1155,7 @@ libmysqld/sp_rcontext.cc
 libmysqld/spatial.cc
 libmysqld/sql_acl.cc
 libmysqld/sql_analyse.cc
+libmysqld/sql_audit.cc
 libmysqld/sql_base.cc
 libmysqld/sql_builtin.cc
 libmysqld/sql_cache.cc
@@ -3033,4 +3034,3 @@ win/vs8cache.txt
 ylwrap
 zlib/*.ds?
 zlib/*.vcproj
-libmysqld/sql_audit.cc

@@ -737,7 +737,7 @@ static int chk_index(MI_CHECK *param, MI_INFO *info, MI_KEYDEF *keyinfo,
 {
   int flag;
   uint used_length,comp_flag,nod_flag,key_length=0;
-  uchar key[MI_MAX_POSSIBLE_KEY_BUFF],*temp_buff,*keypos,*old_keypos,*endpos;
+  uchar key[HA_MAX_POSSIBLE_KEY_BUFF],*temp_buff,*keypos,*old_keypos,*endpos;
   my_off_t next_page,record;
   char llbuff[22];
   uint diff_pos[2];
@@ -945,7 +945,7 @@ int chk_data_link(MI_CHECK *param, MI_INFO *info,int extend)
   uchar	*record= 0, *to;
   char llbuff[22],llbuff2[22],llbuff3[22];
   ha_checksum intern_record_checksum;
-  ha_checksum key_checksum[MI_MAX_POSSIBLE_KEY];
+  ha_checksum key_checksum[HA_MAX_POSSIBLE_KEY];
   my_bool static_row_size;
   MI_KEYDEF *keyinfo;
   MI_BLOCK_INFO block_info;
@@ -1212,6 +1212,8 @@ int chk_data_link(MI_CHECK *param, MI_INFO *info,int extend)
 	param->glob_crc+= mi_checksum(info,record);
       link_used+= (block_info.filepos - start_recpos);
       used+= (pos-start_recpos);
+    case BLOCK_RECORD:
+      assert(0);                                /* Impossible */
     } /* switch */
     if (! got_error)
     {
@@ -1926,7 +1928,7 @@ int mi_sort_index(MI_CHECK *param, register MI_INFO *info, char * name)
   reg2 uint key;
   reg1 MI_KEYDEF *keyinfo;
   File new_file;
-  my_off_t index_pos[MI_MAX_POSSIBLE_KEY];
+  my_off_t index_pos[HA_MAX_POSSIBLE_KEY];
   uint r_locks,w_locks;
   int old_lock;
   MYISAM_SHARE *share=info->s;
@@ -2026,7 +2028,7 @@ static int sort_one_index(MI_CHECK *param, MI_INFO *info, MI_KEYDEF *keyinfo,
 {
   uint length,nod_flag,used_length, key_length;
   uchar *buff,*keypos,*endpos;
-  uchar key[MI_MAX_POSSIBLE_KEY_BUFF];
+  uchar key[HA_MAX_POSSIBLE_KEY_BUFF];
   my_off_t new_page_pos,next_page;
   char llbuff[22];
   DBUG_ENTER("sort_one_index");
@@ -3637,8 +3639,10 @@ static int sort_get_next_record(MI_SORT_PARAM *sort_param)
                            mi_checksum(info, sort_param->record));
       DBUG_RETURN(0);
     }
+  case BLOCK_RECORD:
+    assert(0);                                  /* Impossible */
   }
-  DBUG_RETURN(1);		/* Impossible */
+  DBUG_RETURN(1);                               /* Impossible */
 }
 
 
@@ -3748,6 +3752,8 @@ int sort_write_record(MI_SORT_PARAM *sort_param)
       sort_param->filepos+=reclength+length;
       info->s->state.split++;
       break;
+    case BLOCK_RECORD:
+      assert(0);                                  /* Impossible */
     }
   }
   if (sort_param->master)
@@ -3919,7 +3925,7 @@ static int sort_ft_key_write(MI_SORT_PARAM *sort_param, const void *a)
   }
   get_key_full_length_rdonly(val_off, ft_buf->lastkey);
 
-  if (mi_compare_text(sort_param->seg->charset,
+  if (ha_compare_text(sort_param->seg->charset,
                       ((uchar *)a)+1,a_len-1,
                       ft_buf->lastkey+1,val_off-1, 0, 0)==0)
   {

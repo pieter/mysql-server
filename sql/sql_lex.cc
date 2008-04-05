@@ -1661,6 +1661,7 @@ void st_select_lex::init_select()
   non_agg_fields.empty();
   cond_value= having_value= Item::COND_UNDEF;
   inner_refs_list.empty();
+  full_group_by_flag= 0;
 }
 
 /*
@@ -1900,8 +1901,6 @@ bool st_select_lex::test_limit()
              "LIMIT & IN/ALL/ANY/SOME subquery");
     return(1);
   }
-  // no sense in ORDER BY without LIMIT
-  order_list.empty();
   return(0);
 }
 

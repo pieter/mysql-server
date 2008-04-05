@@ -472,10 +472,12 @@ JString StorageHandler::genCreateTableSpace(const char* tableSpaceName, const ch
 												int nodegroup, bool wait, const char* comment)
 {
 	CmdGen gen;
-	gen.gen("create tablespace \"%s\" filename '%s' allocation " I64FORMAT " extent " I64FORMAT
-				" autoextend " I64FORMAT " max_size " I64FORMAT " nodegroup %d wait %d comment '%s'",
-				tableSpaceName, filename, initialSize, extentSize, autoextendSize, maxSize, nodegroup,
-				(int)wait, comment ? comment : "");
+	/***
+	gen.gen("create tablespace \"%s\" filename '%s' initial_size " I64FORMAT " extent_size " I64FORMAT 
+				" autoextend_size " I64FORMAT " max_size " I64FORMAT " nodegroup %d wait %d comment '%s'",
+				tableSpaceName, filename, initialSize, extentSize, autoextendSize, maxSize, nodegroup, (int)wait, comment ? comment : "");
+	***/
+	gen.gen("create tablespace \"%s\" filename '%s' comment '%s'", tableSpaceName, filename, comment ? comment : "");
 	return (gen.getString());
 }
 
@@ -946,6 +948,15 @@ void StorageHandler::getTableSpaceInfo(InfoTable* infoTable)
 		storageDatabase->getTableSpaceInfo(infoTable);
 }
 
+void StorageHandler::getTableSpaceFilesInfo(InfoTable* infoTable)
+{
+	Sync sync(&hashSyncObject, "StorageHandler::getTableSpaceFilesInfo");
+	sync.lock(Shared);
+	
+	for (StorageDatabase *storageDatabase = databaseList; storageDatabase; storageDatabase = storageDatabase->next)
+		storageDatabase->getTableSpaceFilesInfo(infoTable);
+}
+
 void StorageHandler::initialize(void)
 {
 	if (initialized)
@@ -1124,7 +1135,6 @@ void StorageHandler::setRecordChillThreshold(uint value)
 	if (dictionaryConnection)
 		dictionaryConnection->setRecordChillThreshold(value);
 }
-
 
 void StorageHandler::cleanFileName(const char* pathname, char* filename, int filenameLength)
 {

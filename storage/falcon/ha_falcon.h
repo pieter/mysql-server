@@ -189,51 +189,55 @@ public:
 	StorageConnection	*storageConnection;
 	StorageTable		*storageTable;
 
-	static int callSystemMemoryDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getSystemMemoryDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initSystemMemoryDetailInfo(void *p);
 	static int deinitSystemMemoryDetailInfo(void *p);
 	
-	static int callSystemMemorySummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getSystemMemorySummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initSystemMemorySummaryInfo(void *p);
 	static int deinitSystemMemorySummaryInfo(void *p);
 
-	static int callRecordCacheDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getRecordCacheDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initRecordCacheDetailInfo(void *p);
 	static int deinitRecordCacheDetailInfo(void *p);
 
-	static int callRecordCacheSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getRecordCacheSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initRecordCacheSummaryInfo(void *p);
 	static int deinitRecordCacheSummaryInfo(void *p);
 
-	static int callTableSpaceIOInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getTableSpaceIOInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initTableSpaceIOInfo(void *p);
 	static int deinitTableSpaceIOInfo(void *p);
 
-	static int callTransactionInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getTransactionInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initTransactionInfo(void *p);
 	static int deinitTransactionInfo(void *p);
 
-	static int callTransactionSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getTransactionSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initTransactionSummaryInfo(void *p);
 	static int deinitTransactionSummaryInfo(void *p);
 
-	static int callSerialLogInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getSerialLogInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initSerialLogInfo(void *p);
 	static int deinitSerialLogInfo(void *p);
 
-	static int callFalconVersionInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getFalconVersionInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initFalconVersionInfo(void *p);
 	static int deinitFalconVersionInfo(void *p);
 
-	static int callSyncInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getSyncInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initSyncInfo(void *p);
 	static int deinitSyncInfo(void *p);
 
-	static int callTableSpaceInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getTableSpaceInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initTableSpaceInfo(void *p);
 	static int deinitTableSpaceInfo(void *p);
 
-	static int callTablesInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int getTableSpaceFilesInfo(THD *thd, TABLE_LIST *tables, COND *cond);
+	static int initTableSpaceFilesInfo(void *p);
+	static int deinitTableSpaceFilesInfo(void *p);
+	
+	static int getTablesInfo(THD *thd, TABLE_LIST *tables, COND *cond);
 	static int initTablesInfo(void *p);
 	static int deinitTablesInfo(void *p);
 };

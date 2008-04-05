@@ -1185,3 +1185,8 @@ void StorageDatabase::getTableSpaceInfo(InfoTable* infoTable)
 		masterConnection->database->getTableSpaceInfo(infoTable);
 }
 
+void StorageDatabase::getTableSpaceFilesInfo(InfoTable* infoTable)
+{
+	if (masterConnection && masterConnection->database)
+		masterConnection->database->getTableSpaceFilesInfo(infoTable);
+}

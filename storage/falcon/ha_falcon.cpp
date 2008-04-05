@@ -2609,10 +2609,10 @@ NfsPluginHandler::~NfsPluginHandler()
 
 //*****************************************************************************
 //
-// System Memory Usage
+// FALCON_SYSTEM_MEMORY_DETAIL
 //
 //*****************************************************************************
-int NfsPluginHandler::callSystemMemoryDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getSystemMemoryDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -2621,7 +2621,6 @@ int NfsPluginHandler::callSystemMemoryDetailInfo(THD *thd, TABLE_LIST *tables, C
 
 	return infoTable.error;
 }
-
 
 ST_FIELD_INFO memoryDetailFieldInfo[]=
 {
@@ -2639,7 +2638,7 @@ int NfsPluginHandler::initSystemMemoryDetailInfo(void *p)
 	DBUG_ENTER("initSystemMemoryDetailInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE*) p;
 	schema->fields_info = memoryDetailFieldInfo;
-	schema->fill_table = NfsPluginHandler::callSystemMemoryDetailInfo;
+	schema->fill_table = NfsPluginHandler::getSystemMemoryDetailInfo;
 	DBUG_RETURN(0);
 }
 
@@ -2651,11 +2650,11 @@ int NfsPluginHandler::deinitSystemMemoryDetailInfo(void *p)
 
 //*****************************************************************************
 //
-// System memory usage summary
+// FALCON_SYSTEM_MEMORY_SUMMARY
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callSystemMemorySummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getSystemMemorySummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	//return(pluginHandler->fillSystemMemorySummaryTable(thd, tables, cond));
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
@@ -2682,7 +2681,7 @@ int NfsPluginHandler::initSystemMemorySummaryInfo(void *p)
 	DBUG_ENTER("initSystemMemorySummaryInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = memorySummaryFieldInfo;
-	schema->fill_table = NfsPluginHandler::callSystemMemorySummaryInfo;
+	schema->fill_table = NfsPluginHandler::getSystemMemorySummaryInfo;
 
 	DBUG_RETURN(0);
 }
@@ -2695,11 +2694,11 @@ int NfsPluginHandler::deinitSystemMemorySummaryInfo(void *p)
 
 //*****************************************************************************
 //
-// Record cache usage detail
+// FALCON_RECORD_CACHE_DETAIL
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callRecordCacheDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getRecordCacheDetailInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -2725,7 +2724,7 @@ int NfsPluginHandler::initRecordCacheDetailInfo(void *p)
 	DBUG_ENTER("initRecordCacheDetailInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = recordDetailFieldInfo;
-	schema->fill_table = NfsPluginHandler::callRecordCacheDetailInfo;
+	schema->fill_table = NfsPluginHandler::getRecordCacheDetailInfo;
 
 	DBUG_RETURN(0);
 }
@@ -2738,11 +2737,11 @@ int NfsPluginHandler::deinitRecordCacheDetailInfo(void *p)
 
 //*****************************************************************************
 //
-// Record cache usage summary
+// FALCON_RECORD_CACHE_SUMMARY
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callRecordCacheSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getRecordCacheSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -2768,7 +2767,7 @@ int NfsPluginHandler::initRecordCacheSummaryInfo(void *p)
 	DBUG_ENTER("initRecordCacheSummaryInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = recordSummaryFieldInfo;
-	schema->fill_table = NfsPluginHandler::callRecordCacheSummaryInfo;
+	schema->fill_table = NfsPluginHandler::getRecordCacheSummaryInfo;
 
 	DBUG_RETURN(0);
 }
@@ -2781,11 +2780,11 @@ int NfsPluginHandler::deinitRecordCacheSummaryInfo(void *p)
 
 //*****************************************************************************
 //
-// Database IO
+// FALCON_TABLESPACE_IO
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callTableSpaceIOInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getTableSpaceIOInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -2812,7 +2811,7 @@ int NfsPluginHandler::initTableSpaceIOInfo(void *p)
 	DBUG_ENTER("initTableSpaceIOInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = tableSpaceIOFieldInfo;
-	schema->fill_table = NfsPluginHandler::callTableSpaceIOInfo;
+	schema->fill_table = NfsPluginHandler::getTableSpaceIOInfo;
 
 	DBUG_RETURN(0);
 }
@@ -2825,11 +2824,11 @@ int NfsPluginHandler::deinitTableSpaceIOInfo(void *p)
 
 //*****************************************************************************
 //
-// Tablespace Information
+// FALCON_TABLESPACES
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callTableSpaceInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getTableSpaceInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTableSpace(thd, tables, system_charset_info);
 
@@ -2841,19 +2840,9 @@ int NfsPluginHandler::callTableSpaceInfo(THD *thd, TABLE_LIST *tables, COND *con
 
 ST_FIELD_INFO tableSpaceFieldInfo[]=
 {
-	{"TABLESPACE",		127, MYSQL_TYPE_STRING,		0, 0, "TableSpace", SKIP_OPEN_TABLE},
-	{"ID",				127, MYSQL_TYPE_LONG,		0, 0, "TableSpace Id", SKIP_OPEN_TABLE},
-	{"DATAFILE",		127, MYSQL_TYPE_STRING,		0, 0, "Datafile", SKIP_OPEN_TABLE},
-	{"INITIAL_SIZE",	127, MYSQL_TYPE_LONGLONG,	0, 0, "Initial Size", SKIP_OPEN_TABLE},
-//	{"EXTENT",			127, MYSQL_TYPE_LONGLONG,	0, 0, "Extent", SKIP_OPEN_TABLE},
-	{"AUTOEXTEND",		127, MYSQL_TYPE_LONGLONG,	0, 0, "Autoextend", SKIP_OPEN_TABLE},
-	{"MAX_SIZE",		127, MYSQL_TYPE_LONGLONG,	0, 0, "Max Size", SKIP_OPEN_TABLE},
-//	{"NODEGROUP",		127, MYSQL_TYPE_LONG,		0, 0, "Nodegroup", SKIP_OPEN_TABLE},
-	{"WAIT",			127, MYSQL_TYPE_LONG,		0, 0, "Wait", SKIP_OPEN_TABLE},
+	{"TABLESPACE_NAME",	127, MYSQL_TYPE_STRING,		0, 0, "TableSpace Name", SKIP_OPEN_TABLE},
+	{"TYPE",			127, MYSQL_TYPE_STRING,		0, 0, "Type", SKIP_OPEN_TABLE},
 	{"COMMENT",			127, MYSQL_TYPE_STRING,		0, 0, "Comment", SKIP_OPEN_TABLE},
-	{"TYPE",			127, MYSQL_TYPE_LONG,		0, 0, "Type", SKIP_OPEN_TABLE},
-	{"ACTIVE",			127, MYSQL_TYPE_LONG,		0, 0, "Active", SKIP_OPEN_TABLE},
-	{"SAVE",			127, MYSQL_TYPE_LONG,		0, 0, "Save", SKIP_OPEN_TABLE},
 	{0,					0, MYSQL_TYPE_STRING,		0, 0, 0, SKIP_OPEN_TABLE}
 };
 
@@ -2862,7 +2851,7 @@ int NfsPluginHandler::initTableSpaceInfo(void *p)
 	DBUG_ENTER("initTableSpaceInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = tableSpaceFieldInfo;
-	schema->fill_table = NfsPluginHandler::callTableSpaceInfo;
+	schema->fill_table = NfsPluginHandler::getTableSpaceInfo;
 
 	DBUG_RETURN(0);
 }
@@ -2875,11 +2864,52 @@ int NfsPluginHandler::deinitTableSpaceInfo(void *p)
 
 //*****************************************************************************
 //
-// Table Information
+// FALCON_TABLESPACE_FILES
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callTablesInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getTableSpaceFilesInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+{
+	InfoTableImpl infoTableSpace(thd, tables, system_charset_info);
+
+	if (storageHandler)
+		storageHandler->getTableSpaceFilesInfo(&infoTableSpace);
+
+	return infoTableSpace.error;
+}
+
+ST_FIELD_INFO tableSpaceFilesFieldInfo[]=
+{
+	{"TABLESPACE_NAME",	127, MYSQL_TYPE_STRING,		0, 0, "TableSpace Name", SKIP_OPEN_TABLE},
+	{"TYPE",			127, MYSQL_TYPE_STRING,		0, 0, "Type", SKIP_OPEN_TABLE},
+	{"FILE_ID",			127, MYSQL_TYPE_LONG,		0, 0, "File ID", SKIP_OPEN_TABLE},
+	{"FILE_NAME",		127, MYSQL_TYPE_STRING,		0, 0, "File Name", SKIP_OPEN_TABLE},
+	{0,					0, MYSQL_TYPE_STRING,		0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+int NfsPluginHandler::initTableSpaceFilesInfo(void *p)
+{
+	DBUG_ENTER("initTableSpaceFilesInfo");
+	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
+	schema->fields_info = tableSpaceFilesFieldInfo;
+	schema->fill_table = NfsPluginHandler::getTableSpaceFilesInfo;
+
+	DBUG_RETURN(0);
+}
+
+int NfsPluginHandler::deinitTableSpaceFilesInfo(void *p)
+{
+	DBUG_ENTER("deinitTableSpaceFilesInfo");
+	DBUG_RETURN(0);
+}
+
+//*****************************************************************************
+//
+// FALCON_TABLES
+//
+//*****************************************************************************
+
+int NfsPluginHandler::getTablesInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -2904,7 +2934,7 @@ int NfsPluginHandler::initTablesInfo(void *p)
 	DBUG_ENTER("initTablesInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = tablesFieldInfo;
-	schema->fill_table = NfsPluginHandler::callTablesInfo;
+	schema->fill_table = NfsPluginHandler::getTablesInfo;
 
 	DBUG_RETURN(0);
 }
@@ -2915,14 +2945,13 @@ int NfsPluginHandler::deinitTablesInfo(void *p)
 	DBUG_RETURN(0);
 }
 
-
 //*****************************************************************************
 //
-// Transaction Information
+// FALCON_TRANSACTIONS
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callTransactionInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getTransactionInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -2952,7 +2981,7 @@ int NfsPluginHandler::initTransactionInfo(void *p)
 	DBUG_ENTER("initTransactionInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = transactionInfoFieldInfo;
-	schema->fill_table = NfsPluginHandler::callTransactionInfo;
+	schema->fill_table = NfsPluginHandler::getTransactionInfo;
 
 	DBUG_RETURN(0);
 }
@@ -2965,11 +2994,11 @@ int NfsPluginHandler::deinitTransactionInfo(void *p)
 
 //*****************************************************************************
 //
-// Transaction Summary Information
+// FALCON_TRANSACTION_SUMMARY
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callTransactionSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getTransactionSummaryInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -2995,7 +3024,7 @@ int NfsPluginHandler::initTransactionSummaryInfo(void *p)
 	DBUG_ENTER("initTransactionSummaryInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = transactionInfoFieldSummaryInfo;
-	schema->fill_table = NfsPluginHandler::callTransactionSummaryInfo;
+	schema->fill_table = NfsPluginHandler::getTransactionSummaryInfo;
 
 	DBUG_RETURN(0);
 }
@@ -3006,14 +3035,13 @@ int NfsPluginHandler::deinitTransactionSummaryInfo(void *p)
 	DBUG_RETURN(0);
 }
 
-
 //*****************************************************************************
 //
-// SerialLog Information
+// FALCON_SERIAL_LOG_INFO
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callSerialLogInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getSerialLogInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -3038,7 +3066,7 @@ int NfsPluginHandler::initSerialLogInfo(void *p)
 	DBUG_ENTER("initSerialLogInfoInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = serialSerialLogFieldInfo;
-	schema->fill_table = NfsPluginHandler::callSerialLogInfo;
+	schema->fill_table = NfsPluginHandler::getSerialLogInfo;
 
 	DBUG_RETURN(0);
 }
@@ -3051,11 +3079,11 @@ int NfsPluginHandler::deinitSerialLogInfo(void *p)
 
 //*****************************************************************************
 //
-// Falcon Version Information
+// FALCON_VERSION
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callFalconVersionInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getFalconVersionInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -3077,7 +3105,7 @@ int NfsPluginHandler::initFalconVersionInfo(void *p)
 	DBUG_ENTER("initFalconVersionInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = falconVersionFieldInfo;
-	schema->fill_table = NfsPluginHandler::callFalconVersionInfo;
+	schema->fill_table = NfsPluginHandler::getFalconVersionInfo;
 
 	DBUG_RETURN(0);
 }
@@ -3088,14 +3116,13 @@ int NfsPluginHandler::deinitFalconVersionInfo(void *p)
 	DBUG_RETURN(0);
 }
 
-
 //*****************************************************************************
 //
-// Sync Information
+// FALCON_SYNCOBJECTS
 //
 //*****************************************************************************
 
-int NfsPluginHandler::callSyncInfo(THD *thd, TABLE_LIST *tables, COND *cond)
+int NfsPluginHandler::getSyncInfo(THD *thd, TABLE_LIST *tables, COND *cond)
 {
 	InfoTableImpl infoTable(thd, tables, system_charset_info);
 
@@ -3120,7 +3147,7 @@ int NfsPluginHandler::initSyncInfo(void *p)
 	DBUG_ENTER("initSyncInfo");
 	ST_SCHEMA_TABLE *schema = (ST_SCHEMA_TABLE *)p;
 	schema->fields_info = syncInfoFieldInfo;
-	schema->fill_table = NfsPluginHandler::callSyncInfo;
+	schema->fill_table = NfsPluginHandler::getSyncInfo;
 
 	DBUG_RETURN(0);
 }
@@ -3290,11 +3317,12 @@ static st_mysql_information_schema falcon_system_memory_summary =	{ MYSQL_INFORM
 static st_mysql_information_schema falcon_record_cache_detail	=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_record_cache_summary	=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_tablespace_io			=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
-static st_mysql_information_schema falcon_transaction_info		=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
-static st_mysql_information_schema falcon_transaction_summary_info=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
-static st_mysql_information_schema falcon_sync_info				=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
+static st_mysql_information_schema falcon_transactions			=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
+static st_mysql_information_schema falcon_transaction_summary	=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
+static st_mysql_information_schema falcon_syncobjects			=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_serial_log_info		=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
-static st_mysql_information_schema falcon_tablespace_info		=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
+static st_mysql_information_schema falcon_tablespaces			=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
+static st_mysql_information_schema falcon_tablespace_files		=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_tables				=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 static st_mysql_information_schema falcon_version				=	{ MYSQL_INFORMATION_SCHEMA_INTERFACE_VERSION};
 
@@ -3376,7 +3404,7 @@ mysql_declare_plugin(falcon)
 
 	{
 	MYSQL_INFORMATION_SCHEMA_PLUGIN,
-	&falcon_transaction_info,
+	&falcon_transactions,
 	"FALCON_TRANSACTIONS",
 	"MySQL AB",
 	"Falcon Transactions.",
@@ -3391,7 +3419,7 @@ mysql_declare_plugin(falcon)
 
 	{
 	MYSQL_INFORMATION_SCHEMA_PLUGIN,
-	&falcon_transaction_summary_info,
+	&falcon_transaction_summary,
 	"FALCON_TRANSACTION_SUMMARY",
 	"MySQL AB",
 	"Falcon Transaction Summary.",
@@ -3406,7 +3434,7 @@ mysql_declare_plugin(falcon)
 
 	{
 	MYSQL_INFORMATION_SCHEMA_PLUGIN,
-	&falcon_sync_info,
+	&falcon_syncobjects,
 	"FALCON_SYNCOBJECTS",
 	"MySQL AB",
 	"Falcon SyncObjects.",
@@ -3466,7 +3494,7 @@ mysql_declare_plugin(falcon)
 
 	{
 	MYSQL_INFORMATION_SCHEMA_PLUGIN,
-	&falcon_tablespace_info,
+	&falcon_tablespaces,
 	"FALCON_TABLESPACES",
 	"MySQL AB",
 	"Falcon TableSpaces.",
@@ -3479,6 +3507,21 @@ mysql_declare_plugin(falcon)
 	NULL										/* config options   */
 	},
 
+	{
+	MYSQL_INFORMATION_SCHEMA_PLUGIN,
+	&falcon_tablespace_files,
+	"FALCON_TABLESPACE_FILES",
+	"MySQL AB",
+	"Falcon TableSpace Files.",
+	PLUGIN_LICENSE_GPL,
+	NfsPluginHandler::initTableSpaceFilesInfo,	/* plugin init */
+	NfsPluginHandler::deinitTableSpaceFilesInfo,/* plugin deinit */
+	0x0005,
+	NULL,										/* status variables */
+	NULL,										/* system variables */
+	NULL										/* config options   */
+	},
+	
 	{
 	MYSQL_INFORMATION_SCHEMA_PLUGIN,
 	&falcon_tables,

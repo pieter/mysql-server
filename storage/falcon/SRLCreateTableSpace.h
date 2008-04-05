@@ -48,12 +48,14 @@ public:
 	int			nameLength;
 	int			filenameLength;
 	int			type;
-	int64		allocation;
-	int64		extent;
-	int64		autoExtend;
+	/***
+	int64		initialSize;
+	int64		extentSize;
+	int64		autoExtendSize;
 	int64		maxSize;
 	int			nodegroup;
 	int			wait;
+	***/
 	const char	*comment;
 	int			commentLength;
 };

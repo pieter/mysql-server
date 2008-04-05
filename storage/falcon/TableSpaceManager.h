@@ -52,8 +52,10 @@ public:
 	void			dropDatabase(void);
 	void			dropTableSpace(TableSpace* tableSpace);
 	void			reportStatistics(void);
+	JString			tableSpaceType(JString name);
 	void			getIOInfo(InfoTable* infoTable);
 	void			getTableSpaceInfo(InfoTable* infoTable);
+	void			getTableSpaceFilesInfo(InfoTable* infoTable);
 	void			validate(int optionMask);
 	void			sync();
 	void			expungeTableSpace(int tableSpaceId);

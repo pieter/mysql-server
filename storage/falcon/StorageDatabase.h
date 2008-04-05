@@ -110,6 +110,7 @@ public:
 	void getSerialLogInfo(InfoTable* infoTable);
 	void getTransactionSummaryInfo(InfoTable* infoTable);
 	void getTableSpaceInfo(InfoTable* infoTable);
+	void getTableSpaceFilesInfo(InfoTable* infoTable);
 };
 
 #endif

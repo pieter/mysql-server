@@ -323,13 +323,15 @@ static const char *createTableSpaces =
 		"tablespace_id int not null,"
 		"filename varchar(512) not null,"
 		"type int,"
-		"allocation bigint,"
-		"extent bigint,"
-		"autoextend bigint,"
+		/***
+		"initial_size bigint,"
+		"extent_size bigint,"
+		"autoextend_size bigint,"
 		"max_size bigint,"
 		"nodegroup int,"
 		"wait int,"
-		"comment varchar(1024))";
+		***/
+		"comment text)";
 
 static const char *createTableSpaceSequence = 
 	"upgrade sequence tablespace_ids";
@@ -2337,6 +2339,11 @@ void Database::getTransactionSummaryInfo(InfoTable* infoTable)
 void Database::getTableSpaceInfo(InfoTable* infoTable)
 {
 	tableSpaceManager->getTableSpaceInfo(infoTable);
+}
+
+void Database::getTableSpaceFilesInfo(InfoTable* infoTable)
+{
+	tableSpaceManager->getTableSpaceFilesInfo(infoTable);
 }
 
 void Database::updateCardinalities(void)

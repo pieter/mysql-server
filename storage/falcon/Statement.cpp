@@ -2949,8 +2949,13 @@ void Statement::createTableSpace(Syntax *syntax)
 	if (syntax->type == nod_upgrade_tablespace && tableSpace && tableSpace->filename != fileName)
 		throw SQLError(DDL_ERROR, "can't change filename for tablespace");
 
-	Syntax *options = syntax->getChild(2);
+	// Gather remaining options, if any
+	
 	TableSpaceInit tsInit;
+	
+	if (syntax->count > 2)
+		{	
+	Syntax *options = syntax->getChild(2);
 	
 	for (int n = 0; n < options->count; ++n)
 		{
@@ -2958,14 +2963,15 @@ void Statement::createTableSpace(Syntax *syntax)
 
 		switch (child->type)
 			{
-			case nod_allocation:
-				tsInit.allocation = child->getChild(0)->getQuad();
+			/***
+			case nod_initial_size:
+				tsInit.initial_size = child->getChild(0)->getQuad();
 				break;
-			case nod_extent:
-				tsInit.extent = child->getChild(0)->getQuad();
+			case nod_extent_size:
+				tsInit.extent_size = child->getChild(0)->getQuad();
 				break;
-			case nod_autoextend:
-				tsInit.autoExtend = child->getChild(0)->getQuad();
+			case nod_autoextend_size:
+				tsInit.autoextend_size = child->getChild(0)->getQuad();
 				break;
 			case nod_max_size:
 				tsInit.maxSize = child->getChild(0)->getQuad();
@@ -2976,11 +2982,13 @@ void Statement::createTableSpace(Syntax *syntax)
 			case nod_wait:
 				tsInit.wait = child->getChild(0)->getNumber();
 				break;
+			***/
 			case nod_comment:
 				tsInit.comment = child->getChild(0)->getString();
 				break;
 			default:
 				break;
+				}
 			}
 		}
 		

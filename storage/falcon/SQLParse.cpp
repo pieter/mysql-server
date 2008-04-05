@@ -3298,19 +3298,22 @@ Syntax* SQLParse::parseCreateTableSpace(SyntaxType nodeType)
 
 	for (;;)
 		{
-	if (match("ALLOCATION"))
-			options.append (makeNode(nod_allocation, parseNumber()));
-		else if (match ("EXTENT"))
-			options.append (makeNode(nod_extent, parseNumber()));
-		else if (match ("AUTOEXTEND"))
-			options.append (makeNode(nod_autoextend, parseNumber()));
+		/***
+		if (match("INITIAL_SIZE"))
+			options.append (makeNode(nod_initial_size, parseNumber()));
+		else if (match ("EXTENT_SIZE"))
+			options.append (makeNode(nod_extent_size, parseNumber()));
+		else if (match ("AUTOEXTEND_SIZE"))
+			options.append (makeNode(nod_autoextend_size, parseNumber()));
 		else if (match ("MAX_SIZE"))
 			options.append (makeNode(nod_max_size, parseNumber()));
 		else if (match ("NODEGROUP"))
 			options.append (makeNode(nod_nodegroup, parseNumber()));
 		else if (match ("WAIT"))
 			options.append (makeNode(nod_wait, parseNumber()));
-		else if (match ("COMMENT"))
+		else
+		***/ 
+		if (match ("COMMENT"))
 			options.append (makeNode(nod_comment, parseQuotedString()));
 		else if (match (","))
 			;

@@ -50,13 +50,15 @@ TableSpace::TableSpace(Database *db, const char *spaceName, int spaceId, const c
 	
 	TableSpaceInit spaceInit;
 	TableSpaceInit *init = (tsInit ? tsInit : &spaceInit);
-	allocation	= init->allocation;
-	extent		= init->extent;
-	autoExtend	= init->autoExtend;
+	initialSize	= init->initialSize;
+	comment	= init->comment;
+	/***
+	extentSize	= init->extentSize;
+	autoExtendSize = init->autoExtendSize;
 	maxSize		= init->maxSize;
 	nodegroup	= init->nodegroup;
 	wait		= init->wait;
-	comment		= init->comment;
+	***/
 }
 
 TableSpace::~TableSpace()
@@ -130,7 +132,7 @@ void TableSpace::open()
 void TableSpace::create()
 {
 	dbb->createPath(filename);
-	dbb->create(filename, dbb->pageSize, 0, HdrTableSpace, 0, NULL, allocation);
+	dbb->create(filename, dbb->pageSize, 0, HdrTableSpace, 0, NULL, initialSize);
 	active = true;
 	dbb->flush();
 }
@@ -161,19 +163,20 @@ void TableSpace::sync(void)
 void TableSpace::save(void)
 {
 	PStatement statement = database->prepareStatement(
-		"replace into system.tablespaces (tablespace, tablespace_id, filename, type, allocation, extent,"
-											"autoextend, max_size, nodegroup, wait, comment) values (?,?,?,?,?,?,?,?,?,?,?)");
+		"replace into system.tablespaces (tablespace, tablespace_id, filename, type, comment) values (?,?,?,?,?)");
 	int n = 1;
 	statement->setString(n++, name);
 	statement->setInt(n++, tableSpaceId);
 	statement->setString(n++, filename);
 	statement->setInt(n++, type);
-	statement->setLong(n++, allocation);
-	statement->setLong(n++, extent);
-	statement->setLong(n++, autoExtend);
+	/***
+	statement->setLong(n++, initialSize);
+	statement->setLong(n++, extentSize);
+	statement->setLong(n++, autoExtendSize);
 	statement->setLong(n++, maxSize);
 	statement->setInt(n++, nodegroup);
 	statement->setInt(n++, wait);
+	***/
 	statement->setString(n++, comment);
 	statement->executeUpdate();
 	needSave = false;
@@ -192,25 +195,6 @@ void TableSpace::getIOInfo(InfoTable* infoTable)
 	infoTable->putRecord();
 }
 
-void TableSpace::getTableSpaceInfo(InfoTable* infoTable)
-{
-	int n = 0;
-	infoTable->putString(n++, name);
-	infoTable->putInt(n++, tableSpaceId);
-	infoTable->putString(n++, filename);
-	infoTable->putInt64(n++, allocation);
-//	infoTable->putInt64(n++, extent);		// cluster only
-	infoTable->putInt64(n++, autoExtend);
-	infoTable->putInt64(n++, maxSize);
-//	infoTable->putInt(n++, nodegroup);		// cluster only
-	infoTable->putInt(n++, wait);
-	infoTable->putString(n++, comment);
-	infoTable->putInt(n++, type);
-	infoTable->putInt(n++, active);
-	infoTable->putInt(n++, needSave);
-	infoTable->putRecord();
-}
-		
 void TableSpace::close(void)
 {
 	dbb->close();

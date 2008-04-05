@@ -29,14 +29,17 @@ static const int TABLESPACE_TYPE_REPOSITORY		= 1;
 
 struct TableSpaceInit
 {
-	int64	allocation;
-	int64	extent;
-	int64	autoExtend;
+	int64	initialSize;
+	JString	comment;
+	TableSpaceInit(): initialSize(0), comment("") {}
+	/***
+	int64	extentSize;
+	int64	autoExtendSize;
 	int64	maxSize;
 	int		nodegroup;
 	int		wait;
-	JString	comment;
-	TableSpaceInit(): allocation(0), extent(0), autoExtend(0), maxSize(0), nodegroup(0), wait(0), comment("") {}
+	TableSpaceInit(): initialSize(0), extentSize(0), autoExtendSize(0), maxSize(0), nodegroup(0), wait(0), comment("") {}
+	***/
 };
 
 class Dbb;
@@ -58,7 +61,6 @@ public:
 	void	sync(void);
 	void	save(void);
 	void	getIOInfo(InfoTable* infoTable);
-	void	getTableSpaceInfo(InfoTable* infoTable);
 
 	JString		name;
 	JString		filename;
@@ -73,12 +75,14 @@ public:
 	bool		active;
 	bool		needSave;
 	
-	int64		allocation;
-	int64		extent;
-	int64		autoExtend;
+	int64		initialSize;
+	/***
+	int64		extentSize;
+	int64		autoExtendSize;
 	int64		maxSize;
 	int			nodegroup;
 	int			wait;
+	***/
 	JString		comment;
 };
 

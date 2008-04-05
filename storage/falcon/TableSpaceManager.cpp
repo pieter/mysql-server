@@ -217,6 +217,7 @@ void TableSpaceManager::bootstrap(int sectionId)
 		p = EncodedDataStream::decode(p, &id, true);
 		p = EncodedDataStream::decode(p, &fileName, true);
 		p = EncodedDataStream::decode(p, &type, true);
+		/***
 		p = EncodedDataStream::decode(p, &allocation, true);
 		p = EncodedDataStream::decode(p, &extent, true);
 		p = EncodedDataStream::decode(p, &autoExtend, true);
@@ -224,6 +225,7 @@ void TableSpaceManager::bootstrap(int sectionId)
 		p = EncodedDataStream::decode(p, &nodegroup, true);
 		p = EncodedDataStream::decode(p, &wait, true);
 		p = EncodedDataStream::decode(p, &comment, true);
+		***/
 		
 		TableSpaceInit tsInit;
 		tsInit.allocation	= allocation.getQuad();

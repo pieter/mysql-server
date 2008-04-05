@@ -1065,6 +1065,7 @@ int StorageInterface::write_row(uchar *buff)
 			case SQLCOM_LOAD:
 			case SQLCOM_ALTER_TABLE:
 			case SQLCOM_CREATE_TABLE:
+			case SQLCOM_CREATE_INDEX:
 				storageHandler->commit(mySqlThread);
 				storageConnection->startTransaction(getTransactionIsolation(mySqlThread));
 				storageConnection->markVerb();

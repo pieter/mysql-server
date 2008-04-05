@@ -1773,7 +1773,7 @@ void Database::retireRecords(bool forced)
 	TransId oldestActiveTransaction = transactionManager->findOldestActive();
 	int threshold = 0;
 	uint64 total = recordDataPool->activeMemory;
-	RecordScavenge recordScavenge(this, oldestActiveTransaction);
+	RecordScavenge recordScavenge(this, oldestActiveTransaction, forced);
 	
 	// If we passed the upper limit, scavenge.  If we didn't pick up
 	// a significant amount of memory since the last cycle, don't bother

@@ -25,7 +25,7 @@
 #define MIN(a,b)			((a < b) ? a : b)
 #endif
 
-#ifdef _WIN32
+#if (defined _MSC_VER && _MSC_VER < 1400)
 #define vsnprintf	_vsnprintf
 #endif
 

@@ -579,11 +579,18 @@ JOIN::prepare(Item ***rref_pointer_array,
 
         if (thd->stmt_arena->state != Query_arena::PREPARED)
         {
-          if (!in_subs->left_expr->fixed &&
-               in_subs->left_expr->fix_fields(thd, &in_subs->left_expr))
-          {
+          SELECT_LEX *current= thd->lex->current_select;
+          thd->lex->current_select= current->return_after_parsing();
+          char const *save_where= thd->where;
+          thd->where= "IN/ALL/ANY subquery";
+          
+          bool failure= !in_subs->left_expr->fixed &&
+                         in_subs->left_expr->fix_fields(thd, 
+                                                        &in_subs->left_expr);
+          thd->lex->current_select= current;
+          thd->where= save_where;
+          if (failure)
             DBUG_RETURN(-1);
-          }
           /*
             Check that the right part of the subselect contains no more than one
             column. E.g. in SELECT 1 IN (SELECT * ..) the right part is (SELECT * ...)
@@ -3623,31 +3630,53 @@ int pull_out_semijoin_tables(JOIN *join)
     } while (pulled_a_table);
  
     child_li.rewind();
-    if ((sj_nest)->nested_join->used_tables == pulled_tables)
+    /*
+      Action #3: Move the pulled out TABLE_LIST elements to the parents.
+    */
+    table_map inner_tables= sj_nest->nested_join->used_tables & 
+                            ~pulled_tables;
+    /* Record the bitmap of inner tables */
+    sj_nest->sj_inner_tables= inner_tables;
+    if (pulled_tables)
     {
-      (sj_nest)->sj_inner_tables= 0;
-      DBUG_PRINT("info", ("All semi-join nest tables were pulled out"));
-      while ((tbl= child_li++))
-      {
-        if (tbl->table)
-          tbl->table->reginfo.join_tab->emb_sj_nest= NULL;
-      }
-    }
-    else
-    {
-      /* Record the bitmap of inner tables, mark the inner tables */
-      table_map inner_tables=(sj_nest)->nested_join->used_tables & 
-                             ~pulled_tables;
-      (sj_nest)->sj_inner_tables= inner_tables;
+      List<TABLE_LIST> *upper_join_list= (sj_nest->embedding != NULL)?
+                                           (&sj_nest->embedding->nested_join->join_list): 
+                                           (&join->select_lex->top_join_list);
       while ((tbl= child_li++))
       {
         if (tbl->table)
         {
           if (inner_tables & tbl->table->map)
-            tbl->table->reginfo.join_tab->emb_sj_nest= (sj_nest);
+          {
+            // This table is not pulled out
+            tbl->table->reginfo.join_tab->emb_sj_nest= sj_nest;
+          }
           else
+          {
+            /* 
+              This table has been pulled out of the semi-join nest
+            */
             tbl->table->reginfo.join_tab->emb_sj_nest= NULL;
+            /*
+              Pull the table up in the same way as simplify_joins() does:
+              update join_list and embedding pointers but keep next[_local]
+              pointers.
+            */
+            child_li.remove();
+            upper_join_list->push_back(tbl);
+            tbl->join_list= upper_join_list;
+            tbl->embedding= sj_nest->embedding;
+          }
         }
+      }
+
+      /* Remove the sj-nest itself if we've removed everything from it*/
+      if (!inner_tables)
+      {
+        List_iterator<TABLE_LIST> li(*upper_join_list);
+        /* Find the sj_nest in the list. */
+        while (sj_nest != li++);
+        li.remove();
       }
     }
   }
@@ -4071,9 +4100,16 @@ make_join_statistics(JOIN *join, TABLE_LIST *tables, COND *conds,
       all select distinct fields participate in one index.
     */
     add_group_and_distinct_keys(join, s);
-
-    if (!s->const_keys.is_clear_all() &&
-        !s->table->pos_in_table_list->embedding)
+    
+    /*
+      Perform range analysis if there are keys it could use (1). 
+      Don't do range analysis if we're on the inner side of an outer join (2).
+      Do range analysis if we're on the inner side of a semi-join (3).
+    */
+    if (!s->const_keys.is_clear_all() &&                        // (1)
+        (!s->table->pos_in_table_list->embedding ||             // (2)
+         (s->table->pos_in_table_list->embedding &&             // (3)
+          s->table->pos_in_table_list->embedding->sj_on_expr))) // (3)
     {
       ha_rows records;
       SQL_SELECT *select;

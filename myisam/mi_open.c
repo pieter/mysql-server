@@ -130,7 +130,7 @@ MI_INFO *mi_open(const char *name, int mode, uint open_flags)
 	       (byte*) myisam_file_magic, 4))
     {
       DBUG_PRINT("error",("Wrong header in %s",name_buff));
-      DBUG_DUMP("error_dump",(char*) share->state.header.file_version,
+      DBUG_DUMP("error_dump",(uchar*) share->state.header.file_version,
 		head_length);
       my_errno=HA_ERR_NOT_A_TABLE;
       goto err;
@@ -196,7 +196,7 @@ MI_INFO *mi_open(const char *name, int mode, uint open_flags)
     if (len != MI_BASE_INFO_SIZE)
     {
       DBUG_PRINT("warning",("saved_base_info_length: %d  base_info_length: %d",
-			    len,MI_BASE_INFO_SIZE))
+			    len,MI_BASE_INFO_SIZE));
     }
     disk_pos= (char*) 
       my_n_base_info_read((uchar*) disk_cache + base_pos, &share->base);

@@ -341,6 +341,14 @@ drop function if exists f1;
 drop procedure if exists p_verify_status_increment;
 --enable_warnings
 
+# Save binlog_format in a user variable. References to system
+# variables are "unsafe", meaning they are written as rows instead of
+# as statements to the binlog, if the loggging mode is 'mixed'.  But
+# we don't want p_verify_status_increment to affect the logging mode.
+# Hence, we save binlog_format in a user variable (which is not
+# unsafe) and use that inside p_verify_status_increment.
+set @binlog_format=@@global.binlog_format;
+
 set sql_mode=no_engine_substitution;
 create table t1 (a int unique); 
 create table t2 (a int) engine=myisam;
@@ -367,7 +375,7 @@ begin
      where variable_name='Handler_commit' or variable_name='Handler_prepare'
      order by variable_name;
 
-  if @@global.binlog_format = 'ROW' then
+  if @binlog_format = 'ROW' then
     set commit_inc= commit_inc_row;
     set prepare_inc= prepare_inc_row;
   else
@@ -534,17 +542,25 @@ call p_verify_status_increment(0, 0, 0, 0);
 
 --echo # 16. A function changes non-trans-table.
 --echo #
+--echo # For row-based logging, there is an extra commit for the
+--echo # non-transactional changes saved in the transaction cache to
+--echo # the binary log. 
+--echo #
 select f1();
-call p_verify_status_increment(0, 0, 0, 0);
+call p_verify_status_increment(0, 0, 1, 0);
 commit;
-call p_verify_status_increment(0, 0, 0, 0);
+call p_verify_status_increment(0, 0, 1, 0);
 
 --echo # 17. Read-only statement, a function changes non-trans-table.
 --echo #
+--echo # For row-based logging, there is an extra commit for the
+--echo # non-transactional changes saved in the transaction cache to
+--echo # the binary log. 
+--echo #
 select f1() from t1;
-call p_verify_status_increment(1, 0, 1, 0);
+call p_verify_status_increment(1, 0, 2, 0);
 commit;
-call p_verify_status_increment(1, 0, 1, 0);
+call p_verify_status_increment(1, 0, 2, 0);
 
 --echo # 18. Read-write statement: UPDATE, change 0 (transactional) rows. 
 --echo #

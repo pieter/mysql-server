@@ -565,6 +565,7 @@ bool setup_select_in_parentheses(LEX *lex)
   enum enum_tx_isolation tx_isolation;
   enum Cast_target cast_type;
   enum Item_udftype udf_type;
+  enum ha_choice choice;
   CHARSET_INFO *charset;
   thr_lock_type lock_type;
   struct st_table_lock_info table_lock_info;
@@ -590,10 +591,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %pure_parser                                    /* We have threads */
 /*
-  Currently there are 174 shift/reduce conflicts.
+  Currently there are 173 shift/reduce conflicts.
   We should not introduce new conflicts any more.
 */
-%expect 174
+%expect 173
 
 /*
    Comments for TOKENS.
@@ -968,6 +969,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  OWNER_SYM
 %token  PACK_KEYS_SYM
 %token  PAGE_SYM
+%token  PAGE_CHECKSUM_SYM
 %token  PARAM_MARKER
 %token  PARSER_SYM
 %token  PARTIAL                       /* SQL-2003-N */
@@ -1109,6 +1111,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  TABLESPACE
 %token  TABLE_REF_PRIORITY
 %token  TABLE_SYM                     /* SQL-2003-R */
+%token  TABLE_CHECKSUM_SYM
 %token  TEMPORARY                     /* SQL-2003-N */
 %token  TEMPTABLE_SYM
 %token  TERMINATED
@@ -1177,6 +1180,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  WHERE                         /* SQL-2003-R */
 %token  WHILE_SYM
 %token  WITH                          /* SQL-2003-R */
+%token  WITH_CUBE_SYM                 /* INTERNAL */
+%token  WITH_ROLLUP_SYM               /* INTERNAL */
 %token  WORK_SYM                      /* SQL-2003-N */
 %token  WRAPPER_SYM
 %token  WRITE_SYM                     /* SQL-2003-N */
@@ -1255,6 +1260,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %type <ulonglong_number>
         ulonglong_num real_ulonglong_num size_number
+
+%type <choice> choice
 
 %type <p_elem_value>
         part_bit_expr
@@ -4492,6 +4499,16 @@ create_table_option:
             Lex->create_info.table_options|= $3 ? HA_OPTION_CHECKSUM : HA_OPTION_NO_CHECKSUM;
             Lex->create_info.used_fields|= HA_CREATE_USED_CHECKSUM;
           }
+        | TABLE_CHECKSUM_SYM opt_equal ulong_num
+          {
+             Lex->create_info.table_options|= $3 ? HA_OPTION_CHECKSUM : HA_OPTION_NO_CHECKSUM;
+             Lex->create_info.used_fields|= HA_CREATE_USED_CHECKSUM;
+          }
+        | PAGE_CHECKSUM_SYM opt_equal choice
+          {
+            Lex->create_info.used_fields|= HA_CREATE_USED_PAGE_CHECKSUM;
+            Lex->create_info.page_checksum= $3;
+          }
         | DELAY_KEY_WRITE_SYM opt_equal ulong_num
           {
             Lex->create_info.table_options|= $3 ? HA_OPTION_DELAY_KEY_WRITE : HA_OPTION_NO_DELAY_KEY_WRITE;
@@ -4503,7 +4520,7 @@ create_table_option:
             Lex->create_info.used_fields|= HA_CREATE_USED_ROW_FORMAT;
             Lex->alter_info.flags|= ALTER_ROW_FORMAT;
           }
-        | UNION_SYM opt_equal '(' table_list ')'
+        | UNION_SYM opt_equal '(' opt_table_list ')'
           {
             /* Move the union list to the merge_list */
             LEX *lex=Lex;
@@ -4563,11 +4580,10 @@ create_table_option:
             Lex->create_info.used_fields|= HA_CREATE_USED_KEY_BLOCK_SIZE;
             Lex->create_info.key_block_size= $3;
           }
-        | TRANSACTIONAL_SYM opt_equal ulong_num
+        | TRANSACTIONAL_SYM opt_equal choice
           {
-            Lex->create_info.used_fields|= HA_CREATE_USED_TRANSACTIONAL;
-            Lex->create_info.transactional= ($3 != 0 ? HA_CHOICE_YES :
-                                             HA_CHOICE_NO);
+	    Lex->create_info.used_fields|= HA_CREATE_USED_TRANSACTIONAL;
+            Lex->create_info.transactional= $3;
           }
         ;
 
@@ -7755,6 +7771,7 @@ variable_aux:
           }
         | '@' opt_var_ident_type ident_or_text opt_component
           {
+            /* disallow "SELECT @@global.global.variable" */
             if ($3.str && $4.str && check_reserved_words(&$3))
             {
               my_parse_error(ER(ER_SYNTAX_ERROR));
@@ -7762,6 +7779,8 @@ variable_aux:
             }
             if (!($$= get_system_var(YYTHD, $2, $3, $4)))
               MYSQL_YYABORT;
+            if (!((Item_func_get_system_var*) $$)->is_written_to_binlog())
+              Lex->set_stmt_unsafe();
           }
         ;
 
@@ -8536,8 +8555,15 @@ group_list:
 
 olap_opt:
           /* empty */ {}
-        | WITH CUBE_SYM
+        | WITH_CUBE_SYM
           {
+            /*
+              'WITH CUBE' is reserved in the MySQL syntax, but not implemented,
+              and cause LALR(2) conflicts.
+              This syntax is not standard.
+              MySQL syntax: GROUP BY col1, col2, col3 WITH CUBE
+              SQL-2003: GROUP BY ... CUBE(col1, col2, col3)
+            */
             LEX *lex=Lex;
             if (lex->current_select->linkage == GLOBAL_OPTIONS_TYPE)
             {
@@ -8547,10 +8573,17 @@ olap_opt:
             }
             lex->current_select->olap= CUBE_TYPE;
             my_error(ER_NOT_SUPPORTED_YET, MYF(0), "CUBE");
-            MYSQL_YYABORT; /* To be deleted in 5.1 */
+            MYSQL_YYABORT;
           }
-        | WITH ROLLUP_SYM
+        | WITH_ROLLUP_SYM
           {
+            /*
+              'WITH ROLLUP' is needed for backward compatibility,
+              and cause LALR(2) conflicts.
+              This syntax is not standard.
+              MySQL syntax: GROUP BY col1, col2, col3 WITH ROLLUP
+              SQL-2003: GROUP BY ... ROLLUP(col1, col2, col3)
+            */
             LEX *lex= Lex;
             if (lex->current_select->linkage == GLOBAL_OPTIONS_TYPE)
             {
@@ -8751,6 +8784,11 @@ dec_num:
           DECIMAL_NUM
         | FLOAT_NUM
         ;
+
+choice:
+	ulong_num { $$= $1 != 0 ? HA_CHOICE_YES : HA_CHOICE_NO; }
+	| DEFAULT { $$= HA_CHOICE_UNDEF; }
+	;
 
 procedure_clause:
           /* empty */
@@ -11026,6 +11064,7 @@ keyword_sp:
         | ONLINE_SYM               {}
         | PACK_KEYS_SYM            {}
         | PAGE_SYM                 {}
+        | PAGE_CHECKSUM_SYM	   {}
         | PARTIAL                  {}
         | PARTITIONING_SYM         {}
         | PARTITIONS_SYM           {}
@@ -11096,6 +11135,7 @@ keyword_sp:
         | SWAPS_SYM                {}
         | SWITCHES_SYM             {}
         | TABLES                   {}
+        | TABLE_CHECKSUM_SYM       {}
         | TABLESPACE               {}
         | TEMPORARY                {}
         | TEMPTABLE_SYM            {}

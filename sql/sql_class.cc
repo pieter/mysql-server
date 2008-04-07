@@ -28,8 +28,10 @@
 #include "mysql_priv.h"
 #include "rpl_rli.h"
 #include "rpl_record.h"
+#include "slave.h"
 #include <my_bitmap.h>
 #include "log_event.h"
+#include "sql_audit.h"
 #include <m_ctype.h>
 #include <sys/stat.h>
 #include <thr_alarm.h>
@@ -253,7 +255,8 @@ const char *set_thd_proc_info(THD *thd, const char *info,
                               const unsigned int calling_line)
 {
   const char *old_info= thd->proc_info;
-  DBUG_PRINT("proc_info", ("%s:%d  %s", calling_file, calling_line, info));
+  DBUG_PRINT("proc_info", ("%s:%d  %s", calling_file, calling_line, 
+                           (info != NULL) ? info : "(null)"));
 #if defined(ENABLED_PROFILING)
   thd->profiling.status_change(info, calling_function, calling_file, calling_line);
 #endif
@@ -395,8 +398,11 @@ Diagnostics_area::set_ok_status(THD *thd, ha_rows affected_rows_arg,
 {
   DBUG_ASSERT(! is_set());
 #ifdef DBUG_OFF
-  /* In production, refuse to overwrite an error with an OK packet. */
-  if (is_error())
+  /*
+    In production, refuse to overwrite an error or a custom response
+    with an OK packet.
+  */
+  if (is_error() || is_disabled())
     return;
 #endif
   /** Only allowed to report success if has not yet reported an error */
@@ -424,8 +430,11 @@ Diagnostics_area::set_eof_status(THD *thd)
 
   DBUG_ASSERT(! is_set());
 #ifdef DBUG_OFF
-  /* In production, refuse to overwrite an error with an EOF packet. */
-  if (is_error())
+  /*
+    In production, refuse to overwrite an error or a custom response
+    with an EOF packet.
+  */
+  if (is_error() || is_disabled())
     return;
 #endif
 
@@ -454,6 +463,14 @@ Diagnostics_area::set_error_status(THD *thd, uint sql_errno_arg,
     an error can happen during the flush.
   */
   DBUG_ASSERT(! is_set() || can_overwrite_status);
+#ifdef DBUG_OFF
+  /*
+    In production, refuse to overwrite a custom response with an
+    ERROR packet.
+  */
+  if (is_disabled())
+    return;
+#endif
 
   m_sql_errno= sql_errno_arg;
   strmake(m_message, message_arg, sizeof(m_message) - 1);
@@ -560,6 +577,7 @@ THD::THD()
   dbug_sentry=THD_SENTRY_MAGIC;
 #endif
 #ifndef EMBEDDED_LIBRARY
+  mysql_audit_init_thd(this);
   net.vio=0;
 #endif
   client_capabilities= 0;                       // minimalistic client
@@ -568,6 +586,7 @@ THD::THD()
   cleanup_done= abort_on_warning= no_warnings_for_error= 0;
   peer_port= 0;					// For SHOW PROCESSLIST
   transaction.m_pending_rows_event= 0;
+  transaction.on= 1;
 #ifdef SIGNAL_WITH_VIO_CLOSE
   active_vio = 0;
 #endif
@@ -885,6 +904,7 @@ THD::~THD()
     cleanup();
 
   ha_close_connection(this);
+  mysql_audit_release(this);
   plugin_thdvar_cleanup(this);
 
   DBUG_PRINT("info", ("freeing security context"));
@@ -905,6 +925,8 @@ THD::~THD()
     delete rli_fake;
     rli_fake= NULL;
   }
+  
+  mysql_audit_free_thd(this);
 #endif
 
   free_root(&main_mem_root, MYF(0));
@@ -2877,6 +2899,18 @@ extern "C" void thd_mark_transaction_to_rollback(MYSQL_THD thd, bool all)
 void THD::reset_sub_statement_state(Sub_statement_state *backup,
                                     uint new_state)
 {
+#ifndef EMBEDDED_LIBRARY
+  /* BUG#33029, if we are replicating from a buggy master, reset
+     auto_inc_intervals_forced to prevent substatement
+     (triggers/functions) from using erroneous INSERT_ID value
+   */
+  if (rpl_master_erroneous_autoinc(this))
+  {
+    backup->auto_inc_intervals_forced= auto_inc_intervals_forced;
+    auto_inc_intervals_forced.empty();
+  }
+#endif
+  
   backup->options=         options;
   backup->in_sub_stmt=     in_sub_stmt;
   backup->enable_slow_log= enable_slow_log;
@@ -2914,6 +2948,18 @@ void THD::reset_sub_statement_state(Sub_statement_state *backup,
 
 void THD::restore_sub_statement_state(Sub_statement_state *backup)
 {
+#ifndef EMBEDDED_LIBRARY
+  /* BUG#33029, if we are replicating from a buggy master, restore
+     auto_inc_intervals_forced so that the top statement can use the
+     INSERT_ID value set before this statement.
+   */
+  if (rpl_master_erroneous_autoinc(this))
+  {
+    auto_inc_intervals_forced= backup->auto_inc_intervals_forced;
+    backup->auto_inc_intervals_forced.empty();
+  }
+#endif
+
   /*
     To save resources we want to release savepoints which were created
     during execution of function or trigger before leaving their savepoint
@@ -3617,16 +3663,23 @@ bool Discrete_intervals_list::append(ulonglong start, ulonglong val,
   {
     /* it cannot, so need to add a new interval */
     Discrete_interval *new_interval= new Discrete_interval(start, val, incr);
-    if (unlikely(new_interval == NULL)) // out of memory
-      DBUG_RETURN(1);
-    DBUG_PRINT("info",("adding new auto_increment interval"));
-    if (head == NULL)
-      head= current= new_interval;
-    else
-      tail->next= new_interval;
-    tail= new_interval;
-    elements++;
+    DBUG_RETURN(append(new_interval));
   }
+  DBUG_RETURN(0);
+}
+
+bool Discrete_intervals_list::append(Discrete_interval *new_interval)
+{
+  DBUG_ENTER("Discrete_intervals_list::append");
+  if (unlikely(new_interval == NULL))
+    DBUG_RETURN(1);
+  DBUG_PRINT("info",("adding new auto_increment interval"));
+  if (head == NULL)
+    head= current= new_interval;
+  else
+    tail->next= new_interval;
+  tail= new_interval;
+  elements++;
   DBUG_RETURN(0);
 }
 

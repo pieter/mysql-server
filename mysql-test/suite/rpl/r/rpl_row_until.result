@@ -135,7 +135,7 @@ Exec_Master_Log_Pos	595
 Relay_Log_Space	#
 Until_Condition	Relay
 Until_Log_File	slave-relay-bin.000003
-Until_Log_Pos	728
+Until_Log_Pos	1014
 Master_SSL_Allowed	No
 Master_SSL_CA_File	
 Master_SSL_CA_Path	

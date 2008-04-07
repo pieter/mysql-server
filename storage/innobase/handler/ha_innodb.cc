@@ -6198,6 +6198,8 @@ ha_innobase::get_foreign_key_list(THD *thd, List<FOREIGN_KEY_INFO> *f_key_list)
 		    foreign->referenced_index->name,
 		    strlen(foreign->referenced_index->name), 1);
           }
+          else
+            f_key_info.referenced_key_name= 0;
 
 	  FOREIGN_KEY_INFO *pf_key_info = (FOREIGN_KEY_INFO *)
 		  thd_memdup(thd, &f_key_info, sizeof(FOREIGN_KEY_INFO));
@@ -7909,7 +7911,7 @@ bool ha_innobase::check_if_incompatible_data(
 	}
 
 	/* Check that row format didn't change */
-	if ((info->used_fields & HA_CREATE_USED_AUTO) &&
+	if ((info->used_fields & HA_CREATE_USED_ROW_FORMAT) &&
 		get_row_type() != info->row_type) {
 
 		return COMPATIBLE_DATA_NO;

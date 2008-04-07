@@ -279,6 +279,14 @@ sub mtr_report_stats ($) {
 		/Failed to open log/ or
 		/Failed to open the existing master info file/ or
 		/Forcing shutdown of [0-9]* plugins/ or
+                /Can't open shared library .*\bha_example\b/ or
+                /Couldn't load plugin .*\bha_example\b/ or
+
+		# Due to timing issues, it might be that this warning
+		# is printed when the server shuts down and the
+		# computer is loaded.
+		/Forcing close of thread \d+  user: '.*?'/ or
+
 		/Got error [0-9]* when reading table/ or
 		/Incorrect definition of table/ or
 		/Incorrect information in file/ or
@@ -328,9 +336,9 @@ sub mtr_report_stats ($) {
 		
 		/Sort aborted/ or
 		/Time-out in NDB/ or
-		/Warning:\s+One can only use the --user.*root/ or
-		/Warning:\s+Setting lower_case_table_names=2/ or
-		/Warning:\s+Table:.* on (delete|rename)/ or
+		/One can only use the --user.*root/ or
+		/Setting lower_case_table_names=2/ or
+		/Table:.* on (delete|rename)/ or
 		/You have an error in your SQL syntax/ or
 		/deprecated/ or
 		/description of time zone/ or
@@ -398,6 +406,11 @@ sub mtr_report_stats ($) {
 		  $testname eq 'binlog.binlog_killed') and
 		 (/Failed to write to mysql\.\w+_log/
 		 )) or
+
+		# rpl_bug33931 has deliberate failures
+		($testname eq 'rpl.rpl_bug33931' and
+		 (/Failed during slave.*thread initialization/
+		  )) or
 
 		# rpl_temporary has an error on slave that can be ignored
 		($testname eq 'rpl.rpl_temporary' and

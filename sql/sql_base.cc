@@ -743,6 +743,7 @@ void close_handle_and_leave_table_as_lock(TABLE *table)
   table->db_stat= 0;                            // Mark file closed
   release_table_share(table->s, RELEASE_NORMAL);
   table->s= share;
+  table->file->change_table_ptr(table, table->s);
 
   DBUG_VOID_RETURN;
 }
@@ -4866,7 +4867,7 @@ TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type lock_type,
     the third argument set appropriately.
 */
 
-bool open_and_lock_tables_derived(THD *thd, TABLE_LIST *tables, bool derived)
+int open_and_lock_tables_derived(THD *thd, TABLE_LIST *tables, bool derived)
 {
   uint counter;
   bool need_reopen;

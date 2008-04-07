@@ -3658,6 +3658,24 @@ DROP TABLE t1;
 # -- End of test case for Bug#34337.
 
 # -----------------------------------------------------------------
+# -- Bug#35193: VIEW query is rewritten without "FROM DUAL",
+# --            causing syntax error
+# -----------------------------------------------------------------
+
+CREATE VIEW v1 AS SELECT 1 FROM DUAL WHERE 1;
+
+SELECT * FROM v1;
+1
+1
+SHOW CREATE TABLE v1;
+View	Create View	character_set_client	collation_connection
+v1	CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v1` AS select 1 AS `1` from DUAL  where 1	latin1	latin1_swedish_ci
+
+DROP VIEW v1;
+
+# -- End of test case for Bug#35193.
+
+# -----------------------------------------------------------------
 # -- End of 5.0 tests.
 # -----------------------------------------------------------------
 DROP DATABASE IF EXISTS `d-1`;
@@ -3778,3 +3796,16 @@ drop procedure p;
 # -----------------------------------------------------------------
 # -- End of 5.1 tests.
 # -----------------------------------------------------------------
+drop table if exists t_9801;
+drop view if exists v_9801;
+create table t_9801 (s1 int);
+create view v_9801 as
+select sum(s1) from t_9801 with check option;
+ERROR HY000: CHECK OPTION on non-updatable view 'test.v_9801'
+create view v_9801 as
+select sum(s1) from t_9801 group by s1 with check option;
+ERROR HY000: CHECK OPTION on non-updatable view 'test.v_9801'
+create view v_9801 as
+select sum(s1) from t_9801 group by s1 with rollup with check option;
+ERROR HY000: CHECK OPTION on non-updatable view 'test.v_9801'
+drop table t_9801;

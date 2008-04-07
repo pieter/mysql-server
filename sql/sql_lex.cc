@@ -24,6 +24,8 @@
 #include "sp.h"
 #include "sp_head.h"
 
+static int lex_one_token(void *arg, void *yythd);
+
 /*
   We are using pointer to this variable for distinguishing between assignment
   to NEW row field (when parsing trigger definition) and structured variable.
@@ -117,6 +119,8 @@ Lex_input_stream::Lex_input_stream(THD *thd,
   yylineno(1),
   yytoklen(0),
   yylval(NULL),
+  lookahead_token(END_OF_INPUT),
+  lookahead_yylval(NULL),
   m_ptr(buffer),
   m_tok_start(NULL),
   m_tok_end(NULL),
@@ -710,6 +714,7 @@ static inline uint int_token(const char *str,uint length)
   return ((uchar) str[-1] <= (uchar) cmp[-1]) ? smaller : bigger;
 }
 
+
 /*
   MYSQLlex remember the following states from the following MYSQLlex()
 
@@ -719,6 +724,60 @@ static inline uint int_token(const char *str,uint length)
 */
 
 int MYSQLlex(void *arg, void *yythd)
+{
+  THD *thd= (THD *)yythd;
+  Lex_input_stream *lip= thd->m_lip;
+  YYSTYPE *yylval=(YYSTYPE*) arg;
+  int token;
+
+  if (lip->lookahead_token != END_OF_INPUT)
+  {
+    /*
+      The next token was already parsed in advance,
+      return it.
+    */
+    token= lip->lookahead_token;
+    lip->lookahead_token= END_OF_INPUT;
+    *yylval= *(lip->lookahead_yylval);
+    lip->lookahead_yylval= NULL;
+    return token;
+  }
+
+  token= lex_one_token(arg, yythd);
+
+  switch(token) {
+  case WITH:
+    /*
+      Parsing 'WITH' 'ROLLUP' or 'WITH' 'CUBE' requires 2 look ups,
+      which makes the grammar LALR(2).
+      Replace by a single 'WITH_ROLLUP' or 'WITH_CUBE' token,
+      to transform the grammar into a LALR(1) grammar,
+      which sql_yacc.yy can process.
+    */
+    token= lex_one_token(arg, yythd);
+    switch(token) {
+    case CUBE_SYM:
+      return WITH_CUBE_SYM;
+    case ROLLUP_SYM:
+      return WITH_ROLLUP_SYM;
+    default:
+      /*
+        Save the token following 'WITH'
+      */
+      lip->lookahead_yylval= lip->yylval;
+      lip->yylval= NULL;
+      lip->lookahead_token= token;
+      return WITH;
+    }
+    break;
+  default:
+    break;
+  }
+
+  return token;
+}
+
+int lex_one_token(void *arg, void *yythd)
 {
   reg1	uchar c;
   bool comment_closed;
@@ -1602,6 +1661,7 @@ void st_select_lex::init_select()
   non_agg_fields.empty();
   cond_value= having_value= Item::COND_UNDEF;
   inner_refs_list.empty();
+  full_group_by_flag= 0;
 }
 
 /*
@@ -1841,8 +1901,6 @@ bool st_select_lex::test_limit()
              "LIMIT & IN/ALL/ANY/SOME subquery");
     return(1);
   }
-  // no sense in ORDER BY without LIMIT
-  order_list.empty();
   return(0);
 }
 

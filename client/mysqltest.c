@@ -524,6 +524,17 @@ static int do_send_query(struct st_connection *cn, const char *q, int q_len,
   return 0;
 }
 
+static void wait_query_thread_end(struct st_connection *con)
+{
+  if (!con->query_done)
+  {
+    pthread_mutex_lock(&con->mutex);
+    while (!con->query_done)
+      pthread_cond_wait(&con->cond, &con->mutex);
+    pthread_mutex_unlock(&con->mutex);
+  }
+}
+
 #else /*EMBEDDED_LIBRARY*/
 
 #define do_send_query(cn,q,q_len,flags) mysql_send_query(&cn->mysql, q, q_len)
@@ -1883,6 +1894,18 @@ void var_set_errno(int sql_errno)
   var_set_int("$mysql_errno", sql_errno);
 }
 
+
+/*
+  Update $mysql_get_server_version variable with version
+  of the currently connected server
+*/
+
+void var_set_mysql_get_server_version(MYSQL* mysql)
+{
+  var_set_int("$mysql_get_server_version", mysql_get_server_version(mysql));
+}
+
+
 /*
   Set variable from the result of a query
 
@@ -2192,7 +2215,7 @@ int open_file(const char *name)
   if (!(cur_file->file = my_fopen(buff, O_RDONLY | FILE_BINARY, MYF(0))))
   {
     cur_file--;
-    die("Could not open file '%s'", buff);
+    die("Could not open '%s' for reading", buff);
   }
   cur_file->file_name= my_strdup(buff, MYF(MY_FAE));
   cur_file->lineno=1;
@@ -3975,6 +3998,10 @@ int select_connection_name(const char *name)
 
   if (!(cur_con= find_connection_by_name(name)))
     die("connection '%s' not found in connection pool", name);
+
+  /* Update $mysql_get_server_version to that of current connection */
+  var_set_mysql_get_server_version(&cur_con->mysql);
+
   DBUG_RETURN(0);
 }
 
@@ -4028,7 +4055,14 @@ void do_close_connection(struct st_command *command)
       con->mysql.net.vio = 0;
     }
   }
-#endif
+#else
+  /*
+    As query could be still executed in a separate theread
+    we need to check if the query's thread was finished and probably wait
+    (embedded-server specific)
+  */
+  wait_query_thread_end(con);
+#endif /*EMBEDDED_LIBRARY*/
   if (con->stmt)
     mysql_stmt_close(con->stmt);
   con->stmt= 0;
@@ -4180,11 +4214,13 @@ int connect_n_handle_errors(struct st_command *command,
   if (!mysql_real_connect(con, host, user, pass, db, port, sock ? sock: 0,
                           CLIENT_MULTI_STATEMENTS))
   {
+    var_set_errno(mysql_errno(con));
     handle_error(command, mysql_errno(con), mysql_error(con),
 		 mysql_sqlstate(con), ds);
     return 0; /* Not connected */
   }
 
+  var_set_errno(0);
   handle_no_error(command);
   return 1; /* Connected */
 }
@@ -4314,6 +4350,9 @@ void do_connect(struct st_command *command)
           (int) (sizeof(connections)/sizeof(struct st_connection)));
   }
 
+#ifdef EMBEDDED_LIBRARY
+  con_slot->query_done= 1;
+#endif
   if (!mysql_init(&con_slot->mysql))
     die("Failed on mysql_init()");
   if (opt_compress || con_compress)
@@ -4361,6 +4400,9 @@ void do_connect(struct st_command *command)
     if (con_slot == next_con)
       next_con++; /* if we used the next_con slot, advance the pointer */
   }
+
+  /* Update $mysql_get_server_version to that of current connection */
+  var_set_mysql_get_server_version(&cur_con->mysql);
 
   dynstr_free(&ds_connection_name);
   dynstr_free(&ds_host);
@@ -5027,7 +5069,7 @@ static struct my_option my_long_options[] =
   {"debug", '#', "Output debug log. Often this is 'd:t:o,filename'.",
    0, 0, 0, GET_STR, OPT_ARG, 0, 0, 0, 0, 0, 0},
 #endif
-  {"debug-check", OPT_DEBUG_CHECK, "Check memory and open file usage at exit .",
+  {"debug-check", OPT_DEBUG_CHECK, "Check memory and open file usage at exit.",
    (uchar**) &debug_check_flag, (uchar**) &debug_check_flag, 0,
    GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"debug-info", OPT_DEBUG_INFO, "Print some debug info at exit.",
@@ -5204,7 +5246,7 @@ get_one_option(int optid, const struct my_option *opt __attribute__((unused)),
     DBUG_ASSERT(cur_file == file_stack && cur_file->file == 0);
     if (!(cur_file->file=
           my_fopen(buff, O_RDONLY | FILE_BINARY, MYF(0))))
-      die("Could not open %s: errno = %d", buff, errno);
+      die("Could not open '%s' for reading: errno = %d", buff, errno);
     cur_file->file_name= my_strdup(buff, MYF(MY_FAE));
     cur_file->lineno= 1;
     break;
@@ -5321,9 +5363,9 @@ void str_to_file2(const char *fname, char *str, int size, my_bool append)
     flags|= O_TRUNC;
   if ((fd= my_open(buff, flags,
                    MYF(MY_WME | MY_FFNF))) < 0)
-    die("Could not open %s: errno = %d", buff, errno);
+    die("Could not open '%s' for writing: errno = %d", buff, errno);
   if (append && my_seek(fd, 0, SEEK_END, MYF(0)) == MY_FILEPOS_ERROR)
-    die("Could not find end of file %s: errno = %d", buff, errno);
+    die("Could not find end of file '%s': errno = %d", buff, errno);
   if (my_write(fd, (uchar*)str, size, MYF(MY_WME|MY_FNABP)))
     die("write failed");
   my_close(fd, MYF(0));
@@ -5812,16 +5854,11 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
   }
 #ifdef EMBEDDED_LIBRARY
   /*
-   Here we handle 'reap' command, so we need to check if the
-   query's thread was finished and probably wait
+    Here we handle 'reap' command, so we need to check if the
+    query's thread was finished and probably wait
   */
   else if (flags & QUERY_REAP_FLAG)
-  {
-    pthread_mutex_lock(&cn->mutex);
-    while (!cn->query_done)
-      pthread_cond_wait(&cn->cond, &cn->mutex);
-    pthread_mutex_unlock(&cn->mutex);
-  }
+    wait_query_thread_end(cn);
 #endif /*EMBEDDED_LIBRARY*/
   if (!(flags & QUERY_REAP_FLAG))
     DBUG_VOID_RETURN;
@@ -6887,6 +6924,9 @@ int main(int argc, char **argv)
   */
   var_set_errno(-1);
 
+  /* Update $mysql_get_server_version to that of current connection */
+  var_set_mysql_get_server_version(&cur_con->mysql);
+
   if (opt_include)
   {
     open_file(opt_include);
@@ -7288,7 +7328,7 @@ void timer_output(void)
 
 ulonglong timer_now(void)
 {
-  return my_getsystime() / 10000;
+  return my_micro_time() / 1000;
 }
 
 

@@ -581,7 +581,7 @@ int ha_partition::create(const char *name, TABLE *table_arg,
     drop (each partition has a state attached to it)
 */
 
-int ha_partition::drop_partitions(const char *path)
+int ha_partition::drop_partitions(THD *thd, const char *path)
 {
   List_iterator<partition_element> part_it(m_part_info->partitions);
   char part_name_buff[FN_REFLEN];
@@ -627,12 +627,13 @@ int ha_partition::drop_partitions(const char *path)
         create_partition_name(part_name_buff, path,
                               part_elem->partition_name, name_variant,
                               TRUE);
-        file= m_file[i];
+        file= get_new_handler(0, thd->mem_root, m_file[i]->ht);
         DBUG_PRINT("info", ("Drop partition %s", part_name_buff));
         if ((ret_error= file->ha_delete_table(part_name_buff)))
           error= ret_error;
         if (deactivate_ddl_log_entry(part_elem->log_entry->entry_pos))
           error= 1;
+        delete file;
       }
       if (part_elem->part_state == PART_IS_CHANGED)
         part_elem->part_state= PART_NORMAL;
@@ -664,7 +665,7 @@ int ha_partition::drop_partitions(const char *path)
     partition info struct referenced from the handler object
 */
 
-int ha_partition::rename_partitions(const char *path)
+int ha_partition::rename_partitions(THD *thd, const char *path)
 {
   List_iterator<partition_element> part_it(m_part_info->partitions);
   List_iterator<partition_element> temp_it(m_part_info->temp_partitions);
@@ -701,7 +702,8 @@ int ha_partition::rename_partitions(const char *path)
         do
         {
           sub_elem= sub_it++;
-          file= m_reorged_file[part_count++];
+          file= get_new_handler(0, thd->mem_root,
+                                m_reorged_file[part_count++]->ht);
           create_subpartition_name(norm_name_buff, path,
                                    part_elem->partition_name,
                                    sub_elem->partition_name,
@@ -713,11 +715,13 @@ int ha_partition::rename_partitions(const char *path)
             error= 1;
           else
             sub_elem->log_entry= NULL; /* Indicate success */
+          delete file;
         } while (++j < no_subparts);
       }
       else
       {
-        file= m_reorged_file[part_count++];
+        file= get_new_handler(0, thd->mem_root,
+                              m_reorged_file[part_count++]->ht);
         create_partition_name(norm_name_buff, path,
                               part_elem->partition_name, NORMAL_PART_NAME,
                               TRUE);
@@ -728,6 +732,7 @@ int ha_partition::rename_partitions(const char *path)
           error= 1;
         else
           part_elem->log_entry= NULL; /* Indicate success */
+        delete file;
       }
     } while (++i < temp_partitions);
     VOID(sync_ddl_log());
@@ -776,15 +781,18 @@ int ha_partition::rename_partitions(const char *path)
                                    NORMAL_PART_NAME);
           if (part_elem->part_state == PART_IS_CHANGED)
           {
-            file= m_reorged_file[part_count++];
+            file= get_new_handler(0, thd->mem_root,
+                                  m_reorged_file[part_count++]->ht);
             DBUG_PRINT("info", ("Delete subpartition %s", norm_name_buff));
             if ((ret_error= file->ha_delete_table(norm_name_buff)))
               error= ret_error;
             else if (deactivate_ddl_log_entry(sub_elem->log_entry->entry_pos))
               error= 1;
             VOID(sync_ddl_log());
+            delete file;
           }
-          file= m_new_file[part];
+          file= get_new_handler(0, thd->mem_root,
+                                m_new_file[part]->ht);
           create_subpartition_name(part_name_buff, path,
                                    part_elem->partition_name,
                                    sub_elem->partition_name,
@@ -798,6 +806,7 @@ int ha_partition::rename_partitions(const char *path)
             error= 1;
           else
             sub_elem->log_entry= NULL;
+          delete file;
         } while (++j < no_subparts);
       }
       else
@@ -807,15 +816,18 @@ int ha_partition::rename_partitions(const char *path)
                               TRUE);
         if (part_elem->part_state == PART_IS_CHANGED)
         {
-          file= m_reorged_file[part_count++];
+          file= get_new_handler(0, thd->mem_root,
+                                m_reorged_file[part_count++]->ht);
           DBUG_PRINT("info", ("Delete partition %s", norm_name_buff));
           if ((ret_error= file->ha_delete_table(norm_name_buff)))
             error= ret_error;
           else if (deactivate_ddl_log_entry(part_elem->log_entry->entry_pos))
             error= 1;
           VOID(sync_ddl_log());
+          delete file;
         }
-        file= m_new_file[i];
+        file= get_new_handler(0, thd->mem_root,
+                              m_new_file[i]->ht);
         create_partition_name(part_name_buff, path,
                               part_elem->partition_name, TEMP_PART_NAME,
                               TRUE);
@@ -828,6 +840,7 @@ int ha_partition::rename_partitions(const char *path)
           error= 1;
         else
           part_elem->log_entry= NULL;
+        delete file;
       }
     }
   } while (++i < no_parts);
@@ -1028,12 +1041,19 @@ int ha_partition::repair_partitions(THD *thd)
     0                         Success
 */
 
+#ifdef WL4176_IS_DONE
 static int handle_opt_part(THD *thd, HA_CHECK_OPT *check_opt,
                            handler *file, uint flag)
 {
   int error;
   DBUG_ENTER("handle_opt_part");
   DBUG_PRINT("enter", ("flag = %u", flag));
+
+  /*
+    TODO:
+    Rewrite the code for ANALYZE/CHECK/OPTIMIZE/REPAIR PARTITION WL4176
+  */
+  DBUG_RETURN(HA_ADMIN_NOT_IMPLEMENTED);
 
   if (flag == OPTIMIZE_PARTS)
     error= file->ha_optimize(thd, check_opt);
@@ -1052,6 +1072,7 @@ static int handle_opt_part(THD *thd, HA_CHECK_OPT *check_opt,
     error= 0;
   DBUG_RETURN(error);
 }
+#endif
 
 
 /*
@@ -1072,14 +1093,22 @@ static int handle_opt_part(THD *thd, HA_CHECK_OPT *check_opt,
 int ha_partition::handle_opt_partitions(THD *thd, HA_CHECK_OPT *check_opt,
                                         uint flag, bool all_parts)
 {
+#ifdef WL4176_IS_DONE
   List_iterator<partition_element> part_it(m_part_info->partitions);
   uint no_parts= m_part_info->no_parts;
   uint no_subparts= m_part_info->no_subparts;
   uint i= 0;
   int error;
+#endif
   DBUG_ENTER("ha_partition::handle_opt_partitions");
   DBUG_PRINT("enter", ("all_parts %u, flag= %u", all_parts, flag));
 
+  /*
+    TODO:
+    Rewrite the code for ANALYZE/CHECK/OPTIMIZE/REPAIR PARTITION WL4176
+  */
+  DBUG_RETURN(HA_ADMIN_NOT_IMPLEMENTED);
+#ifdef WL4176_IS_DONE
   do
   {
     partition_element *part_elem= part_it++;
@@ -1110,6 +1139,7 @@ int ha_partition::handle_opt_partitions(THD *thd, HA_CHECK_OPT *check_opt,
     }
   } while (++i < no_parts);
   DBUG_RETURN(FALSE);
+#endif
 }
 
 /*
@@ -1629,6 +1659,15 @@ void ha_partition::change_table_ptr(TABLE *table_arg, TABLE_SHARE *share)
   {
     (*file_array)->change_table_ptr(table_arg, share);
   } while (*(++file_array));
+  if (m_added_file && m_added_file[0])
+  {
+    /* if in middle of a drop/rename etc */
+    file_array= m_added_file;
+    do
+    {
+      (*file_array)->change_table_ptr(table_arg, share);
+    } while (*(++file_array));
+  }
 }
 
 /*
@@ -4832,10 +4871,13 @@ void ha_partition::get_dynamic_partition_info(PARTITION_INFO *stat_info,
     about this call). We pass this along to all underlying MyISAM handlers
     and ignore it for the rest.
 
-  HA_EXTRA_PREPARE_FOR_DELETE:
+  HA_EXTRA_PREPARE_FOR_DROP:
     Only used by MyISAM, called in preparation for a DROP TABLE.
     It's used mostly by Windows that cannot handle dropping an open file.
     On other platforms it has the same effect as HA_EXTRA_FORCE_REOPEN.
+
+  HA_EXTRA_PREPARE_FOR_RENAME:
+    Informs the handler we are about to attempt a rename of the table.
 
   HA_EXTRA_READCHECK:
   HA_EXTRA_NO_READCHECK:
@@ -4971,14 +5013,15 @@ int ha_partition::extra(enum ha_extra_function operation)
   }
 
   /* Category 3), used by MyISAM handlers */
-  case HA_EXTRA_PREPARE_FOR_DELETE:
-    DBUG_RETURN(prepare_for_delete());
+  case HA_EXTRA_PREPARE_FOR_RENAME:
+    DBUG_RETURN(prepare_for_rename());
     break;
   case HA_EXTRA_NORMAL:
   case HA_EXTRA_QUICK:
   case HA_EXTRA_NO_READCHECK:
   case HA_EXTRA_PREPARE_FOR_UPDATE:
   case HA_EXTRA_FORCE_REOPEN:
+  case HA_EXTRA_PREPARE_FOR_DROP:
   case HA_EXTRA_FLUSH_CACHE:
   {
     if (m_myisam)
@@ -5137,24 +5180,24 @@ void ha_partition::prepare_extra_cache(uint cachesize)
     0                     Success
 */
 
-int ha_partition::prepare_for_delete()
+int ha_partition::prepare_for_rename()
 {
   int result= 0, tmp;
   handler **file;
-  DBUG_ENTER("ha_partition::prepare_for_delete()");
+  DBUG_ENTER("ha_partition::prepare_for_rename()");
   
   if (m_new_file != NULL)
   {
     for (file= m_new_file; *file; file++)
-      if ((tmp= (*file)->extra(HA_EXTRA_PREPARE_FOR_DELETE)))
+      if ((tmp= (*file)->extra(HA_EXTRA_PREPARE_FOR_RENAME)))
         result= tmp;      
     for (file= m_reorged_file; *file; file++)
-      if ((tmp= (*file)->extra(HA_EXTRA_PREPARE_FOR_DELETE)))
+      if ((tmp= (*file)->extra(HA_EXTRA_PREPARE_FOR_RENAME)))
         result= tmp;   
     DBUG_RETURN(result);   
   }
   
-  DBUG_RETURN(loop_extra(HA_EXTRA_PREPARE_FOR_DELETE));
+  DBUG_RETURN(loop_extra(HA_EXTRA_PREPARE_FOR_RENAME));
 }
 
 /*

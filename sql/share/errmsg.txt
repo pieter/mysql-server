@@ -5523,6 +5523,7 @@ ER_M_BIGGER_THAN_D 42000 S1009
         ger "Für FLOAT(M,D), DOUBLE(M,D) oder DECIMAL(M,D) muss M >= D sein (Feld '%-.192s')"
 ER_WRONG_LOCK_OF_SYSTEM_TABLE
         eng "You can't combine write-locking of system tables with other tables or lock types"
+	ger "Sie können Schreibsperren auf der Systemtabelle nicht mit anderen Tabellen kombinieren"
 ER_CONNECT_TO_FOREIGN_DATA_SOURCE
         eng "Unable to connect to foreign data source: %.64s"
         ger "Kann nicht mit Fremddatenquelle verbinden: %.64s"
@@ -5584,8 +5585,7 @@ ER_VIEW_OTHER_USER
         eng "You need the SUPER privilege for creation view with '%-.192s'@'%-.192s' definer"
         ger "Sie brauchen die SUPER-Berechtigung, um einen View mit dem Definierer '%-.192s'@'%-.192s' zu erzeugen"
 ER_NO_SUCH_USER
-        eng "There is no '%-.64s'@'%-.64s' registered"
-        ger "'%-.64s'@'%-.64s' ist nicht registriert"
+        eng "The user specified as a definer ('%-.64s'@'%-.64s') does not exist"
 ER_FORBID_SCHEMA_CHANGE
         eng "Changing schema from '%-.192s' to '%-.192s' is not allowed."
         ger "Wechsel des Schemas von '%-.192s' auf '%-.192s' ist nicht erlaubt"
@@ -6121,6 +6121,11 @@ ER_NO_FORMAT_DESCRIPTION_EVENT_BEFORE_BINLOG_STATEMENT
   eng "The BINLOG statement of type `%s` was not preceded by a format description BINLOG statement."
 ER_SLAVE_CORRUPT_EVENT
   eng "Corrupted replication event was detected"
+ER_LOAD_DATA_INVALID_COLUMN
+  eng "Invalid column reference (%-.64s) in LOAD DATA"
+
+ER_LOG_PURGE_NO_FILE  
+	eng "Being purged log %s was not found"
 ER_WARN_AUTO_CONVERT_LOCK
         eng "Converted to non-transactional lock on '%-.64s'"
         ger "Umgewandelt zu nicht-transaktionalen Sperren auf '%-.64s'"

@@ -1019,6 +1019,7 @@ typedef long long intptr;
 #endif
 
 #define MY_ERRPTR ((void*)(intptr)1)
+
 #ifdef USE_RAID
 /*
   The following is done with a if to not get problems with pre-processors
@@ -1070,7 +1071,7 @@ typedef uint8		int7;	/* Most effective integer 0 <= x <= 127 */
 typedef short		int15;	/* Most effective integer 0 <= x <= 32767 */
 typedef int		myf;	/* Type of MyFlags in my_funcs */
 typedef char		my_bool; /* Small bool */
-#if !defined(bool) && !defined(bool_defined) && (!defined(HAVE_BOOL) || !defined(__cplusplus))
+#if !defined(bool) && (!defined(HAVE_BOOL) || !defined(__cplusplus))
 typedef char		bool;	/* Ordinary boolean values 0 1 */
 #endif
 	/* Macros for converting *constants* to the right type */
@@ -1143,7 +1144,7 @@ typedef char		bool;	/* Ordinary boolean values 0 1 */
 */
 
 /* Optimized store functions for Intel x86 */
-#if defined(__i386__) && !defined(_WIN64)
+#if defined(__i386__) || defined(_WIN32)
 #define sint2korr(A)	(*((int16 *) (A)))
 #define sint3korr(A)	((int32) ((((uchar) (A)[2]) & 128) ? \
 				  (((uint32) 255L << 24) | \
@@ -1155,7 +1156,7 @@ typedef char		bool;	/* Ordinary boolean values 0 1 */
 				  ((uint32) (uchar) (A)[0])))
 #define sint4korr(A)	(*((long *) (A)))
 #define uint2korr(A)	(*((uint16 *) (A)))
-#ifdef HAVE_purify
+#if defined(HAVE_purify) && !defined(_WIN32)
 #define uint3korr(A)	(uint32) (((uint32) ((uchar) (A)[0])) +\
 				  (((uint32) ((uchar) (A)[1])) << 8) +\
 				  (((uint32) ((uchar) (A)[2])) << 16))
@@ -1167,7 +1168,7 @@ typedef char		bool;	/* Ordinary boolean values 0 1 */
     It means, that you have to provide enough allocated space !
 */
 #define uint3korr(A)	(long) (*((unsigned int *) (A)) & 0xFFFFFF)
-#endif
+#endif /* HAVE_purify && !_WIN32 */
 #define uint4korr(A)	(*((uint32 *) (A)))
 #define uint5korr(A)	((ulonglong)(((uint32) ((uchar) (A)[0])) +\
 				    (((uint32) ((uchar) (A)[1])) << 8) +\
@@ -1218,9 +1219,8 @@ do { doubleget_union _tmp; \
 #define floatstore(T,V)  memcpy((uchar*)(T), (uchar*)(&V),sizeof(float))
 #define floatget(V,M)    memcpy((uchar*) &V,(uchar*) (M),sizeof(float))
 #define float8store(V,M) doublestore((V),(M))
-#endif /* __i386__ */
+#else
 
-#ifndef sint2korr
 /*
   We're here if it's not a IA-32 architecture (Win32 and UNIX IA-32 defines
   were done before)
@@ -1359,7 +1359,7 @@ do { doubleget_union _tmp; \
 #define float8store(V,M) doublestore((V),(M))
 #endif /* WORDS_BIGENDIAN */
 
-#endif /* sint2korr */
+#endif /* __i386__ OR _WIN32 */
 
 /*
   Macro for reading 32-bit integer from network byte order (big-endian)
@@ -1480,6 +1480,7 @@ do { doubleget_union _tmp; \
 #define dlerror() ""
 #endif
 
+
 #ifndef __NETWARE__
 /*
  *  Include standard definitions of operator new and delete.
@@ -1510,6 +1511,13 @@ inline void  operator delete[](void*, void*) { /* Do nothing */ }
 #if !defined(max)
 #define max(a, b)	((a) > (b) ? (a) : (b))
 #define min(a, b)	((a) < (b) ? (a) : (b))
+#endif  
+/*
+  Only Linux is known to need an explicit sync of the directory to make sure a
+  file creation/deletion/renaming in(from,to) this directory durable.
+*/
+#ifdef TARGET_OS_LINUX
+#define NEED_EXPLICIT_SYNC_DIR 1
 #endif
 
 #if !defined(__cplusplus) && !defined(bool)

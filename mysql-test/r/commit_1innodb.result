@@ -331,6 +331,7 @@ drop table if exists t1;
 drop table if exists t2;
 drop function if exists f1;
 drop procedure if exists p_verify_status_increment;
+set @binlog_format=@@global.binlog_format;
 set sql_mode=no_engine_substitution;
 create table t1 (a int unique);
 create table t2 (a int) engine=myisam;
@@ -355,7 +356,7 @@ select variable_value
 from information_schema.session_status
 where variable_name='Handler_commit' or variable_name='Handler_prepare'
      order by variable_name;
-if @@global.binlog_format = 'ROW' then
+if @binlog_format = 'ROW' then
 set commit_inc= commit_inc_row;
 set prepare_inc= prepare_inc_row;
 else
@@ -570,27 +571,35 @@ SUCCESS
 
 # 16. A function changes non-trans-table.
 #
+# For row-based logging, there is an extra commit for the
+# non-transactional changes saved in the transaction cache to
+# the binary log. 
+#
 select f1();
 f1()
 2
-call p_verify_status_increment(0, 0, 0, 0);
+call p_verify_status_increment(0, 0, 1, 0);
 SUCCESS
 
 commit;
-call p_verify_status_increment(0, 0, 0, 0);
+call p_verify_status_increment(0, 0, 1, 0);
 SUCCESS
 
 # 17. Read-only statement, a function changes non-trans-table.
+#
+# For row-based logging, there is an extra commit for the
+# non-transactional changes saved in the transaction cache to
+# the binary log. 
 #
 select f1() from t1;
 f1()
 2
 2
-call p_verify_status_increment(1, 0, 1, 0);
+call p_verify_status_increment(1, 0, 2, 0);
 SUCCESS
 
 commit;
-call p_verify_status_increment(1, 0, 1, 0);
+call p_verify_status_increment(1, 0, 2, 0);
 SUCCESS
 
 # 18. Read-write statement: UPDATE, change 0 (transactional) rows. 

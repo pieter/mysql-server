@@ -19,6 +19,7 @@
 */
 
 #include "mysql_priv.h"
+#include "sql_audit.h"
 
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /*
@@ -403,10 +404,11 @@ check_user(THD *thd, enum enum_server_command command,
 
       if (check_count)
       {
-        VOID(pthread_mutex_lock(&LOCK_thread_count));
-        bool count_ok= thread_count <= max_connections + delayed_insert_threads
-                       || (thd->main_security_ctx.master_access & SUPER_ACL);
-        VOID(pthread_mutex_unlock(&LOCK_thread_count));
+        pthread_mutex_lock(&LOCK_connection_count);
+        bool count_ok= connection_count <= max_connections ||
+                       (thd->main_security_ctx.master_access & SUPER_ACL);
+        VOID(pthread_mutex_unlock(&LOCK_connection_count));
+
         if (!count_ok)
         {                                         // too many connections
           my_error(ER_CON_COUNT_ERROR, MYF(0));
@@ -711,20 +713,24 @@ static int check_connection(THD *thd)
     bzero((char*) &net->vio->remote, sizeof(net->vio->remote));
   }
   vio_keepalive(net->vio, TRUE);
+  
+  ulong server_capabilites;
   {
     /* buff[] needs to big enough to hold the server_version variable */
     char buff[SERVER_VERSION_LENGTH + SCRAMBLE_LENGTH + 64];
-    ulong client_flags = (CLIENT_LONG_FLAG | CLIENT_CONNECT_WITH_DB |
-			  CLIENT_PROTOCOL_41 | CLIENT_SECURE_CONNECTION);
+    server_capabilites= CLIENT_BASIC_FLAGS;
 
     if (opt_using_transactions)
-      client_flags|=CLIENT_TRANSACTIONS;
+      server_capabilites|= CLIENT_TRANSACTIONS;
 #ifdef HAVE_COMPRESS
-    client_flags |= CLIENT_COMPRESS;
+    server_capabilites|= CLIENT_COMPRESS;
 #endif /* HAVE_COMPRESS */
 #if defined(HAVE_OPENSSL)
     if (ssl_acceptor_fd)
-      client_flags |= CLIENT_SSL;       /* Wow, SSL is available! */
+    {
+      server_capabilites |= CLIENT_SSL;       /* Wow, SSL is available! */
+      server_capabilites |= CLIENT_SSL_VERIFY_SERVER_CERT;
+    }
 #endif /* HAVE_OPENSSL */
 
     end= strnmov(buff, server_version, SERVER_VERSION_LENGTH) + 1;
@@ -743,7 +749,7 @@ static int check_connection(THD *thd)
     */
     end= strmake(end, thd->scramble, SCRAMBLE_LENGTH_323) + 1;
    
-    int2store(end, client_flags);
+    int2store(end, server_capabilites);
     /* write server characteristics: up to 16 bytes allowed */
     end[2]=(char) default_charset_info->number;
     int2store(end+3, thd->server_status);
@@ -774,7 +780,7 @@ static int check_connection(THD *thd)
   if (thd->packet.alloc(thd->variables.net_buffer_length))
     return 1; /* The error is set by alloc(). */
 
-  thd->client_capabilities=uint2korr(net->read_pos);
+  thd->client_capabilities= uint2korr(net->read_pos);
   if (thd->client_capabilities & CLIENT_PROTOCOL_41)
   {
     thd->client_capabilities|= ((ulong) uint2korr(net->read_pos+2)) << 16;
@@ -789,6 +795,11 @@ static int check_connection(THD *thd)
     thd->max_client_packet_length= uint3korr(net->read_pos+2);
     end= (char*) net->read_pos+5;
   }
+  /*
+    Disable those bits which are not supported by the server.
+    This is a precautionary measure, if the client lies. See Bug#27944.
+  */
+  thd->client_capabilities&= server_capabilites;
 
   if (thd->client_capabilities & CLIENT_IGNORE_SPACE)
     thd->variables.sql_mode|= MODE_IGNORE_SPACE;
@@ -1119,6 +1130,7 @@ pthread_handler_t handle_one_connection(void *arg)
     while (!net->error && net->vio != 0 &&
            !(thd->killed == THD::KILL_CONNECTION))
     {
+      mysql_audit_release(thd);
       if (do_command(thd))
 	break;
     }

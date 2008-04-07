@@ -200,8 +200,8 @@ public:
                                 ulonglong *deleted,
                                 const uchar *pack_frm_data,
                                 size_t pack_frm_len);
-  virtual int drop_partitions(const char *path);
-  virtual int rename_partitions(const char *path);
+  virtual int drop_partitions(THD *thd, const char *path);
+  virtual int rename_partitions(THD *thd, const char *path);
   bool get_no_parts(const char *name, uint *no_parts)
   {
     DBUG_ENTER("ha_partition::get_no_parts");
@@ -210,7 +210,7 @@ public:
   }
   virtual void change_table_ptr(TABLE *table_arg, TABLE_SHARE *share);
 private:
-  int prepare_for_delete();
+  int prepare_for_rename();
   int copy_partitions(ulonglong *copied, ulonglong *deleted);
   void cleanup_new_partition(uint part_count);
   int prepare_new_partition(TABLE *table, HA_CREATE_INFO *create_info,

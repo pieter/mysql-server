@@ -73,6 +73,9 @@ static TYPELIB grant_types = { sizeof(grant_names)/sizeof(char **),
                                grant_names, NULL};
 #endif
 
+/* Match the values of enum ha_choice */
+static const char *ha_choice_values[] = {"", "0", "1"};
+
 static void store_key_options(THD *thd, String *packet, TABLE *table,
                               KEY *key_info);
 
@@ -1169,6 +1172,8 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
 
   key_info= table->key_info;
   bzero((char*) &create_info, sizeof(create_info));
+  /* Allow update_create_info to update row type */
+  create_info.row_type= share->row_type;
   file->update_create_info(&create_info);
   primary_key= share->primary_key;
 
@@ -1374,19 +1379,25 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       packet->append(STRING_WITH_LEN(" PACK_KEYS=1"));
     if (share->db_create_options & HA_OPTION_NO_PACK_KEYS)
       packet->append(STRING_WITH_LEN(" PACK_KEYS=0"));
+    /* We use CHECKSUM, instead of TABLE_CHECKSUM, for backward compability */
     if (share->db_create_options & HA_OPTION_CHECKSUM)
       packet->append(STRING_WITH_LEN(" CHECKSUM=1"));
+    if (share->page_checksum != HA_CHOICE_UNDEF)
+    {
+      packet->append(STRING_WITH_LEN(" PAGE_CHECKSUM="));
+      packet->append(ha_choice_values[(uint) share->page_checksum], 1);
+    }
     if (share->db_create_options & HA_OPTION_DELAY_KEY_WRITE)
       packet->append(STRING_WITH_LEN(" DELAY_KEY_WRITE=1"));
-    if (share->row_type != ROW_TYPE_DEFAULT)
+    if (create_info.row_type != ROW_TYPE_DEFAULT)
     {
       packet->append(STRING_WITH_LEN(" ROW_FORMAT="));
-      packet->append(ha_row_type[(uint) share->row_type]);
+      packet->append(ha_row_type[(uint) create_info.row_type]);
     }
     if (share->transactional != HA_CHOICE_UNDEF)
     {
       packet->append(STRING_WITH_LEN(" TRANSACTIONAL="));
-      packet->append(share->transactional == HA_CHOICE_YES ? "1" : "0", 1);
+      packet->append(ha_choice_values[(uint) share->transactional], 1);
     }
     if (table->s->key_block_size)
     {
@@ -3541,7 +3552,7 @@ static int get_schema_tables_record(THD *thd, TABLE_LIST *tables,
     /*
       there was errors during opening tables
     */
-    const char *error= thd->main_da.message();
+    const char *error= thd->is_error() ? thd->main_da.message() : "";
     if (tables->view)
       table->field[3]->store(STRING_WITH_LEN("VIEW"), cs);
     else if (tables->schema_table)
@@ -3605,8 +3616,12 @@ static int get_schema_tables_record(THD *thd, TABLE_LIST *tables,
       ptr=strmov(ptr," pack_keys=1");
     if (share->db_create_options & HA_OPTION_NO_PACK_KEYS)
       ptr=strmov(ptr," pack_keys=0");
+    /* We use CHECKSUM, instead of TABLE_CHECKSUM, for backward compability */
     if (share->db_create_options & HA_OPTION_CHECKSUM)
       ptr=strmov(ptr," checksum=1");
+    if (share->page_checksum != HA_CHOICE_UNDEF)
+      ptr= strxmov(ptr, " page_checksum=",
+                   ha_choice_values[(uint) share->page_checksum], NullS);
     if (share->db_create_options & HA_OPTION_DELAY_KEY_WRITE)
       ptr=strmov(ptr," delay_key_write=1");
     if (share->row_type != ROW_TYPE_DEFAULT)
@@ -3625,6 +3640,9 @@ static int get_schema_tables_record(THD *thd, TABLE_LIST *tables,
         show_table->part_info->no_parts > 0)
       ptr= strmov(ptr, " partitioned");
 #endif
+    if (share->transactional != HA_CHOICE_UNDEF)
+      ptr= strxmov(ptr, " transactional=",
+                   ha_choice_values[(uint) share->transactional], NullS);
     table->field[19]->store(option_buff+1,
                             (ptr == option_buff ? 0 : 
                              (uint) (ptr-option_buff)-1), cs);
@@ -3853,8 +3871,9 @@ static int get_schema_column_record(THD *thd, TABLE_LIST *tables,
         I.e. we are in SELECT FROM INFORMATION_SCHEMA.COLUMS
         rather than in SHOW COLUMNS
       */ 
-      push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
-                   thd->main_da.sql_errno(), thd->main_da.message());
+      if (thd->is_error())
+        push_warning(thd, MYSQL_ERROR::WARN_LEVEL_WARN,
+                     thd->main_da.sql_errno(), thd->main_da.message());
       thd->clear_error();
       res= 0;
     }
@@ -5678,8 +5697,14 @@ get_referential_constraints_record(THD *thd, TABLE_LIST *tables,
                              f_key_info->referenced_db->length, cs);
       table->field[10]->store(f_key_info->referenced_table->str, 
                              f_key_info->referenced_table->length, cs);
-      table->field[5]->store(f_key_info->referenced_key_name->str, 
-                             f_key_info->referenced_key_name->length, cs);
+      if (f_key_info->referenced_key_name)
+      {
+        table->field[5]->store(f_key_info->referenced_key_name->str, 
+                               f_key_info->referenced_key_name->length, cs);
+        table->field[5]->set_notnull();
+      }
+      else
+        table->field[5]->set_null();
       table->field[6]->store(STRING_WITH_LEN("NONE"), cs);
       table->field[7]->store(f_key_info->update_method->str, 
                              f_key_info->update_method->length, cs);
@@ -6285,9 +6310,11 @@ bool get_schema_tables_result(JOIN *join,
       {
         result= 1;
         join->error= 1;
+        tab->read_record.file= table_list->table->file;
         table_list->schema_table_state= executed_place;
         break;
       }
+      tab->read_record.file= table_list->table->file;
       table_list->schema_table_state= executed_place;
     }
   }
@@ -6893,8 +6920,8 @@ ST_FIELD_INFO referential_constraints_fields_info[]=
    OPEN_FULL_TABLE},
   {"UNIQUE_CONSTRAINT_SCHEMA", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0,
    OPEN_FULL_TABLE},
-  {"UNIQUE_CONSTRAINT_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0,
-   OPEN_FULL_TABLE},
+  {"UNIQUE_CONSTRAINT_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0,
+   MY_I_S_MAYBE_NULL, 0, OPEN_FULL_TABLE},
   {"MATCH_OPTION", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE},
   {"UPDATE_RULE", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE},
   {"DELETE_RULE", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, 0, OPEN_FULL_TABLE},

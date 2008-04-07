@@ -1297,6 +1297,7 @@ bool Item_name_const::fix_fields(THD *thd, Item **ref)
     return TRUE;
   }
   set_name(item_name->ptr(), (uint) item_name->length(), system_charset_info);
+  collation.set(value_item->collation.collation, DERIVATION_IMPLICIT);
   max_length= value_item->max_length;
   decimals= value_item->decimals;
   fixed= 1;
@@ -4016,9 +4017,9 @@ bool Item_field::fix_fields(THD *thd, Item **reference)
       }
       if ((ret= fix_outer_field(thd, &from_field, reference)) < 0)
         goto error;
-      else if (!ret)
-        return FALSE;
       outer_fixed= TRUE;
+      if (!ret)
+        goto mark_non_agg_field;
     }
     else if (!from_field)
       goto error;
@@ -4030,9 +4031,9 @@ bool Item_field::fix_fields(THD *thd, Item **reference)
       int ret;
       if ((ret= fix_outer_field(thd, &from_field, reference)) < 0)
         goto error;
-      if (!ret)
-        return FALSE;
       outer_fixed= 1;
+      if (!ret)
+        goto mark_non_agg_field;
     }
 
     /*
@@ -4115,6 +4116,26 @@ bool Item_field::fix_fields(THD *thd, Item **reference)
   {
     thd->lex->current_select->non_agg_fields.push_back(this);
     marker= thd->lex->current_select->cur_pos_in_select_list;
+  }
+mark_non_agg_field:
+  if (fixed && thd->variables.sql_mode & MODE_ONLY_FULL_GROUP_BY)
+  {
+    /*
+      Mark selects according to presence of non aggregated fields.
+      Fields from outer selects added to the aggregate function
+      outer_fields list as its unknown at the moment whether it's
+      aggregated or not.
+    */
+    if (!thd->lex->in_sum_func)
+      cached_table->select_lex->full_group_by_flag|= NON_AGG_FIELD_USED;
+    else
+    {
+      if (outer_fixed)
+        thd->lex->in_sum_func->outer_fields.push_back(this);
+      else if (thd->lex->in_sum_func->nest_level !=
+          thd->lex->current_select->nest_level)
+        cached_table->select_lex->full_group_by_flag|= NON_AGG_FIELD_USED;
+    }
   }
   return FALSE;
 
@@ -5626,13 +5647,16 @@ bool Item_ref::fix_fields(THD *thd, Item **reference)
   DBUG_ASSERT(*ref);
   /*
     Check if this is an incorrect reference in a group function or forward
-    reference. Do not issue an error if this is an unnamed reference inside an
-    aggregate function.
+    reference. Do not issue an error if this is:
+      1. outer reference (will be fixed later by the fix_inner_refs function);
+      2. an unnamed reference inside an aggregate function.
   */
-  if (((*ref)->with_sum_func && name &&
-       !(current_sel->linkage != GLOBAL_OPTIONS_TYPE &&
-         current_sel->having_fix_field)) ||
-      !(*ref)->fixed)
+  if (!((*ref)->type() == REF_ITEM &&
+       ((Item_ref *)(*ref))->ref_type() == OUTER_REF) &&
+      (((*ref)->with_sum_func && name &&
+        !(current_sel->linkage != GLOBAL_OPTIONS_TYPE &&
+          current_sel->having_fix_field)) ||
+       !(*ref)->fixed))
   {
     my_error(ER_ILLEGAL_REFERENCE, MYF(0),
              name, ((*ref)->with_sum_func?

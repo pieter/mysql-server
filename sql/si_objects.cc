@@ -124,7 +124,7 @@ int serialize_routine(THD *thd,
                       String r_name,
                       String *string)
 {
-  bool ret= false;
+  int ret= 0;
   sp_head *sp;
   sp_name *routine_name;
   LEX_STRING sql_mode;

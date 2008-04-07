@@ -403,7 +403,7 @@ my_bool vio_peek_read(Vio *vio, uint *bytes)
     return TRUE;
   *bytes= len;
   return FALSE;
-#elif FIONREAD
+#elif FIONREAD_IN_SYS_IOCTL
   int len;
   if (ioctl(vio->sd, FIONREAD, &len) < 0)
     return TRUE;

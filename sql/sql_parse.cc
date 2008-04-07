@@ -4196,9 +4196,56 @@ create_sp_error:
   case SQLCOM_DROP_PROCEDURE:
   case SQLCOM_DROP_FUNCTION:
     {
+#ifdef HAVE_DLOPEN
+      if (lex->sql_command == SQLCOM_DROP_FUNCTION &&
+          ! lex->spname->m_explicit_name)
+      {
+        /* DROP FUNCTION <non qualified name> */
+        udf_func *udf = find_udf(lex->spname->m_name.str,
+                                 lex->spname->m_name.length);
+        if (udf)
+        {
+          if (check_access(thd, DELETE_ACL, "mysql", 0, 1, 0, 0))
+            goto error;
+
+          if (!(res = mysql_drop_function(thd, &lex->spname->m_name)))
+          {
+            my_ok(thd);
+            break;
+          }
+          my_error(ER_SP_DROP_FAILED, MYF(0),
+                   "FUNCTION (UDF)", lex->spname->m_name.str);
+          goto error;
+        }
+
+        if (lex->spname->m_db.str == NULL)
+        {
+          if (lex->drop_if_exists)
+          {
+            push_warning_printf(thd, MYSQL_ERROR::WARN_LEVEL_NOTE,
+                                ER_SP_DOES_NOT_EXIST, ER(ER_SP_DOES_NOT_EXIST),
+                                "FUNCTION (UDF)", lex->spname->m_name.str);
+            res= FALSE;
+            my_ok(thd);
+            break;
+          }
+          my_error(ER_SP_DOES_NOT_EXIST, MYF(0),
+                   "FUNCTION (UDF)", lex->spname->m_name.str);
+          goto error;
+        }
+        /* Fall thought to test for a stored function */
+      }
+#endif
+
       int sp_result;
       int type= (lex->sql_command == SQLCOM_DROP_PROCEDURE ?
                  TYPE_ENUM_PROCEDURE : TYPE_ENUM_FUNCTION);
+
+      if (lex->spname->m_db.str == NULL)
+      {
+        my_message(ER_NO_DB_ERROR, ER(ER_NO_DB_ERROR), MYF(0));
+        goto error;
+      }
 
       sp_result= sp_routine_exists_in_table(thd, type, lex->spname);
       mysql_reset_errors(thd, 0);
@@ -4224,40 +4271,7 @@ create_sp_error:
 	}
 #endif
         /* Conditionally writes to binlog */
-
-        int type= lex->sql_command == SQLCOM_DROP_PROCEDURE ?
-                  TYPE_ENUM_PROCEDURE :
-                  TYPE_ENUM_FUNCTION;
-
         sp_result= sp_drop_routine(thd, type, lex->spname);
-      }
-      else
-      {
-#ifdef HAVE_DLOPEN
-	if (lex->sql_command == SQLCOM_DROP_FUNCTION)
-	{
-          udf_func *udf = find_udf(lex->spname->m_name.str,
-                                   lex->spname->m_name.length);
-          if (udf)
-          {
-	    if (check_access(thd, DELETE_ACL, "mysql", 0, 1, 0, 0))
-	      goto error;
-
-	    if (!(res = mysql_drop_function(thd, &lex->spname->m_name)))
-	    {
-	      my_ok(thd);
-	      break;
-	    }
-	  }
-	}
-#endif
-	if (lex->spname->m_db.str)
-	  sp_result= SP_KEY_NOT_FOUND;
-	else
-	{
-	  my_message(ER_NO_DB_ERROR, ER(ER_NO_DB_ERROR), MYF(0));
-	  goto error;
-	}
       }
       res= sp_result;
       switch (sp_result) {
@@ -4269,7 +4283,7 @@ create_sp_error:
 	{
 	  push_warning_printf(thd, MYSQL_ERROR::WARN_LEVEL_NOTE,
 			      ER_SP_DOES_NOT_EXIST, ER(ER_SP_DOES_NOT_EXIST),
-			      SP_COM_STRING(lex), lex->spname->m_name.str);
+                              SP_COM_STRING(lex), lex->spname->m_qname.str);
 	  res= FALSE;
 	  my_ok(thd);
 	  break;
@@ -5626,6 +5640,11 @@ void mysql_parse(THD *thd, const char *inBuf, uint length,
               (thd->query_length= (ulong)(*found_semicolon - thd->query)))
             thd->query_length--;
           /* Actually execute the query */
+          if (*found_semicolon)
+          {
+            lex->safe_to_cache_query= 0;
+            thd->server_status|= SERVER_MORE_RESULTS_EXISTS;
+          }
           lex->set_trg_event_type_for_tables();
           mysql_execute_command(thd);
 	}
@@ -7420,6 +7439,7 @@ bool parse_sql(THD *thd,
 
   /* Set Lex_input_stream. */
 
+  lip->set_echo(TRUE);
   thd->m_lip= lip;
 
   /* Parse the query. */

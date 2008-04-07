@@ -1512,6 +1512,7 @@ Variable_name	Value
 character_set_client	utf8
 character_set_connection	latin1
 character_set_database	latin1
+character_set_filesystem	binary
 character_set_results	utf8
 character_set_server	latin1
 character_set_system	utf8
@@ -1534,6 +1535,8 @@ crash
 35
 36
 37
+Warnings:
+Warning	1300	Invalid utf8 character string: 'FFFFFC'
 DROP TABLE crashtest;
 DROP DATABASE crashtest;
 USE test;

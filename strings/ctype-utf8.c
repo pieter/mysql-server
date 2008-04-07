@@ -2228,7 +2228,7 @@ static int my_strnxfrm_utf8(CHARSET_INFO *cs,
 
   while( src < se && dst < de )
   {
-    if ((res=my_utf8_uni(cs,&wc, src, se))<0)
+    if ((res=my_utf8_uni(cs,&wc, src, se))<=0)
     {
       break;
     }
@@ -2238,7 +2238,7 @@ static int my_strnxfrm_utf8(CHARSET_INFO *cs,
     plane=(wc>>8) & 0xFF;
     wc = uni_plane[plane] ? uni_plane[plane][wc & 0xFF].sort : wc;
 
-    if ((res=my_uni_utf8(cs,wc,dst,de)) <0)
+    if ((res=my_uni_utf8(cs,wc,dst,de)) <=0)
     {
       break;
     }

@@ -180,6 +180,10 @@ typedef fp_except fp_except_t;
 #endif
 #endif /* __FreeBSD__ && HAVE_IEEEFP_H */
 
+#ifdef HAVE_FENV_H
+#include <fenv.h>
+#endif
+
 #ifdef HAVE_FPU_CONTROL_H
 #include <fpu_control.h>
 #endif
@@ -205,6 +209,11 @@ inline void setup_fpu()
               FP_X_IMP));
 #endif /* __i386__ */
 #endif /* __FreeBSD__ && HAVE_IEEEFP_H */
+
+#ifdef HAVE_FESETROUND
+  /* Set FPU rounding mode to "round-to-nearest" */
+  fesetround(FE_TONEAREST);
+#endif /* HAVE_FESETROUND */
 
   /*
     x86 (32-bit) requires FPU precision to be explicitly set to 64 bit for

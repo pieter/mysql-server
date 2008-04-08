@@ -2905,9 +2905,9 @@ static void check_data_home(const char *path)
   for the client.
 */
 /* ARGSUSED */
-extern "C" int my_message_sql(uint error, const char *str, myf MyFlags);
+extern "C" void my_message_sql(uint error, const char *str, myf MyFlags);
 
-int my_message_sql(uint error, const char *str, myf MyFlags)
+void my_message_sql(uint error, const char *str, myf MyFlags)
 {
   THD *thd;
   DBUG_ENTER("my_message_sql");
@@ -2935,7 +2935,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
     */
     if (thd->handle_error(error, str,
                           MYSQL_ERROR::WARN_LEVEL_ERROR))
-      DBUG_RETURN(0);
+      DBUG_VOID_RETURN;
 
     thd->is_slave_error=  1; // needed to catch query errors during replication
 
@@ -2976,7 +2976,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
         Do not push any warnings, a handled error must be completely
         silenced.
       */
-      DBUG_RETURN(0);
+      DBUG_VOID_RETURN;
     }
 
     if (!thd->no_warnings_for_error && !thd->is_fatal_error)
@@ -2992,7 +2992,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
   }
   if (!thd || MyFlags & ME_NOREFRESH)
     sql_print_error("%s: %s",my_progname,str); /* purecov: inspected */
-  DBUG_RETURN(0);
+  DBUG_VOID_RETURN;
 }
 
 

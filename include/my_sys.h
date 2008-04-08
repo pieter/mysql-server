@@ -35,7 +35,6 @@ extern int NEAR my_errno;		/* Last error in mysys */
 #include <stdarg.h>
 #include <typelib.h>
 
-#define MYSYS_PROGRAM_USES_CURSES()  { error_handler_hook = my_message_curses;	mysys_uses_curses=1; }
 #define MYSYS_PROGRAM_DONT_USE_CURSES()  { error_handler_hook = my_message_no_curses; mysys_uses_curses=0;}
 #define MY_INIT(name);		{ my_progname= name; my_init(); }
 
@@ -209,9 +208,9 @@ extern char NEAR errbuff[NRERRBUFFS][ERRMSGSIZE];
 extern char *home_dir;			/* Home directory for user */
 extern const char *my_progname;		/* program-name (printed in errors) */
 extern char NEAR curr_dir[];		/* Current directory for user */
-extern int (*error_handler_hook)(uint my_err, const char *str,myf MyFlags);
-extern int (*fatal_error_handler_hook)(uint my_err, const char *str,
-				       myf MyFlags);
+extern void (*error_handler_hook)(uint my_err, const char *str,myf MyFlags);
+extern void (*fatal_error_handler_hook)(uint my_err, const char *str,
+                                        myf MyFlags);
 extern uint my_file_limit;
 
 #ifdef HAVE_LARGE_PAGES
@@ -633,15 +632,14 @@ extern FILE *my_fdopen(File Filedes,const char *name, int Flags,myf MyFlags);
 extern int my_fclose(FILE *fd,myf MyFlags);
 extern int my_chsize(File fd,my_off_t newlength, int filler, myf MyFlags);
 extern int my_sync(File fd, myf my_flags);
-extern int my_error _VARARGS((int nr,myf MyFlags, ...));
-extern int my_printf_error _VARARGS((uint my_err, const char *format,
-				     myf MyFlags, ...))
-				    ATTRIBUTE_FORMAT(printf, 2, 4);
+extern void my_error _VARARGS((int nr,myf MyFlags, ...));
+extern void my_printf_error _VARARGS((uint my_err, const char *format,
+                                      myf MyFlags, ...))
+				      ATTRIBUTE_FORMAT(printf, 2, 4);
 extern int my_error_register(const char **errmsgs, int first, int last);
 extern const char **my_error_unregister(int first, int last);
-extern int my_message(uint my_err, const char *str,myf MyFlags);
-extern int my_message_no_curses(uint my_err, const char *str,myf MyFlags);
-extern int my_message_curses(uint my_err, const char *str,myf MyFlags);
+extern void my_message(uint my_err, const char *str,myf MyFlags);
+extern void my_message_no_curses(uint my_err, const char *str,myf MyFlags);
 extern my_bool my_init(void);
 extern void my_end(int infoflag);
 extern int my_redel(const char *from, const char *to, int MyFlags);

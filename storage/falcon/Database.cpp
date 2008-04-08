@@ -1552,7 +1552,7 @@ void Database::execute(const char * sql)
 
 void Database::shutdown()
 {
-	Log::log("%d: Falcon shutdown\n", deltaTime);
+	Log::log(I64FORMAT": Falcon shutdown\n", deltaTime);
 
 	if (shuttingDown)
 		return;
@@ -1831,7 +1831,7 @@ void Database::retireRecords(bool forced)
 			lowMemory = false;
 		***/
 			
-		Log::log(LogScavenge, "%d: Scavenged %d records, " I64FORMAT " bytes in %d seconds\n", 
+		Log::log(LogScavenge, I64FORMAT": Scavenged %d records, " I64FORMAT " bytes in %d seconds\n", 
 					deltaTime, recordScavenge.recordsReclaimed, recordScavenge.spaceReclaimed, deltaTime - scavengeStart);
 			
 		total = recordScavenge.spaceRemaining;

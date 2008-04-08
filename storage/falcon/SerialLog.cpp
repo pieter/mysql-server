@@ -598,7 +598,7 @@ void SerialLog::createNewWindow(void)
 			}
 
 	if (fileOffset == 0 && Log::isActive(LogInfo))
-		Log::log(LogInfo, "%d: Switching log files (%d used)\n", database->deltaTime, file->highWater);
+		Log::log(LogInfo, I64FORMAT": Switching log files (%d used)\n", database->deltaTime, file->highWater);
 
 	writeWindow->deactivateWindow();
 	writeWindow = allocWindow(file, fileOffset);
@@ -1343,7 +1343,7 @@ void SerialLog::reportStatistics(void)
 
 	if (count != priorCount || (uint64) delta != priorDelta || priorWrites != writes)
 		{
-		Log::log(LogInfo, "%d: SerialLog: %d reads, %d writes, %d transactions, %d completed, %d stalls, " I64FORMAT " blocks, %d windows\n", 
+		Log::log(LogInfo, I64FORMAT": SerialLog: %d reads, %d writes, %d transactions, %d completed, %d stalls, " I64FORMAT " blocks, %d windows\n", 
 				 database->deltaTime, reads, writes, count, commits, stalls, delta, windows);
 		priorCount = count;
 		priorDelta = delta;

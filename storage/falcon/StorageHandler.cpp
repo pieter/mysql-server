@@ -94,11 +94,11 @@ int init()
 {
 	const char *p;
 	
-	for (p = WHITE_SPACE; *p;)
-		charTable[*p++] = 1;
+	for (p = WHITE_SPACE; *p; p++)
+		charTable[(unsigned char)*p] = 1;
 	
-	for (p = PUNCTUATION_CHARS; *p;)
-		charTable[*p++] = 1;
+	for (p = PUNCTUATION_CHARS; *p; p++)
+		charTable[(unsigned char)*p] = 1;
 	
 	return 1;
 }

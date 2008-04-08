@@ -1019,6 +1019,7 @@ typedef long long intptr;
 #endif
 
 #define MY_ERRPTR ((void*)(intptr)1)
+
 #ifdef USE_RAID
 /*
   The following is done with a if to not get problems with pre-processors
@@ -1479,6 +1480,7 @@ do { doubleget_union _tmp; \
 #define dlerror() ""
 #endif
 
+
 #ifndef __NETWARE__
 /*
  *  Include standard definitions of operator new and delete.
@@ -1509,6 +1511,13 @@ inline void  operator delete[](void*, void*) { /* Do nothing */ }
 #if !defined(max)
 #define max(a, b)	((a) > (b) ? (a) : (b))
 #define min(a, b)	((a) < (b) ? (a) : (b))
+#endif  
+/*
+  Only Linux is known to need an explicit sync of the directory to make sure a
+  file creation/deletion/renaming in(from,to) this directory durable.
+*/
+#ifdef TARGET_OS_LINUX
+#define NEED_EXPLICIT_SYNC_DIR 1
 #endif
 
 #if !defined(__cplusplus) && !defined(bool)

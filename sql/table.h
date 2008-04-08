@@ -313,6 +313,7 @@ typedef struct st_table_share
   char *tablespace;
   enum tmp_table_type tmp_table;
   enum ha_choice transactional;
+  enum ha_choice page_checksum;
 
   uint ref_count;                       /* How many TABLE objects uses this */
   uint open_count;			/* Number of tables in open list */

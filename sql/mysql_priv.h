@@ -1480,6 +1480,13 @@ SQL_SELECT *make_select(TABLE *head, table_map const_tables,
 extern Item **not_found_item;
 
 /*
+  A set of constants used for checking non aggregated fields and sum
+  functions mixture in the ONLY_FULL_GROUP_BY_MODE.
+*/
+#define NON_AGG_FIELD_USED  1
+#define SUM_FUNC_USED       2
+
+/*
   This enumeration type is used only by the function find_item_in_list
   to return the info on how an item has been resolved against a list
   of possibly aliased items.
@@ -1937,7 +1944,7 @@ extern my_bool slave_allow_batching;
 extern ulong slave_net_timeout, slave_trans_retries;
 extern uint max_user_connections;
 extern ulong what_to_log,flush_time;
-extern ulong query_buff_size, thread_stack;
+extern ulong query_buff_size;
 extern ulong max_prepared_stmt_count, prepared_stmt_count;
 extern ulong binlog_cache_size, max_binlog_cache_size, open_files_limit;
 extern ulong max_binlog_size, max_relay_log_size;

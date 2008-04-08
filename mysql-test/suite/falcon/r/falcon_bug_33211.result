@@ -1,0 +1,4 @@
+CREATE TEMPORARY TABLE t1(a INT) ENGINE=falcon TABLESPACE nosuchspace;
+Warnings:
+Warning	1478	TABLESPACE option is not supported for temporary tables. Switching to 'FALCON_TEMPORARY' tablespace.
+DROP TABLE t1;

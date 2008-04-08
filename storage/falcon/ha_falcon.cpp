@@ -813,7 +813,12 @@ int StorageInterface::create(const char *mySqlName, TABLE *form,
 	const char *tableSpace = NULL;
 
 	if (tempTable)
+		{
+		if (info->tablespace)
+			push_warning_printf(mySqlThread, MYSQL_ERROR::WARN_LEVEL_WARN, ER_ILLEGAL_HA_CREATE_OPTION,
+				"TABLESPACE option is not supported for temporary tables. Switching to '%s' tablespace.", TEMPORARY_TABLESPACE);
 		tableSpace = TEMPORARY_TABLESPACE;
+		}
 	else if (info->tablespace)
 		tableSpace = info->tablespace;
 	else

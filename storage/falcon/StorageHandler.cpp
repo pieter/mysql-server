@@ -1175,7 +1175,7 @@ const char* StorageHandler::normalizeName(const char* name, int bufferSize, char
 	char *end = buffer + bufferSize - 1;
 	
 	for (const char *p = name; *p && q < end; ++p)
-		if (charTable[*p])
+		if (charTable[(unsigned char)*p])
 			return name;
 		else
 			*q++ = UPPER(*p);

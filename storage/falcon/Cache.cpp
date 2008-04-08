@@ -996,7 +996,7 @@ void Cache::analyzeFlush(void)
 	if (!dbb)
 		return;
 	
-	fprintf(traceFile, "-------- time "I64FORMAT" -------\n", database->deltaTime);
+	fprintf(traceFile, "-------- time %ld -------\n", database->deltaTime);
 
 	for (int pageNumber = 0; (pageNumber = flushBitmap->nextSet(pageNumber)) >= 0;)
 		if ( (bdb = findBdb(dbb, pageNumber)) )

@@ -947,3 +947,8 @@ int Record::getSize(void)
 {
 	return sizeof(*this);
 }
+
+SyncObject* Record::getSyncPrior(void)
+{
+	return NULL;
+}

@@ -238,6 +238,9 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 	if (!priorVersion)
 		return;
 
+	Sync syncPrior(getSyncPrior(), "RecordVersion::scavenge(2)");
+	syncPrior.lock(Exclusive);
+	
 	Record *rec = priorVersion;
 	Record *ptr = NULL;
 	
@@ -300,10 +303,12 @@ bool RecordVersion::isSuperceded()
 void RecordVersion::setPriorVersion(Record *oldVersion)
 {
 	if (oldVersion)
+		{
 		oldVersion->addRef();
 
-	if (priorVersion)
-		priorVersion->release();
+		if (priorVersion)
+			priorVersion->release();
+		}
 
 	priorVersion = oldVersion;
 }
@@ -438,4 +443,9 @@ void RecordVersion::serialize(Serialize* stream)
 		}
 	else
 		stream->putInt(2);
+}
+
+SyncObject* RecordVersion::getSyncPrior()
+{
+	return format->table->getSyncPrior(this);
 }

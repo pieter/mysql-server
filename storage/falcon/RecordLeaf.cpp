@@ -134,6 +134,9 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 				++count;
 			else if (record->isVersion())
 				{
+				Sync syncPrior(record->getSyncPrior(), "RecordVersion::scavenge");
+				syncPrior.lock(Shared);
+	
 				if (record->scavenge(recordScavenge, Shared))
 				    break;
 				else
@@ -164,6 +167,9 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 			{
 			if (record->isVersion())
 				{
+				Sync syncPrior(record->getSyncPrior(), "RecordVersion::scavenge");
+				syncPrior.lock(Exclusive);
+				
 				if (record->scavenge(recordScavenge, Exclusive))
 					{
 					*ptr = NULL;

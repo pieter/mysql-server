@@ -105,7 +105,7 @@ protected:
 	int					waitCount;
 	int					queueLength;
 	const char*			where;
-	const char*			name;
+	char*				name;
 #endif
 };
 

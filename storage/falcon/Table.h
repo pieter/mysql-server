@@ -42,6 +42,7 @@ static const int PostCommit	= 128;
 
 static const int BL_SIZE			= 128;
 static const int FORMAT_HASH_SIZE	= 20;
+static const int SYNC_VERSIONS_SIZE	= 16;
 
 #define FOR_FIELDS(field,table)	{for (Field *field=table->fields; field; field = field->next){
 #define FOR_INDEXES(index,table)	{for (Index *index=table->indexes; index; index = index->next){
@@ -214,12 +215,17 @@ public:
 	void			deleteRecord (Transaction *transaction, Record *record);
 	void			deleteRecord (int recordNumber);
 	void			deleteRecord (RecordVersion *record, Transaction *transaction);
+	
+	SyncObject*		getSyncPrior(Record* record);
+	SyncObject*		getSyncPrior(int recordNumber);
+	
 
 	Dbb				*dbb;
 	SyncObject		syncObject;
 	SyncObject		syncTriggers;
 	SyncObject		syncScavenge;
 	SyncObject		syncAlter;				// prevent concurrent Alter statements.
+	SyncObject		syncPriorVersions[SYNC_VERSIONS_SIZE];
 	Table			*collision;				// Hash collision in database
 	Table			*idCollision;			// mod(id) collision in database
 	Table			*next;					// next in database linked list

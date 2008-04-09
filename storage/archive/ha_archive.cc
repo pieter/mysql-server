@@ -174,7 +174,7 @@ int archive_db_init(void *p)
   if (hash_init(&archive_open_tables, system_charset_info, 32, 0, 0,
                 (hash_get_key) archive_get_key, 0, 0))
   {
-    VOID(pthread_mutex_destroy(&archive_mutex));
+    pthread_mutex_destroy(&archive_mutex);
   }
   else
   {
@@ -198,7 +198,7 @@ error:
 int archive_db_done(void *p)
 {
   hash_free(&archive_open_tables);
-  VOID(pthread_mutex_destroy(&archive_mutex));
+  pthread_mutex_destroy(&archive_mutex);
 
   return 0;
 }
@@ -345,7 +345,7 @@ ARCHIVE_SHARE *ha_archive::get_share(const char *table_name, int *rc)
     /*
       We will use this lock for rows.
     */
-    VOID(pthread_mutex_init(&share->mutex,MY_MUTEX_INIT_FAST));
+    pthread_mutex_init(&share->mutex,MY_MUTEX_INIT_FAST);
     
     /*
       We read the meta file, but do not mark it dirty. Since we are not
@@ -362,7 +362,7 @@ ARCHIVE_SHARE *ha_archive::get_share(const char *table_name, int *rc)
     share->crashed= archive_tmp.dirty;
     azclose(&archive_tmp);
 
-    VOID(my_hash_insert(&archive_open_tables, (uchar*) share));
+    (void) my_hash_insert(&archive_open_tables, (uchar*) share);
     thr_lock_init(&share->lock);
   }
   share->use_count++;
@@ -395,7 +395,7 @@ int ha_archive::free_share()
   {
     hash_delete(&archive_open_tables, (uchar*) share);
     thr_lock_delete(&share->lock);
-    VOID(pthread_mutex_destroy(&share->mutex));
+    pthread_mutex_destroy(&share->mutex);
     /* 
       We need to make sure we don't reset the crashed state.
       If we open a crashed file, wee need to close it as crashed unless
@@ -1468,7 +1468,7 @@ int ha_archive::info(uint flag)
   {
     MY_STAT file_stat;  // Stat information for the data file
 
-    VOID(my_stat(share->data_file_name, &file_stat, MYF(MY_WME)));
+    (void) my_stat(share->data_file_name, &file_stat, MYF(MY_WME));
 
     stats.mean_rec_length= table->s->reclength + buffer.alloced_length();
     stats.data_file_length= file_stat.st_size;

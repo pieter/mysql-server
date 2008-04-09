@@ -344,8 +344,8 @@ int main(int argc,char *argv[])
   if (tty_password)
     opt_password = get_tty_password(NullS);
 
-  VOID(signal(SIGINT,endprog));			/* Here if abort */
-  VOID(signal(SIGTERM,endprog));		/* Here if abort */
+  (void) signal(SIGINT,endprog);			/* Here if abort */
+  (void) signal(SIGTERM,endprog);		/* Here if abort */
 
   if (opt_compress)
     mysql_options(&mysql,MYSQL_OPT_COMPRESS,NullS);
@@ -1071,7 +1071,7 @@ static int drop_db(MYSQL *mysql, const char *db)
     puts("Any data stored in the database will be destroyed.\n");
     printf("Do you really want to drop the '%s' database [y/N] ",db);
     fflush(stdout);
-    VOID(fgets(buf,sizeof(buf)-1,stdin));
+    (void) fgets(buf,sizeof(buf)-1,stdin);
     if ((*buf != 'y') && (*buf != 'Y'))
     {
       puts("\nOK, aborting database drop!");

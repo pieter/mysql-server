@@ -27,6 +27,7 @@
 #include "Record.h"
 
 class Transaction;
+class SyncObject;
 
 class RecordVersion : public Record  
 {
@@ -54,16 +55,17 @@ public:
 	virtual void		print(void);
 	virtual int			getSize(void);
 	virtual void		serialize(Serialize* stream);
+	virtual SyncObject* getSyncPrior();
 
 	void				commit();
 
 protected:
 	virtual ~RecordVersion();
+	Record			*priorVersion;
 
 public:
 	uint64			virtualOffset;		// byte offset into serial log window
 	Transaction		*transaction;
-	Record			*priorVersion;
 	RecordVersion	*nextInTrans;
 	RecordVersion	*prevInTrans;
 	TransId			transactionId;

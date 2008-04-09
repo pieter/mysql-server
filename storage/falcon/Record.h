@@ -62,6 +62,7 @@ class Stream;
 class Database;
 class RecordScavenge;
 class Serialize;
+class SyncObject;
 CLASS(Field);
 
 extern char	*RecordAllocate (int size, const char *file, int line);
@@ -90,6 +91,7 @@ public:
 	virtual int		setRecordData(const UCHAR *dataIn, int dataLength);
 	virtual void	serialize(Serialize* stream);
 	virtual int		getSize(void);
+	virtual SyncObject* getSyncPrior(void);
 
 	const UCHAR*	getEncoding (int index);
 	int				setEncodedRecord(Stream *stream, bool interlocked);

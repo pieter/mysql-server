@@ -1005,9 +1005,6 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback, Transaction *tra
 
 	if (backloggedRecords)
 		deleteRecordBacklog(recordToRollback->recordNumber);
-		
-	if (syncPrior)
-		delete syncPrior;
 			
 	return priorRecord;
 }
@@ -1911,12 +1908,7 @@ void Table::expungeRecordVersions(RecordVersion *record, RecordScavenge *recordS
 {
 	ASSERT(record->state != recLock);
 
-	Sync syncPrior(getSyncPrior(record), "Table::expungeRecordVersions");
-	syncPrior.lock(Exclusive);
-	
-	Record *prior = record->getPriorVersion();
-	//record->priorVersion = NULL;
-	record->setPriorVersion(NULL);
+	Record *prior = record->clearPriorVersion();
 	
 	if (recordScavenge)
 		for (Record *rec = prior; rec; rec = rec->getPriorVersion())

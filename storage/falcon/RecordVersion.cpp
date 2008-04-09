@@ -300,15 +300,23 @@ bool RecordVersion::isSuperceded()
 	return superceded;
 }
 
+// Set the priorVersion to NULL and return its pointer.
+// The caller is responsivble for releasing the associated useCount.
+
+Record* RecordVersion::clearPriorVersion(void)
+{
+	Record * prior = priorVersion;
+	priorVersion = NULL;
+	return prior;
+}
+
 void RecordVersion::setPriorVersion(Record *oldVersion)
 {
 	if (oldVersion)
-		{
 		oldVersion->addRef();
 
-		if (priorVersion)
-			priorVersion->release();
-		}
+	if (priorVersion)
+		priorVersion->release();
 
 	priorVersion = oldVersion;
 }

@@ -4399,8 +4399,8 @@ static void keycache_debug_print(const char * fmt,...)
   va_start(args,fmt);
   if (keycache_debug_log)
   {
-    VOID(vfprintf(keycache_debug_log, fmt, args));
-    VOID(fputc('\n',keycache_debug_log));
+    (void) vfprintf(keycache_debug_log, fmt, args);
+    (void) fputc('\n',keycache_debug_log);
   }
   va_end(args);
 }

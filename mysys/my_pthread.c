@@ -38,7 +38,7 @@ void my_pthread_setprio(pthread_t thread_id,int prior)
   struct sched_param tmp_sched_param;
   bzero((char*) &tmp_sched_param,sizeof(tmp_sched_param));
   tmp_sched_param.sched_priority=prior;
-  VOID(pthread_setschedparam(thread_id,SCHED_POLICY,&tmp_sched_param));
+  pthread_setschedparam(thread_id,SCHED_POLICY,&tmp_sched_param);
 #endif
 }
 #endif
@@ -65,7 +65,7 @@ void my_pthread_attr_setprio(pthread_attr_t *attr, int priority)
   struct sched_param tmp_sched_param;
   bzero((char*) &tmp_sched_param,sizeof(tmp_sched_param));
   tmp_sched_param.sched_priority=priority;
-  VOID(pthread_attr_setschedparam(attr,&tmp_sched_param));
+  pthread_attr_setschedparam(attr,&tmp_sched_param);
 #endif
 }
 #endif
@@ -308,7 +308,7 @@ void sigwait_handle_sig(int sig)
 {
   pthread_mutex_lock(&LOCK_sigwait);
   sigaddset(&pending_set, sig);
-  VOID(pthread_cond_signal(&COND_sigwait)); /* inform sigwait() about signal */
+  pthread_cond_signal(&COND_sigwait); /* inform sigwait() about signal */
   pthread_mutex_unlock(&LOCK_sigwait);
 }
 
@@ -365,8 +365,8 @@ int sigwait(sigset_t *setp, int *sigp)
     pthread_attr_setdetachstate(&thr_attr,PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&thr_attr,8196);
     my_pthread_attr_setprio(&thr_attr,100);	/* Very high priority */
-    VOID(pthread_create(&sigwait_thread_id,&thr_attr,sigwait_thread,setp));
-    VOID(pthread_attr_destroy(&thr_attr));
+    pthread_create(&sigwait_thread_id,&thr_attr,sigwait_thread,setp);
+    pthread_attr_destroy(&thr_attr);
   }
 
   pthread_mutex_lock(&LOCK_sigwait);
@@ -392,7 +392,7 @@ int sigwait(sigset_t *setp, int *sigp)
 	return 0;
       }
     }
-    VOID(pthread_cond_wait(&COND_sigwait,&LOCK_sigwait));
+    pthread_cond_wait(&COND_sigwait,&LOCK_sigwait);
   }
   return 0;
 }

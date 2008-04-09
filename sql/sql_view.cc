@@ -609,7 +609,7 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
     res= TRUE;
     goto err;
   }
-  VOID(pthread_mutex_lock(&LOCK_open));
+  pthread_mutex_lock(&LOCK_open);
   res= mysql_register_view(thd, view, mode);
 
   if (mysql_bin_log.is_open())
@@ -654,7 +654,7 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
                       buff.ptr(), buff.length(), FALSE, FALSE);
   }
 
-  VOID(pthread_mutex_unlock(&LOCK_open));
+  pthread_mutex_unlock(&LOCK_open);
   if (view->revision != 1)
     query_cache_invalidate3(thd, view, 0);
   start_waiting_global_read_lock(thd);
@@ -1569,7 +1569,7 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
   bool something_wrong= FALSE;
   DBUG_ENTER("mysql_drop_view");
 
-  VOID(pthread_mutex_lock(&LOCK_open));
+  pthread_mutex_lock(&LOCK_open);
   for (view= views; view; view= view->next_local)
   {
     TABLE_SHARE *share;
@@ -1646,7 +1646,7 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
     write_bin_log(thd, !something_wrong, thd->query, thd->query_length);
   }
 
-  VOID(pthread_mutex_unlock(&LOCK_open));
+  pthread_mutex_unlock(&LOCK_open);
   
   if (something_wrong)
   {

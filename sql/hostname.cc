@@ -85,7 +85,7 @@ static void add_hostname(struct sockaddr_storage *in, const char *name)
 {
   if (!(specialflag & SPECIAL_NO_HOST_CACHE))
   {
-    VOID(pthread_mutex_lock(&hostname_cache->lock));
+    pthread_mutex_lock(&hostname_cache->lock);
     host_entry *entry;
     if (!(entry=(host_entry*) hostname_cache->search((uchar*) in, 0)))
     {
@@ -104,7 +104,7 @@ static void add_hostname(struct sockaddr_storage *in, const char *name)
 	(void) hostname_cache->add(entry);
       }
     }
-    VOID(pthread_mutex_unlock(&hostname_cache->lock));
+    pthread_mutex_unlock(&hostname_cache->lock);
   }
 }
 
@@ -115,25 +115,25 @@ inline void add_wrong_ip(struct sockaddr_storage *in)
 
 void inc_host_errors(struct sockaddr_storage *in)
 {
-  VOID(pthread_mutex_lock(&hostname_cache->lock));
+  pthread_mutex_lock(&hostname_cache->lock);
   host_entry *entry;
 
   if ((entry=(host_entry*) hostname_cache->search((uchar*)in, 0)))
     entry->errors++;
 
-  VOID(pthread_mutex_unlock(&hostname_cache->lock));
+  pthread_mutex_unlock(&hostname_cache->lock);
 }
 
 
 void reset_host_errors(struct sockaddr_storage *in)
 {
-  VOID(pthread_mutex_lock(&hostname_cache->lock));
+  pthread_mutex_lock(&hostname_cache->lock);
   host_entry *entry;
 
   if ((entry=(host_entry*) hostname_cache->search((uchar*)in, 0)))
     entry->errors=0;
 
-  VOID(pthread_mutex_unlock(&hostname_cache->lock));
+  pthread_mutex_unlock(&hostname_cache->lock);
 }
 
 
@@ -177,7 +177,7 @@ char *ip_to_hostname(struct sockaddr_storage *in, int addrLen, uint *errors)
   /* Check first if we have name in cache */
   if (!(specialflag & SPECIAL_NO_HOST_CACHE))
   {
-    VOID(pthread_mutex_lock(&hostname_cache->lock));
+    pthread_mutex_lock(&hostname_cache->lock);
     if ((entry= (host_entry*)hostname_cache->search((uchar *)&in, 0)))
     {
       if (entry->hostname)
@@ -187,10 +187,10 @@ char *ip_to_hostname(struct sockaddr_storage *in, int addrLen, uint *errors)
 
       DBUG_PRINT("info",("cached data %s", name ? name : "null" ));
       *errors= entry->errors;
-      VOID(pthread_mutex_unlock(&hostname_cache->lock));
+      pthread_mutex_unlock(&hostname_cache->lock);
       DBUG_RETURN(name);
     }
-    VOID(pthread_mutex_unlock(&hostname_cache->lock));
+    pthread_mutex_unlock(&hostname_cache->lock);
   }
 
   if (!(name= my_strdup(hostname_buff, MYF(0))))

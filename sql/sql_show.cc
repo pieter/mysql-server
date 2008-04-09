@@ -559,7 +559,7 @@ find_files(THD *thd, List<LEX_STRING> *files, const char *db,
   DBUG_PRINT("info",("found: %d files", files->elements));
   my_dirend(dirp);
 
-  VOID(ha_find_files(thd, db, path, wild, dir, files));
+  (void) ha_find_files(thd, db, path, wild, dir, files);
 
   DBUG_RETURN(FIND_FILES_OK);
 }
@@ -889,7 +889,7 @@ append_identifier(THD *thd, String *packet, const char *name, uint length)
    it's a keyword
   */
 
-  VOID(packet->reserve(length*2 + 2));
+  (void) packet->reserve(length*2 + 2);
   quote_char= (char) q;
   packet->append(&quote_char, 1, system_charset_info);
 
@@ -1657,7 +1657,7 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_VOID_RETURN;
 
-  VOID(pthread_mutex_lock(&LOCK_thread_count)); // For unlink from list
+  pthread_mutex_lock(&LOCK_thread_count); // For unlink from list
   if (!thd->killed)
   {
     I_List_iterator<THD> it(threads);
@@ -1725,7 +1725,7 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
       }
     }
   }
-  VOID(pthread_mutex_unlock(&LOCK_thread_count));
+  pthread_mutex_unlock(&LOCK_thread_count);
 
   thread_info *thd_info;
   time_t now= my_time(0);
@@ -1764,7 +1764,7 @@ int fill_schema_processlist(THD* thd, TABLE_LIST* tables, COND* cond)
   user= thd->security_ctx->master_access & PROCESS_ACL ?
         NullS : thd->security_ctx->priv_user;
 
-  VOID(pthread_mutex_lock(&LOCK_thread_count));
+  pthread_mutex_lock(&LOCK_thread_count);
 
   if (!thd->killed)
   {
@@ -1853,13 +1853,13 @@ int fill_schema_processlist(THD* thd, TABLE_LIST* tables, COND* cond)
 
       if (schema_table_store_record(thd, table))
       {
-        VOID(pthread_mutex_unlock(&LOCK_thread_count));
+        pthread_mutex_unlock(&LOCK_thread_count);
         DBUG_RETURN(1);
       }
     }
   }
 
-  VOID(pthread_mutex_unlock(&LOCK_thread_count));
+  pthread_mutex_unlock(&LOCK_thread_count);
   DBUG_RETURN(0);
 }
 
@@ -2202,7 +2202,7 @@ void calc_sum_of_all_status(STATUS_VAR *to)
   DBUG_ENTER("calc_sum_of_all_status");
 
   /* Ensure that thread id not killed during loop */
-  VOID(pthread_mutex_lock(&LOCK_thread_count)); // For unlink from list
+  pthread_mutex_lock(&LOCK_thread_count); // For unlink from list
 
   I_List_iterator<THD> it(threads);
   THD *tmp;
@@ -2214,7 +2214,7 @@ void calc_sum_of_all_status(STATUS_VAR *to)
   while ((tmp= it++))
     add_to_status(to, &tmp->status_var);
   
-  VOID(pthread_mutex_unlock(&LOCK_thread_count));
+  pthread_mutex_unlock(&LOCK_thread_count);
   DBUG_VOID_RETURN;
 }
 
@@ -2769,9 +2769,9 @@ make_table_name_list(THD *thd, List<LEX_STRING> *table_names, LEX *lex,
         Check that table is relevant in current transaction.
         (used for ndb engine, see ndbcluster_find_files(), ha_ndbcluster.cc)
       */
-      VOID(ha_find_files(thd, db_name->str, path,
+      (void) ha_find_files(thd, db_name->str, path,
                          lookup_field_vals->table_value.str, 0,
-                         table_names));
+                         table_names);
     }
     return 0;
   }

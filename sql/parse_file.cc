@@ -386,8 +386,8 @@ my_bool rename_in_schema_file(const char *schema, const char *old_name,
     ulonglong limit= ((revision > num_view_backups) ?
                       revision - num_view_backups : 0);
 
-    VOID(tablename_to_filename(old_name, old_name_buf, sizeof(old_name_buf)));
-    VOID(tablename_to_filename(new_name, new_name_buf, sizeof(new_name_buf)));
+    (void) tablename_to_filename(old_name, old_name_buf, sizeof(old_name_buf));
+    (void) tablename_to_filename(new_name, new_name_buf, sizeof(new_name_buf));
 
     for (; revision > limit ; revision--)
     {

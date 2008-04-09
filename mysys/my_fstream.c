@@ -119,7 +119,7 @@ size_t my_fwrite(FILE *stream, const uchar *Buffer, size_t Count, myf MyFlags)
 #ifdef EINTR
       if (errno == EINTR)
       {
-	VOID(my_fseek(stream,seekptr,MY_SEEK_SET,MYF(0)));
+	(void) my_fseek(stream,seekptr,MY_SEEK_SET,MYF(0));
 	continue;
       }
 #endif
@@ -134,8 +134,8 @@ size_t my_fwrite(FILE *stream, const uchar *Buffer, size_t Count, myf MyFlags)
         if (!(errors++ % MY_WAIT_GIVE_USER_A_MESSAGE))
           my_error(EE_DISK_FULL,MYF(ME_BELL | ME_NOREFRESH),
                    "[stream]",my_errno,MY_WAIT_FOR_USER_TO_FIX_PANIC);
-        VOID(sleep(MY_WAIT_FOR_USER_TO_FIX_PANIC));
-        VOID(my_fseek(stream,seekptr,MY_SEEK_SET,MYF(0)));
+        (void) sleep(MY_WAIT_FOR_USER_TO_FIX_PANIC);
+        (void) my_fseek(stream,seekptr,MY_SEEK_SET,MYF(0));
         continue;
       }
 #endif

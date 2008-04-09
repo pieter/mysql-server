@@ -162,8 +162,8 @@ net_send_ok(THD *thd,
 
   if (message && message[0])
     pos= net_store_data(pos, (uchar*) message, strlen(message));
-  VOID(my_net_write(net, buff, (size_t) (pos-buff)));
-  VOID(net_flush(net));
+  (void) my_net_write(net, buff, (size_t) (pos-buff));
+  (void) net_flush(net);
 
   thd->main_da.can_overwrite_status= FALSE;
   DBUG_PRINT("info", ("OK sent, so no more error sending allowed"));
@@ -202,7 +202,7 @@ net_send_eof(THD *thd, uint server_status, uint total_warn_count)
   {
     thd->main_da.can_overwrite_status= TRUE;
     write_eof_packet(thd, net, server_status, total_warn_count);
-    VOID(net_flush(net));
+    (void) net_flush(net);
     thd->main_da.can_overwrite_status= FALSE;
     DBUG_PRINT("info", ("EOF sent, so no more error sending allowed"));
   }
@@ -237,10 +237,10 @@ static void write_eof_packet(THD *thd, NET *net,
     if (thd->is_fatal_error)
       server_status&= ~SERVER_MORE_RESULTS_EXISTS;
     int2store(buff + 3, server_status);
-    VOID(my_net_write(net, buff, 5));
+    (void) my_net_write(net, buff, 5);
   }
   else
-    VOID(my_net_write(net, eof_buff, 1));
+    (void) my_net_write(net, eof_buff, 1);
 }
 
 /**
@@ -301,8 +301,8 @@ void net_send_error_packet(THD *thd, uint sql_errno, const char *err)
     length=(uint) strlen(err);
     set_if_smaller(length,MYSQL_ERRMSG_SIZE-1);
   }
-  VOID(net_write_command(net,(uchar) 255, (uchar*) "", 0, (uchar*) err,
-                         length));
+  (void) net_write_command(net,(uchar) 255, (uchar*) "", 0, (uchar*) err,
+                         length);
   DBUG_VOID_RETURN;
 }
 

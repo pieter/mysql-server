@@ -48,6 +48,7 @@ public:
 	virtual Record*		rollback(Transaction *transaction);
 	virtual Record*		fetchVersion (Transaction *transaction);
 	virtual Record*		releaseNonRecursive();
+	virtual Record*		clearPriorVersion(void);
 	virtual void		setPriorVersion (Record *oldVersion);
 	virtual void		setVirtualOffset(uint64 offset);
 	virtual uint64		getVirtualOffset();

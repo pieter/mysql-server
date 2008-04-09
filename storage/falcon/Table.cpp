@@ -963,15 +963,12 @@ Record* Table::backlogFetch(int32 recordNumber)
 
 Record* Table::rollbackRecord(RecordVersion * recordToRollback, Transaction *transaction)
 {
-	Sync * syncPrior = NULL;
+	Sync syncPrior(getSyncPrior(recordToRollback), "Table::rollbackRecord");
 	
-	 //cwp tbd: Problem if systemConnection->rollback() and table deleted
+	//cwp tbd: Problem if systemConnection->rollback() and table deleted
 	if (!transaction->systemTransaction)
-		{
-		syncPrior = NEW Sync(getSyncPrior(recordToRollback), "Table::rollbackRecord");
-		syncPrior->lock(Shared);
-		}
-	
+		syncPrior.lock(Shared);
+
 #ifdef CHECK_RECORD_ACTIVITY
 	recordToRollback->active = false;
 #endif
@@ -1005,9 +1002,6 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback, Transaction *tra
 
 	if (backloggedRecords)
 		deleteRecordBacklog(recordToRollback->recordNumber);
-		
-	if (syncPrior)
-		delete syncPrior;
 			
 	return priorRecord;
 }
@@ -1911,12 +1905,7 @@ void Table::expungeRecordVersions(RecordVersion *record, RecordScavenge *recordS
 {
 	ASSERT(record->state != recLock);
 
-	Sync syncPrior(getSyncPrior(record), "Table::expungeRecordVersions");
-	syncPrior.lock(Exclusive);
-	
-	Record *prior = record->getPriorVersion();
-	//record->priorVersion = NULL;
-	record->setPriorVersion(NULL);
+	Record *prior = record->clearPriorVersion();
 	
 	if (recordScavenge)
 		for (Record *rec = prior; rec; rec = rec->getPriorVersion())

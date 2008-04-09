@@ -3282,7 +3282,6 @@ void Table::validateAndInsert(Transaction *transaction, RecordVersion *record)
 
 					if (transaction->waitForTransaction(transId))
 						{
-						syncTable.lock(Exclusive);
 						syncPrior.lock(Shared);
 						current = fetch(record->recordNumber);
 						
@@ -3744,12 +3743,12 @@ void Table::deleteRecordBacklog(int32 recordNumber)
 SyncObject* Table::getSyncPrior(Record* record)
 {
 	int lockNumber = record->recordNumber % SYNC_VERSIONS_SIZE;
-	return &syncPriorVersions[lockNumber];
+	return syncPriorVersions + lockNumber;
 }
 
 SyncObject* Table::getSyncPrior(int recordNumber)
 {
 	int lockNumber = recordNumber % SYNC_VERSIONS_SIZE;
-	return &syncPriorVersions[lockNumber];
+	return syncPriorVersions + lockNumber;
 }
 

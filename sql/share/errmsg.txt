@@ -6253,3 +6253,5 @@ ER_SLAVE_HEARTBEAT_FAILURE
   eng "Unexpected master's heartbeat data: %s"
 ER_SLAVE_HEARTBEAT_VALUE_OUT_OF_RANGE
   eng "The requested value for the heartbeat period %s %s"
+ER_TABLESPACE_NOT_EMPTY
+  eng "Tablespace '%-.192s' not empty"

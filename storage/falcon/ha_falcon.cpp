@@ -1816,6 +1816,10 @@ int StorageInterface::getMySqlError(int storageError)
 			DBUG_PRINT("info", ("StorageErrorOutOfRecordMemory"));
 			return (200 - storageError);
 
+		case StorageErrorTableNotEmpty:
+			DBUG_PRINT("info", ("StorageErrorTableNotEmpty"));
+			return HA_ERR_TABLESPACE_NOT_EMPTY;
+
 		default:
 			DBUG_PRINT("info", ("Unknown Falcon Error"));
 			return (200 - storageError);

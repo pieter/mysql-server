@@ -3650,11 +3650,11 @@ bool Table::validateUpdate(int32 recordNumber, TransId transactionId)
 	if (deleting)
 		return false;
 
-	Sync syncPrior(getSyncPrior(recordNumber), "Table::validateUpdate");
-	syncPrior.lock(Shared);
-	
 	Record *record = treeFetch(recordNumber);
 	Record *initial = record;
+	
+	Sync syncPrior(getSyncPrior(recordNumber), "Table::validateUpdate");
+	syncPrior.lock(Shared);
 	
 	while (record)
 		{

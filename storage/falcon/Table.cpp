@@ -963,15 +963,12 @@ Record* Table::backlogFetch(int32 recordNumber)
 
 Record* Table::rollbackRecord(RecordVersion * recordToRollback, Transaction *transaction)
 {
-	Sync * syncPrior = NULL;
+	Sync syncPrior(getSyncPrior(recordToRollback), "Table::rollbackRecord");
 	
-	 //cwp tbd: Problem if systemConnection->rollback() and table deleted
+	//cwp tbd: Problem if systemConnection->rollback() and table deleted
 	if (!transaction->systemTransaction)
-		{
-		syncPrior = NEW Sync(getSyncPrior(recordToRollback), "Table::rollbackRecord");
-		syncPrior->lock(Shared);
-		}
-	
+		syncPrior.lock(Shared);
+
 #ifdef CHECK_RECORD_ACTIVITY
 	recordToRollback->active = false;
 #endif

@@ -8649,10 +8649,10 @@ int handle_trailing_share(THD *thd, NDB_SHARE *share, int have_lock_open)
   if (have_lock_open)
     safe_mutex_assert_owner(&LOCK_open);
   else
-    VOID(pthread_mutex_lock(&LOCK_open));    
+    pthread_mutex_lock(&LOCK_open);    
   close_cached_tables(thd, &table_list, TRUE, FALSE, FALSE);
   if (!have_lock_open)
-    VOID(pthread_mutex_unlock(&LOCK_open));    
+    pthread_mutex_unlock(&LOCK_open);    
 
   pthread_mutex_lock(&ndbcluster_mutex);
   /* ndb_share reference temporary free */

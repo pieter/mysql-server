@@ -334,7 +334,7 @@ ARCHIVE_SHARE *ha_archive::get_share(const char *table_name, int *rc)
     if (!(azopen(&archive_tmp, share->data_file_name, O_RDONLY|O_BINARY,
                  AZ_METHOD_BLOCK)))
     {
-      VOID(pthread_mutex_destroy(&share->mutex));
+      pthread_mutex_destroy(&share->mutex);
       free(share);
       pthread_mutex_unlock(&archive_mutex);
       *rc= HA_ERR_CRASHED_ON_REPAIR;

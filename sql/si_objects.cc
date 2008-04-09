@@ -89,13 +89,13 @@ int silent_exec(THD *thd, String *query)
       next_packet++;
       length--;
     }
-    VOID(pthread_mutex_lock(&LOCK_thread_count));
+    pthread_mutex_lock(&LOCK_thread_count);
     thd->query_length= length;
     thd->query= next_packet;
     thd->query_id= next_query_id();
     thd->set_time(); /* Reset the query start time. */
     /* TODO: set thd->lex->sql_command to SQLCOM_END here */
-    VOID(pthread_mutex_unlock(&LOCK_thread_count));
+    pthread_mutex_unlock(&LOCK_thread_count);
     mysql_parse(thd, next_packet, length, & found_semicolon);
   }
 

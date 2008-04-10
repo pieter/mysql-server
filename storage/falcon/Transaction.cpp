@@ -292,7 +292,7 @@ void Transaction::commit()
 	syncActiveTransactions.unlock();
 	
 	for (RecordVersion *record = firstRecord; record; record = record->nextInTrans)
-		if (!record->priorVersion)
+		if (!record->getPriorVersion())
 			++record->format->table->cardinality;
 		else if (record->state == recDeleted && record->format->table->cardinality > 0)
 			--record->format->table->cardinality;
@@ -1315,7 +1315,7 @@ void Transaction::printBlocking(int level)
 			++locks;
 		else if (!record->hasRecord())
 			++deletes;
-		else if (record->priorVersion)
+		else if (record->getPriorVersion())
 			++updates;
 		else
 			++inserts;
@@ -1343,7 +1343,7 @@ void Transaction::printBlocking(int level)
 			what = "locked";
 		else if (!record->hasRecord())
 			what = "deleted";
-		else if (record->priorVersion)
+		else if (record->getPriorVersion())
 			what = "updated";
 		else
 			what = "inserted";

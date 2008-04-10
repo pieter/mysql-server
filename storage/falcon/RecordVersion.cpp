@@ -238,6 +238,9 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 	if (!priorVersion)
 		return;
 
+	Sync syncPrior(getSyncPrior(), "RecordVersion::scavenge(2)");
+	syncPrior.lock(Shared);
+	
 	Record *rec = priorVersion;
 	Record *ptr = NULL;
 	
@@ -265,6 +268,10 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 	
 	Record *prior = priorVersion;
 	prior->addRef();
+
+	syncPrior.unlock();
+	syncPrior.lock(Exclusive);
+	
 	setPriorVersion(rec);
 	//ptr->setPriorVersion(NULL);
 	ptr->state = recEndChain;
@@ -295,6 +302,16 @@ Transaction* RecordVersion::getTransaction()
 bool RecordVersion::isSuperceded()
 {
 	return superceded;
+}
+
+// Set the priorVersion to NULL and return its pointer.
+// The caller is responsivble for releasing the associated useCount.
+
+Record* RecordVersion::clearPriorVersion(void)
+{
+	Record * prior = priorVersion;
+	priorVersion = NULL;
+	return prior;
 }
 
 void RecordVersion::setPriorVersion(Record *oldVersion)
@@ -438,4 +455,9 @@ void RecordVersion::serialize(Serialize* stream)
 		}
 	else
 		stream->putInt(2);
+}
+
+SyncObject* RecordVersion::getSyncPrior()
+{
+	return format->table->getSyncPrior(this);
 }

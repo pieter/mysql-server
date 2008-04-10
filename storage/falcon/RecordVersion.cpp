@@ -239,7 +239,7 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 		return;
 
 	Sync syncPrior(getSyncPrior(), "RecordVersion::scavenge(2)");
-	syncPrior.lock(Exclusive);
+	syncPrior.lock(Shared);
 	
 	Record *rec = priorVersion;
 	Record *ptr = NULL;
@@ -268,6 +268,10 @@ void RecordVersion::scavenge(TransId targetTransactionId, int oldestActiveSavePo
 	
 	Record *prior = priorVersion;
 	prior->addRef();
+
+	syncPrior.unlock();
+	syncPrior.lock(Exclusive);
+	
 	setPriorVersion(rec);
 	//ptr->setPriorVersion(NULL);
 	ptr->state = recEndChain;

@@ -963,12 +963,6 @@ Record* Table::backlogFetch(int32 recordNumber)
 
 Record* Table::rollbackRecord(RecordVersion * recordToRollback, Transaction *transaction)
 {
-	Sync syncPrior(getSyncPrior(recordToRollback), "Table::rollbackRecord");
-	
-	//cwp tbd: Problem if systemConnection->rollback() and table deleted
-	if (!transaction->systemTransaction)
-		syncPrior.lock(Shared);
-
 #ifdef CHECK_RECORD_ACTIVITY
 	recordToRollback->active = false;
 #endif
@@ -976,12 +970,25 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback, Transaction *tra
 	int priorState = recordToRollback->state;
 	recordToRollback->state = recRollback;
 
-	// Find the record that will become the current version.
+	// Hold syncPrior long enough to get prior version and addRef. Unlock before insert().
+	
+	Sync syncPrior(getSyncPrior(recordToRollback), "Table::rollbackRecord");
 
+	if (!transaction->systemTransaction)
+		syncPrior.lock(Shared);
+
+	// Find the record that will become the current version.
+	
 	Record *priorRecord = recordToRollback->getPriorVersion();
 
 	if (priorRecord)
+		{
+		priorRecord->addRef();
 		priorRecord->setSuperceded(false);
+		}
+	
+	if (!transaction->systemTransaction)
+		syncPrior.unlock();
 
 	// Replace the current version of this record.
 
@@ -1002,6 +1009,9 @@ Record* Table::rollbackRecord(RecordVersion * recordToRollback, Transaction *tra
 
 	if (backloggedRecords)
 		deleteRecordBacklog(recordToRollback->recordNumber);
+	
+	if (priorRecord)
+		priorRecord->release();
 			
 	return priorRecord;
 }
@@ -3262,8 +3272,8 @@ void Table::validateAndInsert(Transaction *transaction, RecordVersion *record)
 		if (prior)
 			{
 			syncTable.lock(Exclusive);
-			syncPrior.lock(Shared);
 			Record *current = fetch(record->recordNumber);
+			syncPrior.lock(Shared);
 
 			if (current)
 				{
@@ -3282,8 +3292,8 @@ void Table::validateAndInsert(Transaction *transaction, RecordVersion *record)
 
 					if (transaction->waitForTransaction(transId))
 						{
-						syncPrior.lock(Shared);
 						current = fetch(record->recordNumber);
+						syncPrior.lock(Shared);
 						
 						if (current == prior)
 							current->release();

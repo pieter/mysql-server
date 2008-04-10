@@ -1137,7 +1137,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     if (check_access(thd,SELECT_ACL,table_list.db,&table_list.grant.privilege,
 		     0, 0, test(table_list.schema_table)))
       break;
-    if (check_grant(thd, SELECT_ACL, &table_list, 2, UINT_MAX, 0))
+    if (check_grant(thd, SELECT_ACL, &table_list, TRUE, UINT_MAX, FALSE))
       break;
     /* init structures for VIEW processing */
     table_list.select_lex= &(thd->lex->select_lex);

@@ -118,7 +118,7 @@ int silent_exec(THD *thd, String *query)
 /*
   This method gets the create statement for a procedure or function.
 */
-int serialize_routine(THD *thd,
+bool serialize_routine(THD *thd,
                      int type,
                       String db_name,
                       String r_name,
@@ -184,7 +184,7 @@ int serialize_routine(THD *thd,
   else
   {
     string->length(0);
-    ret= -1;
+    ret= TRUE;
   }
   if (type == TYPE_ENUM_PROCEDURE)
     thd->variables.max_sp_recursion_depth--;

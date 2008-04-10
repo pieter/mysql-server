@@ -1,3 +1,4 @@
+--source include/have_falcon.inc
 #
 # Bug#33041: Cannot set FALCON_CONSISTENT_READ for local session
 #

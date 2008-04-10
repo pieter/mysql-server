@@ -5187,7 +5187,7 @@ static bool check_show_access(THD *thd, TABLE_LIST *table)
 */
 
 bool
-check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
+check_table_access(THD *thd, ulong requirements,TABLE_LIST *tables,
 		   bool no_errors, bool any_combination_of_privileges_will_do,
                    uint number)
 {
@@ -5203,6 +5203,7 @@ check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
   for (; i < number && tables != first_not_own_table && tables;
        tables= tables->next_global, i++)
   {
+    ulong want_access= requirements;
     if (tables->security_ctx)
       sctx= tables->security_ctx;
     else
@@ -5250,7 +5251,7 @@ check_table_access(THD *thd, ulong want_access,TABLE_LIST *tables,
       goto deny;
   }
   thd->security_ctx= backup_ctx;
-  return check_grant(thd,want_access,org_tables,
+  return check_grant(thd,requirements,org_tables,
                      any_combination_of_privileges_will_do,
                      number, no_errors);
 deny:

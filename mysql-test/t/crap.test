@@ -1,0 +1,16 @@
+
+create database testdb1;
+use testdb1;
+create table t1 (c1 int);
+create table t2 (c2 int);
+grant select on testdb1.t1 to mysqluser1@localhost;
+
+--connect (mysqluser1, localhost, mysqluser1, , testdb1)
+select * from information_schema.tables, t1;
+--error 1142
+select * from t2;
+--error 1142
+select * from t2, information_schema.tables;
+--error 1142
+select * from information_schema.tables, t2;
+

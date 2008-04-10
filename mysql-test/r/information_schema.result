@@ -1688,3 +1688,23 @@ char	10	10	NULL	NULL	latin1	latin1_swedish_ci	char(10)
 drop procedure p1;
 drop procedure p2;
 drop function f1;
+#
+# Bug#35955 Regression: I_S table cause reduced privilege requirements in SELECT.
+#
+DROP DATABASE IF EXISTS testdb1;
+CREATE DATABASE testdb1;
+USE testdb1;
+CREATE TABLE t1 (c1 int);
+CREATE TABLE t2 (c2 int);
+GRANT SELECT ON testdb1.t1 TO mysqluser_35955@localhost;
+SELECT * FROM INFORMATION_SCHEMA.tables, t1;
+TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	TABLE_TYPE	ENGINE	VERSION	ROW_FORMAT	TABLE_ROWS	AVG_ROW_LENGTH	DATA_LENGTH	MAX_DATA_LENGTH	INDEX_LENGTH	DATA_FREE	AUTO_INCREMENT	CREATE_TIME	UPDATE_TIME	CHECK_TIME	TABLE_COLLATION	CHECKSUM	CREATE_OPTIONS	TABLE_COMMENT	c1
+SELECT * FROM t2;
+ERROR 42000: SELECT command denied to user 'mysqluser_35955'@'localhost' for table 't2'
+SELECT * FROM t2, INFORMATION_SCHEMA.tables;
+ERROR 42000: SELECT command denied to user 'mysqluser_35955'@'localhost' for table 't2'
+SELECT * FROM INFORMATION_SCHEMA.tables, t2;
+ERROR 42000: SELECT command denied to user 'mysqluser_35955'@'localhost' for table 't2'
+DROP TABLE t1,t2;
+DROP DATABASE testdb1;
+DROP USER mysqluser_35955@localhost;

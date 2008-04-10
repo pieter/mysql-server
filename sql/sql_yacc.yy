@@ -4824,12 +4824,12 @@ type:
           }
         | BOOL_SYM
           {
-            Lex->length=(char*) "1";
+            Lex->length= (char*) "1";
             $$=MYSQL_TYPE_TINY;
           }
         | BOOLEAN_SYM
           {
-            Lex->length=(char*) "1";
+            Lex->length= (char*) "1";
             $$=MYSQL_TYPE_TINY;
           }
         | char field_length opt_binary
@@ -4838,7 +4838,7 @@ type:
           }
         | char opt_binary
           {
-            Lex->length=(char*) "1";
+            Lex->length= (char*) "1";
             $$=MYSQL_TYPE_STRING;
           }
         | nchar field_length opt_bin_mod
@@ -4848,7 +4848,7 @@ type:
           }
         | nchar opt_bin_mod
           {
-            Lex->length=(char*) "1";
+            Lex->length= (char*) "1";
             $$=MYSQL_TYPE_STRING;
             Lex->charset=national_charset_info;
           }
@@ -5068,6 +5068,7 @@ opt_field_length:
           /* empty */  { Lex->length=(char*) 0; /* use default length */ }
         | field_length { }
         ;
+
 
 opt_precision:
           /* empty */ {}

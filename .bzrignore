@@ -3037,3 +3037,4 @@ win/vs8cache.txt
 ylwrap
 zlib/*.ds?
 zlib/*.vcproj
+libmysqld/si_objects.cc

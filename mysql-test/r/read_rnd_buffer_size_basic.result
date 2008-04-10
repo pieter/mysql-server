@@ -8,15 +8,11 @@ SELECT @start_session_value;
 262144
 '#--------------------FN_DYNVARS_140_01-------------------------#'
 SET @@global.read_rnd_buffer_size = 1000;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '1000'
 SET @@global.read_rnd_buffer_size = DEFAULT;
 SELECT @@global.read_rnd_buffer_size;
 @@global.read_rnd_buffer_size
 262144
 SET @@session.read_rnd_buffer_size = 2000;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '2000'
 SET @@session.read_rnd_buffer_size = DEFAULT;
 SELECT @@session.read_rnd_buffer_size;
 @@session.read_rnd_buffer_size
@@ -33,14 +29,10 @@ SELECT @@session.read_rnd_buffer_size = 262144;
 'Bug# 34876: This variable has invalid default value as compared to documentation';
 '#--------------------FN_DYNVARS_140_03-------------------------#'
 SET @@global.read_rnd_buffer_size = 8201;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '8201'
 SELECT @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228;
 @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228
-1
+0
 SET @@global.read_rnd_buffer_size = 8200;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '8200'
 SELECT @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228;
 @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228
 1
@@ -51,21 +43,17 @@ SELECT @@global.read_rnd_buffer_size;
 SET @@global.read_rnd_buffer_size = 2147479551;
 SELECT @@global.read_rnd_buffer_size;
 @@global.read_rnd_buffer_size
-2147475456
+2147479551
 'Bug# 34877: Invalid Values are coming in variable on assigning valid values';
 '#--------------------FN_DYNVARS_140_04-------------------------#'
 SET @@session.read_rnd_buffer_size = 8200;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '8200'
 SELECT @@session.read_rnd_buffer_size= 8200 OR @@session.read_rnd_buffer_size= 8228;
 @@session.read_rnd_buffer_size= 8200 OR @@session.read_rnd_buffer_size= 8228
 1
 SET @@session.read_rnd_buffer_size = 8201;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '8201'
 SELECT @@session.read_rnd_buffer_size= 8200 OR @@session.read_rnd_buffer_size= 8228;
 @@session.read_rnd_buffer_size= 8200 OR @@session.read_rnd_buffer_size= 8228
-1
+0
 SET @@session.read_rnd_buffer_size = 2147479552;
 SELECT @@session.read_rnd_buffer_size;
 @@session.read_rnd_buffer_size
@@ -73,58 +61,54 @@ SELECT @@session.read_rnd_buffer_size;
 SET @@session.read_rnd_buffer_size = 2147479551;
 SELECT @@session.read_rnd_buffer_size;
 @@session.read_rnd_buffer_size
-2147475456
+2147479551
 '#------------------FN_DYNVARS_140_05-----------------------#'
 SET @@global.read_rnd_buffer_size = 8199;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '8199'
 SELECT @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228;
 @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228
-1
+0
 SET @@global.read_rnd_buffer_size = -1024;
 Warnings:
 Warning	1292	Truncated incorrect read_rnd_buffer_size value: '0'
 SELECT @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228;
 @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228
-1
+0
 SET @@global.read_rnd_buffer_size = 2147479553;
 SELECT @@global.read_rnd_buffer_size;
 @@global.read_rnd_buffer_size
-2147479552
+2147479553
 SET @@global.read_rnd_buffer_size = 65530.34.;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '.' at line 1
 SELECT @@global.read_rnd_buffer_size;
 @@global.read_rnd_buffer_size
-2147479552
+2147479553
 SET @@global.read_rnd_buffer_size = test;
 ERROR 42000: Incorrect argument type to variable 'read_rnd_buffer_size'
 SELECT @@global.read_rnd_buffer_size;
 @@global.read_rnd_buffer_size
-2147479552
+2147479553
 SET @@session.read_rnd_buffer_size = 8199;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '8199'
 SELECT @@session.read_rnd_buffer_size= 8200 OR @@session.read_rnd_buffer_size= 8228;
 @@session.read_rnd_buffer_size= 8200 OR @@session.read_rnd_buffer_size= 8228
-1
+0
 SET @@session.read_rnd_buffer_size = -2;
 Warnings:
 Warning	1292	Truncated incorrect read_rnd_buffer_size value: '0'
 SELECT @@session.read_rnd_buffer_size= 8200 OR @@session.read_rnd_buffer_size= 8228;
 @@session.read_rnd_buffer_size= 8200 OR @@session.read_rnd_buffer_size= 8228
-1
+0
 SET @@session.read_rnd_buffer_size = 65530.34.;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '.' at line 1
 SET @@session.read_rnd_buffer_size = 2147479553;
 SELECT @@session.read_rnd_buffer_size;
 @@session.read_rnd_buffer_size
-2147479552
+2147479553
 'Bug # 34837: Errors are not coming on assigning invalid values to variable';
 SET @@session.read_rnd_buffer_size = test;
 ERROR 42000: Incorrect argument type to variable 'read_rnd_buffer_size'
 SELECT @@session.read_rnd_buffer_size;
 @@session.read_rnd_buffer_size
-2147479552
+2147479553
 '#------------------FN_DYNVARS_140_06-----------------------#'
 SELECT @@global.read_rnd_buffer_size = VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES WHERE VARIABLE_NAME='read_rnd_buffer_size';
 @@global.read_rnd_buffer_size = VARIABLE_VALUE
@@ -141,24 +125,20 @@ Warnings:
 Warning	1292	Truncated incorrect read_rnd_buffer_size value: '1'
 SELECT @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228;
 @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228
-1
+0
 SET @@global.read_rnd_buffer_size = FALSE;
 Warnings:
 Warning	1292	Truncated incorrect read_rnd_buffer_size value: '0'
 SELECT @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228;
 @@global.read_rnd_buffer_size= 8200 OR @@global.read_rnd_buffer_size= 8228
-1
+0
 '#---------------------FN_DYNVARS_140_09----------------------#'
 SET @@global.read_rnd_buffer_size = 9000;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '9000'
 SELECT @@read_rnd_buffer_size = @@global.read_rnd_buffer_size;
 @@read_rnd_buffer_size = @@global.read_rnd_buffer_size
 0
 '#---------------------FN_DYNVARS_140_10----------------------#'
 SET @@read_rnd_buffer_size = 9000;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '9000'
 SELECT @@read_rnd_buffer_size = @@local.read_rnd_buffer_size;
 @@read_rnd_buffer_size = @@local.read_rnd_buffer_size
 1
@@ -167,11 +147,9 @@ SELECT @@local.read_rnd_buffer_size = @@session.read_rnd_buffer_size;
 1
 '#---------------------FN_DYNVARS_140_11----------------------#'
 SET read_rnd_buffer_size = 9100;
-Warnings:
-Warning	1292	Truncated incorrect read_rnd_buffer_size value: '9100'
 SELECT @@read_rnd_buffer_size= 8200 OR @@read_rnd_buffer_size= 8228;
 @@read_rnd_buffer_size= 8200 OR @@read_rnd_buffer_size= 8228
-1
+0
 SELECT local.read_rnd_buffer_size;
 ERROR 42S02: Unknown table 'local' in field list
 SELECT session.read_rnd_buffer_size;

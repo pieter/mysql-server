@@ -1,3 +1,5 @@
+--source include/not_embedded.inc
+
 # Setup database, tables and user accounts
 --disable_warnings
 drop database if exists mysqltest_db1;

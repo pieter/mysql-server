@@ -124,6 +124,8 @@ static const char *handler_error_messages[]=
   /* HA_ERR_LOCK_OR_ACTIVE_TRANSACTION */
   "Lock or active transaction", /* TODO: get a better message */
   /* HA_ERR_NO_SUCH_TABLESPACE */
-  "No such table space" /* TODO: get a better message */
+  "No such table space", /* TODO: get a better message */
+  /* HA_ERR_TABLESPACE_NOT_EMPTY */
+  "Tablespace not empty" /* TODO: get a better message */
 };
 

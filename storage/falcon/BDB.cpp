@@ -21,7 +21,6 @@
 #include "BDB.h"
 #include "Cache.h"
 #include "Interlock.h"
-#include "PagePrecedence.h"
 #include "PageWriter.h"
 #include "Thread.h"
 #include "SQLError.h"
@@ -53,7 +52,6 @@ Bdb::Bdb()
 	pageNumber = -1;
 	useCount = 0;
 	age = 0;
-	higher = lower = NULL;
 	markingThread = NULL;
 	priorDirty = nextDirty = NULL;
 	flushIt = false;
@@ -69,13 +67,6 @@ Bdb::Bdb()
 
 Bdb::~Bdb()
 {
-	PagePrecedence *precedence;
-
-	while ( (precedence = higher) )
-		cache->clearPrecedence (precedence);
-
-	while ( (precedence = lower) )
-		cache->clearPrecedence (precedence);
 
 }
 
@@ -169,25 +160,6 @@ void Bdb::decrementUseCount()
 {
 	ASSERT (useCount > 0);
 	INTERLOCKED_DECREMENT (useCount);
-}
-
-/***
-void Bdb::setPrecedence(int32 priorPage)
-{
-	cache->setPrecedence (this, priorPage);
-}
-***/
-
-bool Bdb::isHigher(Bdb *bdb)
-{
-	if (this == bdb)
-		return true;
-
-	for (PagePrecedence *prec = higher; prec; prec = prec->nextHigh)
-		if (prec->higher->isHigher (bdb))
-			return true;
-
-	return false;
 }
 
 void Bdb::setWriter()

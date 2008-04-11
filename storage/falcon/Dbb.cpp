@@ -1155,7 +1155,7 @@ void Dbb::reportStatistics()
 	if (!deltaReads && !deltaWrites && !deltaFetches)
 		return;
 
-	Log::log (LogInfo, "%d: Activity on %s: %d fetches, %d reads, %d writes, %d flushWrites\n", database->deltaTime,
+	Log::log (LogInfo, I64FORMAT": Activity on %s: %d fetches, %d reads, %d writes, %d flushWrites\n", database->deltaTime,
 				(const char*) fileName, deltaFetches, deltaReads, deltaWrites, deltaFlushWrites);
 	
 	priorReads = reads;
@@ -1221,10 +1221,6 @@ void Dbb::validateCache(void)
 	cache->validate();
 }
 
-void Dbb::setPrecedence(Bdb *lower, int32 higherPageNumber)
-{
-	cache->setPrecedence(lower, higherPageNumber);
-}
 
 void Dbb::redoRecordLocatorPage(int sectionId, int sequence, int32 pageNumber, bool isPostFlush)
 {

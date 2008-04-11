@@ -110,7 +110,6 @@ public:
 	Dbb (Dbb *dbb, int tableSpaceId);
 	virtual ~Dbb();
 
-	void	setPrecedence (Bdb *lower, int32 higherPageNumber);
 	void	createSection(int32 sectionId, TransId transId);
 	void	dropDatabase();
 	void	enableSerialLog();

@@ -138,9 +138,8 @@ bool IndexRootPage::addIndexEntry(Dbb * dbb, int32 indexId, IndexKey *key, int32
 
 		for (;;)
 			{
-			IndexKey priorKey;
 			page = (IndexPage*) bdb->buffer;
-			Btn *node = page->findNodeInLeaf(key, &priorKey);
+			Btn *node = page->findNodeInLeaf(key, NULL);
 			Btn *bucketEnd = (Btn*) ((char*) page + page->length);
 
 			if (node < bucketEnd || page->nextPage == 0)
@@ -545,6 +544,7 @@ bool IndexRootPage::splitIndexPage(Dbb * dbb, int32 indexId, Bdb * bdb, TransId 
 		page->level = splitPage->level + 1;
 		page->version = splitPage->version;
 		page->nextPage = 0;
+		memset(page->superNodes, 0, sizeof(page->superNodes));
 		IndexKey dummy(indexKey->index);
 		dummy.keyLength = 0;
 		page->length = OFFSET (IndexPage*, nodes);
@@ -574,8 +574,6 @@ bool IndexRootPage::splitIndexPage(Dbb * dbb, int32 indexId, Bdb * bdb, TransId 
 			page->printPage(splitPage, 0, false, false);
 			}
 		
-		dbb->setPrecedence(leftBdb, splitBdb->pageNumber);
-		dbb->setPrecedence(bdb, leftBdb->pageNumber);
 		splitBdb->release(REL_HISTORY);
 		leftBdb->release(REL_HISTORY);
 		bdb->release(REL_HISTORY);
@@ -608,7 +606,6 @@ bool IndexRootPage::splitIndexPage(Dbb * dbb, int32 indexId, Bdb * bdb, TransId 
 
 		if (result == NodeAdded || result == Duplicate)
 			{
-			dbb->setPrecedence(bdb, splitPageNumber);
 			splitBdb = dbb->fetchPage (splitPageNumber, PAGE_btree, Exclusive);
 			BDB_HISTORY(splitBdb);
 			splitBdb->mark (transId);
@@ -782,7 +779,7 @@ void IndexRootPage::debugBucket(Dbb *dbb, int indexId, int recordNumber, TransId
 	bdb->release(REL_HISTORY);
 }
 
-void IndexRootPage::redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPage, int level, int32 priorPage, int32 nextPage, int length, const UCHAR *data)
+void IndexRootPage::redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPage, int level, int32 priorPage, int32 nextPage, int length, const UCHAR *data, bool haveSuperNodes)
 {
 	//Log::debug("redoIndexPage %d -> %d -> %d level %d, parent %d)\n", priorPage, pageNumber, nextPage, level, parentPage);
 	Bdb *bdb = dbb->fakePage(pageNumber, PAGE_any, 0);
@@ -805,9 +802,19 @@ void IndexRootPage::redoIndexPage(Dbb* dbb, int32 pageNumber, int32 parentPage, 
 	indexPage->parentPage = parentPage;
 	indexPage->nextPage = nextPage;
 	indexPage->priorPage = priorPage;
-	indexPage->length = length + (int32) OFFSET (IndexPage*, nodes);
-	memcpy(indexPage->nodes, data, length);
-	
+
+	if (haveSuperNodes)
+		{
+		indexPage->length = length + (int32) OFFSET (IndexPage*, superNodes);
+		memcpy(indexPage->superNodes, data, length);
+		}
+	else
+		{
+		indexPage->length = length + (int32) OFFSET (IndexPage*, nodes);
+		memcpy(indexPage->nodes, data, length);
+		memset(indexPage->superNodes, 0, sizeof(indexPage->superNodes));
+		}
+
 	// If we have a parent page, propogate the first node upward
 
 	if (parentPage && indexPage->priorPage != 0)
@@ -896,7 +903,6 @@ void IndexRootPage::setIndexRoot(Dbb* dbb, int indexId, int32 pageNumber, TransI
 	int slot = indexId % dbb->pagesPerSection;
 	Bdb *bdb = Section::getSectionPage (dbb, INDEX_ROOT, sequence, Exclusive, transId);
 	BDB_HISTORY(bdb);
-	dbb->setPrecedence(bdb, pageNumber);
 	bdb->mark(transId);
 	SectionPage *sections = (SectionPage*) bdb->buffer;
 	sections->pages[slot] = pageNumber;
@@ -988,33 +994,9 @@ void IndexRootPage::indexMerge(Dbb *dbb, int indexId, SRLUpdateIndex *logRecord,
 				++duplicates;
 			else
 				{
-				int offset1 = IndexPage::computePrefix (&priorKey, &key);
-				int length1 = key.keyLength - offset1;
-				int delta = IndexNode::nodeLength(offset1, length1, recordNumber);
-				int32 nextNumber = 0;
-				int offset2;
-				
-				if ((UCHAR*) node.node == (UCHAR*) page + page->length)
-					offset2 = -1;
-				else
-					{
-					node.expandKey(&nextKey);
-					offset2 = IndexPage::computePrefix(&key, &nextKey);
-					int deltaOffset = offset2 - node.offset;
-					
-					if (node.length >= 128 && (node.length - deltaOffset) < 128)
-						--delta;
-
-					if (node.offset < 128 && (node.offset + deltaOffset) >= 128)
-						++delta;
-						
-					delta -= deltaOffset;
-					nextNumber = node.getNumber();
-					}
-
-				// If node doesn't fit, punt and let someone else do it
-				
-				if (page->length + delta > dbb->pageSize)
+				AddNodeResult result = page->addNode(dbb, &key, recordNumber, &node, &priorKey, &nextKey);
+				if (result != NodeAdded)
+					// If node doesn't fit, punt and let someone else do it
 					{
 					bdb->release(REL_HISTORY);
 					bdb = NULL;
@@ -1024,40 +1006,11 @@ void IndexRootPage::indexMerge(Dbb *dbb, int indexId, SRLUpdateIndex *logRecord,
 					if ( (recordNumber = logRecord->nextKey(&key)) == -1)
 						//return;
 						goto exit;
-					
 					break;
 					}
-				
-				// Add insert node into page
-				
-				if (offset2 >= 0)
-					{
-					UCHAR *tail = (UCHAR*) node.nextNode;
-					int tailLength = (int) ((UCHAR*) page + page->length - tail);
-					ASSERT (tailLength >= 0);
-					
-					if (tailLength > 0)
-						memmove (tail + delta, tail, tailLength);
-					}
-
-				// Insert new node
-
-				++insertions;
-				IndexNode newNode;
-				newNode.insert(node.node, offset1, length1, key.key, recordNumber);
-
-				// If necessary, rebuild next node
-
-				if (offset2 >= 0)
-					newNode.insert(newNode.nextNode, offset2, nextKey.keyLength - offset2, nextKey.key, nextNumber);
-
-				page->length += delta;
-				//page->validate(NULL);
-
-				if (dbb->debug & (DEBUG_PAGES | DEBUG_INDEX_MERGE))
-					page->printPage(bdb, false);
+				else /* node inserted */
+					++insertions;
 				}
-				
 			priorKey.setKey(&key);
 			
 			// Get next key
@@ -1074,7 +1027,7 @@ void IndexRootPage::indexMerge(Dbb *dbb, int indexId, SRLUpdateIndex *logRecord,
 			// Find the next insertion point, compute the next key, etc.
 			
 			bucketEnd = (Btn*) ((char*) page + page->length);
-			node.parseNode(IndexPage::findInsertionPoint(0, &key, recordNumber, &priorKey, node.node, bucketEnd));
+			node.parseNode(page->findInsertionPoint(0, &key, recordNumber, &priorKey, node.node, bucketEnd));
 			nextKey.setKey(0, node.offset, priorKey.key);
 			node.expandKey(&nextKey);
 			number = node.getNumber();

@@ -1,0 +1,8 @@
+--source include/have_falcon.inc
+
+#
+# BUG#33211 - CREATE TEMPORARY TABLE ignores TABLESPACE argument under
+#             Falcon
+#
+CREATE TEMPORARY TABLE t1(a INT) ENGINE=falcon TABLESPACE nosuchspace;
+DROP TABLE t1;

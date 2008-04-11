@@ -861,8 +861,8 @@ void DeferredIndex::chill(Dbb *dbb)
 	root = leaf;
 	count = 0;
 
-	Log::debug("Def Index Chill:   trxId=%-5ld indexId=%-7ld  bytes=%8ld  addr=%p  vofs=%llx\n",
-				transaction->transactionId, index->indexId, sizeEstimate, this, virtualOffset);
+	Log::debug(I64FORMAT": Index chill: transaction %ld, index %ld, %ld bytes, address %p, vofs %llx\n",
+				dbb->database->deltaTime, transaction->transactionId, index->indexId, sizeEstimate, this, virtualOffset);
 }
 
 DINode* DeferredIndex::findMaxValue(void)

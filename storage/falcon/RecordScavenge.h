@@ -17,6 +17,7 @@
 #define _RECORD_SCAVENGE_H_
 
 static const int AGE_GROUPS = 20;
+static const int UNDEFINED = -1;
 
 class Database;
 class Record;
@@ -38,8 +39,9 @@ public:
 	uint64		overflowSpace;
 	uint64		totalSpace;
 	uint64		recordSpace;
+	bool		wasForced;
 	
-	RecordScavenge(Database *db, TransId oldestTransaction);
+	RecordScavenge(Database *db, TransId oldestTransaction, bool forced);
 	~RecordScavenge(void);
 
 	void		inventoryRecord(Record* record);

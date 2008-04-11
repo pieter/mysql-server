@@ -69,7 +69,9 @@ void SRLUpdateBlob::redo(void)
 		{
 		Stream stream;
 		stream.putSegment(length, (const char*) data, false);
-		log->getDbb(tableSpaceId)->updateRecord(sectionId, recordNumber, &stream, transactionId, false);
+		Dbb *dbb = log->getDbb(tableSpaceId);
+		dbb->reInsertStub(sectionId, recordNumber, transactionId);
+		dbb->updateRecord(sectionId, recordNumber, &stream, transactionId, false);
 		}
 }
 

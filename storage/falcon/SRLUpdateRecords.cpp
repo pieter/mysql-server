@@ -215,7 +215,7 @@ void SRLUpdateRecords::append(Transaction *transaction, RecordVersion *records, 
 			uint32 sectionId = table->dataSectionId;
 			log->updateSectionUseVector(sectionId, tableSpaceId, 1);
 			putInt(tableSpaceId);
-			putInt((record->priorVersion) ? sectionId : -(int) sectionId - 1);
+			putInt(record->getPriorVersion() ? sectionId : -(int) sectionId - 1);
 			putInt(record->recordNumber);
 			putStream(&stream);
 			

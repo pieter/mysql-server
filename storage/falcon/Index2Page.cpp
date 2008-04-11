@@ -896,7 +896,6 @@ Bdb* Index2Page::splitPage(Dbb *dbb, Bdb *bdb, TransId transId)
 		Bdb *nextBdb = dbb->fetchPage (split->nextPage, PAGE_btree, Exclusive);
 		BDB_HISTORY(bdb);
 		Index2Page *next = (Index2Page*) nextBdb->buffer;
-		dbb->setPrecedence(bdb, splitBdb->pageNumber);
 		nextBdb->mark(transId);
 		next->priorPage = splitBdb->pageNumber;
 		nextBdb->release(REL_HISTORY);

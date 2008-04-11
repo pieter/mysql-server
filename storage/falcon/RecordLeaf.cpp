@@ -122,6 +122,7 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 	sync.lock(Shared);
 	
 	// Get a shared lock to find at least one record to scavenge
+	// If scavengeGeneration == UNDEFINED then just count the records in the leaf.
 	
 	for (ptr = records, end = records + RECORD_SLOTS; ptr < end; ++ptr)
 		{
@@ -129,15 +130,20 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 		
 		if (record)
 			{
-			if (record->isVersion())
+			if (recordScavenge->scavengeGeneration == UNDEFINED)
+				++count;
+			else if (record->isVersion())
 				{
-				if ((record->scavenge(recordScavenge)) &&
-				    ((!record->hasRecord()) || ((record->useCount == 1) && (record->generation <= recordScavenge->scavengeGeneration))))
+				Sync syncPrior(record->getSyncPrior(), "RecordLeaf::retireRecords1");
+				syncPrior.lock(Shared);
+	
+				if (record->scavenge(recordScavenge, Shared))
 				    break;
 				else
 					++count;
 				}
-			else if (record->generation <= recordScavenge->scavengeGeneration && record->useCount == 1)
+			else if (   record->generation <= recordScavenge->scavengeGeneration
+			         && record->useCount == 1)
 				break;
 			else
 				++count;
@@ -161,8 +167,10 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 			{
 			if (record->isVersion())
 				{
-				if ((record->scavenge(recordScavenge)) &&
-				    ((!record->hasRecord()) || ((record->useCount == 1) && (record->generation <= recordScavenge->scavengeGeneration))))
+				Sync syncPrior(record->getSyncPrior(), "RecordLeaf::retireRecords2");
+				syncPrior.lock(Exclusive);
+				
+				if (record->scavenge(recordScavenge, Exclusive))
 					{
 					*ptr = NULL;
 					recordScavenge->spaceReclaimed += record->size;
@@ -182,7 +190,8 @@ int RecordLeaf::retireRecords (Table *table, int base, RecordScavenge *recordSca
 					++count;
 					}
 				}
-			else if (record->generation <= recordScavenge->scavengeGeneration && record->useCount == 1)
+			else if (   (record->generation <= recordScavenge->scavengeGeneration)
+			         && (record->useCount == 1))
 				{
 				*ptr = NULL;
 				recordScavenge->spaceReclaimed += record->size;

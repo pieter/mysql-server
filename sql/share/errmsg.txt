@@ -6256,3 +6256,5 @@ ER_SLAVE_HEARTBEAT_VALUE_OUT_OF_RANGE
 
 ER_BACKUP_LOG_WRITE_ERROR
         eng "Can't write to the online backup progress log %-.64s."
+ER_TABLESPACE_NOT_EMPTY
+  eng "Tablespace '%-.192s' not empty"

@@ -60,7 +60,6 @@ static const int BDB_write_pending	= 16;		// Asynchronous write is pending
 
 class Page;
 class Cache;
-class PagePrecedence;
 class Dbb;
 class Thread;
 
@@ -68,7 +67,6 @@ class Bdb
 {
 public:
 	void	setWriter();
-	bool	isHigher (Bdb *bdb);
 	void	decrementUseCount();
 	void	incrementUseCount();
 	void	downGrade (LockType lockType);
@@ -101,8 +99,6 @@ public:
 	Bdb				*nextDirty;
 	Bdb				*priorDirty;
 	Bdb				*ioThreadNext;
-	PagePrecedence	*higher;
-	PagePrecedence	*lower;
 	Thread			*markingThread;
 	SyncObject		syncObject;
 	SyncObject		syncWrite;

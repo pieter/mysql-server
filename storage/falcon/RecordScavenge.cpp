@@ -22,10 +22,11 @@
 #include "MemMgr.h"
 
 
-RecordScavenge::RecordScavenge(Database *db, TransId oldestTransaction)
+RecordScavenge::RecordScavenge(Database *db, TransId oldestTransaction, bool forced)
 {
 	database = db;
 	transactionId = oldestTransaction;
+	wasForced = forced;
 	baseGeneration = database->currentGeneration;
 	memset(ageGroups, 0, sizeof(ageGroups));
 	recordsReclaimed = 0;
@@ -78,7 +79,7 @@ int RecordScavenge::computeThreshold(uint64 target)
 
 	totalSpace += overflowSpace;
 
-	if (scavengeGeneration == 0 && totalSpace > target)
+	if (wasForced || (scavengeGeneration == 0 && totalSpace > target))
 		scavengeGeneration = baseGeneration + AGE_GROUPS;
 	
 	return scavengeGeneration;

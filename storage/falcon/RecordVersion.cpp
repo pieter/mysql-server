@@ -399,7 +399,7 @@ int RecordVersion::thaw()
 			
 			if (table->debugThawedBytes >= table->database->configuration->recordChillThreshold)
 				{
-				Log::debug(I64FORMAT": Record thaw (fetch): table %d, %ld records, %ld bytes\n", this->format->table->database->deltaTime,
+				Log::debug("%d: Record thaw (fetch): table %d, %ld records, %ld bytes\n", this->format->table->database->deltaTime,
 							table->tableId, table->debugThawedRecords, table->debugThawedBytes);
 				table->debugThawedRecords = 0;
 				table->debugThawedBytes = 0;

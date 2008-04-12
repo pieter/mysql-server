@@ -861,7 +861,7 @@ void DeferredIndex::chill(Dbb *dbb)
 	root = leaf;
 	count = 0;
 
-	Log::debug(I64FORMAT": Index chill: transaction %ld, index %ld, %ld bytes, address %p, vofs %llx\n",
+	Log::log(LogInfo, "%d: Index chill: transaction %ld, index %ld, %ld bytes, address %p, vofs %llx\n",
 				dbb->database->deltaTime, transaction->transactionId, index->indexId, sizeEstimate, this, virtualOffset);
 }
 

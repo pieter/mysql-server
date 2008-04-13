@@ -21,7 +21,8 @@ namespace backup {
 /* Image_info implementation */
 
 Image_info::Image_info():
-  backup_prog_id(0), table_count(0), data_size(0), m_items(32,128)
+  backup_prog_id(0), table_count(0), data_size(0), 
+  m_ts(16,32), m_items(32,128)
 {
   /* initialize st_bstream_image_header members */
   version= 1;
@@ -81,6 +82,14 @@ Image_info::~Image_info()
   
   // delete server object instances as we own them.
 
+  for (uint i=0; i < ts_count(); ++i)
+  {
+    Ts_item *ts= m_ts[i];
+    
+    if (ts)
+      delete ts->obj_ptr();
+  }
+  
   for (uint i=0; i < db_count(); ++i)
   {
     Db_item *db= m_db[i];
@@ -154,6 +163,9 @@ Image_info::Item*
 Image_info::locate_item(const st_bstream_item_info *item) const
 {
   switch (item->type) {
+
+  case BSTREAM_IT_TABLESPACE:
+    return get_ts(item->pos);
 
   case BSTREAM_IT_DB:
     return get_db(item->pos);
@@ -311,11 +323,14 @@ static uint null_iter;  ///< Used to implement trivial empty iterator.
 
 void* bcat_iterator_get(st_bstream_image_header *catalogue, unsigned int type)
 {
+  DBUG_ASSERT(catalogue);
+  backup::Image_info *info= static_cast<backup::Image_info*>(catalogue);
+
   switch (type) {
 
   case BSTREAM_IT_PERDB:
     return
-    new backup::Image_info::PerDb_iterator(*static_cast<backup::Image_info*>(catalogue));
+    new backup::Image_info::PerDb_iterator(*info);
 
   case BSTREAM_IT_PERTABLE:
     return &null_iter;
@@ -327,12 +342,16 @@ void* bcat_iterator_get(st_bstream_image_header *catalogue, unsigned int type)
   case BSTREAM_IT_USER:
     return &null_iter;
 
-  case BSTREAM_IT_GLOBAL:
-    // only global items (for which meta-data is stored) are databases
   case BSTREAM_IT_DB:
     return
-    new backup::Image_info::Db_iterator(*static_cast<backup::Image_info*>(catalogue));
+    new backup::Image_info::Db_iterator(*info);
     // TODO: report error if iterator could not be created
+
+  case BSTREAM_IT_TABLESPACE:
+    return new backup::Image_info::Ts_iterator(*info);
+
+  case BSTREAM_IT_GLOBAL:
+    return new backup::Image_info::Global_iterator(*info);
 
   default:
     return NULL;

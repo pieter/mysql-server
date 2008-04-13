@@ -535,8 +535,8 @@ int bstream_rd_image_info(backup_stream *s, struct st_bstream_snapshot_info *inf
   identify and select them.
   @verbatim
 
-  [catalogue]= [ charsets ! 0x00 ! users ! 0x00 ! databases |
-                 db catalogue | ... | db catalogue ]
+  [catalogue]= [ charsets ! 0x00 ! users ! 0x00 ! tablespaces ! 0x00 !
+                 databases | db catalogue | ... | db catalogue ]
   @endverbatim
 
   Catalogue starts with list of charsets where each charset is identified by its
@@ -560,6 +560,7 @@ int bstream_rd_image_info(backup_stream *s, struct st_bstream_snapshot_info *inf
 
   The following charsets are any charsets used by the items stored in the image
   and thus needed to restore these items.
+
   @verbatim
 
   [users]= [ user name ! ... ! user name ]
@@ -567,7 +568,15 @@ int bstream_rd_image_info(backup_stream *s, struct st_bstream_snapshot_info *inf
 
   User list contains users for which any privileges are stored in the image.
 
-  After [users] a list of all databases follows. If the list is empty, it
+  Following user list is a list of tablespaces used by the tables stored in 
+  the backup image. Only tablespace names are listed here, their definitions
+  are stored in the meta-data section.
+  @verbatim
+
+  [tablespaces]= [ ts name ! ... ! ts name ]
+  @endverbatim
+
+  Finally, a list of all databases follows. If the list is empty, it
   consists of a single null string. Otherwise it has format:
   @verbatim
 
@@ -584,7 +593,7 @@ int bstream_rd_image_info(backup_stream *s, struct st_bstream_snapshot_info *inf
   are no database catalogues.
   @verbatim
 
-  [catalogue (no databases)] = [ charsets ! 0x00 ! users ! 0x00 ]
+  [catalogue (no databases)] = [ charsets ! 0x00 ! users ! 0x00 ! tablespaces ! 0x00 ]
   @endverbatim
 */
 
@@ -608,6 +617,7 @@ int bstream_wr_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   void *it;
   blob *name;
   struct st_bstream_db_info *db_info;
+  struct st_bstream_ts_info *ts_info;
   int ret;
 
   /* charset list */
@@ -636,6 +646,22 @@ int bstream_wr_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   while ((name= (blob*) bcat_iterator_next(cat,it)))
   {
     CHECK_WR_RES(bstream_wr_string(s,*name));
+  }
+
+  CHECK_WR_RES(bstream_wr_byte(s,0x00));
+
+  bcat_iterator_free(cat,it);
+
+  /* list of table spaces */
+
+  it= bcat_iterator_get(cat,BSTREAM_IT_TABLESPACE);
+
+  if (!it)
+    return BSTREAM_ERROR;
+
+  while ((ts_info= (struct st_bstream_ts_info*) bcat_iterator_next(cat,it)))
+  {
+    CHECK_WR_RES(bstream_wr_string(s,ts_info->base.name));
   }
 
   CHECK_WR_RES(bstream_wr_byte(s,0x00));
@@ -726,6 +752,27 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   /* list of users */
 
   item.type= BSTREAM_IT_USER;
+  item.pos= 0;
+
+  do{
+
+    CHECK_RD_RES(bstream_rd_string(s,&item.name));
+
+    /* empty string signals end of the list */
+    if (item.name.begin == NULL)
+      break;
+
+    if (bcat_add_item(cat,&item) != BSTREAM_OK)
+      return BSTREAM_ERROR;
+
+    item.pos++;
+
+  } while (ret == BSTREAM_OK);
+
+  /* list of table spaces */
+
+  item.type= BSTREAM_IT_TABLESPACE;
+  item.pos= 0;
 
   do{
 
@@ -815,6 +862,11 @@ int bstream_rd_catalogue(backup_stream *s, struct st_bstream_image_header *cat)
   - 4 = database,
   - 5 = table,
   - 6 = view.
+  - 7 = stored procedure.
+  - 8 = stored function.
+  - 9 = event.
+  - 10 = trigger.
+  - 11 = table space.
 
   Value 0 doesn't encode a valid item type and is used as item list separator.
  */
@@ -838,6 +890,7 @@ int bstream_wr_item_type(backup_stream *s, enum enum_bstream_item_type type)
   case BSTREAM_IT_SFUNC:     return bstream_wr_int2(s,8);
   case BSTREAM_IT_EVENT:     return bstream_wr_int2(s,9);
   case BSTREAM_IT_TRIGGER:   return bstream_wr_int2(s,10);
+  case BSTREAM_IT_TABLESPACE: return bstream_wr_int2(s,11);
   case BSTREAM_IT_LAST:      return bstream_wr_int2(s,0);
   default: return BSTREAM_ERROR;
   }
@@ -873,6 +926,7 @@ int bstream_rd_item_type(backup_stream *s, enum enum_bstream_item_type *type)
   case 8: *type= BSTREAM_IT_SFUNC; break;
   case 9: *type= BSTREAM_IT_EVENT; break;
   case 10: *type= BSTREAM_IT_TRIGGER; break;
+  case 11: *type= BSTREAM_IT_TABLESPACE; break;
   default: return BSTREAM_ERROR;
   }
 
@@ -899,11 +953,11 @@ int bstream_rd_item_type(backup_stream *s, enum enum_bstream_item_type *type)
 
   [optional item data] is used only for tables:
 
-  [optional item data (table)]= [ flags:1 ! snapshot no:1 ! pos ! 
+  [optional item data (table)]= [ flags:1 ! snapshot no.:1 ! pos !
                                   optional extra data ]
   @endverbatim
 
-  [snapshot no] tells which snapshot contains tables data and [pos] tells what
+  [snapshot no.] tells which snapshot contains tables data and [pos] tells what
   is the position of the table in this snapshot.
 
   Presence of extra data is indicated by a flag.
@@ -980,6 +1034,7 @@ int bstream_rd_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
 {
   unsigned short int flags;
   struct st_bstream_table_info ti;
+  unsigned long int pos= 0;
   int ret;
 
   bzero(&ti,sizeof(ti));
@@ -1007,6 +1062,8 @@ int bstream_rd_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
       CHECK_RD_OK(bstream_rd_byte(s,&ti.snap_no));
       CHECK_RD_RES(bstream_rd_num(s,&ti.base.base.pos));
     }
+    else
+      ti.base.base.pos= pos++;
 
     if (bcat_add_item(cat, &ti.base.base) != BSTREAM_OK)
       return BSTREAM_ERROR;
@@ -1042,9 +1099,12 @@ int bstream_rd_db_catalogue(backup_stream *s, struct st_bstream_image_header *ca
   [meta data]= [ global items | tables | other items ]
   @endverbatim
 
-  [Global items] include all databases. [Tables] section contains all tables
-  which are grouped on per-database basis (this is for easier skipping of tables
-  upon selective restore).
+  The only global items for which we store meta-data information are tablespaces
+  and databases. Tablespace definitions should come before database definitions
+  on the [global items] list.
+  
+  [Tables] section contains all tables which are grouped on per-database basis 
+  (this is for easier skipping of tables upon selective restore).
   @verbatim
 
   [tables] = [ tables from db1 | ... | tables from dbN ]
@@ -1315,10 +1375,10 @@ int bstream_rd_meta_data(backup_stream *s, struct st_bstream_image_header *cat)
   in which part of catalogue the entry lies.
   @verbatim
 
-  [item position (global)]= [db no]
-  [item position (table)]= [ snap no ! pos in snapshot's table list ]
-  [item position (other per-db item)]= [ pos in db item list ! db no ]
-  [item position (per-table item)] = [ pos in table's item list ! db no ! table pos ]
+  [item position (global)]= [db no.]
+  [item position (table)]= [ snap no. ! pos in snapshot's table list ]
+  [item position (other per-db item)]= [ pos in db item list ! db no. ]
+  [item position (per-table item)] = [ pos in table's item list ! db no. ! table pos ]
   @endverbatim
 
   Note that table is identified by its position inside the snapshot to which it
@@ -1587,7 +1647,7 @@ int read_and_create_items(backup_stream *s, struct st_bstream_image_header *cat,
 
   [table data]= [ table data chunk | ... | table data chunk ]
 
-  [table data chunk]= [ snapshot no:1 ! seq no:2 ! flags:1 ! table no ! data ]
+  [table data chunk]= [ snapshot no.:1 ! seq no.:2 ! flags:1 ! table no. ! data ]
   @endverbatim
 
   Data chunks of each snapshot are numbered by consecutive numbers. This can be

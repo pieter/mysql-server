@@ -587,6 +587,46 @@ namespace backup {
 TABLE* get_schema_table(THD *thd, ST_SCHEMA_TABLE *st);
 
 
+/*
+  Definition of Backup_info::Ts_hash_node structure used by Backup_info::ts_hash
+  HASH.
+ */ 
+
+struct Backup_info::Ts_hash_node
+{
+  const ::String *name; ///< Name of the tablespace.
+  Ts_item *it;        ///< Catalogue entry holding the tablespace (if exists).
+
+  Ts_hash_node(const ::String*);
+
+  static uchar* get_key(const uchar *record, size_t *key_length, my_bool);
+  static void free(void *record);
+};
+
+inline
+Backup_info::Ts_hash_node::Ts_hash_node(const ::String *name) :name(name), it(NULL)
+{}
+
+void Backup_info::Ts_hash_node::free(void *record)
+{
+  delete (Ts_hash_node*)record;
+}
+
+uchar* Backup_info::Ts_hash_node::get_key(const uchar *record, 
+                                          size_t *key_length, 
+                                          my_bool)
+{
+  Ts_hash_node *n= (Ts_hash_node*)record;
+
+  // ts_hash entries are indexed by tablespace name.
+
+  if (n->name && key_length)
+    *key_length= n->name->length();
+
+  return (uchar*)(n->name->ptr());
+}
+
+
 /**
   Create @c Backup_info structure and prepare it for populating with meta-data
   items.
@@ -603,6 +643,9 @@ Backup_info::Backup_info(THD *thd):
   m_state(INIT),
   m_thd(thd), i_s_tables(NULL)
 {
+  hash_init(&ts_hash, &::my_charset_bin, 16, 0, 0,
+            Ts_hash_node::get_key, Ts_hash_node::free, MYF(0));
+
   i_s_tables= get_schema_table(m_thd, ::get_schema_table(SCH_TABLES));
   if (!i_s_tables)
   {
@@ -635,6 +678,8 @@ Backup_info::~Backup_info()
   m_state= DONE;
   name_strings.delete_elements();
   // Note: snapshot objects are deleted in ~Image_info()
+
+  hash_free(&ts_hash);   
 }
 
 /**
@@ -877,7 +922,7 @@ int Backup_info::add_db_items(Db_item &dbi)
 
     /*
       add_table() method selects/creates a snapshot to which this table is added.
-      The backup engine is chooden in Backup_info::find_backup_engine() method.
+      The backup engine is chosen in Backup_info::find_backup_engine() method.
     */
     Table_item *ti= add_table(dbi,Table_ref(dbi,t));
 
@@ -885,6 +930,23 @@ int Backup_info::add_db_items(Db_item &dbi)
     {
       delete t;
       goto error;
+    }
+
+    // If this table uses a tablespace, add this tablespace to the catalogue.
+
+    Obj *ts= get_tablespace_for_table(m_thd, &dbi.name(), &ti->name());
+
+    if (ts)
+    {
+      DBUG_PRINT("backup",(" table uses tablespace %s", ts->get_name()->ptr()));
+
+      Ts_item *tsi= add_ts(ts); // reports errors
+
+      if (!tsi)
+      {
+        delete ts;
+        goto error;
+      }
     }
 
     if (add_table_items(*ti))
@@ -957,6 +1019,67 @@ int Backup_info::add_db_items(Db_item &dbi)
 
   delete it;
   return res;
+}
+
+
+/**
+  Add tablespace to backup catalogue.
+
+  @param[in]  obj   sever object representing the tablespace
+  
+  If tablespace is already present in the catalogue, the existing catalogue entry
+  is returned. Otherwise a new entry is created and tablespace info stored in it.
+  
+  @return Pointer to (the new or existing) catalogue entry holding info about the
+  tablespace.  
+ */ 
+backup::Image_info::Ts_item* Backup_info::add_ts(obs::Obj *obj)
+{
+  const ::String *name;
+
+  DBUG_ASSERT(obj);
+  name= obj->get_name();
+  DBUG_ASSERT(name);
+
+  /* 
+    Check if tablespace with that name is already present in the catalogue using
+    ts_hash.
+   */
+
+  Ts_hash_node n0(name);
+  size_t klen;
+  uchar  *key= Ts_hash_node::get_key((const uchar*)&n0, &klen, TRUE);
+
+  Ts_hash_node *n1= (Ts_hash_node*) hash_search(&ts_hash, key, klen);
+
+  // if tablespace was found, return the catalogue entry stored in the hash
+  if (n1)
+    return n1->it;
+
+  // otherwise create a new catalogue entry
+
+  Ts_item *ts= Image_info::add_ts(*obj);
+
+  if (!ts)
+  {
+    // TODO: report error
+    return NULL;
+  }
+
+  // add new entry to ts_hash
+
+  n1= new Ts_hash_node(n0);
+
+  if (!n1)
+  {
+    // TODO: report error
+    return NULL;
+  }
+
+  n1->it= ts;
+  my_hash_insert(&ts_hash, (uchar*)n1);
+
+  return ts;
 }
 
 /**
@@ -1211,6 +1334,35 @@ result_t Restore_info::restore_item(Item &it, String &sdata, String &extra)
   
   if (!obj)
     return ERROR;
+
+  // If we are to create a tablespace, first check if it already exists.
+
+  if (it.info()->type == BSTREAM_IT_TABLESPACE)
+  {
+    // if the tablespace exists, there is nothing more to do
+    if (tablespace_exists(m_thd, it.obj_ptr()))
+    {
+      DBUG_PRINT("restore",(" skipping tablespace which exists"));
+      return OK;
+    }
+
+    /* 
+      If there is a different tablespace with the same name then we can't re-create the original
+      tablespace used by tables being restored. We report this and cancel restore process.
+    */
+    
+    Obj *ts= is_tablespace(m_thd, &it.m_name); 
+
+    if (ts)
+    {
+      DBUG_PRINT("restore",(" tablespace has changed on the server - aborting"));
+      report_error(ER_BACKUP_TS_CHANGE, 
+                   it.m_name.ptr(),
+                   describe_tablespace(it.obj_ptr())->ptr(),
+                   describe_tablespace(ts)->ptr());
+      return ERROR;
+    }
+  }
   
   return obj->execute(m_thd) ? ERROR : OK;
 }
@@ -1336,6 +1488,19 @@ int bcat_add_item(st_bstream_image_header *catalogue, struct st_bstream_item_inf
                         item->pos));
 
   switch (item->type) {
+
+  case BSTREAM_IT_TABLESPACE:
+  {
+    Image_info::Ts_item *tsi= info->add_ts(name_str, item->pos);
+
+    if (!tsi)
+    {
+      // TODO: report error
+      return BSTREAM_ERROR;
+    }
+
+    return BSTREAM_OK;
+  }
 
   case BSTREAM_IT_DB:
   {

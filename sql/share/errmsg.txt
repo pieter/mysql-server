@@ -6258,3 +6258,6 @@ ER_BACKUP_LOG_WRITE_ERROR
         eng "Can't write to the online backup progress log %-.64s."
 ER_TABLESPACE_NOT_EMPTY
   eng "Tablespace '%-.192s' not empty"
+
+ER_BACKUP_TS_CHANGE
+        eng "Tablespace `%-.64s` needed by tables being restored has changed on the server. The original definition of the required tablespace is '%-.256s' while the same tablespace is defined on the server as '%-.256s'"

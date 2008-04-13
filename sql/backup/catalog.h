@@ -42,14 +42,17 @@ class Image_info: public st_bstream_image_header
    // Classes representing various types of meta-data items.
 
    class Item;          ///< base class for all item types
+   class Ts_item;
    class Db_item;
    class Table_item;
    class PerDb_item;
 
    class Iterator;       ///< base for all iterators
    class Db_iterator;    ///< iterates over databases in archive
+   class Ts_iterator;    ///< iterates over tablespaces
    class Ditem_iterator; ///< iterates over all objects in a given database
    class PerDb_iterator; ///< iterates over all per-db objects, except tables
+   class Global_iterator; ///< iterates over all global objects
 
    virtual ~Image_info();
 
@@ -97,6 +100,7 @@ class Image_info: public st_bstream_image_header
   };
 
   Databases m_db; ///< list of databases
+  Dynamic_array<Ts_item>   m_ts; ///< list of tablespaces
   Snapshot_info *m_snap[256];   ///< list of snapshots
   Dynamic_array<PerDb_item> m_items;
 
@@ -106,6 +110,9 @@ class Image_info: public st_bstream_image_header
 
   uint db_count() const
   { return m_db.count(); }
+
+  uint ts_count() const
+  { return m_ts.size(); }
 
   /*
     Methods for populating backup catalogue (just wrappers which access m_db
@@ -145,6 +152,12 @@ class Image_info: public st_bstream_image_header
   { return m_items[pos]; }
 
   int add_objects(Db_item&, const enum_bstream_item_type, obs::ObjIterator&);
+
+  Ts_item* add_ts(obs::Obj&);
+  Ts_item* add_ts(const ::String&, uint pos);
+
+  Ts_item* get_ts(uint pos) const
+  { return m_ts[pos]; }
 
  private:
 
@@ -402,6 +415,39 @@ class Image_info::Item
   friend class Restore_info;
 };
 
+class Image_info::Ts_item
+ : public st_bstream_ts_info,
+   public Image_info::Item
+{
+  obs::Obj *m_obj_ptr;
+
+ public:
+
+  Ts_item();
+
+  const st_bstream_item_info* info() const { return &base; }
+  const st_bstream_ts_info* ts_info() const { return this; }
+
+  obs::Obj* obj_ptr()
+  { return m_obj_ptr; }
+
+  obs::Obj* obj_ptr(uint ver, ::String &sdata)
+  {
+    delete m_obj_ptr;
+
+    return m_obj_ptr= obs::materialize_tablespace(&m_name, ver, &sdata); 
+  }
+
+  friend class Image_info;
+};
+
+inline
+Image_info::Ts_item::Ts_item() :m_obj_ptr(NULL)
+{
+  bzero(&base, sizeof(base));
+  base.type= BSTREAM_IT_TABLESPACE;
+}
+
 /**
   Specialization of @c Image_info::Item for storing info about a database.
 */
@@ -426,7 +472,7 @@ class Image_info::Db_item
   obs::Obj* obj_ptr()
   { return Db_ref::obj_ptr(); }
   
-  obs::Obj* obj_ptr(uint ver, ::String &sdata)  // unit ver, ::String &sdata)
+  obs::Obj* obj_ptr(uint ver, ::String &sdata)
   { 
     obs::Obj *obj= obs::materialize_database(&name(), ver, &sdata); 
     
@@ -598,6 +644,50 @@ class Image_info::PerDb_item
 
   const st_bstream_item_info* info() const { return &base; }
 };
+
+inline
+Image_info::Ts_item*
+Image_info::add_ts(obs::Obj &obj)
+{
+  uint pos= ts_count();
+
+  Ts_item *tsi= m_ts.get_entry(pos);
+
+  if (!tsi)
+    return NULL;
+
+  tsi->base.pos= pos;
+  tsi->m_obj_ptr= &obj;
+
+  const ::String *name= obj.get_name();
+
+  DBUG_ASSERT(name);
+  tsi->m_name= *name;
+
+  tsi->base.name.begin= (byte*) name->ptr();
+  tsi->base.name.end= tsi->base.name.begin + name->length();
+
+  return tsi;
+}
+
+inline
+Image_info::Ts_item*
+Image_info::add_ts(const ::String &name, uint pos)
+{
+  Ts_item *tsi= m_ts.get_entry(pos);
+
+  if (!tsi)
+    return NULL;
+
+  tsi->base.pos= pos;
+
+  tsi->m_name.copy(name);
+
+  tsi->base.name.begin= (byte*) tsi->m_name.ptr();
+  tsi->base.name.end= tsi->base.name.begin + tsi->m_name.length();
+
+  return tsi;
+}
 
 /**
   Add table to given snapshot at the indicated location.
@@ -805,6 +895,52 @@ class Image_info::Db_iterator
 
 };
 
+
+class Image_info::Ts_iterator
+ : public Image_info::Iterator
+{
+ public:
+
+  Ts_iterator(const Image_info&);
+
+ protected:
+
+  uint pos;
+  const Item* get_ptr() const;
+  bool next();
+};
+
+inline
+Image_info::Ts_iterator::Ts_iterator(const Image_info &info)
+  :Iterator(info), pos(0)
+{}
+
+inline
+const Image_info::Item* Image_info::Ts_iterator::get_ptr() const
+{
+  /*
+    There should be no "holes" in the sequence of tablespaces. That is,
+    if there are N tablespaces in the catalogue then for i=0,1,..,N-1, 
+    m_info.m_ts_map[i] should store pointer to the i-th database.
+   */ 
+  DBUG_ASSERT(pos >= m_info.ts_count() || m_info.m_ts[pos]);
+  return m_info.m_ts[pos];
+}
+
+/// Implementation of @c Image_info::Iterator virtual method.
+inline
+bool Image_info::Ts_iterator::next()
+{
+  if (pos < m_info.ts_count())
+  {
+    pos++;
+    return TRUE;
+  }
+  else
+    return FALSE;
+}
+
+
 class Image_info::PerDb_iterator: public Image_info::Db_iterator
 {
  public:
@@ -847,6 +983,86 @@ class Image_info::Ditem_iterator
 
   bool next();
 };
+
+
+class Image_info::Global_iterator
+ : public Image_info::Iterator
+{
+  /**
+    Indicates whether tablespaces or databases are being currently enumearated.
+   */ 
+  enum { TABLESPACES, DATABASES, DONE } mode;
+
+  Iterator *m_it; ///< Points at the currently used iterator.
+  const Item *m_obj;  ///< Points at next object to be returned by this iterator.
+
+ public:
+
+  Global_iterator(const Image_info&);
+
+ private:
+
+  const Item* get_ptr() const;
+  bool  next();
+};
+
+inline
+Image_info::Global_iterator::Global_iterator(const Image_info &info)
+ :Iterator(info), mode(TABLESPACES), m_it(NULL), m_obj(NULL)
+{
+  m_it= new Ts_iterator(m_info);
+  next();
+}
+
+inline
+const Image_info::Item*
+Image_info::Global_iterator::get_ptr() const
+{
+  return m_obj;
+}
+
+inline
+bool
+Image_info::Global_iterator::next()
+{
+  if (mode == DONE)
+    return FALSE;
+
+  DBUG_ASSERT(m_it);
+
+  // get next object from the current iterator
+  m_obj= (*m_it)++;
+
+  if (m_obj)
+    return TRUE;
+
+  /*
+    If the current iterator has finished (m_obj == NULL) then, depending on
+    the mode, either switch to the next iterator or mark end of the sequence.
+   */
+
+  delete m_it;
+
+  switch (mode) {
+
+  case TABLESPACES:
+
+    mode= DATABASES;
+    m_it= new Db_iterator(m_info);
+    m_obj= (*m_it)++;
+    return m_obj != NULL;
+
+  case DATABASES:
+
+    mode= DONE;
+
+  case DONE:
+
+    break;
+  }
+
+  return FALSE;
+}
 
 } // backup namespace
 

@@ -159,6 +159,7 @@ class Backup_info: public Image_info, public Logger
 
   int find_backup_engine(const ::TABLE *const, const Table_ref&);
 
+  Ts_item*    add_ts(obs::Obj*);
   Table_item* add_table(Db_item&, const Table_ref&);
 
   int add_db_items(Db_item&);
@@ -177,6 +178,16 @@ class Backup_info: public Image_info, public Logger
   */
   // FIXME: use better solution, e.g., MEM_ROOT
   List<String>  name_strings;
+
+  struct Ts_hash_node;  ///< Hash nodes used in @c ts_hash.
+
+  /**
+    Hash storing all tablespaces added to the backup catalogue.
+    
+    Used for quickly determining if the catalogue contains a given
+    tablespace or not.
+   */ 
+  HASH   ts_hash;
 
   void save_binlog_pos(const ::LOG_INFO &li)
   {

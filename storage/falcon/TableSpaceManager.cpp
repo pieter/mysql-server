@@ -103,15 +103,16 @@ TableSpace* TableSpaceManager::findTableSpace(const char *name)
 	syncDDL.lock(Shared);
 	
 	PStatement statement = database->prepareStatement(
-		"select tablespace_id, filename, type, comment from system.tablespaces where tablespace=?");
+		"select tablespace_id, filename, comment from system.tablespaces where tablespace=?");
 	statement->setString(1, name);
 	RSet resultSet = statement->executeQuery();
 
 	if (resultSet->next())
 		{
-		int id = resultSet->getInt(1);
-		const char *fileName = resultSet->getString(2);
-		int type = resultSet->getInt(3);
+		int n = 1;
+		int id = resultSet->getInt(n++);
+		const char *fileName = resultSet->getString(n++);
+		int type = resultSet->getInt(n++);
 		
 		TableSpaceInit tsInit;
 		/***
@@ -122,7 +123,7 @@ TableSpace* TableSpaceManager::findTableSpace(const char *name)
 		tsInit.nodegroup	= resultSet->getInt(8);
 		tsInit.wait			= resultSet->getInt(9);
 		***/
-		tsInit.comment		= resultSet->getString(10);
+		tsInit.comment		= resultSet->getString(n++);
 		
 		tableSpace = new TableSpace(database, name, id, fileName, 0, &tsInit);
 

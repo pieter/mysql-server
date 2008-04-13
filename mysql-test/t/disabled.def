@@ -30,6 +30,7 @@ backup_ddl_blocker    :BUG#34235 pending replacement of test facility with WL#42
 backup_progress       :BUG#34235 pending replacement of test facility with WL#4259
 backup_security       :BUG#34235 pending replacement of test facility with WL#4259
 backup_snapshot       :BUG#34235 pending replacement of test facility with WL#4259
+backup_no_engine     : Bug#36021 2008-04-13 rsomla server crashes when openning table with unknown storage engine
 csv_alter_table      : Bug#33696 2008-01-21 pcrews no .result file - bug allows NULL columns in CSV tables
 ctype_latin2_ch      : BUG #33791 2008-01-18 mats Wrong ORDER BY with latin2_czech_cs
 

@@ -333,6 +333,11 @@ sub mtr_report_stats ($) {
 		(
 		  /Backup:/ or /Restore:/ or /Can't open the online backup progress tables/
 		) or
+		# The tablespace test triggers error below on purpose
+		($testname eq 'main.backup_tablespace') and
+		(
+		  /Restore: Tablespace .* needed by tables being restored has changed on the server/
+		) or
 		
 		/Sort aborted/ or
 		/Time-out in NDB/ or

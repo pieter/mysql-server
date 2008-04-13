@@ -1,0 +1,87 @@
+#
+# This test includes tests for backup and restore of tables that use
+# tablespaces.
+#
+# Note: This test is limited to the falcon storage engine only.
+#
+
+--source include/have_falcon.inc
+--source include/not_embedded.inc
+
+--disable_warnings
+DROP DATABASE IF EXISTS backup_ts;
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_ts.bak;
+--enable_warnings
+
+CREATE DATABASE backup_ts;
+
+#
+# Test 1 - Test backup of database with a table that uses a tablespace
+#
+--echo Test 1:
+--echo Create a tablespace.
+CREATE TABLESPACE bup_ts ADD DATAFILE 'bup_ts.dat' COMMENT = 'test tablespace backup' ENGINE=FALCON;
+
+--echo Create tables and add data.
+CREATE TABLE backup_ts.not_ts (id int, comment char(40)) ENGINE=FALCON;
+CREATE TABLE backup_ts.has_ts (id int, comment char(40))
+                               TABLESPACE bup_ts ENGINE=FALCON;
+
+# Create some data.
+INSERT INTO backup_ts.not_ts VALUES (1, "no tablespace 1");
+INSERT INTO backup_ts.not_ts VALUES (2, "no tablespace 2");
+INSERT INTO backup_ts.not_ts VALUES (3, "no tablespace 3");
+INSERT INTO backup_ts.not_ts VALUES (4, "no tablespace 4");
+INSERT INTO backup_ts.not_ts VALUES (5, "no tablespace 5");
+
+INSERT INTO backup_ts.has_ts VALUES (51, "Table has a tablespace 51");
+INSERT INTO backup_ts.has_ts VALUES (52, "Table has a tablespace 52");
+INSERT INTO backup_ts.has_ts VALUES (53, "Table has a tablespace 53");
+INSERT INTO backup_ts.has_ts VALUES (54, "Table has a tablespace 54");
+INSERT INTO backup_ts.has_ts VALUES (55, "Table has a tablespace 55");
+
+# Backup the database with tablespace.
+--replace_column 1 #
+BACKUP DATABASE backup_ts TO 'backup_ts.bak';
+
+# Drop the database
+--echo Drop the database.
+DROP DATABASE backup_ts;
+
+# Restore the database and ensure there are no errors.
+--echo Now restore the database.
+--replace_column 1 #
+RESTORE FROM 'backup_ts.bak';
+
+--echo Show data
+SELECT * FROM backup_ts.not_ts;
+SELECT * FROM backup_ts.has_ts;
+
+DROP DATABASE backup_ts;
+
+#
+# Test 2 - Test restore of database throws error when tablespace
+#          has been altered.
+#
+--echo Test 2:
+--echo Alter the tablespace.
+DROP TABLESPACE bup_ts ENGINE=FALCON;
+CREATE TABLESPACE bup_ts ADD DATAFILE 'different.dat' ENGINE=FALCON;
+
+# Restore the database and ensure there is an error.
+--echo Now restore the database.
+--replace_column 1 #
+--error ER_BACKUP_TS_CHANGE
+RESTORE FROM 'backup_ts.bak';
+
+# Must drop database before tablespace.
+--echo Cleanup
+--disable_warnings
+DROP DATABASE IF EXISTS backup_ts;
+--enable_warnings
+DROP TABLESPACE bup_ts ENGINE=FALCON;
+
+--error 0,1
+--remove_file $MYSQLTEST_VARDIR/master-data/backup_ts.bak
+

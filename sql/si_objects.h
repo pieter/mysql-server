@@ -133,6 +133,9 @@ private:
                                 uint,
                                 const String *);
 
+  friend Obj *materialize_tablespace(const String *,
+                                     uint,
+                                     const String *);
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -445,6 +448,10 @@ Obj *materialize_event(const String *db_name,
                        uint serialization_version,
                        const String *serialialization);
 
+Obj *materialize_tablespace(const String *ts_name,
+                            uint serialization_version,
+                            const String *serialialization);
+
 ///////////////////////////////////////////////////////////////////////////
 
 bool is_internal_db_name(const String *db_name);
@@ -459,6 +466,35 @@ bool is_internal_db_name(const String *db_name);
     @retval TRUE on error (the database either not exists, or not accessible).
 */
 bool check_db_existence(const String *db_name);
+
+/*
+  This method returns a @c TablespaceObj object if the table has a tablespace.
+*/
+Obj *get_tablespace_for_table(THD *thd, 
+                              const String *db_name, 
+                              const String *tbl_name);
+
+/*
+  This method determines if a materialized tablespace exists on the
+  system. This compares the name and all saved attributes of the 
+  tablespace. A FALSE return would mean either the tablespace does
+  not exist or the tablespace attributes are different.
+*/
+bool tablespace_exists(THD *thd,
+                       Obj *ts);
+
+/*
+  This method determines if the tablespace referenced by name exists on the
+  system. Returns a TablespaceObj if it exists or NULL if it doesn't.
+*/
+Obj *is_tablespace(THD *thd,
+                   const String *ts_name);
+
+/*
+  This method returns a description of the tablespace useful for communicating
+  with the user.
+*/
+const String *describe_tablespace(Obj *ts);
 
 ///////////////////////////////////////////////////////////////////////////
 

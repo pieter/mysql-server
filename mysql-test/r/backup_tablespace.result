@@ -1,0 +1,54 @@
+DROP DATABASE IF EXISTS backup_ts;
+CREATE DATABASE backup_ts;
+Test 1:
+Create a tablespace.
+CREATE TABLESPACE bup_ts ADD DATAFILE 'bup_ts.dat' COMMENT = 'test tablespace backup' ENGINE=FALCON;
+Create tables and add data.
+CREATE TABLE backup_ts.not_ts (id int, comment char(40)) ENGINE=FALCON;
+CREATE TABLE backup_ts.has_ts (id int, comment char(40))
+TABLESPACE bup_ts ENGINE=FALCON;
+INSERT INTO backup_ts.not_ts VALUES (1, "no tablespace 1");
+INSERT INTO backup_ts.not_ts VALUES (2, "no tablespace 2");
+INSERT INTO backup_ts.not_ts VALUES (3, "no tablespace 3");
+INSERT INTO backup_ts.not_ts VALUES (4, "no tablespace 4");
+INSERT INTO backup_ts.not_ts VALUES (5, "no tablespace 5");
+INSERT INTO backup_ts.has_ts VALUES (51, "Table has a tablespace 51");
+INSERT INTO backup_ts.has_ts VALUES (52, "Table has a tablespace 52");
+INSERT INTO backup_ts.has_ts VALUES (53, "Table has a tablespace 53");
+INSERT INTO backup_ts.has_ts VALUES (54, "Table has a tablespace 54");
+INSERT INTO backup_ts.has_ts VALUES (55, "Table has a tablespace 55");
+BACKUP DATABASE backup_ts TO 'backup_ts.bak';
+backup_id
+#
+Drop the database.
+DROP DATABASE backup_ts;
+Now restore the database.
+RESTORE FROM 'backup_ts.bak';
+backup_id
+#
+Show data
+SELECT * FROM backup_ts.not_ts;
+id	comment
+1	no tablespace 1
+2	no tablespace 2
+3	no tablespace 3
+4	no tablespace 4
+5	no tablespace 5
+SELECT * FROM backup_ts.has_ts;
+id	comment
+51	Table has a tablespace 51
+52	Table has a tablespace 52
+53	Table has a tablespace 53
+54	Table has a tablespace 54
+55	Table has a tablespace 55
+DROP DATABASE backup_ts;
+Test 2:
+Alter the tablespace.
+DROP TABLESPACE bup_ts ENGINE=FALCON;
+CREATE TABLESPACE bup_ts ADD DATAFILE 'different.dat' ENGINE=FALCON;
+Now restore the database.
+RESTORE FROM 'backup_ts.bak';
+ERROR HY000: Tablespace `bup_ts` needed by tables being restored has changed on the server. The original definition of the required tablespace is 'CREATE TABLESPACE `bup_ts` ADD DATAFILE 'bup_ts.dat' COMMENT = 'test tablespace backup' ENGINE=FALCON' while the same tablespace is defined o
+Cleanup
+DROP DATABASE IF EXISTS backup_ts;
+DROP TABLESPACE bup_ts ENGINE=FALCON;

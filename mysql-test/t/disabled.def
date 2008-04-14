@@ -16,7 +16,6 @@ federated_transactions   : Bug#29523 Transactions do not work
 subselect2 : BUG#31464 SergeyP will fix
 show_check      : Bug #32682    Test show_check fails in 6.0
 lowercase_table3         : Bug#32667 lowercase_table3.test reports to error log
-innodb_mysql         : Bug#32724: innodb_mysql.test fails randomly
 events_bugs          : Bug#32771 events_bugs.test fails randomly
 rpl_log_pos          : Bug#8693 Test 'rpl_log_pos' fails sometimes
 subselect_sj         : Bug#32994: subselect_sj fails sporadically (timeout)
@@ -39,4 +38,6 @@ backup_no_data       : Bug#34858 2008-Feb-28 Server crashes by backup tests
 backup_no_engine     : Bug#34858 2008-Feb-28 Server crashes by backup tests
 backup_objects       : Bug#34858 2008-Feb-28 Server crashes by backup tests
 
-subselect_notembedded : Bug#33506 crash on stack overrun
+cast                 : Bug#35594 2008-03-27 main.cast fails on Windows2003-64
+
+subselect_notembedded  : Bug#35803, Bug#33506 2008-Apr-03 subselect_notembedded crashes the server

@@ -365,7 +365,7 @@ void TransactionManager::reportStatistics(void)
 	priorRolledBack = rolledBack;
 	
 	if ((active || numberCommitted || numberRolledBack) && Log::isActive(LogInfo))
-		Log::log (LogInfo, I64FORMAT": Transactions: %d committed, %d rolled back, %d active, %d post-commit, oldest %d seconds\n",
+		Log::log (LogInfo, "%d: Transactions: %d committed, %d rolled back, %d active, %d post-commit, oldest %d seconds\n",
 				  database->deltaTime, numberCommitted, numberRolledBack, active, pendingCleanup, maxTime);
 }
 

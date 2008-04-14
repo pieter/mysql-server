@@ -247,7 +247,7 @@ void Transaction::commit()
 
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
-	Log::log(LogXARecovery, I64FORMAT": Commit transaction %d\n", database->deltaTime, transactionId);
+	Log::log(LogXARecovery, "%d: Commit transaction %d\n", database->deltaTime, transactionId);
 
 	if (state == Active)
 		{
@@ -547,7 +547,7 @@ void Transaction::chillRecords()
 	if (database->lowMemory)
 		backlogRecords();
 
-	Log::debug(I64FORMAT": Record chill: transaction %ld, %ld records, %ld bytes\n", database->deltaTime, transactionId, chilledRecords-chilledBefore,
+	Log::log(LogInfo, "%d: Record chill: transaction %ld, %ld records, %ld bytes\n", database->deltaTime, transactionId, chilledRecords-chilledBefore,
 				(uint32)(totalDataBefore-totalRecordData), committedRecords);
 }
 
@@ -581,7 +581,8 @@ int Transaction::thaw(RecordVersion * record)
 		{
 	//	Log::debug("%06ld Record Thaw/SRL:   recId:%8ld  addr:%p  vofs:%8llx  trxId:%6ld  total recs:%7ld  chilled:%7ld  thawed:%7ld  bytes:%8ld  commits:%6ld\n",
 	//				(uint32)clock(), record->recordNumber, record, record->virtualOffset, transactionId, totalRecords, chilledRecords, thawedRecords, (uint32)totalRecordData, committedRecords);
-		Log::debug(I64FORMAT": Record thaw: transaction %ld, %ld records, %ld bytes\n", database->deltaTime, transactionId, debugThawedRecords, debugThawedBytes);
+		Log::log(LogInfo, "%d: Record thaw: transaction %ld, %ld records, %ld bytes\n", 
+				 database->deltaTime, transactionId, debugThawedRecords, debugThawedBytes);
 		debugThawedRecords = 0;
 		debugThawedBytes = 0;
 		}

@@ -216,7 +216,7 @@ void SRLUpdateIndex::thaw(DeferredIndex* deferredIndex)
 	TransId transId = trans->transactionId;
 	indexId = deferredIndex->index->indexId;
 		
-	Log::debug(I64FORMAT": Index thaw: transaction %ld, index %ld, %ld bytes, address %p, vofs %llx\n",
+	Log::log(LogInfo, "%d: Index thaw: transaction %ld, index %ld, %ld bytes, address %p, vofs %llx\n",
 				log->database->deltaTime, transId, indexId, deferredIndex->sizeEstimate, this, virtualOffset);
 				
 	// Find the window where the DeferredIndex is stored using the virtualOffset,
@@ -269,7 +269,7 @@ void SRLUpdateIndex::thaw(DeferredIndex* deferredIndex)
 		ASSERT(indexId == deferredIndex->index->indexId);
 		ASSERT(indexVersion == deferredIndex->index->indexVersion);
 
-		Log::debug(I64FORMAT": Index thaw: transaction %ld, index %ld, %ld bytes, address %p, version %ld\n",
+		Log::debug("%d: Index thaw: transaction %ld, index %ld, %ld bytes, address %p, version %ld\n",
 					log->database->deltaTime, transactionId, indexId, dataLength, this, indexVersion);
 					
 		IndexKey indexKey(deferredIndex->index);

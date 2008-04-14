@@ -1047,7 +1047,7 @@ backup::Image_info::Ts_item* Backup_info::add_ts(obs::Obj *obj)
    */
 
   Ts_hash_node n0(name);
-  size_t klen;
+  size_t klen= 0;
   uchar  *key= Ts_hash_node::get_key((const uchar*)&n0, &klen, TRUE);
 
   Ts_hash_node *n1= (Ts_hash_node*) hash_search(&ts_hash, key, klen);

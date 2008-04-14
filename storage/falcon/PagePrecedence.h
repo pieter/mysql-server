@@ -1,3 +1,4 @@
+#ifdef USE_PRECEDENCE
 /* Copyright (C) 2006 MySQL AB
 
    This program is free software; you can redistribute it and/or modify
@@ -41,3 +42,4 @@ public:
 };
 
 #endif // !defined(AFX_PAGEPRECEDENCE_H__A8C8A877_7EC4_497A_BC51_1D335EFDBB3B__INCLUDED_)
+#endif /* USE_PRECEDENCE */

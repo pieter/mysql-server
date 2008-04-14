@@ -30,7 +30,6 @@
 #include "Log.h"
 #include "LogLock.h"
 #include "Stream.h"
-#include "PagePrecedence.h"
 #include "PageWriter.h"
 #include "SQLError.h"
 #include "Thread.h"
@@ -73,9 +72,9 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 	lastDirty = NULL;
 	numberDirtyPages = 0;
 	pageWriter = NULL;
-	freePrecedence = NULL;
 	hashTable = new Bdb* [hashSz];
 	memset (hashTable, 0, sizeof (Bdb*) * hashSize);
+
 	uint64 n = ((uint64) pageSize * numberBuffers + cacheHunkSize - 1) / cacheHunkSize;
 	numberHunks = (int) n;
 	bufferHunks = new char* [numberHunks];
@@ -91,14 +90,14 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 	flushing = false;
 	
 	try
-		{	
+		{
 		bdbs = new Bdb [numberBuffers];
 		endBdbs = bdbs + numberBuffers;
 		int remaining = 0;
 		int hunk = 0;
 		int allocated = 0;
 		char *stuff = NULL;
-		
+
 		for (Bdb *bdb = bdbs; bdb < endBdbs; ++bdb, --remaining)
 			{
 			if (remaining == 0)
@@ -108,7 +107,7 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 				stuff = (char*) (((UIPTR) stuff + pageSize - 1) / pageSize * pageSize);
 				allocated += remaining;
 				}
-				
+
 			bdb->cache = this;
 			bufferQueue.append(bdb);
 			bdb->buffer = (Page*) stuff;
@@ -118,15 +117,15 @@ Cache::Cache(Database *db, int pageSz, int hashSz, int numBuffers)
 	catch(...)
 		{
 		delete [] bdbs;
-		
+
 		for (int n = 0; n < numberHunks; ++n)
 			delete [] bufferHunks[n];
-		
+
 		delete [] bufferHunks;
-		
+
 		throw;
 		}
-	
+
 	validateCache();
 
 	for (int n = 0; n < numberIoThreads; ++n)
@@ -142,19 +141,13 @@ Cache::~Cache()
 	delete [] bdbs;
 	delete [] ioThreads;
 	delete flushBitmap;
-	
+
 	if (bufferHunks)
 		{
 		for (int n = 0; n < numberHunks; ++n)
 			delete [] bufferHunks[n];
-		
+
 		delete[] bufferHunks;
-		}
-		
-	for (PagePrecedence *precedence; (precedence = freePrecedence);)
-		{
-		freePrecedence = precedence->nextHigh;
-		delete precedence;
 		}
 }
 
@@ -405,84 +398,22 @@ Bdb* Cache::findBuffer(Dbb *dbb, int pageNumber, LockType lockType)
 
 	Bdb *bdb;
 
-	// Find a candidate BDB.  If there are higher precedence pages, they must be written first
+	// Find a candidate BDB.
 	
 	for (;;)
 		{
 		for (bdb = bufferQueue.last; bdb; bdb = bdb->prior)
-			{
-			if (bdb->higher)
-				{
-				sync.lock(Shared);
-				
-				if (bdb->higher)
-					{
-					Bdb *candidate;
-					
-					for (candidate = bdb; candidate->higher; candidate = candidate->higher->higher)
-						;
-										
-					if (candidate->useCount == 0)
-						{
-						bdb = candidate;
-						sync.unlock();
-						
-						break;
-						}
-					}
-				
-				sync.unlock();
-				}
-			else if (bdb->useCount == 0)
+			if (bdb->useCount == 0)
 				break;
-			}
 
 		if (!bdb)
 			throw SQLError(RUNTIME_ERROR, "buffer pool is exhausted\n");
-			/*** the following is for debugging, if necessary
-			{
-			for (bdb = bufferQueue.last; bdb; bdb = bdb->prior)
-				{
-				if (bdb->higher)
-					{
-					sync.lock(Shared);
-					
-					if (bdb->higher)
-						{
-						Bdb *candidate;
-						
-						for (candidate = bdb; candidate->higher; candidate = candidate->higher->higher)
-							;
-											
-						if (candidate->useCount == 0)
-							{
-							bdb = candidate;
-							sync.unlock();
-							
-							break;
-							}
-						
-						sync.unlock();
-						}
-					}
-				else if (bdb->useCount == 0)
-					break;
-				}
-				
-			throw SQLError(RUNTIME_ERROR, "buffer pool is exhausted\n");
-			}
-			***/
 			
 		if (!(bdb->flags & BDB_dirty))
 			break;
 			
 		writePage (bdb, WRITE_TYPE_REUSE);
 		}
-
-	ASSERT(bdb->higher == NULL);
-
-	for (PagePrecedence *precedence; (precedence = bdb->lower);)
-		clearPrecedence (bdb->lower);
 
 	/* Unlink its old incarnation from the page/hash table */
 
@@ -565,36 +496,29 @@ void Cache::markClean(Bdb *bdb)
 
 	bdb->nextDirty = NULL;
 	bdb->priorDirty = NULL;
-	PagePrecedence *precedence;
-
-	while ( (precedence = bdb->lower) )
-		clearPrecedence (bdb->lower);
-
-	while ( (precedence = bdb->higher) )
-		clearPrecedence (bdb->higher);
 }
 
 void Cache::writePage(Bdb *bdb, int type)
 {
 	Sync writer(&bdb->syncWrite, "Cache::writePage");
 	writer.lock(Exclusive);
-	
+
 	if (!(bdb->flags & BDB_dirty))
 		{
 		//Log::debug("Cache::writePage: page %d not dirty\n", bdb->pageNumber);
 		markClean (bdb);
-		
+
 		return;
 		}
-	
+
 	ASSERT(!(bdb->flags & BDB_write_pending));
 	Dbb *dbb = bdb->dbb;
 	ASSERT(database);
 	markClean (bdb);
 	// time_t start = database->timestamp;
 	Priority priority(database->ioScheduler);
-	priority.schedule(PRIORITY_MEDIUM);	
-	
+	priority.schedule(PRIORITY_MEDIUM);
+
 	try
 		{
 		dbb->writePage(bdb, type);
@@ -602,20 +526,20 @@ void Cache::writePage(Bdb *bdb, int type)
 	catch (SQLException& exception)
 		{
 		priority.finished();
-		
+
 		if (exception.getSqlcode() != DEVICE_FULL)
 			throw;
-		
+
 		database->setIOError(&exception);
 		Thread *thread = Thread::getThread("Cache::writePage");
-		
+
 		for (bool error = true; error;)
 			{
 			if (thread->shutdownInProgress)
 				return;
-			
+
 			thread->sleep(1000);
-			
+
 			try
 				{
 				priority.schedule(PRIORITY_MEDIUM);
@@ -626,28 +550,28 @@ void Cache::writePage(Bdb *bdb, int type)
 			catch (SQLException& exception2)
 				{
 				priority.finished();
-				
+
 				if (exception2.getSqlcode() != DEVICE_FULL)
 					throw;
 				}
 			}
 		}
 
-		
+
 	priority.finished();
-	
+
 	/***
 	time_t delta = database->timestamp - start;
 
 	if (delta > 1)
 		Log::debug("Page %d took %d seconds to write\n", bdb->pageNumber, delta);
 	***/
-	
-#ifdef STOP_PAGE			
+
+#ifdef STOP_PAGE
 	if (bdb->pageNumber == STOP_PAGE)
 		Log::debug("writing page %d/%d\n", bdb->pageNumber, dbb->tableSpaceId);
 #endif
-		
+
 	bdb->flags &= ~BDB_dirty;
 
 	if (pageWriter && (bdb->flags & BDB_writer))
@@ -674,9 +598,6 @@ void Cache::analyze(Stream *stream)
 	int dirty = 0;
 	int dirtyList = 0;
 	int total = 0;
-	int maxChain = 0;
-	int totalChain = 0;
-	int freeCount = 0;
 	Bdb *bdb;
 
 	for (bdb = bdbs; bdb < endBdbs; ++bdb)
@@ -688,24 +609,13 @@ void Cache::analyze(Stream *stream)
 			
 		if (bdb->useCount)
 			++inUse;
-		
-		int chain = 0;
-		
-		for (PagePrecedence *precedence = bdb->higher; precedence; precedence = precedence->nextHigh)
-			++chain;
-		
-		totalChain += chain;
-		maxChain = MAX(chain, maxChain);
 		}
 
 	for (bdb = firstDirty; bdb; bdb = bdb->nextDirty)
 		++dirtyList;
 
-	for (PagePrecedence *precedence = freePrecedence; precedence; precedence = precedence->nextHigh)
-		++freeCount;
-		
-	stream->format ("Cache: %d pages, %d in use, %d dirty, %d in dirty chain\nMax chain %d, total chain %d, free %d\n",
-					total, inUse, dirty, dirtyList, maxChain, totalChain, freeCount);
+	stream->format ("Cache: %d pages, %d in use, %d dirty, %d in dirty chain\n",
+					total, inUse, dirty, dirtyList);
 }
 
 void Cache::validateUnique(Bdb *target)
@@ -714,102 +624,6 @@ void Cache::validateUnique(Bdb *target)
 
 	for (Bdb *bdb = hashTable [slot]; bdb; bdb = bdb->hash)
 		ASSERT (bdb == target || !(bdb->pageNumber == target->pageNumber && bdb->dbb == target->dbb));
-}
-
-void Cache::setPrecedence(Bdb *lower, int32 highPageNumber)
-{
-	Sync sync (&syncDirty, "Cache::setPrecedence");
-	sync.lock (Shared);
-	int	slot = highPageNumber % hashSize;
-	Bdb *higher;
-	PagePrecedence *precedence;
-	int count = 0;
-	
-	for (precedence = lower->higher; precedence; precedence = precedence->nextHigh, ++count)
-		if (precedence->higher->pageNumber == highPageNumber)
-			return;
-	
-	/***
-	if (count == 100)
-		{
-		LogLock logLock;
-		Log::debug("Long precedence chain:\n");
-		dbb->printPage(lower);
-		
-		for (precedence = lower->higher; precedence; precedence = precedence->nextHigh, ++count)
-			dbb->printPage(precedence->higher->pageNumber);
-		}
-	***/
-
-	for (higher = hashTable [slot]; higher; higher = higher->hash)
-		if (higher->pageNumber == highPageNumber && higher->dbb == lower->dbb)
-			break;
-
-	if (!higher)
-		return;
-
-	sync.unlock();
-	sync.lock(Exclusive);
-	
-	for (higher = hashTable [slot]; higher; higher = higher->hash)
-		if (higher->pageNumber == highPageNumber && higher->dbb == lower->dbb)
-			break;
-
-	if (!higher || !(higher->flags & BDB_dirty))
-		return;
-	
-	// Make sure we're not creating a cycle.  If so, write some pages now!
-
-	while (higher->isHigher(lower))
-		{
-		Bdb *bdb = lower;
-		
-		while (bdb->higher)
-			bdb = bdb->higher->higher;
-			
-		writePage (bdb, WRITE_TYPE_PRECEDENCE);
-		}
-
-	if ( (precedence = freePrecedence) )
-		{
-		freePrecedence = precedence->nextHigh;
-		precedence->setPrecedence(lower, higher);
-		}
-	else
-		new PagePrecedence(lower, higher);
-}
-
-void Cache::clearPrecedence(PagePrecedence *precedence)
-{
-	Sync sync (&syncDirty, "Cache::setPrecedence");
-	sync.lock (Exclusive);
-	PagePrecedence **ptr;
-	Bdb *bdb = precedence->higher;
-	int hits = 0;
-
-	for (ptr = &bdb->lower; *ptr; ptr = &(*ptr)->nextLow)
-		if (*ptr == precedence)
-			{
-			++hits;
-			*ptr = precedence->nextLow;
-			break;
-			}
-
-	ASSERT (hits == 1);
-	bdb = precedence->lower;
-
-	for (ptr = &bdb->higher; *ptr; ptr = &(*ptr)->nextHigh)
-		if (*ptr == precedence)
-			{
-			++hits;
-			*ptr = precedence->nextHigh;
-			break;
-			}
-
-	ASSERT (hits == 2);
-	//delete precedence;
-	precedence->nextHigh = freePrecedence;
-	freePrecedence = precedence;
 }
 
 void Cache::freePage(Dbb *dbb, int32 pageNumber)
@@ -921,7 +735,7 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 		time_t delta = database->timestamp - start;
 		
 		if (delta > 1)
-			Log::log(LogInfo, "%d: %s %s sync: %d pages in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
+			Log::log(LogInfo, I64FORMAT": %s %s sync: %d pages in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
 		}
 }
 
@@ -1094,7 +908,7 @@ void Cache::ioThread(void)
 				syncWait.unlock();
 				
 				if (writes > 0 && Log::isActive(LogInfo))
-					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
+					Log::log(LogInfo, I64FORMAT": Cache flush: %d pages, %d writes in "I64FORMAT" seconds (%d pps)\n",
 								database->deltaTime, pages, writes, delta, pages / MAX(delta, 1));
 
 				database->pageCacheFlushed(flushArg);

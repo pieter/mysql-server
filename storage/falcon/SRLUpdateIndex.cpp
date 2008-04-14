@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include "Engine.h"
+#include "Database.h"
 #include "SRLUpdateIndex.h"
 #include "DeferredIndex.h"
 #include "Index.h"
@@ -215,8 +216,8 @@ void SRLUpdateIndex::thaw(DeferredIndex* deferredIndex)
 	TransId transId = trans->transactionId;
 	indexId = deferredIndex->index->indexId;
 		
-	Log::debug("Def Index Thaw:    trxId=%-5ld indexId=%-7ld  bytes=%8ld  addr=%p  vofs=%llx\n",
-				transId, indexId, deferredIndex->sizeEstimate, this, virtualOffset);
+	Log::debug(I64FORMAT": Index thaw: transaction %ld, index %ld, %ld bytes, address %p, vofs %llx\n",
+				log->database->deltaTime, transId, indexId, deferredIndex->sizeEstimate, this, virtualOffset);
 				
 	// Find the window where the DeferredIndex is stored using the virtualOffset,
 	// then activate the window, reading from disk if necessary.
@@ -268,8 +269,8 @@ void SRLUpdateIndex::thaw(DeferredIndex* deferredIndex)
 		ASSERT(indexId == deferredIndex->index->indexId);
 		ASSERT(indexVersion == deferredIndex->index->indexVersion);
 
-		Log::debug("Def Index Thaw:    trxId=%-5ld indexId=%-7ld  bytes=%8ld  addr=%p  version=%ld\n",
-					transactionId, indexId, dataLength, this, indexVersion);
+		Log::debug(I64FORMAT": Index thaw: transaction %ld, index %ld, %ld bytes, address %p, version %ld\n",
+					log->database->deltaTime, transactionId, indexId, dataLength, this, indexVersion);
 					
 		IndexKey indexKey(deferredIndex->index);
 

@@ -96,7 +96,7 @@ inline int inline_cas (volatile int *target, int compare, int exchange)
 		: "cc", "memory"
 		);
 	return ret;
-#elif defined(__ppc__)
+#elif defined(__ppc__) || defined(__powerpc__)
 	char ret= 0, tmp;
 	__asm__ __volatile__ (
 		"lwsync\n\t"
@@ -151,7 +151,7 @@ inline char inline_cas_pointer (volatile void **target, void *compare, void *exc
 		: "r" (exchange), "a" (compare)
 		: "cc", "memory");
 	return ret;
-#elif defined(__ppc__)
+#elif defined(__ppc__) || defined(__powerpc__)
 	void *ret;
 	if (sizeof(void*) == 8)
 	{
@@ -247,7 +247,7 @@ inline INTERLOCK_TYPE interlockedIncrement(volatile INTERLOCK_TYPE *ptr)
 		: "memory"
 		);
 	return ret + 1;
-#elif defined(__ppc__)
+#elif defined(__ppc__) || defined(__powerpc__)
 	INTERLOCK_TYPE ret;
 	__asm__ __volatile__ (
 		"lwsync\n\t"
@@ -288,7 +288,7 @@ inline INTERLOCK_TYPE interlockedDecrement(volatile INTERLOCK_TYPE *ptr)
 		: "memory"
 		);
 	return ret - 1;
-#elif defined(__ppc__)
+#elif defined(__ppc__) || defined(__powerpc__)
 	INTERLOCK_TYPE ret;
 	__asm__ __volatile__ (
 		"lwsync\n\t"
@@ -330,7 +330,7 @@ inline INTERLOCK_TYPE interlockedAdd(volatile INTERLOCK_TYPE* addend,
 		: "memory"
 		);
 	return ret + value;
-#elif defined(__ppc__)
+#elif defined(__ppc__) || defined(__powerpc__)
 	INTERLOCK_TYPE ret;
 	__asm__ __volatile__ (
 		"lwsync\n\t"
@@ -385,7 +385,7 @@ inline INTERLOCK_TYPE interlockedExchange(volatile INTERLOCK_TYPE* addend,
 		: "memory"
 		);
 	return ret;
-#elif defined(__ppc__)
+#elif defined(__ppc__) || defined(__powerpc__)
 	INTERLOCK_TYPE ret;
 	__asm__ __volatile__ (
 		"lwsync\n\t"

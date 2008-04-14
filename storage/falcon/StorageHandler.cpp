@@ -40,6 +40,8 @@
 #define DICTIONARY_PW			"mysql"
 #define FALCON_USER				DEFAULT_TABLESPACE_PATH
 #define FALCON_TEMPORARY		TEMPORARY_PATH
+#define WHITE_SPACE				" \t\n\r"
+#define PUNCTUATION_CHARS		".+-*/%()*<>=!;,?{}[]:~^|"
 
 #define HASH(address,size)				(int)(((UIPTR) address >> 2) % size)
 
@@ -79,10 +81,27 @@ extern Server*	startServer(int port, const char *configFile);
 
 static StorageHandler *storageHandler;
 
+static char charTable[256];
+static int init();
+static int foo = init();
+
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;
 #endif
+
+int init()
+{
+	const char *p;
+	
+	for (p = WHITE_SPACE; *p; p++)
+		charTable[(unsigned char)*p] = 1;
+	
+	for (p = PUNCTUATION_CHARS; *p; p++)
+		charTable[(unsigned char)*p] = 1;
+	
+	return 1;
+}
 
 StorageHandler*	getFalconStorageHandler(int lockSize)
 {
@@ -445,7 +464,29 @@ Connection* StorageHandler::getDictionaryConnection(void)
 	return dictionaryConnection;
 }
 
-int StorageHandler::createTablespace(const char* tableSpaceName, const char* filename)
+JString StorageHandler::genCreateTableSpace(const char* tableSpaceName, const char* filename,
+												unsigned long long initialSize,
+												unsigned long long extentSize,
+												unsigned long long autoextendSize,
+												unsigned long long maxSize,
+												int nodegroup, bool wait, const char* comment)
+{
+	CmdGen gen;
+	/***
+	gen.gen("create tablespace \"%s\" filename '%s' initial_size " I64FORMAT " extent_size " I64FORMAT 
+				" autoextend_size " I64FORMAT " max_size " I64FORMAT " nodegroup %d wait %d comment '%s'",
+				tableSpaceName, filename, initialSize, extentSize, autoextendSize, maxSize, nodegroup, (int)wait, comment ? comment : "");
+	***/
+	gen.gen("create tablespace \"%s\" filename '%s' comment '%s'", tableSpaceName, filename, comment ? comment : "");
+	return (gen.getString());
+}
+
+int StorageHandler::createTablespace(const char* tableSpaceName, const char* filename,
+										unsigned long long initialSize,
+										unsigned long long extentSize,
+										unsigned long long autoextendSize,
+										unsigned long long maxSize,
+										int nodegroup, bool wait, const char* comment)
 {
 	if (!defaultDatabase)
 		initialize();
@@ -458,12 +499,12 @@ int StorageHandler::createTablespace(const char* tableSpaceName, const char* fil
 	
 	try
 		{
-		CmdGen gen;
-		gen.gen("create tablespace \"%s\" filename '%s'", tableSpaceName, filename);
+		JString cmd = genCreateTableSpace(tableSpaceName, filename, initialSize, extentSize,
+											autoextendSize, maxSize, nodegroup, wait, comment);
 		Sync sync(&dictionarySyncObject, "StorageHandler::createTablespace");
 		sync.lock(Exclusive);
 		Statement *statement = dictionaryConnection->createStatement();
-		statement->executeUpdate(gen.getString());
+		statement->executeUpdate(cmd);
 		statement->close();
 		}
 	catch (SQLException& exception)
@@ -898,6 +939,24 @@ void StorageHandler::getTransactionSummaryInfo(InfoTable* infoTable)
 		storageDatabase->getTransactionSummaryInfo(infoTable);
 }
 
+void StorageHandler::getTableSpaceInfo(InfoTable* infoTable)
+{
+	Sync sync(&hashSyncObject, "StorageHandler::getTableSpaceInfo");
+	sync.lock(Shared);
+	
+	for (StorageDatabase *storageDatabase = databaseList; storageDatabase; storageDatabase = storageDatabase->next)
+		storageDatabase->getTableSpaceInfo(infoTable);
+}
+
+void StorageHandler::getTableSpaceFilesInfo(InfoTable* infoTable)
+{
+	Sync sync(&hashSyncObject, "StorageHandler::getTableSpaceFilesInfo");
+	sync.lock(Shared);
+	
+	for (StorageDatabase *storageDatabase = databaseList; storageDatabase; storageDatabase = storageDatabase->next)
+		storageDatabase->getTableSpaceFilesInfo(infoTable);
+}
+
 void StorageHandler::initialize(void)
 {
 	if (initialized)
@@ -936,11 +995,7 @@ void StorageHandler::initialize(void)
 		IO::deleteFile(FALCON_TEMPORARY);
 		dictionaryConnection = defaultDatabase->getOpenConnection();
 		Statement *statement = dictionaryConnection->createStatement();
-
-		JString createTableSpace;
-		createTableSpace.Format(
-				"create tablespace " DEFAULT_TABLESPACE " filename '" FALCON_USER "' allocation " I64FORMAT,
-				falcon_initial_allocation);
+		JString createTableSpace = genCreateTableSpace(DEFAULT_TABLESPACE, FALCON_USER, falcon_initial_allocation);
 		statement->executeUpdate(createTableSpace);
 			
 		for (const char **ddl = falconSchema; *ddl; ++ddl)
@@ -1081,7 +1136,6 @@ void StorageHandler::setRecordChillThreshold(uint value)
 		dictionaryConnection->setRecordChillThreshold(value);
 }
 
-
 void StorageHandler::cleanFileName(const char* pathname, char* filename, int filenameLength)
 {
 	char c, prior = 0;
@@ -1114,3 +1168,19 @@ int StorageHandler::recoverGetNextLimbo(int xidLength, unsigned char* xid)
 
 	return 0;
 	}
+
+const char* StorageHandler::normalizeName(const char* name, int bufferSize, char* buffer)
+{
+	char *q = buffer;
+	char *end = buffer + bufferSize - 1;
+	
+	for (const char *p = name; *p && q < end; ++p)
+		if (charTable[(unsigned char)*p])
+			return name;
+		else
+			*q++ = UPPER(*p);
+	
+	*q = 0;
+	
+	return buffer;
+}

@@ -247,7 +247,7 @@ void Transaction::commit()
 
 	TransactionManager *transactionManager = database->transactionManager;
 	addRef();
-	Log::log(LogXARecovery, "%d: Commit transaction %d\n", database->deltaTime, transactionId);
+	Log::log(LogXARecovery, I64FORMAT": Commit transaction %d\n", database->deltaTime, transactionId);
 
 	if (state == Active)
 		{
@@ -292,7 +292,7 @@ void Transaction::commit()
 	syncActiveTransactions.unlock();
 	
 	for (RecordVersion *record = firstRecord; record; record = record->nextInTrans)
-		if (!record->priorVersion)
+		if (!record->getPriorVersion())
 			++record->format->table->cardinality;
 		else if (record->state == recDeleted && record->format->table->cardinality > 0)
 			--record->format->table->cardinality;
@@ -547,8 +547,8 @@ void Transaction::chillRecords()
 	if (database->lowMemory)
 		backlogRecords();
 
-	Log::debug("%d: Record Chill: trxId=%-5ld records=%7ld  bytes=%8ld\n", database->deltaTime, 
-				transactionId, chilledRecords-chilledBefore, (uint32)(totalDataBefore-totalRecordData), committedRecords);
+	Log::debug(I64FORMAT": Record chill: transaction %ld, %ld records, %ld bytes\n", database->deltaTime, transactionId, chilledRecords-chilledBefore,
+				(uint32)(totalDataBefore-totalRecordData), committedRecords);
 }
 
 int Transaction::thaw(RecordVersion * record)
@@ -581,7 +581,7 @@ int Transaction::thaw(RecordVersion * record)
 		{
 	//	Log::debug("%06ld Record Thaw/SRL:   recId:%8ld  addr:%p  vofs:%8llx  trxId:%6ld  total recs:%7ld  chilled:%7ld  thawed:%7ld  bytes:%8ld  commits:%6ld\n",
 	//				(uint32)clock(), record->recordNumber, record, record->virtualOffset, transactionId, totalRecords, chilledRecords, thawedRecords, (uint32)totalRecordData, committedRecords);
-		Log::debug("Record Thaw/SRL:   trxId=%-5ld records=%7ld  bytes=%8ld\n", transactionId, debugThawedRecords, debugThawedBytes);
+		Log::debug(I64FORMAT": Record thaw: transaction %ld, %ld records, %ld bytes\n", database->deltaTime, transactionId, debugThawedRecords, debugThawedBytes);
 		debugThawedRecords = 0;
 		debugThawedBytes = 0;
 		}
@@ -1315,7 +1315,7 @@ void Transaction::printBlocking(int level)
 			++locks;
 		else if (!record->hasRecord())
 			++deletes;
-		else if (record->priorVersion)
+		else if (record->getPriorVersion())
 			++updates;
 		else
 			++inserts;
@@ -1343,7 +1343,7 @@ void Transaction::printBlocking(int level)
 			what = "locked";
 		else if (!record->hasRecord())
 			what = "deleted";
-		else if (record->priorVersion)
+		else if (record->getPriorVersion())
 			what = "updated";
 		else
 			what = "inserted";

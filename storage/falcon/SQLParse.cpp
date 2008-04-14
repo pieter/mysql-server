@@ -3293,10 +3293,33 @@ Syntax* SQLParse::parseCreateTableSpace(SyntaxType nodeType)
 		error("FILENAME");
 
 	Syntax *fileName = parseQuotedString();
-	Syntax *initialAllocation = NULL;
 	
-	if (match("ALLOCATION"))
-		initialAllocation = parseNumber();
+	LinkedList options;
+
+	for (;;)
+		{
+		/***
+		if (match("INITIAL_SIZE"))
+			options.append (makeNode(nod_initial_size, parseNumber()));
+		else if (match ("EXTENT_SIZE"))
+			options.append (makeNode(nod_extent_size, parseNumber()));
+		else if (match ("AUTOEXTEND_SIZE"))
+			options.append (makeNode(nod_autoextend_size, parseNumber()));
+		else if (match ("MAX_SIZE"))
+			options.append (makeNode(nod_max_size, parseNumber()));
+		else if (match ("NODEGROUP"))
+			options.append (makeNode(nod_nodegroup, parseNumber()));
+		else if (match ("WAIT"))
+			options.append (makeNode(nod_wait, parseNumber()));
+		else
+		***/ 
+		if (match ("COMMENT"))
+			options.append (makeNode(nod_comment, parseQuotedString()));
+		else if (match (","))
+			;
+		else
+			break;
+		}
 		
-	return makeNode(nodeType, name, fileName, initialAllocation);
+	return makeNode(nodeType, name, fileName, makeNode(options));
 }

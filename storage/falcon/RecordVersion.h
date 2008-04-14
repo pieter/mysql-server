@@ -27,6 +27,7 @@
 #include "Record.h"
 
 class Transaction;
+class SyncObject;
 
 class RecordVersion : public Record  
 {
@@ -41,12 +42,13 @@ public:
 	virtual void		setSuperceded (bool flag);
 	virtual Record*		getPriorVersion();
 	virtual Record*		getGCPriorVersion(void);
-	virtual bool		scavenge(RecordScavenge *recordScavenge);
+	virtual bool		scavenge(RecordScavenge *recordScavenge, LockType lockType);
 	virtual void		scavenge(TransId targetTransactionId, int oldestActiveSavePoint);
 	virtual bool		isVersion();
 	virtual Record*		rollback(Transaction *transaction);
 	virtual Record*		fetchVersion (Transaction *transaction);
 	virtual Record*		releaseNonRecursive();
+	virtual Record*		clearPriorVersion(void);
 	virtual void		setPriorVersion (Record *oldVersion);
 	virtual void		setVirtualOffset(uint64 offset);
 	virtual uint64		getVirtualOffset();
@@ -54,16 +56,17 @@ public:
 	virtual void		print(void);
 	virtual int			getSize(void);
 	virtual void		serialize(Serialize* stream);
+	virtual SyncObject* getSyncPrior();
 
 	void				commit();
 
 protected:
 	virtual ~RecordVersion();
+	Record			*priorVersion;
 
 public:
 	uint64			virtualOffset;		// byte offset into serial log window
 	Transaction		*transaction;
-	Record			*priorVersion;
 	RecordVersion	*nextInTrans;
 	RecordVersion	*prevInTrans;
 	TransId			transactionId;

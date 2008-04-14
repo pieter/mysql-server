@@ -480,7 +480,7 @@ bool Record::isVersion()
 }
 
 
-bool Record::scavenge(RecordScavenge *recordScavenge)
+bool Record::scavenge(RecordScavenge *recordScavenge, LockType lockType)
 {
 	return true;
 }
@@ -833,6 +833,12 @@ Record* Record::releaseNonRecursive(void)
 	return NULL;
 }
 
+Record* Record::clearPriorVersion(void)
+{
+	ASSERT(false);
+	return NULL;
+}
+
 void Record::setPriorVersion(Record* record)
 {
 	ASSERT(false);
@@ -946,4 +952,9 @@ void Record::serialize(Serialize* stream)
 int Record::getSize(void)
 {
 	return sizeof(*this);
+}
+
+SyncObject* Record::getSyncPrior(void)
+{
+	return NULL;
 }

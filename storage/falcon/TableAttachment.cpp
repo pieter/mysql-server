@@ -36,10 +36,10 @@ TableAttachment::~TableAttachment()
 
 void TableAttachment::postCommit(Table *table, RecordVersion * record)
 {
-	if (!record->priorVersion)
+	if (!record->getPriorVersion())
 		insertCommit (table, record);
 	else if (!record->hasRecord())
-		deleteCommit (table, record->priorVersion);
+		deleteCommit (table, record->getPriorVersion());
 	else
 		updateCommit (table, record);
 }

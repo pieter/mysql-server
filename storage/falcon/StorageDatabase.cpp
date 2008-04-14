@@ -1178,3 +1178,15 @@ void StorageDatabase::getTransactionSummaryInfo(InfoTable* infoTable)
 	if (masterConnection && masterConnection->database)
 		masterConnection->database->getTransactionSummaryInfo(infoTable);
 }
+
+void StorageDatabase::getTableSpaceInfo(InfoTable* infoTable)
+{
+	if (masterConnection && masterConnection->database)
+		masterConnection->database->getTableSpaceInfo(infoTable);
+}
+
+void StorageDatabase::getTableSpaceFilesInfo(InfoTable* infoTable)
+{
+	if (masterConnection && masterConnection->database)
+		masterConnection->database->getTableSpaceFilesInfo(infoTable);
+}

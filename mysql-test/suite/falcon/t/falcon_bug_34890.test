@@ -22,6 +22,18 @@ DROP PROCEDURE IF EXISTS p1;
 connect (conn1,localhost,root,,);
 SET @@autocommit = 1;
 
+--echo # Establish connection conn2 (user = root)
+connect (conn2,localhost,root,,);
+SET @@autocommit = 1;
+
+--echo # Establish connection conn3 (user = root)
+connect (conn3,localhost,root,,);
+SET @@autocommit = 1;
+
+--echo # Establish connection conn4 (user = root)
+connect (conn4,localhost,root,,);
+SET @@autocommit = 1;
+
 --echo # Switch to connection default
 connection default;
 SET @@autocommit = 1;
@@ -40,7 +52,7 @@ begin
   DECLARE my_count INT DEFAULT 0;
   DECLARE my_uuid CHAR(36) DEFAULT 0;
   SET FALCON_CONSISTENT_READ=OFF;
-  while my_count < 10000 do
+  while my_count < 1000 do
     SET my_uuid = UUID();
     INSERT INTO t1 (t1_uuid) VALUES (my_uuid);
     DELETE FROM t1 WHERE t1_uuid IN (my_uuid);
@@ -53,40 +65,68 @@ delimiter ;//
 # --- Test                                          --- #
 # ----------------------------------------------------- #
 
+--echo # Switch to connection conn1
+connection conn1;
 --echo # Send call p1() to the server but do not pull the results
 --send CALL p1()
 
---echo # Switch to connection conn1
-connection conn1;
---real_sleep 1
-CALL p1();
-
---echo # Switch to connection default
-connection default;
---echo # Pull the results of the preceeding call p1()
---reap
+--echo # Switch to connection conn2
+connection conn2;
 --echo # Send call p1() to the server but do not pull the results
---real_sleep 1
 --send CALL p1()
 
---echo # Switch to connection conn1
-connection conn1;
---real_sleep 1
-CALL p1();
+--echo # Switch to connection conn3
+connection conn3;
+--echo # Send call p1() to the server but do not pull the results
+--send CALL p1()
+
+--echo # Switch to connection conn4
+connection conn4;
+--echo # Send call p1() to the server but do not pull the results
+--send CALL p1()
 
 --echo # Switch to connection default
 connection default;
---echo # Pull the results of the preceeding call p1()
+--real_sleep 1
+CALL p1();
+
+--echo # Switch to connection conn1
+connection conn1;
+--echo # Pull the results of the preceeding call p1() by conn1
 --reap
+
+--echo # Switch to connection conn2
+connection conn2;
+--echo # Pull the results of the preceeding call p1() by conn2
+--reap
+
+--echo # Switch to connection conn3
+connection conn3;
+--echo # Pull the results of the preceeding call p1() by conn3
+--reap
+
+--echo # Switch to connection conn4
+connection conn4;
+--echo # Pull the results of the preceeding call p1() by conn4
+--reap
+
+
+--echo # Switch to connection default
+connection default;
 
 
 # ----------------------------------------------------- #
 # --- Check                                         --- #
 # ----------------------------------------------------- #
 # Checking row count is not applicable here.
-SELECT count(*) FROM t1;
+#SELECT count(*) FROM t1;
 
 # ----------------------------------------------------- #
 # --- Final cleanup                                 --- #
 # ----------------------------------------------------- #
+disconnect conn1;
+disconnect conn2;
+disconnect conn3;
+disconnect conn4;
 DROP PROCEDURE p1;
+DROP TABLE t1;

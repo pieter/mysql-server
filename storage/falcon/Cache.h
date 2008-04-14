@@ -30,7 +30,6 @@
 
 class Bdb;
 class Dbb;
-class PagePrecedence;
 class PageWriter;
 class Stream;
 class Sync;
@@ -48,8 +47,6 @@ public:
 	bool	hasDirtyPages (Dbb *dbb);
 	void	flush (Dbb *dbb);
 	void	freePage (Dbb *dbb, int32 pageNumber);
-	void	clearPrecedence (PagePrecedence *precedence);
-	void	setPrecedence (Bdb *lower, int32 highPageNumber);
 	void	validateUnique (Bdb *bdb);
 	void	analyze (Stream *stream);
 	void	writePage (Bdb *bdb, int type);
@@ -102,7 +99,6 @@ protected:
 	SyncObject	syncDirty;
 	SyncObject	syncThreads;
 	SyncObject	syncWait;
-	PagePrecedence	*freePrecedence;
 	time_t		flushStart;
 	int			flushPages;
 	int			physicalWrites;

@@ -233,7 +233,7 @@ void ImageManager::checkAccess(Table *table, RecordVersion *recordVersion)
 		heightId = table->getFieldId ("HEIGHT");
 		}
 
-	Record *record = (recordVersion->hasRecord()) ? recordVersion : recordVersion->priorVersion;
+	Record *record = (recordVersion->hasRecord()) ? recordVersion : recordVersion->getPriorVersion();
 	ValueEx application (record, applicationId);
 	Table *images = database->findTable (application.getString(), "IMAGES");
 	Transaction *transaction = recordVersion->transaction;

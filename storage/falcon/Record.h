@@ -29,6 +29,8 @@
 
 #define CHECK_RECORD_ACTIVITY
 
+#include "SynchronizationObject.h"
+
 enum RecordEncoding {
 	noEncoding = 0,
 	traditional,
@@ -60,6 +62,7 @@ class Stream;
 class Database;
 class RecordScavenge;
 class Serialize;
+class SyncObject;
 CLASS(Field);
 
 extern char	*RecordAllocate (int size, const char *file, int line);
@@ -72,22 +75,24 @@ public:
 	virtual TransId	getTransactionId();
 	virtual int		getSavePointId();
 	virtual void	setSuperceded (bool flag);
-	virtual Record* fetchVersion (Transaction *transaction);
-	virtual bool	scavenge(RecordScavenge *recordScavenge);
+	virtual Record*	fetchVersion (Transaction *transaction);
+	virtual bool	scavenge(RecordScavenge *recordScavenge, LockType lockType);
 	virtual void	scavenge(TransId targetTransactionId, int oldestActiveSavePointId);
 	virtual bool	isVersion();
 	virtual bool	isSuperceded();
 	virtual bool	isNull(int fieldId);
-	virtual Record* releaseNonRecursive(void);
+	virtual Record*	releaseNonRecursive(void);
+	virtual Record*	clearPriorVersion(void);
 	virtual void	setPriorVersion(Record* record);
-	virtual Record* getPriorVersion();
-	virtual Record* getGCPriorVersion(void);
+	virtual Record*	getPriorVersion();
+	virtual Record*	getGCPriorVersion(void);
 	virtual	void	print(void);
 	virtual int		thaw();
 	virtual const char*	getEncodedRecord();
 	virtual int		setRecordData(const UCHAR *dataIn, int dataLength);
 	virtual void	serialize(Serialize* stream);
 	virtual int		getSize(void);
+	virtual SyncObject* getSyncPrior(void);
 
 	const UCHAR*	getEncoding (int index);
 	int				setEncodedRecord(Stream *stream, bool interlocked);

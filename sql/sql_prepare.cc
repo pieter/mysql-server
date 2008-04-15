@@ -1729,6 +1729,10 @@ static bool check_prepared_statement(Prepared_statement *stmt,
   lex->select_lex.context.resolve_in_table_list_only(select_lex->
                                                      get_table_list());
 
+  /* Reset warning count for each query that uses tables */
+  if ((tables || !lex->is_single_level_stmt()) && !thd->spcont)
+    mysql_reset_errors(thd, 0);
+
   switch (sql_command) {
   case SQLCOM_REPLACE:
   case SQLCOM_INSERT:
@@ -1959,8 +1963,6 @@ void mysql_stmt_prepare(THD *thd, const char *packet, uint packet_length)
     DBUG_VOID_RETURN;
   }
 
-  /* Reset warnings from previous command */
-  mysql_reset_errors(thd, 0);
   sp_cache_flush_obsolete(&thd->sp_proc_cache);
   sp_cache_flush_obsolete(&thd->sp_func_cache);
 

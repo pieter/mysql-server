@@ -319,7 +319,7 @@ row_mysql_unfreeze_data_dictionary(
 /*===============================*/
 	trx_t*	trx);	/* in: transaction */
 /*************************************************************************
-Drops a table for MySQL. If the name of the table ends in
+Creates a table for MySQL. If the name of the table ends in
 one of "innodb_monitor", "innodb_lock_monitor", "innodb_tablespace_monitor",
 "innodb_table_monitor", then this will also start the printing of monitor
 output by the master thread. If the table name ends in "innodb_mem_validate",
@@ -464,6 +464,16 @@ row_check_table_for_mysql(
 	row_prebuilt_t*	prebuilt);	/* in: prebuilt struct in MySQL
 					handle */
 
+/*************************************************************************
+Determines if a table is a magic monitor table. */
+
+ibool
+row_is_magic_monitor_table(
+/*=======================*/
+					/* out: TRUE if monitor table */
+	const char*	table_name);	/* in: name of the table, in the
+					form database/table_name */
+
 /* A struct describing a place for an individual column in the MySQL
 row format which is presented to the table handler in ha_innobase.
 This template struct is used to speed up row transformations between
@@ -513,8 +523,6 @@ struct mysql_row_templ_struct {
 
 #define ROW_PREBUILT_ALLOCATED	78540783
 #define ROW_PREBUILT_FREED	26423527
-
-typedef my_bool (*index_cond_func_t)(void *param);
 
 /* A struct for (sometimes lazily) prebuilt structures in an Innobase table
 handle used within MySQL; these are used to save CPU time. */
@@ -671,18 +679,11 @@ struct row_prebuilt_struct {
 					fetched row in fetch_cache */
 	ulint		n_fetch_cached;	/* number of not yet fetched rows
 					in fetch_cache */
-	mem_heap_t*	blob_heap;	/* in SELECTS BLOB fields are copied
+	mem_heap_t*	blob_heap;	/* in SELECTS BLOB fie lds are copied
 					to this heap */
 	mem_heap_t*	old_vers_heap;	/* memory heap where a previous
 					version is built in consistent read */
 	ulonglong	last_value;	/* last value of AUTO-INC interval */
-
-        index_cond_func_t idx_cond_func;/* Index Condition Pushdown function,
-                                        or NULL if there is none set */
-        void*           idx_cond_func_arg;/* ICP function  argument */
-        ulint           n_index_fields; /* Number of fields at the start of
-                                        mysql_template. Valid only when using
-                                        ICP. */
 	ulint		magic_n2;	/* this should be the same as
 					magic_n */
 };

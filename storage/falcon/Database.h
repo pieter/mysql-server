@@ -291,7 +291,7 @@ public:
 	MemMgr				*recordDataPool;
 	time_t				startTime;
 	
-	volatile time_t		deltaTime;
+	volatile int		deltaTime;
 	volatile time_t		timestamp;
 	volatile int		numberQueries;
 	volatile int		numberRecords;

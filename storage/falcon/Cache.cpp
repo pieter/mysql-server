@@ -735,7 +735,7 @@ void Cache::syncFile(Dbb *dbb, const char *text)
 		time_t delta = database->timestamp - start;
 		
 		if (delta > 1)
-			Log::log(LogInfo, I64FORMAT": %s %s sync: %d pages in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
+			Log::log(LogInfo, "%d: %s %s sync: %d pages in %d seconds\n", database->deltaTime, fileName, text, writes, delta);
 		}
 }
 
@@ -902,13 +902,13 @@ void Cache::ioThread(void)
 				{
 				int writes = physicalWrites;
 				int pages = flushPages;
-				time_t delta = database->timestamp - flushStart;
+				int delta = (int) (database->timestamp - flushStart);
 				flushing = false;
 				flushLock.unlock();
 				syncWait.unlock();
 				
 				if (writes > 0 && Log::isActive(LogInfo))
-					Log::log(LogInfo, I64FORMAT": Cache flush: %d pages, %d writes in "I64FORMAT" seconds (%d pps)\n",
+					Log::log(LogInfo, "%d: Cache flush: %d pages, %d writes in %d seconds (%d pps)\n",
 								database->deltaTime, pages, writes, delta, pages / MAX(delta, 1));
 
 				database->pageCacheFlushed(flushArg);
@@ -996,7 +996,7 @@ void Cache::analyzeFlush(void)
 	if (!dbb)
 		return;
 	
-	fprintf(traceFile, "-------- time %ld -------\n", database->deltaTime);
+	fprintf(traceFile, "-------- time %d -------\n", database->deltaTime);
 
 	for (int pageNumber = 0; (pageNumber = flushBitmap->nextSet(pageNumber)) >= 0;)
 		if ( (bdb = findBdb(dbb, pageNumber)) )

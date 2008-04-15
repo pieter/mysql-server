@@ -138,6 +138,6 @@ void BackLog::reportStatistics(void)
 	priorBacklogged = recordsBacklogged;
 	priorReconstituted = recordsReconstituted;
 	
-	Log::log (LogInfo, I64FORMAT": Backlog: %d records backlogged, %d records reconstituted\n",
+	Log::log (LogInfo, "%d: Backlog: %d records backlogged, %d records reconstituted\n",
 				database->deltaTime, deltaBacklogged, deltaReconstituted);
 }

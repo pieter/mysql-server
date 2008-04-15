@@ -2047,9 +2047,12 @@ void Table::expungeBlob(Value * blob)
 	dbb->expungeRecord(section, recordNumber);
 }
 
-void Table::garbageCollect(Record * leaving, Record * staying, Transaction *transaction, bool quiet)
+void Table::garbageCollect(Record *leaving, Record *staying, Transaction *transaction, bool quiet)
 {
-	Sync syncPrior(getSyncPrior(leaving), "Table::garbageCollect");
+	if (!leaving && !staying)
+		return;
+
+	Sync syncPrior(getSyncPrior(leaving ? leaving : staying), "Table::garbageCollect");
 	syncPrior.lock(Shared);
 	
 	// Clean up field indexes
@@ -2500,6 +2503,9 @@ bool Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transacti
 	if ( !(rec = fetch(recordNumber)) )
 		return false;	 // Check next record number.
 
+	Sync syncPrior(getSyncPrior(recordNumber), "Table::checkUniqueRecordVersion");
+	syncPrior.lock(Shared);
+	
 	for (Record *dup = rec; dup; dup = dup->getPriorVersion())
 		{
 		if (dup == record)
@@ -2571,7 +2577,9 @@ bool Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transacti
 			{
 			if (state == Active)
 				{
-				// wait for that transaction, then restart checkUniqueIndexes()
+				syncPrior.unlock(); // release lock before wait
+				
+				// Wait for that transaction, then restart checkUniqueIndexes()
 
 				state = transaction->getRelativeState(dup, WAIT_IF_ACTIVE);
 
@@ -2588,6 +2596,8 @@ bool Table::checkUniqueRecordVersion(int32 recordNumber, Index *index, Transacti
 
 			else if (activeTransaction)
 				{
+				syncPrior.unlock(); // release lock before wait
+
 				state = transaction->getRelativeState(activeTransaction,
 						activeTransaction->transactionId, WAIT_IF_ACTIVE);
 

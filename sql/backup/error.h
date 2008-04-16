@@ -23,12 +23,11 @@ int report_mysql_error(THD* thd, MYSQL_ERROR *err, int code= 0)
 
   case MYSQL_ERROR::WARN_LEVEL_ERROR:
   {
-    int ret;
     bool old_value= thd->no_warnings_for_error;
     thd->no_warnings_for_error= TRUE;
-    ret= my_printf_error(err->code ? err->code : code, err->msg, MYF(0));
+    my_printf_error(err->code ? err->code : code, err->msg, MYF(0));
     thd->no_warnings_for_error= old_value;
-    return ret;
+    return 0;
   }
   default: // Q: What to do with warnings and notes? push them... ?
     return -1;

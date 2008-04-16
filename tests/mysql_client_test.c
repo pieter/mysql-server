@@ -17387,6 +17387,51 @@ static void test_bug28386()
   DBUG_VOID_RETURN;
 }
 
+
+/**
+  Bug#36004 mysql_stmt_prepare resets the list of warnings
+*/
+
+static void test_bug36004()
+{
+  int rc, warning_count= 0;
+  MYSQL_STMT *stmt;
+
+  DBUG_ENTER("test_bug36004");
+  myheader("test_bug36004");
+
+  rc= mysql_query(mysql, "drop table if exists inexistant");
+  myquery(rc);
+
+  DIE_UNLESS(mysql_warning_count(mysql) == 1);
+  query_int_variable(mysql, "@@warning_count", &warning_count);
+  DIE_UNLESS(warning_count);
+
+  stmt= mysql_simple_prepare(mysql, "select 1");
+  check_stmt(stmt);
+
+  DIE_UNLESS(mysql_warning_count(mysql) == 0);
+  query_int_variable(mysql, "@@warning_count", &warning_count);
+  DIE_UNLESS(warning_count);
+
+  rc= mysql_stmt_execute(stmt);
+  check_execute(stmt, rc);
+
+  DIE_UNLESS(mysql_warning_count(mysql) == 0);
+  mysql_stmt_close(stmt);
+
+  query_int_variable(mysql, "@@warning_count", &warning_count);
+  DIE_UNLESS(warning_count);
+
+  stmt= mysql_simple_prepare(mysql, "drop table if exists inexistant");
+  check_stmt(stmt);
+
+  query_int_variable(mysql, "@@warning_count", &warning_count);
+  DIE_UNLESS(warning_count == 0);
+
+  DBUG_VOID_RETURN;
+}
+
 /*
   Read and parse arguments and MySQL options from my.cnf
 */
@@ -17693,6 +17738,7 @@ static struct my_tests_st my_tests[]= {
   { "test_bug31418", test_bug31418 },
   { "test_bug31669", test_bug31669 },
   { "test_bug28386", test_bug28386 },
+  { "test_bug36004", test_bug36004 },
   { 0, 0 }
 };
 

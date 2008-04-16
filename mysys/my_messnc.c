@@ -15,7 +15,7 @@
 
 #include "mysys_priv.h"
 
-int my_message_no_curses(uint error __attribute__((unused)),
+void my_message_no_curses(uint error __attribute__((unused)),
 			 const char *str, myf MyFlags)
 {
   DBUG_ENTER("my_message_no_curses");
@@ -34,5 +34,5 @@ int my_message_no_curses(uint error __attribute__((unused)),
   (void)fputs(str,stderr);
   (void)fputc('\n',stderr);
   (void)fflush(stderr);
-  DBUG_RETURN(0);
+  DBUG_VOID_RETURN;
 }

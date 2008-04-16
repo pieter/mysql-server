@@ -353,7 +353,7 @@ from information_schema.tables
 where table_schema='information_schema' limit 2;
 show tables from information_schema like "T%";
 
---error 1044
+--error ER_DBACCESS_DENIED_ERROR
 create database information_schema;
 use information_schema;
 show full tables like "T%";
@@ -705,7 +705,7 @@ drop table t1;
 #
 --error ER_PARSE_ERROR
 alter database information_schema;
---error 1044
+--error ER_DBACCESS_DENIED_ERROR
 drop database information_schema;
 --error 1044
 drop table information_schema.tables;
@@ -1357,3 +1357,28 @@ from information_schema.routines;
 drop procedure p1;
 drop procedure p2;
 drop function f1;
+
+--echo #
+--echo # Bug#35955 Regression: I_S table cause reduced privilege requirements in SELECT.
+--echo #
+--disable_warnings
+DROP DATABASE IF EXISTS testdb1;
+--enable_warnings
+CREATE DATABASE testdb1;
+USE testdb1;
+CREATE TABLE t1 (c1 int);
+CREATE TABLE t2 (c2 int);
+GRANT SELECT ON testdb1.t1 TO mysqluser_35955@localhost;
+
+--connect (con_35955, localhost, mysqluser_35955, , testdb1)
+SELECT * FROM INFORMATION_SCHEMA.tables, t1;
+--error 1142
+SELECT * FROM t2;
+--error 1142
+SELECT * FROM t2, INFORMATION_SCHEMA.tables;
+--error 1142
+SELECT * FROM INFORMATION_SCHEMA.tables, t2;
+--connection default
+DROP TABLE t1,t2;
+DROP DATABASE testdb1;
+DROP USER mysqluser_35955@localhost;

@@ -1431,8 +1431,8 @@ static void clean_up_mutexes()
   (void) pthread_mutex_destroy(&LOCK_bytes_sent);
   (void) pthread_mutex_destroy(&LOCK_bytes_received);
   (void) pthread_mutex_destroy(&LOCK_user_conn);
-  (void) pthread_mutex_destroy(&LOCK_connection_count);
   (void) pthread_mutex_destroy(&LOCK_backup);
+  (void) pthread_mutex_destroy(&LOCK_connection_count);
   Events::destroy_mutexes();
 #ifdef HAVE_OPENSSL
   (void) pthread_mutex_destroy(&LOCK_des_key_file);
@@ -2516,7 +2516,8 @@ and this may fail.\n\n");
   fprintf(stderr, "read_buffer_size=%ld\n", (long) global_system_variables.read_buff_size);
   fprintf(stderr, "max_used_connections=%lu\n", max_used_connections);
   fprintf(stderr, "max_threads=%u\n", thread_scheduler.max_threads);
-  fprintf(stderr, "threads_connected=%u\n", thread_count);
+  fprintf(stderr, "thread_count=%u\n", thread_count);
+  fprintf(stderr, "connection_count=%u\n", connection_count);
   fprintf(stderr, "It is possible that mysqld could use up to \n\
 key_buffer_size + (read_buffer_size + sort_buffer_size)*max_threads = %lu K\n\
 bytes of memory\n", ((ulong) dflt_key_cache->key_cache_mem_size +
@@ -2904,9 +2905,9 @@ static void check_data_home(const char *path)
   for the client.
 */
 /* ARGSUSED */
-extern "C" int my_message_sql(uint error, const char *str, myf MyFlags);
+extern "C" void my_message_sql(uint error, const char *str, myf MyFlags);
 
-int my_message_sql(uint error, const char *str, myf MyFlags)
+void my_message_sql(uint error, const char *str, myf MyFlags)
 {
   THD *thd;
   DBUG_ENTER("my_message_sql");
@@ -2918,6 +2919,9 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
   */
   if ((thd= current_thd))
   {
+    if (MyFlags & ME_FATALERROR)
+      thd->is_fatal_error= 1;
+
     mysql_audit_general(thd,MYSQL_AUDIT_GENERAL_ERROR,error,my_time(0),
                         0,0,str,str ? strlen(str) : 0,
                         thd->query,thd->query_length,
@@ -2931,7 +2935,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
     */
     if (thd->handle_error(error, str,
                           MYSQL_ERROR::WARN_LEVEL_ERROR))
-      DBUG_RETURN(0);
+      DBUG_VOID_RETURN;
 
     thd->is_slave_error=  1; // needed to catch query errors during replication
 
@@ -2965,17 +2969,17 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
       If a continue handler is found, the error message will be cleared
       by the stored procedures code.
     */
-    if (thd->spcont &&
+    if (!thd->is_fatal_error && thd->spcont &&
         thd->spcont->handle_error(error, MYSQL_ERROR::WARN_LEVEL_ERROR, thd))
     {
       /*
         Do not push any warnings, a handled error must be completely
         silenced.
       */
-      DBUG_RETURN(0);
+      DBUG_VOID_RETURN;
     }
 
-    if (!thd->no_warnings_for_error)
+    if (!thd->no_warnings_for_error && !thd->is_fatal_error)
     {
       /*
         Suppress infinite recursion if there a memory allocation error
@@ -2988,7 +2992,7 @@ int my_message_sql(uint error, const char *str, myf MyFlags)
   }
   if (!thd || MyFlags & ME_NOREFRESH)
     sql_print_error("%s: %s",my_progname,str); /* purecov: inspected */
-  DBUG_RETURN(0);
+  DBUG_VOID_RETURN;
 }
 
 
@@ -3595,8 +3599,8 @@ static int init_thread_environment()
   (void) pthread_mutex_init(&LOCK_global_read_lock, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_prepared_stmt_count, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_uuid_generator, MY_MUTEX_INIT_FAST);
-  (void) pthread_mutex_init(&LOCK_connection_count, MY_MUTEX_INIT_FAST);
   (void) pthread_mutex_init(&LOCK_backup, MY_MUTEX_INIT_FAST);
+  (void) pthread_mutex_init(&LOCK_connection_count, MY_MUTEX_INIT_FAST);
 #ifdef HAVE_OPENSSL
   (void) pthread_mutex_init(&LOCK_des_key_file,MY_MUTEX_INIT_FAST);
 #ifndef HAVE_YASSL
@@ -6945,13 +6949,6 @@ The minimum value for this variable is 4096.",
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
-static int show_question(THD *thd, SHOW_VAR *var, char *buff)
-{
-  var->type= SHOW_LONGLONG;
-  var->value= (char *)&thd->query_id;
-  return 0;
-}
-
 static int show_net_compression(THD *thd, SHOW_VAR *var, char *buff)
 {
   var->type= SHOW_MY_BOOL;
@@ -7401,7 +7398,7 @@ SHOW_VAR status_vars[]= {
   {"Qcache_queries_in_cache",  (char*) &query_cache.queries_in_cache, SHOW_LONG_NOFLUSH},
   {"Qcache_total_blocks",      (char*) &query_cache.total_blocks, SHOW_LONG_NOFLUSH},
 #endif /*HAVE_QUERY_CACHE*/
-  {"Questions",                (char*) &show_question,            SHOW_FUNC},
+  {"Questions",                (char*) offsetof(STATUS_VAR, questions), SHOW_LONG_STATUS},
 #ifdef HAVE_REPLICATION
   {"Rpl_status",               (char*) &show_rpl_status,          SHOW_FUNC},
 #endif
@@ -7458,7 +7455,7 @@ SHOW_VAR status_vars[]= {
   {"Tc_log_page_waits",        (char*) &tc_log_page_waits,      SHOW_LONG},
 #endif
   {"Threads_cached",           (char*) &cached_thread_count,    SHOW_LONG_NOFLUSH},
-  {"Threads_connected",        (char*) &thread_count,           SHOW_INT},
+  {"Threads_connected",        (char*) &connection_count,       SHOW_INT},
   {"Threads_created",	       (char*) &thread_created,		SHOW_LONG_NOFLUSH},
   {"Threads_running",          (char*) &thread_running,         SHOW_INT},
   {"Uptime",                   (char*) &show_starttime,         SHOW_FUNC},

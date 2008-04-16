@@ -89,7 +89,7 @@ void Error::debugBreak()
 #ifdef _WIN32
 	DebugBreak();
 #else
-	raise (SIGILL);
+	raise (SIGABRT);
 #endif
 }
 

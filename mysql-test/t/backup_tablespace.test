@@ -9,6 +9,14 @@
 --source include/not_embedded.inc
 
 --disable_warnings
+#
+# note: DROP TABLE statements are just for the case Falcon has some problems
+# with handling DROP DATABASE and doesn't delete all the tables immediatley
+# - there were random test failures which could be caused by such anomalies,
+# see BUG#36134.
+#
+DROP TABLE IF EXISTS backup_ts.not_ts;
+DROP TABLE IF EXISTS backup_ts.has_ts;
 DROP DATABASE IF EXISTS backup_ts;
 --error 0,1
 --remove_file $MYSQLTEST_VARDIR/master-data/backup_ts.bak;

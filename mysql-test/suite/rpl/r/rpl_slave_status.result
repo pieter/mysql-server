@@ -5,6 +5,7 @@ reset slave;
 drop table if exists t1,t2,t3,t4,t5,t6,t7,t8,t9;
 start slave;
 grant replication slave on *.* to rpl@127.0.0.1 identified by 'rpl';
+flush privileges;
 stop slave;
 change master to master_user='rpl',master_password='rpl';
 start slave;
@@ -14,7 +15,7 @@ insert into t1 values (1);
 select * from t1;
 n
 1
-delete from mysql.user where user='rpl';
+drop user rpl@127.0.0.1;
 flush privileges;
 stop slave;
 start slave;
@@ -58,5 +59,4 @@ Last_IO_Error	#
 Last_SQL_Errno	0
 Last_SQL_Error	
 drop table t1;
-delete from mysql.user where user='rpl';
 drop table t1;

@@ -9,8 +9,9 @@
 # 1. Create new replication user
 connection master;
 grant replication slave on *.* to rpl@127.0.0.1 identified by 'rpl';
+flush privileges;
+sync_slave_with_master;
 
-connection slave;
 stop slave;
 change master to master_user='rpl',master_password='rpl';
 start slave;
@@ -28,10 +29,11 @@ sync_with_master;
 select * from t1;
 
 # 3. Delete new replication user
+# note: drop user will be replicated on slave
 connection master;
-delete from mysql.user where user='rpl';
+drop user rpl@127.0.0.1;
 flush privileges;
-connection slave;
+sync_slave_with_master;
 
 # 4. Restart slave without privileges
 # (slave.err will contain access denied error for this START SLAVE command)
@@ -49,7 +51,6 @@ show slave status;
 # Cleanup (Note that slave IO thread is not running)
 connection slave;
 drop table t1;
-delete from mysql.user where user='rpl';
 # cleanup: slave io thread has been stopped "irrecoverably"
 # so we clean up mess manually
 

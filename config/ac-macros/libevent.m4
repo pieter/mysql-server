@@ -384,9 +384,10 @@ AC_DEFUN([MYSQL_CHECK_LIBEVENT], [
       [with_libevent=no]
   )
 
-  if test "$with_libevent" != "no"
-  then
+  if test "$with_libevent" != "no"; then
     MYSQL_USE_BUNDLED_LIBEVENT
+  else
+    AC_MSG_RESULT([disabled])
   fi
   AM_CONDITIONAL([HAVE_LIBEVENT], [ test "$with_libevent" != "no" ])
 ])

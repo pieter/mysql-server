@@ -3473,7 +3473,7 @@ static int interruptible_wait(THD *thd, pthread_cond_t *cond,
 {
   int error;
   struct timespec abstime;
-  ulonglong slice, timeout= (ulonglong) time * ULL(1000000000);
+  ulonglong slice, timeout= (ulonglong) (time * 1000000000.0);
 
   do
   {

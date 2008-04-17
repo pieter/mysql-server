@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS backup_ts.not_ts;
+DROP TABLE IF EXISTS backup_ts.has_ts;
 DROP DATABASE IF EXISTS backup_ts;
 CREATE DATABASE backup_ts;
 Test 1:

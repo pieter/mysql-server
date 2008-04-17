@@ -64,7 +64,8 @@ Warnings:
 Note	1265	Data truncated for column 'f150' at row 1
 Note	1265	Data truncated for column 'f151' at row 1
 Note	1265	Data truncated for column 'f152' at row 1
-load data infile 'MYSQL_TEST_DIR/suite/funcs_1/data/innodb_tb3.txt' into table tb3 ;
+load data infile '<MYSQLTEST_VARDIR>/std_data_ln/funcs_1/innodb_tb3.txt'
+into table tb3;
 
 Testcase: 3.5:
 --------------
@@ -88,7 +89,7 @@ Use db_drop;
 create table t1 (f1 char(30)) engine=falcon;
 grant INSERT, SELECT on db_drop.t1 to test_general;
 Use db_drop;
-Create trigger trg1 BEFORE INSERT on t1 
+Create trigger trg1 BEFORE INSERT on t1
 for each row set new.f1='Trigger 3.5.4.1';
 Use db_drop;
 Insert into t1 values ('Insert error 3.5.4.1');
@@ -127,7 +128,7 @@ drop table if exists t1_433 ;
 drop table if exists t1_433a ;
 create table t1_433 (f1 char (30)) engine=falcon;
 create table t1_433a (f1a char (5)) engine=falcon;
-CREATE TRIGGER trg3 BEFORE INSERT on t1_433 for each row 
+CREATE TRIGGER trg3 BEFORE INSERT on t1_433 for each row
 set new.f1 = 'Trigger 3.5.4.3';
 Drop trigger t1.433.trg3;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '.trg3' at line 1
@@ -148,7 +149,7 @@ create database db_drop4;
 Use db_drop4;
 create table t1 (f1 char(30)) engine=falcon;
 grant INSERT, SELECT on db_drop4.t1 to test_general;
-Create trigger trg4 BEFORE INSERT on t1 
+Create trigger trg4 BEFORE INSERT on t1
 for each row set new.f1='Trigger 3.5.4.4';
 Use db_drop4;
 Insert into t1 values ('Insert 3.5.4.4');
@@ -184,7 +185,7 @@ create database db_drop5;
 Use db_drop5;
 create table t1 (f1 char(50)) engine=falcon;
 grant INSERT, SELECT on t1 to test_general;
-Create trigger trg5 BEFORE INSERT on t1 
+Create trigger trg5 BEFORE INSERT on t1
 for each row set new.f1='Trigger 3.5.4.5';
 Use db_drop5;
 Insert into t1 values ('Insert 3.5.4.5');
@@ -221,7 +222,7 @@ ERROR 42S02: Table 'test.t100' doesn't exist
 Testcase 3.5.5.2:
 -----------------
 Create temporary table t1_temp (f1 bigint signed, f2 bigint unsigned);
-Create trigger trg2 before INSERT 
+Create trigger trg2 before INSERT
 on t1_temp for each row set new.f2=9999;
 ERROR HY000: Trigger's 't1_temp' is view or temporary table
 drop table t1_temp;
@@ -229,7 +230,7 @@ drop table t1_temp;
 Testcase 3.5.5.3:
 -----------------
 Create view vw3 as select f118 from tb3;
-Create trigger trg3 before INSERT 
+Create trigger trg3 before INSERT
 on vw3 for each row set new.f118='s';
 ERROR HY000: 'test.vw3' is not BASE TABLE
 drop view vw3;
@@ -310,9 +311,9 @@ drop trigger tb3.trg4_2;
 
 Testcase 3.5.7.5 / 3.5.7.6:
 ---------------------------
-Create trigger trg5_1 BEFORE INSERT 
+Create trigger trg5_1 BEFORE INSERT
 on tb3 for each row set new.f122='Trigger1 3.5.7.5/6';
-Create trigger trg5_2 BEFORE INSERT 
+Create trigger trg5_2 BEFORE INSERT
 on tb3 for each row set new.f122='Trigger2 3.5.7.5';
 ERROR 42000: This version of MySQL doesn't yet support 'multiple triggers with the same action time and event for one table'
 Insert into tb3 (f121,f122) values ('Test 3.5.7.5/6','Insert 3.5.7.5');
@@ -330,9 +331,9 @@ delete from tb3 where f121='Test 3.5.7.5/6';
 Testcase 3.5.7.7 / 3.5.7.8:
 ---------------------------
 set @test_var='Before trig 3.5.7.7';
-Create trigger trg6_1 AFTER INSERT 
+Create trigger trg6_1 AFTER INSERT
 on tb3 for each row set @test_var='Trigger1 3.5.7.7/8';
-Create trigger trg6_2 AFTER INSERT 
+Create trigger trg6_2 AFTER INSERT
 on tb3 for each row set @test_var='Trigger2 3.5.7.7';
 ERROR 42000: This version of MySQL doesn't yet support 'multiple triggers with the same action time and event for one table'
 select @test_var;
@@ -358,9 +359,9 @@ delete from tb3 where f121='Test 3.5.7.7/8';
 
 Testcase 3.5.7.9/10:
 --------------------
-Create trigger trg7_1 BEFORE UPDATE 
+Create trigger trg7_1 BEFORE UPDATE
 on tb3 for each row set new.f122='Trigger1 3.5.7.9/10';
-Create trigger trg7_2 BEFORE UPDATE 
+Create trigger trg7_2 BEFORE UPDATE
 on tb3 for each row set new.f122='Trigger2 3.5.7.9';
 ERROR 42000: This version of MySQL doesn't yet support 'multiple triggers with the same action time and event for one table'
 Insert into tb3 (f121,f122) values ('Test 3.5.7.9/10','Insert 3.5.7.9');
@@ -378,9 +379,9 @@ delete from tb3 where f121='Test 3.5.7.9/10';
 Testcase 3.5.7.11/12:
 ---------------------
 set @test_var='Before trig 3.5.7.11';
-Create trigger trg8_1 AFTER UPDATE 
+Create trigger trg8_1 AFTER UPDATE
 on tb3 for each row set @test_var='Trigger 3.5.7.11/12';
-Create trigger trg8_2 AFTER UPDATE 
+Create trigger trg8_2 AFTER UPDATE
 on tb3 for each row set @test_var='Trigger2 3.5.7.11';
 ERROR 42000: This version of MySQL doesn't yet support 'multiple triggers with the same action time and event for one table'
 select @test_var;
@@ -408,9 +409,9 @@ delete from tb3 where f121='Test 3.5.7.11/12';
 Testcase 3.5.7.13/14:
 ---------------------
 set @test_var=1;
-Create trigger trg9_1 BEFORE DELETE 
+Create trigger trg9_1 BEFORE DELETE
 on tb3 for each row set @test_var=@test_var+1;
-Create trigger trg9_2 BEFORE DELETE 
+Create trigger trg9_2 BEFORE DELETE
 on tb3 for each row set @test_var=@test_var+10;
 ERROR 42000: This version of MySQL doesn't yet support 'multiple triggers with the same action time and event for one table'
 select @test_var;
@@ -440,12 +441,12 @@ delete from tb3 where f121='Test 3.5.7.13/14';
 Testcase 3.5.7.15/16:
 ---------------------
 set @test_var=1;
-Create trigger trg_3_406010_1 AFTER DELETE 
+Create trigger trg_3_406010_1 AFTER DELETE
 on tb3 for each row set @test_var=@test_var+5;
-Create trigger trg_3_406010_2 AFTER DELETE 
+Create trigger trg_3_406010_2 AFTER DELETE
 on tb3 for each row set @test_var=@test_var+50;
 ERROR 42000: This version of MySQL doesn't yet support 'multiple triggers with the same action time and event for one table'
-Create trigger trg_3_406010_1 AFTER INSERT 
+Create trigger trg_3_406010_1 AFTER INSERT
 on tb3 for each row set @test_var=@test_var+1;
 ERROR HY000: Trigger already exists
 select @test_var;

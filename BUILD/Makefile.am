@@ -20,6 +20,7 @@
 EXTRA_DIST =		FINISH.sh \
 			SETUP.sh \
 			autorun.sh \
+			build_mccge.sh \
 			check-cpu \
 			cleanup \
 			compile-alpha \
@@ -28,9 +29,13 @@ EXTRA_DIST =		FINISH.sh \
 			compile-alpha-debug \
 			compile-amd64-debug-max \
 			compile-amd64-debug-max-no-ndb \
+			compile-amd64-gcov \
+			compile-amd64-gprof \
 			compile-amd64-max \
 			compile-amd64-max-no-ndb \
 			compile-amd64-max-sci \
+			compile-amd64-noopt \
+			compile-amd64-valgrind-max \
 			compile-darwin-mwcc \
 			compile-dist \
 			compile-hpux11-parisc2-aCC \
@@ -39,7 +44,6 @@ EXTRA_DIST =		FINISH.sh \
 			compile-pentium \
 			compile-pentium-debug \
 			compile-pentium-debug-max \
-			compile-pentium-debug-max-no-ndb \
 			compile-pentium-debug-max-no-embedded \
 			compile-pentium-debug-max-no-ndb \
 			compile-pentium-debug-openssl \
@@ -55,8 +59,12 @@ EXTRA_DIST =		FINISH.sh \
 			compile-pentium-mysqlfs-debug \
 			compile-pentium-pgcc \
 			compile-pentium-valgrind-max \
+			compile-pentium64 \
 			compile-pentium64-debug \
 			compile-pentium64-debug-max \
+			compile-pentium64-gcov \
+			compile-pentium64-gprof \
+			compile-pentium64-max \
 			compile-pentium64-max-sci \
 			compile-pentium64-valgrind-max \
 			compile-ppc \
@@ -65,10 +73,17 @@ EXTRA_DIST =		FINISH.sh \
 			compile-ppc-debug-max-no-ndb \
 			compile-ppc-max \
 			compile-ppc-max-no-ndb \
+			compile-solaris-amd64 \
+			compile-solaris-amd64-debug \
+			compile-solaris-amd64-forte \
+			compile-solaris-amd64-forte-debug \
 			compile-solaris-sparc \
 			compile-solaris-sparc-debug \
 			compile-solaris-sparc-forte \
-			compile-solaris-sparc-purify
+			compile-solaris-sparc-purify \
+			compile-sparc \
+			compile-sparc-debug \
+			compile-sparc-debug-max-no-ndb
 
 # Don't update the files from bitkeeper
 %::SCCS/s.%

@@ -34,6 +34,7 @@ EXTRA_DIST =		FINISH.sh \
 			compile-amd64-max \
 			compile-amd64-max-no-ndb \
 			compile-amd64-max-sci \
+			compile-amd64-noopt \
 			compile-amd64-valgrind-max \
 			compile-darwin-mwcc \
 			compile-dist \
@@ -43,7 +44,6 @@ EXTRA_DIST =		FINISH.sh \
 			compile-pentium \
 			compile-pentium-debug \
 			compile-pentium-debug-max \
-			compile-pentium-debug-max-no-ndb \
 			compile-pentium-debug-max-no-embedded \
 			compile-pentium-debug-max-no-ndb \
 			compile-pentium-debug-openssl \
@@ -80,7 +80,10 @@ EXTRA_DIST =		FINISH.sh \
 			compile-solaris-sparc \
 			compile-solaris-sparc-debug \
 			compile-solaris-sparc-forte \
-			compile-solaris-sparc-purify
+			compile-solaris-sparc-purify \
+			compile-sparc \
+			compile-sparc-debug \
+			compile-sparc-debug-max-no-ndb
 
 # Don't update the files from bitkeeper
 %::SCCS/s.%

@@ -467,11 +467,16 @@ find_files(THD *thd, List<LEX_STRING> *files, const char *db,
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   uint col_access=thd->col_access;
 #endif
+  uint wild_length= 0;
   TABLE_LIST table_list;
   DBUG_ENTER("find_files");
 
-  if (wild && !wild[0])
-    wild=0;
+  if (wild)
+  {
+    wild_length= strlen(wild);
+    if (!wild[0])
+      wild= 0;
+  }
 
   bzero((char*) &table_list,sizeof(table_list));
 
@@ -535,8 +540,11 @@ find_files(THD *thd, List<LEX_STRING> *files, const char *db,
       {
 	if (lower_case_table_names)
 	{
-	  if (wild_case_compare(files_charset_info, uname, wild))
-	    continue;
+          if (my_wildcmp(files_charset_info,
+                         uname, uname + file_name_len,
+                         wild, wild + wild_length,
+                         wild_prefix, wild_one,wild_many))
+            continue;
 	}
 	else if (wild_compare(uname, wild, 0))
 	  continue;

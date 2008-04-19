@@ -2451,6 +2451,8 @@ show tables like 'foo';
 show variables like 'foo';
 show warnings;
 end|
+Warnings:
+Warning	1287	'SHOW COLUMN TYPES' is deprecated; use 'HELP 'DATA TYPES'' instead
 call bug4902()|
 Charset	Description	Default collation	Maxlen
 Collation	Charset	Id	Default	Compiled	Sortlen
@@ -2503,6 +2505,9 @@ Variable_name	Value
 Tables_in_test (foo)
 Variable_name	Value
 Level	Code	Message
+Warning	1287	'SHOW COLUMN TYPES' is deprecated; use 'HELP 'DATA TYPES'' instead
+Warnings:
+Warning	1287	'SHOW COLUMN TYPES' is deprecated; use 'HELP 'DATA TYPES'' instead
 call bug4902()|
 Charset	Description	Default collation	Maxlen
 Collation	Charset	Id	Default	Compiled	Sortlen

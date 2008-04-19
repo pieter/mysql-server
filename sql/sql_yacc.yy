@@ -9180,7 +9180,8 @@ show_param:
           {
             LEX *lex=Lex;
             lex->sql_command= SQLCOM_SHOW_COLUMN_TYPES;
-            WARN_DEPRECATED("SHOW COLUMN TYPES", "HELP 'DATA TYPES'");
+            WARN_DEPRECATED(yythd, "6.0", "SHOW COLUMN TYPES",
+                            "HELP 'DATA TYPES'");
           }
         | TABLE_SYM TYPES_SYM
           {

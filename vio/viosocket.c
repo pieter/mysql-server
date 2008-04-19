@@ -361,7 +361,8 @@ my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen)
 my_bool vio_poll_read(Vio *vio,uint timeout)
 {
 #ifdef __WIN__
-  int res, fd= vio->sd;
+  int res;
+  my_socket fd= vio->sd;
   fd_set readfds, errorfds;
   struct timeval tm;
   DBUG_ENTER("vio_poll");

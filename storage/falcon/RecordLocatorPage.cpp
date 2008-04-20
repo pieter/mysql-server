@@ -405,7 +405,7 @@ void RecordLocatorPage::unlinkSpaceSlot(int slot)
 	
 	// If we're not a space management slot, the next guy isn't an index, either
 	
-	if (slot <= maxLine && elements[slot + 1].spaceAvailable < 0)
+	if (slot < maxLine && elements[slot + 1].spaceAvailable < 0)
 		elements[slot + 1].spaceAvailable = 0;
 		
 	linkSpaceSlot(priorSlot, (nextSlot >= 0) ? nextSlot : 0);

@@ -1021,7 +1021,8 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
       err_msg.append(query);
       err_msg.append("' failed;");
       err_msg.append(" error: ");
-      err_msg.qs_append(mysql_errno(mysql));
+      err_code= mysql_errno(mysql);
+      err_msg.qs_append(err_code);
       err_msg.append("  '");
       err_msg.append(mysql_error(mysql));
       err_msg.append("'");

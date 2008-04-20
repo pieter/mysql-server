@@ -1360,6 +1360,7 @@ result_t Restore_info::restore_item(Item &it, String &sdata, String &extra)
                    it.m_name.ptr(),
                    describe_tablespace(it.obj_ptr())->ptr(),
                    describe_tablespace(ts)->ptr());
+      delete ts;
       return ERROR;
     }
   }

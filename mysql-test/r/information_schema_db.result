@@ -3,7 +3,7 @@ drop view if exists v1,v2;
 drop function if exists f1;
 drop function if exists f2;
 use INFORMATION_SCHEMA;
-show tables;
+show tables where Tables_in_information_schema NOT LIKE 'falcon%';
 Tables_in_information_schema
 CHARACTER_SETS
 COLLATIONS
@@ -34,9 +34,6 @@ TABLE_PRIVILEGES
 TRIGGERS
 USER_PRIVILEGES
 VIEWS
-FALCON_TABLES
-FALCON_TABLESPACE_FILES
-FALCON_TABLESPACES
 show tables from INFORMATION_SCHEMA like 'T%';
 Tables_in_information_schema (T%)
 TABLES

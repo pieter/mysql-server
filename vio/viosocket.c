@@ -361,7 +361,8 @@ my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen)
 my_bool vio_poll_read(Vio *vio,uint timeout)
 {
 #ifdef __WIN__
-  int res, fd= vio->sd;
+  int res;
+  my_socket fd= vio->sd;
   fd_set readfds, errorfds;
   struct timeval tm;
   DBUG_ENTER("vio_poll");
@@ -371,7 +372,8 @@ my_bool vio_poll_read(Vio *vio,uint timeout)
   FD_ZERO(&errorfds);
   FD_SET(fd, &readfds);
   FD_SET(fd, &errorfds);
-  if ((res= select(fd, &readfds, NULL, &errorfds, &tm) <= 0))
+  /* The first argument is ignored on Windows, so a conversion to int is OK */
+  if ((res= select((int) fd, &readfds, NULL, &errorfds, &tm) <= 0))
   {
     DBUG_RETURN(res < 0 ? 0 : 1);
   }

@@ -2074,9 +2074,11 @@ static BOOL WINAPI console_event_handler( DWORD type )
        between main thread doing initialization and CTRL-C thread doing
        cleanup, which can result into crash.
      */
+#ifndef EMBEDDED_LIBRARY
      if(hEventShutdown)
        kill_mysql();
      else
+#endif
        sql_print_warning("CTRL-C ignored during startup");
      DBUG_RETURN(TRUE);
   }
@@ -2922,11 +2924,13 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
     if (MyFlags & ME_FATALERROR)
       thd->is_fatal_error= 1;
 
+#ifdef BUG_36098_FIXED
     mysql_audit_general(thd,MYSQL_AUDIT_GENERAL_ERROR,error,my_time(0),
                         0,0,str,str ? strlen(str) : 0,
                         thd->query,thd->query_length,
                         thd->variables.character_set_client,
                         thd->row_count);
+#endif
 
 
     /*

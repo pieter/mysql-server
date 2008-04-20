@@ -33,7 +33,10 @@ create table t3(a int, KEY a_data (a));
 create table mysqltest.t4(a int);
 create table t5 (id int auto_increment primary key);
 insert into t5 values (10);
-create view v1 (c) as select table_name from information_schema.TABLES where table_name<>'ndb_binlog_index' AND table_name<>'ndb_apply_status';
+create view v1 (c) as select table_name
+from information_schema.TABLES
+where table_name not like 'ndb_%' and
+table_name not like 'falcon%';
 select * from v1;
 c
 CHARACTER_SETS
@@ -65,9 +68,6 @@ TABLE_PRIVILEGES
 TRIGGERS
 USER_PRIVILEGES
 VIEWS
-FALCON_TABLES
-FALCON_TABLESPACE_FILES
-FALCON_TABLESPACES
 columns_priv
 db
 event
@@ -843,7 +843,7 @@ x_double_precision	NULL	NULL
 drop table t1;
 grant select on test.* to mysqltest_4@localhost;
 SELECT TABLE_NAME, COLUMN_NAME, PRIVILEGES FROM INFORMATION_SCHEMA.COLUMNS 
-where COLUMN_NAME='TABLE_NAME';
+WHERE COLUMN_NAME='TABLE_NAME' AND TABLE_NAME NOT LIKE 'FALCON%';
 TABLE_NAME	COLUMN_NAME	PRIVILEGES
 COLUMNS	TABLE_NAME	select
 COLUMN_PRIVILEGES	TABLE_NAME	select
@@ -856,13 +856,13 @@ TABLES	TABLE_NAME	select
 TABLE_CONSTRAINTS	TABLE_NAME	select
 TABLE_PRIVILEGES	TABLE_NAME	select
 VIEWS	TABLE_NAME	select
-FALCON_TABLES	TABLE_NAME	select
 delete from mysql.user where user='mysqltest_4';
 delete from mysql.db where user='mysqltest_4';
 flush privileges;
-SELECT table_schema, count(*) FROM information_schema.TABLES where table_name<>'ndb_binlog_index' AND table_name<>'ndb_apply_status' GROUP BY TABLE_SCHEMA;
+SELECT table_schema, count(*) FROM information_schema.TABLES
+WHERE table_name NOT LIKE 'ndb_%' AND table_name NOT LIKE 'falcon%' GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	32
+information_schema	29
 mysql	24
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1247,7 +1247,8 @@ FROM information_schema.columns c2
 WHERE c2.table_schema = t.table_schema AND
 c2.table_name = t.table_name AND
 c2.column_name LIKE '%SCHEMA%'
-        );
+        )
+AND t.table_name NOT LIKE 'falcon%';
 table_name	column_name
 CHARACTER_SETS	CHARACTER_SET_NAME
 COLLATIONS	COLLATION_NAME
@@ -1278,9 +1279,6 @@ TABLE_PRIVILEGES	TABLE_SCHEMA
 TRIGGERS	TRIGGER_SCHEMA
 USER_PRIVILEGES	GRANTEE
 VIEWS	TABLE_SCHEMA
-FALCON_TABLES	SCHEMA_NAME
-FALCON_TABLESPACE_FILES	TABLESPACE_NAME
-FALCON_TABLESPACES	TABLESPACE_NAME
 SELECT t.table_name, c1.column_name
 FROM information_schema.tables t
 INNER JOIN
@@ -1294,7 +1292,8 @@ FROM information_schema.columns c2
 WHERE c2.table_schema = 'information_schema' AND
 c2.table_name = t.table_name AND
 c2.column_name LIKE '%SCHEMA%'
-        );
+        )
+AND t.table_name NOT LIKE 'falcon%';
 table_name	column_name
 CHARACTER_SETS	CHARACTER_SET_NAME
 COLLATIONS	COLLATION_NAME
@@ -1325,9 +1324,6 @@ TABLE_PRIVILEGES	TABLE_SCHEMA
 TRIGGERS	TRIGGER_SCHEMA
 USER_PRIVILEGES	GRANTEE
 VIEWS	TABLE_SCHEMA
-FALCON_TABLES	SCHEMA_NAME
-FALCON_TABLESPACE_FILES	TABLESPACE_NAME
-FALCON_TABLESPACES	TABLESPACE_NAME
 SELECT MAX(table_name) FROM information_schema.tables;
 MAX(table_name)
 VIEWS
@@ -1383,7 +1379,8 @@ count(*) as num1
 from information_schema.tables t
 inner join information_schema.columns c1
 on t.table_schema = c1.table_schema AND t.table_name = c1.table_name
-where t.table_schema = 'information_schema' and
+where t.table_schema = 'information_schema' AND
+t.table_name not like 'falcon%' AND
 c1.ordinal_position =
 (select isnull(c2.column_type) -
 isnull(group_concat(c2.table_schema, '.', c2.table_name)) +
@@ -1401,9 +1398,6 @@ COLUMNS	information_schema.COLUMNS	1
 COLUMN_PRIVILEGES	information_schema.COLUMN_PRIVILEGES	1
 ENGINES	information_schema.ENGINES	1
 EVENTS	information_schema.EVENTS	1
-FALCON_TABLES	information_schema.FALCON_TABLES	1
-FALCON_TABLESPACES	information_schema.FALCON_TABLESPACES	1
-FALCON_TABLESPACE_FILES	information_schema.FALCON_TABLESPACE_FILES	1
 FILES	information_schema.FILES	1
 GLOBAL_STATUS	information_schema.GLOBAL_STATUS	1
 GLOBAL_VARIABLES	information_schema.GLOBAL_VARIABLES	1

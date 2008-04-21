@@ -125,7 +125,7 @@ Lex_input_stream::Lex_input_stream(THD *thd,
   yylineno(1),
   yytoklen(0),
   yylval(NULL),
-  lookahead_token(END_OF_INPUT),
+  lookahead_token(-1),
   lookahead_yylval(NULL),
   m_ptr(buffer),
   m_tok_start(NULL),
@@ -736,14 +736,14 @@ int MYSQLlex(void *arg, void *yythd)
   YYSTYPE *yylval=(YYSTYPE*) arg;
   int token;
 
-  if (lip->lookahead_token != END_OF_INPUT)
+  if (lip->lookahead_token >= 0)
   {
     /*
       The next token was already parsed in advance,
       return it.
     */
     token= lip->lookahead_token;
-    lip->lookahead_token= END_OF_INPUT;
+    lip->lookahead_token= -1;
     *yylval= *(lip->lookahead_yylval);
     lip->lookahead_yylval= NULL;
     return token;

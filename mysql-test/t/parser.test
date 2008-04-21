@@ -434,7 +434,32 @@ $$
 delimiter ;$$
 DROP PROCEDURE p26030;
 
-#=============================================================================
+#
+# Bug#35936 (Garbage in syntax error message)
+#
+
+# test that
+# - <WITH> <END_OF_INPUT>
+# - <WITH> <YYEOF>
+# are parsed properly during the LALR(2) lookup
+
+--error ER_PARSE_ERROR
+SHOW NEW MASTER FOR SLAVE WITH;
+
+--error ER_PARSE_ERROR
+SHOW NEW MASTER FOR SLAVE WITH foo bar baz;
+
+delimiter $$;
+
+--error ER_PARSE_ERROR
+SHOW NEW MASTER FOR SLAVE WITH$$
+
+--error ER_PARSE_ERROR
+SHOW NEW MASTER FOR SLAVE WITH;$$
+
+delimiter ;$$
+
+#============================================================================r
 # SYNTACTIC PARSER (bison)
 #=============================================================================
 

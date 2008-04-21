@@ -1389,7 +1389,12 @@ public:
   /** Interface with bison, value of the last token parsed. */
   LEX_YYSTYPE yylval;
 
-  /** LALR(2) resolution, look ahead token.*/
+  /**
+    LALR(2) resolution, look ahead token.
+    Value of the next token to return, if any,
+    or -1, if no token was parsed in advance.
+    Note: 0 is a legal token, and represents YYEOF.
+  */
   int lookahead_token;
 
   /** LALR(2) resolution, value of the look ahead token.*/

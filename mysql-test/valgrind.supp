@@ -508,3 +508,15 @@
    fun:dlopen*
 }
 
+#
+# On some systems the above leak happens at dlclose (SuSE 10.1 64 bit on
+# blade13)
+#
+
+{
+   dlclose threaded memory leak
+   Memcheck:Leak
+   fun:calloc
+   obj:*/libdl-*.so
+   fun:dlclose*
+}

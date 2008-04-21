@@ -87,9 +87,9 @@ ulong my_time_to_wait_for_lock=2;	/* In seconds */
 char * NEAR globerrs[GLOBERRS];		/* my_error_messages is here */
 #endif
 void (*my_abort_hook)(int) = (void(*)(int)) exit;
-int (*error_handler_hook)(uint error,const char *str,myf MyFlags)=
+void (*error_handler_hook)(uint error,const char *str,myf MyFlags)=
     my_message_no_curses;
-int (*fatal_error_handler_hook)(uint error,const char *str,myf MyFlags)=
+void (*fatal_error_handler_hook)(uint error,const char *str,myf MyFlags)=
   my_message_no_curses;
 
 #ifdef __WIN__

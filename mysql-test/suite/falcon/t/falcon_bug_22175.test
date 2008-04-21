@@ -34,7 +34,7 @@ connection conn1;
 SET @@autocommit = 0;
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 START TRANSACTION;
---send DELETE FROM t1
+DELETE FROM t1;
 
 --echo # Switch to connection default
 connection default;
@@ -43,7 +43,6 @@ COMMIT;
 
 --echo # Switch to connection conn1
 connection conn1;
---reap
 DELETE FROM t2;
 COMMIT;
 

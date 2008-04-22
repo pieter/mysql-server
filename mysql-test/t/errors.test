@@ -100,3 +100,5 @@ select * from t1;
 select * from t2;
 drop table t1;
 drop table t2;
+drop function f1;
+drop function f2;

@@ -1597,19 +1597,19 @@ bool select_send::send_data(List<Item> &items)
   Item *item;
   while ((item=li++))
   {
-    if (item->send(protocol, &buffer))
+    if (item->send(protocol, &buffer) || thd->is_error())
     {
       protocol->free();				// Free used buffer
       my_message(ER_OUT_OF_RESOURCES, ER(ER_OUT_OF_RESOURCES), MYF(0));
       break;
     }
   }
-  thd->sent_row_count++;
   if (thd->is_error())
   {
     protocol->remove_last_row();
     DBUG_RETURN(1);
   }
+  thd->sent_row_count++;
   if (thd->vio_ok())
     DBUG_RETURN(protocol->write());
   DBUG_RETURN(0);

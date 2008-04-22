@@ -135,7 +135,7 @@ static bool init_pipe(int pipe_fds[])
   int flags;
   return pipe(pipe_fds) < 0 ||
           (flags= fcntl(pipe_fds[0], F_GETFL)) == -1 ||
-          fcntl(pipe_fds[0], F_SETFL, flags | O_NONBLOCK) == -1;
+          fcntl(pipe_fds[0], F_SETFL, flags | O_NONBLOCK) == -1 ||
           (flags= fcntl(pipe_fds[1], F_GETFL)) == -1 ||
           fcntl(pipe_fds[1], F_SETFL, flags | O_NONBLOCK) == -1;
 }

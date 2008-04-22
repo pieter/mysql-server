@@ -98,4 +98,5 @@ select f1(), f2();
 show status like 'Com_insert';
 select * from t1;
 select * from t2;
-
+drop table t1;
+drop table t2;

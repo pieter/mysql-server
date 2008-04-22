@@ -87,3 +87,5 @@ a
 1
 select * from t2;
 a
+drop table t1;
+drop table t2;

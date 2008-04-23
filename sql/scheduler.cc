@@ -645,7 +645,7 @@ static bool libevent_needs_immediate_processing(THD *thd)
     Note: we cannot add for event processing because the whole request might
     already be buffered and we wouldn't receive an event.
   */
-  if (thd->net.vio == 0 || thd->net.vio->read_pos < thd->net.vio->read_end)
+  if (vio_pending(thd->net.vio) > 0)
     return TRUE;
 
   thd->scheduler.thread_detach();

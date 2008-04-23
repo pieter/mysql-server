@@ -4258,9 +4258,14 @@ static void convert_zerofill_number_to_string(Item **item, Field_num *field)
   String tmp(buff,sizeof(buff), field->charset()), *res;
 
   res= (*item)->val_str(&tmp);
-  field->prepend_zeros(res);
-  pos= (char *) sql_strmake (res->ptr(), res->length());
-  *item= new Item_string(pos, res->length(), field->charset());
+  if ((*item)->is_null())
+    *item= new Item_null();
+  else
+  {
+    field->prepend_zeros(res);
+    pos= (char *) sql_strmake (res->ptr(), res->length());
+    *item= new Item_string(pos, res->length(), field->charset());
+  }
 }
 
 
@@ -4553,7 +4558,7 @@ Field *Item::make_string_field(TABLE *table)
   DBUG_ASSERT(collation.collation);
   if (max_length/collation.collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB)
     field= new Field_blob(max_length, maybe_null, name,
-                          collation.collation);
+                          collation.collation, TRUE);
   /* Item_type_holder holds the exact type, do not change it */
   else if (max_length > 0 &&
       (type() != Item::TYPE_HOLDER || field_type() != MYSQL_TYPE_STRING))

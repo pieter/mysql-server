@@ -1145,6 +1145,7 @@ libmysqld/rpl_record_old.cc
 libmysqld/scheduler.cc
 libmysqld/set_var.cc
 libmysqld/sha2.cc
+libmysqld/si_objects.cc
 libmysqld/simple-test
 libmysqld/slave.cc
 libmysqld/sp.cc
@@ -1331,6 +1332,7 @@ mysql-test/r/im_client_port.log
 mysql-test/r/index_merge_load.result
 mysql-test/r/isam.err
 mysql-test/r/lowercase_table2.err
+mysql-test/r/max_allowed_packet_func.result
 mysql-test/r/multi_update.err
 mysql-test/r/mysql_protocols.err
 mysql-test/r/mysqlbinlog.err
@@ -3037,4 +3039,3 @@ win/vs8cache.txt
 ylwrap
 zlib/*.ds?
 zlib/*.vcproj
-libmysqld/si_objects.cc

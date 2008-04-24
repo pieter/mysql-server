@@ -94,6 +94,8 @@ void one_thread_per_connection_scheduler(scheduler_functions *func)
 
 #include "event.h"
 
+static struct event_base *base;
+
 static uint created_threads, killed_threads;
 static bool kill_pool_threads;
 
@@ -259,7 +261,7 @@ static bool libevent_init(void)
   uint i;
   DBUG_ENTER("libevent_init");
 
-  event_init();
+  base= (struct event_base *) event_init();
 
   created_threads= 0;
   killed_threads= 0;
@@ -706,6 +708,7 @@ static void libevent_end()
   event_del(&thd_kill_event);
   close(thd_kill_pipe[0]);
   close(thd_kill_pipe[1]);
+  event_base_free(base);
 
   (void) pthread_mutex_destroy(&LOCK_event_loop);
   (void) pthread_mutex_destroy(&LOCK_thd_add);

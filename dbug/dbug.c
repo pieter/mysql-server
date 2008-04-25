@@ -455,6 +455,7 @@ static void DbugParse(CODE_STATE *cs, const char *control)
   rel= control[0] == '+' || control[0] == '-';
   if ((!rel || (!stack->out_file && !stack->next)))
   {
+    FreeState(cs, stack, 0);
     stack->flags= 0;
     stack->delay= 0;
     stack->maxdepth= 0;
@@ -493,7 +494,7 @@ static void DbugParse(CODE_STATE *cs, const char *control)
   }
 
   end= DbugStrTok(control);
-  while (1)
+  while (control < end)
   {
     int c, sign= (*control == '+') ? 1 : (*control == '-') ? -1 : 0;
     if (sign) control++;
@@ -770,7 +771,7 @@ void _db_pop_()
   get_code_state_or_return;
 
   discard= cs->stack;
-  if (discard->next != NULL)
+  if (discard != &init_settings)
   {
     cs->stack= discard->next;
     FreeState(cs, discard, 1);
@@ -1440,8 +1441,8 @@ static void PushState(CODE_STATE *cs)
   struct settings *new_malloc;
 
   new_malloc= (struct settings *) DbugMalloc(sizeof(struct settings));
+  bzero(new_malloc, sizeof(*new_malloc));
   new_malloc->next= cs->stack;
-  new_malloc->out_file= NULL;
   cs->stack= new_malloc;
 }
 
@@ -1472,11 +1473,17 @@ static void FreeState(CODE_STATE *cs, struct settings *state, int free_state)
     FreeList(state->processes);
   if (!is_shared(state, p_functions))
     FreeList(state->p_functions);
+
   if (!is_shared(state, out_file))
     DBUGCloseFile(cs, state->out_file);
-  (void) fflush(cs->stack->out_file);
-  if (state->prof_file)
+  else
+    (void) fflush(state->out_file);
+
+  if (!is_shared(state, prof_file))
     DBUGCloseFile(cs, state->prof_file);
+  else
+    (void) fflush(state->prof_file);
+
   if (free_state)
     free((void*) state);
 }
@@ -1956,7 +1963,7 @@ static FILE *OpenProfile(CODE_STATE *cs, const char *name)
 
 static void DBUGCloseFile(CODE_STATE *cs, FILE *fp)
 {
-  if (fp != stderr && fp != stdout && fclose(fp) == EOF)
+  if (fp && fp != stderr && fp != stdout && fclose(fp) == EOF)
   {
     pthread_mutex_lock(&THR_LOCK_dbug);
     (void) fprintf(cs->stack->out_file, ERR_CLOSE, cs->process);

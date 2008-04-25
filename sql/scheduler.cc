@@ -152,7 +152,8 @@ thd_scheduler::thd_scheduler()
   : logged_in(FALSE), io_event(NULL), thread_attached(FALSE)
 {
 #ifndef DBUG_OFF
-  dbug_explain_buf[0]= 0;
+  dbug_explain[0]= '\0';
+  set_explain= FALSE;
 #endif
 }
 
@@ -200,7 +201,13 @@ bool thd_scheduler::thread_attach()
   thd->mysys_var->abort= 0;
   thread_attached= TRUE;
 #ifndef DBUG_OFF
-  swap_dbug_explain();
+  /*
+    When we attach the thread for a connection for the first time,
+    we know that there is no session value set yet. Thus
+    the initial setting of set_explain to FALSE is OK.
+  */
+  if (set_explain)
+    DBUG_SET(dbug_explain);
 #endif
   return FALSE;
 }
@@ -218,30 +225,23 @@ void thd_scheduler::thread_detach()
     thd->mysys_var= NULL;
     thread_attached= FALSE;
 #ifndef DBUG_OFF
-    swap_dbug_explain();
+    /*
+      If during the session @@session.dbug was assigned, the
+      dbug options/state has been pushed. Check if this is the
+      case, to be able to restore the state when we attach this
+      logical connection to a physical thread.
+    */
+    if (_db_is_pushed_())
+    {
+      set_explain= TRUE;
+      if (DBUG_EXPLAIN(dbug_explain, sizeof(dbug_explain)))
+        sql_print_error("thd_scheduler: DBUG_EXPLAIN buffer is too small");
+    }
+    /* DBUG_POP() is a no-op in case there is no session state */
+    DBUG_POP();
 #endif
   }
 }
-
-
-/*
-  Swap the THD's dbug explain_buffer with the OS thread's dbug explain buffer.
-
-  This is used to preserve the SESSION DEBUG variable, which is mapped to the OS
-  thread during a command, but each command is handled by a different thread.
-*/
-
-#ifndef DBUG_OFF
-void thd_scheduler::swap_dbug_explain()
-{
-  char buffer[sizeof(dbug_explain_buf)];
-  if (DBUG_EXPLAIN(buffer, sizeof(buffer)))
-    sql_print_error("DBUG_EXPLAIN buffer too small.\n");
-  DBUG_POP();
-  DBUG_PUSH(dbug_explain_buf);
-  memcpy(dbug_explain_buf, buffer, sizeof(buffer));
-}
-#endif
 
 /**
   Create all threads for the thread pool

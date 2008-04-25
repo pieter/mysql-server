@@ -1278,18 +1278,41 @@ int setup_semijoin_dups_elimination(JOIN *join, ulonglong options, uint no_jbuf_
 }
 
 
-static void cleanup_sj_tmp_tables(JOIN *join)
+/*
+  Destroy all temporary tables created by NL-semijoin runtime.
+*/
+
+static void destroy_sj_tmp_tables(JOIN *join)
 {
   for (SJ_TMP_TABLE *sj_tbl= join->sj_tmp_tables; sj_tbl; 
        sj_tbl= sj_tbl->next)
   {
     if (sj_tbl->tmp_table)
-    {
       free_tmp_table(join->thd, sj_tbl->tmp_table);
-    }
   }
   join->sj_tmp_tables= NULL;
 }
+
+
+/*
+  Remove all records from all temp tables used by NL-semijoin runtime
+*/
+
+static int clear_sj_tmp_tables(JOIN *join)
+{
+  int res;
+  for (SJ_TMP_TABLE *sj_tbl= join->sj_tmp_tables; sj_tbl; 
+       sj_tbl= sj_tbl->next)
+  {
+    if (sj_tbl->tmp_table)
+    {
+      if ((res= sj_tbl->tmp_table->file->ha_delete_all_rows()))
+        return res;
+    }
+  }
+  return 0;
+}
+
 
 uint make_join_orderinfo(JOIN *join);
 
@@ -1402,6 +1425,7 @@ JOIN::optimize()
                             "Impossible HAVING" : "Impossible WHERE"));
       zero_result_cause=  having_value == Item::COND_FALSE ?
                            "Impossible HAVING" : "Impossible WHERE";
+      tables= 0;
       error= 0;
       DBUG_RETURN(0);
     }
@@ -2127,6 +2151,7 @@ JOIN::reinit()
     free_io_cache(exec_tmp_table2);
     filesort_free_buffers(exec_tmp_table2,0);
   }
+  clear_sj_tmp_tables(this);
   if (items0)
     set_items_ref_array(items0);
 
@@ -2798,6 +2823,7 @@ JOIN::destroy()
     free_tmp_table(thd, exec_tmp_table1);
   if (exec_tmp_table2)
     free_tmp_table(thd, exec_tmp_table2);
+  destroy_sj_tmp_tables(this);
   delete select;
   delete_dynamic(&keyuse);
   delete procedure;
@@ -8584,7 +8610,7 @@ void JOIN::cleanup(bool full)
           tab->table->file->ha_index_or_rnd_end();
       }
     }
-    cleanup_sj_tmp_tables(this);//
+    //was: cleanup_sj_tmp_tables(this);//
   }
   /*
     We are not using tables anymore
@@ -10942,14 +10968,14 @@ remove_eq_conds(THD *thd, COND *cond, Item::cond_result *cond_value)
   }
   else if (cond->const_item() && !cond->is_expensive())
   /*
-    TODO:
+    DontEvaluateMaterializedSubqueryTooEarly:
+    TODO: 
     Excluding all expensive functions is too restritive we should exclude only
-    materialized IN because it is created later than this phase, and cannot be
-    evaluated at this point.
-    The condition should be something as (need to fix member access):
-      !(cond->type() == Item::FUNC_ITEM &&
-        ((Item_func*)cond)->func_name() == "<in_optimizer>" &&
-        ((Item_in_optimizer*)cond)->is_expensive()))
+    materialized IN subquery predicates because they can't yet be evaluated
+    here (they need additional initialization that is done later on).
+
+    The proper way to exclude the subqueries would be to walk the cond tree and
+    check for materialized subqueries there.
   */
   {
     *cond_value= eval_const_cond(cond) ? Item::COND_TRUE : Item::COND_FALSE;

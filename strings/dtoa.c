@@ -648,7 +648,9 @@ typedef struct Stack_alloc
 
 /*
   Try to allocate object on stack, and resort to malloc if all
-  stack memory is used.
+  stack memory is used. Ensure allocated objects to be aligned by the pointer
+  size in order to not break the alignment rules when storing a pointer to a
+  Bigint.
 */
 
 static Bigint *Balloc(int k, Stack_alloc *alloc)
@@ -664,7 +666,7 @@ static Bigint *Balloc(int k, Stack_alloc *alloc)
     int x, len;
 
     x= 1 << k;
-    len= sizeof(Bigint) + x * sizeof(ULong);
+    len= MY_ALIGN(sizeof(Bigint) + x * sizeof(ULong), SIZEOF_CHARP);
 
     if (alloc->free + len <= alloc->end)
     {
@@ -709,13 +711,14 @@ static void Bfree(Bigint *v, Stack_alloc *alloc)
 /*
   This is to place return value of dtoa in: tries to use stack
   as well, but passes by free lists management and just aligns len by
-  sizeof(ULong).
+  the pointer size in order to not break the alignment rules when storing a
+  pointer to a Bigint.
 */
 
 static char *dtoa_alloc(int i, Stack_alloc *alloc)
 {
   char *rv;
-  int aligned_size= (i + sizeof(ULong) - 1) / sizeof(ULong) * sizeof(ULong);
+  int aligned_size= MY_ALIGN(i, SIZEOF_CHARP);
   if (alloc->free + aligned_size <= alloc->end)
   {
     rv= alloc->free;

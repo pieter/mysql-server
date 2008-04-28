@@ -809,6 +809,7 @@ delimiter ;//
 CALL h1();
 
 
+--error ER_SP_BAD_SQLSTATE
 delimiter //;
 --error ER_SP_BAD_SQLSTATE
 CREATE PROCEDURE sp1()

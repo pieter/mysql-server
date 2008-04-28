@@ -42,7 +42,6 @@
 #include <sys/select.h>
 #endif
 #include <sys/queue.h>
-#include <sys/tree.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,26 +72,25 @@ struct selectop {
 	struct event **event_w_by_fd;
 };
 
-void *select_init	(struct event_base *);
-int select_add		(void *, struct event *);
-int select_del		(void *, struct event *);
-int select_recalc	(struct event_base *, void *, int);
-int select_dispatch	(struct event_base *, void *, struct timeval *);
-void select_dealloc     (struct event_base *, void *);
+static void *select_init	(struct event_base *);
+static int select_add		(void *, struct event *);
+static int select_del		(void *, struct event *);
+static int select_dispatch	(struct event_base *, void *, struct timeval *);
+static void select_dealloc     (struct event_base *, void *);
 
 const struct eventop selectops = {
 	"select",
 	select_init,
 	select_add,
 	select_del,
-	select_recalc,
 	select_dispatch,
-	select_dealloc
+	select_dealloc,
+	0
 };
 
 static int select_resize(struct selectop *sop, int fdsz);
 
-void *
+static void *
 select_init(struct event_base *base)
 {
 	struct selectop *sop;
@@ -138,22 +136,7 @@ check_selectop(struct selectop *sop)
 #define check_selectop(sop) do { (void) sop; } while (0)
 #endif
 
-/*
- * Called with the highest fd that we know about.  If it is 0, completely
- * recalculate everything.
- */
-
-int
-select_recalc(struct event_base *base, void *arg, int max)
-{
-	struct selectop *sop = arg;
-
-	check_selectop(sop);
-
-	return (0);
-}
-
-int
+static int
 select_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 {
 	int res, i;
@@ -198,13 +181,9 @@ select_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 			res |= EV_WRITE;
 		}
 		if (r_ev && (res & r_ev->ev_events)) {
-			if (!(r_ev->ev_events & EV_PERSIST))
-				event_del(r_ev);
 			event_active(r_ev, res & r_ev->ev_events, 1);
 		}
 		if (w_ev && w_ev != r_ev && (res & w_ev->ev_events)) {
-			if (!(w_ev->ev_events & EV_PERSIST))
-				event_del(w_ev);
 			event_active(w_ev, res & w_ev->ev_events, 1);
 		}
 	}
@@ -273,7 +252,7 @@ select_resize(struct selectop *sop, int fdsz)
 }
 
 
-int
+static int
 select_add(void *arg, struct event *ev)
 {
 	struct selectop *sop = arg;
@@ -323,7 +302,7 @@ select_add(void *arg, struct event *ev)
  * Nothing to be done here.
  */
 
-int
+static int
 select_del(void *arg, struct event *ev)
 {
 	struct selectop *sop = arg;
@@ -351,7 +330,7 @@ select_del(void *arg, struct event *ev)
 	return (0);
 }
 
-void
+static void
 select_dealloc(struct event_base *base, void *arg)
 {
 	struct selectop *sop = arg;

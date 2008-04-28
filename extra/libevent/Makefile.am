@@ -1,6 +1,6 @@
 AUTOMAKE_OPTIONS = foreign no-dependencies
 
-EXTRA_DIST = README compat/sys
+EXTRA_DIST = .
 
 DISTCLEANFILES = event-config.h
 

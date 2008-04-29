@@ -1,6 +1,12 @@
 AUTOMAKE_OPTIONS = foreign no-dependencies
 
-EXTRA_DIST = .
+EXTRA_DIST = README compat/sys						      \
+	buffer.c epoll.c evbuffer.c event.c evport.c evutil.c kqueue.c poll.c \
+	signal.c devpoll.c epoll_sub.c evdns.c event_tagging.c evrpc.c http.c \
+	log.c select.c strlcpy.c					      \
+	evdns.h event.h evrpc-internal.h evsignal.h http-internal.h log.h     \
+	min_heap.h event-internal.h evhttp.h evrpc.h evutil.h strlcpy-internal.h
+
 
 DISTCLEANFILES = event-config.h
 

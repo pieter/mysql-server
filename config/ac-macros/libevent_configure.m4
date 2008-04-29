@@ -283,3 +283,18 @@ AC_TRY_COMPILE([
   AC_DEFINE(socklen_t, unsigned int,
 	[Define to unsigned int if you dont have it])]
 )
+
+AC_MSG_CHECKING([whether our compiler supports __func__])
+AC_TRY_COMPILE([],
+ [ const char *cp = __func__; ],
+ AC_MSG_RESULT([yes]),
+ AC_MSG_RESULT([no])
+ AC_MSG_CHECKING([whether our compiler supports __FUNCTION__])
+ AC_TRY_COMPILE([],
+   [ const char *cp = __FUNCTION__; ],
+   AC_MSG_RESULT([yes])
+   AC_DEFINE(__func__, __FUNCTION__,
+         [Define to appropriate substitue if compiler doesnt have __func__]),
+   AC_MSG_RESULT([no])
+   AC_DEFINE(__func__, __FILE__,
+         [Define to appropriate substitue if compiler doesnt have __func__])))

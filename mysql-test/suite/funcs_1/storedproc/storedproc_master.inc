@@ -17231,7 +17231,6 @@ DROP PROCEDURE IF EXISTS sp1;
 --enable_warnings
 
 delimiter //;
---error ER_SP_BAD_SQLSTATE
 CREATE PROCEDURE sp1()
 BEGIN
     declare cond1 condition for sqlstate '00000';
@@ -17240,6 +17239,11 @@ BEGIN
     SELECT @var2;
 END//
 delimiter ;//
+
+CALL sp1();
+
+# cleanup
+DROP PROCEDURE sp1;
 
 
 # ------------------------------------------------------------------------------
@@ -17380,7 +17384,6 @@ DROP PROCEDURE IF EXISTS sp1;
 --enable_warnings
 
 delimiter //;
---error ER_SP_BAD_SQLSTATE
 CREATE PROCEDURE sp1()
 BEGIN
     declare continue handler for sqlstate '00000'  set @var2 = 1;
@@ -17388,6 +17391,12 @@ BEGIN
           SELECT @var2;
 END//
 delimiter ;//
+
+CALL sp1();
+
+# cleanup
+DROP PROCEDURE sp1;
+
 
 
 # ------------------------------------------------------------------------------
@@ -29235,7 +29244,6 @@ DROP PROCEDURE IF EXISTS h1;
 --enable_warnings
 
 delimiter //;
---error ER_SP_BAD_SQLSTATE
 CREATE PROCEDURE h1 ()
 BEGIN
     declare x1 int default 0;
@@ -29302,7 +29310,6 @@ DROP PROCEDURE IF EXISTS h1;
 --enable_warnings
 
 delimiter //;
---error ER_SP_BAD_SQLSTATE
 CREATE PROCEDURE h1 ()
 BEGIN
     declare x1 int default 0;

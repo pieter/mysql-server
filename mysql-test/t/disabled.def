@@ -33,6 +33,8 @@ backup_snapshot       :BUG#34235 pending replacement of test facility with WL#42
 backup_no_engine     : Bug#36021 2008-04-13 rsomla server crashes when openning table with unknown storage engine
 csv_alter_table      : Bug#33696 2008-01-21 pcrews no .result file - bug allows NULL columns in CSV tables
 ctype_latin2_ch      : BUG #33791 2008-01-18 mats Wrong ORDER BY with latin2_czech_cs
-
-
 subselect_notembedded : Bug#33506 crash on stack overrun
+event_scheduler_basic: BUG#35997 server seems to crash.
+event_scheduler_func: BUG#35997 server seems to crash.
+thread_cache_size_func: BUG#35988 Due to not deterministic results
+

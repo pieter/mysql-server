@@ -336,13 +336,16 @@ BuildMySQL "--enable-shared \
 		--with-innodb \
 %if %{CLUSTER_BUILD}
 		--with-ndbcluster \
+%else
+		--without-ndbcluster \
 %endif
 		--with-archive-storage-engine \
 		--with-csv-storage-engine \
-		--with-example-storage-engine \
 		--with-blackhole-storage-engine \
 %if %{FEDERATED_BUILD}
 		--with-federated-storage-engine \
+%else
+		--without-federated-storage-engine \
 %endif
 %ifarch i386 x86_64
 		--with-falcon \
@@ -374,13 +377,16 @@ BuildMySQL "--enable-shared \
 		--with-innodb \
 %if %{CLUSTER_BUILD}
 		--with-ndbcluster \
+%else
+		--without-ndbcluster \
 %endif
 		--with-archive-storage-engine \
 		--with-csv-storage-engine \
-		--with-example-storage-engine \
 		--with-blackhole-storage-engine \
 %if %{FEDERATED_BUILD}
 		--with-federated-storage-engine \
+%else
+		--without-federated-storage-engine \
 %endif
 %ifarch i386 x86_64
 		--with-falcon \

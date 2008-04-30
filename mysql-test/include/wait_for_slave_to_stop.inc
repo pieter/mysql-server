@@ -18,10 +18,10 @@ let $counter= 300;
 while ($run)
 {
   let $io_result= query_get_value("SHOW SLAVE STATUS", Slave_IO_Running, $row_number);
-  if (`SELECT '$io_result' = 'No'`){
+  if (`SELECT ('$io_result' = 'No' OR '$io_result' = 'No such row')`) {
 
     let $sql_result= query_get_value("SHOW SLAVE STATUS", Slave_SQL_Running, $row_number);
-    if (`SELECT '$sql_result' = 'No'`){
+    if (`SELECT ('$sql_result' = 'No' OR '$io_result' = 'No such row')`) {
       let $run= 0;
     }
   }

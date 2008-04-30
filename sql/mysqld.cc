@@ -2066,6 +2066,7 @@ extern "C" sig_handler abort_thread(int sig __attribute__((unused)))
 static BOOL WINAPI console_event_handler( DWORD type ) 
 {
   DBUG_ENTER("console_event_handler");
+#ifndef EMBEDDED_LIBRARY
   if(type == CTRL_C_EVENT)
   {
      /*
@@ -2082,6 +2083,7 @@ static BOOL WINAPI console_event_handler( DWORD type )
        sql_print_warning("CTRL-C ignored during startup");
      DBUG_RETURN(TRUE);
   }
+#endif
   DBUG_RETURN(FALSE);
 }
 

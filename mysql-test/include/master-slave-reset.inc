@@ -4,7 +4,7 @@ connection slave;
 #(the server was started with skip-slave-start)
 --disable_warnings
 stop slave;
---wait_for_slave_to_stop
+source include/wait_for_slave_to_stop.inc;
 --enable_warnings
 
 connection master;
@@ -38,3 +38,4 @@ eval CHANGE MASTER TO MASTER_USER='root',
 --enable_query_log
 
 start slave;
+source include/wait_for_slave_to_start.inc;

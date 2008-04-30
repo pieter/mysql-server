@@ -5123,7 +5123,6 @@ create_func_cast(THD *thd, Item *a, Cast_target cast_type,
   }
   case ITEM_CAST_CHAR:
   {
-    CHARSET_INFO *real_cs= (cs ? cs : thd->variables.collation_connection);
     if (c_len == NULL)
     {
       len= LL(-1);

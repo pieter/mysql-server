@@ -132,15 +132,36 @@ test-bt:
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
 	    @PERL@ ./mysql-test-run.pl  --comment=ps    --force --timer \
 	        --skip-ndbcluster --ps-protocol
+	-if [ -e bin/ndbd -o -e storage/ndb/src/kernel/ndbd ] ; then \
+	  cd mysql-test ; \
+	    MTR_BUILD_THREAD=auto \
+	      @PERL@ ./mysql-test-run.pl --comment=ndb+rpl_ndb+ps --force --timer \
+	          --ps-protocol --mysqld=--binlog-format=row --suite=ndb,rpl_ndb ; \
+	    MTR_BUILD_THREAD=auto \
+	      @PERL@ ./mysql-test-run.pl --comment=ndb --force --timer \
+	          --with-ndbcluster-only ; \
+	else \
+	  echo "no program found for 'ndbcluster' tests - skipped testing" ; \
+	fi
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --comment=normal+rowrepl --force --timer \
-	        --skip-ndbcluster --mysqld=--binlog-format=row
+	    @PERL@ ./mysql-test-run.pl --force --comment=falcon --suite=falcon
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --comment=ps+rowrepl+NDB+libevent --force --timer \
-	        --ps-protocol --mysqld=--binlog-format=row #@libevent_test_option@
+	    @PERL@ ./mysql-test-run.pl --force --comment=funcs1+ps --ps-protocol --suite=funcs_1
 	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --comment=NDB            --force --timer \
-	        --with-ndbcluster-only
+	    @PERL@ ./mysql-test-run.pl --force --comment=funcs2 --suite=funcs_2
+	-cd mysql-test ; MTR_BUILD_THREAD=auto \
+	    @PERL@ ./mysql-test-run.pl --force --comment=partitions --suite=parts
+	-cd mysql-test ; MTR_BUILD_THREAD=auto \
+	    @PERL@ ./mysql-test-run.pl --force --comment=stress --suite=stress
+	-if [ -d mysql-test/suite/nist ] ; then \
+	  cd mysql-test ; MTR_BUILD_THREAD=auto \
+	      @PERL@ ./mysql-test-run.pl --comment=nist --force --suite=nist ; \
+	fi
+	-if [ -d mysql-test/suite/nist ] ; then \
+	  cd mysql-test ; MTR_BUILD_THREAD=auto \
+	      @PERL@ ./mysql-test-run.pl --comment=NIST+ps --force --suite=nist --ps-protocol ; \
+	      @PERL@ ./mysql-test-run.pl --comment=nist+ps --force --suite=nist --ps-protocol ; \
+	fi
 	-if [ -e bin/mysqltest_embedded -o -e libmysqld/examples/mysqltest_embedded ] ; then \
 	  cd mysql-test ; MTR_BUILD_THREAD=auto \
 	      @PERL@ ./mysql-test-run.pl --comment=embedded --force --timer \
@@ -148,26 +169,6 @@ test-bt:
 	else \
 	  echo "no program found for 'embedded' tests - skipped testing" ; \
 	fi
-	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --force --comment=falcon --suite=falcon
-	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --force --comment=funcs1_ps --ps-protocol --suite=funcs_1
-	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --force --comment=funcs2 --suite=funcs_2
-	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --force --comment=rpl --suite=rpl
-	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --force --comment=partitions --suite=parts
-	-if [ -d mysql-test/suite/nist ] ; then \
-	  cd mysql-test ; MTR_BUILD_THREAD=auto \
-	      @PERL@ ./mysql-test-run.pl --comment=NIST+normal --force --suite=nist ; \
-	fi
-	-if [ -d mysql-test/suite/nist ] ; then \
-	  cd mysql-test ; MTR_BUILD_THREAD=auto \
-	      @PERL@ ./mysql-test-run.pl --comment=NIST+ps --force --suite=nist --ps-protocol ; \
-	fi
-	-cd mysql-test ; MTR_BUILD_THREAD=auto \
-	    @PERL@ ./mysql-test-run.pl --force --comment=stress --suite=stress
 
 # Re-enable the "jp" suite when bug#28563 is fixed
 #	-cd mysql-test ; MTR_BUILD_THREAD=auto \

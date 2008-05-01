@@ -233,8 +233,9 @@ void select_describe(JOIN *join, bool need_tmp_table,bool need_order,
 static Item *remove_additional_cond(Item* conds);
 static void add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab);
 static bool test_if_ref(Item_field *left_item,Item *right_item);
-static bool replace_where_subcondition(JOIN *join, Item *old_cond, 
-                                       Item *new_cond, bool fix_fields);
+static bool replace_where_subcondition(JOIN *join, TABLE_LIST *emb_nest, 
+                                       Item *old_cond, Item *new_cond,
+                                       bool do_fix_fields);
 
 /*
   This is used to mark equalities that were made from i-th IN-equality.
@@ -588,6 +589,7 @@ JOIN::prepare(Item ***rref_pointer_array,
                                                         &in_subs->left_expr);
           thd->lex->current_select= current;
           thd->where= save_where;
+          in_subs->emb_on_expr_nest= thd->thd_marker.emb_on_expr_nest;
           if (failure)
             DBUG_RETURN(-1);
           /*
@@ -3398,7 +3400,8 @@ bool JOIN::flatten_subqueries()
        tables + ((*in_subq)->sj_convert_priority % MAX_TABLES) < MAX_TABLES;
        in_subq++)
   {
-    if (replace_where_subcondition(this, *in_subq, new Item_int(1), FALSE))
+    if (replace_where_subcondition(this, (*in_subq)->emb_on_expr_nest,
+                                   *in_subq, new Item_int(1), FALSE))
       DBUG_RETURN(TRUE);
   }
  
@@ -3429,7 +3432,8 @@ bool JOIN::flatten_subqueries()
 
     Item *substitute= (*in_subq)->substitution;
     bool do_fix_fields= !(*in_subq)->substitution->fixed;
-    if (replace_where_subcondition(this, *in_subq, substitute, do_fix_fields))
+    if (replace_where_subcondition(this, (*in_subq)->emb_on_expr_nest, 
+                                   *in_subq, substitute, do_fix_fields))
       DBUG_RETURN(TRUE);
 
     //if ((*in_subq)->fix_fields(thd, (*in_subq)->ref_ptr))
@@ -3654,6 +3658,8 @@ int pull_out_semijoin_tables(JOIN *join)
       List<TABLE_LIST> *upper_join_list= (sj_nest->embedding != NULL)?
                                            (&sj_nest->embedding->nested_join->join_list): 
                                            (&join->select_lex->top_join_list);
+      Query_arena *arena, backup;
+      arena= join->thd->activate_stmt_arena_if_needed(&backup);
       while ((tbl= child_li++))
       {
         if (tbl->table)
@@ -3690,6 +3696,9 @@ int pull_out_semijoin_tables(JOIN *join)
         while (sj_nest != li++);
         li.remove();
       }
+
+      if (arena)
+        join->thd->restore_active_arena(arena, &backup);
     }
   }
   DBUG_RETURN(0);
@@ -4022,9 +4031,16 @@ make_join_statistics(JOIN *join, TABLE_LIST *tables, COND *conds,
 	    keyuse++;
 	  } while (keyuse->table == table && keyuse->key == key);
 
+          TABLE_LIST *embedding= table->pos_in_table_list->embedding;
+          /*
+            TODO (low priority): currently we ignore the const tables that
+            are within a semi-join nest which is within an outer join nest.
+            The effect of this is that we don't do const substitution for
+            such tables.
+          */
 	  if (eq_part.is_prefix(table->key_info[key].key_parts) &&
               !table->fulltext_searched && 
-              !table->pos_in_table_list->embedding)
+              (!embedding || (embedding->sj_on_expr && !embedding->embedding)))
 	  {
             if ((table->key_info[key].flags & (HA_NOSAME | HA_END_SPACE_KEY))
                  == HA_NOSAME)
@@ -14986,20 +15002,25 @@ static bool test_if_ref(Item_field *left_item,Item *right_item)
    @return <code>true</code> if there was an error, <code>false</code> if
    successful.
 */
-static bool replace_where_subcondition(JOIN *join, Item *old_cond, 
-                                       Item *new_cond, bool do_fix_fields)
+static bool replace_where_subcondition(JOIN *join, TABLE_LIST *emb_nest, 
+                                       Item *old_cond, Item *new_cond,
+                                       bool do_fix_fields)
 {
-  if (join->conds == old_cond) {
-    join->conds= new_cond;
+  Item **expr= (emb_nest == (TABLE_LIST*)1)? &join->conds : &emb_nest->on_expr;
+  if (*expr == old_cond)
+  {
+    *expr= new_cond;
     if (do_fix_fields)
-      new_cond->fix_fields(join->thd, &join->conds);
+      new_cond->fix_fields(join->thd, expr);
     return FALSE;
   }
   
-  if (join->conds->type() == Item::COND_ITEM) {
-    List_iterator<Item> li(*((Item_cond*)join->conds)->argument_list());
+  if ((*expr)->type() == Item::COND_ITEM) 
+  {
+    List_iterator<Item> li(*((Item_cond*)(*expr))->argument_list());
     Item *item;
     while ((item= li++))
+    {
       if (item == old_cond) 
       {
         li.replace(new_cond);
@@ -15007,6 +15028,7 @@ static bool replace_where_subcondition(JOIN *join, Item *old_cond,
           new_cond->fix_fields(join->thd, li.ref());
         return FALSE;
       }
+    }
   }
 
   return TRUE;

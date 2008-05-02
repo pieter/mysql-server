@@ -1515,7 +1515,7 @@ int dyn_string_cmp(DYNAMIC_STRING* ds, const char *fname)
   DBUG_ENTER("dyn_string_cmp");
   DBUG_PRINT("enter", ("fname: %s", fname));
 
-  if ((fd= create_temp_file(temp_file_path, NULL,
+  if ((fd= create_temp_file(temp_file_path, TMPDIR,
                             "tmp", O_CREAT | O_SHARE | O_RDWR,
                             MYF(MY_WME))) < 0)
     die("Failed to create temporary file for ds");
@@ -8063,7 +8063,6 @@ REPLACE *init_replace(char * *from, char * *to,uint count,
 		      char * word_end_chars)
 {
   static const int SPACE_CHAR= 256;
-  static const int START_OF_LINE= 257;
   static const int END_OF_LINE= 258;
 
   uint i,j,states,set_nr,len,result_len,max_length,found_end,bits_set,bit_nr;

@@ -578,3 +578,77 @@ select * from t2 where filler1 in ( select a from t1);
 a	b	c	filler1
 set join_buffer_size=default;
 drop table t1, t2;
+create table t1 (a int not null);
+CREATE PROCEDURE handlerdemo ()
+BEGIN
+DECLARE EXIT HANDLER FOR SQLEXCEPTION select a from t1;
+prepare s1 from '
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( select a from t1) 
+  )))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))';
+execute s1;
+END;
+|
+call handlerdemo();
+a
+drop table t1;

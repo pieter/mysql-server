@@ -42,8 +42,7 @@ SET_SOURCE_FILES_PROPERTIES(${CMAKE_SOURCE_DIR}/sql/message.rc
 
 ADD_DEFINITIONS(-DMYSQL_SERVER -D_CONSOLE -DHAVE_DLOPEN)
 
-ADD_EXECUTABLE(mysqld
-               ../sql-common/client.c derror.cc des_key_file.cc
+ADD_LIBRARY( mysqld_source STATIC ../sql-common/client.c derror.cc des_key_file.cc
                discover.cc ../libmysql/errmsg.c field.cc  stacktrace.c stacktrace.h field_conv.cc 
                filesort.cc gstream.cc sha2.cc
                ha_partition.cc
@@ -55,9 +54,9 @@ ADD_EXECUTABLE(mysqld
                log_event.cc rpl_record.cc rpl_reporting.cc
                log_event_old.cc rpl_record_old.cc
                message.h mf_iocache.cc my_decimal.cc ../sql-common/my_time.c
-               mysqld.cc net_serv.cc 
+                net_serv.cc 
                nt_servc.cc nt_servc.h opt_range.cc opt_range.h opt_sum.cc 
-               ../sql-common/pack.c parse_file.cc password.c procedure.cc 
+               mysqld.cc ../sql-common/pack.c parse_file.cc password.c procedure.cc 
                protocol.cc records.cc repl_failsafe.cc rpl_filter.cc set_var.cc 
                slave.cc sp.cc sp_cache.cc sp_head.cc sp_pcontext.cc 
                sp_rcontext.cc spatial.cc sql_acl.cc sql_analyse.cc sql_base.cc 
@@ -83,16 +82,30 @@ ADD_EXECUTABLE(mysqld
                ${PROJECT_SOURCE_DIR}/include/mysqld_error.h
                ${PROJECT_SOURCE_DIR}/include/mysqld_ername.h 
                ${PROJECT_SOURCE_DIR}/include/sql_state.h
-               ${PROJECT_SOURCE_DIR}/include/mysql_version.h 
-               ${PROJECT_SOURCE_DIR}/sql/sql_builtin.cc
+               ${PROJECT_SOURCE_DIR}/include/mysql_version.h
                ${PROJECT_SOURCE_DIR}/sql/lex_hash.h)
+               
+ADD_EXECUTABLE(mysqld ${PROJECT_SOURCE_DIR}/sql/sql_builtin.cc)
 
-TARGET_LINK_LIBRARIES(mysqld
+SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/$(OutDir)/mysqld.def
+  PROPERTIES GENERATED 1)
+
+ADD_DEFINITIONS(-DMYSQL_SERVER -D_CONSOLE -DHAVE_DLOPEN)
+ADD_EXECUTABLE(mysqld_export_symbols ${PROJECT_SOURCE_DIR}/sql/sql_builtin.cc ${PROJECT_SOURCE_DIR}/$(OutDir)/mysqld.def)
+ADD_DEPENDENCIES(mysqld_export_symbols GenMysqlddef)
+
+
+TARGET_LINK_LIBRARIES(mysqld mysqld_source
                       heap myisam myisammrg mysys yassl zlib debug dbug yassl 
                       taocrypt strings vio regex ws2_32)
 
 TARGET_LINK_LIBRARIES(mysqld backup)
 
+TARGET_LINK_LIBRARIES(mysqld_export_symbols mysqld_source
+                      heap myisam myisammrg mysys yassl zlib debug dbug yassl 
+                      taocrypt strings vio regex ws2_32 backup csv)
+
+TARGET_LINK_LIBRARIES(mysqld backup)
 SET_TARGET_PROPERTIES(mysqld PROPERTIES OUTPUT_NAME mysqld${MYSQLD_EXE_SUFFIX})
 
 IF(EMBED_MANIFESTS)
@@ -120,7 +133,7 @@ IF(WITH_FALCON_STORAGE_ENGINE)
   TARGET_LINK_LIBRARIES(mysqld ha_falcon)
 ENDIF(WITH_FALCON_STORAGE_ENGINE)
 
-ADD_DEPENDENCIES(mysqld GenError)
+ADD_DEPENDENCIES(mysqld_source GenError)
 
 # NOTE CMake 2.4.6 creates strange dependencies between files in OUTPUT,
 # so for now we only list one if more than one
@@ -132,7 +145,18 @@ ADD_CUSTOM_COMMAND(
         COMMAND bison.exe ARGS -y -p MYSQL --defines=sql_yacc.h
                                --output=sql_yacc.cc sql_yacc.yy
         DEPENDS ${PROJECT_SOURCE_DIR}/sql/sql_yacc.yy)
-
+        
+ADD_CUSTOM_COMMAND(
+        OUTPUT ${PROJECT_SOURCE_DIR}/sql/$(OutDir)/mysqld.def
+        COMMAND cscript ../win/create_def_file.js ARGS ${PROJECT_SOURCE_DIR}/sql/$(OutDir)/mysqld.map
+)
+        
+ADD_CUSTOM_COMMAND(
+        OUTPUT ${PROJECT_SOURCE_DIR}/sql/sql_yacc.h
+#              ${PROJECT_SOURCE_DIR}/sql/sql_yacc.cc
+        COMMAND bison.exe ARGS -y -p MYSQL --defines=sql_yacc.h
+                               --output=sql_yacc.cc sql_yacc.yy
+        DEPENDS ${PROJECT_SOURCE_DIR}/sql/sql_yacc.yy)
 IF(WIN32)
   # Windows message file
   ADD_CUSTOM_COMMAND(
@@ -160,6 +184,13 @@ ADD_CUSTOM_TARGET(
                 ${PROJECT_SOURCE_DIR}/sql/lex_hash.h)
 
 ADD_DEPENDENCIES(mysqld GenServerSource)
+
+ADD_CUSTOM_TARGET(
+        GenMysqlddef ALL
+        DEPENDS ${PROJECT_SOURCE_DIR}/sql/$(OutDir)/mysqld.def)
+
+
+
 
 # Remove the auto-generated files as part of 'Clean Solution'
 SET_DIRECTORY_PROPERTIES(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES 

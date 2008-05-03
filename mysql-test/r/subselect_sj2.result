@@ -579,7 +579,8 @@ a	b	c	filler1
 set join_buffer_size=default;
 drop table t1, t2;
 create table t1 (a int not null);
-CREATE PROCEDURE handlerdemo ()
+drop procedure if exists p1;
+CREATE PROCEDURE p1()
 BEGIN
 DECLARE EXIT HANDLER FOR SQLEXCEPTION select a from t1;
 prepare s1 from '
@@ -649,6 +650,7 @@ prepare s1 from '
 execute s1;
 END;
 |
-call handlerdemo();
+call p1();
 a
+drop procedure p1;
 drop table t1;

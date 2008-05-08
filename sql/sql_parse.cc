@@ -5526,6 +5526,7 @@ void mysql_reset_thd_for_next_command(THD *thd)
   thd->total_warn_count=0;			// Warnings for this query
   thd->rand_used= 0;
   thd->sent_row_count= thd->examined_row_count= 0;
+  thd->thd_marker.emb_on_expr_nest= NULL;
 
   /*
     Because we come here only for start of top-statements, binlog format is

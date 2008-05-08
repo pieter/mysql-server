@@ -2803,7 +2803,7 @@ static bool update_frm_version(TABLE *table)
   }
 err:
   if (file >= 0)
-    VOID(my_close(file,MYF(MY_WME)));
+    (void) my_close(file,MYF(MY_WME));
   DBUG_RETURN(result);
 }
 
@@ -3483,7 +3483,7 @@ int ha_create_table(THD *thd, const char *path,
   name= check_lowercase_names(table.file, share.path.str, name_buff);
 
   error= table.file->ha_create(name, &table, create_info);
-  VOID(closefrm(&table, 0));
+  (void) closefrm(&table, 0);
   if (error)
   {
     strxmov(name_buff, db, ".", table_name, NullS);
@@ -3554,7 +3554,7 @@ int ha_create_table_from_engine(THD* thd, const char *db, const char *name)
 
   check_lowercase_names(table.file, path, path);
   error=table.file->ha_create(path, &table, &create_info);
-  VOID(closefrm(&table, 1));
+  (void) closefrm(&table, 1);
 
   DBUG_RETURN(error != 0);
 }

@@ -94,9 +94,9 @@ int my_copy(const char *from, const char *to, myf MyFlags)
 
     if (MyFlags & MY_HOLD_ORIGINAL_MODES && !new_file_stat)
 	DBUG_RETURN(0);			/* File copyed but not stat */
-    VOID(chmod(to, stat_buff.st_mode & 07777)); /* Copy modes */
+    (void) chmod(to, stat_buff.st_mode & 07777); /* Copy modes */
 #if !defined(__WIN__) && !defined(__NETWARE__)
-    VOID(chown(to, stat_buff.st_uid,stat_buff.st_gid)); /* Copy ownership */
+    (void) chown(to, stat_buff.st_uid,stat_buff.st_gid); /* Copy ownership */
 #endif
 #if !defined(VMS) && !defined(__ZTC__)
     if (MyFlags & MY_COPYTIME)
@@ -104,19 +104,19 @@ int my_copy(const char *from, const char *to, myf MyFlags)
       struct utimbuf timep;
       timep.actime  = stat_buff.st_atime;
       timep.modtime = stat_buff.st_mtime;
-      VOID(utime((char*) to, &timep)); /* last accessed and modified times */
+      (void) utime((char*) to, &timep); /* last accessed and modified times */
     }
 #endif
     DBUG_RETURN(0);
   }
 
 err:
-  if (from_file >= 0) VOID(my_close(from_file,MyFlags));
+  if (from_file >= 0) (void) my_close(from_file,MyFlags);
   if (to_file >= 0)
   {
-    VOID(my_close(to_file, MyFlags));
+    (void) my_close(to_file, MyFlags);
     /* attempt to delete the to-file we've partially written */
-    VOID(my_delete(to, MyFlags));
+    (void) my_delete(to, MyFlags);
   }
   DBUG_RETURN(-1);
 } /* my_copy */

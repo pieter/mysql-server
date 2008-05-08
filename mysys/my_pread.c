@@ -164,7 +164,7 @@ size_t my_pwrite(int Filedes, const uchar *Buffer, size_t Count,
       if (!(errors++ % MY_WAIT_GIVE_USER_A_MESSAGE))
 	my_error(EE_DISK_FULL,MYF(ME_BELL | ME_NOREFRESH),
 		 my_filename(Filedes),my_errno,MY_WAIT_FOR_USER_TO_FIX_PANIC);
-      VOID(sleep(MY_WAIT_FOR_USER_TO_FIX_PANIC));
+      (void) sleep(MY_WAIT_FOR_USER_TO_FIX_PANIC);
       continue;
     }
     if ((writenbytes && writenbytes != (size_t) -1) || my_errno == EINTR)

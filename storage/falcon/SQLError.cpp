@@ -31,9 +31,6 @@
 #include "LogLock.h"
 #include "Sync.h"
 
-#ifdef _WIN32
-#define vsnprintf	_vsnprintf
-#endif
 
 #ifdef _DEBUG
 #undef THIS_FILE

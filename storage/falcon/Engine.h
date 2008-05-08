@@ -82,7 +82,9 @@ typedef unsigned int	uint;
 #define strcasecmp		stricmp
 #define strncasecmp		strnicmp
 #define snprintf		_snprintf
+#if (_MSC_VER < 1400)
 #define vsnprintf		_vsnprintf
+#endif
 #define QUAD_CONSTANT(x)	x##i64
 #define I64FORMAT			"%I64d"
 #endif

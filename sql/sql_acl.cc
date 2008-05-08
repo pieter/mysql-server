@@ -326,7 +326,7 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
   init_sql_alloc(&mem, ACL_ALLOC_BLOCK_SIZE, 0);
   init_read_record(&read_record_info,thd,table= tables[0].table,NULL,1,0);
   table->use_all_columns();
-  VOID(my_init_dynamic_array(&acl_hosts,sizeof(ACL_HOST),20,50));
+  (void) my_init_dynamic_array(&acl_hosts,sizeof(ACL_HOST),20,50);
   while (!(read_record_info.read_record(&read_record_info)))
   {
     ACL_HOST host;
@@ -366,7 +366,7 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
 	host.access|=REFERENCES_ACL | INDEX_ACL | ALTER_ACL | CREATE_TMP_ACL;
     }
 #endif
-    VOID(push_dynamic(&acl_hosts,(uchar*) &host));
+    (void) push_dynamic(&acl_hosts,(uchar*) &host);
   }
   my_qsort((uchar*) dynamic_element(&acl_hosts,0,ACL_HOST*),acl_hosts.elements,
 	   sizeof(ACL_HOST),(qsort_cmp) acl_compare);
@@ -375,7 +375,7 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
 
   init_read_record(&read_record_info,thd,table=tables[1].table,NULL,1,0);
   table->use_all_columns();
-  VOID(my_init_dynamic_array(&acl_users,sizeof(ACL_USER),50,100));
+  (void) my_init_dynamic_array(&acl_users,sizeof(ACL_USER),50,100);
   password_length= table->field[2]->field_length /
     table->field[2]->charset()->mbmaxlen;
   if (password_length < SCRAMBLED_PASSWORD_CHAR_LENGTH_323)
@@ -550,7 +550,7 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
           user.access|= SUPER_ACL | EXECUTE_ACL;
 #endif
       }
-      VOID(push_dynamic(&acl_users,(uchar*) &user));
+      (void) push_dynamic(&acl_users,(uchar*) &user);
       if (!user.host.hostname ||
 	  (user.host.hostname[0] == wild_many && !user.host.hostname[1]))
         allow_all_hosts=1;			// Anyone can connect
@@ -563,7 +563,7 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
 
   init_read_record(&read_record_info,thd,table=tables[2].table,NULL,1,0);
   table->use_all_columns();
-  VOID(my_init_dynamic_array(&acl_dbs,sizeof(ACL_DB),50,100));
+  (void) my_init_dynamic_array(&acl_dbs,sizeof(ACL_DB),50,100);
   while (!(read_record_info.read_record(&read_record_info)))
   {
     ACL_DB db;
@@ -613,7 +613,7 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
 	db.access|=REFERENCES_ACL | INDEX_ACL | ALTER_ACL;
     }
 #endif
-    VOID(push_dynamic(&acl_dbs,(uchar*) &db));
+    (void) push_dynamic(&acl_dbs,(uchar*) &db);
   }
   my_qsort((uchar*) dynamic_element(&acl_dbs,0,ACL_DB*),acl_dbs.elements,
 	   sizeof(ACL_DB),(qsort_cmp) acl_compare);
@@ -706,7 +706,7 @@ my_bool acl_reload(THD *thd)
   }
 
   if ((old_initialized=initialized))
-    VOID(pthread_mutex_lock(&acl_cache->lock));
+    pthread_mutex_lock(&acl_cache->lock);
 
   old_acl_hosts=acl_hosts;
   old_acl_users=acl_users;
@@ -733,7 +733,7 @@ my_bool acl_reload(THD *thd)
     delete_dynamic(&old_acl_dbs);
   }
   if (old_initialized)
-    VOID(pthread_mutex_unlock(&acl_cache->lock));
+    pthread_mutex_unlock(&acl_cache->lock);
 end:
   close_thread_tables(thd);
   DBUG_RETURN(return_val);
@@ -885,7 +885,7 @@ int acl_getroot(THD *thd, USER_RESOURCES  *mqh,
     DBUG_RETURN(0);
   }
 
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   /*
     Find acl entry in user database. Note, that find_acl_user is not the same,
@@ -1057,7 +1057,7 @@ int acl_getroot(THD *thd, USER_RESOURCES  *mqh,
     else
       *sctx->priv_host= 0;
   }
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   DBUG_RETURN(res);
 }
 
@@ -1104,7 +1104,7 @@ bool acl_getroot_no_password(Security_context *sctx, char *user, char *host,
     DBUG_RETURN(FALSE);
   }
 
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   sctx->master_access= 0;
   sctx->db_access= 0;
@@ -1158,7 +1158,7 @@ bool acl_getroot_no_password(Security_context *sctx, char *user, char *host,
     else
       *sctx->priv_host= 0;
   }
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   DBUG_RETURN(res);
 }
 
@@ -1247,7 +1247,7 @@ static void acl_insert_user(const char *user, const char *host,
 
   set_user_salt(&acl_user, password, password_len);
 
-  VOID(push_dynamic(&acl_users,(uchar*) &acl_user));
+  (void) push_dynamic(&acl_users,(uchar*) &acl_user);
   if (!acl_user.host.hostname ||
       (acl_user.host.hostname[0] == wild_many && !acl_user.host.hostname[1]))
     allow_all_hosts=1;		// Anyone can connect /* purecov: tested */
@@ -1313,7 +1313,7 @@ static void acl_insert_db(const char *user, const char *host, const char *db,
   acl_db.db=strdup_root(&mem,db);
   acl_db.access=privileges;
   acl_db.sort=get_sort(3,acl_db.host.hostname,acl_db.db,acl_db.user);
-  VOID(push_dynamic(&acl_dbs,(uchar*) &acl_db));
+  (void) push_dynamic(&acl_dbs,(uchar*) &acl_db);
   my_qsort((uchar*) dynamic_element(&acl_dbs,0,ACL_DB*),acl_dbs.elements,
 	   sizeof(ACL_DB),(qsort_cmp) acl_compare);
 }
@@ -1337,7 +1337,7 @@ ulong acl_get(const char *host, const char *ip,
   acl_entry *entry;
   DBUG_ENTER("acl_get");
 
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
   end=strmov((tmp_db=strmov(strmov(key, ip ? ip : "")+1,user)+1),db);
   if (lower_case_table_names)
   {
@@ -1349,7 +1349,7 @@ ulong acl_get(const char *host, const char *ip,
                                                               key_length)))
   {
     db_access=entry->access;
-    VOID(pthread_mutex_unlock(&acl_cache->lock));
+    pthread_mutex_unlock(&acl_cache->lock);
     DBUG_PRINT("exit", ("access: 0x%lx", db_access));
     DBUG_RETURN(db_access);
   }
@@ -1403,7 +1403,7 @@ exit:
     memcpy((uchar*) entry->key,key,key_length);
     acl_cache->add(entry);
   }
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   DBUG_PRINT("exit", ("access: 0x%lx", db_access & host_access));
   DBUG_RETURN(db_access & host_access);
 }
@@ -1419,10 +1419,10 @@ exit:
 static void init_check_host(void)
 {
   DBUG_ENTER("init_check_host");
-  VOID(my_init_dynamic_array(&acl_wild_hosts,sizeof(struct acl_host_and_ip),
-			  acl_users.elements,1));
-  VOID(hash_init(&acl_check_hosts,system_charset_info,acl_users.elements,0,0,
-		 (hash_get_key) check_get_key,0,0));
+  (void) my_init_dynamic_array(&acl_wild_hosts,sizeof(struct acl_host_and_ip),
+			  acl_users.elements,1);
+  (void) hash_init(&acl_check_hosts,system_charset_info,acl_users.elements,0,0,
+		 (hash_get_key) check_get_key,0,0);
   if (!allow_all_hosts)
   {
     for (uint i=0 ; i < acl_users.elements ; i++)
@@ -1483,12 +1483,12 @@ bool acl_check_host(const char *host, const char *ip)
 {
   if (allow_all_hosts)
     return 0;
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   if (host && hash_search(&acl_check_hosts,(uchar*) host,strlen(host)) ||
       ip && hash_search(&acl_check_hosts,(uchar*) ip, strlen(ip)))
   {
-    VOID(pthread_mutex_unlock(&acl_cache->lock));
+    pthread_mutex_unlock(&acl_cache->lock);
     return 0;					// Found host
   }
   for (uint i=0 ; i < acl_wild_hosts.elements ; i++)
@@ -1496,11 +1496,11 @@ bool acl_check_host(const char *host, const char *ip)
     acl_host_and_ip *acl=dynamic_element(&acl_wild_hosts,i,acl_host_and_ip*);
     if (compare_hostname(acl, host, ip))
     {
-      VOID(pthread_mutex_unlock(&acl_cache->lock));
+      pthread_mutex_unlock(&acl_cache->lock);
       return 0;					// Host ok
     }
   }
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   return 1;					// Host is not allowed
 }
 
@@ -1614,11 +1614,11 @@ bool change_password(THD *thd, const char *host, const char *user,
   if (!(table= open_ltable(thd, &tables, TL_WRITE, 0)))
     DBUG_RETURN(1);
 
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
   ACL_USER *acl_user;
   if (!(acl_user= find_acl_user(host, user, TRUE)))
   {
-    VOID(pthread_mutex_unlock(&acl_cache->lock));
+    pthread_mutex_unlock(&acl_cache->lock);
     my_message(ER_PASSWORD_NO_MATCH, ER(ER_PASSWORD_NO_MATCH), MYF(0));
     goto end;
   }
@@ -1630,12 +1630,12 @@ bool change_password(THD *thd, const char *host, const char *user,
 			acl_user->user ? acl_user->user : "",
 			new_password, new_password_len))
   {
-    VOID(pthread_mutex_unlock(&acl_cache->lock)); /* purecov: deadcode */
+    pthread_mutex_unlock(&acl_cache->lock); /* purecov: deadcode */
     goto end;
   }
 
   acl_cache->clear(1);				// Clear locked hostname cache
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   result= 0;
   if (mysql_bin_log.is_open())
   {
@@ -1675,9 +1675,9 @@ bool is_acl_user(const char *host, const char *user)
   if (!initialized)
     return TRUE;
 
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
   res= find_acl_user(host, user, TRUE) != NULL;
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   return res;
 }
 
@@ -3427,7 +3427,7 @@ bool mysql_grant(THD *thd, const char *db, List <LEX_USER> &list,
 
   /* go through users in user_list */
   rw_wrlock(&LOCK_grant);
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
   grant_version++;
 
   int result=0;
@@ -3459,7 +3459,7 @@ bool mysql_grant(THD *thd, const char *db, List <LEX_USER> &list,
       }
     }
   }
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
 
   if (!result)
   {
@@ -4601,12 +4601,12 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
   }
 
   rw_rdlock(&LOCK_grant);
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   acl_user= find_acl_user(lex_user->host.str, lex_user->user.str, TRUE);
   if (!acl_user)
   {
-    VOID(pthread_mutex_unlock(&acl_cache->lock));
+    pthread_mutex_unlock(&acl_cache->lock);
     rw_unlock(&LOCK_grant);
 
     my_error(ER_NONEXISTING_GRANT, MYF(0),
@@ -4624,7 +4624,7 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
   if (protocol->send_fields(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
   {
-    VOID(pthread_mutex_unlock(&acl_cache->lock));
+    pthread_mutex_unlock(&acl_cache->lock);
     rw_unlock(&LOCK_grant);
 
     DBUG_RETURN(TRUE);
@@ -4935,7 +4935,7 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
   }
 
 end:
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   rw_unlock(&LOCK_grant);
 
   my_eof(thd);
@@ -5724,7 +5724,7 @@ bool mysql_create_user(THD *thd, List <LEX_USER> &list)
     DBUG_RETURN(result != 1);
 
   rw_wrlock(&LOCK_grant);
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   while ((tmp_user_name= user_list++))
   {
@@ -5754,7 +5754,7 @@ bool mysql_create_user(THD *thd, List <LEX_USER> &list)
     }
   }
 
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
 
   if (result)
     my_error(ER_CANNOT_USER, MYF(0), "CREATE USER", wrong_users.c_ptr_safe());
@@ -5803,7 +5803,7 @@ bool mysql_drop_user(THD *thd, List <LEX_USER> &list)
     DBUG_RETURN(result != 1);
 
   rw_wrlock(&LOCK_grant);
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   while ((tmp_user_name= user_list++))
   {
@@ -5825,7 +5825,7 @@ bool mysql_drop_user(THD *thd, List <LEX_USER> &list)
   /* Rebuild 'acl_check_hosts' since 'acl_users' has been modified */
   rebuild_check_host();
 
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
 
   if (result)
     my_error(ER_CANNOT_USER, MYF(0), "DROP USER", wrong_users.c_ptr_safe());
@@ -5875,7 +5875,7 @@ bool mysql_rename_user(THD *thd, List <LEX_USER> &list)
     DBUG_RETURN(result != 1);
 
   rw_wrlock(&LOCK_grant);
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   while ((tmp_user_from= user_list++))
   {
@@ -5909,7 +5909,7 @@ bool mysql_rename_user(THD *thd, List <LEX_USER> &list)
   /* Rebuild 'acl_check_hosts' since 'acl_users' has been modified */
   rebuild_check_host();
 
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
 
   if (result)
     my_error(ER_CANNOT_USER, MYF(0), "RENAME USER", wrong_users.c_ptr_safe());
@@ -5956,7 +5956,7 @@ bool mysql_revoke_all(THD *thd,  List <LEX_USER> &list)
     DBUG_RETURN(result != 1);
 
   rw_wrlock(&LOCK_grant);
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   LEX_USER *lex_user, *tmp_lex_user;
   List_iterator <LEX_USER> user_list(list);
@@ -6095,7 +6095,7 @@ bool mysql_revoke_all(THD *thd,  List <LEX_USER> &list)
     } while (revoked);
   }
 
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
 
   write_bin_log(thd, FALSE, thd->query, thd->query_length);
 
@@ -6196,7 +6196,7 @@ bool sp_revoke_privileges(THD *thd, const char *sp_db, const char *sp_name,
   thd->push_internal_handler(&error_handler);
 
   rw_wrlock(&LOCK_grant);
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   /*
     This statement will be replicated as a statement, even when using
@@ -6234,7 +6234,7 @@ bool sp_revoke_privileges(THD *thd, const char *sp_db, const char *sp_name,
     }
   } while (revoked);
 
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   rw_unlock(&LOCK_grant);
   close_thread_tables(thd);
 
@@ -6275,7 +6275,7 @@ int sp_grant_privileges(THD *thd, const char *sp_db, const char *sp_name,
 
   combo->user.str= sctx->user;
 
-  VOID(pthread_mutex_lock(&acl_cache->lock));
+  pthread_mutex_lock(&acl_cache->lock);
 
   if ((au= find_acl_user(combo->host.str=(char*)sctx->host_or_ip,combo->user.str,FALSE)))
     goto found_acl;
@@ -6286,11 +6286,11 @@ int sp_grant_privileges(THD *thd, const char *sp_db, const char *sp_name,
   if((au= find_acl_user(combo->host.str=(char*)"%", combo->user.str, FALSE)))
     goto found_acl;
 
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
   DBUG_RETURN(TRUE);
 
  found_acl:
-  VOID(pthread_mutex_unlock(&acl_cache->lock));
+  pthread_mutex_unlock(&acl_cache->lock);
 
   bzero((char*)tables, sizeof(TABLE_LIST));
   user_list.empty();

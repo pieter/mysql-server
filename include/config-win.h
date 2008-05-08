@@ -33,6 +33,7 @@ functions */
 
 #include <sys/locking.h>
 #include <winsock2.h>
+#include <Ws2tcpip.h>
 #include <math.h>			/* Because of rint() */
 #include <fcntl.h>
 #include <io.h>
@@ -94,6 +95,7 @@ functions */
 #define S_IROTH		S_IREAD		/* for my_lib */
 
 /* Winsock2 constant (Vista SDK and later)*/
+#define IPPROTO_IPV6 41
 #ifndef IPV6_V6ONLY
 #define IPV6_V6ONLY 27
 #endif

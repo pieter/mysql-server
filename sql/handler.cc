@@ -237,7 +237,7 @@ handler *get_new_handler(TABLE_SHARE *share, MEM_ROOT *alloc,
 {
   handler *file;
   DBUG_ENTER("get_new_handler");
-  DBUG_PRINT("enter", ("alloc: 0x%lx", (long) alloc));
+  DBUG_PRINT("enter", ("alloc: %p", alloc));
 
   if (db_type && db_type->state == SHOW_OPTION_YES && db_type->create)
   {
@@ -2426,8 +2426,8 @@ int handler::update_auto_increment()
 void handler::column_bitmaps_signal()
 {
   DBUG_ENTER("column_bitmaps_signal");
-  DBUG_PRINT("info", ("read_set: 0x%lx  write_set: 0x%lx", (long) table->read_set,
-                      (long) table->write_set));
+  DBUG_PRINT("info", ("read_set: %p  write_set: %p", table->read_set,
+                      table->write_set));
   DBUG_VOID_RETURN;
 }
 
@@ -2851,7 +2851,7 @@ static bool update_frm_version(TABLE *table)
   }
 err:
   if (file >= 0)
-    VOID(my_close(file,MYF(MY_WME)));
+    (void) my_close(file,MYF(MY_WME));
   DBUG_RETURN(result);
 }
 
@@ -3501,7 +3501,7 @@ int ha_create_table(THD *thd, const char *path,
   name= check_lowercase_names(table.file, share.path.str, name_buff);
 
   error= table.file->ha_create(name, &table, create_info);
-  VOID(closefrm(&table, 0));
+  (void) closefrm(&table, 0);
   if (error)
   {
     strxmov(name_buff, db, ".", table_name, NullS);
@@ -3572,7 +3572,7 @@ int ha_create_table_from_engine(THD* thd, const char *db, const char *name)
 
   check_lowercase_names(table.file, path, path);
   error=table.file->ha_create(path, &table, &create_info);
-  VOID(closefrm(&table, 1));
+  (void) closefrm(&table, 1);
 
   DBUG_RETURN(error != 0);
 }
@@ -5187,10 +5187,10 @@ static bool check_table_binlog_row_based(THD *thd, TABLE *table)
 static int write_locked_table_maps(THD *thd)
 {
   DBUG_ENTER("write_locked_table_maps");
-  DBUG_PRINT("enter", ("thd: 0x%lx  thd->lock: 0x%lx  thd->locked_tables: 0x%lx  "
-                       "thd->extra_lock: 0x%lx",
-                       (long) thd, (long) thd->lock,
-                       (long) thd->locked_tables, (long) thd->extra_lock));
+  DBUG_PRINT("enter", ("thd: %p  thd->lock: %p  thd->locked_tables: %p  "
+                       "thd->extra_lock: %p",
+                       thd, thd->lock,
+                       thd->locked_tables, thd->extra_lock));
 
   if (thd->get_binlog_table_maps() == 0)
   {

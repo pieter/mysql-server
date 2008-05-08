@@ -128,7 +128,7 @@ bool
 Event_queue::init_queue(THD *thd)
 {
   DBUG_ENTER("Event_queue::init_queue");
-  DBUG_PRINT("enter", ("this: 0x%lx", (long) this));
+  DBUG_PRINT("enter", ("this: %p", this));
 
   LOCK_QUEUE_DATA();
 
@@ -194,7 +194,7 @@ Event_queue::create_event(THD *thd, Event_queue_element *new_element,
                           bool *created)
 {
   DBUG_ENTER("Event_queue::create_event");
-  DBUG_PRINT("enter", ("thd: 0x%lx et=%s.%s", (long) thd,
+  DBUG_PRINT("enter", ("thd: %p et=%s.%s", thd,
              new_element->dbname.str, new_element->name.str));
 
   /* Will do nothing if the event is disabled */
@@ -206,7 +206,7 @@ Event_queue::create_event(THD *thd, Event_queue_element *new_element,
     DBUG_RETURN(FALSE);
   }
 
-  DBUG_PRINT("info", ("new event in the queue: 0x%lx", (long) new_element));
+  DBUG_PRINT("info", ("new event in the queue: %p", new_element));
 
   LOCK_QUEUE_DATA();
   *created= (queue_insert_safe(&queue, (uchar *) new_element) == FALSE);
@@ -235,7 +235,7 @@ Event_queue::update_event(THD *thd, LEX_STRING dbname, LEX_STRING name,
                           Event_queue_element *new_element)
 {
   DBUG_ENTER("Event_queue::update_event");
-  DBUG_PRINT("enter", ("thd: 0x%lx  et=[%s.%s]", (long) thd, dbname.str, name.str));
+  DBUG_PRINT("enter", ("thd: %p  et=[%s.%s]", thd, dbname.str, name.str));
 
   if ((new_element->status == Event_queue_element::DISABLED) ||
       (new_element->status == Event_queue_element::SLAVESIDE_DISABLED))
@@ -257,7 +257,7 @@ Event_queue::update_event(THD *thd, LEX_STRING dbname, LEX_STRING name,
   /* If not disabled event */
   if (new_element)
   {
-    DBUG_PRINT("info", ("new event in the queue: 0x%lx", (long) new_element));
+    DBUG_PRINT("info", ("new event in the queue: %p", new_element));
     queue_insert_safe(&queue, (uchar *) new_element);
     pthread_cond_broadcast(&COND_queue_state);
   }
@@ -283,7 +283,7 @@ void
 Event_queue::drop_event(THD *thd, LEX_STRING dbname, LEX_STRING name)
 {
   DBUG_ENTER("Event_queue::drop_event");
-  DBUG_PRINT("enter", ("thd: 0x%lx  db :%s  name: %s", (long) thd,
+  DBUG_PRINT("enter", ("thd: %p  db :%s  name: %s", thd,
                        dbname.str, name.str));
 
   LOCK_QUEUE_DATA();
@@ -524,7 +524,7 @@ Event_queue::dbug_dump_queue(time_t now)
   for (i = 0; i < queue.elements; i++)
   {
     et= ((Event_queue_element*)queue_element(&queue, i));
-    DBUG_PRINT("info", ("et: 0x%lx  name: %s.%s", (long) et,
+    DBUG_PRINT("info", ("et: %p  name: %s.%s", et,
                         et->dbname.str, et->name.str));
     DBUG_PRINT("info", ("exec_at: %lu  starts: %lu  ends: %lu  execs_so_far: %u  "
                         "expr: %ld  et.exec_at: %ld  now: %ld  "
@@ -648,8 +648,8 @@ Event_queue::get_top_for_execution_if_time(THD *thd,
 end:
   UNLOCK_QUEUE_DATA();
 
-  DBUG_PRINT("info", ("returning %d  et_new: 0x%lx ",
-                      ret, (long) *event_name));
+  DBUG_PRINT("info", ("returning %d  et_new: %p ",
+                      ret, *event_name));
 
   if (*event_name)
     DBUG_PRINT("info", ("db: %s  name: %s",

@@ -86,8 +86,8 @@ size_t vio_ssl_read(Vio *vio, uchar* buf, size_t size)
 {
   size_t r;
   DBUG_ENTER("vio_ssl_read");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %u  ssl: 0x%lx",
-		       vio->sd, (long) buf, (uint) size, (long) vio->ssl_arg));
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %u  ssl: %p",
+		       vio->sd, buf, (uint) size, vio->ssl_arg));
 
   r= SSL_read((SSL*) vio->ssl_arg, buf, size);
 #ifndef DBUG_OFF
@@ -103,8 +103,8 @@ size_t vio_ssl_write(Vio *vio, const uchar* buf, size_t size)
 {
   size_t r;
   DBUG_ENTER("vio_ssl_write");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %u", vio->sd,
-                       (long) buf, (uint) size));
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %u", vio->sd,
+                       buf, (uint) size));
 
   r= SSL_write((SSL*) vio->ssl_arg, buf, size);
 #ifndef DBUG_OFF
@@ -181,8 +181,8 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   my_bool was_blocking;
 
   DBUG_ENTER("ssl_do");
-  DBUG_PRINT("enter", ("ptr: 0x%lx, sd: %d  ctx: 0x%lx",
-                       (long) ptr, vio->sd, (long) ptr->ssl_context));
+  DBUG_PRINT("enter", ("ptr: %p, sd: %d  ctx: %p",
+                       ptr, vio->sd, ptr->ssl_context));
 
   /* Set socket to blocking if not already set */
   vio_blocking(vio, 1, &was_blocking);
@@ -194,7 +194,7 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     vio_blocking(vio, was_blocking, &unused);
     DBUG_RETURN(1);
   }
-  DBUG_PRINT("info", ("ssl: 0x%lx timeout: %ld", (long) ssl, timeout));
+  DBUG_PRINT("info", ("ssl: %p timeout: %ld", ssl, timeout));
   SSL_clear(ssl);
   SSL_SESSION_set_timeout(SSL_get_session(ssl), timeout);
   SSL_set_fd(ssl, vio->sd);

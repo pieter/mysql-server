@@ -129,7 +129,7 @@ int pthread_create(pthread_t *thread_id, pthread_attr_t *attr,
 	       ("Can't create thread to handle request (error %d)",error));
     DBUG_RETURN(error ? error : -1);
   }
-  VOID(SetThreadPriority(hThread, priority)) ;
+  (void) SetThreadPriority(hThread, priority);
   DBUG_RETURN(0);
 }
 

@@ -27,8 +27,8 @@ int mi_close(register MI_INFO *info)
   int error=0,flag;
   MYISAM_SHARE *share=info->s;
   DBUG_ENTER("mi_close");
-  DBUG_PRINT("enter",("base: 0x%lx  reopen: %u  locks: %u",
-		      (long) info, (uint) share->reopen,
+  DBUG_PRINT("enter",("base: %p  reopen: %u  locks: %u",
+		      info, (uint) share->reopen,
                       (uint) share->tot_locks));
 
   pthread_mutex_lock(&THR_LOCK_myisam);
@@ -92,13 +92,13 @@ int mi_close(register MI_INFO *info)
     }
 #ifdef THREAD
     thr_lock_delete(&share->lock);
-    VOID(pthread_mutex_destroy(&share->intern_lock));
+    pthread_mutex_destroy(&share->intern_lock);
     {
       int i,keys;
       keys = share->state.header.keys;
-      VOID(rwlock_destroy(&share->mmap_lock));
+      (void) rwlock_destroy(&share->mmap_lock);
       for(i=0; i<keys; i++) {
-	VOID(rwlock_destroy(&share->key_root_lock[i]));
+	(void) rwlock_destroy(&share->key_root_lock[i]);
       }
     }
 #endif

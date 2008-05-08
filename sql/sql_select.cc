@@ -4741,7 +4741,7 @@ add_key_part(DYNAMIC_ARRAY *keyuse_array,KEY_FIELD *key_field)
           keyuse.null_rejecting= key_field->null_rejecting;
           keyuse.cond_guard= key_field->cond_guard;
           keyuse.sj_pred_no= key_field->sj_pred_no;
-	  VOID(insert_dynamic(keyuse_array,(uchar*) &keyuse));
+	  (void) insert_dynamic(keyuse_array,(uchar*) &keyuse);
 	}
       }
     }
@@ -4809,7 +4809,7 @@ add_ft_keys(DYNAMIC_ARRAY *keyuse_array,
   keyuse.optimize= 0;
   keyuse.keypart_map= 0;
   keyuse.sj_pred_no= UINT_MAX;
-  VOID(insert_dynamic(keyuse_array,(uchar*) &keyuse));
+  (void) insert_dynamic(keyuse_array,(uchar*) &keyuse);
 }
 
 
@@ -5040,7 +5040,7 @@ update_ref_and_keys(THD *thd, DYNAMIC_ARRAY *keyuse,JOIN_TAB *join_tab,
 	  (qsort_cmp) sort_keyuse);
 
     bzero((char*) &key_end,sizeof(key_end));    /* Add for easy testing */
-    VOID(insert_dynamic(keyuse,(uchar*) &key_end));
+    (void) insert_dynamic(keyuse,(uchar*) &key_end);
 
     use=save_pos=dynamic_element(keyuse,0,KEYUSE*);
     prev= &key_end;
@@ -5075,7 +5075,7 @@ update_ref_and_keys(THD *thd, DYNAMIC_ARRAY *keyuse,JOIN_TAB *join_tab,
       save_pos++;
     }
     i=(uint) (save_pos-(KEYUSE*) keyuse->buffer);
-    VOID(set_dynamic(keyuse,(uchar*) &key_end,i));
+    (void) set_dynamic(keyuse,(uchar*) &key_end,i);
     keyuse->elements=i;
   }
   DBUG_EXECUTE("opt", print_keyuse_array(keyuse););
@@ -7739,8 +7739,8 @@ make_join_select(JOIN *join,SQL_SELECT *select,COND *cond)
             tmp_cond= new Item_func_trig_cond(tmp_cond,
                                               &first_inner_tab->
                                               not_null_compl);
-            DBUG_PRINT("info", ("Item_func_trig_cond 0x%lx",
-                                (ulong) tmp_cond));
+            DBUG_PRINT("info", ("Item_func_trig_cond %p",
+                                tmp_cond));
             if (tmp_cond)
               tmp_cond->quick_fix_field();
 	    /* Add the predicate to other pushed down predicates */
@@ -7748,8 +7748,8 @@ make_join_select(JOIN *join,SQL_SELECT *select,COND *cond)
             cond_tab->select_cond= !cond_tab->select_cond ? tmp_cond :
 	                          new Item_cond_and(cond_tab->select_cond,
                                                     tmp_cond);
-            DBUG_PRINT("info", ("Item_cond_and 0x%lx",
-                                (ulong)cond_tab->select_cond));
+            DBUG_PRINT("info", ("Item_cond_and %p",
+                                cond_tab->select_cond));
             if (!cond_tab->select_cond)
 	      DBUG_RETURN(1);
             cond_tab->select_cond->quick_fix_field();
@@ -10793,7 +10793,7 @@ remove_eq_conds(THD *thd, COND *cond, Item::cond_result *cond_value)
 	li.remove();
       else if (item != new_item)
       {
-	VOID(li.replace(new_item));
+	(void) li.replace(new_item);
 	should_fix_fields=1;
       }
       if (*cond_value == Item::COND_UNDEF)
@@ -13039,7 +13039,7 @@ do_select(JOIN *join,List<Item> *fields,TABLE *table,Procedure *procedure)
 
   if (table)
   {
-    VOID(table->file->extra(HA_EXTRA_WRITE_CACHE));
+    (void) table->file->extra(HA_EXTRA_WRITE_CACHE);
     empty_record(table);
     if (table->group && join->tmp_table_param.sum_func_count &&
         table->s->keys && !table->file->inited)
@@ -13471,7 +13471,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab,
     join->thd->send_kill_message();
     return NESTED_LOOP_KILLED;               /* purecov: inspected */
   }
-  DBUG_PRINT("info", ("select cond 0x%lx", (ulong)select_cond));
+  DBUG_PRINT("info", ("select cond %p", select_cond));
   if (!select_cond || select_cond->val_int())
   {
     /*
@@ -14548,7 +14548,7 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
       if (end_of_records)
 	DBUG_RETURN(NESTED_LOOP_OK);
       join->first_record=1;
-      VOID(test_if_item_cache_changed(join->group_fields));
+      (void) test_if_item_cache_changed(join->group_fields);
     }
     if (idx < (int) join->send_group_parts)
     {
@@ -14816,7 +14816,7 @@ end_write_group(JOIN *join, JOIN_TAB *join_tab __attribute__((unused)),
       if (end_of_records)
 	DBUG_RETURN(NESTED_LOOP_OK);
       join->first_record=1;
-      VOID(test_if_item_cache_changed(join->group_fields));
+      (void) test_if_item_cache_changed(join->group_fields);
     }
     if (idx < (int) join->send_group_parts)
     {
@@ -18452,8 +18452,8 @@ void select_describe(JOIN *join, bool need_tmp_table, bool need_order,
   CHARSET_INFO *cs= system_charset_info;
   int quick_type;
   DBUG_ENTER("select_describe");
-  DBUG_PRINT("info", ("Select 0x%lx, type %s, message %s",
-		      (ulong)join->select_lex, join->select_lex->type,
+  DBUG_PRINT("info", ("Select %p, type %s, message %s",
+		      join->select_lex, join->select_lex->type,
 		      message ? message : "NULL"));
   /* Don't log this into the slow query log */
   thd->server_status&= ~(SERVER_QUERY_NO_INDEX_USED | SERVER_QUERY_NO_GOOD_INDEX_USED);

@@ -101,7 +101,7 @@ int mi_delete(MI_INFO *info,const uchar *record)
 
   mi_sizestore(lastpos,info->lastpos);
   myisam_log_command(MI_LOG_DELETE,info,(uchar*) lastpos,sizeof(lastpos),0);
-  VOID(_mi_writeinfo(info,WRITEINFO_UPDATE_KEYFILE));
+  (void) _mi_writeinfo(info,WRITEINFO_UPDATE_KEYFILE);
   allow_break();			/* Allow SIGHUP & SIGINT */
   if (info->invalidator != 0)
   {
@@ -120,7 +120,7 @@ err:
     mi_print_error(info->s, HA_ERR_CRASHED);
     mi_mark_crashed(info);		/* mark table crashed */
   }
-  VOID(_mi_writeinfo(info,WRITEINFO_UPDATE_KEYFILE));
+  (void) _mi_writeinfo(info,WRITEINFO_UPDATE_KEYFILE);
   info->update|=HA_STATE_WRITTEN;	/* Buffer changed */
   allow_break();			/* Allow SIGHUP & SIGINT */
   my_errno=save_errno;
@@ -409,8 +409,8 @@ static int del(register MI_INFO *info, register MI_KEYDEF *keyinfo, uchar *key,
   MYISAM_SHARE *share=info->s;
   MI_KEY_PARAM s_temp;
   DBUG_ENTER("del");
-  DBUG_PRINT("enter",("leaf_page: %ld  keypos: 0x%lx", (long) leaf_page,
-		      (ulong) keypos));
+  DBUG_PRINT("enter",("leaf_page: %ld  keypos: %p", (long) leaf_page,
+		      keypos));
   DBUG_DUMP("leaf_buff",(uchar*) leaf_buff,mi_getint(leaf_buff));
 
   endpos=leaf_buff+mi_getint(leaf_buff);
@@ -515,8 +515,8 @@ static int underflow(register MI_INFO *info, register MI_KEYDEF *keyinfo,
   MI_KEY_PARAM s_temp;
   MYISAM_SHARE *share=info->s;
   DBUG_ENTER("underflow");
-  DBUG_PRINT("enter",("leaf_page: %ld  keypos: 0x%lx",(long) leaf_page,
-		      (ulong) keypos));
+  DBUG_PRINT("enter",("leaf_page: %ld  keypos: %p",(long) leaf_page,
+		      keypos));
   DBUG_DUMP("anc_buff",(uchar*) anc_buff,mi_getint(anc_buff));
   DBUG_DUMP("leaf_buff",(uchar*) leaf_buff,mi_getint(leaf_buff));
 
@@ -596,8 +596,8 @@ static int underflow(register MI_INFO *info, register MI_KEYDEF *keyinfo,
     else
     {						/* Page is full */
       endpos=anc_buff+anc_length;
-      DBUG_PRINT("test",("anc_buff: 0x%lx  endpos: 0x%lx",
-                         (long) anc_buff, (long) endpos));
+      DBUG_PRINT("test",("anc_buff: %p  endpos: %p",
+                         anc_buff, endpos));
       if (keypos != anc_buff+2+key_reflength &&
 	  !_mi_get_last_key(info,keyinfo,anc_buff,anc_key,keypos,&length))
 	goto err;
@@ -775,7 +775,7 @@ static uint remove_key(MI_KEYDEF *keyinfo, uint nod_flag,
   int s_length;
   uchar *start;
   DBUG_ENTER("remove_key");
-  DBUG_PRINT("enter",("keypos: 0x%lx  page_end: 0x%lx",(long) keypos, (long) page_end));
+  DBUG_PRINT("enter",("keypos: %p  page_end: %p",keypos, page_end));
 
   start=keypos;
   if (!(keyinfo->flag &

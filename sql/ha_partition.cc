@@ -641,7 +641,7 @@ int ha_partition::drop_partitions(THD *thd, const char *path)
         part_elem->part_state= PART_IS_DROPPED;
     }
   } while (++i < no_parts);
-  VOID(sync_ddl_log());
+  (void) sync_ddl_log();
   DBUG_RETURN(error);
 }
 
@@ -735,7 +735,7 @@ int ha_partition::rename_partitions(THD *thd, const char *path)
         delete file;
       }
     } while (++i < temp_partitions);
-    VOID(sync_ddl_log());
+    (void) sync_ddl_log();
   }
   i= 0;
   do
@@ -788,7 +788,7 @@ int ha_partition::rename_partitions(THD *thd, const char *path)
               error= ret_error;
             else if (deactivate_ddl_log_entry(sub_elem->log_entry->entry_pos))
               error= 1;
-            VOID(sync_ddl_log());
+            (void) sync_ddl_log();
             delete file;
           }
           file= get_new_handler(0, thd->mem_root,
@@ -823,7 +823,7 @@ int ha_partition::rename_partitions(THD *thd, const char *path)
             error= ret_error;
           else if (deactivate_ddl_log_entry(part_elem->log_entry->entry_pos))
             error= 1;
-          VOID(sync_ddl_log());
+          (void) sync_ddl_log();
           delete file;
         }
         file= get_new_handler(0, thd->mem_root,
@@ -844,7 +844,7 @@ int ha_partition::rename_partitions(THD *thd, const char *path)
       }
     }
   } while (++i < no_parts);
-  VOID(sync_ddl_log());
+  (void) sync_ddl_log();
   DBUG_RETURN(error);
 }
 
@@ -1186,7 +1186,7 @@ int ha_partition::prepare_new_partition(TABLE *tbl,
   DBUG_RETURN(0);
 error:
   if (create_flag)
-    VOID(file->ha_delete_table(part_name));
+    (void) file->ha_delete_table(part_name);
   DBUG_RETURN(error);
 }
 
@@ -1764,7 +1764,7 @@ create_error:
   {
     create_partition_name(from_buff, from, name_buffer_ptr, NORMAL_PART_NAME,
                           FALSE);
-    VOID((*file)->ha_delete_table((const char*) from_buff));
+    (void) (*file)->ha_delete_table((const char*) from_buff);
     name_buffer_ptr= strend(name_buffer_ptr) + 1;
   }
   DBUG_RETURN(error);
@@ -2037,7 +2037,7 @@ bool ha_partition::create_handler_file(const char *name)
   {
     result= my_write(file, (uchar *) file_buffer, tot_len_byte,
                      MYF(MY_WME | MY_NABP)) != 0;
-    VOID(my_close(file, MYF(0)));
+    (void) my_close(file, MYF(0));
   }
   else
     result= TRUE;
@@ -2223,7 +2223,7 @@ bool ha_partition::get_from_handler_file(const char *name, MEM_ROOT *mem_root)
   len_bytes= 4 * len_words;
   if (!(file_buffer= (char*) my_malloc(len_bytes, MYF(0))))
     goto err1;
-  VOID(my_seek(file, 0, MY_SEEK_SET, MYF(0)));
+  my_seek(file, 0, MY_SEEK_SET, MYF(0));
   if (my_read(file, (uchar *) file_buffer, len_bytes, MYF(MY_NABP)))
     goto err2;
 
@@ -2245,7 +2245,7 @@ bool ha_partition::get_from_handler_file(const char *name, MEM_ROOT *mem_root)
   if (len_words != (tot_partition_words + tot_name_words + 4))
     goto err3;
   name_buffer_ptr= file_buffer + 16 + 4 * tot_partition_words;
-  VOID(my_close(file, MYF(0)));
+  (void) my_close(file, MYF(0));
   m_file_buffer= file_buffer;          // Will be freed in clear_handler_file()
   m_name_buffer_ptr= name_buffer_ptr;
   
@@ -2270,7 +2270,7 @@ err3:
 err2:
   my_free(file_buffer, MYF(0));
 err1:
-  VOID(my_close(file, MYF(0)));
+  (void) my_close(file, MYF(0));
   DBUG_RETURN(TRUE);
 }
 
@@ -3125,8 +3125,8 @@ int ha_partition::rnd_init(bool scan)
   }
 
   /* Now we see what the index of our first important partition is */
-  DBUG_PRINT("info", ("m_part_info->used_partitions: 0x%lx",
-                      (long) m_part_info->used_partitions.bitmap));
+  DBUG_PRINT("info", ("m_part_info->used_partitions: %p",
+                      m_part_info->used_partitions.bitmap));
   part_id= bitmap_get_first_set(&(m_part_info->used_partitions));
   DBUG_PRINT("info", ("m_part_spec.start_part %d", part_id));
 
@@ -5250,9 +5250,9 @@ void ha_partition::late_extra_cache(uint partition_id)
     DBUG_VOID_RETURN;
   file= m_file[partition_id];
   if (m_extra_cache_size == 0)
-    VOID(file->extra(HA_EXTRA_CACHE));
+    (void) file->extra(HA_EXTRA_CACHE);
   else
-    VOID(file->extra_opt(HA_EXTRA_CACHE, m_extra_cache_size));
+    (void) file->extra_opt(HA_EXTRA_CACHE, m_extra_cache_size);
   DBUG_VOID_RETURN;
 }
 
@@ -5276,7 +5276,7 @@ void ha_partition::late_extra_no_cache(uint partition_id)
   if (!m_extra_cache)
     DBUG_VOID_RETURN;
   file= m_file[partition_id];
-  VOID(file->extra(HA_EXTRA_NO_CACHE));
+  (void) file->extra(HA_EXTRA_NO_CACHE);
   DBUG_VOID_RETURN;
 }
 
@@ -5932,7 +5932,7 @@ static PARTITION_SHARE *get_share(const char *table_name, TABLE *table)
     if (!partition_init)
     {
       partition_init++;
-      VOID(pthread_mutex_init(&partition_mutex, MY_MUTEX_INIT_FAST));
+      pthread_mutex_init(&partition_mutex, MY_MUTEX_INIT_FAST);
       (void) hash_init(&partition_open_tables, system_charset_info, 32, 0, 0,
 		       (hash_get_key) partition_get_key, 0, 0);
     }

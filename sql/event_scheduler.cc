@@ -289,7 +289,7 @@ Event_worker_thread::run(THD *thd, Event_queue_element_for_exec *event)
   res= post_init_event_thread(thd);
 
   DBUG_ENTER("Event_worker_thread::run");
-  DBUG_PRINT("info", ("Time is %ld, THD: 0x%lx", (long) my_time(0), (long) thd));
+  DBUG_PRINT("info", ("Time is %ld, THD: %p", (long) my_time(0), thd));
 
   if (res)
     goto end;
@@ -415,7 +415,7 @@ Event_scheduler::start()
   scheduler_thd= new_thd;
   DBUG_PRINT("info", ("Setting state go RUNNING"));
   state= RUNNING;
-  DBUG_PRINT("info", ("Forking new thread for scheduler. THD: 0x%lx", (long) new_thd));
+  DBUG_PRINT("info", ("Forking new thread for scheduler. THD: %p", new_thd));
   if (pthread_create(&th, &connection_attrib, event_scheduler_thread,
                     (void*)scheduler_param_value))
   {
@@ -480,7 +480,7 @@ Event_scheduler::run(THD *thd)
     }
 
     DBUG_PRINT("info", ("get_top_for_execution_if_time returned "
-                        "event_name=0x%lx", (long) event_name));
+                        "event_name=%p", event_name));
     if (event_name)
     {
       if ((res= execute_top(event_name)))
@@ -549,7 +549,7 @@ Event_scheduler::execute_top(Event_queue_element_for_exec *event_name)
 
   ++started_events;
 
-  DBUG_PRINT("info", ("Event is in THD: 0x%lx", (long) new_thd));
+  DBUG_PRINT("info", ("Event is in THD: %p", new_thd));
   DBUG_RETURN(FALSE);
 
 error:
@@ -611,7 +611,7 @@ Event_scheduler::stop()
 {
   THD *thd= current_thd;
   DBUG_ENTER("Event_scheduler::stop");
-  DBUG_PRINT("enter", ("thd: 0x%lx", (long) thd));
+  DBUG_PRINT("enter", ("thd: %p", thd));
 
   LOCK_DATA();
   DBUG_PRINT("info", ("state before action %s", scheduler_states_names[state].str));

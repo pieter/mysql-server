@@ -22,10 +22,7 @@
 #include <m_string.h>
 #include <violite.h>
 
-/* Windows lacks a netdb.h */
-#ifdef __WIN__
-#include <Ws2tcpip.h>
-#else
+#ifndef __WIN__
 #include <sys/socket.h>
 #include <netdb.h>
 #endif

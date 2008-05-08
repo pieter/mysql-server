@@ -862,16 +862,16 @@ static void close_connections(void)
   (void) pthread_mutex_lock(&LOCK_manager);
   if (manager_thread_in_use)
   {
-    DBUG_PRINT("quit", ("killing manager thread: 0x%lx",
-                        (ulong)manager_thread));
+    DBUG_PRINT("quit", ("killing manager thread: 0x%llx",
+                        (ulonglong)manager_thread));
    (void) pthread_cond_signal(&COND_manager);
   }
   (void) pthread_mutex_unlock(&LOCK_manager);
 
   /* kill connection thread */
 #if !defined(__WIN__) && !defined(__NETWARE__)
-  DBUG_PRINT("quit", ("waiting for select thread: 0x%lx",
-                      (ulong) select_thread));
+  DBUG_PRINT("quit", ("waiting for select thread: 0x%llx",
+                      (ulonglong)select_thread));
   (void) pthread_mutex_lock(&LOCK_thread_count);
 
   while (select_thread_in_use)
@@ -1045,14 +1045,14 @@ static void close_server_sock()
   {
     ip_sock=INVALID_SOCKET;
     DBUG_PRINT("info",("calling shutdown on TCP/IP socket"));
-    VOID(shutdown(tmp_sock, SHUT_RDWR));
+    (void) shutdown(tmp_sock, SHUT_RDWR);
 #if defined(__NETWARE__)
     /*
       The following code is disabled for normal systems as it causes MySQL
       to hang on AIX 4.3 during shutdown
     */
     DBUG_PRINT("info",("calling closesocket on TCP/IP socket"));
-    VOID(closesocket(tmp_sock));
+    (void) closesocket(tmp_sock);
 #endif
   }
   tmp_sock=unix_sock;
@@ -1060,16 +1060,16 @@ static void close_server_sock()
   {
     unix_sock=INVALID_SOCKET;
     DBUG_PRINT("info",("calling shutdown on unix socket"));
-    VOID(shutdown(tmp_sock, SHUT_RDWR));
+    (void) shutdown(tmp_sock, SHUT_RDWR);
 #if defined(__NETWARE__)
     /*
       The following code is disabled for normal systems as it may cause MySQL
       to hang on AIX 4.3 during shutdown
     */
     DBUG_PRINT("info",("calling closesocket on unix/IP socket"));
-    VOID(closesocket(tmp_sock));
+    (void) closesocket(tmp_sock);
 #endif
-    VOID(unlink(mysqld_unix_port));
+    (void) unlink(mysqld_unix_port);
   }
   DBUG_VOID_RETURN;
 #endif
@@ -1908,7 +1908,7 @@ extern "C" sig_handler end_thread_signal(int sig __attribute__((unused)))
 void unlink_thd(THD *thd)
 {
   DBUG_ENTER("unlink_thd");
-  DBUG_PRINT("enter", ("thd: 0x%lx", (long) thd));
+  DBUG_PRINT("enter", ("thd: %p", thd));
   thd->cleanup();
 
   pthread_mutex_lock(&LOCK_connection_count);
@@ -3741,7 +3741,7 @@ static void init_ssl()
     ssl_acceptor_fd= new_VioSSLAcceptorFd(opt_ssl_key, opt_ssl_cert,
 					  opt_ssl_ca, opt_ssl_capath,
 					  opt_ssl_cipher);
-    DBUG_PRINT("info",("ssl_acceptor_fd: 0x%lx", (long) ssl_acceptor_fd));
+    DBUG_PRINT("info",("ssl_acceptor_fd: %p", ssl_acceptor_fd));
     if (!ssl_acceptor_fd)
     {
       sql_print_warning("Failed to setup SSL");
@@ -5137,7 +5137,7 @@ pthread_handler_t handle_connections_sockets(void *arg __attribute__((unused)))
     if (!(thd= new THD))
     {
       (void) shutdown(new_sock, SHUT_RDWR);
-      VOID(closesocket(new_sock));
+      (void) closesocket(new_sock);
       continue;
     }
     if (!(vio_tmp=vio_new(new_sock,

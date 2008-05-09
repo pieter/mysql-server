@@ -102,12 +102,6 @@ err:
 }
 
 #elif defined(__WIN__)
-/* Workaround for BUG#32082 (Definition of VOID in my_global.h conflicts with windows headers) */ 
-#ifdef VOID 
-#undef VOID 
-#define VOID void 
-#endif
-
 #include <iphlpapi.h>
 
 /* 

@@ -225,6 +225,7 @@ static void check_ssl_init()
   }
 }
 
+#ifndef EMBEDDED_LIBRARY
 /************************ VioSSLFd **********************************/
 static struct st_VioSSLFd *
 new_VioSSLFd(const char *key_file, const char *cert_file,
@@ -380,4 +381,5 @@ void free_vio_ssl_acceptor_fd(struct st_VioSSLFd *fd)
   SSL_CTX_free(fd->ssl_context);
   my_free((uchar*) fd, MYF(0));
 }
+#endif /*EMBEDDED_LIBRARY*/
 #endif /* HAVE_OPENSSL */

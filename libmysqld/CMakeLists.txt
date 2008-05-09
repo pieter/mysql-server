@@ -145,6 +145,14 @@ IF(WITH_CSV_STORAGE_ENGINE)
   ENDFOREACH(rpath)
 ENDIF(WITH_CSV_STORAGE_ENGINE)
 
+IF(WITH_FALCON_STORAGE_ENGINE)
+  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/storage/falcon ${CMAKE_SOURCE_DIR}/storage/falcon/TransformLib)
+  INCLUDE(${CMAKE_SOURCE_DIR}/storage/falcon/CMakeLists.txt)
+  FOREACH(rpath ${FALCON_SOURCES})
+    SET(LIB_SOURCES ${LIB_SOURCES} ../storage/falcon/${rpath})
+  ENDFOREACH(rpath)
+ENDIF(WITH_FALCON_STORAGE_ENGINE)
+
 SET(SOURCE_SUBLIBS FALSE)
                             
 SET(LIBMYSQLD_SOURCES emb_qcache.cc libmysqld.c lib_sql.cc
@@ -188,6 +196,7 @@ SET(LIBMYSQLD_SOURCES emb_qcache.cc libmysqld.c lib_sql.cc
            ../sql/time.cc ../sql/tztime.cc ../sql/uniques.cc ../sql/unireg.cc
            ../sql/partition_info.cc ../sql/sql_connect.cc 
            ../sql/scheduler.cc ../sql/sql_audit.cc ../sql/stacktrace.c
+           ../sql/ddl_blocker.cc ../sql/si_objects.cc
            ${GEN_SOURCES}
            ${LIB_SOURCES})
 

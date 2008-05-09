@@ -172,7 +172,7 @@ void vio_ssl_delete(Vio *vio)
   vio_delete(vio);
 }
 
-
+#ifndef EMBEDDED_LIBRARY
 static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
                   int (*connect_accept_func)(SSL*))
 {
@@ -262,7 +262,7 @@ int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout)
   DBUG_ENTER("sslconnect");
   DBUG_RETURN(ssl_do(ptr, vio, timeout, SSL_connect));
 }
-
+#endif  /*EMBEDDED_LIBRARY*/
 
 int vio_ssl_blocking(Vio *vio __attribute__((unused)),
 		     my_bool set_blocking_mode,

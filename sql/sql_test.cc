@@ -27,7 +27,9 @@
 #include <sys/malloc.h>
 #endif
 
+#ifdef HAVE_EVENT_SCHEDULER
 #include "events.h"
+#endif
 
 static const char *lock_descriptions[] =
 {
@@ -575,7 +577,9 @@ Estimated memory (with thread stack):    %ld\n",
 	 (long) (thread_count * my_thread_stack_size + info.hblkhd + info.arena));
 #endif
 
+#ifdef HAVE_EVENT_SCHEDULER
   Events::dump_internal_status();
+#endif
   puts("");
 }
 

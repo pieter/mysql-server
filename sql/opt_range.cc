@@ -8707,6 +8707,10 @@ QUICK_SELECT_DESC::QUICK_SELECT_DESC(QUICK_RANGE_SELECT *q,
  :QUICK_RANGE_SELECT(*q), rev_it(rev_ranges)
 {
   QUICK_RANGE *r;
+  /* Reverse MRR scans are currently not supported */
+  mrr_buf_desc= NULL;
+  mrr_flags |= HA_MRR_USE_DEFAULT_IMPL;
+  mrr_buf_size= 0;
 
   QUICK_RANGE **pr= (QUICK_RANGE**)ranges.buffer;
   QUICK_RANGE **end_range= pr + ranges.elements;

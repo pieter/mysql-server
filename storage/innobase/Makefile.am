@@ -172,4 +172,3 @@ EXTRA_DIST =		CMakeLists.txt plug.in \
 
 # Don't update the files from bitkeeper
 %::SCCS/s.%
->>> NULL MERGE FORCE CONFLICT (will be removed during merge)

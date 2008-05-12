@@ -15,6 +15,9 @@ concurrent_innodb        : BUG#21579 2006-08-11 mleich innodb_concurrent random 
 federated_transactions   : Bug#29523 Transactions do not work
 subselect2 : BUG#31464 SergeyP will fix
 show_check      : Bug #32682    Test show_check fails in 6.0
+key_buffer_size_basic_64    : Bug #36522: Some tests of system variables have diffs on 64bit platorms
+rpl_recovery_rank_basic_64  : Bug #36522: Some tests of system variables have diffs on 64bit platorms
+sort_buffer_size_basic_64   : Bug #36522: Some tests of system variables have diffs on 64bit platorms
 lowercase_table3         : Bug#32667 lowercase_table3.test reports to error log
 rpl_log_pos          : Bug#8693 Test 'rpl_log_pos' fails sometimes
 subselect_sj         : Bug#32994: subselect_sj fails sporadically (timeout)

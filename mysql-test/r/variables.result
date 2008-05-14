@@ -1020,5 +1020,7 @@ SET GLOBAL log_output = '';
 ERROR 42000: Variable 'log_output' can't be set to the value of ''
 SET GLOBAL log_output = 0;
 ERROR 42000: Variable 'log_output' can't be set to the value of '0'
+SET GLOBAL log_output = NULL;
+ERROR 42000: Variable 'log_output' can't be set to the value of 'NULL'
 
 # -- End of Bug#34820.

@@ -37,4 +37,3 @@ MYSQL_PLUGIN_ACTIONS(innobase,  [
   esac
   ])
 
-# NULL

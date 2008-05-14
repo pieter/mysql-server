@@ -8214,4 +8214,3 @@ mysql_declare_plugin(innobase)
   NULL /* reserved */
 }
 mysql_declare_plugin_end;
-/* NULL */

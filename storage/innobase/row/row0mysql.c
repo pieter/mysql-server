@@ -4160,3 +4160,4 @@ row_is_magic_monitor_table(
 
 	return(FALSE);
 }
+/* NULL */

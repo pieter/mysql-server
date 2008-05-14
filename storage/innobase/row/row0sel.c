@@ -4689,3 +4689,4 @@ row_search_max_autoinc(
 
 	return(error);
 }
+/* NULL */

@@ -3903,10 +3903,10 @@ SELECT * FROM t1 order by f1, report;
 SELECT * FROM v1 order by f1, report;
 #
 # 3. Length of one base table column is reduced
-# As the order of warnings is not deterministic:
---disable_warnings
+# We have to mangle within warnings the row numbers, because they are not
+# deterministic in case of NDB.
+--replace_regex /at row [0-9]/at row <some number>/
 ALTER TABLE t1 CHANGE COLUMN f4 f4 CHAR(8);
---enable_warnings
 INSERT INTO t1 SET f1 = 3, f4 = '<-- 10 -->', report = 't1 3';
 INSERT INTO v1 SET f1 = 3, f4 = '<-- 10 -->', report = 'v1 3';
 DESCRIBE t1;

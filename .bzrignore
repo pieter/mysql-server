@@ -1288,6 +1288,8 @@ mysql-max-4.0.2-alpha-pc-linux-gnu-i686.tar.gz
 mysql-test/*.ds?
 mysql-test/*.vcproj
 mysql-test/.DS_Store
+mysql-test/bug36522-64.tar
+mysql-test/bug36522.tar
 mysql-test/dump.txt
 mysql-test/funcs_1-ps.log
 mysql-test/funcs_1.log
@@ -1409,8 +1411,10 @@ mysql-test/suite/partitions/r/partition_special_myisam.warnings
 mysql-test/suite/partitions/r/partition_t55.out
 mysql-test/suite/partitions/r/partition_t55.refout
 mysql-test/suite/partitions/t/partition.test
+mysql-test/t.log
 mysql-test/t/index_merge.load
 mysql-test/t/tmp.test
+mysql-test/tps.log
 mysql-test/var
 mysql-test/var/*
 mysql-test/windows_sys_vars.inc

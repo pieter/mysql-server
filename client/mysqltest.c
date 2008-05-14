@@ -5554,8 +5554,10 @@ void fix_win_paths(const char *val, int len)
 */
 
 void append_field(DYNAMIC_STRING *ds, uint col_idx, MYSQL_FIELD* field,
-                  const char* val, ulonglong len, my_bool is_null)
+                  char* val, ulonglong len, my_bool is_null)
 {
+  char null[]= "NULL";
+
   if (col_idx < max_replace_column && replace_column[col_idx])
   {
     val= replace_column[col_idx];
@@ -5563,7 +5565,7 @@ void append_field(DYNAMIC_STRING *ds, uint col_idx, MYSQL_FIELD* field,
   }
   else if (is_null)
   {
-    val= "NULL";
+    val= null;
     len= 4;
   }
 #ifdef __WIN__
@@ -5577,9 +5579,18 @@ void append_field(DYNAMIC_STRING *ds, uint col_idx, MYSQL_FIELD* field,
         (start[1] == '-' || start[1] == '+') && start[2] == '0')
     {
       start+=2; /* Now points at first '0' */
-      /* Move all chars after the first '0' one step left */
-      memmove(start, start + 1, strlen(start));
-      len--;
+      if (field->flags & ZEROFILL_FLAG)
+      {
+        /* Move all chars before the first '0' one step right */
+        memmove(val + 1, val, start - val);
+        *val= '0';
+      }
+      else
+      {
+        /* Move all chars after the first '0' one step left */
+        memmove(start, start + 1, strlen(start));
+        len--;
+      }
     }
   }
 #endif
@@ -5618,7 +5629,7 @@ void append_result(DYNAMIC_STRING *ds, MYSQL_RES *res)
     lengths = mysql_fetch_lengths(res);
     for (i = 0; i < num_fields; i++)
       append_field(ds, i, &fields[i],
-                   (const char*)row[i], lengths[i], !row[i]);
+                   row[i], lengths[i], !row[i]);
     if (!display_result_vertically)
       dynstr_append_mem(ds, "\n", 1);
   }
@@ -5667,7 +5678,7 @@ void append_stmt_result(DYNAMIC_STRING *ds, MYSQL_STMT *stmt,
   while (mysql_stmt_fetch(stmt) == 0)
   {
     for (i= 0; i < num_fields; i++)
-      append_field(ds, i, &fields[i], (const char *) my_bind[i].buffer,
+      append_field(ds, i, &fields[i], my_bind[i].buffer,
                    *my_bind[i].length, *my_bind[i].is_null);
     if (!display_result_vertically)
       dynstr_append_mem(ds, "\n", 1);

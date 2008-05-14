@@ -39,3 +39,4 @@ user_limits     : Bug#23921 random failure of user_limits.test
 key_buffer_size_basic_64    : Bug #36522: Some tests of system variables have diffs on 64bit platorms
 rpl_recovery_rank_basic_64  : Bug #36522: Some tests of system variables have diffs on 64bit platorms
 sort_buffer_size_basic_64   : Bug #36522: Some tests of system variables have diffs on 64bit platorms
+log_output_basic      : Bug#34820 log_output can be set to illegal value

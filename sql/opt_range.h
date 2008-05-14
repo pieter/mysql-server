@@ -757,7 +757,7 @@ class FT_SELECT: public QUICK_RANGE_SELECT
 public:
   FT_SELECT(THD *thd, TABLE *table, uint key, bool *create_err) :
       QUICK_RANGE_SELECT (thd, table, key, 1, NULL, create_err) 
-  { VOID(init()); }
+  { (void) init(); }
   ~FT_SELECT() { file->ft_end(); }
   int init() { return file->ft_init(); }
   int reset() { return 0; }

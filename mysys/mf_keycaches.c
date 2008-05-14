@@ -158,7 +158,7 @@ static uchar *safe_hash_search(SAFE_HASH *hash, const uchar *key, uint length)
     result= hash->default_value;
   else
     result= ((SAFE_HASH_ENTRY*) result)->data;
-  DBUG_PRINT("exit",("data: 0x%lx", (long) result));
+  DBUG_PRINT("exit",("data: %p", result));
   DBUG_RETURN(result);
 }
 

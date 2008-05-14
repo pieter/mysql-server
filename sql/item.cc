@@ -1189,7 +1189,7 @@ void Item_case_expr::print(String *str, enum_query_type)
 {
   if (str->reserve(MAX_INT_WIDTH + sizeof("case_expr@")))
     return;                                    /* purecov: inspected */
-  VOID(str->append(STRING_WITH_LEN("case_expr@")));
+  (void) str->append(STRING_WITH_LEN("case_expr@"));
   str->qs_append(m_case_expr_id);
 }
 
@@ -4258,9 +4258,14 @@ static void convert_zerofill_number_to_string(Item **item, Field_num *field)
   String tmp(buff,sizeof(buff), field->charset()), *res;
 
   res= (*item)->val_str(&tmp);
-  field->prepend_zeros(res);
-  pos= (char *) sql_strmake (res->ptr(), res->length());
-  *item= new Item_string(pos, res->length(), field->charset());
+  if ((*item)->is_null())
+    *item= new Item_null();
+  else
+  {
+    field->prepend_zeros(res);
+    pos= (char *) sql_strmake (res->ptr(), res->length());
+    *item= new Item_string(pos, res->length(), field->charset());
+  }
 }
 
 

@@ -492,12 +492,12 @@ pthread_handler_t send_one_query(void *arg)
   struct st_connection *cn= (struct st_connection*)arg;
 
   mysql_thread_init();
-  VOID(mysql_send_query(&cn->mysql, cn->cur_query, cn->cur_query_len));
+  (void) mysql_send_query(&cn->mysql, cn->cur_query, cn->cur_query_len);
 
   mysql_thread_end();
   pthread_mutex_lock(&cn->mutex);
   cn->query_done= 1;
-  VOID(pthread_cond_signal(&cn->cond));
+  pthread_cond_signal(&cn->cond);
   pthread_mutex_unlock(&cn->mutex);
   pthread_exit(0);
   return 0;
@@ -1515,7 +1515,7 @@ int dyn_string_cmp(DYNAMIC_STRING* ds, const char *fname)
   DBUG_ENTER("dyn_string_cmp");
   DBUG_PRINT("enter", ("fname: %s", fname));
 
-  if ((fd= create_temp_file(temp_file_path, NULL,
+  if ((fd= create_temp_file(temp_file_path, TMPDIR,
                             "tmp", O_CREAT | O_SHARE | O_RDWR,
                             MYF(MY_WME))) < 0)
     die("Failed to create temporary file for ds");
@@ -5449,6 +5449,7 @@ void init_win_path_patterns()
   const char* paths[] = { "$MYSQL_TEST_DIR",
                           "$MYSQL_TMP_DIR",
                           "$MYSQLTEST_VARDIR",
+                          "$MASTER_MYSOCK",
                           "./test/" };
   int num_paths= sizeof(paths)/sizeof(char*);
   int i;
@@ -8050,8 +8051,6 @@ uint replace_len(char * str)
   uint len=0;
   while (*str)
   {
-    if (str[0] == '\\' && str[1])
-      str++;
     str++;
     len++;
   }
@@ -8064,7 +8063,6 @@ REPLACE *init_replace(char * *from, char * *to,uint count,
 		      char * word_end_chars)
 {
   static const int SPACE_CHAR= 256;
-  static const int START_OF_LINE= 257;
   static const int END_OF_LINE= 258;
 
   uint i,j,states,set_nr,len,result_len,max_length,found_end,bits_set,bit_nr;
@@ -8106,7 +8104,7 @@ REPLACE *init_replace(char * *from, char * *to,uint count,
     free_sets(&sets);
     DBUG_RETURN(0);
   }
-  VOID(make_new_set(&sets));			/* Set starting set */
+  (void) make_new_set(&sets);			/* Set starting set */
   make_sets_invisible(&sets);			/* Hide previus sets */
   used_sets=-1;
   word_states=make_new_set(&sets);		/* Start of new word */
@@ -8150,35 +8148,7 @@ REPLACE *init_replace(char * *from, char * *to,uint count,
     }
     for (pos=from[i], len=0; *pos ; pos++)
     {
-      if (*pos == '\\' && *(pos+1))
-      {
-	pos++;
-	switch (*pos) {
-	case 'b':
-	  follow_ptr->chr = SPACE_CHAR;
-	  break;
-	case '^':
-	  follow_ptr->chr = START_OF_LINE;
-	  break;
-	case '$':
-	  follow_ptr->chr = END_OF_LINE;
-	  break;
-	case 'r':
-	  follow_ptr->chr = '\r';
-	  break;
-	case 't':
-	  follow_ptr->chr = '\t';
-	  break;
-	case 'v':
-	  follow_ptr->chr = '\v';
-	  break;
-	default:
-	  follow_ptr->chr = (uchar) *pos;
-	  break;
-	}
-      }
-      else
-	follow_ptr->chr= (uchar) *pos;
+      follow_ptr->chr= (uchar) *pos;
       follow_ptr->table_offset=i;
       follow_ptr->len= ++len;
       follow_ptr++;
@@ -8605,7 +8575,7 @@ int insert_pointer_name(reg1 POINTER_ARRAY *pa,char * name)
   pa->flag[pa->typelib.count]=0;			/* Reset flag */
   pa->typelib.type_names[pa->typelib.count++]= (char*) pa->str+pa->length;
   pa->typelib.type_names[pa->typelib.count]= NullS;	/* Put end-mark */
-  VOID(strmov((char*) pa->str+pa->length,name));
+  (void) strmov((char*) pa->str+pa->length,name);
   pa->length+=length;
   DBUG_RETURN(0);
 } /* insert_pointer_name */

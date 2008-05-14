@@ -558,7 +558,7 @@ my_bool handle_local_infile(MYSQL *mysql, const char *net_filename)
   if ((*options->local_infile_init)(&li_ptr, net_filename,
     options->local_infile_userdata))
   {
-    VOID(my_net_write(net,(const uchar*) "",0)); /* Server needs one packet */
+    (void) my_net_write(net,(const uchar*) "",0); /* Server needs one packet */
     net_flush(net);
     strmov(net->sqlstate, unknown_sqlstate);
     net->last_errno=
@@ -2050,9 +2050,9 @@ static my_bool store_param(MYSQL_STMT *stmt, MYSQL_BIND *param)
 {
   NET *net= &stmt->mysql->net;
   DBUG_ENTER("store_param");
-  DBUG_PRINT("enter",("type: %d  buffer: 0x%lx  length: %lu  is_null: %d",
+  DBUG_PRINT("enter",("type: %d  buffer: %p  length: %lu  is_null: %d",
 		      param->buffer_type,
-		      (long) (param->buffer ? param->buffer : NullS),
+		      (param->buffer ? param->buffer : NullS),
                       *param->length, *param->is_null));
 
   if (*param->is_null)
@@ -2934,8 +2934,8 @@ mysql_stmt_send_long_data(MYSQL_STMT *stmt, uint param_number,
   MYSQL_BIND *param;
   DBUG_ENTER("mysql_stmt_send_long_data");
   DBUG_ASSERT(stmt != 0);
-  DBUG_PRINT("enter",("param no: %d  data: 0x%lx, length : %ld",
-		      param_number, (long) data, length));
+  DBUG_PRINT("enter",("param no: %d  data: %p, length : %ld",
+		      param_number, data, length));
 
   /*
     We only need to check for stmt->param_count, if it's not null

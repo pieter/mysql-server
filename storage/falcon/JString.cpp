@@ -28,9 +28,6 @@
 #include "Engine.h"
 #include "Unicode.h"
 
-#ifdef _WIN32
-#define vsnprintf	_vsnprintf
-#endif
 
 #ifndef ASSERT
 #define ASSERT(expr)

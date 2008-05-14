@@ -25,9 +25,6 @@
 #include "Stream.h"
 #include "Log.h"
 
-#ifdef _WIN32
-#define vsnprintf	_vsnprintf
-#endif
 
 #define INDENT		2
 

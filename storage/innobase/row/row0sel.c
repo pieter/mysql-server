@@ -2585,10 +2585,8 @@ row_sel_store_mysql_rec(
 	rec_t*		rec,		/* in: Innobase record in the index
 					which was described in prebuilt's
 					template */
-	const ulint*	offsets, 	/* in: array returned by
+	const ulint*	offsets)	/* in: array returned by
 					rec_get_offsets() */
-        ulint start_field_no,
-        ulint end_field_no)
 {
 	mysql_row_templ_t*	templ;
 	mem_heap_t*		extern_field_heap	= NULL;
@@ -2605,7 +2603,7 @@ row_sel_store_mysql_rec(
 		prebuilt->blob_heap = NULL;
 	}
 
-	for (i = start_field_no; i < end_field_no /* prebuilt->n_template */ ; i++) {
+	for (i = 0; i < prebuilt->n_template; i++) {
 
 		templ = prebuilt->mysql_template + i;
 
@@ -2645,25 +2643,6 @@ row_sel_store_mysql_rec(
 
 			data = rec_get_nth_field(rec, offsets,
 						 templ->rec_field_no, &len);
-
-			if (UNIV_UNLIKELY(templ->type == DATA_BLOB)
-			    && len != UNIV_SQL_NULL) {
-
-				/* It is a BLOB field locally stored in the
-				InnoDB record: we MUST copy its contents to
-				prebuilt->blob_heap here because later code
-				assumes all BLOB values have been copied to a
-				safe place. */
-
-				if (prebuilt->blob_heap == NULL) {
-					prebuilt->blob_heap = mem_heap_create(
-						UNIV_PAGE_SIZE);
-				}
-
-				data = memcpy(mem_heap_alloc(
-						prebuilt->blob_heap, len),
-						data, len);
-			}
 		}
 
 		if (len != UNIV_SQL_NULL) {
@@ -3084,9 +3063,7 @@ row_sel_push_cache_row_for_mysql(
 /*=============================*/
 	row_prebuilt_t*	prebuilt,	/* in: prebuilt struct */
 	rec_t*		rec,		/* in: record to push */
-	const ulint*	offsets,	/* in: rec_get_offsets() */
-        ulint           start_field_no, /* psergey: start from this field */
-        byte*           remainder_buf)  /* if above !=0 -> where to take prev fields */
+	const ulint*	offsets)	/* in: rec_get_offsets() */
 {
 	byte*	buf;
 	ulint	i;
@@ -3119,27 +3096,9 @@ row_sel_push_cache_row_for_mysql(
 	if (UNIV_UNLIKELY(!row_sel_store_mysql_rec(
 				  prebuilt->fetch_cache[
 					  prebuilt->n_fetch_cached],
-				  prebuilt, rec, offsets, start_field_no,
-                                  prebuilt->n_template))) {
+				  prebuilt, rec, offsets))) {
 		ut_error;
 	}
-        if (start_field_no) {
-          for (i=0; i < start_field_no; i++) {
-            register ulint offs;
-	    mysql_row_templ_t* templ;
-            templ = prebuilt->mysql_template + i;
-
-            if (templ->mysql_null_bit_mask) {
-              offs= templ->mysql_null_byte_offset;
-              *(prebuilt->fetch_cache[prebuilt->n_fetch_cached] + offs) ^= 
-                (*(remainder_buf + offs) & templ->mysql_null_bit_mask);
-            }
-            offs= templ->mysql_col_offset;
-            memcpy(prebuilt->fetch_cache[prebuilt->n_fetch_cached] + offs,
-                   remainder_buf + offs,
-                   templ->mysql_col_len);
-          }
-        }
 
 	prebuilt->n_fetch_cached++;
 }
@@ -3279,8 +3238,6 @@ row_search_for_mysql(
 	mem_heap_t*	heap				= NULL;
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
 	ulint*		offsets				= offsets_;
-        ibool           some_fields_in_buffer;
-        ibool           get_clust_rec= 0;
 
 	*offsets_ = (sizeof offsets_) / sizeof *offsets_;
 
@@ -3533,8 +3490,7 @@ row_search_for_mysql(
 							 rec, offsets));
 #endif
 				if (!row_sel_store_mysql_rec(buf, prebuilt,
-							     rec, offsets, 0, 
-                                                             prebuilt->n_template)) {
+							     rec, offsets)) {
 					err = DB_TOO_BIG_RECORD;
 
 					/* We let the main loop to do the
@@ -3602,9 +3558,7 @@ shortcut_fails_too_big_rec:
 
 	if (trx->isolation_level <= TRX_ISO_READ_COMMITTED
 	    && prebuilt->select_lock_type != LOCK_NONE
-	    && trx->mysql_query_str != NULL
-	    && *trx->mysql_query_str != NULL
-	    && trx->mysql_thd != NULL) {
+	    && trx->mysql_query_str && trx->mysql_thd) {
 
 		/* Scan the MySQL query string; check if SELECT is the first
 		word there */
@@ -4136,8 +4090,8 @@ no_gap_lock:
 			information via the clustered index record. */
 
 			ut_ad(index != clust_index);
-                        get_clust_rec= TRUE;
-			goto idx_cond_check;
+
+			goto requires_clust_rec;
 		}
 	}
 
@@ -4181,36 +4135,18 @@ no_gap_lock:
 		goto next_rec;
 	}
 
-
-idx_cond_check:
-        if (prebuilt->idx_cond_func)
-        {
-          int res;
-          ut_ad(prebuilt->template_type != ROW_MYSQL_DUMMY_TEMPLATE);
-          offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, &heap);
-          row_sel_store_mysql_rec(buf, prebuilt, rec,
-                                  offsets, 0, prebuilt->n_index_fields);
-          res= prebuilt->idx_cond_func(prebuilt->idx_cond_func_arg);
-          if (res == 0)
-            goto next_rec;
-          if (res == 2)
-          {
-            err = DB_RECORD_NOT_FOUND;
-            goto idx_cond_failed;
-          }
-        }
-
 	/* Get the clustered index record if needed, if we did not do the
 	search using the clustered index. */
-	if (get_clust_rec || (index != clust_index &&
-            prebuilt->need_to_access_clustered)) {
 
+	if (index != clust_index && prebuilt->need_to_access_clustered) {
+
+requires_clust_rec:
 		/* We use a 'goto' to the preceding label if a consistent
 		read of a secondary index record requires us to look up old
 		versions of the associated clustered index record. */
 
 		ut_ad(rec_offs_validate(rec, index, offsets));
-                
+
 		/* It was a non-clustered index and we must fetch also the
 		clustered index record */
 
@@ -4294,14 +4230,9 @@ idx_cond_check:
 		are BLOBs in the fields to be fetched. In HANDLER we do
 		not cache rows because there the cursor is a scrollable
 		cursor. */
-                some_fields_in_buffer= (index != clust_index &&
-                                        prebuilt->idx_cond_func);
 
 		row_sel_push_cache_row_for_mysql(prebuilt, result_rec,
-						 offsets, 
-                                                 some_fields_in_buffer? 
-                                                 prebuilt->n_index_fields: 0,
-                                                 buf);
+						 offsets);
 		if (prebuilt->n_fetch_cached == MYSQL_FETCH_CACHE_SIZE) {
 
 			goto got_row;
@@ -4317,10 +4248,7 @@ idx_cond_check:
 					rec_offs_extra_size(offsets) + 4);
 		} else {
 			if (!row_sel_store_mysql_rec(buf, prebuilt,
-						     result_rec, offsets,
-                                                     prebuilt->idx_cond_func? 
-                                                     prebuilt->n_index_fields: 0,
-                                                     prebuilt->n_template)) {
+						     result_rec, offsets)) {
 				err = DB_TOO_BIG_RECORD;
 
 				goto lock_wait_or_error;
@@ -4348,9 +4276,6 @@ got_row:
 	HANDLER command where the user can move the cursor with PREV or NEXT
 	even after a unique search. */
 
-	err = DB_SUCCESS;
-
-idx_cond_failed:
 	if (!unique_search_from_clust_index
 	    || prebuilt->select_lock_type != LOCK_NONE
 	    || prebuilt->used_in_HANDLER) {
@@ -4360,11 +4285,12 @@ idx_cond_failed:
 		btr_pcur_store_position(pcur, &mtr);
 	}
 
+	err = DB_SUCCESS;
+
 	goto normal_return;
 
 next_rec:
 	/* Reset the old and new "did semi-consistent read" flags. */
-        get_clust_rec= FALSE;
 	if (UNIV_UNLIKELY(prebuilt->row_read_type
 			  == ROW_READ_DID_SEMI_CONSISTENT)) {
 		prebuilt->row_read_type = ROW_READ_TRY_SEMI_CONSISTENT;
@@ -4603,7 +4529,7 @@ row_search_check_if_query_cache_permitted(
 Read the AUTOINC column from the current row. If the value is less than
 0 and the type is not unsigned then we reset the value to 0. */
 static
-ib_longlong
+ib_ulonglong
 row_search_autoinc_read_column(
 /*===========================*/
 					/* out: value read from the column */
@@ -4614,7 +4540,7 @@ row_search_autoinc_read_column(
 {
 	ulint		len;
 	const byte*	data;
-	ib_longlong	value;
+	ib_ulonglong	value;
 	mem_heap_t*	heap = NULL;
 	/* Our requirement is that dest should be word aligned. */
 	byte		dest[sizeof(value)];
@@ -4641,7 +4567,7 @@ row_search_autoinc_read_column(
 	and that dest is word aligned. */
 	switch (len) {
 	case 8:
-		value = *(ib_longlong*) dest;
+		value = *(ib_ulonglong*) dest;
 		break;
 
 	case 4:
@@ -4669,7 +4595,7 @@ row_search_autoinc_read_column(
 		mem_heap_free(heap);
 	}
 
-	if (!unsigned_type && value < 0) {
+	if (!unsigned_type && (ib_longlong) value < 0) {
 		value = 0;
 	}
 
@@ -4708,7 +4634,7 @@ row_search_max_autoinc(
 					column name can't be found in index */
 	dict_index_t*	index,		/* in: index to search */
 	const char*	col_name,	/* in: name of autoinc column */
-	ib_longlong*	value)		/* out: AUTOINC value read */
+	ib_ulonglong*	value)		/* out: AUTOINC value read */
 {
 	ulint		i;
 	ulint		n_cols;

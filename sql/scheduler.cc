@@ -445,8 +445,8 @@ void libevent_add_thd_callback(int Fd, short, void *)
 static void libevent_add_connection(THD *thd)
 {
   DBUG_ENTER("libevent_add_connection");
-  DBUG_PRINT("enter", ("thd: 0x%lx  thread_id: %lu",
-                       (long) thd, thd->thread_id));
+  DBUG_PRINT("enter", ("thd: %p  thread_id: %lu",
+                       thd, thd->thread_id));
 
   if (thd->scheduler.init(thd))
   {
@@ -496,7 +496,7 @@ static void libevent_post_kill_notification(THD *)
 static void libevent_connection_close(THD *thd)
 {
   DBUG_ENTER("libevent_connection_close");
-  DBUG_PRINT("enter", ("thd: 0x%lx", (long) thd));
+  DBUG_PRINT("enter", ("thd: %p", thd));
 
   thd->killed= THD::KILL_CONNECTION;          // Avoid error messages
 

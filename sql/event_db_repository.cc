@@ -1090,7 +1090,7 @@ Event_db_repository::check_system_tables(THD *thd)
   const unsigned int event_priv_column_position= 29;
 
   DBUG_ENTER("Event_db_repository::check_system_tables");
-  DBUG_PRINT("enter", ("thd: 0x%lx", (long) thd));
+  DBUG_PRINT("enter", ("thd: %p", thd));
 
 
   /* Check mysql.db */

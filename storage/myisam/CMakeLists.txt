@@ -41,16 +41,16 @@ IF(NOT SOURCE_SUBLIBS)
   ADD_DEPENDENCIES(myisam GenError)
 
   ADD_EXECUTABLE(myisam_ftdump myisam_ftdump.c)
-  TARGET_LINK_LIBRARIES(myisam_ftdump myisam mysys debug dbug strings zlib wsock32)
+  TARGET_LINK_LIBRARIES(myisam_ftdump myisam mysys debug dbug strings zlib ws2_32)
 
   ADD_EXECUTABLE(myisamchk myisamchk.c)
-  TARGET_LINK_LIBRARIES(myisamchk myisam mysys debug dbug strings zlib wsock32)
+  TARGET_LINK_LIBRARIES(myisamchk myisam mysys debug dbug strings zlib ws2_32)
 
   ADD_EXECUTABLE(myisamlog myisamlog.c)
-  TARGET_LINK_LIBRARIES(myisamlog myisam mysys debug dbug strings zlib wsock32)
+  TARGET_LINK_LIBRARIES(myisamlog myisam mysys debug dbug strings zlib ws2_32)
 
   ADD_EXECUTABLE(myisampack myisampack.c)
-  TARGET_LINK_LIBRARIES(myisampack myisam mysys debug dbug strings zlib wsock32)
+  TARGET_LINK_LIBRARIES(myisampack myisam mysys debug dbug strings zlib ws2_32)
 
   IF(EMBED_MANIFESTS)
     MYSQL_EMBED_MANIFEST("myisam_ftdump" "asInvoker")

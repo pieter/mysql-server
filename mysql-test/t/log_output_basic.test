@@ -59,6 +59,7 @@ SELECT @@global.log_output;
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = NULL;
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = "";
 SELECT @@global.log_output;
 --echo 'Bug# 34838: Empty value is allowed where as it is not specified in';
@@ -131,10 +132,14 @@ SET @@global.log_output = 'TABLE, FILE';
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = ' TABLE,FILE';
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = ', ';
+--Error ER_WRONG_VALUE_FOR_VAR
 SELECT @@global.log_output;
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = ' ';
 SELECT @@global.log_output;
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = '   ';
 SELECT @@global.log_output;
 
@@ -171,27 +176,35 @@ WHERE VARIABLE_NAME='log_output';
 ################################################################### 
 
 # test if variable accepts 0,1,2
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = 0;
 SELECT @@global.log_output;
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = 1;
 SELECT @@global.log_output;
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = 2;
 SELECT @@global.log_output;
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = 3;
 SELECT @@global.log_output;
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = 4;
 SELECT @@global.log_output;
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = 5;
 SELECT @@global.log_output;
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = 6;
 SELECT @@global.log_output;
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = 7;
 SELECT @@global.log_output;
 
@@ -204,8 +217,10 @@ SET @@global.log_output = 8;
 #      Check if TRUE and FALSE values can be used on variable     #
 ################################################################### 
 
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = TRUE;
 SELECT @@global.log_output;
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.log_output = FALSE;
 SELECT @@global.log_output;
 

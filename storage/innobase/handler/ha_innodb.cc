@@ -62,6 +62,12 @@ static bool innodb_inited = 0;
 */
 static handlerton *innodb_hton_ptr;
 
+C_MODE_START
+static my_bool index_cond_func_innodb(void *arg);
+C_MODE_END
+
+
+
 #define INSIDE_HA_INNOBASE_CC
 
 /* Include necessary InnoDB headers */
@@ -129,7 +135,7 @@ static my_bool	innobase_locks_unsafe_for_binlog	= FALSE;
 static my_bool	innobase_rollback_on_timeout		= FALSE;
 static my_bool	innobase_create_status_file		= FALSE;
 static my_bool innobase_stats_on_metadata		= TRUE;
-static my_bool	innobase_adaptive_hash_index	= TRUE;
+static my_bool	innobase_use_adaptive_hash_indexes	= TRUE;
 
 static char*	internal_innobase_data_file_path	= NULL;
 
@@ -600,9 +606,7 @@ convert_error_code_to_mysql(
 		tell it also to MySQL so that MySQL knows to empty the
 		cached binlog for this transaction */
 
-		if (thd) {
-			thd_mark_transaction_to_rollback(thd, TRUE);
-		}
+                thd_mark_transaction_to_rollback(thd, TRUE);
 
 		return(HA_ERR_LOCK_DEADLOCK);
 	} else if (error == (int) DB_LOCK_WAIT_TIMEOUT) {
@@ -611,10 +615,8 @@ convert_error_code_to_mysql(
 		latest SQL statement in a lock wait timeout. Previously, we
 		rolled back the whole transaction. */
 
-		if (thd) {
-			thd_mark_transaction_to_rollback(
-				thd, (bool)row_rollback_on_timeout);
-		}
+                thd_mark_transaction_to_rollback(thd,
+                                             (bool)row_rollback_on_timeout);
 
 		return(HA_ERR_LOCK_WAIT_TIMEOUT);
 
@@ -666,9 +668,7 @@ convert_error_code_to_mysql(
  		tell it also to MySQL so that MySQL knows to empty the
  		cached binlog for this transaction */
 
-		if (thd) {
-			thd_mark_transaction_to_rollback(thd, TRUE);
-		}
+                thd_mark_transaction_to_rollback(thd, TRUE);
 
     		return(HA_ERR_LOCK_TABLE_FULL);
 	} else if (error == DB_TOO_MANY_CONCURRENT_TRXS) {
@@ -969,10 +969,18 @@ ha_innobase::ha_innobase(handlerton *hton, TABLE_SHARE *table_arg)
 		  HA_PRIMARY_KEY_IN_READ_INDEX |
 		  HA_BINLOG_ROW_CAPABLE |
 		  HA_CAN_GEOMETRY | HA_PARTIAL_COLUMN_READ |
-		  HA_TABLE_SCAN_ON_INDEX),
+		  HA_TABLE_SCAN_ON_INDEX | HA_NEED_READ_RANGE_BUFFER |
+                  HA_MRR_CANT_SORT),
+  primary_key(0), /* needs initialization because index_flags() may be called 
+                     before this is set to the real value. It's ok to have any 
+                     value here because it doesn't matter if we return the
+                     HA_DO_INDEX_COND_PUSHDOWN bit from those "early" calls */
   start_of_scan(0),
   num_write_row(0)
-{}
+{
+//  ds_mrr.init(this, table, (DsMrr_impl::range_check_toggle_func_t)
+//                            &ha_innobase::toggle_range_check);
+}
 
 /*************************************************************************
 Updates the user_thd field in a handle and also allocates a new InnoDB
@@ -1627,7 +1635,7 @@ innobase_init(
 	srv_stats_on_metadata = (ibool) innobase_stats_on_metadata;
 
 	srv_use_adaptive_hash_indexes =
-		(ibool) innobase_adaptive_hash_index;
+		(ibool) innobase_use_adaptive_hash_indexes;
 
 	srv_print_verbose_log = mysqld_embedded ? 0 : 1;
 
@@ -2275,8 +2283,6 @@ ha_innobase::open(
 	dict_table_t*	ib_table;
 	char		norm_name[1000];
 	THD*		thd;
-	ulint		retries = 0;
-	char*		is_part = NULL;
 
 	DBUG_ENTER("ha_innobase::open");
 
@@ -2310,29 +2316,11 @@ ha_innobase::open(
 		DBUG_RETURN(1);
 	}
 
-	/* We look for pattern #P# to see if the table is partitioned
-	MySQL table. The retry logic for partitioned tables is a
-	workaround for http://bugs.mysql.com/bug.php?id=33349. Look
-	at support issue https://support.mysql.com/view.php?id=21080
-	for more details. */
-	is_part = strstr(norm_name, "#P#");
-retry:
 	/* Get pointer to a table object in InnoDB dictionary cache */
+
 	ib_table = dict_table_get(norm_name, TRUE);
-	
+
 	if (NULL == ib_table) {
-		if (is_part && retries < 10) {
-			++retries;
-			os_thread_sleep(100000);
-			goto retry;
-		}
-
-		if (is_part) {
-			sql_print_error("Failed to open table %s after "
-					"%lu attemtps.\n", norm_name,
-					retries);
-		}
-
 		sql_print_error("Cannot find or open table %s from\n"
 				"the internal data dictionary of InnoDB "
 				"though the .frm file for the\n"
@@ -2375,6 +2363,7 @@ retry:
 	prebuilt = row_create_prebuilt(ib_table);
 
 	prebuilt->mysql_row_len = table->s->reclength;
+        prebuilt->idx_cond_func= NULL;
 
 	/* Looks like MySQL-3.23 sometimes has primary key number != 0 */
 
@@ -3048,6 +3037,7 @@ build_template(
 					only if templ_type is
 					ROW_MYSQL_REC_FIELDS */
 	TABLE*		table,		/* in: MySQL table */
+        ha_innobase*    file,           /* in: ha_innobase handler */
 	uint		templ_type)	/* in: ROW_MYSQL_WHOLE_ROW or
 					ROW_MYSQL_REC_FIELDS */
 {
@@ -3062,7 +3052,9 @@ build_template(
 	ulint		i;
 	/* byte offset of the end of last requested column */
 	ulint		mysql_prefix_len	= 0;
-
+        ibool           do_idx_cond_push= FALSE;
+	ibool           need_second_pass= FALSE;
+        
 	if (prebuilt->select_lock_type == LOCK_X) {
 		/* We always retrieve the whole clustered index record if we
 		use exclusive row level locks, for example, if the read is
@@ -3132,8 +3124,23 @@ build_template(
 
 	prebuilt->templ_contains_blob = FALSE;
 
-	/* Note that in InnoDB, i is the column number. MySQL calls columns
-	'fields'. */
+
+        /*
+          Setup index condition pushdown (note: we don't need to check if
+          this is a scan on primary key as that is checked in idx_cond_push)
+        */
+        if (file->active_index == file->pushed_idx_cond_keyno && 
+            file->active_index != MAX_KEY)
+          do_idx_cond_push= need_second_pass= TRUE;
+
+        /* 
+          Ok, now build an array of mysql_row_templ_struct structures. 
+          If index condition pushdown is used, the array is split into two
+          parts: first go index fields, then go table fields.
+	  
+          Note that in InnoDB, i is the column number. MySQL calls columns
+	  'fields'.
+        */
 	for (i = 0; i < n_fields; i++) {
 		templ = prebuilt->mysql_template + n_requested_fields;
 		field = table->field[i];
@@ -3143,6 +3150,8 @@ build_template(
 			and which we can skip. */
 			register const ibool	index_contains_field =
 				dict_index_contains_col_or_prefix(index, i);
+                        register const ibool    index_covers_field = 
+                                field->part_of_key.is_set(file->active_index);
 
 			if (!index_contains_field && prebuilt->read_just_key) {
 				/* If this is a 'key read', we do not need
@@ -3175,8 +3184,12 @@ build_template(
 			/* This field is not needed in the query, skip it */
 
 			goto skip_field;
-		}
 include_field:
+			if (do_idx_cond_push && 
+                            (need_second_pass && !index_covers_field || 
+                             !need_second_pass && index_covers_field))
+			  goto skip_field;
+		}
 		n_requested_fields++;
 
 		templ->col_no = i;
@@ -3230,18 +3243,35 @@ include_field:
 			prebuilt->templ_contains_blob = TRUE;
 		}
 skip_field:
-		;
+		if (need_second_pass && (i+1 == n_fields))
+		{
+                  prebuilt->n_index_fields= n_requested_fields;
+		  need_second_pass= FALSE;
+		  i= (~(ulint)0); /* to start from 0 */
+		}
 	}
 
 	prebuilt->n_template = n_requested_fields;
 	prebuilt->mysql_prefix_len = mysql_prefix_len;
 
+        if (do_idx_cond_push)
+        {
+          prebuilt->idx_cond_func= index_cond_func_innodb;
+          prebuilt->idx_cond_func_arg= file;
+        }
+        else
+        {
+          prebuilt->idx_cond_func= NULL;
+          prebuilt->n_index_fields= n_requested_fields;
+        }
+       // file->in_range_read= FALSE;
+
 	if (index != clust_index && prebuilt->need_to_access_clustered) {
 		/* Change rec_field_no's to correspond to the clustered index
 		record */
-		for (i = 0; i < n_requested_fields; i++) {
+		for (i = do_idx_cond_push? prebuilt->n_index_fields : 0; 
+                     i < n_requested_fields; i++) {
 			templ = prebuilt->mysql_template + i;
-
 			templ->rec_field_no = dict_col_get_clust_pos_noninline(
 				&index->table->cols[templ->col_no],
 				clust_index);
@@ -3484,7 +3514,8 @@ no_commit:
 		/* Build the template used in converting quickly between
 		the two database formats */
 
-		build_template(prebuilt, NULL, table, ROW_MYSQL_WHOLE_ROW);
+		build_template(prebuilt, NULL, table, 
+                                                   this, ROW_MYSQL_WHOLE_ROW);
 	}
 
 	innodb_srv_conc_enter_innodb(prebuilt->trx);
@@ -3545,19 +3576,7 @@ no_commit:
 			if (auto_inc > prebuilt->last_value) {
 set_max_autoinc:
 				ut_a(prebuilt->table->autoinc_increment > 0);
-
-				ulonglong	have;
-				ulonglong	need;
-
-				/* Check for overflow conditions. */
-				need = prebuilt->table->autoinc_increment;
-				have = ~0x0ULL - auto_inc;
-
-				if (have < need) {
-					need = have;
-				}
-
-				auto_inc += need;
+				auto_inc += prebuilt->table->autoinc_increment;
 
 				err = innobase_set_max_autoinc(auto_inc);
 
@@ -3807,16 +3826,6 @@ ha_innobase::update_row(
 
 	error = convert_error_code_to_mysql(error, user_thd);
 
-	if (error == 0 /* success */
-	    && uvect->n_fields == 0 /* no columns were updated */) {
-
-		/* This is the same as success, but instructs
-		MySQL that the row is not really updated and it
-		should not increase the count of updated rows.
-		This is fix for http://bugs.mysql.com/29157 */
-		error = HA_ERR_RECORD_IS_THE_SAME;
-	}
-
 	/* Tell InnoDB server that there might be work for
 	utility threads: */
 
@@ -3983,6 +3992,8 @@ ha_innobase::index_end(void)
 	int	error	= 0;
 	DBUG_ENTER("index_end");
 	active_index=MAX_KEY;
+	in_range_check_pushed_down= FALSE;
+	ds_mrr.dsmrr_close();
 	DBUG_RETURN(error);
 }
 
@@ -4133,7 +4144,7 @@ ha_innobase::index_read(
 	necessarily prebuilt->index, but can also be the clustered index */
 
 	if (prebuilt->sql_stat_start) {
-		build_template(prebuilt, user_thd, table,
+		build_template(prebuilt, user_thd, table, this,
 							ROW_MYSQL_REC_FIELDS);
 	}
 
@@ -4295,7 +4306,7 @@ ha_innobase::change_active_index(
 	the flag ROW_MYSQL_WHOLE_ROW below, but that caused unnecessary
 	copying. Starting from MySQL-4.1 we use a more efficient flag here. */
 
-	build_template(prebuilt, user_thd, table, ROW_MYSQL_REC_FIELDS);
+	build_template(prebuilt, user_thd, table, this, ROW_MYSQL_REC_FIELDS);
 
 	DBUG_RETURN(0);
 }
@@ -4560,29 +4571,12 @@ ha_innobase::rnd_pos(
 			length of data in pos has to be ref_length */
 {
 	int		error;
-	uint		keynr	= active_index;
 	DBUG_ENTER("rnd_pos");
 	DBUG_DUMP("key", pos, ref_length);
 
 	ha_statistic_increment(&SSV::ha_read_rnd_count);
 
 	ut_a(prebuilt->trx == thd_to_trx(ha_thd()));
-
-	if (prebuilt->clust_index_was_generated) {
-		/* No primary key was defined for the table and we
-		generated the clustered index from the row id: the
-		row reference is the row id, not any key value
-		that MySQL knows of */
-
-		error = change_active_index(MAX_KEY);
-	} else {
-		error = change_active_index(primary_key);
-	}
-
-	if (error) {
-		DBUG_PRINT("error", ("Got error: %d", error));
-		DBUG_RETURN(error);
-	}
 
 	/* Note that we assume the length of the row reference is fixed
 	for the table, and it is == ref_length */
@@ -4592,8 +4586,6 @@ ha_innobase::rnd_pos(
 	if (error) {
 		DBUG_PRINT("error", ("Got error: %d", error));
 	}
-
-	change_active_index(keynr);
 
 	DBUG_RETURN(error);
 }
@@ -4616,6 +4608,10 @@ ha_innobase::position(
 
 	ut_a(prebuilt->trx == thd_to_trx(ha_thd()));
 
+        /*if (ds_mrr.call_position_for != this) {
+                ((ha_innobase*)ds_mrr.call_position_for)->position(record);
+                return;
+        }*/
 	if (prebuilt->clust_index_was_generated) {
 		/* No primary key was defined for the table and we
 		generated the clustered index from row id: the
@@ -4657,12 +4653,6 @@ innodb_check_for_record_too_big_error(
 	}
 }
 
-/* limit innodb monitor access to users with PROCESS privilege.
-See http://bugs.mysql.com/32710 for expl. why we choose PROCESS. */
-#define IS_MAGIC_TABLE_AND_USER_DENIED_ACCESS(table_name, thd) \
-	(row_is_magic_monitor_table(table_name) \
-	 && check_global_access(thd, PROCESS_ACL))
-
 /*********************************************************************
 Creates a table definition to an InnoDB database. */
 static
@@ -4698,12 +4688,6 @@ create_table_def(
 
 	DBUG_ENTER("create_table_def");
 	DBUG_PRINT("enter", ("table_name: %s", table_name));
-
-	ut_a(trx->mysql_thd != NULL);
-	if (IS_MAGIC_TABLE_AND_USER_DENIED_ACCESS(table_name,
-						  (THD*) trx->mysql_thd)) {
-		DBUG_RETURN(HA_ERR_GENERIC);
-	}
 
 	n_cols = form->s->fields;
 
@@ -5117,15 +5101,8 @@ ha_innobase::create(
 
 	DBUG_ASSERT(innobase_table != 0);
 
-	/* Note: We can't call update_thd() as prebuilt will not be
-	setup at this stage and so we use thd. */
-
-	/* We need to copy the AUTOINC value from the old table if
-	this is an ALTER TABLE. */
-
-	if (((create_info->used_fields & HA_CREATE_USED_AUTO)
-	    || thd_sql_command(thd) == SQLCOM_ALTER_TABLE)
-	    && create_info->auto_increment_value != 0) {
+	if ((create_info->used_fields & HA_CREATE_USED_AUTO) &&
+	   (create_info->auto_increment_value != 0)) {
 
 		/* Query was ALTER TABLE...AUTO_INCREMENT = x; or
 		CREATE TABLE ...AUTO_INCREMENT = x; Find out a table
@@ -5252,14 +5229,6 @@ ha_innobase::delete_table(
 
 	DBUG_ENTER("ha_innobase::delete_table");
 
-	/* Strangely, MySQL passes the table name without the '.frm'
-	extension, in contrast to ::create */
-	normalize_table_name(norm_name, name);
-
-	if (IS_MAGIC_TABLE_AND_USER_DENIED_ACCESS(norm_name, thd)) {
-		DBUG_RETURN(HA_ERR_GENERIC);
-	}
-
 	/* Get the transaction associated with the current thd, or create one
 	if not yet created */
 
@@ -5292,6 +5261,11 @@ ha_innobase::delete_table(
 	name_len = strlen(name);
 
 	assert(name_len < 1000);
+
+	/* Strangely, MySQL passes the table name without the '.frm'
+	extension, in contrast to ::create */
+
+	normalize_table_name(norm_name, name);
 
 	/* Drop the table in InnoDB */
 
@@ -5790,9 +5764,7 @@ ha_innobase::info(
 		stats.index_file_length = ((ulonglong)
 				ib_table->stat_sum_of_other_index_sizes)
 					* UNIV_PAGE_SIZE;
-		stats.delete_length =
-			fsp_get_available_space_in_free_extents(
-				ib_table->space);
+		stats.delete_length = 0;
 		stats.check_time = 0;
 
 		if (stats.records == 0) {
@@ -5875,7 +5847,7 @@ ha_innobase::info(
 	}
 
 	if (flag & HA_STATUS_AUTO && table->found_next_number_field) {
-		ulonglong	auto_inc;
+		longlong	auto_inc;
 		int		ret;
 
 		/* The following function call can the first time fail in
@@ -5960,7 +5932,7 @@ ha_innobase::check(
 		/* Build the template; we will use a dummy template
 		in index scans done in checking */
 
-		build_template(prebuilt, NULL, table, ROW_MYSQL_WHOLE_ROW);
+		build_template(prebuilt, NULL, table, this, ROW_MYSQL_WHOLE_ROW);
 	}
 
 	ret = row_check_table_for_mysql(prebuilt);
@@ -6323,6 +6295,12 @@ ha_innobase::extra(
 			break;
 		case HA_EXTRA_RESET_STATE:
 			reset_template(prebuilt);
+
+                        /* Reset index condition pushdown state */
+                        pushed_idx_cond= FALSE;
+                        pushed_idx_cond_keyno= MAX_KEY;
+                        //in_range_read= FALSE;
+                        prebuilt->idx_cond_func= NULL;
 			break;
 		case HA_EXTRA_NO_KEYREAD:
 			prebuilt->read_just_key = 0;
@@ -6366,6 +6344,11 @@ int ha_innobase::reset()
     row_mysql_prebuilt_free_blob_heap(prebuilt);
   }
   reset_template(prebuilt);
+  /* Reset index condition pushdown state */
+  pushed_idx_cond_keyno= MAX_KEY;
+  pushed_idx_cond= NULL;
+  ds_mrr.dsmrr_close();
+  prebuilt->idx_cond_func= NULL;
   return 0;
 }
 
@@ -7228,9 +7211,9 @@ ha_innobase::innobase_read_and_init_auto_inc(
 /*=========================================*/
 						/* out: 0 or generic MySQL
 						error code */
-        ulonglong*	value)			/* out: the autoinc value */
+        longlong*	value)			/* out: the autoinc value */
 {
-	ulonglong	auto_inc;
+	longlong	auto_inc;
 	ibool		stmt_start;
 	int		mysql_error = 0;
 	dict_table_t*	innodb_table = prebuilt->table;
@@ -7281,9 +7264,7 @@ ha_innobase::innobase_read_and_init_auto_inc(
 			index, autoinc_col_name, &auto_inc);
 
 		if (error == DB_SUCCESS) {
-			if (auto_inc < ~0x0ULL) {
-				++auto_inc;
-			}
+			++auto_inc;
 			dict_table_autoinc_initialize(innodb_table, auto_inc);
 		} else {
 			ut_print_timestamp(stderr);
@@ -7322,7 +7303,6 @@ On return if there is no error then the tables AUTOINC lock is locked.*/
 
 ulong
 ha_innobase::innobase_get_auto_increment(
-/*=====================================*/
 	ulonglong*	value)		/* out: autoinc value */
 {
 	ulong		error;
@@ -7336,14 +7316,14 @@ ha_innobase::innobase_get_auto_increment(
 		error = innobase_autoinc_lock();
 
 		if (error == DB_SUCCESS) {
-			ulonglong	autoinc;
+			ib_longlong	autoinc;
 
 			/* Determine the first value of the interval */
 			autoinc = dict_table_autoinc_read(prebuilt->table);
 
 			/* We need to initialize the AUTO-INC value, for
 			that we release all locks.*/
-			if (autoinc == 0) {
+			if (autoinc <= 0) {
 				trx_t*		trx;
 
 				trx = prebuilt->trx;
@@ -7362,11 +7342,14 @@ ha_innobase::innobase_get_auto_increment(
 				mysql_error = innobase_read_and_init_auto_inc(
 					&autoinc);
 
-				if (mysql_error) {
+				if (!mysql_error) {
+					/* Should have read the proper value */
+					ut_a(autoinc > 0);
+				} else {
 					error = DB_ERROR;
 				}
 			} else {
-				*value = autoinc;
+				*value = (ulonglong) autoinc;
 			}
 		/* A deadlock error during normal processing is OK
 		and can be ignored. */
@@ -7451,19 +7434,10 @@ ha_innobase::get_auto_increment(
 	/* With old style AUTOINC locking we only update the table's
 	AUTOINC counter after attempting to insert the row. */
 	if (innobase_autoinc_lock_mode != AUTOINC_OLD_STYLE_LOCKING) {
-		ulonglong	have;
-		ulonglong	need;
-
-		/* Check for overflow conditions. */
-		need = *nb_reserved_values * increment;
-		have = ~0x0ULL - *first_value;
-
-		if (have < need) {
-			need = have;
-		}
 
 		/* Compute the last value in the interval */
-		prebuilt->last_value = *first_value + need;
+		prebuilt->last_value = *first_value +
+		    (*nb_reserved_values * increment);
 
 		ut_a(prebuilt->last_value >= *first_value);
 
@@ -8052,10 +8026,9 @@ static MYSQL_SYSVAR_BOOL(stats_on_metadata, innobase_stats_on_metadata,
   "Enable statistics gathering for metadata commands such as SHOW TABLE STATUS (on by default)",
   NULL, NULL, TRUE);
 
-static MYSQL_SYSVAR_BOOL(adaptive_hash_index, innobase_adaptive_hash_index,
+static MYSQL_SYSVAR_BOOL(use_adaptive_hash_indexes, innobase_use_adaptive_hash_indexes,
   PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
-  "Enable InnoDB adaptive hash index (enabled by default).  "
-  "Disable with --skip-innodb-adaptive-hash-index.",
+  "Enable the InnoDB adaptive hash indexes (enabled by default)",
   NULL, NULL, TRUE);
 
 static MYSQL_SYSVAR_LONG(additional_mem_pool_size, innobase_additional_mem_pool_size,
@@ -8145,11 +8118,10 @@ static MYSQL_SYSVAR_STR(data_file_path, innobase_data_file_path,
 
 static MYSQL_SYSVAR_LONG(autoinc_lock_mode, innobase_autoinc_lock_mode,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "The AUTOINC lock modes supported by InnoDB:               "
-  "0 => Old style AUTOINC locking (for backward"
-  " compatibility)                                           "
-  "1 => New style AUTOINC locking                            "
-  "2 => No AUTOINC locking (unsafe for SBR)",
+  "The AUTOINC lock modes supported by InnoDB:\n"
+  "  0 => Old style AUTOINC locking (for backward compatibility)\n"
+  "  1 => New style AUTOINC locking\n"
+  "  2 => No AUTOINC locking (unsafe for SBR)",
   NULL, NULL,
   AUTOINC_NEW_STYLE_LOCKING,	/* Default setting */
   AUTOINC_OLD_STYLE_LOCKING,	/* Minimum value */
@@ -8187,7 +8159,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(open_files),
   MYSQL_SYSVAR(rollback_on_timeout),
   MYSQL_SYSVAR(stats_on_metadata),
-  MYSQL_SYSVAR(adaptive_hash_index),
+  MYSQL_SYSVAR(use_adaptive_hash_indexes),
   MYSQL_SYSVAR(status_file),
   MYSQL_SYSVAR(support_xa),
   MYSQL_SYSVAR(sync_spin_loops),
@@ -8214,3 +8186,103 @@ mysql_declare_plugin(innobase)
   NULL /* reserved */
 }
 mysql_declare_plugin_end;
+
+/****************************************************************************
+ * DS-MRR implementation 
+ ***************************************************************************/
+
+/**
+ * Multi Range Read interface, DS-MRR calls
+ */
+
+int ha_innobase::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
+                          uint n_ranges, uint mode, HANDLER_BUFFER *buf)
+{
+  return ds_mrr.dsmrr_init(this, &table->key_info[active_index], 
+                           seq, seq_init_param, n_ranges, mode, buf);
+}
+
+int ha_innobase::multi_range_read_next(char **range_info)
+{
+  return ds_mrr.dsmrr_next(this, range_info);
+}
+
+ha_rows ha_innobase::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                                 void *seq_init_param,  
+                                                 uint n_ranges, uint *bufsz,
+                                                 uint *flags, 
+                                                 COST_VECT *cost)
+{
+  /* See comments in ha_myisam::multi_range_read_info_const */
+  ds_mrr.init(this, table);
+  return ds_mrr.dsmrr_info_const(keyno, seq, seq_init_param, n_ranges, bufsz,
+                                 flags, cost);
+}
+
+int ha_innobase::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                          uint *bufsz, uint *flags, COST_VECT *cost)
+{
+  ds_mrr.init(this, table);
+  return ds_mrr.dsmrr_info(keyno, n_ranges, keys, bufsz, flags, cost);
+}
+
+
+
+/**
+ * Index Condition Pushdown interface implementation
+ */
+
+C_MODE_START
+
+/* Index condition check function to be called from within Innobase */
+
+static my_bool index_cond_func_innodb(void *arg)
+{
+  ha_innobase *h= (ha_innobase*)arg;
+  if (h->end_range) //was: h->in_range_read
+  {
+    if (h->compare_key2(h->end_range) > 0)
+      return 2; /* caller should return HA_ERR_END_OF_FILE already */
+  }
+  return (my_bool)h->pushed_idx_cond->val_int();
+}
+
+C_MODE_END
+
+
+Item *ha_innobase::idx_cond_push(uint keyno_arg, Item* idx_cond_arg)
+{
+  if (keyno_arg != primary_key)
+  {
+    pushed_idx_cond_keyno= keyno_arg;
+    pushed_idx_cond= idx_cond_arg;
+    in_range_check_pushed_down= TRUE;
+    return NULL; /* Table handler will check the entire condition */
+  }
+  return idx_cond_arg; /* Table handler will not make any checks */
+}
+
+
+int ha_innobase::read_range_first(const key_range *start_key,
+		 	        const key_range *end_key,
+			        bool eq_range_arg,
+                                bool sorted /* ignored */)
+{
+  int res;
+  //if (!eq_range_arg)
+    //in_range_read= TRUE;
+  res= handler::read_range_first(start_key, end_key, eq_range_arg, sorted);
+  //if (res)
+  //  in_range_read= FALSE;
+  return res;
+}
+
+
+int ha_innobase::read_range_next()
+{
+  int res= handler::read_range_next();
+  //if (res)
+  //  in_range_read= FALSE;
+  return res;
+}
+

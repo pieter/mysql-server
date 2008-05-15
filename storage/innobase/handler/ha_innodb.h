@@ -72,7 +72,7 @@ class ha_innobase: public handler
 	int update_thd(THD* thd);
 	int change_active_index(uint keynr);
 	int general_fetch(uchar* buf, uint direction, uint match_mode);
-	int innobase_read_and_init_auto_inc(ulonglong* ret);
+	int innobase_read_and_init_auto_inc(longlong* ret);
 	ulong innobase_autoinc_lock();
 	ulong innobase_set_max_autoinc(ulonglong auto_inc);
 	ulong innobase_reset_autoinc(ulonglong auto_inc);
@@ -99,7 +99,8 @@ class ha_innobase: public handler
 		  HA_READ_PREV |
 		  HA_READ_ORDER |
 		  HA_READ_RANGE |
-		  HA_KEYREAD_ONLY);
+		  HA_KEYREAD_ONLY | 
+                  ((idx == primary_key)? 0 : HA_DO_INDEX_COND_PUSHDOWN));
 	}
 	uint max_supported_keys()	   const { return MAX_KEY; }
 				/* An InnoDB page must store >= 2 keys;
@@ -150,6 +151,22 @@ class ha_innobase: public handler
 	int discard_or_import_tablespace(my_bool discard);
 	int extra(enum ha_extra_function operation);
         int reset();
+        int lock_table(THD *thd, int lock_type, int lock_timeout)
+        {
+          /*
+            Preliminarily call the pre-existing internal method for
+            transactional locking and ignore non-transactional locks.
+          */
+          if (!lock_timeout)
+          {
+            /* Preliminarily show both possible errors for NOWAIT. */
+            if (lock_type == F_WRLCK)
+              return HA_ERR_UNSUPPORTED;
+            else
+              return HA_ERR_LOCK_WAIT_TIMEOUT;
+          }
+          return transactional_table_lock(thd, lock_type);
+        }
 	int external_lock(THD *thd, int lock_type);
 	int transactional_table_lock(THD *thd, int lock_type);
 	int start_stmt(THD *thd, thr_lock_type lock_type);
@@ -196,6 +213,25 @@ class ha_innobase: public handler
 	int cmp_ref(const uchar *ref1, const uchar *ref2);
 	bool check_if_incompatible_data(HA_CREATE_INFO *info,
 					uint table_changes);
+public:
+  /**
+   * Multi Range Read interface
+   */
+  int multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
+                            uint n_ranges, uint mode, HANDLER_BUFFER *buf);
+  int multi_range_read_next(char **range_info);
+  ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                      void *seq_init_param, 
+                                      uint n_ranges, uint *bufsz,
+                                      uint *flags, COST_VECT *cost);
+  int multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                            uint *bufsz, uint *flags, COST_VECT *cost);
+  DsMrr_impl ds_mrr;
+
+  int read_range_first(const key_range *start_key, const key_range *end_key,
+                       bool eq_range_arg, bool sorted);
+  int read_range_next();
+  Item *idx_cond_push(uint keyno, Item* idx_cond);
 };
 
 /* Some accessor functions which the InnoDB plugin needs, but which

@@ -221,6 +221,7 @@ SHOW TABLES;
 DROP SCHEMA IF EXISTS `mysqlslap`;
 CREATE SCHEMA mysqlslap;
 CREATE TABLE mysqlslap.t1 (id int, name varchar(64));
+FLUSH TABLES;
 SELECT count(*) from mysqlslap.t1;
 count(*)
 20

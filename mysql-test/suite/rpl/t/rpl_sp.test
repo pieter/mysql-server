@@ -582,17 +582,19 @@ begin
 	select 1;
 end|
 
-create procedure ` mysqltestbug36570_p2`(/*!50001 a int*/)`label`:
+use mysql|
+create procedure test.` mysqltestbug36570_p2`(/*!50001 a int*/)`label`:
 begin
 	select a;
 end|
 
-/*!50001 create function mysqltestbug36570_f1() */
+/*!50001 create function test.mysqltestbug36570_f1() */
 	returns int
 	/*!50001 deterministic */
 begin
 	return 3;
 end|
+use test|
 
 delimiter ;|
 
@@ -607,9 +609,12 @@ call ` mysqltestbug36570_p2`(42);
 show function status like '%mysqltestbug36570%';
 
 connection master;
+flush logs;
+--replace_regex s/$MYSQL_TEST_DIR/MYSQL_TEST_DIR/ s/TIMESTAMP=[0-9]*/TIMESTAMP=t/
+--exec $MYSQL_BINLOG --short-form $MYSQLTEST_VARDIR/log/master-bin.000001
 use test;
-drop procedure if exists mysqltestbug36570_p1;
-drop procedure if exists ` mysqltestbug36570_p2`;
-drop function if exists mysqltestbug36570_f1;
+drop procedure mysqltestbug36570_p1;
+drop procedure ` mysqltestbug36570_p2`;
+drop function mysqltestbug36570_f1;
 --echo End of 5.0 tests
 --echo End of 5.1 tests

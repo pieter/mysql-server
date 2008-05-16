@@ -436,6 +436,7 @@ pthread_handler_t handle_bootstrap(void *arg)
     thd->query[length] = '\0';
     DBUG_PRINT("query",("%-.4096s",thd->query));
 #if defined(ENABLED_PROFILING)
+    thd->profiling.start_new_query();
     thd->profiling.set_query_source(thd->query, length);
 #endif
 
@@ -661,11 +662,7 @@ bool do_command(THD *thd)
 
   net_new_transaction(net);
 
-  packet_length= my_net_read(net);
-#if defined(ENABLED_PROFILING)
-  thd->profiling.start_new_query();
-#endif
-  if (packet_length == packet_error)
+  if ((packet_length= my_net_read(net)) == packet_error)
   {
     DBUG_PRINT("info",("Got error %d reading command from socket %s",
 		       net->error,
@@ -722,9 +719,6 @@ bool do_command(THD *thd)
   return_value= dispatch_command(command, thd, packet+1, (uint) (packet_length-1));
 
 out:
-#if defined(ENABLED_PROFILING)
-  thd->profiling.finish_current_query();
-#endif
   DBUG_RETURN(return_value);
 }
 #endif  /* EMBEDDED_LIBRARY */
@@ -826,6 +820,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   bool error= 0;
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
+
+#if defined(ENABLED_PROFILING)
+  thd->profiling.start_new_query();
+#endif
 
   thd->command=command;
   /*
@@ -1440,6 +1438,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   pthread_mutex_unlock(&LOCK_thread_count);
   thd->packet.shrink(thd->variables.net_buffer_length);	// Reclaim some memory
   free_root(thd->mem_root,MYF(MY_KEEP_PREALLOC));
+
+#if defined(ENABLED_PROFILING)
+  thd->profiling.finish_current_query();
+#endif
+
   DBUG_RETURN(error);
 }
 

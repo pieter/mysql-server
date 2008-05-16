@@ -930,8 +930,8 @@ sp_create_routine(THD *thd, int type, sp_head *sp)
                          retstr.c_ptr(), retstr.length(),
                          sp->m_body.str, sp->m_body.length,
                          sp->m_chistics, &(thd->lex->definer->user),
-                         &(thd->lex->definer->host,
-                         saved_mode)))
+                         &(thd->lex->definer->host),
+                         saved_mode))
       {
         ret= SP_INTERNAL_ERROR;
         goto done;
@@ -1995,8 +1995,12 @@ sp_load_for_information_schema(THD *thd, TABLE *proc_table, String *db,
   sp_body= (type == TYPE_ENUM_FUNCTION ? "RETURN NULL" : "BEGIN END");
   bzero((char*) &sp_chistics, sizeof(sp_chistics));
   defstr.set_charset(creation_ctx->get_client_cs());
-  if (!create_string(thd, &defstr, type, &sp_name_obj, params, strlen(params),
-                     returns, strlen(returns), sp_body, strlen(sp_body),
+  if (!create_string(thd, &defstr, type, 
+                     NULL, 0, 
+                     sp_name_obj.m_name.str, sp_name_obj.m_name.length, 
+                     params, strlen(params),
+                     returns, strlen(returns), 
+                     sp_body, strlen(sp_body),
                      &sp_chistics, &definer_user, &definer_host, sql_mode))
     return 0;
 

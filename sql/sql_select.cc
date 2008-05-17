@@ -5524,7 +5524,7 @@ best_access_path(JOIN      *join,
       }
       else
       {
-        found_constraint= 1;
+        found_constraint= test(found_part);
         /*
           Check if InsideOut scan is applicable:
           1. All IN-equalities are either "bound" or "handled"

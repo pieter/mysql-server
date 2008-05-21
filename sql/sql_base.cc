@@ -3718,6 +3718,73 @@ void assign_new_table_id(TABLE_SHARE *share)
   DBUG_VOID_RETURN;
 }
 
+
+/**
+  Compare metadata versions of an element obtained from the table
+  definition cache and its corresponding node in the parse tree.
+
+  @details If the new and the old values mismatch, invoke
+  Metadata_version_observer.
+  At prepared statement prepare, all TABLE_LIST version values are
+  NULL and we always have a mismatch. But there is no observer set
+  in THD, and therefore no error is reported. Instead, we update
+  the value in the parse tree, effectively recording the original
+  version.
+  At prepared statement execute, an observer may be installed.  If
+  there is a version mismatch, we push an error and return TRUE.
+
+  For conventional execution (no prepared statements), the
+  observer is never installed.
+
+  @sa Execute_observer
+  @sa check_prepared_statement() to see cases when an observer is installed
+  @sa TABLE_LIST::is_table_ref_id_equal()
+  @sa TABLE_SHARE::get_table_ref_id()
+
+  @param[in]      thd         used to report errors
+  @param[in,out]  tables      TABLE_LIST instance created by the parser
+                              Metadata version information in this object
+                              is updated upon success.
+  @param[in]      table_share an element from the table definition cache
+
+  @retval  TRUE  an error, which has been reported
+  @retval  FALSE success, version in TABLE_LIST has been updated
+*/
+
+bool
+check_and_update_table_version(THD *thd,
+                               TABLE_LIST *tables, TABLE_SHARE *table_share)
+{
+  if (! tables->is_table_ref_id_equal(table_share))
+  {
+    if (thd->m_reprepare_observer &&
+        thd->m_reprepare_observer->report_error(thd))
+    {
+      /*
+        Version of the table share is different from the
+        previous execution of the prepared statement, and it is
+        unacceptable for this SQLCOM. Error has been reported.
+      */
+      DBUG_ASSERT(thd->is_error());
+      return TRUE;
+    }
+    /* Always maintain the latest version and type */
+    tables->set_table_ref_id(table_share);
+  }
+
+#ifndef DBUG_OFF
+  /* Spuriously reprepare each statement. */
+  if (_db_strict_keyword_("reprepare_each_statement") &&
+      thd->m_reprepare_observer && thd->stmt_arena->is_reprepared == FALSE)
+  {
+    thd->m_reprepare_observer->report_error(thd);
+    return TRUE;
+  }
+#endif
+
+  return FALSE;
+}
+
 /*
   Load a table definition from file and open unireg table
 
@@ -3763,6 +3830,12 @@ retry:
 
   if (share->is_view)
   {
+    /*
+      This table is a view. Validate its metadata version: in particular,
+      that it was a view when the statement was prepared.
+    */
+    if (check_and_update_table_version(thd, table_list, share))
+      goto err;
     if (table_list->i_s_requested_object &  OPEN_TABLE_ONLY)
       goto err;
 
@@ -3779,6 +3852,26 @@ retry:
     /* TODO: Don't free this */
     release_table_share(share, RELEASE_NORMAL);
     DBUG_RETURN((flags & OPEN_VIEW_NO_PARSE)? -1 : 0);
+  }
+  else if (table_list->view)
+  {
+    /*
+      We're trying to open a table for what was a view.
+      This can only happen during (re-)execution.
+      At prepared statement prepare the view has been opened and
+      merged into the statement parse tree. After that, someone
+      performed a DDL and replaced the view with a base table.
+      Don't try to open the table inside a prepared statement,
+      invalidate it instead.
+
+      Note, the assert below is known to fail inside stored
+      procedures (Bug#27011).
+    */
+    DBUG_ASSERT(thd->m_reprepare_observer);
+    check_and_update_table_version(thd, table_list, share);
+    /* Always an error. */
+    DBUG_ASSERT(thd->is_error());
+    goto err;
   }
 
   if (table_list->i_s_requested_object &  OPEN_VIEW_ONLY)
@@ -4381,8 +4474,18 @@ int open_tables(THD *thd, TABLE_LIST **start, uint *counter, uint flags)
     */
     if (tables->schema_table)
     {
-      if (!mysql_schema_table(thd, thd->lex, tables))
+      /*
+        If this information_schema table is merged into a mergeable
+        view, ignore it for now -- it will be filled when its respective
+        TABLE_LIST is processed. This code works only during re-execution.
+      */
+      if (tables->view)
+        goto process_view_routines;
+      if (!mysql_schema_table(thd, thd->lex, tables) &&
+          !check_and_update_table_version(thd, tables, tables->table->s))
+      {
         continue;
+      }
       DBUG_RETURN(-1);
     }
     (*counter)++;
@@ -4530,6 +4633,13 @@ int open_tables(THD *thd, TABLE_LIST **start, uint *counter, uint flags)
     }
     tables->table->grant= tables->grant;
 
+    /* Check and update metadata version of a base table. */
+    if (check_and_update_table_version(thd, tables, tables->table->s))
+    {
+      result= -1;
+      goto err;
+    }
+
     /* Attach MERGE children if not locked already. */
     DBUG_PRINT("tcache", ("is parent: %d  is child: %d",
                           test(tables->table->child_l),
@@ -4588,7 +4698,11 @@ process_view_routines:
       error happens on a MERGE child, clear the parents TABLE reference.
     */
     if (tables->parent_l)
+    {
+      if (tables->parent_l->next_global == tables->parent_l->table->child_l)
+        tables->parent_l->next_global= *tables->parent_l->table->child_last_l;
       tables->parent_l->table= NULL;
+    }
     tables->table= NULL;
   }
   DBUG_PRINT("tcache", ("returning: %d", result));

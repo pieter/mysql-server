@@ -1469,7 +1469,8 @@ static bool mysql_test_call_fields(Prepared_statement *stmt,
   THD *thd= stmt->thd;
   Item *item;
 
-  if (tables && check_table_access(thd, SELECT_ACL, tables, UINT_MAX, FALSE) ||
+  if (tables && check_table_access(thd, SELECT_ACL, tables, FALSE, FALSE,
+                                   UINT_MAX) ||
       open_normal_and_derived_tables(thd, tables, 0))
     goto err;
 

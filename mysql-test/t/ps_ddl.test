@@ -1421,17 +1421,17 @@ deallocate prepare stmt_sp;
 --echo # SQLCOM_SELECT
 --echo #
 
---disable_warnings
-drop table if exists t1;
---enable_warnings
-create table t1 (a int);
-prepare stmt from "select 1 as res from dual where (1) in (select * from t1)";
-drop table t1;
-create table t1 (x int);
-execute stmt;
-drop table t1;
-deallocate prepare stmt;
-call p_verify_reprepare_count(1);
+# --disable_warnings
+# drop table if exists t1;
+# --enable_warnings
+# create table t1 (a int);
+# prepare stmt from "select 1 as res from dual where (1) in (select * from t1)";
+# drop table t1;
+# create table t1 (x int);
+# execute stmt;
+# drop table t1;
+# deallocate prepare stmt;
+# call p_verify_reprepare_count(1);
 
 --echo #
 --echo # SQLCOM_CREATE_TABLE

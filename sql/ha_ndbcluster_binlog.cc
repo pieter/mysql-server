@@ -187,16 +187,16 @@ static void dbug_print_table(const char *info, TABLE *table)
   }
   DBUG_PRINT("info",
              ("%s: %s.%s s->fields: %d  "
-              "reclength: %lu  rec_buff_length: %u  record[0]: 0x%lx  "
-              "record[1]: 0x%lx",
+              "reclength: %lu  rec_buff_length: %u  record[0]: %p  "
+              "record[1]: %p",
               info,
               table->s->db.str,
               table->s->table_name.str,
               table->s->fields,
               table->s->reclength,
               table->s->rec_buff_length,
-              (long) table->record[0],
-              (long) table->record[1]));
+              table->record[0],
+              table->record[1]));
 
   for (unsigned int i= 0; i < table->s->fields; i++) 
   {
@@ -222,9 +222,9 @@ static void dbug_print_table(const char *info, TABLE *table)
     if (f->type() == MYSQL_TYPE_BIT)
     {
       Field_bit *g= (Field_bit*) f;
-      DBUG_PRINT("MYSQL_TYPE_BIT",("field_length: %d  bit_ptr: 0x%lx[+%d] "
+      DBUG_PRINT("MYSQL_TYPE_BIT",("field_length: %d  bit_ptr: %p[+%d] "
                                    "bit_ofs: %d  bit_len: %u",
-                                   g->field_length, (long) g->bit_ptr,
+                                   g->field_length, g->bit_ptr,
                                    (int) ((uchar*) g->bit_ptr -
                                           table->record[0]),
                                    g->bit_ofs, g->bit_len));
@@ -731,8 +731,8 @@ static NDB_SHARE *ndbcluster_check_ndb_apply_status_share()
   void *share= hash_search(&ndbcluster_open_tables, 
                            (uchar*) NDB_APPLY_TABLE_FILE,
                            sizeof(NDB_APPLY_TABLE_FILE) - 1);
-  DBUG_PRINT("info",("ndbcluster_check_ndb_apply_status_share %s 0x%lx",
-                     NDB_APPLY_TABLE_FILE, (long) share));
+  DBUG_PRINT("info",("ndbcluster_check_ndb_apply_status_share %s %p",
+                     NDB_APPLY_TABLE_FILE, share));
   pthread_mutex_unlock(&ndbcluster_mutex);
   return (NDB_SHARE*) share;
 }
@@ -749,8 +749,8 @@ static NDB_SHARE *ndbcluster_check_ndb_schema_share()
   void *share= hash_search(&ndbcluster_open_tables, 
                            (uchar*) NDB_SCHEMA_TABLE_FILE,
                            sizeof(NDB_SCHEMA_TABLE_FILE) - 1);
-  DBUG_PRINT("info",("ndbcluster_check_ndb_schema_share %s 0x%lx",
-                     NDB_SCHEMA_TABLE_FILE, (long) share));
+  DBUG_PRINT("info",("ndbcluster_check_ndb_schema_share %s %p",
+                     NDB_SCHEMA_TABLE_FILE, share));
   pthread_mutex_unlock(&ndbcluster_mutex);
   return (NDB_SHARE*) share;
 }
@@ -3262,14 +3262,14 @@ ndbcluster_create_event_ops(THD *thd, NDB_SHARE *share,
       }
       event_data->ndb_value[0][j].ptr= attr0.ptr;
       event_data->ndb_value[1][j].ptr= attr1.ptr;
-      DBUG_PRINT("info", ("&event_data->ndb_value[0][%d]: 0x%lx  "
-                          "event_data->ndb_value[0][%d]: 0x%lx",
-                          j, (long) &event_data->ndb_value[0][j],
-                          j, (long) attr0.ptr));
-      DBUG_PRINT("info", ("&event_data->ndb_value[1][%d]: 0x%lx  "
-                          "event_data->ndb_value[1][%d]: 0x%lx",
-                          j, (long) &event_data->ndb_value[0][j],
-                          j, (long) attr1.ptr));
+      DBUG_PRINT("info", ("&event_data->ndb_value[0][%d]: %p  "
+                          "event_data->ndb_value[0][%d]: %p",
+                          j, &event_data->ndb_value[0][j],
+                          j, attr0.ptr));
+      DBUG_PRINT("info", ("&event_data->ndb_value[1][%d]: %p  "
+                          "event_data->ndb_value[1][%d]: %p",
+                          j, &event_data->ndb_value[0][j],
+                          j, attr1.ptr));
     }
     op->setCustomData((void *) event_data); // set before execute
     share->event_data= 0;                   // take over event data
@@ -3328,8 +3328,8 @@ ndbcluster_create_event_ops(THD *thd, NDB_SHARE *share,
     (void) pthread_cond_signal(&injector_cond);
   }
 
-  DBUG_PRINT("info",("%s share->op: 0x%lx  share->use_count: %u",
-                     share->key, (long) share->op, share->use_count));
+  DBUG_PRINT("info",("%s share->op: %p  share->use_count: %u",
+                     share->key, share->op, share->use_count));
 
   if (ndb_extra_logging)
     sql_print_information("NDB Binlog: logging %s (%s,%s)", share->key,
@@ -3636,8 +3636,8 @@ static void ndb_unpack_record(TABLE *table, NdbValue *value,
           uchar* ptr;
           field_blob->get_ptr(&ptr, row_offset);
           uint32 len= field_blob->get_length(row_offset);
-          DBUG_PRINT("info",("[%u] SET ptr: 0x%lx  len: %u",
-                             col_no, (long) ptr, len));
+          DBUG_PRINT("info",("[%u] SET ptr: %p  len: %u",
+                             col_no, ptr, len));
 #endif
         }
       }
@@ -3722,10 +3722,10 @@ ndb_binlog_thread_handle_non_data_event(THD *thd, Ndb *ndb,
       ndb_binlog_tables_inited= FALSE;
     }
     DBUG_PRINT("error", ("CLUSTER FAILURE EVENT: "
-                        "%s  received share: 0x%lx  op: 0x%lx  share op: 0x%lx  "
-                        "new_op: 0x%lx",
-                         share->key, (long) share, (long) pOp,
-                         (long) share->op, (long) share->new_op));
+                        "%s  received share: %p  op: %p  share op: %p  "
+                        "new_op: %p",
+                         share->key, share, pOp,
+                         share->op, share->new_op));
     break;
   case NDBEVENT::TE_DROP:
     if (ndb_apply_status_share == share)
@@ -3747,11 +3747,11 @@ ndb_binlog_thread_handle_non_data_event(THD *thd, Ndb *ndb,
     // fall through
   case NDBEVENT::TE_ALTER:
     row.n_schemaops++;
-    DBUG_PRINT("info", ("TABLE %s  EVENT: %s  received share: 0x%lx  op: 0x%lx  "
-                        "share op: 0x%lx  new_op: 0x%lx",
+    DBUG_PRINT("info", ("TABLE %s  EVENT: %s  received share: %p  op: %p  "
+                        "share op: %p  new_op: %p",
                         type == NDBEVENT::TE_DROP ? "DROP" : "ALTER",
-                        share->key, (long) share, (long) pOp,
-                        (long) share->op, (long) share->new_op));
+                        share->key, share, pOp,
+                        share->op, share->new_op));
     break;
   case NDBEVENT::TE_NODE_FAILURE:
     /* fall through */
@@ -4634,8 +4634,8 @@ restart:
             Ndb_event_data *event_data=
               (Ndb_event_data *) gci_op->getCustomData();
             NDB_SHARE *share= (event_data)?event_data->share:NULL;
-            DBUG_PRINT("info", ("per gci_op: 0x%lx  share: 0x%lx  event_types: 0x%x",
-                                (long) gci_op, (long) share, event_types));
+            DBUG_PRINT("info", ("per gci_op: %p  share: %p  event_types: 0x%x",
+                                gci_op, share, event_types));
             // workaround for interface returning TE_STOP events
             // which are normally filtered out below in the nextEvent loop
             if ((event_types & ~NdbDictionary::Event::TE_STOP) == 0)
@@ -4747,12 +4747,12 @@ restart:
             NDB_SHARE *share= (event_data)?event_data->share:NULL;
             DBUG_PRINT("info",
                        ("EVENT TYPE: %d  GCI: %u/%u last applied: %u/%u  "
-                        "share: 0x%lx (%s.%s)", pOp->getEventType(),
+                        "share: %p (%s.%s)", pOp->getEventType(),
                         (uint)(gci >> 32),
                         (uint)(gci),
                         (uint)(ndb_latest_applied_binlog_epoch >> 32),
                         (uint)(ndb_latest_applied_binlog_epoch),
-                        (long) share,
+                        share,
                         share ? share->db :  "'NULL'",
                         share ? share->table_name : "'NULL'"));
             DBUG_ASSERT(share != 0);

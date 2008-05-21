@@ -174,7 +174,7 @@ int packfrm(uchar *data, size_t len,
   size_t org_len, comp_len, blob_len;
   uchar *blob;
   DBUG_ENTER("packfrm");
-  DBUG_PRINT("enter", ("data: 0x%lx  len: %lu", (long) data, (ulong) len));
+  DBUG_PRINT("enter", ("data: %p  len: %lu", data, (ulong) len));
 
   error= 1;
   org_len= len;
@@ -202,8 +202,8 @@ int packfrm(uchar *data, size_t len,
   *pack_len=  blob_len;
   error= 0;
 
-  DBUG_PRINT("exit", ("pack_data: 0x%lx  pack_len: %lu",
-                      (long) *pack_data, (ulong) *pack_len));
+  DBUG_PRINT("exit", ("pack_data: %p  pack_len: %lu",
+                      *pack_data, (ulong) *pack_len));
 err:
   DBUG_RETURN(error);
 
@@ -220,7 +220,7 @@ err:
     out:unpack_data         Reference to the pointer to the unpacked frm data
     out:unpack_len          Length of unpacked frm file data
 
-  RETURN VALUES¨
+  RETURN VALUES?
     0                       Success
     >0                      Failure
 */
@@ -232,7 +232,7 @@ int unpackfrm(uchar **unpack_data, size_t *unpack_len,
    size_t complen, orglen;
    ulong ver;
    DBUG_ENTER("unpackfrm");
-   DBUG_PRINT("enter", ("pack_data: 0x%lx", (long) pack_data));
+   DBUG_PRINT("enter", ("pack_data: %p", pack_data));
 
    ver=         uint4korr(pack_data);
    orglen=      uint4korr(pack_data+4);
@@ -257,7 +257,7 @@ int unpackfrm(uchar **unpack_data, size_t *unpack_len,
    *unpack_data= data;
    *unpack_len=  orglen;
 
-   DBUG_PRINT("exit", ("frmdata: 0x%lx  len: %lu", (long) *unpack_data,
+   DBUG_PRINT("exit", ("frmdata: %p  len: %lu", *unpack_data,
                        (ulong) *unpack_len));
    DBUG_RETURN(0);
 }

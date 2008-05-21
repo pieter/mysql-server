@@ -57,5 +57,7 @@ f108 enum("1enum","2enum") not null default "1enum",
 f109 set("1set","2set") not null default "1set"
 ) engine = falcon;
 
---replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
-eval load data infile '$MYSQL_TEST_DIR/suite/funcs_1/data/innodb_tb2.txt' into table tb2 ;
+--replace_result $MYSQLTEST_VARDIR <MYSQLTEST_VARDIR>
+eval
+load data infile '$MYSQLTEST_VARDIR/std_data_ln/funcs_1/innodb_tb2.txt'
+into table tb2;

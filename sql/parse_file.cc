@@ -226,9 +226,9 @@ sql_create_definition_file(const LEX_STRING *dir, const LEX_STRING *file_name,
   int path_end;
   File_option *param;
   DBUG_ENTER("sql_create_definition_file");
-  DBUG_PRINT("enter", ("Dir: %s, file: %s, base 0x%lx",
+  DBUG_PRINT("enter", ("Dir: %s, file: %s, base %p",
 		       dir ? dir->str : "(null)",
-                       file_name->str, (ulong) base));
+                       file_name->str, base));
 
   if (dir)
   {
@@ -386,8 +386,8 @@ my_bool rename_in_schema_file(const char *schema, const char *old_name,
     ulonglong limit= ((revision > num_view_backups) ?
                       revision - num_view_backups : 0);
 
-    VOID(tablename_to_filename(old_name, old_name_buf, sizeof(old_name_buf)));
-    VOID(tablename_to_filename(new_name, new_name_buf, sizeof(new_name_buf)));
+    (void) tablename_to_filename(old_name, old_name_buf, sizeof(old_name_buf));
+    (void) tablename_to_filename(new_name, new_name_buf, sizeof(new_name_buf));
 
     for (; revision > limit ; revision--)
     {

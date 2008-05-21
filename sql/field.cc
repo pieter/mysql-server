@@ -6214,6 +6214,7 @@ check_string_copy_error(Field_str *field,
     Field_longstr::report_if_important_data()
     ptr                      - Truncated rest of string
     end                      - End of truncated string
+    count_spaces             - Treat traling spaces as important data
 
   RETURN VALUES
     0   - None was truncated (or we don't count cut fields)
@@ -6223,10 +6224,12 @@ check_string_copy_error(Field_str *field,
     Check if we lost any important data (anything in a binary string,
     or any non-space in others). If only trailing spaces was lost,
     send a truncation note, otherwise send a truncation error.
+    Silently ignore traling spaces if the count_space parameter is FALSE.
 */
 
 int
-Field_longstr::report_if_important_data(const char *ptr, const char *end)
+Field_longstr::report_if_important_data(const char *ptr, const char *end,
+                                        bool count_spaces)
 {
   if ((ptr < end) && table->in_use->count_cuted_fields)
   {
@@ -6236,10 +6239,13 @@ Field_longstr::report_if_important_data(const char *ptr, const char *end)
         set_warning(MYSQL_ERROR::WARN_LEVEL_ERROR, ER_DATA_TOO_LONG, 1);
       else
         set_warning(MYSQL_ERROR::WARN_LEVEL_WARN, WARN_DATA_TRUNCATED, 1);
+      return 2;
     }
-    else /* If we lost only spaces then produce a NOTE, not a WARNING */
+    else if (count_spaces)
+    { /* If we lost only spaces then produce a NOTE, not a WARNING */
       set_warning(MYSQL_ERROR::WARN_LEVEL_NOTE, WARN_DATA_TRUNCATED, 1);
-    return 2;
+      return 2;
+    }
   }
   return 0;
 }
@@ -6276,7 +6282,7 @@ int Field_string::store(const char *from,uint length,CHARSET_INFO *cs)
                               cannot_convert_error_pos, from + length, cs))
     return 2;
 
-  return report_if_important_data(from_end_pos, from + length);
+  return report_if_important_data(from_end_pos, from + length, FALSE);
 }
 
 
@@ -6785,7 +6791,7 @@ int Field_varstring::store(const char *from,uint length,CHARSET_INFO *cs)
                               cannot_convert_error_pos, from + length, cs))
     return 2;
 
-  return report_if_important_data(from_end_pos, from + length);
+  return report_if_important_data(from_end_pos, from + length, TRUE);
 }
 
 
@@ -7393,6 +7399,7 @@ uint32 Field_blob::get_length(const uchar *pos, uint packlength_arg, bool low_by
       return (uint32) tmp;
     }
   }
+  /* When expanding this, see also MAX_FIELD_BLOBLENGTH. */
   return 0;					// Impossible
 }
 
@@ -7493,7 +7500,7 @@ int Field_blob::store(const char *from,uint length,CHARSET_INFO *cs)
                               cannot_convert_error_pos, from + length, cs))
     return 2;
 
-  return report_if_important_data(from_end_pos, from + length);
+  return report_if_important_data(from_end_pos, from + length, TRUE);
 
 oom_error:
   /* Fatal OOM error */
@@ -7799,9 +7806,9 @@ uchar *Field_blob::pack(uchar *to, const uchar *from,
                         uint max_length, bool low_byte_first)
 {
   DBUG_ENTER("Field_blob::pack");
-  DBUG_PRINT("enter", ("to: 0x%lx; from: 0x%lx;"
+  DBUG_PRINT("enter", ("to: %p; from: %p;"
                        " max_length: %u; low_byte_first: %d",
-                       (ulong) to, (ulong) from,
+                       to, from,
                        max_length, low_byte_first));
   DBUG_DUMP("record", from, table->s->reclength);
   uchar *save= ptr;
@@ -7852,9 +7859,9 @@ const uchar *Field_blob::unpack(uchar *to,
                                 bool low_byte_first)
 {
   DBUG_ENTER("Field_blob::unpack");
-  DBUG_PRINT("enter", ("to: 0x%lx; from: 0x%lx;"
+  DBUG_PRINT("enter", ("to: %p; from: %p;"
                        " param_data: %u; low_byte_first: %d",
-                       (ulong) to, (ulong) from, param_data, low_byte_first));
+                       to, from, param_data, low_byte_first));
   uint const master_packlength=
     param_data > 0 ? param_data & 0xFF : packlength;
   uint32 const length= get_length(from, master_packlength, low_byte_first);
@@ -8643,8 +8650,8 @@ Field_bit::do_last_null_byte() const
     bits. On systems with CHAR_BIT > 8 (not very common), the storage
     will lose the extra bits.
   */
-  DBUG_PRINT("test", ("bit_ofs: %d, bit_len: %d  bit_ptr: 0x%lx",
-                      bit_ofs, bit_len, (long) bit_ptr));
+  DBUG_PRINT("test", ("bit_ofs: %d, bit_len: %d  bit_ptr: %p",
+                      bit_ofs, bit_len, bit_ptr));
   uchar *result;
   if (bit_len == 0)
     result= null_ptr;
@@ -9278,8 +9285,20 @@ bool Create_field::init(THD *thd, char *fld_name, enum_field_types fld_type,
       (fld_type_modifier & NOT_NULL_FLAG) && fld_type != MYSQL_TYPE_TIMESTAMP)
     flags|= NO_DEFAULT_VALUE_FLAG;
 
-  if (fld_length && !(length= (uint) atoi(fld_length)))
-    fld_length= 0; /* purecov: inspected */
+  if (fld_length != NULL)
+  {
+    errno= 0;
+    length= strtoul(fld_length, NULL, 10);
+    if ((errno != 0) || (length > MAX_FIELD_BLOBLENGTH))
+    {
+      my_error(ER_TOO_BIG_DISPLAYWIDTH, MYF(0), fld_name, MAX_FIELD_BLOBLENGTH);
+      DBUG_RETURN(TRUE);
+    }
+
+    if (length == 0)
+      fld_length= 0; /* purecov: inspected */
+  }
+
   sign_len= fld_type_modifier & UNSIGNED_FLAG ? 0 : 1;
 
   switch (fld_type) {
@@ -9427,7 +9446,7 @@ bool Create_field::init(THD *thd, char *fld_name, enum_field_types fld_type,
     }
     break;
   case MYSQL_TYPE_TIMESTAMP:
-    if (!fld_length)
+    if (fld_length == NULL)
     {
       /* Compressed date YYYYMMDDHHMMSS */
       length= MAX_DATETIME_COMPRESSED_WIDTH;
@@ -9436,12 +9455,21 @@ bool Create_field::init(THD *thd, char *fld_name, enum_field_types fld_type,
     {
       /*
         We support only even TIMESTAMP lengths less or equal than 14
-        and 19 as length of 4.1 compatible representation.
+        and 19 as length of 4.1 compatible representation.  Silently 
+        shrink it to MAX_DATETIME_COMPRESSED_WIDTH.
       */
-      length= ((length+1)/2)*2; /* purecov: inspected */
-      length= min(length, MAX_DATETIME_COMPRESSED_WIDTH); /* purecov: inspected */
+      DBUG_ASSERT(MAX_DATETIME_COMPRESSED_WIDTH < UINT_MAX);
+      if (length != UINT_MAX)  /* avoid overflow; is safe because of min() */
+        length= ((length+1)/2)*2;
+      length= min(length, MAX_DATETIME_COMPRESSED_WIDTH);
     }
     flags|= ZEROFILL_FLAG | UNSIGNED_FLAG;
+    /*
+      Since we silently rewrite down to MAX_DATETIME_COMPRESSED_WIDTH bytes,
+      the parser should not raise errors unless bizzarely large. 
+     */
+    max_field_charlength= UINT_MAX;
+
     if (fld_default_value)
     {
       /* Grammar allows only NOW() value for ON UPDATE clause */
@@ -9547,7 +9575,7 @@ bool Create_field::init(THD *thd, char *fld_name, enum_field_types fld_type,
       ((length > max_field_charlength && fld_type != MYSQL_TYPE_SET &&
         fld_type != MYSQL_TYPE_ENUM &&
         (fld_type != MYSQL_TYPE_VARCHAR || fld_default_value)) ||
-       (!length &&
+       ((length == 0) &&
         fld_type != MYSQL_TYPE_STRING &&
         fld_type != MYSQL_TYPE_VARCHAR && fld_type != MYSQL_TYPE_GEOMETRY)))
   {

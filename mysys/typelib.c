@@ -74,7 +74,7 @@ int find_type(char *x, const TYPELIB *typelib, uint full_name)
   reg1 char * i;
   reg2 const char *j;
   DBUG_ENTER("find_type");
-  DBUG_PRINT("enter",("x: '%s'  lib: 0x%lx", x, (long) typelib));
+  DBUG_PRINT("enter",("x: '%s'  lib: %p", x, typelib));
 
   if (!typelib->count)
   {
@@ -169,7 +169,7 @@ my_ulonglong find_typeset(char *x, TYPELIB *lib, int *err)
   int find;
   char *i;
   DBUG_ENTER("find_set");
-  DBUG_PRINT("enter",("x: '%s'  lib: 0x%lx", x, (long) lib));
+  DBUG_PRINT("enter",("x: '%s'  lib: %p", x, lib));
 
   if (!lib->count)
   {

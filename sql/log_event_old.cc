@@ -53,81 +53,46 @@ Old_rows_log_event::do_apply_event(Old_rows_log_event *ev, const Relay_log_info 
   */
   if (!thd->lock)
   {
-    bool need_reopen= 1; /* To execute the first lap of the loop below */
-
     /*
-      lock_tables() reads the contents of thd->lex, so they must be
-      initialized. Contrary to in
-      Table_map_log_event::do_apply_event() we don't call
-      mysql_init_query() as that may reset the binlog format.
+      Lock_tables() reads the contents of thd->lex, so they must be
+      initialized.
+
+      We also call the mysql_reset_thd_for_next_command(), since this
+      is the logical start of the next "statement". Note that this
+      call might reset the value of current_stmt_binlog_row_based, so
+      we need to do any changes to that value after this function.
     */
     lex_start(thd);
+    mysql_reset_thd_for_next_command(thd);
 
-    while ((error= lock_tables(thd, rli->tables_to_lock,
-                               rli->tables_to_lock_count, &need_reopen)))
+    /*
+      Check if the slave is set to use SBR.  If so, it should switch
+      to using RBR until the end of the "statement", i.e., next
+      STMT_END_F or next error.
+    */
+    if (!thd->current_stmt_binlog_row_based &&
+        mysql_bin_log.is_open() && (thd->options & OPTION_BIN_LOG))
     {
-      if (!need_reopen)
+      thd->set_current_stmt_binlog_row_based();
+    }
+
+    if (simple_open_n_lock_tables(thd, rli->tables_to_lock))
+    {
+      uint actual_error= thd->main_da.sql_errno();
+      if (thd->is_slave_error || thd->is_fatal_error)
       {
-        if (thd->is_slave_error || thd->is_fatal_error)
-        {
-          /*
-            Error reporting borrowed from Query_log_event with many excessive
-            simplifications (we don't honour --slave-skip-errors)
-          */
-          uint actual_error= thd->main_da.sql_errno();
-          rli->report(ERROR_LEVEL, actual_error,
-                      "Error '%s' in %s event: when locking tables",
-                      (actual_error ? thd->main_da.message() :
-                       "unexpected success or fatal error"),
-                      ev->get_type_str());
-          thd->is_fatal_error= 1;
-        }
-        else
-        {
-          rli->report(ERROR_LEVEL, error,
-                      "Error in %s event: when locking tables",
-                      ev->get_type_str());
-        }
-        const_cast<Relay_log_info*>(rli)->clear_tables_to_lock();
-        DBUG_RETURN(error);
+        /*
+          Error reporting borrowed from Query_log_event with many excessive
+          simplifications (we don't honour --slave-skip-errors)
+        */
+        rli->report(ERROR_LEVEL, actual_error,
+                    "Error '%s' on opening tables",
+                    (actual_error ? thd->main_da.message() :
+                     "unexpected success or fatal error"));
+        thd->is_slave_error= 1;
       }
-
-      /*
-        So we need to reopen the tables.
-
-        We need to flush the pending RBR event, since it keeps a
-        pointer to an open table.
-
-        ALTERNATIVE SOLUTION (not implemented): Extract a pointer to
-        the pending RBR event and reset the table pointer after the
-        tables has been reopened.
-
-        NOTE: For this new scheme there should be no pending event:
-        need to add code to assert that is the case.
-       */
-      thd->binlog_flush_pending_rows_event(false);
-      TABLE_LIST *tables= rli->tables_to_lock;
-      close_tables_for_reopen(thd, &tables);
-
-      uint tables_count= rli->tables_to_lock_count;
-      if ((error= open_tables(thd, &tables, &tables_count, 0)))
-      {
-        if (thd->is_slave_error || thd->is_fatal_error)
-        {
-          /*
-            Error reporting borrowed from Query_log_event with many excessive
-            simplifications (we don't honour --slave-skip-errors)
-          */
-          uint actual_error= thd->main_da.sql_errno();
-          rli->report(ERROR_LEVEL, actual_error,
-                      "Error '%s' on reopening tables",
-                      (actual_error ? thd->main_da.message() :
-                       "unexpected success or fatal error"));
-          thd->is_slave_error= 1;
-        }
-        const_cast<Relay_log_info*>(rli)->clear_tables_to_lock();
-        DBUG_RETURN(error);
-      }
+      const_cast<Relay_log_info*>(rli)->clear_tables_to_lock();
+      DBUG_RETURN(actual_error);
     }
 
     /*
@@ -445,10 +410,10 @@ copy_extra_record_fields(TABLE *table,
                          my_ptrdiff_t master_fields)
 {
   DBUG_ENTER("copy_extra_record_fields(table, master_reclen, master_fields)");
-  DBUG_PRINT("info", ("Copying to 0x%lx "
+  DBUG_PRINT("info", ("Copying to %p "
                       "from field %lu at offset %lu "
                       "to field %d at offset %lu",
-                      (long) table->record[0],
+                      table->record[0],
                       (ulong) master_fields, (ulong) master_reclength,
                       table->s->fields, table->s->reclength));
   /*
@@ -700,8 +665,8 @@ replace_record(THD *thd, TABLE *table,
 static int find_and_fetch_row(TABLE *table, uchar *key)
 {
   DBUG_ENTER("find_and_fetch_row(TABLE *table, uchar *key, uchar *record)");
-  DBUG_PRINT("enter", ("table: 0x%lx, key: 0x%lx  record: 0x%lx",
-           (long) table, (long) key, (long) table->record[1]));
+  DBUG_PRINT("enter", ("table: %p, key: %p  record: %p",
+           table, key, table->record[1]));
 
   DBUG_ASSERT(table->in_use != NULL);
 
@@ -1413,7 +1378,7 @@ int Old_rows_log_event::do_add_row_data(uchar *row_data, size_t length)
     would save binlog space. TODO
   */
   DBUG_ENTER("Old_rows_log_event::do_add_row_data");
-  DBUG_PRINT("enter", ("row_data: 0x%lx  length: %lu", (ulong) row_data,
+  DBUG_PRINT("enter", ("row_data: %p  length: %lu", row_data,
                        (ulong) length));
   /*
     Don't print debug messages when running valgrind since they can

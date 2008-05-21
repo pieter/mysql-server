@@ -862,16 +862,16 @@ static void close_connections(void)
   (void) pthread_mutex_lock(&LOCK_manager);
   if (manager_thread_in_use)
   {
-    DBUG_PRINT("quit", ("killing manager thread: 0x%lx",
-                        (ulong)manager_thread));
+    DBUG_PRINT("quit", ("killing manager thread: 0x%llx",
+                        (ulonglong)manager_thread));
    (void) pthread_cond_signal(&COND_manager);
   }
   (void) pthread_mutex_unlock(&LOCK_manager);
 
   /* kill connection thread */
 #if !defined(__WIN__) && !defined(__NETWARE__)
-  DBUG_PRINT("quit", ("waiting for select thread: 0x%lx",
-                      (ulong) select_thread));
+  DBUG_PRINT("quit", ("waiting for select thread: 0x%llx",
+                      (ulonglong)select_thread));
   (void) pthread_mutex_lock(&LOCK_thread_count);
 
   while (select_thread_in_use)
@@ -1045,14 +1045,14 @@ static void close_server_sock()
   {
     ip_sock=INVALID_SOCKET;
     DBUG_PRINT("info",("calling shutdown on TCP/IP socket"));
-    VOID(shutdown(tmp_sock, SHUT_RDWR));
+    (void) shutdown(tmp_sock, SHUT_RDWR);
 #if defined(__NETWARE__)
     /*
       The following code is disabled for normal systems as it causes MySQL
       to hang on AIX 4.3 during shutdown
     */
     DBUG_PRINT("info",("calling closesocket on TCP/IP socket"));
-    VOID(closesocket(tmp_sock));
+    (void) closesocket(tmp_sock);
 #endif
   }
   tmp_sock=unix_sock;
@@ -1060,16 +1060,16 @@ static void close_server_sock()
   {
     unix_sock=INVALID_SOCKET;
     DBUG_PRINT("info",("calling shutdown on unix socket"));
-    VOID(shutdown(tmp_sock, SHUT_RDWR));
+    (void) shutdown(tmp_sock, SHUT_RDWR);
 #if defined(__NETWARE__)
     /*
       The following code is disabled for normal systems as it may cause MySQL
       to hang on AIX 4.3 during shutdown
     */
     DBUG_PRINT("info",("calling closesocket on unix/IP socket"));
-    VOID(closesocket(tmp_sock));
+    (void) closesocket(tmp_sock);
 #endif
-    VOID(unlink(mysqld_unix_port));
+    (void) unlink(mysqld_unix_port);
   }
   DBUG_VOID_RETURN;
 #endif
@@ -1908,7 +1908,7 @@ extern "C" sig_handler end_thread_signal(int sig __attribute__((unused)))
 void unlink_thd(THD *thd)
 {
   DBUG_ENTER("unlink_thd");
-  DBUG_PRINT("enter", ("thd: 0x%lx", (long) thd));
+  DBUG_PRINT("enter", ("thd: %p", thd));
   thd->cleanup();
 
   pthread_mutex_lock(&LOCK_connection_count);
@@ -2066,6 +2066,7 @@ extern "C" sig_handler abort_thread(int sig __attribute__((unused)))
 static BOOL WINAPI console_event_handler( DWORD type ) 
 {
   DBUG_ENTER("console_event_handler");
+#ifndef EMBEDDED_LIBRARY
   if(type == CTRL_C_EVENT)
   {
      /*
@@ -2082,6 +2083,7 @@ static BOOL WINAPI console_event_handler( DWORD type )
        sql_print_warning("CTRL-C ignored during startup");
      DBUG_RETURN(TRUE);
   }
+#endif
   DBUG_RETURN(FALSE);
 }
 
@@ -2974,6 +2976,7 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
       by the stored procedures code.
     */
     if (!thd->is_fatal_error && thd->spcont &&
+        ! (MyFlags & ME_NO_SP_HANDLER) &&
         thd->spcont->handle_error(error, MYSQL_ERROR::WARN_LEVEL_ERROR, thd))
     {
       /*
@@ -2983,7 +2986,8 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
       DBUG_VOID_RETURN;
     }
 
-    if (!thd->no_warnings_for_error && !thd->is_fatal_error)
+    if (!thd->is_fatal_error && !thd->no_warnings_for_error &&
+        !(MyFlags & ME_NO_WARNING_FOR_ERROR))
     {
       /*
         Suppress infinite recursion if there a memory allocation error
@@ -3225,6 +3229,7 @@ SHOW_VAR com_status_vars[]= {
   {"stmt_execute",         (char*) offsetof(STATUS_VAR, com_stmt_execute), SHOW_LONG_STATUS},
   {"stmt_fetch",           (char*) offsetof(STATUS_VAR, com_stmt_fetch), SHOW_LONG_STATUS},
   {"stmt_prepare",         (char*) offsetof(STATUS_VAR, com_stmt_prepare), SHOW_LONG_STATUS},
+  {"stmt_reprepare",       (char*) offsetof(STATUS_VAR, com_stmt_reprepare), SHOW_LONG_STATUS},
   {"stmt_reset",           (char*) offsetof(STATUS_VAR, com_stmt_reset), SHOW_LONG_STATUS},
   {"stmt_send_long_data",  (char*) offsetof(STATUS_VAR, com_stmt_send_long_data), SHOW_LONG_STATUS},
   {"truncate",             (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_TRUNCATE]), SHOW_LONG_STATUS},
@@ -3313,7 +3318,7 @@ static int init_common_variables(const char *conf_file_name, int argc,
     We have few debug-only commands in com_status_vars, only visible in debug
     builds. for simplicity we enable the assert only in debug builds
 
-    There are 7 Com_ variables which don't have corresponding SQLCOM_ values:
+    There are 8 Com_ variables which don't have corresponding SQLCOM_ values:
     (TODO strictly speaking they shouldn't be here, should not have Com_ prefix
     that is. Perhaps Stmt_ ? Comstmt_ ? Prepstmt_ ?)
 
@@ -3322,6 +3327,7 @@ static int init_common_variables(const char *conf_file_name, int argc,
       Com_stmt_execute         => com_stmt_execute
       Com_stmt_fetch           => com_stmt_fetch
       Com_stmt_prepare         => com_stmt_prepare
+      Com_stmt_reprepare       => com_stmt_reprepare
       Com_stmt_reset           => com_stmt_reset
       Com_stmt_send_long_data  => com_stmt_send_long_data
 
@@ -3330,7 +3336,7 @@ static int init_common_variables(const char *conf_file_name, int argc,
     of SQLCOM_ constants.
   */
   compile_time_assert(sizeof(com_status_vars)/sizeof(com_status_vars[0]) - 1 ==
-                     SQLCOM_END + 7);
+                     SQLCOM_END + 8);
 #endif
 
   load_defaults(conf_file_name, groups, &argc, &argv);
@@ -3641,7 +3647,9 @@ static int init_thread_environment()
   DDL_blocker= DDL_blocker_class::get_DDL_blocker_class_instance();
 
   sp_cache_init();
+#ifdef HAVE_EVENT_SCHEDULER
   Events::init_mutexes();
+#endif
   /* Parameter for threads created for connections */
   (void) pthread_attr_init(&connection_attrib);
   (void) pthread_attr_setdetachstate(&connection_attrib,
@@ -3739,7 +3747,7 @@ static void init_ssl()
     ssl_acceptor_fd= new_VioSSLAcceptorFd(opt_ssl_key, opt_ssl_cert,
 					  opt_ssl_ca, opt_ssl_capath,
 					  opt_ssl_cipher);
-    DBUG_PRINT("info",("ssl_acceptor_fd: 0x%lx", (long) ssl_acceptor_fd));
+    DBUG_PRINT("info",("ssl_acceptor_fd: %p", ssl_acceptor_fd));
     if (!ssl_acceptor_fd)
     {
       sql_print_warning("Failed to setup SSL");
@@ -5135,7 +5143,7 @@ pthread_handler_t handle_connections_sockets(void *arg __attribute__((unused)))
     if (!(thd= new THD))
     {
       (void) shutdown(new_sock, SHUT_RDWR);
-      VOID(closesocket(new_sock));
+      (void) closesocket(new_sock);
       continue;
     }
     if (!(vio_tmp=vio_new(new_sock,
@@ -6886,7 +6894,8 @@ The minimum value for this variable is 4096.",
   {"table_definition_cache", OPT_TABLE_DEF_CACHE,
    "The number of cached table definitions.",
    (uchar**) &table_def_size, (uchar**) &table_def_size,
-   0, GET_ULONG, REQUIRED_ARG, 128, 1, 512*1024L, 0, 1, 0},
+   0, GET_ULONG, REQUIRED_ARG, TABLE_DEF_CACHE_DEFAULT, TABLE_DEF_CACHE_MIN,
+   512*1024L, 0, 1, 0},
   {"table_open_cache", OPT_TABLE_OPEN_CACHE,
    "The number of cached open tables.",
    (uchar**) &table_cache_size, (uchar**) &table_cache_size, 0, GET_ULONG,
@@ -7981,8 +7990,12 @@ mysqld_get_one_option(int optid,
   }
 #endif
   case OPT_EVENT_SCHEDULER:
+#ifndef HAVE_EVENT_SCHEDULER
+    sql_perror("Event scheduler is not supported in embedded build.");
+#else
     if (Events::set_opt_event_scheduler(argument))
 	exit(1);
+#endif
     break;
   case (int) OPT_SKIP_NEW:
     opt_specialflag|= SPECIAL_NO_NEW_FUNC;

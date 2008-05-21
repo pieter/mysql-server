@@ -17,14 +17,12 @@
 
 #define BIG_TABLES
 
-#ifdef __WIN2000__
-/* We have to do this define before including windows.h to get the AWE API
-functions */
+/* 
+  Minimal version of Windows we should be able to run on.
+  Currently Windows 2000
+*/
 #define _WIN32_WINNT     0x0500
-#else
-/* Get NT 4.0 functions */
-#define _WIN32_WINNT     0x0400
-#endif
+
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 /* Avoid endless warnings about sprintf() etc. being unsafe. */
@@ -33,6 +31,7 @@ functions */
 
 #include <sys/locking.h>
 #include <winsock2.h>
+#include <Ws2tcpip.h>
 #include <math.h>			/* Because of rint() */
 #include <fcntl.h>
 #include <io.h>
@@ -94,6 +93,7 @@ functions */
 #define S_IROTH		S_IREAD		/* for my_lib */
 
 /* Winsock2 constant (Vista SDK and later)*/
+#define IPPROTO_IPV6 41
 #ifndef IPV6_V6ONLY
 #define IPV6_V6ONLY 27
 #endif

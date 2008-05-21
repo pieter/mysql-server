@@ -32,9 +32,7 @@
 #include "Log.h"
 //#include "MemMgr.h"
 
-#ifdef _WIN32
-#define vsnprintf	_vsnprintf
-#endif
+
 
 //#define CHECK_HEAP
 

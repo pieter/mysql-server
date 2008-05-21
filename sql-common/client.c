@@ -38,10 +38,7 @@
 
 #include "mysql.h"
 
-/* Windows lacks a netdb.h */
-#ifdef __WIN__
-#include <Ws2tcpip.h>
-#else
+#ifndef __WIN__
 #include <netdb.h>
 #endif
 
@@ -943,7 +940,7 @@ void STDCALL
 mysql_free_result(MYSQL_RES *result)
 {
   DBUG_ENTER("mysql_free_result");
-  DBUG_PRINT("enter",("mysql_res: 0x%lx", (long) result));
+  DBUG_PRINT("enter",("mysql_res: %p", result));
   if (result)
   {
     MYSQL *mysql= result->handle;
@@ -2452,7 +2449,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
     mysql->reconnect=reconnect;
   }
 
-  DBUG_PRINT("exit", ("Mysql handler: 0x%lx", (long) mysql));
+  DBUG_PRINT("exit", ("Mysql handler: %p", mysql));
   reset_sigpipe(mysql);
   DBUG_RETURN(mysql);
 
@@ -2784,7 +2781,7 @@ int STDCALL
 mysql_real_query(MYSQL *mysql, const char *query, ulong length)
 {
   DBUG_ENTER("mysql_real_query");
-  DBUG_PRINT("enter",("handle: 0x%lx", (long) mysql));
+  DBUG_PRINT("enter",("handle: %p", mysql));
   DBUG_PRINT("query",("Query = '%-.4096s'",query));
 
   if (mysql_send_query(mysql,query,length))

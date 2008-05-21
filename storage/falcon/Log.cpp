@@ -52,10 +52,6 @@ static pthread_mutex_t	mutex;
 #endif
 
 
-#ifdef _WIN32
-#define vsnprintf	_vsnprintf
-#endif
-
 #ifndef ASSERT
 #define ASSERT
 #endif

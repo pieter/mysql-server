@@ -1035,7 +1035,7 @@ static bool check_view_insertability(THD * thd, TABLE_LIST *view)
 
   DBUG_ASSERT(view->table != 0 && view->field_translation != 0);
 
-  VOID(bitmap_init(&used_fields, used_fields_buff, table->s->fields, 0));
+  (void) bitmap_init(&used_fields, used_fields_buff, table->s->fields, 0);
   bitmap_clear_all(&used_fields);
 
   view->contain_auto_increment= 0;
@@ -1182,8 +1182,8 @@ bool mysql_prepare_insert(THD *thd, TABLE_LIST *table_list,
   bool res= 0;
   table_map map= 0;
   DBUG_ENTER("mysql_prepare_insert");
-  DBUG_PRINT("enter", ("table_list 0x%lx, table 0x%lx, view %d",
-		       (ulong)table_list, (ulong)table,
+  DBUG_PRINT("enter", ("table_list %p, table %p, view %d",
+		       table_list, table,
 		       (int)insert_into_view));
   /* INSERT should have a SELECT or VALUES clause */
   DBUG_ASSERT (!select_insert || !values);
@@ -1728,9 +1728,9 @@ public:
     pthread_mutex_init(&mutex,MY_MUTEX_INIT_FAST);
     pthread_cond_init(&cond,NULL);
     pthread_cond_init(&cond_client,NULL);
-    VOID(pthread_mutex_lock(&LOCK_thread_count));
+    pthread_mutex_lock(&LOCK_thread_count);
     delayed_insert_threads++;
-    VOID(pthread_mutex_unlock(&LOCK_thread_count));
+    pthread_mutex_unlock(&LOCK_thread_count);
   }
   ~Delayed_insert()
   {
@@ -1740,7 +1740,7 @@ public:
       delete row;
     if (table)
       close_thread_tables(&thd);
-    VOID(pthread_mutex_lock(&LOCK_thread_count));
+    pthread_mutex_lock(&LOCK_thread_count);
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&cond);
     pthread_cond_destroy(&cond_client);
@@ -1749,8 +1749,8 @@ public:
     thd.security_ctx->user= thd.security_ctx->host=0;
     thread_count--;
     delayed_insert_threads--;
-    VOID(pthread_mutex_unlock(&LOCK_thread_count));
-    VOID(pthread_cond_broadcast(&COND_thread_count)); /* Tell main we are ready */
+    pthread_mutex_unlock(&LOCK_thread_count);
+    pthread_cond_broadcast(&COND_thread_count); /* Tell main we are ready */
   }
 
   /* The following is for checking when we can delete ourselves */
@@ -2208,7 +2208,7 @@ static void end_delayed_insert(THD *thd)
 
 void kill_delayed_threads(void)
 {
-  VOID(pthread_mutex_lock(&LOCK_delayed_insert)); // For unlink from list
+  pthread_mutex_lock(&LOCK_delayed_insert); // For unlink from list
 
   I_List_iterator<Delayed_insert> it(delayed_threads);
   Delayed_insert *di;
@@ -2233,7 +2233,7 @@ void kill_delayed_threads(void)
       pthread_mutex_unlock(&di->thd.mysys_var->mutex);
     }
   }
-  VOID(pthread_mutex_unlock(&LOCK_delayed_insert)); // For unlink from list
+  pthread_mutex_unlock(&LOCK_delayed_insert); // For unlink from list
 }
 
 
@@ -3409,7 +3409,7 @@ static TABLE *create_table_from_items(THD *thd, HA_CREATE_INFO *create_info,
 
       if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE))
       {
-        VOID(pthread_mutex_lock(&LOCK_open));
+        pthread_mutex_lock(&LOCK_open);
         if (reopen_name_locked_table(thd, create_table, FALSE))
         {
           quick_rm_table(create_info->db_type, create_table->db,
@@ -3418,7 +3418,7 @@ static TABLE *create_table_from_items(THD *thd, HA_CREATE_INFO *create_info,
         }
         else
           table= create_table->table;
-        VOID(pthread_mutex_unlock(&LOCK_open));
+        pthread_mutex_unlock(&LOCK_open);
       }
       else
       {
@@ -3725,7 +3725,7 @@ void select_create::abort()
   select_insert::abort();
   thd->transaction.stmt.modified_non_trans_table= FALSE;
   reenable_binlog(thd);
-
+  thd->binlog_flush_pending_rows_event(TRUE);
 
   if (m_plock)
   {

@@ -767,7 +767,7 @@ int mysql_update(THD *thd,
   end_read_record(&info);
   delete select;
   thd_proc_info(thd, "end");
-  VOID(table->file->extra(HA_EXTRA_NO_IGNORE_DUP_KEY));
+  (void) table->file->extra(HA_EXTRA_NO_IGNORE_DUP_KEY);
 
   /*
     Invalidate the table in the query cache if something changed.
@@ -1676,6 +1676,12 @@ bool multi_update::send_data(List<Item> &not_used_values)
         tbl->file->position(tbl->record[0]);
         memcpy((char*) tmp_table->field[field_num]->ptr,
                (char*) tbl->file->ref, tbl->file->ref_length);
+        /*
+         For outer joins a rowid field may have no NOT_NULL_FLAG,
+         so we have to reset NULL bit for this field.
+         (set_notnull() resets NULL bit only if available).
+        */
+        tmp_table->field[field_num]->set_notnull();
         field_num++;
       } while ((tbl= tbl_it++));
 
@@ -1737,7 +1743,7 @@ void multi_update::abort()
          todo/fixme: do_update() is never called with the arg 1.
          should it change the signature to become argless?
       */
-      VOID(do_updates());
+      (void) do_updates();
     }
   }
   if (thd->transaction.stmt.modified_non_trans_table)

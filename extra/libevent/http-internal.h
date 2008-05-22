@@ -35,9 +35,11 @@ enum evhttp_connection_state {
 	EVCON_CONNECTED		/* connection is established */
 };
 
+struct event_base;
+
 struct evhttp_connection {
 	/* we use tailq only if they were created for an http server */
-	TAILQ_ENTRY(evhttp_connection) next;
+	TAILQ_ENTRY(evhttp_connection) (next);
 
 	int fd;
 	struct event ev;
@@ -45,7 +47,9 @@ struct evhttp_connection {
 	struct evbuffer *input_buffer;
 	struct evbuffer *output_buffer;
 	
-	char *address;
+	char *bind_address;		/* address to use for binding the src */
+
+	char *address;			/* address to connect to */
 	u_short port;
 
 	int flags;
@@ -64,11 +68,13 @@ struct evhttp_connection {
 
 	TAILQ_HEAD(evcon_requestq, evhttp_request) requests;
 	
-	void (*cb)(struct evhttp_connection *, void *);
+						   void (*cb)(struct evhttp_connection *, void *);
 	void *cb_arg;
 	
 	void (*closecb)(struct evhttp_connection *, void *);
 	void *closecb_arg;
+
+	struct event_base *base;
 };
 
 struct evhttp_cb {
@@ -80,16 +86,21 @@ struct evhttp_cb {
 	void *cbarg;
 };
 
+/* both the http server as well as the rpc system need to queue connections */
+TAILQ_HEAD(evconq, evhttp_connection);
+
 struct evhttp {
 	struct event bind_ev;
 
 	TAILQ_HEAD(httpcbq, evhttp_cb) callbacks;
-        TAILQ_HEAD(evconq, evhttp_connection) connections;
+        struct evconq connections;
 
         int timeout;
 
 	void (*gencb)(struct evhttp_request *req, void *);
 	void *gencbarg;
+
+	struct event_base *base;
 };
 
 /* resets the connection; can be reused for more requests */

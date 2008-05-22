@@ -35,4 +35,5 @@ ENDIF(NOT SOURCE_SUBLIBS)
 
 TARGET_LINK_LIBRARIES(backup backupstream)
 ADD_DEPENDENCIES(backup mysys)
+ADD_DEPENDENCIES(backup GenError)
 

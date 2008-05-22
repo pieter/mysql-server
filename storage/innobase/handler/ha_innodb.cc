@@ -707,7 +707,7 @@ void
 innobase_mysql_prepare_print_arbitrary_thd(void)
 /*============================================*/
 {
-	VOID(pthread_mutex_lock(&LOCK_thread_count));
+	pthread_mutex_lock(&LOCK_thread_count);
 }
 
 /*****************************************************************
@@ -719,7 +719,7 @@ void
 innobase_mysql_end_print_arbitrary_thd(void)
 /*========================================*/
 {
-	VOID(pthread_mutex_unlock(&LOCK_thread_count));
+	pthread_mutex_unlock(&LOCK_thread_count);
 }
 
 /*****************************************************************
@@ -7911,7 +7911,7 @@ bool ha_innobase::check_if_incompatible_data(
 	}
 
 	/* Check that row format didn't change */
-	if ((info->used_fields & HA_CREATE_USED_ROW_FORMAT) &&
+	if ((info->used_fields & HA_CREATE_USED_AUTO) &&
 		get_row_type() != info->row_type) {
 
 		return COMPATIBLE_DATA_NO;

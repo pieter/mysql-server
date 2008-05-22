@@ -145,16 +145,22 @@ IF(WITH_CSV_STORAGE_ENGINE)
   ENDFOREACH(rpath)
 ENDIF(WITH_CSV_STORAGE_ENGINE)
 
+IF(WITH_FALCON_STORAGE_ENGINE)
+  INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/storage/falcon ${CMAKE_SOURCE_DIR}/storage/falcon/TransformLib)
+  INCLUDE(${CMAKE_SOURCE_DIR}/storage/falcon/CMakeLists.txt)
+  FOREACH(rpath ${FALCON_SOURCES})
+    SET(LIB_SOURCES ${LIB_SOURCES} ../storage/falcon/${rpath})
+  ENDFOREACH(rpath)
+ENDIF(WITH_FALCON_STORAGE_ENGINE)
+
 SET(SOURCE_SUBLIBS FALSE)
                             
-SET(LIBMYSQLD_SOURCES emb_qcache.cc libmysqld.c lib_sql.cc
+SET(LIBMYSQLD_SOURCES emb_qcache.cc libmysqld.c lib_sql.cc 
            ../libmysql/libmysql.c ../libmysql/errmsg.c ../client/get_password.c
            ../sql-common/client.c ../sql-common/my_time.c 
            ../sql-common/my_user.c ../sql-common/pack.c
            ../sql/password.c ../sql/discover.cc ../sql/derror.cc 
-           ../sql/event_scheduler.cc ../sql/events.cc 
-           ../sql/event_data_objects.cc ../sql/event_queue.cc 
-           ../sql/event_db_repository.cc ../sql/field.cc ../sql/field_conv.cc
+           ../sql/field.cc ../sql/field_conv.cc
            ../sql/filesort.cc ../sql/gstream.cc ../sql/ha_partition.cc 
            ../sql/handler.cc ../sql/hash_filo.cc ../sql/hostname.cc 
            ../sql/init.cc ../sql/item_buff.cc ../sql/item_cmpfunc.cc 
@@ -188,6 +194,8 @@ SET(LIBMYSQLD_SOURCES emb_qcache.cc libmysqld.c lib_sql.cc
            ../sql/time.cc ../sql/tztime.cc ../sql/uniques.cc ../sql/unireg.cc
            ../sql/partition_info.cc ../sql/sql_connect.cc 
            ../sql/scheduler.cc ../sql/sql_audit.cc ../sql/stacktrace.c
+           ../sql/ddl_blocker.cc ../sql/si_objects.cc
+           ../sql/event_parse_data.cc
            ${GEN_SOURCES}
            ${LIB_SOURCES})
 
@@ -205,4 +213,4 @@ TARGET_LINK_LIBRARIES(mysqlserver)
 
 ADD_LIBRARY(libmysqld MODULE cmake_dummy.c libmysqld.def)
 ADD_DEPENDENCIES(libmysqld mysqlserver)
-TARGET_LINK_LIBRARIES(libmysqld mysqlserver wsock32)
+TARGET_LINK_LIBRARIES(libmysqld mysqlserver ws2_32)

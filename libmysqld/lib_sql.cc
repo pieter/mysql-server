@@ -285,7 +285,6 @@ static int emb_stmt_execute(MYSQL_STMT *stmt)
   my_bool res;
 
   int4store(header, stmt->stmt_id);
-  header[4]= (uchar) stmt->flags;
   thd= (THD*)stmt->mysql->thd;
   thd->client_param_count= stmt->param_count;
   thd->client_params= stmt->params;
@@ -1125,6 +1124,9 @@ bool Protocol::net_store_data(const uchar *from, size_t length)
   return FALSE;
 }
 
+#if defined(_MSC_VER) && _MSC_VER < 1400
+#define vsnprintf _vsnprintf
+#endif
 
 int vprint_msg_to_log(enum loglevel level __attribute__((unused)),
                        const char *format, va_list argsi)

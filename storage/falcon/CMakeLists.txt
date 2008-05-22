@@ -30,7 +30,8 @@ IF(CMAKE_GENERATOR MATCHES "Visual Studio 7" OR
   SET(CMAKE_CXX_FLAGS_DEBUG_INIT "${CMAKE_CXX_FLAGS_DEBUG_INIT} /EHsc")
 ENDIF(CMAKE_GENERATOR MATCHES "Visual Studio 7" OR
       CMAKE_GENERATOR MATCHES "Visual Studio 8")
-ADD_LIBRARY(ha_falcon
+
+SET(FALCON_SOURCES 
 		Agent.cpp 
 		Alias.cpp
 		AsciiBlob.cpp
@@ -598,4 +599,9 @@ ADD_LIBRARY(ha_falcon
 		TransFormLib/Transform.h
 		TransFormLib/TransformException.h
 		TransFormLib/TransformUtil.h
-		../../sql/handler.h)
+		../../sql/handler.h
+)
+IF(NOT SOURCE_SUBLIBS)
+	ADD_LIBRARY(ha_falcon ${FALCON_SOURCES} )
+	ADD_DEPENDENCIES(ha_falcon GenError)
+ENDIF(NOT SOURCE_SUBLIBS)

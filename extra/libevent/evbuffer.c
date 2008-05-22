@@ -43,6 +43,11 @@
 #include <stdarg.h>
 #endif
 
+#ifdef WIN32
+#include <winsock2.h>
+#endif
+
+#include "evutil.h"
 #include "event.h"
 
 /* prototypes */
@@ -56,7 +61,7 @@ bufferevent_add(struct event *ev, int timeout)
 	struct timeval tv, *ptv = NULL;
 
 	if (timeout) {
-		timerclear(&tv);
+		evutil_timerclear(&tv);
 		tv.tv_sec = timeout;
 		ptv = &tv;
 	}
@@ -288,7 +293,7 @@ bufferevent_free(struct bufferevent *bufev)
  */
 
 int
-bufferevent_write(struct bufferevent *bufev, void *data, size_t size)
+bufferevent_write(struct bufferevent *bufev, const void *data, size_t size)
 {
 	int res;
 

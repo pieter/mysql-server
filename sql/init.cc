@@ -35,12 +35,12 @@ void unireg_init(ulong options)
   wild_many='%'; wild_one='_'; wild_prefix='\\'; /* Change to sql syntax */
 
   current_pid=(ulong) getpid();		/* Save for later ref */
-  init_time();				/* Init time-functions (read zone) */
+  my_init_time();			/* Init time-functions (read zone) */
 #ifndef EMBEDDED_LIBRARY
   my_abort_hook=unireg_abort;		/* Abort with close of databases */
 #endif
 
-  VOID(strmov(reg_ext,".frm"));
+  (void) strmov(reg_ext,".frm");
   reg_ext_length= 4;
   specialflag=SPECIAL_SAME_DB_NAME | options;  /* Set options from argv */
   DBUG_VOID_RETURN;

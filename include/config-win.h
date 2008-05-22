@@ -17,14 +17,12 @@
 
 #define BIG_TABLES
 
-#ifdef __WIN2000__
-/* We have to do this define before including windows.h to get the AWE API
-functions */
+/* 
+  Minimal version of Windows we should be able to run on.
+  Currently Windows 2000
+*/
 #define _WIN32_WINNT     0x0500
-#else
-/* Get NT 4.0 functions */
-#define _WIN32_WINNT     0x0400
-#endif
+
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 /* Avoid endless warnings about sprintf() etc. being unsafe. */
@@ -33,6 +31,7 @@ functions */
 
 #include <sys/locking.h>
 #include <winsock2.h>
+#include <Ws2tcpip.h>
 #include <fcntl.h>
 #include <io.h>
 #include <malloc.h>
@@ -93,6 +92,7 @@ functions */
 #define S_IROTH		S_IREAD		/* for my_lib */
 
 /* Winsock2 constant (Vista SDK and later)*/
+#define IPPROTO_IPV6 41
 #ifndef IPV6_V6ONLY
 #define IPV6_V6ONLY 27
 #endif
@@ -154,10 +154,21 @@ typedef __int64 os_off_t;
 #ifdef _WIN64
 typedef UINT_PTR rf_SetTimer;
 #else
-#ifndef HAVE_SIZE_T
-typedef unsigned int size_t;
-#endif
 typedef uint rf_SetTimer;
+#endif
+
+#ifndef HAVE_SIZE_T
+#ifndef _SIZE_T_DEFINED
+typedef SIZE_T size_t;
+#define _SIZE_T_DEFINED
+#endif
+#endif
+
+#ifndef HAVE_SSIZE_T
+#ifndef _SSIZE_T_DEFINED
+typedef SSIZE_T ssize_t;
+#define _SSIZE_T_DEFINED
+#endif
 #endif
 
 #define Socket_defined

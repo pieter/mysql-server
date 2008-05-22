@@ -43,13 +43,17 @@
 #include "misc.h"
 #endif
 
-/* #define NDEBUG */
+#ifdef DNS_USE_FTIME_FOR_ID
+#include <sys/timeb.h>
+#endif
 
 #ifndef DNS_USE_CPU_CLOCK_FOR_ID
 #ifndef DNS_USE_GETTIMEOFDAY_FOR_ID
 #ifndef DNS_USE_OPENSSL_FOR_ID
+#ifndef DNS_USE_FTIME_FOR_ID
 #error Must configure at least one id generation method.
 #error Please see the documentation.
+#endif
 #endif
 #endif
 #endif
@@ -78,7 +82,9 @@
 
 #include <string.h>
 #include <fcntl.h>
+#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
+#endif
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -86,7 +92,9 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <limits.h>
 #include <sys/stat.h>
 #include <ctype.h>
@@ -94,11 +102,13 @@
 #include <stdarg.h>
 
 #include "evdns.h"
+#include "evutil.h"
 #include "log.h"
 #ifdef WIN32
-#include <windows.h>
 #include <winsock2.h>
+#include <windows.h>
 #include <iphlpapi.h>
+#include <io.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -109,10 +119,6 @@
 #include <netinet/in6.h>
 #endif
 
-#ifdef WIN32
-typedef int socklen_t;
-#endif
-
 #define EVDNS_LOG_DEBUG 0
 #define EVDNS_LOG_WARN 1
 
@@ -120,26 +126,32 @@ typedef int socklen_t;
 #define HOST_NAME_MAX 255
 #endif
 
-#ifndef NDEBUG
 #include <stdio.h>
-#endif
 
 #undef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
 
 #ifdef __USE_ISOC99B
 /* libevent doesn't work without this */
-typedef uint8_t u_char;
+typedef ev_uint8_t u_char;
 typedef unsigned int uint;
 #endif
 #include <event.h>
 
-#define u64 uint64_t
-#define u32 uint32_t
-#define u16 uint16_t
-#define u8  uint8_t
+#define u64 ev_uint64_t
+#define u32 ev_uint32_t
+#define u16 ev_uint16_t
+#define u8  ev_uint8_t
 
-#define MAX_ADDRS 4  /* maximum number of addresses from a single packet */
+#ifdef WIN32
+#define snprintf _snprintf
+#define open _open
+#define read _read
+#define close _close
+#define strdup _strdup
+#endif
+
+#define MAX_ADDRS 32  /* maximum number of addresses from a single packet */
 /* which we bother recording */
 
 #define TYPE_A         EVDNS_TYPE_A
@@ -319,7 +331,7 @@ static int search_request_new(int type, const char *const name, int flags, evdns
 static void evdns_requests_pump_waiting_queue(void);
 static u16 transaction_id_pick(void);
 static struct request *request_new(int type, const char *name, int flags, evdns_callback_type callback, void *ptr);
-static void request_submit(struct request *req);
+static void request_submit(struct request *const req);
 
 static int server_request_free(struct server_request *req);
 static void server_request_free_answers(struct server_request *req);
@@ -352,7 +364,7 @@ error_is_eagain(int err)
 static int
 inet_aton(const char *c, struct in_addr *addr)
 {
-	uint32_t r;
+	ev_uint32_t r;
 	if (strcmp(c, "255.255.255.255") == 0) {
 		addr->s_addr = 0xffffffffu;
 	} else {
@@ -363,17 +375,15 @@ inet_aton(const char *c, struct in_addr *addr)
 	}
 	return 1;
 }
-#define CLOSE_SOCKET(x) closesocket(x)
 #else
 #define last_error(sock) (errno)
 #define error_is_eagain(err) ((err) == EAGAIN)
-#define CLOSE_SOCKET(x) close(x)
 #endif
+#define CLOSE_SOCKET(s) EVUTIL_CLOSESOCKET(s)
 
 #define ISSPACE(c) isspace((int)(unsigned char)(c))
 #define ISDIGIT(c) isdigit((int)(unsigned char)(c))
 
-#ifndef NDEBUG
 static const char *
 debug_ntoa(u32 address)
 {
@@ -386,7 +396,6 @@ debug_ntoa(u32 address)
   		      (int)(u8)((a    )&0xff));
 	return buf;
 }
-#endif
 
 static evdns_debug_log_fn_type evdns_log_fn = NULL;
 
@@ -852,7 +861,7 @@ reply_parse(u8 *packet, int length) {
 		 */
 		SKIP_NAME;
 		j += 4;
-		if (j >= length) goto err;
+		if (j > length) goto err;
 	}
 
 	/* now we have the answer section which looks like
@@ -953,8 +962,7 @@ request_parse(u8 *packet, int length, struct evdns_server_port *port, struct soc
 	GET16(additional);
 
 	if (flags & 0x8000) return -1; /* Must not be an answer. */
-	if (flags & 0x7800) return -1; /* only standard queries are supported */
-	flags &= 0x0300; /* Only TC and RD get preserved. */
+	flags &= 0x0110; /* Only RD and CD get preserved. */
 
 	server_req = malloc(sizeof(struct server_request));
 	if (server_req == NULL) return -1;
@@ -983,7 +991,7 @@ request_parse(u8 *packet, int length, struct evdns_server_port *port, struct soc
 		if (!q)
 			goto err;
 		q->type = type;
-		q->class = class;
+		q->dns_question_class = class;
 		memcpy(q->name, tmp_name, namelen+1);
 		server_req->base.questions[server_req->base.nquestions++] = q;
 	}
@@ -992,6 +1000,13 @@ request_parse(u8 *packet, int length, struct evdns_server_port *port, struct soc
 
 	server_req->port = port;
 	port->refcnt++;
+
+	/* Only standard queries are supported. */
+	if (flags & 0x7800) {
+		evdns_server_request_respond(&(server_req->base), DNS_ERR_NOTIMPL);
+		return -1;
+	}
+
 	port->user_callback(&(server_req->base), port->user_data);
 
 	return 0;
@@ -1012,41 +1027,65 @@ err:
 #undef GET8
 }
 
+static u16
+default_transaction_id_fn(void)
+{
+	u16 trans_id;
+#ifdef DNS_USE_CPU_CLOCK_FOR_ID
+	struct timespec ts;
+#ifdef CLOCK_MONOTONIC
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1)
+#else
+	if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
+#endif
+	event_err(1, "clock_gettime");
+	trans_id = ts.tv_nsec & 0xffff;
+#endif
+
+#ifdef DNS_USE_FTIME_FOR_ID
+	struct _timeb tb;
+	_ftime(&tb);
+	trans_id = tb.millitm & 0xffff;
+#endif
+
+#ifdef DNS_USE_GETTIMEOFDAY_FOR_ID
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	trans_id = tv.tv_usec & 0xffff;
+#endif
+
+#ifdef DNS_USE_OPENSSL_FOR_ID
+	if (RAND_pseudo_bytes((u8 *) &trans_id, 2) == -1) {
+		/* in the case that the RAND call fails we back */
+		/* down to using gettimeofday. */
+		/*
+		  struct timeval tv;
+		  gettimeofday(&tv, NULL);
+		  trans_id = tv.tv_usec & 0xffff;
+		*/
+		abort();
+	}
+#endif
+	return trans_id;
+}
+
+static ev_uint16_t (*trans_id_function)(void) = default_transaction_id_fn;
+
+void
+evdns_set_transaction_id_fn(ev_uint16_t (*fn)(void))
+{
+	if (fn)
+		trans_id_function = fn;
+	else
+		trans_id_function = default_transaction_id_fn;
+}
+
 /* Try to choose a strong transaction id which isn't already in flight */
 static u16
 transaction_id_pick(void) {
 	for (;;) {
 		const struct request *req = req_head, *started_at;
-#ifdef DNS_USE_CPU_CLOCK_FOR_ID
-		struct timespec ts;
-		u16 trans_id;
-#ifdef CLOCK_MONOTONIC
-		if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1)
-#else
-		if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
-#endif
-			event_err(1, "clock_gettime");
-                trans_id = ts.tv_nsec & 0xffff;
-#endif
-
-#ifdef DNS_USE_GETTIMEOFDAY_FOR_ID
-		struct timeval tv;
-		u16 trans_id;
-		gettimeofday(&tv, NULL);
-                trans_id = tv.tv_usec & 0xffff;
-#endif
-
-#ifdef DNS_USE_OPENSSL_FOR_ID
-		u16 trans_id;
-		if (RAND_pseudo_bytes((u8 *) &trans_id, 2) == -1) {
-			/* in the case that the RAND call fails we back */
-			/* down to using gettimeofday. */
-			struct timeval tv;
-			gettimeofday(&tv, NULL);
-			trans_id = tv.tv_usec & 0xffff; */
-			abort();
-		}
-#endif
+		u16 trans_id = trans_id_function();
 
 		if (trans_id == 0xffff) continue;
 		/* now check to see if that id is already inflight */
@@ -1472,7 +1511,7 @@ evdns_server_request_add_reply(struct evdns_server_request *_req, int section, c
 		return -1;
 	}
 	item->type = type;
-	item->class = class;
+	item->dns_question_class = class;
 	item->ttl = ttl;
 	item->is_name = is_name != 0;
 	item->datalen = 0;
@@ -1587,7 +1626,7 @@ evdns_server_request_format_response(struct server_request *req, int err)
 			return (int) j;
 		}
 		APPEND16(req->base.questions[i]->type);
-		APPEND16(req->base.questions[i]->class);
+		APPEND16(req->base.questions[i]->dns_question_class);
 	}
 
 	/* Add answer, authority, and additional sections. */
@@ -1606,7 +1645,7 @@ evdns_server_request_format_response(struct server_request *req, int err)
 			j = r;
 
 			APPEND16(item->type);
-			APPEND16(item->class);
+			APPEND16(item->dns_question_class);
 			APPEND32(item->ttl);
 			if (item->is_name) {
 				off_t len_idx = j, name_start;
@@ -1616,7 +1655,7 @@ evdns_server_request_format_response(struct server_request *req, int err)
 				if (r < 0)
 					goto overflow;
 				j = r;
-				_t = htons( (j-name_start) );
+				_t = htons( (short) (j-name_start) );
 				memcpy(buf+len_idx, &_t, 2);
 			} else {
 				APPEND16(item->datalen);
@@ -1663,8 +1702,8 @@ evdns_server_request_respond(struct evdns_server_request *_req, int err)
 	r = sendto(port->socket, req->response, req->response_len, 0,
 			   (struct sockaddr*) &req->addr, req->addrlen);
 	if (r<0) {
-		int err = last_error(port->socket);
-		if (! error_is_eagain(err))
+		int sock_err = last_error(port->socket);
+		if (! error_is_eagain(sock_err))
 			return -1;
 
 		if (port->pending_replies) {
@@ -1981,7 +2020,8 @@ evdns_clear_nameservers_and_suspend(void)
 	while (1) {
 		struct nameserver *next = server->next;
 		(void) event_del(&server->event);
-		(void) evtimer_del(&server->timeout_event);
+		if (evtimer_initialized(&server->timeout_event))
+			(void) evtimer_del(&server->timeout_event);
 		if (server->socket >= 0)
 			CLOSE_SOCKET(server->socket);
 		free(server);
@@ -2050,14 +2090,7 @@ _evdns_nameserver_add_impl(unsigned long int address, int port) {
 
 	ns->socket = socket(PF_INET, SOCK_DGRAM, 0);
 	if (ns->socket < 0) { err = 1; goto out1; }
-#ifdef WIN32
-        {
-		u_long nonblocking = 1;
-		ioctlsocket(ns->socket, FIONBIO, &nonblocking);
-	}
-#else
-        fcntl(ns->socket, F_SETFL, O_NONBLOCK);
-#endif
+        evutil_make_socket_nonblocking(ns->socket);
 	sin.sin_addr.s_addr = address;
 	sin.sin_port = htons(port);
 	sin.sin_family = AF_INET;
@@ -2267,7 +2300,8 @@ int evdns_resolve_reverse(struct in_addr *in, int flags, evdns_callback_type cal
 }
 
 int evdns_resolve_reverse_ipv6(struct in6_addr *in, int flags, evdns_callback_type callback, void *ptr) {
-	char buf[64];
+	/* 32 nybbles, 32 periods, "ip6.arpa", NUL. */
+	char buf[73];
 	char *cp;
 	struct request *req;
 	int i;
@@ -2280,8 +2314,8 @@ int evdns_resolve_reverse_ipv6(struct in6_addr *in, int flags, evdns_callback_ty
 		*cp++ = "0123456789abcdef"[byte >> 4];
 		*cp++ = '.';
 	}
-	assert(cp + strlen(".ip6.arpa") < buf+sizeof(buf));
-	memcpy(cp, ".ip6.arpa", strlen(".ip6.arpa")+1);
+	assert(cp + strlen("ip6.arpa") < buf+sizeof(buf));
+	memcpy(cp, "ip6.arpa", strlen("ip6.arpa")+1);
 	log(EVDNS_LOG_DEBUG, "Resolve requested for %s (reverse)", buf);
 	req = request_new(TYPE_PTR, buf, flags, callback, ptr);
 	if (!req) return 1;
@@ -2495,7 +2529,7 @@ search_try_next(struct request *const req) {
 			/* this name without a postfix */
 			if (string_num_dots(req->search_origname) < req->search_state->ndots) {
 				/* yep, we need to try it raw */
-				struct request *const newreq = request_new(req->request_type, req->search_origname, req->search_flags, req->user_callback, req->user_pointer);
+				newreq = request_new(req->request_type, req->search_origname, req->search_flags, req->user_callback, req->user_pointer);
 				log(EVDNS_LOG_DEBUG, "Search: trying raw query %s", req->search_origname);
 				if (newreq) {
 					request_submit(newreq);
@@ -2917,7 +2951,7 @@ load_nameservers_from_registry(void)
 #undef TRY
 }
 
-int
+static int
 evdns_config_windows_nameservers(void)
 {
 	if (load_nameservers_with_getnetworkparams() == 0)
@@ -2931,7 +2965,7 @@ evdns_init(void)
 {
 	int res = 0;
 #ifdef WIN32
-	evdns_config_windows_nameservers();
+	res = evdns_config_windows_nameservers();
 #else
 	res = evdns_resolv_conf_parse(DNS_OPTIONS_ALL, "/etc/resolv.conf");
 #endif
@@ -3029,20 +3063,20 @@ evdns_server_callback(struct evdns_server_request *req, void *data)
 	for (i = 0; i < req->nquestions; ++i) {
 		u32 ans = htonl(0xc0a80b0bUL);
 		if (req->questions[i]->type == EVDNS_TYPE_A &&
-			req->questions[i]->class == EVDNS_CLASS_INET) {
+			req->questions[i]->dns_question_class == EVDNS_CLASS_INET) {
 			printf(" -- replying for %s (A)\n", req->questions[i]->name);
 			r = evdns_server_request_add_a_reply(req, req->questions[i]->name,
 										  1, &ans, 10);
 			if (r<0)
 				printf("eeep, didn't work.\n");
 		} else if (req->questions[i]->type == EVDNS_TYPE_PTR &&
-				   req->questions[i]->class == EVDNS_CLASS_INET) {
+				   req->questions[i]->dns_question_class == EVDNS_CLASS_INET) {
 			printf(" -- replying for %s (PTR)\n", req->questions[i]->name);
 			r = evdns_server_request_add_ptr_reply(req, NULL, req->questions[i]->name,
 											"foo.bar.example.com", 10);
 		} else {
 			printf(" -- skipping %s [%d %d]\n", req->questions[i]->name,
-				   req->questions[i]->type, req->questions[i]->class);
+				   req->questions[i]->type, req->questions[i]->dns_question_class);
 		}
 	}
 
@@ -3085,7 +3119,7 @@ main(int c, char **v) {
 		int sock;
 		struct sockaddr_in my_addr;
 		sock = socket(PF_INET, SOCK_DGRAM, 0);
-		fcntl(sock, F_SETFL, O_NONBLOCK);
+                evutil_make_socket_nonblocking(sock);
 		my_addr.sin_family = AF_INET;
 		my_addr.sin_port = htons(10053);
 		my_addr.sin_addr.s_addr = INADDR_ANY;

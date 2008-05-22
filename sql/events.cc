@@ -861,6 +861,7 @@ Events::fill_schema_events(THD *thd, TABLE_LIST *tables, COND * /* cond */)
 bool
 Events::init(my_bool opt_noacl)
 {
+
   THD *thd;
   bool res= FALSE;
 
@@ -953,7 +954,6 @@ end:
 
   DBUG_RETURN(res);
 }
-
 
 /*
   Cleans up scheduler's resources. Called at server shutdown.
@@ -1128,7 +1128,7 @@ Events::load_events_from_db(THD *thd)
   ulong saved_master_access;
 
   DBUG_ENTER("Events::load_events_from_db");
-  DBUG_PRINT("enter", ("thd: 0x%lx", (long) thd));
+  DBUG_PRINT("enter", ("thd: %p", thd));
 
   /*
     NOTE: even if we run in read-only mode, we should be able to lock the
@@ -1170,7 +1170,7 @@ Events::load_events_from_db(THD *thd)
       goto end;
     }
     drop_on_completion= (et->on_completion ==
-                         Event_queue_element::ON_COMPLETION_DROP);
+                         Event_parse_data::ON_COMPLETION_DROP);
 
 
     if (event_queue->create_event(thd, et, &created))

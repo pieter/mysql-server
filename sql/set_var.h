@@ -581,6 +581,17 @@ public:
   uchar *value_ptr(THD *thd, enum_var_type type, LEX_STRING *base);
 };
 
+/**
+  @@session.dbug and @@global.dbug variables.
+
+  @@dbug variable differs from other variables in one aspect:
+  if its value is not assigned in the session, it "points" to the global
+  value, and so when the global value is changed, the change
+  immediately takes effect in the session.
+
+  This semantics is intentional, to be able to debug one session from
+  another.
+*/
 class sys_var_thd_dbug :public sys_var_thd
 {
 public:
@@ -1103,7 +1114,7 @@ public:
   virtual void set_default(THD *thd, enum_var_type type);
 };
 
-
+#ifdef HAVE_EVENT_SCHEDULER
 class sys_var_event_scheduler :public sys_var_long_ptr
 {
   /* We need a derived class only to have a warn_deprecated() */
@@ -1119,6 +1130,7 @@ public:
     return type != STRING_RESULT && type != INT_RESULT;
   }
 };
+#endif
 
 extern void fix_binlog_format_after_update(THD *thd, enum_var_type type);
 

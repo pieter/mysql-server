@@ -40,10 +40,6 @@
 #define ASSERT(a)
 #endif
 
-#ifdef _WIN32
-#define vsnprintf	_vsnprintf
-#endif
-
 #ifdef _DEBUG
 #undef THIS_FILE
 static const char THIS_FILE[]=__FILE__;

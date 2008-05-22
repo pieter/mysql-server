@@ -209,44 +209,55 @@ void init_update_queries(void)
 {
   bzero((uchar*) &sql_command_flags, sizeof(sql_command_flags));
 
-  sql_command_flags[SQLCOM_CREATE_TABLE]=   CF_CHANGES_DATA;
+  sql_command_flags[SQLCOM_CREATE_TABLE]=   CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_CREATE_INDEX]=   CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_ALTER_TABLE]=    CF_CHANGES_DATA | CF_WRITE_LOGS_COMMAND;
   sql_command_flags[SQLCOM_TRUNCATE]=       CF_CHANGES_DATA | CF_WRITE_LOGS_COMMAND;
   sql_command_flags[SQLCOM_DROP_TABLE]=     CF_CHANGES_DATA;
-  sql_command_flags[SQLCOM_LOAD]=           CF_CHANGES_DATA;
+  sql_command_flags[SQLCOM_LOAD]=           CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_CREATE_DB]=      CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_DB]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_RENAME_TABLE]=   CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_RESTORE]=        CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_INDEX]=     CF_CHANGES_DATA;
-  sql_command_flags[SQLCOM_CREATE_VIEW]=    CF_CHANGES_DATA;
+  sql_command_flags[SQLCOM_CREATE_VIEW]=    CF_CHANGES_DATA | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_DROP_VIEW]=      CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_CREATE_EVENT]=   CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_ALTER_EVENT]=    CF_CHANGES_DATA;
   sql_command_flags[SQLCOM_DROP_EVENT]=     CF_CHANGES_DATA;
 
-  sql_command_flags[SQLCOM_UPDATE]=	    CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
-  sql_command_flags[SQLCOM_UPDATE_MULTI]=   CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
-  sql_command_flags[SQLCOM_INSERT]=	    CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
-  sql_command_flags[SQLCOM_INSERT_SELECT]=  CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
-  sql_command_flags[SQLCOM_DELETE]=         CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
-  sql_command_flags[SQLCOM_DELETE_MULTI]=   CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
-  sql_command_flags[SQLCOM_REPLACE]=        CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
-  sql_command_flags[SQLCOM_REPLACE_SELECT]= CF_CHANGES_DATA | CF_HAS_ROW_COUNT;
+  sql_command_flags[SQLCOM_UPDATE]=	    CF_CHANGES_DATA | CF_HAS_ROW_COUNT |
+                                            CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_UPDATE_MULTI]=   CF_CHANGES_DATA | CF_HAS_ROW_COUNT |
+                                            CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_INSERT]=	    CF_CHANGES_DATA | CF_HAS_ROW_COUNT |
+                                            CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_INSERT_SELECT]=  CF_CHANGES_DATA | CF_HAS_ROW_COUNT |
+                                            CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_DELETE]=         CF_CHANGES_DATA | CF_HAS_ROW_COUNT |
+                                            CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_DELETE_MULTI]=   CF_CHANGES_DATA | CF_HAS_ROW_COUNT |
+                                            CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_REPLACE]=        CF_CHANGES_DATA | CF_HAS_ROW_COUNT |
+                                            CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_REPLACE_SELECT]= CF_CHANGES_DATA | CF_HAS_ROW_COUNT |
+                                            CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SELECT]=         CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SET_OPTION]=     CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_DO]=             CF_REEXECUTION_FRAGILE;
 
-  sql_command_flags[SQLCOM_SHOW_STATUS_PROC]= CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_STATUS]=      CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_DATABASES]=   CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_TRIGGERS]=    CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_EVENTS]=      CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_OPEN_TABLES]= CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_STATUS_PROC]= CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_STATUS]=      CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_DATABASES]=   CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_TRIGGERS]=    CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_EVENTS]=      CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_OPEN_TABLES]= CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_SHOW_PLUGINS]=     CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_FIELDS]=      CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_KEYS]=        CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_VARIABLES]=   CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_CHARSETS]=    CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_COLLATIONS]=  CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_FIELDS]=      CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_KEYS]=        CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_VARIABLES]=   CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_CHARSETS]=    CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
+  sql_command_flags[SQLCOM_SHOW_COLLATIONS]=  CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_SHOW_NEW_MASTER]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_BINLOGS]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_HOSTS]= CF_STATUS_COMMAND;
@@ -269,7 +280,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_SHOW_CREATE_PROC]=  CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_FUNC]=  CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_TRIGGER]=  CF_STATUS_COMMAND;
-  sql_command_flags[SQLCOM_SHOW_STATUS_FUNC]=  CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_STATUS_FUNC]=  CF_STATUS_COMMAND | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_SHOW_PROC_CODE]=  CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_FUNC_CODE]=  CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_EVENT]=  CF_STATUS_COMMAND;
@@ -277,9 +288,11 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_SHOW_PROFILE]= CF_STATUS_COMMAND;
 
    sql_command_flags[SQLCOM_SHOW_TABLES]=       (CF_STATUS_COMMAND |
-                                               CF_SHOW_TABLE_COMMAND);
+                                                 CF_SHOW_TABLE_COMMAND |
+                                                 CF_REEXECUTION_FRAGILE);
   sql_command_flags[SQLCOM_SHOW_TABLE_STATUS]= (CF_STATUS_COMMAND |
-                                                CF_SHOW_TABLE_COMMAND);
+                                                CF_SHOW_TABLE_COMMAND |
+                                                CF_REEXECUTION_FRAGILE);
 
   /*
     The following is used to preserver CF_ROW_COUNT during the
@@ -287,7 +300,7 @@ void init_update_queries(void)
     last called (or executed) statement is preserved.
     See mysql_execute_command() for how CF_ROW_COUNT is used.
   */
-  sql_command_flags[SQLCOM_CALL]= 		CF_HAS_ROW_COUNT;
+  sql_command_flags[SQLCOM_CALL]= 		CF_HAS_ROW_COUNT | CF_REEXECUTION_FRAGILE;
   sql_command_flags[SQLCOM_EXECUTE]= 		CF_HAS_ROW_COUNT;
 
   /*
@@ -435,6 +448,7 @@ pthread_handler_t handle_bootstrap(void *arg)
     thd->query[length] = '\0';
     DBUG_PRINT("query",("%-.4096s",thd->query));
 #if defined(ENABLED_PROFILING)
+    thd->profiling.start_new_query();
     thd->profiling.set_query_source(thd->query, length);
 #endif
 
@@ -660,11 +674,7 @@ bool do_command(THD *thd)
 
   net_new_transaction(net);
 
-  packet_length= my_net_read(net);
-#if defined(ENABLED_PROFILING)
-  thd->profiling.start_new_query();
-#endif
-  if (packet_length == packet_error)
+  if ((packet_length= my_net_read(net)) == packet_error)
   {
     DBUG_PRINT("info",("Got error %d reading command from socket %s",
 		       net->error,
@@ -721,9 +731,6 @@ bool do_command(THD *thd)
   return_value= dispatch_command(command, thd, packet+1, (uint) (packet_length-1));
 
 out:
-#if defined(ENABLED_PROFILING)
-  thd->profiling.finish_current_query();
-#endif
   DBUG_RETURN(return_value);
 }
 #endif  /* EMBEDDED_LIBRARY */
@@ -826,6 +833,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
 
+#if defined(ENABLED_PROFILING)
+  thd->profiling.start_new_query();
+#endif
+
   thd->command=command;
   /*
     Commands which always take a long time are logged into
@@ -834,7 +845,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   thd->enable_slow_log= TRUE;
   thd->lex->sql_command= SQLCOM_END; /* to avoid confusing VIEW detectors */
   thd->set_time();
-  VOID(pthread_mutex_lock(&LOCK_thread_count));
+  pthread_mutex_lock(&LOCK_thread_count);
   thd->query_id= global_query_id;
 
   switch( command ) {
@@ -856,10 +867,13 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
   thread_running++;
   /* TODO: set thd->lex->sql_command to SQLCOM_END here */
-  VOID(pthread_mutex_unlock(&LOCK_thread_count));
+  pthread_mutex_unlock(&LOCK_thread_count);
 
-  thd->server_status&=
-           ~(SERVER_QUERY_NO_INDEX_USED | SERVER_QUERY_NO_GOOD_INDEX_USED);
+  /**
+    Clear the set of flags that are expected to be cleared at the
+    beginning of each command.
+  */
+  thd->server_status&= ~SERVER_STATUS_CLEAR_SET;
   switch (command) {
   case COM_INIT_DB:
   {
@@ -1070,7 +1084,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       thd->profiling.set_query_source(beginning_of_next_stmt, length);
 #endif
 
-      VOID(pthread_mutex_lock(&LOCK_thread_count));
+      pthread_mutex_lock(&LOCK_thread_count);
       thd->query_length= length;
       thd->query= beginning_of_next_stmt;
       /*
@@ -1080,8 +1094,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       thd->query_id= next_query_id();
       thd->set_time(); /* Reset the query start time. */
       /* TODO: set thd->lex->sql_command to SQLCOM_END here */
-      VOID(pthread_mutex_unlock(&LOCK_thread_count));
-
+      pthread_mutex_unlock(&LOCK_thread_count);
       mysql_parse(thd, beginning_of_next_stmt, length, &end_of_stmt);
     }
 
@@ -1327,8 +1340,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     }
 #endif
 #ifndef EMBEDDED_LIBRARY
-    VOID(my_net_write(net, (uchar*) buff, length));
-    VOID(net_flush(net));
+    (void) my_net_write(net, (uchar*) buff, length);
+    (void) net_flush(net);
     thd->main_da.disable_status();
 #endif
     break;
@@ -1431,15 +1444,20 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   log_slow_statement(thd);
 
   thd_proc_info(thd, "cleaning up");
-  VOID(pthread_mutex_lock(&LOCK_thread_count)); // For process list
+  pthread_mutex_lock(&LOCK_thread_count); // For process list
   thd_proc_info(thd, 0);
   thd->command=COM_SLEEP;
   thd->query=0;
   thd->query_length=0;
   thread_running--;
-  VOID(pthread_mutex_unlock(&LOCK_thread_count));
+  pthread_mutex_unlock(&LOCK_thread_count);
   thd->packet.shrink(thd->variables.net_buffer_length);	// Reclaim some memory
   free_root(thd->mem_root,MYF(MY_KEEP_PREALLOC));
+
+#if defined(ENABLED_PROFILING)
+  thd->profiling.finish_current_query();
+#endif
+
   DBUG_RETURN(error);
 }
 
@@ -1935,7 +1953,12 @@ mysql_execute_command(THD *thd)
   DBUG_ASSERT(thd->transaction.stmt.modified_non_trans_table == FALSE);
   
   switch (lex->sql_command) {
+
   case SQLCOM_SHOW_EVENTS:
+#ifndef HAVE_EVENT_SCHEDULER
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "embedded server");
+    break;
+#endif
   case SQLCOM_SHOW_STATUS_PROC:
   case SQLCOM_SHOW_STATUS_FUNC:
     res= execute_sqlcom_select(thd, all_tables);
@@ -3278,9 +3301,9 @@ end_with_restore_list:
       - no non-transactional locks exist (!thd->locked_tables).
     */
     DBUG_PRINT("lock_info", ("lex->lock_transactional: %d  "
-                             "thd->locked_tables: 0x%lx",
+                             "thd->locked_tables: %p",
                              lex->lock_transactional,
-                             (long) thd->locked_tables));
+                             thd->locked_tables));
     if (lex->lock_transactional && !thd->locked_tables)
     {
       int rc;
@@ -3327,8 +3350,8 @@ end_with_restore_list:
       thd->locked_tables=thd->lock;
       thd->lock=0;
       (void) set_handler_table_locks(thd, all_tables, FALSE);
-      DBUG_PRINT("lock_info", ("thd->locked_tables: 0x%lx",
-                               (long) thd->locked_tables));
+      DBUG_PRINT("lock_info", ("thd->locked_tables: %p",
+                               thd->locked_tables));
       my_ok(thd);
     }
     else
@@ -3528,6 +3551,7 @@ end_with_restore_list:
   }
   case SQLCOM_CREATE_EVENT:
   case SQLCOM_ALTER_EVENT:
+  #ifdef HAVE_EVENT_SCHEDULER
   do
   {
     DBUG_ASSERT(lex->event_parse_data);
@@ -3581,6 +3605,10 @@ end_with_restore_list:
                                   lex->drop_if_exists)))
       my_ok(thd);
     break;
+#else
+    my_error(ER_NOT_SUPPORTED_YET,MYF(0),"embedded server");
+    break;
+#endif
   case SQLCOM_CREATE_FUNCTION:                  // UDF function
   {
     if (check_access(thd,INSERT_ACL,"mysql",0,1,0,0))
@@ -5500,9 +5528,11 @@ void mysql_reset_thd_for_next_command(THD *thd)
 
   thd->query_start_used= 0;
   thd->is_fatal_error= thd->time_zone_used= 0;
-  thd->server_status&= ~ (SERVER_MORE_RESULTS_EXISTS | 
-                          SERVER_QUERY_NO_INDEX_USED |
-                          SERVER_QUERY_NO_GOOD_INDEX_USED);
+  /*
+    Clear the status flag that are expected to be cleared at the
+    beginning of each SQL statement.
+  */
+  thd->server_status&= ~SERVER_STATUS_CLEAR_SET;
   /*
     If in autocommit mode and not in a transaction, reset
     OPTION_STATUS_NO_TRANS_UPDATE | OPTION_KEEP_LOG to not get warnings
@@ -6761,7 +6791,7 @@ uint kill_one_thread(THD *thd, ulong id, bool only_kill_query)
   uint error=ER_NO_SUCH_THREAD;
   DBUG_ENTER("kill_one_thread");
   DBUG_PRINT("enter", ("id=%lu only_kill=%d", id, only_kill_query));
-  VOID(pthread_mutex_lock(&LOCK_thread_count)); // For unlink from list
+  pthread_mutex_lock(&LOCK_thread_count); // For unlink from list
   I_List_iterator<THD> it(threads);
   while ((tmp=it++))
   {
@@ -6773,7 +6803,7 @@ uint kill_one_thread(THD *thd, ulong id, bool only_kill_query)
       break;
     }
   }
-  VOID(pthread_mutex_unlock(&LOCK_thread_count));
+  pthread_mutex_unlock(&LOCK_thread_count);
   if (tmp)
   {
     if ((thd->security_ctx->master_access & SUPER_ACL) ||

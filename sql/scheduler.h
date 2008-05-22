@@ -63,8 +63,8 @@ public:
   bool thread_attached;  /* Indicates if THD is attached to the OS thread */
   
 #ifndef DBUG_OFF
-  char dbug_explain_buf[256];
-  void swap_dbug_explain();
+  char dbug_explain[256];
+  bool set_explain;
 #endif
 
   thd_scheduler();

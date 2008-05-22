@@ -90,6 +90,8 @@ extern int NEAR my_errno;		/* Last error in mysys */
 #define ME_COLOUR2	((2 << ME_HIGHBYTE))
 #define ME_COLOUR3	((3 << ME_HIGHBYTE))
 #define ME_FATALERROR   1024    /* Fatal statement error */
+#define ME_NO_WARNING_FOR_ERROR 2048 /* Don't push a warning for error */
+#define ME_NO_SP_HANDLER 4096 /* Don't call stored routine error handlers */
 
 	/* Bits in last argument to fn_format */
 #define MY_REPLACE_DIR		1	/* replace dir in name with 'dir' */
@@ -312,7 +314,7 @@ struct st_my_file_info
 {
   char *		name;
   enum file_type	type;
-#if defined(THREAD) && !defined(HAVE_PREAD)
+#if defined(THREAD) && !defined(HAVE_PREAD) && !defined(__WIN__)
   pthread_mutex_t	mutex;
 #endif
 };

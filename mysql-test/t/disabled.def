@@ -41,3 +41,9 @@ sort_buffer_size_basic_64   : Bug #36522: Some tests of system variables have di
 log_output_basic      : Bug#34820 log_output can be set to illegal value
 query_cache_size_basic_32   : Bug#36747: Allocating a large query cache is not deterministic
 query_cache_size_basic_64   : Bug#36747: Allocating a large query cache is not deterministic
+wait_timeout_func           : Bug #36873 wait_timeout_func.test fails randomly
+slow_launch_time_func       : Bug #36874 main.slow_launch_time_func test fails randomly
+sort_buffer_size_basic_32   : Bug#36875 main.sort_buffer_size_basic_32 fails on some systems
+key_buffer_size_basic_32    : Bug#36876 main.key_buffer_size_basic_32 fails on some systems
+max_heap_table_size_basic_32 : Bug#36877 main.max_heap_table_size_basic_32 fails on some systems
+tmp_table_size_basic_32     : Bug#36878 main.tmp_table_size_basic_32 fails on some systems

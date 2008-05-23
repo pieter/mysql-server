@@ -279,6 +279,7 @@ static BOOLEAN InList(struct link *linkp,const char *cp);
 static void dbug_flush(CODE_STATE *);
 static void DbugExit(const char *why);
 static const char *DbugStrTok(const char *s);
+static void DbugFprintf(FILE *stream, const char* format, va_list args);
 
 #ifndef THREAD
         /* Open profile output stream */
@@ -455,6 +456,7 @@ static void DbugParse(CODE_STATE *cs, const char *control)
   rel= control[0] == '+' || control[0] == '-';
   if ((!rel || (!stack->out_file && !stack->next)))
   {
+    FreeState(cs, stack, 0);
     stack->flags= 0;
     stack->delay= 0;
     stack->maxdepth= 0;
@@ -493,7 +495,7 @@ static void DbugParse(CODE_STATE *cs, const char *control)
   }
 
   end= DbugStrTok(control);
-  while (1)
+  while (control < end)
   {
     int c, sign= (*control == '+') ? 1 : (*control == '-') ? -1 : 0;
     if (sign) control++;
@@ -722,6 +724,18 @@ void _db_push_(const char *control)
   DbugParse(cs, control);
 }
 
+
+/**
+  Returns TRUE if session-local settings have been set.
+*/
+
+int _db_is_pushed_()
+{
+  CODE_STATE *cs= NULL;
+  get_code_state_or_return FALSE;
+  return (cs->stack != &init_settings);
+}
+
 /*
  *  FUNCTION
  *
@@ -770,7 +784,7 @@ void _db_pop_()
   get_code_state_or_return;
 
   discard= cs->stack;
-  if (discard->next != NULL)
+  if (discard != &init_settings)
   {
     cs->stack= discard->next;
     FreeState(cs, discard, 1);
@@ -1158,12 +1172,23 @@ void _db_doprnt_(const char *format,...)
     else
       (void) fprintf(cs->stack->out_file, "%s: ", cs->func);
     (void) fprintf(cs->stack->out_file, "%s: ", cs->u_keyword);
-    (void) vfprintf(cs->stack->out_file, format, args);
-    (void) fputc('\n',cs->stack->out_file);
+    DbugFprintf(cs->stack->out_file, format, args);
     dbug_flush(cs);
     errno=save_errno;
   }
   va_end(args);
+}
+
+/*
+ * fprintf clone with consistent, platform independent output for 
+ * problematic formats like %p, %zd and %lld.
+ */
+static void DbugFprintf(FILE *stream, const char* format, va_list args)
+{
+  char cvtbuf[1024];
+  size_t len;
+  len = my_vsnprintf(cvtbuf, sizeof(cvtbuf), format, args);
+  (void) fprintf(stream, "%s\n", cvtbuf);
 }
 
 
@@ -1260,7 +1285,7 @@ static struct link *ListAdd(struct link *head,
 {
   const char *start;
   struct link *new_malloc;
-  int len;
+  size_t len;
 
   while (ctlp < end)
   {
@@ -1303,7 +1328,7 @@ static struct link *ListDel(struct link *head,
 {
   const char *start;
   struct link **cur;
-  int len;
+  size_t len;
 
   while (ctlp < end)
   {
@@ -1352,7 +1377,7 @@ static struct link *ListCopy(struct link *orig)
 {
   struct link *new_malloc;
   struct link *head;
-  int len;
+  size_t len;
 
   head= NULL;
   while (orig != NULL)
@@ -1440,8 +1465,8 @@ static void PushState(CODE_STATE *cs)
   struct settings *new_malloc;
 
   new_malloc= (struct settings *) DbugMalloc(sizeof(struct settings));
+  bzero(new_malloc, sizeof(*new_malloc));
   new_malloc->next= cs->stack;
-  new_malloc->out_file= NULL;
   cs->stack= new_malloc;
 }
 
@@ -1472,11 +1497,17 @@ static void FreeState(CODE_STATE *cs, struct settings *state, int free_state)
     FreeList(state->processes);
   if (!is_shared(state, p_functions))
     FreeList(state->p_functions);
+
   if (!is_shared(state, out_file))
     DBUGCloseFile(cs, state->out_file);
-  (void) fflush(cs->stack->out_file);
-  if (state->prof_file)
+  else
+    (void) fflush(state->out_file);
+
+  if (!is_shared(state, prof_file))
     DBUGCloseFile(cs, state->prof_file);
+  else
+    (void) fflush(state->prof_file);
+
   if (free_state)
     free((void*) state);
 }
@@ -1827,7 +1858,7 @@ static void DBUGOpenFile(CODE_STATE *cs,
   {
     if (end)
     {
-      int len=end-name;
+      size_t len=end-name;
       memcpy(cs->stack->name, name, len);
       cs->stack->name[len]=0;
     }
@@ -1851,13 +1882,7 @@ static void DBUGOpenFile(CODE_STATE *cs,
       else
       {
         newfile= !EXISTS(name);
-        if (!(fp= fopen(name,
-#if defined(MSDOS) || defined(__WIN__)
-		append ? "a+c" : "wc"
-#else
-                append ? "a+" : "w"
-#endif
-		)))
+        if (!(fp= fopen(name, append ? "a+" : "w")))
         {
           (void) fprintf(stderr, ERR_OPEN, cs->process, name);
           perror("");
@@ -1956,7 +1981,7 @@ static FILE *OpenProfile(CODE_STATE *cs, const char *name)
 
 static void DBUGCloseFile(CODE_STATE *cs, FILE *fp)
 {
-  if (fp != stderr && fp != stdout && fclose(fp) == EOF)
+  if (fp && fp != stderr && fp != stdout && fclose(fp) == EOF)
   {
     pthread_mutex_lock(&THR_LOCK_dbug);
     (void) fprintf(cs->stack->out_file, ERR_CLOSE, cs->process);

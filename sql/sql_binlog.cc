@@ -98,8 +98,8 @@ void mysql_client_binlog_statement(THD* thd)
         since it will read from unassigned memory.
       */
     DBUG_PRINT("info",
-               ("bytes_decoded: %d  strptr: 0x%lx  endptr: 0x%lx ('%c':%d)",
-                bytes_decoded, (long) strptr, (long) endptr, *endptr,
+               ("bytes_decoded: %d  strptr: %p  endptr: %p ('%c':%d)",
+                bytes_decoded, strptr, endptr, *endptr,
                 *endptr));
 #endif
 
@@ -190,10 +190,10 @@ void mysql_client_binlog_statement(THD* thd)
         This debug printout should not be used for valgrind builds
         since it will read from unassigned memory.
       */
-      DBUG_PRINT("info",("bufptr+EVENT_TYPE_OFFSET: 0x%lx",
-                         (long) (bufptr+EVENT_TYPE_OFFSET)));
-      DBUG_PRINT("info", ("bytes_decoded: %d   bufptr: 0x%lx  buf[EVENT_LEN_OFFSET]: %lu",
-                          bytes_decoded, (long) bufptr,
+      DBUG_PRINT("info",("bufptr+EVENT_TYPE_OFFSET: %p",
+                         (bufptr+EVENT_TYPE_OFFSET)));
+      DBUG_PRINT("info", ("bytes_decoded: %d   bufptr: %p  buf[EVENT_LEN_OFFSET]: %lu",
+                          bytes_decoded, bufptr,
                           (ulong) uint4korr(bufptr+EVENT_LEN_OFFSET)));
 #endif
       ev->thd= thd;

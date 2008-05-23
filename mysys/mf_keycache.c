@@ -491,11 +491,11 @@ int init_key_cache(KEY_CACHE *keycache, uint key_cache_block_size,
     keycache->waiting_for_hash_link.last_thread= NULL;
     keycache->waiting_for_block.last_thread= NULL;
     DBUG_PRINT("exit",
-	       ("disk_blocks: %d  block_root: 0x%lx  hash_entries: %d\
- hash_root: 0x%lx  hash_links: %d  hash_link_root: 0x%lx",
-		keycache->disk_blocks,  (long) keycache->block_root,
-		keycache->hash_entries, (long) keycache->hash_root,
-		keycache->hash_links,   (long) keycache->hash_link_root));
+	       ("disk_blocks: %d  block_root: %p  hash_entries: %d\
+ hash_root: %p  hash_links: %d  hash_link_root: %p",
+		keycache->disk_blocks,  keycache->block_root,
+		keycache->hash_entries, keycache->hash_root,
+		keycache->hash_links,   keycache->hash_link_root));
     bzero((uchar*) keycache->changed_blocks,
 	  sizeof(keycache->changed_blocks[0]) * CHANGED_BLOCKS_HASH);
     bzero((uchar*) keycache->file_blocks,
@@ -733,7 +733,7 @@ void change_key_cache_param(KEY_CACHE *keycache, uint division_limit,
 void end_key_cache(KEY_CACHE *keycache, my_bool cleanup)
 {
   DBUG_ENTER("end_key_cache");
-  DBUG_PRINT("enter", ("key_cache: 0x%lx", (long) keycache));
+  DBUG_PRINT("enter", ("key_cache: %p", keycache));
 
   if (!keycache->key_cache_inited)
     DBUG_VOID_RETURN;
@@ -4002,7 +4002,7 @@ int flush_key_blocks(KEY_CACHE *keycache,
 {
   int res= 0;
   DBUG_ENTER("flush_key_blocks");
-  DBUG_PRINT("enter", ("keycache: 0x%lx", (long) keycache));
+  DBUG_PRINT("enter", ("keycache: %p", keycache));
 
   if (!keycache->key_cache_inited)
     DBUG_RETURN(0);
@@ -4401,8 +4401,8 @@ static void keycache_debug_print(const char * fmt,...)
   va_start(args,fmt);
   if (keycache_debug_log)
   {
-    VOID(vfprintf(keycache_debug_log, fmt, args));
-    VOID(fputc('\n',keycache_debug_log));
+    (void) vfprintf(keycache_debug_log, fmt, args);
+    (void) fputc('\n',keycache_debug_log);
   }
   va_end(args);
 }

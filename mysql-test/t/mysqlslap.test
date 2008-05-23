@@ -68,6 +68,8 @@ CREATE TABLE mysqlslap.t1 (id int, name varchar(64));
 
 --exec $MYSQL_SLAP --silent --iterations=20  --query="select * from t1" --query="INSERT INTO t1 VALUES (1, 'This is a test');" --delimiter=";"
 
+FLUSH TABLES;
+
 SELECT count(*) from mysqlslap.t1;
 
 # Now we will test to make sure we can destory the data if it happens to be

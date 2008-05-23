@@ -32,7 +32,7 @@ size_t vio_read(Vio * vio, uchar* buf, size_t size)
 {
   size_t r;
   DBUG_ENTER("vio_read");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %u", vio->sd, (long) buf,
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %u", vio->sd, buf,
                        (uint) size));
 
   /* Ensure nobody uses vio_read_buff and vio_read simultaneously */
@@ -64,7 +64,7 @@ size_t vio_read_buff(Vio *vio, uchar* buf, size_t size)
   size_t rc;
 #define VIO_UNBUFFERED_READ_MIN_SIZE 2048
   DBUG_ENTER("vio_read_buff");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %u", vio->sd, (long) buf,
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %u", vio->sd, buf,
                        (uint) size));
 
   if (vio->read_pos < vio->read_end)
@@ -103,7 +103,7 @@ size_t vio_write(Vio * vio, const uchar* buf, size_t size)
 {
   size_t r;
   DBUG_ENTER("vio_write");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %u", vio->sd, (long) buf,
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %u", vio->sd, buf,
                        (uint) size));
 #ifdef __WIN__
   r = send(vio->sd, buf, size,0);
@@ -464,7 +464,7 @@ size_t vio_read_pipe(Vio * vio, uchar* buf, size_t size)
 {
   DWORD length;
   DBUG_ENTER("vio_read_pipe");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %u", vio->sd, (long) buf,
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %u", vio->sd, buf,
                        (uint) size));
 
   if (!ReadFile(vio->hPipe, buf, size, &length, NULL))
@@ -479,7 +479,7 @@ size_t vio_write_pipe(Vio * vio, const uchar* buf, size_t size)
 {
   DWORD length;
   DBUG_ENTER("vio_write_pipe");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %u", vio->sd, (long) buf,
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %u", vio->sd, buf,
                        (uint) size));
 
   if (!WriteFile(vio->hPipe, (char*) buf, size, &length, NULL))
@@ -524,7 +524,7 @@ size_t vio_read_shared_memory(Vio * vio, uchar* buf, size_t size)
   size_t remain_local;
   char *current_postion;
   DBUG_ENTER("vio_read_shared_memory");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %d", vio->sd, (long) buf,
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %d", vio->sd, buf,
                        size));
 
   remain_local = size;
@@ -587,7 +587,7 @@ size_t vio_write_shared_memory(Vio * vio, const uchar* buf, size_t size)
   HANDLE pos;
   const uchar *current_postion;
   DBUG_ENTER("vio_write_shared_memory");
-  DBUG_PRINT("enter", ("sd: %d  buf: 0x%lx  size: %d", vio->sd, (long) buf,
+  DBUG_PRINT("enter", ("sd: %d  buf: %p  size: %d", vio->sd, buf,
                        size));
 
   remain = size;
@@ -680,3 +680,27 @@ int vio_close_shared_memory(Vio * vio)
 }
 #endif /* HAVE_SMEM */
 #endif /* __WIN__ */
+
+
+/**
+  Number of bytes in the read buffer.
+
+  @return number of bytes in the read buffer or < 0 if error.
+*/
+
+ssize_t vio_pending(Vio *vio)
+{
+#ifdef HAVE_OPENSSL
+  SSL *ssl= (SSL*) vio->ssl_arg;
+#endif
+
+  if (vio->read_pos < vio->read_end)
+    return vio->read_end - vio->read_pos;
+
+#ifdef HAVE_OPENSSL
+  if (ssl)
+    return SSL_pending(ssl);
+#endif
+
+  return 0;
+}

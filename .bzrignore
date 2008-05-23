@@ -1041,6 +1041,7 @@ libmysqld/event.cc
 libmysqld/event_data_objects.cc
 libmysqld/event_db_repository.cc
 libmysqld/event_executor.cc
+libmysqld/event_parse_data.cc
 libmysqld/event_queue.cc
 libmysqld/event_scheduler.cc
 libmysqld/event_timed.cc
@@ -1145,6 +1146,7 @@ libmysqld/rpl_record_old.cc
 libmysqld/scheduler.cc
 libmysqld/set_var.cc
 libmysqld/sha2.cc
+libmysqld/si_objects.cc
 libmysqld/simple-test
 libmysqld/slave.cc
 libmysqld/sp.cc
@@ -1287,6 +1289,8 @@ mysql-max-4.0.2-alpha-pc-linux-gnu-i686.tar.gz
 mysql-test/*.ds?
 mysql-test/*.vcproj
 mysql-test/.DS_Store
+mysql-test/bug36522-64.tar
+mysql-test/bug36522.tar
 mysql-test/dump.txt
 mysql-test/funcs_1-ps.log
 mysql-test/funcs_1.log
@@ -1294,6 +1298,8 @@ mysql-test/funcs_1.tar
 mysql-test/gmon.out
 mysql-test/install_test_db
 mysql-test/lib/init_db.sql
+mysql-test/linux_sys_vars.inc
+mysql-test/load_sysvars.inc
 mysql-test/mtr
 mysql-test/mysql-test-run
 mysql-test/mysql-test-run-shell
@@ -1329,6 +1335,7 @@ mysql-test/r/im_client_port.log
 mysql-test/r/index_merge_load.result
 mysql-test/r/isam.err
 mysql-test/r/lowercase_table2.err
+mysql-test/r/max_allowed_packet_func.result
 mysql-test/r/multi_update.err
 mysql-test/r/mysql_protocols.err
 mysql-test/r/mysqlbinlog.err
@@ -1405,10 +1412,13 @@ mysql-test/suite/partitions/r/partition_special_myisam.warnings
 mysql-test/suite/partitions/r/partition_t55.out
 mysql-test/suite/partitions/r/partition_t55.refout
 mysql-test/suite/partitions/t/partition.test
+mysql-test/t.log
 mysql-test/t/index_merge.load
 mysql-test/t/tmp.test
+mysql-test/tps.log
 mysql-test/var
 mysql-test/var/*
+mysql-test/windows_sys_vars.inc
 mysql.kdevprj
 mysql.proj
 mysql_priv.h
@@ -3034,4 +3044,3 @@ win/vs8cache.txt
 ylwrap
 zlib/*.ds?
 zlib/*.vcproj
-libmysqld/si_objects.cc

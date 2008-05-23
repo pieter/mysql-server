@@ -792,6 +792,10 @@ SET GLOBAL log_output = '';
 --error ER_WRONG_VALUE_FOR_VAR
 SET GLOBAL log_output = 0;
 
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL log_output = NULL;
+
+
 --echo
 --echo # -- End of Bug#34820.
 

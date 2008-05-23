@@ -22,10 +22,10 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/zlib
                     ${CMAKE_SOURCE_DIR}/extra/yassl/include
                     ${CMAKE_SOURCE_DIR}/unittest/mytap)
 ADD_EXECUTABLE(bitmap-t bitmap-t.c)
-TARGET_LINK_LIBRARIES(bitmap-t mytap mysys dbug strings wsock32)
+TARGET_LINK_LIBRARIES(bitmap-t mytap mysys dbug strings ws2_32)
 
 ADD_EXECUTABLE(base64-t base64-t.c)
-TARGET_LINK_LIBRARIES(base64-t mytap mysys dbug strings wsock32)
+TARGET_LINK_LIBRARIES(base64-t mytap mysys dbug strings ws2_32)
 
 ADD_EXECUTABLE(my_atomic-t my_atomic-t.c)
-TARGET_LINK_LIBRARIES(my_atomic-t mytap mysys dbug strings wsock32)
+TARGET_LINK_LIBRARIES(my_atomic-t mytap mysys dbug strings ws2_32)

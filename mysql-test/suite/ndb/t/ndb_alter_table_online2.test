@@ -12,6 +12,7 @@
 -- source include/have_multi_ndb.inc
 -- source include/not_embedded.inc
 -- source include/have_log_bin.inc
+--source include/big_test.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;

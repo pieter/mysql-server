@@ -1965,8 +1965,8 @@ Query_log_event::Query_log_event(const char* buf, uint event_len,
       break;
     }
     case Q_CATALOG_NZ_CODE:
-      DBUG_PRINT("info", ("case Q_CATALOG_NZ_CODE; pos: 0x%lx; end: 0x%lx",
-                          (ulong) pos, (ulong) end));
+      DBUG_PRINT("info", ("case Q_CATALOG_NZ_CODE; pos: %p; end: %p",
+                          pos, end));
       if (get_str_len_and_pointer(&pos, &catalog, &catalog_len, end))
       {
         DBUG_PRINT("info", ("query= 0"));
@@ -2329,9 +2329,9 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
     thd->set_time((time_t)when);
     thd->query_length= q_len_arg;
     thd->query= (char*)query_arg;
-    VOID(pthread_mutex_lock(&LOCK_thread_count));
+    pthread_mutex_lock(&LOCK_thread_count);
     thd->query_id = next_query_id();
-    VOID(pthread_mutex_unlock(&LOCK_thread_count));
+    pthread_mutex_unlock(&LOCK_thread_count);
     thd->variables.pseudo_thread_id= thread_id;		// for temp tables
     DBUG_PRINT("query",("%s",thd->query));
 
@@ -2530,7 +2530,7 @@ Default database: '%s'. Query: '%s'",
   } /* End of if (db_ok(... */
 
 end:
-  VOID(pthread_mutex_lock(&LOCK_thread_count));
+  pthread_mutex_lock(&LOCK_thread_count);
   /*
     Probably we have set thd->query, thd->db, thd->catalog to point to places
     in the data_buf of this event. Now the event is going to be deleted
@@ -2546,7 +2546,7 @@ end:
   DBUG_PRINT("info", ("end: query= 0"));
   thd->query= 0;			// just to be sure
   thd->query_length= 0;
-  VOID(pthread_mutex_unlock(&LOCK_thread_count));
+  pthread_mutex_unlock(&LOCK_thread_count);
   close_thread_tables(thd);      
   /*
     As a disk space optimization, future masters will not log an event for
@@ -3768,9 +3768,9 @@ int Load_log_event::do_apply_event(NET* net, Relay_log_info const *rli,
   if (rpl_filter->db_ok(thd->db))
   {
     thd->set_time((time_t)when);
-    VOID(pthread_mutex_lock(&LOCK_thread_count));
+    pthread_mutex_lock(&LOCK_thread_count);
     thd->query_id = next_query_id();
-    VOID(pthread_mutex_unlock(&LOCK_thread_count));
+    pthread_mutex_unlock(&LOCK_thread_count);
     /*
       Initing thd->row_count is not necessary in theory as this variable has no
       influence in the case of the slave SQL thread (it is used to generate a
@@ -3924,12 +3924,12 @@ int Load_log_event::do_apply_event(NET* net, Relay_log_info const *rli,
 error:
   thd->net.vio = 0; 
   const char *remember_db= thd->db;
-  VOID(pthread_mutex_lock(&LOCK_thread_count));
+  pthread_mutex_lock(&LOCK_thread_count);
   thd->catalog= 0;
   thd->set_db(NULL, 0);                   /* will free the current database */
   thd->query= 0;
   thd->query_length= 0;
-  VOID(pthread_mutex_unlock(&LOCK_thread_count));
+  pthread_mutex_unlock(&LOCK_thread_count);
   close_thread_tables(thd);
 
   DBUG_EXECUTE_IF("LOAD_DATA_INFILE_has_fatal_error",
@@ -6338,7 +6338,7 @@ int Rows_log_event::do_add_row_data(uchar *row_data, size_t length)
     would save binlog space. TODO
   */
   DBUG_ENTER("Rows_log_event::do_add_row_data");
-  DBUG_PRINT("enter", ("row_data: 0x%lx  length: %lu", (ulong) row_data,
+  DBUG_PRINT("enter", ("row_data: %p  length: %lu", row_data,
                        (ulong) length));
 
   /*
@@ -6439,15 +6439,29 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
   */
   if (!thd->lock)
   {
-    bool need_reopen= 1; /* To execute the first lap of the loop below */
-
     /*
-      lock_tables() reads the contents of thd->lex, so they must be
-      initialized. Contrary to in
-      Table_map_log_event::do_apply_event() we don't call
-      mysql_init_query() as that may reset the binlog format.
+      Lock_tables() reads the contents of thd->lex, so they must be
+      initialized.
+
+      We also call the mysql_reset_thd_for_next_command(), since this
+      is the logical start of the next "statement". Note that this
+      call might reset the value of current_stmt_binlog_row_based, so
+      we need to do any changes to that value after this function.
     */
     lex_start(thd);
+    mysql_reset_thd_for_next_command(thd);
+
+    /*
+      Check if the slave is set to use SBR.  If so, it should switch
+      to using RBR until the end of the "statement", i.e., next
+      STMT_END_F or next error.
+    */
+    if (!thd->current_stmt_binlog_row_based &&
+        mysql_bin_log.is_open() && (thd->options & OPTION_BIN_LOG))
+    {
+      thd->set_current_stmt_binlog_row_based();
+    }
+
 
     /*
       There are a few flags that are replicated with each row event.
@@ -6466,72 +6480,23 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
     /* A small test to verify that objects have consistent types */
     DBUG_ASSERT(sizeof(thd->options) == sizeof(OPTION_RELAXED_UNIQUE_CHECKS));
 
-
-    while ((error= lock_tables(thd, rli->tables_to_lock,
-                               rli->tables_to_lock_count, &need_reopen)))
+    if (simple_open_n_lock_tables(thd, rli->tables_to_lock))
     {
-      if (!need_reopen)
+      uint actual_error= thd->main_da.sql_errno();
+      if (thd->is_slave_error || thd->is_fatal_error)
       {
-        if (thd->is_slave_error || thd->is_fatal_error)
-        {
-          /*
-            Error reporting borrowed from Query_log_event with many excessive
-            simplifications (we don't honour --slave-skip-errors)
-          */
-          uint actual_error= thd->main_da.sql_errno();
-          rli->report(ERROR_LEVEL, actual_error,
-                      "Error '%s' in %s event: when locking tables",
-                      (actual_error ? thd->main_da.message():
-                       "unexpected success or fatal error"),
-                      get_type_str());
-          thd->is_fatal_error= 1;
-        }
-        else
-        {
-          rli->report(ERROR_LEVEL, error,
-                      "Error in %s event: when locking tables",
-                      get_type_str());
-        }
-        const_cast<Relay_log_info*>(rli)->clear_tables_to_lock();
-        DBUG_RETURN(error);
+        /*
+          Error reporting borrowed from Query_log_event with many excessive
+          simplifications (we don't honour --slave-skip-errors)
+        */
+        rli->report(ERROR_LEVEL, actual_error,
+                    "Error '%s' on opening tables",
+                    (actual_error ? thd->main_da.message() :
+                     "unexpected success or fatal error"));
+        thd->is_slave_error= 1;
       }
-
-      /*
-        So we need to reopen the tables.
-
-        We need to flush the pending RBR event, since it keeps a
-        pointer to an open table.
-
-        ALTERNATIVE SOLUTION (not implemented): Extract a pointer to
-        the pending RBR event and reset the table pointer after the
-        tables has been reopened.
-
-        NOTE: For this new scheme there should be no pending event:
-        need to add code to assert that is the case.
-       */
-      thd->binlog_flush_pending_rows_event(false);
-      TABLE_LIST *tables= rli->tables_to_lock;
-      close_tables_for_reopen(thd, &tables);
-
-      uint tables_count= rli->tables_to_lock_count;
-      if ((error= open_tables(thd, &tables, &tables_count, 0)))
-      {
-        if (thd->is_slave_error || thd->is_fatal_error)
-        {
-          /*
-            Error reporting borrowed from Query_log_event with many excessive
-            simplifications (we don't honour --slave-skip-errors)
-          */
-          uint actual_error= thd->main_da.sql_errno();
-          rli->report(ERROR_LEVEL, actual_error,
-                      "Error '%s' on reopening tables",
-                      (actual_error ? thd->main_da.message() :
-                       "unexpected success or fatal error"));
-          thd->is_slave_error= 1;
-        }
-        const_cast<Relay_log_info*>(rli)->clear_tables_to_lock();
-        DBUG_RETURN(error);
-      }
+      const_cast<Relay_log_info*>(rli)->clear_tables_to_lock();
+      DBUG_RETURN(actual_error);
     }
 
     /*
@@ -6583,6 +6548,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
   TABLE* 
     table= 
     m_table= const_cast<Relay_log_info*>(rli)->m_table_map.get_table(m_table_id);
+
+  DBUG_PRINT("debug", ("m_table: 0x%lx, m_table_id: %lu", (ulong) m_table, m_table_id));
 
   if (table)
   {
@@ -7331,71 +7298,7 @@ int Table_map_log_event::do_apply_event(Relay_log_info const *rli)
   }
   else
   {
-    /*
-      open_tables() reads the contents of thd->lex, so they must be
-      initialized, so we should call lex_start(); to be even safer, we
-      call mysql_init_query() which does a more complete set of inits.
-    */
-    lex_start(thd);
-    mysql_reset_thd_for_next_command(thd);
-    /*
-      Check if the slave is set to use SBR.  If so, it should switch
-      to using RBR until the end of the "statement", i.e., next
-      STMT_END_F or next error.
-    */
-    if (!thd->current_stmt_binlog_row_based &&
-        mysql_bin_log.is_open() && (thd->options & OPTION_BIN_LOG))
-    {
-      thd->set_current_stmt_binlog_row_based();
-    }
-
-    /*
-      Open the table if it is not already open and add the table to
-      table map.  Note that for any table that should not be
-      replicated, a filter is needed.
-
-      The creation of a new TABLE_LIST is used to up-cast the
-      table_list consisting of RPL_TABLE_LIST items. This will work
-      since the only case where the argument to open_tables() is
-      changed, is when thd->lex->query_tables == table_list, i.e.,
-      when the statement requires prelocking. Since this is not
-      executed when a statement is executed, this case will not occur.
-      As a precaution, an assertion is added to ensure that the bad
-      case is not a fact.
-
-      Either way, the memory in the list is *never* released
-      internally in the open_tables() function, hence we take a copy
-      of the pointer to make sure that it's not lost.
-    */
-    uint count;
     DBUG_ASSERT(thd->lex->query_tables != table_list);
-    TABLE_LIST *tmp_table_list= table_list;
-    if ((error= open_tables(thd, &tmp_table_list, &count, 0)))
-    {
-      if (thd->is_slave_error || thd->is_fatal_error)
-      {
-        /*
-          Error reporting borrowed from Query_log_event with many excessive
-          simplifications (we don't honour --slave-skip-errors)
-        */
-        uint actual_error= thd->main_da.sql_errno();
-        rli->report(ERROR_LEVEL, actual_error,
-                    "Error '%s' on opening table `%s`.`%s`",
-                    (actual_error ? thd->main_da.message() :
-                     "unexpected success or fatal error"),
-                    table_list->db, table_list->table_name);
-        thd->is_slave_error= 1;
-      }
-      goto err;
-    }
-
-    m_table= table_list->table;
-
-    /*
-      This will fail later otherwise, the 'in_use' field should be
-      set to the current thread.
-    */
-    DBUG_ASSERT(m_table->in_use);
 
     /*
       Use placement new to construct the table_def instance in the
@@ -7420,10 +7323,6 @@ int Table_map_log_event::do_apply_event(Relay_log_info const *rli)
     /* 'memory' is freed in clear_tables_to_lock */
   }
 
-  DBUG_RETURN(error);
-
-err:
-  my_free(memory, MYF(MY_WME));
   DBUG_RETURN(error);
 }
 

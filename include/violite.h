@@ -87,6 +87,7 @@ my_socket vio_fd(Vio*vio);
 my_bool vio_peer_addr(Vio *vio, char *buf, uint16 *port, size_t buflen);
 my_bool	vio_poll_read(Vio *vio,uint timeout);
 my_bool vio_peek_read(Vio *vio, uint *bytes);
+ssize_t vio_pending(Vio *vio);
 
 #ifdef HAVE_OPENSSL
 #include <openssl/opensslv.h>

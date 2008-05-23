@@ -26,6 +26,9 @@ while ($run)
   sleep 0.1;
   if (!$counter){
     --echo "Failed while waiting for slave to start"
+    --replace_result $MASTER_MYPORT MASTER_PORT
+#   --replace_column 1 # 7 # 8 # 9 # 22 # 23 # 33 #
+    --replace_column 1 # 8 # 9 # 23 # 33 #
     query_vertical SHOW SLAVE STATUS;
     exit;
   }

@@ -27,9 +27,6 @@
 #include "SerialLogTransaction.h"
 
 
-#ifdef _WIN32
-#define vsnprintf	_vsnprintf
-#endif
 
 #define GET_BYTE	((control->input < control->inputEnd) ? *control->input++ : control->getByte())
 

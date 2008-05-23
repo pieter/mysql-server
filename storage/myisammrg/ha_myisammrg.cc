@@ -321,8 +321,8 @@ static MI_INFO *myisammrg_attach_children_callback(void *callback_param)
     DBUG_RETURN(NULL);
   }
   child= child_l->table;
-  DBUG_PRINT("myrg", ("child table: '%s'.'%s' 0x%lx", child->s->db.str,
-                      child->s->table_name.str, (long) child));
+  DBUG_PRINT("myrg", ("child table: '%s'.'%s' %p", child->s->db.str,
+                      child->s->table_name.str, child));
   /*
     Prepare for next child. Used as child_l in next call to this function.
     We cannot rely on a NULL-terminated chain.
@@ -373,13 +373,13 @@ static MI_INFO *myisammrg_attach_children_callback(void *callback_param)
   if ((child->file->ht->db_type != DB_TYPE_MYISAM) ||
       !(myisam= ((ha_myisam*) child->file)->file_ptr()))
   {
-    DBUG_PRINT("error", ("no MyISAM handle for child table: '%s'.'%s' 0x%lx",
+    DBUG_PRINT("error", ("no MyISAM handle for child table: '%s'.'%s' %p",
                          child->s->db.str, child->s->table_name.str,
-                         (long) child));
+                         child));
     my_errno= HA_ERR_WRONG_MRG_TABLE_DEF;
   }
-  DBUG_PRINT("myrg", ("MyISAM handle: 0x%lx  my_errno: %d",
-                      (long) myisam, my_errno));
+  DBUG_PRINT("myrg", ("MyISAM handle: %p  my_errno: %d",
+                      myisam, my_errno));
 
  err:
   DBUG_RETURN(my_errno ? NULL : myisam);
@@ -405,7 +405,7 @@ int ha_myisammrg::open(const char *name, int mode __attribute__((unused)),
                        uint test_if_locked)
 {
   DBUG_ENTER("ha_myisammrg::open");
-  DBUG_PRINT("myrg", ("name: '%s'  table: 0x%lx", name, (long) table));
+  DBUG_PRINT("myrg", ("name: '%s'  table: %p", name, table));
   DBUG_PRINT("myrg", ("test_if_locked: %u", test_if_locked));
 
   /* Save for later use. */
@@ -418,7 +418,7 @@ int ha_myisammrg::open(const char *name, int mode __attribute__((unused)),
     DBUG_PRINT("error", ("my_errno %d", my_errno));
     DBUG_RETURN(my_errno ? my_errno : -1);
   }
-  DBUG_PRINT("myrg", ("MYRG_INFO: 0x%lx", (long) file));
+  DBUG_PRINT("myrg", ("MYRG_INFO: %p", file));
   DBUG_RETURN(0);
 }
 
@@ -451,8 +451,8 @@ int ha_myisammrg::attach_children(void)
   uint          keys= table->s->keys;
   int           error;
   DBUG_ENTER("ha_myisammrg::attach_children");
-  DBUG_PRINT("myrg", ("table: '%s'.'%s' 0x%lx", table->s->db.str,
-                      table->s->table_name.str, (long) table));
+  DBUG_PRINT("myrg", ("table: '%s'.'%s' %p", table->s->db.str,
+                      table->s->table_name.str, table));
   DBUG_PRINT("myrg", ("test_if_locked: %u", this->test_if_locked));
   DBUG_ASSERT(!this->file->children_attached);
 
@@ -1154,6 +1154,12 @@ bool ha_myisammrg::check_if_incompatible_data(HA_CREATE_INFO *info,
 int ha_myisammrg::check(THD* thd, HA_CHECK_OPT* check_opt)
 {
   return HA_ADMIN_OK;
+}
+
+
+ha_rows ha_myisammrg::records()
+{
+  return myrg_records(file);
 }
 
 

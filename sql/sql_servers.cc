@@ -662,7 +662,7 @@ delete_server_record_in_cache(LEX_SERVER_OPTIONS *server_options)
                      server->server_name,
                      server->server_name_length));
 
-  VOID(hash_delete(&servers_cache, (uchar*) server));
+  hash_delete(&servers_cache, (uchar*) server);
   
   error= 0;
 
@@ -769,7 +769,7 @@ int update_server_record_in_cache(FOREIGN_SERVER *existing,
   /*
     delete the existing server struct from the server cache
   */
-  VOID(hash_delete(&servers_cache, (uchar*)existing));
+  hash_delete(&servers_cache, (uchar*)existing);
 
   /*
     Insert the altered server struct into the server cache

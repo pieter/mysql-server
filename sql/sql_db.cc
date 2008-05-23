@@ -643,7 +643,7 @@ int mysql_create_db(THD *thd, char *db, HA_CREATE_INFO *create_info,
     goto exit2;
   }
 
-  VOID(pthread_mutex_lock(&LOCK_mysql_create_db));
+  pthread_mutex_lock(&LOCK_mysql_create_db);
 
   /* Check directory */
   path_len= build_table_filename(path, sizeof(path), db, "", "", 0);
@@ -753,7 +753,7 @@ int mysql_create_db(THD *thd, char *db, HA_CREATE_INFO *create_info,
   }
 
 exit:
-  VOID(pthread_mutex_unlock(&LOCK_mysql_create_db));
+  pthread_mutex_unlock(&LOCK_mysql_create_db);
   start_waiting_global_read_lock(thd);
 exit2:
   DBUG_RETURN(error);
@@ -784,7 +784,7 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info)
   if ((error=wait_if_global_read_lock(thd,0,1)))
     goto exit2;
 
-  VOID(pthread_mutex_lock(&LOCK_mysql_create_db));
+  pthread_mutex_lock(&LOCK_mysql_create_db);
 
   /* 
      Recreate db options file: /dbpath/.db.opt
@@ -829,7 +829,7 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info)
   my_ok(thd, result);
 
 exit:
-  VOID(pthread_mutex_unlock(&LOCK_mysql_create_db));
+  pthread_mutex_unlock(&LOCK_mysql_create_db);
   start_waiting_global_read_lock(thd);
 exit2:
   DBUG_RETURN(error);
@@ -881,7 +881,7 @@ bool mysql_rm_db(THD *thd,char *db,bool if_exists, bool silent)
     goto exit2;
   }
 
-  VOID(pthread_mutex_lock(&LOCK_mysql_create_db));
+  pthread_mutex_lock(&LOCK_mysql_create_db);
 
   /*
     This statement will be replicated as a statement, even when using
@@ -922,7 +922,9 @@ bool mysql_rm_db(THD *thd,char *db,bool if_exists, bool silent)
       ha_drop_database(path);
       query_cache_invalidate1(db);
       (void) sp_drop_db_routines(thd, db); /* @todo Do not ignore errors */
+#ifdef HAVE_EVENT_SCHEDULER
       Events::drop_schema_events(thd, db);
+#endif
       error = 0;
     }
   }
@@ -1010,7 +1012,7 @@ exit:
   */
   if (thd->db && !strcmp(thd->db, db))
     mysql_change_db_impl(thd, NULL, 0, thd->variables.collation_server);
-  VOID(pthread_mutex_unlock(&LOCK_mysql_create_db));
+  pthread_mutex_unlock(&LOCK_mysql_create_db);
   start_waiting_global_read_lock(thd);
 exit2:
   DBUG_RETURN(error);
@@ -1120,9 +1122,9 @@ static long mysql_rm_known_files(THD *thd, MY_DIR *dirp, const char *db,
         goto err;
       table_list->db= (char*) (table_list+1);
       table_list->table_name= strmov(table_list->db, db) + 1;
-      VOID(filename_to_tablename(file->name, table_list->table_name,
+      (void) filename_to_tablename(file->name, table_list->table_name,
                                  MYSQL50_TABLE_NAME_PREFIX_LENGTH +
-                                 strlen(file->name) + 1));
+                                 strlen(file->name) + 1);
       table_list->alias= table_list->table_name;	// If lower_case_table_names=2
       table_list->internal_tmp_table= is_prefix(file->name, tmp_file_prefix);
       /* Link into list */

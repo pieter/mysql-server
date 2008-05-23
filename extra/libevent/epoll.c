@@ -32,7 +32,6 @@
 
 #include <stdint.h>
 #include <sys/types.h>
-#include <sys/tree.h>
 #include <sys/resource.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -72,21 +71,20 @@ struct epollop {
 	int epfd;
 };
 
-void *epoll_init	(struct event_base *);
-int epoll_add	(void *, struct event *);
-int epoll_del	(void *, struct event *);
-int epoll_recalc	(struct event_base *, void *, int);
-int epoll_dispatch	(struct event_base *, void *, struct timeval *);
-void epoll_dealloc	(struct event_base *, void *);
+static void *epoll_init	(struct event_base *);
+static int epoll_add	(void *, struct event *);
+static int epoll_del	(void *, struct event *);
+static int epoll_dispatch	(struct event_base *, void *, struct timeval *);
+static void epoll_dealloc	(struct event_base *, void *);
 
 struct eventop epollops = {
 	"epoll",
 	epoll_init,
 	epoll_add,
 	epoll_del,
-	epoll_recalc,
 	epoll_dispatch,
-	epoll_dealloc
+	epoll_dealloc,
+	1 /* need reinit */
 };
 
 #ifdef HAVE_SETFD
@@ -100,7 +98,7 @@ struct eventop epollops = {
 
 #define NEVENT	32000
 
-void *
+static void *
 epoll_init(struct event_base *base)
 {
 	int epfd, nfiles = NEVENT;
@@ -156,7 +154,7 @@ epoll_init(struct event_base *base)
 	return (epollop);
 }
 
-int
+static int
 epoll_recalc(struct event_base *base, void *arg, int max)
 {
 	struct epollop *epollop = arg;
@@ -183,7 +181,7 @@ epoll_recalc(struct event_base *base, void *arg, int max)
 	return (0);
 }
 
-int
+static int
 epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 {
 	struct epollop *epollop = arg;
@@ -211,35 +209,26 @@ epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 	event_debug(("%s: epoll_wait reports %d", __func__, res));
 
 	for (i = 0; i < res; i++) {
-		int which = 0;
 		int what = events[i].events;
 		struct event *evread = NULL, *evwrite = NULL;
 
 		evep = (struct evepoll *)events[i].data.ptr;
-   
-                if (what & EPOLLHUP)
-                        what |= EPOLLIN | EPOLLOUT;
-                else if (what & EPOLLERR)
-                        what |= EPOLLIN | EPOLLOUT;
 
-		if (what & EPOLLIN) {
+		if (what & (EPOLLHUP|EPOLLERR)) {
 			evread = evep->evread;
-			which |= EV_READ;
-		}
-
-		if (what & EPOLLOUT) {
 			evwrite = evep->evwrite;
-			which |= EV_WRITE;
+		} else {
+			if (what & EPOLLIN) {
+				evread = evep->evread;
+			}
+
+			if (what & EPOLLOUT) {
+				evwrite = evep->evwrite;
+			}
 		}
 
-		if (!which)
+		if (!(evread||evwrite))
 			continue;
-
-		if (evread != NULL && !(evread->ev_events & EV_PERSIST))
-			event_del(evread);
-		if (evwrite != NULL && evwrite != evread &&
-		    !(evwrite->ev_events & EV_PERSIST))
-			event_del(evwrite);
 
 		if (evread != NULL)
 			event_active(evread, EV_READ, 1);
@@ -251,7 +240,7 @@ epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 }
 
 
-int
+static int
 epoll_add(void *arg, struct event *ev)
 {
 	struct epollop *epollop = arg;
@@ -299,7 +288,7 @@ epoll_add(void *arg, struct event *ev)
 	return (0);
 }
 
-int
+static int
 epoll_del(void *arg, struct event *ev)
 {
 	struct epollop *epollop = arg;
@@ -350,7 +339,7 @@ epoll_del(void *arg, struct event *ev)
 	return (0);
 }
 
-void
+static void
 epoll_dealloc(struct event_base *base, void *arg)
 {
 	struct epollop *epollop = arg;

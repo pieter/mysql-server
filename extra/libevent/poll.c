@@ -39,7 +39,6 @@
 #include <sys/_time.h>
 #endif
 #include <sys/queue.h>
-#include <sys/tree.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
@@ -68,24 +67,23 @@ struct pollop {
 			      * "no entry." */
 };
 
-void *poll_init	(struct event_base *);
-int poll_add		(void *, struct event *);
-int poll_del		(void *, struct event *);
-int poll_recalc		(struct event_base *, void *, int);
-int poll_dispatch	(struct event_base *, void *, struct timeval *);
-void poll_dealloc	(struct event_base *, void *);
+static void *poll_init	(struct event_base *);
+static int poll_add		(void *, struct event *);
+static int poll_del		(void *, struct event *);
+static int poll_dispatch	(struct event_base *, void *, struct timeval *);
+static void poll_dealloc	(struct event_base *, void *);
 
 const struct eventop pollops = {
 	"poll",
 	poll_init,
 	poll_add,
 	poll_del,
-	poll_recalc,
 	poll_dispatch,
-	poll_dealloc
+	poll_dealloc,
+    0
 };
 
-void *
+static void *
 poll_init(struct event_base *base)
 {
 	struct pollop *pollop;
@@ -100,17 +98,6 @@ poll_init(struct event_base *base)
 	evsignal_init(base);
 
 	return (pollop);
-}
-
-/*
- * Called with the highest fd that we know about.  If it is 0, completely
- * recalculate everything.
- */
-
-int
-poll_recalc(struct event_base *base, void *arg, int max)
-{
-	return (0);
 }
 
 #ifdef CHECK_INVARIANTS
@@ -147,7 +134,7 @@ poll_check_ok(struct pollop *pop)
 #define poll_check_ok(pop)
 #endif
 
-int
+static int
 poll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 {
 	int res, i, msec = -1, nfds;
@@ -201,13 +188,9 @@ poll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 			continue;
 
 		if (r_ev && (res & r_ev->ev_events)) {
-			if (!(r_ev->ev_events & EV_PERSIST))
-				event_del(r_ev);
 			event_active(r_ev, res & r_ev->ev_events, 1);
 		}
 		if (w_ev && w_ev != r_ev && (res & w_ev->ev_events)) {
-			if (!(w_ev->ev_events & EV_PERSIST))
-				event_del(w_ev);
 			event_active(w_ev, res & w_ev->ev_events, 1);
 		}
 	}
@@ -215,7 +198,7 @@ poll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 	return (0);
 }
 
-int
+static int
 poll_add(void *arg, struct event *ev)
 {
 	struct pollop *pop = arg;
@@ -320,7 +303,7 @@ poll_add(void *arg, struct event *ev)
  * Nothing to be done here.
  */
 
-int
+static int
 poll_del(void *arg, struct event *ev)
 {
 	struct pollop *pop = arg;
@@ -373,7 +356,7 @@ poll_del(void *arg, struct event *ev)
 	return (0);
 }
 
-void
+static void
 poll_dealloc(struct event_base *base, void *arg)
 {
 	struct pollop *pop = arg;

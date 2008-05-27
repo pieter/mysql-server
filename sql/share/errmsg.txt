@@ -6126,6 +6126,8 @@ ER_LOAD_DATA_INVALID_COLUMN
 
 ER_LOG_PURGE_NO_FILE  
 	eng "Being purged log %s was not found"
+ER_NEED_REPREPARE
+  eng "Prepared statement needs to be re-prepared"
 ER_WARN_AUTO_CONVERT_LOCK
         eng "Converted to non-transactional lock on '%-.64s'"
         ger "Umgewandelt zu nicht-transaktionalen Sperren auf '%-.64s'"

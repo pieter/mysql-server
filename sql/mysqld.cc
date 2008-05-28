@@ -2975,8 +2975,13 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
       If a continue handler is found, the error message will be cleared
       by the stored procedures code.
     */
+<<<<<<< TREE
     if (!thd->is_fatal_error && thd->spcont &&
         ! (MyFlags & ME_NO_SP_HANDLER) &&
+=======
+    if (thd->spcont &&
+        ! (MyFlags & ME_NO_SP_HANDLER) &&
+>>>>>>> MERGE-SOURCE
         thd->spcont->handle_error(error, MYSQL_ERROR::WARN_LEVEL_ERROR, thd))
     {
       /*
@@ -2986,8 +2991,13 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
       DBUG_VOID_RETURN;
     }
 
+<<<<<<< TREE
     if (!thd->is_fatal_error && !thd->no_warnings_for_error &&
         !(MyFlags & ME_NO_WARNING_FOR_ERROR))
+=======
+    if (!thd->no_warnings_for_error &&
+        !(MyFlags & ME_NO_WARNING_FOR_ERROR))
+>>>>>>> MERGE-SOURCE
     {
       /*
         Suppress infinite recursion if there a memory allocation error

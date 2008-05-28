@@ -6121,11 +6121,13 @@ ER_NO_FORMAT_DESCRIPTION_EVENT_BEFORE_BINLOG_STATEMENT
   eng "The BINLOG statement of type `%s` was not preceded by a format description BINLOG statement."
 ER_SLAVE_CORRUPT_EVENT
   eng "Corrupted replication event was detected"
+
 ER_LOAD_DATA_INVALID_COLUMN
   eng "Invalid column reference (%-.64s) in LOAD DATA"
 
 ER_LOG_PURGE_NO_FILE  
 	eng "Being purged log %s was not found"
+<<<<<<< TREE
 ER_NEED_REPREPARE
   eng "Prepared statement needs to be re-prepared"
 ER_WARN_AUTO_CONVERT_LOCK
@@ -6263,3 +6265,8 @@ ER_TABLESPACE_NOT_EMPTY
 
 ER_BACKUP_TS_CHANGE
         eng "Tablespace `%-.64s` needed by tables being restored has changed on the server. The original definition of the required tablespace is '%-.256s' while the same tablespace is defined on the server as '%-.256s'"
+=======
+
+ER_NEED_REPREPARE
+  eng "Prepared statement needs to be re-prepared"
+>>>>>>> MERGE-SOURCE

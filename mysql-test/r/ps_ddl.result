@@ -1526,6 +1526,7 @@ SUCCESS
 drop table t_27690_1;
 drop view v_27690_1;
 drop table v_27690_2;
+<<<<<<< TREE
 deallocate prepare stmt;
 #=====================================================================
 # TODO: fix the below two bugs and modify their tests
@@ -2190,3 +2191,681 @@ drop procedure if exists p_verify_reprepare_count;
 drop procedure if exists p1;
 drop function if exists f1;
 drop view if exists v1, v2;
+=======
+deallocate prepare stmt;
+#=====================================================================
+# TODO: fix the below two bugs and modify their tests
+#
+# Bug#21294 Executing a prepared statement that executes
+# a stored function which was recreat
+#
+create function f1() returns int return 10;
+prepare stmt from "select f1()";
+execute stmt;
+f1()
+10
+drop function f1;
+create function f1() returns int return 10;
+execute stmt;
+ERROR 42000: FUNCTION test.f1 does not exist
+drop function f1;
+create function f1() returns int return 20;
+execute stmt;
+ERROR 42000: FUNCTION test.f1 does not exist
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop function f1;
+deallocate prepare stmt;
+#
+# Bug#12093 SP not found on second PS execution if another thread drops
+# other SP in between
+#
+drop table if exists t_12093;
+drop function if exists f_12093;
+drop function if exists f_12093_unrelated;
+drop procedure if exists p_12093;
+create table t_12093 (a int);
+create function f_12093() returns int return (select count(*) from t_12093);
+create procedure p_12093(a int) select * from t_12093;
+create function f_12093_unrelated() returns int return 2;
+create procedure p_12093_unrelated() begin end;
+prepare stmt_sf from 'select f_12093();';
+prepare stmt_sp from 'call p_12093(f_12093())';
+execute stmt_sf;
+f_12093()
+0
+execute stmt_sp;
+a
+drop function f_12093_unrelated;
+drop procedure p_12093_unrelated;
+# XXX: bug
+execute stmt_sf;
+ERROR 42000: FUNCTION test.f_12093 does not exist
+# XXX: bug
+execute stmt_sp;
+ERROR 42000: PROCEDURE test.p_12093 does not exist
+# XXX: bug
+execute stmt_sf;
+ERROR 42000: FUNCTION test.f_12093 does not exist
+# XXX: bug
+execute stmt_sp;
+ERROR 42000: PROCEDURE test.p_12093 does not exist
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t_12093;
+drop function f_12093;
+drop procedure p_12093;
+deallocate prepare stmt_sf;
+deallocate prepare stmt_sp;
+=====================================================================
+Ensure that metadata validation is performed for every type of
+SQL statement where it is needed.
+=====================================================================
+#
+# SQLCOM_SELECT
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "select 1 as res from dual where (1) in (select * from t1)";
+drop table t1;
+create table t1 (x int);
+execute stmt;
+res
+drop table t1;
+deallocate prepare stmt;
+call p_verify_reprepare_count(1);
+SUCCESS
+
+#
+# SQLCOM_CREATE_TABLE
+#
+drop table if exists t1;
+drop table if exists t2;
+create table t1 (a int);
+prepare stmt from 'create table t2 as select * from t1';
+execute stmt;
+drop table t2;
+execute stmt;
+drop table t2;
+execute stmt;
+call p_verify_reprepare_count(0);
+SUCCESS
+
+execute stmt;
+ERROR 42S01: Table 't2' already exists
+call p_verify_reprepare_count(1);
+SUCCESS
+
+execute stmt;
+ERROR 42S01: Table 't2' already exists
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t2;
+create temporary table t2 (a int);
+execute stmt;
+ERROR 42S01: Table 't2' already exists
+call p_verify_reprepare_count(1);
+SUCCESS
+
+execute stmt;
+ERROR 42S01: Table 't2' already exists
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop temporary table t2;
+execute stmt;
+call p_verify_reprepare_count(1);
+SUCCESS
+
+drop table t2;
+execute stmt;
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t2;
+create view t2 as select 1;
+execute stmt;
+Got one of the listed errors
+call p_verify_reprepare_count(1);
+SUCCESS
+
+execute stmt;
+Got one of the listed errors
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop view t2;
+drop table t1;
+create table t1 (x varchar(20));
+execute stmt;
+call p_verify_reprepare_count(1);
+SUCCESS
+
+select * from t2;
+x
+drop table t2;
+execute stmt;
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t2;
+alter table t1 add column y decimal(10,3);
+execute stmt;
+call p_verify_reprepare_count(1);
+SUCCESS
+
+select * from t2;
+x	y
+drop table t2;
+execute stmt;
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t1;
+deallocate prepare stmt;
+# XXX: no validation of the first table in case of
+# CREATE TEMPORARY TABLE. This is a shortcoming of the current code,
+# but since validation is not strictly necessary, nothing is done
+# about it.
+# Will be fixed as part of work on Bug#21431 "Incomplete support of
+# temporary tables"
+create table t1 (a int);
+insert into t1 (a) values (1);
+prepare stmt from "create temporary table if not exists t2 as select * from t1";
+execute stmt;
+drop table t2;
+execute stmt;
+execute stmt;
+Warnings:
+Note	1050	Table 't2' already exists
+select * from t2;
+a
+1
+1
+execute stmt;
+Warnings:
+Note	1050	Table 't2' already exists
+select * from t2;
+a
+1
+1
+1
+drop table t2;
+create temporary table t2 (a varchar(10));
+execute stmt;
+Warnings:
+Note	1050	Table 't2' already exists
+select * from t2;
+a
+1
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Warnings:
+Note	1050	Table 't2' already exists
+call p_verify_reprepare_count(1);
+SUCCESS
+
+execute stmt;
+Warnings:
+Note	1050	Table 't2' already exists
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t1;
+drop temporary table t2;
+drop table t2;
+deallocate prepare stmt;
+create table t1 (a int);
+prepare stmt from "create table t2 like t1";
+execute stmt;
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t2;
+execute stmt;
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t2;
+drop table t1;
+execute stmt;
+ERROR 42S02: Table 'test.t1' doesn't exist
+call p_verify_reprepare_count(0);
+SUCCESS
+
+execute stmt;
+ERROR 42S02: Table 'test.t1' doesn't exist
+call p_verify_reprepare_count(0);
+SUCCESS
+
+create table t1 (x char(17));
+execute stmt;
+call p_verify_reprepare_count(1);
+SUCCESS
+
+drop table t2;
+execute stmt;
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t2;
+alter table t1 add column y time;
+execute stmt;
+call p_verify_reprepare_count(1);
+SUCCESS
+
+select * from t2;
+x	y
+drop table t2;
+execute stmt;
+call p_verify_reprepare_count(0);
+SUCCESS
+
+drop table t1;
+drop table t2;
+deallocate prepare stmt;
+#
+# SQLCOM_UPDATE
+#
+drop table if exists t1, t2;
+create table t1 (a int);
+create table t2 (a int);
+prepare stmt from "update t2 set a=a+1 where (1) in (select * from t1)";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1, t2;
+deallocate prepare stmt;
+#
+# SQLCOM_INSERT
+#
+drop table if exists t1, t2;
+create table t1 (a int);
+create table t2 (a int);
+prepare stmt from "insert into t2 set a=((1) in (select * from t1))";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1, t2;
+deallocate prepare stmt;
+#
+# SQLCOM_INSERT_SELECT
+#
+drop table if exists t1, t2;
+create table t1 (a int);
+create table t2 (a int);
+prepare stmt from "insert into t2 select * from t1";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1, t2;
+deallocate prepare stmt;
+#
+# SQLCOM_REPLACE
+#
+drop table if exists t1, t2;
+create table t1 (a int);
+create table t2 (a int);
+prepare stmt from "replace t2 set a=((1) in (select * from t1))";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1, t2;
+deallocate prepare stmt;
+#
+# SQLCOM_REPLACE_SELECT
+#
+drop table if exists t1, t2;
+create table t1 (a int);
+create table t2 (a int);
+prepare stmt from "replace t2 select * from t1";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1, t2;
+deallocate prepare stmt;
+#
+# SQLCOM_DELETE
+#
+drop table if exists t1, t2;
+create table t1 (a int);
+create table t2 (a int);
+prepare stmt from "delete from t2 where (1) in (select * from t1)";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1, t2;
+deallocate prepare stmt;
+#
+# SQLCOM_DELETE_MULTI
+#
+drop table if exists t1, t2, t3;
+create table t1 (a int);
+create table t2 (a int);
+create table t3 (a int);
+prepare stmt from "delete t2, t3 from t2, t3 where (1) in (select * from t1)";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1, t2, t3;
+deallocate prepare stmt;
+#
+# SQLCOM_UPDATE_MULTI
+#
+drop table if exists t1, t2, t3;
+create table t1 (a int);
+create table t2 (a int);
+create table t3 (a int);
+prepare stmt from "update t2, t3 set t3.a=t2.a, t2.a=null where (1) in (select * from t1)";
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1, t2, t3;
+deallocate prepare stmt;
+# Intermediate results: 8 SQLCOMs tested, 8 automatic reprepares
+call p_verify_reprepare_count(8);
+SUCCESS
+
+#
+# SQLCOM_LOAD
+#
+drop table if exists t1;
+create table t1 (a varchar(20));
+prepare stmt from "load data infile '../std_data_ln/words.dat' into table t1";
+ERROR HY000: This command is not supported in the prepared statement protocol yet
+drop table t1;
+#
+# SQLCOM_SHOW_DATABASES
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show databases where (1) in (select * from t1)";
+execute stmt;
+Database
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Database
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_TABLES
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show tables where (1) in (select * from t1)";
+execute stmt;
+Tables_in_test
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Tables_in_test
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_FIELDS
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show fields from t1 where (1) in (select * from t1)";
+execute stmt;
+Field	Type	Null	Key	Default	Extra
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Field	Type	Null	Key	Default	Extra
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_KEYS
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show keys from t1 where (1) in (select * from t1)";
+execute stmt;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_VARIABLES
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show variables where (1) in (select * from t1)";
+execute stmt;
+Variable_name	Value
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Variable_name	Value
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_STATUS
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show status where (1) in (select * from t1)";
+execute stmt;
+Variable_name	Value
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Variable_name	Value
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_ENGINE_STATUS, SQLCOM_SHOW_ENGINE_LOGS,
+# SQLCOM_SHOW_ENGINE_MUTEX, SQLCOM_SHOW_PROCESSLIST
+#
+# Currently can not have a where clause, need to be covered
+# with tests
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show engine all status where (1) in (select * from t1)";
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'where (1) in (select * from t1)' at line 1
+prepare stmt from "show engine all logs where (1) in (select * from t1)";
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'where (1) in (select * from t1)' at line 1
+prepare stmt from "show engine all mutex where (1) in (select * from t1)";
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'where (1) in (select * from t1)' at line 1
+prepare stmt from "show processlist where (1) in (select * from t1)";
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'where (1) in (select * from t1)' at line 1
+drop table t1;
+#
+# SQLCOM_SHOW_CHARSETS
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show charset where (1) in (select * from t1)";
+execute stmt;
+Charset	Description	Default collation	Maxlen
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Charset	Description	Default collation	Maxlen
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_COLLATIONS
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show collation where (1) in (select * from t1)";
+execute stmt;
+Collation	Charset	Id	Default	Compiled	Sortlen
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Collation	Charset	Id	Default	Compiled	Sortlen
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_TABLE_STATUS
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show table status where (1) in (select * from t1)";
+execute stmt;
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_TRIGGERS
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show triggers where (1) in (select * from t1)";
+execute stmt;
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_OPEN_TABLES
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show open tables where (1) in (select * from t1)";
+execute stmt;
+Database	Table	In_use	Name_locked
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Database	Table	In_use	Name_locked
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_STATUS_PROC
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show procedure status where (1) in (select * from t1)";
+execute stmt;
+Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_STATUS_FUNC
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "show function status where (1) in (select * from t1)";
+execute stmt;
+Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
+drop table t1;
+create table t1 (x int);
+execute stmt;
+Db	Name	Type	Definer	Modified	Created	Security_type	Comment	character_set_client	collation_connection	Database Collation
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_SHOW_EVENTS
+#
+#
+# Please see this test in ps.test, it requires not_embedded.inc
+#
+#
+# SQLCOM_SET_OPTION
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "set @a=((1) in (select * from t1))";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_DO
+#
+drop table if exists t1;
+create table t1 (a int);
+prepare stmt from "do ((1) in (select * from t1))";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1;
+deallocate prepare stmt;
+#
+# SQLCOM_CALL
+#
+drop table if exists t1;
+drop procedure if exists p1;
+create procedure p1(a int) begin end;
+create table t1 (a int);
+prepare stmt from "call p1((1) in (select * from t1))";
+execute stmt;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop table t1;
+drop procedure p1;
+deallocate prepare stmt;
+#
+# SQLCOM_CREATE_VIEW
+#
+drop table if exists t1;
+drop view if exists v1;
+create table t1 (a int);
+prepare stmt from "create view v1 as select * from t1";
+execute stmt;
+drop view v1;
+drop table t1;
+create table t1 (x int);
+execute stmt;
+drop view v1;
+drop table t1;
+deallocate prepare stmt;
+# Intermediate result: number of reprepares matches the number
+# of tests
+call p_verify_reprepare_count(17);
+SUCCESS
+
+#
+# SQLCOM_ALTER_VIEW
+#
+drop view if exists v1;
+create view v1 as select 1;
+prepare stmt from "alter view v1 as select 2";
+ERROR HY000: This command is not supported in the prepared statement protocol yet
+drop view v1;
+# Cleanup
+#
+drop temporary table if exists t1, t2, t3;
+drop table if exists t1, t2, t3, v1, v2;
+drop procedure if exists p_verify_reprepare_count;
+drop procedure if exists p1;
+drop function if exists f1;
+drop view if exists v1, v2;
+>>>>>>> MERGE-SOURCE

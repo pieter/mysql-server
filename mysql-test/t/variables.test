@@ -778,6 +778,7 @@ set global thread_cache_size         =@my_thread_cache_size;
 --replace_column 2 #
 show global variables where Variable_name='table_definition_cache' or
 Variable_name='table_lock_wait_timeout';
+<<<<<<< TREE
 
 ###########################################################################
 
@@ -799,3 +800,22 @@ SET GLOBAL log_output = NULL;
 --echo
 --echo # -- End of Bug#34820.
 
+=======
+
+###########################################################################
+
+--echo
+--echo # --
+--echo # -- Bug#34820: log_output can be set to illegal value.
+--echo # --
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL log_output = '';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL log_output = 0;
+
+--echo
+--echo # -- End of Bug#34820.
+
+>>>>>>> MERGE-SOURCE

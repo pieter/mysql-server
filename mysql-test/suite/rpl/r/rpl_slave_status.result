@@ -7,11 +7,8 @@ start slave;
 ==== Create new replication user ====
 [on master]
 grant replication slave on *.* to rpl@127.0.0.1 identified by 'rpl';
-<<<<<<< TREE
 flush privileges;
-=======
 [on slave]
->>>>>>> MERGE-SOURCE
 stop slave;
 change master to master_user='rpl',master_password='rpl';
 start slave;
@@ -23,13 +20,9 @@ insert into t1 values (1);
 select * from t1;
 n
 1
-<<<<<<< TREE
-drop user rpl@127.0.0.1;
-=======
 ==== Delete new replication user ====
 [on master]
 drop user rpl@127.0.0.1;
->>>>>>> MERGE-SOURCE
 flush privileges;
 [on slave]
 ==== Restart slave without privileges =====
@@ -39,9 +32,5 @@ start slave;
 Slave_IO_Running = No (should be No)
 ==== Cleanup (Note that slave IO thread is not running) ====
 drop table t1;
-<<<<<<< TREE
-=======
-delete from mysql.user where user='rpl';
 [on master]
->>>>>>> MERGE-SOURCE
 drop table t1;

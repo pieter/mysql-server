@@ -25,13 +25,8 @@
 connection master;
 grant replication slave on *.* to rpl@127.0.0.1 identified by 'rpl';
 flush privileges;
-sync_slave_with_master;
-
-<<<<<<< TREE
-=======
 --echo [on slave]
 sync_slave_with_master;
->>>>>>> MERGE-SOURCE
 stop slave;
 source include/wait_for_slave_to_stop.inc;
 change master to master_user='rpl',master_password='rpl';
@@ -47,27 +42,18 @@ insert into t1 values (1);
 sync_slave_with_master;
 select * from t1;
 
-<<<<<<< TREE
 # 3. Delete new replication user
 # note: drop user will be replicated on slave
-=======
 --echo ==== Delete new replication user ====
 --echo [on master]
->>>>>>> MERGE-SOURCE
 connection master;
 drop user rpl@127.0.0.1;
 flush privileges;
-<<<<<<< TREE
-sync_slave_with_master;
-
-# 4. Restart slave without privileges
-=======
 
 --echo [on slave]
 sync_slave_with_master;
 
 --echo ==== Restart slave without privileges =====
->>>>>>> MERGE-SOURCE
 # (slave.err will contain access denied error for this START SLAVE command)
 stop slave;
 source include/wait_for_slave_to_stop.inc;

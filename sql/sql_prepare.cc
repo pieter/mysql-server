@@ -1449,7 +1449,6 @@ error:
 
 
 /**
-<<<<<<< TREE
   Validate and prepare for execution CALL statement expressions.
 
   @param stmt               prepared statement
@@ -1488,45 +1487,6 @@ err:
 
 
 /**
-=======
-  Validate and prepare for execution CALL statement expressions.
-
-  @param stmt               prepared statement
-  @param tables             list of tables used in this query
-  @param value_list         list of expressions
-
-  @retval FALSE             success
-  @retval TRUE              error, error message is set in THD
-*/
-
-static bool mysql_test_call_fields(Prepared_statement *stmt,
-                                   TABLE_LIST *tables,
-                                   List<Item> *value_list)
-{
-  DBUG_ENTER("mysql_test_call_fields");
-
-  List_iterator<Item> it(*value_list);
-  THD *thd= stmt->thd;
-  Item *item;
-
-  if (tables && check_table_access(thd, SELECT_ACL, tables, UINT_MAX, FALSE) ||
-      open_normal_and_derived_tables(thd, tables, 0))
-    goto err;
-
-  while ((item= it++))
-  {
-    if (!item->fixed && item->fix_fields(thd, it.ref()) ||
-        item->check_cols(1))
-      goto err;
-  }
-  DBUG_RETURN(FALSE);
-err:
-  DBUG_RETURN(TRUE);
-}
-
-
-/**
->>>>>>> MERGE-SOURCE
   Check internal SELECT of the prepared command.
 
   @param stmt                      prepared statement
@@ -2548,17 +2508,10 @@ void mysql_sql_stmt_execute(THD *thd)
     DBUG_VOID_RETURN;
   }
 
-<<<<<<< TREE
   DBUG_PRINT("info",("stmt: %p", stmt));
 
   (void) stmt->execute_loop(&expanded_query, FALSE, NULL, NULL);
 
-=======
-  DBUG_PRINT("info",("stmt: 0x%lx", (long) stmt));
-
-  (void) stmt->execute_loop(&expanded_query, FALSE, NULL, NULL);
-
->>>>>>> MERGE-SOURCE
   DBUG_VOID_RETURN;
 }
 

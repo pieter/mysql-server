@@ -207,7 +207,6 @@ enum enum_server_command
 #define SERVER_STATUS_LAST_ROW_SENT 128
 #define SERVER_STATUS_DB_DROPPED        256 /* A database was dropped */
 #define SERVER_STATUS_NO_BACKSLASH_ESCAPES 512
-<<<<<<< TREE
 /**
   Sent to the client if after a prepared statement reprepare
   we discovered that the new statement returns a different 
@@ -233,27 +232,6 @@ enum enum_server_command
                                  SERVER_QUERY_NO_INDEX_USED|\
                                  SERVER_MORE_RESULTS_EXISTS|\
                                  SERVER_STATUS_METADATA_CHANGED)
-=======
-/**
-  Sent to the client if after a prepared statement reprepare
-  we discovered that the new statement returns a different 
-  number of result set columns.
-*/
-#define SERVER_STATUS_METADATA_CHANGED 1024
-
-/**
-  Server status flags that must be cleared when starting
-  execution of a new SQL statement.
-  Flags from this set are only added to the
-  current server status by the execution engine, but 
-  never removed -- the execution engine expects them 
-  to disappear automagically by the next command.
-*/
-#define SERVER_STATUS_CLEAR_SET (SERVER_QUERY_NO_GOOD_INDEX_USED| \
-                                 SERVER_QUERY_NO_INDEX_USED|\
-                                 SERVER_MORE_RESULTS_EXISTS|\
-                                 SERVER_STATUS_METADATA_CHANGED)
->>>>>>> MERGE-SOURCE
 
 #define MYSQL_ERRMSG_SIZE	512
 #define NET_READ_TIMEOUT	30		/* Timeout on read */

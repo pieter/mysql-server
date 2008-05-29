@@ -180,7 +180,6 @@ Variable_name	Value
 Com_alter_function	0
 Com_create_function	1
 Com_drop_function	1
-<<<<<<< TREE
 DROP VIEW IF EXISTS v1;
 CREATE VIEW v1 AS SELECT VARIABLE_NAME AS NAME, CONVERT(VARIABLE_VALUE, UNSIGNED) AS VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS;
 SELECT VALUE INTO @tc FROM v1 WHERE NAME = 'Threads_connected';
@@ -193,5 +192,3 @@ NAME	VALUE
 SELECT * FROM v1 WHERE NAME = 'Threads_running' AND VALUE < @tr;
 NAME	VALUE
 DROP VIEW v1;
-=======
->>>>>>> MERGE-SOURCE

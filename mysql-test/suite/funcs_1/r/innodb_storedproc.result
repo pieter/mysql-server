@@ -14224,6 +14224,8 @@ ERROR 42000: Bad SQLSTATE: '2005-03-03'
 Testcase 4.2.43:
 --------------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS sp1;
+expect failure, SQLSTATE 00000 is not an acceptable value
+for an SP's handler
 CREATE PROCEDURE sp1()
 BEGIN
 declare cond1 condition for sqlstate '00000';
@@ -14232,6 +14234,10 @@ set @x=1;
 SELECT @var2;
 END//
 ERROR 42000: Bad SQLSTATE: '00000'
+ensure SP doesn't exist
+CALL sp1();
+ERROR 42000: PROCEDURE db_storedproc.sp1 does not exist
+DROP PROCEDURE IF EXISTS sp1;
 
 Testcase 4.2.45:
 --------------------------------------------------------------------------------
@@ -14300,6 +14306,7 @@ ERROR 42000: Bad SQLSTATE: '42s0200test'
 Testcase 4.2.48:
 --------------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS sp1;
+This creation should fail, SQLSTATE 00000 is unacceptable
 CREATE PROCEDURE sp1()
 BEGIN
 declare continue handler for sqlstate '00000'  set @var2 = 1;
@@ -14307,6 +14314,11 @@ set @x=1;
 SELECT @var2;
 END//
 ERROR 42000: Bad SQLSTATE: '00000'
+Verify SP wasn't created
+CALL sp1();
+ERROR 42000: PROCEDURE db_storedproc.sp1 does not exist
+DROP PROCEDURE IF EXISTSsp1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'EXISTSsp1' at line 1
 
 Testcase 4.2.52:
 --------------------------------------------------------------------------------

@@ -1348,7 +1348,7 @@ static int mysql_test_select(Prepared_statement *stmt,
     goto error;
 
   thd->used_tables= 0;                        // Updated by setup_fields
-  thd->thd_marker= 0;
+  thd->thd_marker.emb_on_expr_nest= 0;
 
   /*
     JOIN::prepare calls
@@ -1921,7 +1921,6 @@ static bool check_prepared_statement(Prepared_statement *stmt)
   case SQLCOM_SHOW_PROCESSLIST:
   case SQLCOM_SHOW_STORAGE_ENGINES:
   case SQLCOM_SHOW_PRIVILEGES:
-  case SQLCOM_SHOW_COLUMN_TYPES:
   case SQLCOM_SHOW_ENGINE_LOGS:
   case SQLCOM_SHOW_ENGINE_STATUS:
   case SQLCOM_SHOW_ENGINE_MUTEX:

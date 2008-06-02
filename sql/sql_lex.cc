@@ -125,7 +125,7 @@ Lex_input_stream::Lex_input_stream(THD *thd,
   yylineno(1),
   yytoklen(0),
   yylval(NULL),
-  lookahead_token(END_OF_INPUT),
+  lookahead_token(-1),
   lookahead_yylval(NULL),
   m_ptr(buffer),
   m_tok_start(NULL),
@@ -736,14 +736,14 @@ int MYSQLlex(void *arg, void *yythd)
   YYSTYPE *yylval=(YYSTYPE*) arg;
   int token;
 
-  if (lip->lookahead_token != END_OF_INPUT)
+  if (lip->lookahead_token >= 0)
   {
     /*
       The next token was already parsed in advance,
       return it.
     */
     token= lip->lookahead_token;
-    lip->lookahead_token= END_OF_INPUT;
+    lip->lookahead_token= -1;
     *yylval= *(lip->lookahead_yylval);
     lip->lookahead_yylval= NULL;
     return token;
@@ -1382,23 +1382,8 @@ int lex_one_token(void *arg, void *yythd)
       lip->yySkip();
       return (SET_VAR);
     case MY_LEX_SEMICOLON:			// optional line terminator
-      if (lip->yyPeek())
-      {
-        if ((thd->client_capabilities & CLIENT_MULTI_STATEMENTS) && 
-            !lip->stmt_prepare_mode)
-        {
-	  lex->safe_to_cache_query= 0;
-          lip->found_semicolon= lip->get_ptr();
-          thd->server_status|= SERVER_MORE_RESULTS_EXISTS;
-          lip->next_state= MY_LEX_END;
-          lip->set_echo(TRUE);
-          return (END_OF_INPUT);
-        }
-        state= MY_LEX_CHAR;		// Return ';'
-	break;
-      }
-      lip->next_state=MY_LEX_END;       // Mark for next loop
-      return(END_OF_INPUT);
+      state= MY_LEX_CHAR;		// Return ';'
+      break;
     case MY_LEX_EOL:
       if (lip->eof())
       {
@@ -1417,7 +1402,7 @@ int lex_one_token(void *arg, void *yythd)
     case MY_LEX_END:
       lip->next_state=MY_LEX_END;
       return(0);			// We found end of input last time
-      
+
       /* Actually real shouldn't start with . but allow them anyhow */
     case MY_LEX_REAL_OR_POINT:
       if (my_isdigit(cs,lip->yyPeek()))

@@ -4,8 +4,8 @@
 --source include/have_innodb.inc
 --disable_warnings
 drop table if exists t0, t1, t2, t3;
+drop view if exists v1;
 --enable_warnings
-
 
 create table t0 (a int);
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -146,7 +146,8 @@ drop table t0, t1,t2,t3;
 
 #
 # Bug #27348: Assertion abort for a query with two subqueries to be flattened  
-#  
+# Bug #35674: Range optimizer ignores conditions on inner tables in semi-join IN subqueries 
+#
 CREATE TABLE t1 (
   ID int(11) NOT NULL auto_increment,
   Name char(35) NOT NULL default '',
@@ -546,3 +547,293 @@ DROP PROCEDURE p1;
 DROP PROCEDURE p2;
 DROP PROCEDURE p3;
 DROP PROCEDURE p4;
+
+
+#
+# BUG#35160 "Subquery optimization: table pullout is not reflected in EXPLAIN EXTENDED"
+#
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4);
+
+create table t1 (a int, b int, key(a));
+insert into t1 select a,a from t0;
+
+create table t2 (a int, b int, primary key(a));
+insert into t2 select * from t1;
+
+# Table t2 should be pulled out because t2.a=t0.a equality
+--echo Table t2, unlike table t1, should be displayed as pulled out
+explain extended select * from t0
+where t0.a in ( select t1.a from t1,t2 where t2.a=t0.a and
+t1.b=t2.b);
+
+drop table t0, t1, t2;
+
+#
+# BUG#35767: Processing of uncorrelated subquery with semi-join cause wrong result and crash
+#
+CREATE TABLE t1 (
+  id int(11) NOT NULL,
+  PRIMARY KEY (id));
+
+CREATE TABLE t2 (
+  id int(11) NOT NULL,
+  fid int(11) NOT NULL,
+  PRIMARY KEY (id));
+
+insert into t1 values(1);
+insert into t2 values(1,7503),(2,1);
+
+--error 1054
+explain select count(*) 
+from t1 
+where fid IN (select fid from t2 where (id between 7502 and 8420) order by fid );
+
+drop table t1, t2;
+ 
+#
+# BUG#36137 "virtual longlong Item_in_subselect::val_int(): Assertion `0' failed."
+#
+create table t1 (a int, b int, key (a), key (b));
+insert into t1 values (2,4),(2,4),(2,4);
+select t1.a from t1 
+where 
+  t1.a in (select 1 from t1 where t1.a in (select 1 from t1) group by  t1.a);
+drop table t1;
+
+#
+# BUG#36128: not in subquery causes crash in cleanup..
+#
+create table t1(a int,b int,key(a),key(b)); 
+insert into t1 values (1,1),(2,2),(3,3);
+select 1 from t1 
+where t1.a not in (select 1 from t1 
+                  where t1.a in (select 1 from t1) 
+                  group by  t1.b);
+drop table t1;
+
+#
+# BUG#33743 "nested subqueries, unique index, wrong result"
+#
+CREATE TABLE t1
+ (EMPNUM   CHAR(3) NOT NULL,
+  EMPNAME  CHAR(20),
+  GRADE    DECIMAL(4),
+  CITY     CHAR(15));
+
+CREATE TABLE t2
+ (PNUM     CHAR(3) NOT NULL,
+  PNAME    CHAR(20),
+  PTYPE    CHAR(6),
+  BUDGET   DECIMAL(9),
+  CITY     CHAR(15));
+
+CREATE TABLE t3
+ (EMPNUM   CHAR(3) NOT NULL,
+  PNUM     CHAR(3) NOT NULL,
+  HOURS    DECIMAL(5));
+
+INSERT INTO t1 VALUES ('E1','Alice',12,'Deale');
+INSERT INTO t1 VALUES ('E2','Betty',10,'Vienna');
+INSERT INTO t1 VALUES ('E3','Carmen',13,'Vienna');
+INSERT INTO t1 VALUES ('E4','Don',12,'Deale');
+INSERT INTO t1 VALUES ('E5','Ed',13,'Akron');
+
+INSERT INTO t2 VALUES ('P1','MXSS','Design',10000,'Deale');
+INSERT INTO t2 VALUES ('P2','CALM','Code',30000,'Vienna');
+INSERT INTO t2 VALUES ('P3','SDP','Test',30000,'Tampa');
+INSERT INTO t2 VALUES ('P4','SDP','Design',20000,'Deale');
+INSERT INTO t2 VALUES ('P5','IRM','Test',10000,'Vienna');
+INSERT INTO t2 VALUES ('P6','PAYR','Design',50000,'Deale');
+
+INSERT INTO t3 VALUES  ('E1','P1',40);
+INSERT INTO t3 VALUES  ('E1','P2',20);
+INSERT INTO t3 VALUES  ('E1','P3',80);
+INSERT INTO t3 VALUES  ('E1','P4',20);
+INSERT INTO t3 VALUES  ('E1','P5',12);
+INSERT INTO t3 VALUES  ('E1','P6',12);
+INSERT INTO t3 VALUES  ('E2','P1',40);
+INSERT INTO t3 VALUES  ('E2','P2',80);
+INSERT INTO t3 VALUES  ('E3','P2',20);
+INSERT INTO t3 VALUES  ('E4','P2',20);
+INSERT INTO t3 VALUES  ('E4','P4',40);
+INSERT INTO t3 VALUES  ('E4','P5',80);
+
+
+SELECT * FROM t1;
+CREATE UNIQUE INDEX t1_IDX ON t1(EMPNUM);
+--sorted_result
+SELECT EMPNAME
+FROM t1
+WHERE EMPNUM IN
+   (SELECT EMPNUM
+    FROM t3
+    WHERE PNUM IN
+       (SELECT PNUM
+        FROM t2
+        WHERE PTYPE = 'Design'));
+
+DROP INDEX t1_IDX ON t1;
+CREATE INDEX t1_IDX ON t1(EMPNUM);
+--sorted_result
+SELECT EMPNAME
+FROM t1
+WHERE EMPNUM IN
+   (SELECT EMPNUM
+    FROM t3
+    WHERE PNUM IN
+       (SELECT PNUM
+        FROM t2
+        WHERE PTYPE = 'Design'));
+
+DROP INDEX t1_IDX ON t1;
+--sorted_result
+SELECT EMPNAME
+FROM t1
+WHERE EMPNUM IN
+   (SELECT EMPNUM
+    FROM t3
+    WHERE PNUM IN
+       (SELECT PNUM
+        FROM t2
+        WHERE PTYPE = 'Design'));
+
+DROP TABLE t1, t2, t3;
+
+#
+# BUG#33245 "Crash on VIEW referencing FROM table in an IN clause"
+# 
+CREATE TABLE t1 (f1 INT NOT NULL);
+CREATE VIEW v1 (a) AS SELECT f1 IN (SELECT f1 FROM t1) FROM t1;
+SELECT * FROM v1;
+drop view v1;
+drop table t1;
+
+
+#
+# BUG#35550 "Semi-join subquery in ON clause and no WHERE crashes the server"
+#
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1(a int, b int);
+insert into t1 values (0,0),(1,1),(2,2);
+create table t2 as select * from t1;
+
+create table t3 (pk int, a int, primary key(pk));
+insert into t3 select a,a from t0;
+
+explain 
+select * from t1 left join t2 on (t2.a= t1.a and t2.a in (select pk from t3));
+
+drop table t0, t1, t2, t3;
+
+#
+# BUG#34799: crash or/and memory overrun with dependant subquery and some joins
+#
+create table t1 (a int);
+insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t2 (a char(200), b char(200), c char(200), primary key (a,b,c)) engine=innodb;
+insert into t2 select concat(a, repeat('X',198)),repeat('B',200),repeat('B',200) from t1;
+insert into t2 select concat(a, repeat('Y',198)),repeat('B',200),repeat('B',200) from t1;
+alter table t2 add filler1 int;
+
+insert into t1 select A.a + 10*(B.a + 10*C.a) from t1 A, t1 B, t1 C;
+
+set @save_join_buffer_size=@@join_buffer_size; 
+--disable_warnings
+set join_buffer_size=1;
+--enable_warnings
+
+select * from t2 where filler1 in ( select a from t1);
+set join_buffer_size=default;
+
+drop table t1, t2; 
+#
+# BUG#33509: Server crashes with number of recursive subqueries=61
+#  (the query may or may not fail with an error so we're using it with SP 
+#  
+create table t1 (a int not null);
+
+--disable_warnings
+drop procedure if exists p1;
+--enable_warnings
+
+delimiter |;
+
+CREATE PROCEDURE p1()
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION select a from t1;
+  prepare s1 from '
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( 
+  select a from t1 where a in ( select a from t1) 
+  )))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))';
+  execute s1;
+END;
+|
+delimiter ;|
+
+call p1();
+drop procedure p1;
+drop table t1;

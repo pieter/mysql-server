@@ -242,7 +242,7 @@ our $opt_sleep;
 our $opt_testcase_timeout;
 our $opt_suite_timeout;
 my  $default_testcase_timeout=     15; # 15 min max
-my  $default_suite_timeout=       180; # 3 hours max
+my  $default_suite_timeout=       360; # 6 hours max
 
 our $opt_start_and_exit;
 our $opt_start_dirty;

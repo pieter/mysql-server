@@ -1398,7 +1398,13 @@ public:
   Ha_data ha_data[MAX_HA];
 
   /* Place to store various things */
-  void *thd_marker;
+  union 
+  { 
+    /*
+      Used by subquery optimizations, see Item_in_subselect::emb_on_expr_nest.
+    */
+    TABLE_LIST *emb_on_expr_nest;
+  } thd_marker;
 #ifndef MYSQL_CLIENT
   int binlog_setup_trx_data();
 

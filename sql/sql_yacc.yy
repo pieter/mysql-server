@@ -589,10 +589,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %pure_parser                                    /* We have threads */
 /*
-  Currently there are 173 shift/reduce conflicts.
+  Currently there are 172 shift/reduce conflicts.
   We should not introduce new conflicts any more.
 */
-%expect 173
+%expect 172
 
 /*
    Comments for TOKENS.
@@ -1466,12 +1466,44 @@ query:
               my_message(ER_EMPTY_QUERY, ER(ER_EMPTY_QUERY), MYF(0));
               MYSQL_YYABORT;
             }
+            thd->lex->sql_command= SQLCOM_EMPTY_QUERY;
+            thd->m_lip->found_semicolon= NULL;
+          }
+        | verb_clause
+          {
+            Lex_input_stream *lip = YYTHD->m_lip;
+
+            if ((YYTHD->client_capabilities & CLIENT_MULTI_QUERIES) &&
+                ! lip->stmt_prepare_mode &&
+                ! lip->eof())
+            {
+              /*
+                We found a well formed query, and multi queries are allowed:
+                - force the parser to stop after the ';'
+                - mark the start of the next query for the next invocation
+                  of the parser.
+              */
+              lip->next_state= MY_LEX_END;
+              lip->found_semicolon= lip->get_ptr();
+            }
             else
             {
-              thd->lex->sql_command= SQLCOM_EMPTY_QUERY;
+              /* Single query, terminated. */
+              lip->found_semicolon= NULL;
             }
           }
-        | verb_clause END_OF_INPUT {}
+          ';'
+          opt_end_of_input
+        | verb_clause END_OF_INPUT
+          {
+            /* Single query, not terminated. */
+            YYTHD->m_lip->found_semicolon= NULL;
+          }
+        ;
+
+opt_end_of_input:
+          /* empty */
+        | END_OF_INPUT
         ;
 
 verb_clause:
@@ -1926,10 +1958,6 @@ server_option:
 
 event_tail:
           EVENT_SYM opt_if_not_exists sp_name
-          /*
-            BE CAREFUL when you add a new rule to update the block where
-            YYTHD->client_capabilities is set back to original value
-          */
           {
             THD *thd= YYTHD;
             LEX *lex=Lex;
@@ -1938,14 +1966,6 @@ event_tail:
             if (!(lex->event_parse_data= Event_parse_data::new_instance(thd)))
               MYSQL_YYABORT;
             lex->event_parse_data->identifier= $3;
-
-            /*
-              We have to turn of CLIENT_MULTI_QUERIES while parsing a
-              stored procedure, otherwise yylex will chop it into pieces
-              at each ';'.
-            */
-            $<ulong_num>$= thd->client_capabilities & CLIENT_MULTI_QUERIES;
-            thd->client_capabilities &= (~CLIENT_MULTI_QUERIES);
 
             lex->sql_command= SQLCOM_CREATE_EVENT;
             /* We need that for disallowing subqueries */
@@ -1956,15 +1976,6 @@ event_tail:
           opt_ev_comment
           DO_SYM ev_sql_stmt
           {
-            /*
-              Restore flag if it was cleared above
-              $1 - EVENT_SYM
-              $2 - opt_if_not_exists
-              $3 - sp_name
-              $4 - the block above
-            */
-            YYTHD->client_capabilities |= $<ulong_num>4;
-
             /*
               sql_command is set here because some rules in ev_sql_stmt
               can overwrite it
@@ -5695,12 +5706,11 @@ alter:
           }
           view_tail
           {}
-        | ALTER definer_opt EVENT_SYM sp_name
-          /*
-            BE CAREFUL when you add a new rule to update the block where
-            YYTHD->client_capabilities is set back to original value
-          */
-          {
+        | ALTER /* $1 */
+          definer_opt /* $2 */
+          EVENT_SYM /* $3 */
+          sp_name /* $4 */
+          { /* $5 */
             /* 
               It is safe to use Lex->spname because
               ALTER EVENT xxx RENATE TO yyy DO ALTER EVENT RENAME TO
@@ -5713,31 +5723,14 @@ alter:
               MYSQL_YYABORT;
             Lex->event_parse_data->identifier= $4;
 
-            /*
-              We have to turn off CLIENT_MULTI_QUERIES while parsing a
-              stored procedure, otherwise yylex will chop it into pieces
-              at each ';'.
-            */
-            $<ulong_num>$= YYTHD->client_capabilities & CLIENT_MULTI_QUERIES;
-            YYTHD->client_capabilities &= ~CLIENT_MULTI_QUERIES;
-
             Lex->sql_command= SQLCOM_ALTER_EVENT;
           }
-          ev_alter_on_schedule_completion
-          opt_ev_rename_to
-          opt_ev_status
-          opt_ev_comment
-          opt_ev_sql_stmt
+          ev_alter_on_schedule_completion /* $6 */
+          opt_ev_rename_to /* $7 */
+          opt_ev_status /* $8 */
+          opt_ev_comment /* $9 */
+          opt_ev_sql_stmt /* $10 */
           {
-            /*
-              $1 - ALTER
-              $2 - definer_opt
-              $3 - EVENT_SYM
-              $4 - sp_name
-              $5 - the block above
-            */
-            YYTHD->client_capabilities |= $<ulong_num>5;
-
             if (!($6 || $7 || $8 || $9 || $10))
             {
               my_parse_error(ER(ER_SYNTAX_ERROR));
@@ -6706,49 +6699,63 @@ select_option_list:
         ;
 
 select_option:
-          STRAIGHT_JOIN { Select->options|= SELECT_STRAIGHT_JOIN; }
-        | HIGH_PRIORITY
-          {
-            if (check_simple_select())
-              MYSQL_YYABORT;
-            Lex->lock_option= TL_READ_HIGH_PRIORITY;
-          }
-        | DISTINCT         { Select->options|= SELECT_DISTINCT; }
-        | SQL_SMALL_RESULT { Select->options|= SELECT_SMALL_RESULT; }
-        | SQL_BIG_RESULT   { Select->options|= SELECT_BIG_RESULT; }
-        | SQL_BUFFER_RESULT
-          {
-            if (check_simple_select())
-              MYSQL_YYABORT;
-            Select->options|= OPTION_BUFFER_RESULT;
-          }
-        | SQL_CALC_FOUND_ROWS
-          {
-            if (check_simple_select())
-              MYSQL_YYABORT;
-            Select->options|= OPTION_FOUND_ROWS;
-          }
+          query_expression_option
         | SQL_NO_CACHE_SYM
           {
-            Lex->safe_to_cache_query=0;
-            Lex->select_lex.options&= ~OPTION_TO_QUERY_CACHE;
-            Lex->select_lex.sql_cache= SELECT_LEX::SQL_NO_CACHE;
+            /* 
+              Allow this flag only on the first top-level SELECT statement, if
+              SQL_CACHE wasn't specified, and only once per query.
+             */
+            if (Lex->current_select != &Lex->select_lex)
+            {
+              my_error(ER_CANT_USE_OPTION_HERE, MYF(0), "SQL_NO_CACHE");
+              MYSQL_YYABORT;
+            }
+            else if (Lex->select_lex.sql_cache == SELECT_LEX::SQL_CACHE)
+            {
+              my_error(ER_WRONG_USAGE, MYF(0), "SQL_CACHE", "SQL_NO_CACHE");
+              MYSQL_YYABORT;
+            }
+            else if (Lex->select_lex.sql_cache == SELECT_LEX::SQL_NO_CACHE)
+            {
+              my_error(ER_DUP_ARGUMENT, MYF(0), "SQL_NO_CACHE");
+              MYSQL_YYABORT;
+            }
+            else
+            {
+              Lex->safe_to_cache_query=0;
+              Lex->select_lex.options&= ~OPTION_TO_QUERY_CACHE;
+              Lex->select_lex.sql_cache= SELECT_LEX::SQL_NO_CACHE;
+            }
           }
         | SQL_CACHE_SYM
           {
-            /*
-             Honor this flag only if SQL_NO_CACHE wasn't specified AND
-             we are parsing the outermost SELECT in the query.
-            */
-            if (Lex->select_lex.sql_cache != SELECT_LEX::SQL_NO_CACHE &&
-                Lex->current_select == &Lex->select_lex)
+            /* 
+              Allow this flag only on the first top-level SELECT statement, if
+              SQL_NO_CACHE wasn't specified, and only once per query.
+             */
+            if (Lex->current_select != &Lex->select_lex)
+            {
+              my_error(ER_CANT_USE_OPTION_HERE, MYF(0), "SQL_CACHE");
+              MYSQL_YYABORT;
+            }         
+            else if (Lex->select_lex.sql_cache == SELECT_LEX::SQL_NO_CACHE)
+            {
+              my_error(ER_WRONG_USAGE, MYF(0), "SQL_NO_CACHE", "SQL_CACHE");
+              MYSQL_YYABORT;
+            }
+            else if (Lex->select_lex.sql_cache == SELECT_LEX::SQL_CACHE)
+            {
+              my_error(ER_DUP_ARGUMENT, MYF(0), "SQL_CACHE");
+              MYSQL_YYABORT;
+            }
+            else
             {
               Lex->safe_to_cache_query=1;
               Lex->select_lex.options|= OPTION_TO_QUERY_CACHE;
               Lex->select_lex.sql_cache= SELECT_LEX::SQL_CACHE;
             }
           }
-        | ALL { Select->options|= SELECT_ALL; }
         ;
 
 select_lock_type:
@@ -8255,7 +8262,7 @@ select_part2_derived:
               mysql_init_select(lex);
             lex->current_select->parsing_place= SELECT_LIST;
           }
-          select_options select_item_list
+          opt_query_expression_options select_item_list
           {
             Select->parsing_place= NO_MATTER;
           }
@@ -9643,11 +9650,6 @@ show_param:
               $3->change_db($4);
             if (prepare_schema_table(YYTHD, lex, $3, SCH_STATISTICS))
               MYSQL_YYABORT;
-          }
-        | COLUMN_SYM TYPES_SYM
-          {
-            LEX *lex=Lex;
-            lex->sql_command= SQLCOM_SHOW_COLUMN_TYPES;
           }
         | opt_storage ENGINES_SYM
           {
@@ -12425,6 +12427,42 @@ subselect_end:
           }
         ;
 
+opt_query_expression_options:
+          /* empty */
+        | query_expression_option_list
+        ;
+
+query_expression_option_list:
+          query_expression_option_list query_expression_option
+        | query_expression_option
+        ;
+
+query_expression_option:
+          STRAIGHT_JOIN { Select->options|= SELECT_STRAIGHT_JOIN; }
+        | HIGH_PRIORITY
+          {
+            if (check_simple_select())
+              MYSQL_YYABORT;
+            Lex->lock_option= TL_READ_HIGH_PRIORITY;
+          }
+        | DISTINCT         { Select->options|= SELECT_DISTINCT; }
+        | SQL_SMALL_RESULT { Select->options|= SELECT_SMALL_RESULT; }
+        | SQL_BIG_RESULT   { Select->options|= SELECT_BIG_RESULT; }
+        | SQL_BUFFER_RESULT
+          {
+            if (check_simple_select())
+              MYSQL_YYABORT;
+            Select->options|= OPTION_BUFFER_RESULT;
+          }
+        | SQL_CALC_FOUND_ROWS
+          {
+            if (check_simple_select())
+              MYSQL_YYABORT;
+            Select->options|= OPTION_FOUND_ROWS;
+          }
+        | ALL { Select->options|= SELECT_ALL; }
+        ;
+
 /**************************************************************************
 
  CREATE VIEW | TRIGGER | PROCEDURE statements.
@@ -12658,13 +12696,6 @@ trigger_tail:
 
             lex->sphead= sp;
             lex->spname= $3;
-            /*
-              We have to turn of CLIENT_MULTI_QUERIES while parsing a
-              stored procedure, otherwise yylex will chop it into pieces
-              at each ';'.
-            */
-            $<ulong_num>$= thd->client_capabilities & CLIENT_MULTI_QUERIES;
-            thd->client_capabilities &= ~CLIENT_MULTI_QUERIES;
 
             bzero((char *)&lex->sp_chistics, sizeof(st_sp_chistics));
             lex->sphead->m_chistics= &lex->sp_chistics;
@@ -12677,9 +12708,7 @@ trigger_tail:
 
             lex->sql_command= SQLCOM_CREATE_TRIGGER;
             sp->set_stmt_end(YYTHD);
-            /* Restore flag if it was cleared above */
 
-            YYTHD->client_capabilities |= $<ulong_num>15;
             sp->restore_thd_mem_root(YYTHD);
 
             if (sp->is_not_allowed_in_function("trigger"))
@@ -12771,13 +12800,6 @@ sf_tail:
 
             sp->m_type= TYPE_ENUM_FUNCTION;
             lex->sphead= sp;
-            /*
-              We have to turn off CLIENT_MULTI_QUERIES while parsing a
-              stored procedure, otherwise yylex will chop it into pieces
-              at each ';'.
-            */
-            $<ulong_num>$= thd->client_capabilities & CLIENT_MULTI_QUERIES;
-            thd->client_capabilities &= ~CLIENT_MULTI_QUERIES;
 
             tmp_param_begin= lip->get_cpp_tok_start();
             tmp_param_begin++;
@@ -12883,8 +12905,6 @@ sf_tail:
                                   ER(ER_NATIVE_FCT_NAME_COLLISION),
                                   sp->m_name.str);
             }
-            /* Restore flag if it was cleared above */
-            thd->client_capabilities |= $<ulong_num>5;
             sp->restore_thd_mem_root(thd);
           }
         ;
@@ -12911,13 +12931,6 @@ sp_tail:
             sp->init_sp_name(YYTHD, $3);
 
             lex->sphead= sp;
-            /*
-             * We have to turn of CLIENT_MULTI_QUERIES while parsing a
-             * stored procedure, otherwise yylex will chop it into pieces
-             * at each ';'.
-             */
-            $<ulong_num>$= YYTHD->client_capabilities & CLIENT_MULTI_QUERIES;
-            YYTHD->client_capabilities &= (~CLIENT_MULTI_QUERIES);
           }
           '('
           {
@@ -12956,12 +12969,6 @@ sp_tail:
 
             sp->set_stmt_end(YYTHD);
             lex->sql_command= SQLCOM_CREATE_PROCEDURE;
-            /*
-              Restore flag if it was cleared above
-              Be careful with counting. the block where we save the value
-              is $4.
-            */
-            YYTHD->client_capabilities |= $<ulong_num>4;
             sp->restore_thd_mem_root(YYTHD);
           }
         ;

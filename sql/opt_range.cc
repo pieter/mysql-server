@@ -2215,7 +2215,13 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
     KEY *key_info;
     PARAM param;
 
-    if (check_stack_overrun(thd, 2*STACK_MIN_SIZE, NULL))
+    /*
+      Use the 3 multiplier as range optimizer allocates big PARAM structure
+      and may evaluate a subquery expression
+      TODO During the optimization phase we should evaluate only inexpensive
+           single-lookup subqueries.
+    */
+    if (check_stack_overrun(thd, 3*STACK_MIN_SIZE, NULL))
       DBUG_RETURN(0);                           // Fatal error flag is set
 
     /* set up parameter that is passed to all functions */
@@ -5327,8 +5333,12 @@ static SEL_TREE *get_mm_tree(RANGE_OPT_PARAM *param,COND *cond)
     }
     DBUG_RETURN(tree);
   }
-  /* Here when simple cond */
-  if (cond->const_item())
+  /* 
+    Here when simple cond 
+    There are limits on what kinds of const items we can evaluate, grep for
+    DontEvaluateMaterializedSubqueryTooEarly.
+  */
+  if (cond->const_item() & !cond->is_expensive())
   {
     /*
       During the cond->val_int() evaluation we can come across a subselect 
@@ -8697,6 +8707,10 @@ QUICK_SELECT_DESC::QUICK_SELECT_DESC(QUICK_RANGE_SELECT *q,
  :QUICK_RANGE_SELECT(*q), rev_it(rev_ranges)
 {
   QUICK_RANGE *r;
+  /* Reverse MRR scans are currently not supported */
+  mrr_buf_desc= NULL;
+  mrr_flags |= HA_MRR_USE_DEFAULT_IMPL;
+  mrr_buf_size= 0;
 
   QUICK_RANGE **pr= (QUICK_RANGE**)ranges.buffer;
   QUICK_RANGE **end_range= pr + ranges.elements;

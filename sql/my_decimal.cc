@@ -41,7 +41,7 @@ int decimal_operation_results(int result)
 			"", (long)-1);
     break;
   case E_DEC_OVERFLOW:
-    push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_ERROR,
+    push_warning_printf(current_thd, MYSQL_ERROR::WARN_LEVEL_WARN,
                         ER_TRUNCATED_WRONG_VALUE,
                         ER(ER_TRUNCATED_WRONG_VALUE),
 			"DECIMAL", "");

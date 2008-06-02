@@ -343,18 +343,7 @@ public:
   void dbug_dump(int indent, bool verbose);
 #endif
 private:
-  /* Used only by QUICK_SELECT_DESC */
-  QUICK_RANGE_SELECT(const QUICK_RANGE_SELECT& org) : QUICK_SELECT_I()
-  {
-    bcopy(&org, this, sizeof(*this));
-    /* 
-      Use default MRR implementation for reverse scans. No table engine
-      currently can do an MRR scan with output in reverse index order.
-    */
-    mrr_buf_desc= NULL;
-    mrr_flags |= HA_MRR_USE_DEFAULT_IMPL;
-    mrr_buf_size= 0;
-  }
+  /* Default copy ctor used by QUICK_SELECT_DESC */
   friend class TRP_ROR_INTERSECT;
   friend
   QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,

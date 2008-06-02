@@ -3,6 +3,11 @@
 --source include/have_binlog_format_mixed_or_row.inc
 --source include/master-slave.inc
 
+# Bug #28430 Failure in replication of innodb partitioned tables on row/mixed format 
+#   DELETE commands weren't handled correctly on the slave for InnoDB engine,
+#   so after a number of INSERT/DELETE operations there were more records
+#   in the slave table than in the master table.
+
 # Set the default connection to 'master'
 
 --vertical_results

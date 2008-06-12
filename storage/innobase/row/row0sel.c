@@ -2645,6 +2645,25 @@ row_sel_store_mysql_rec(
 
 			data = rec_get_nth_field(rec, offsets,
 						 templ->rec_field_no, &len);
+
+			if (UNIV_UNLIKELY(templ->type == DATA_BLOB)
+			    && len != UNIV_SQL_NULL) {
+
+				/* It is a BLOB field locally stored in the
+				InnoDB record: we MUST copy its contents to
+				prebuilt->blob_heap here because later code
+				assumes all BLOB values have been copied to a
+				safe place. */
+
+				if (prebuilt->blob_heap == NULL) {
+					prebuilt->blob_heap = mem_heap_create(
+						UNIV_PAGE_SIZE);
+				}
+
+				data = memcpy(mem_heap_alloc(
+						prebuilt->blob_heap, len),
+						data, len);
+			}
 		}
 
 		if (len != UNIV_SQL_NULL) {
@@ -3583,7 +3602,9 @@ shortcut_fails_too_big_rec:
 
 	if (trx->isolation_level <= TRX_ISO_READ_COMMITTED
 	    && prebuilt->select_lock_type != LOCK_NONE
-	    && trx->mysql_query_str && trx->mysql_thd) {
+	    && trx->mysql_thd != NULL
+	    && trx->mysql_query_str != NULL
+	    && *trx->mysql_query_str != NULL) {
 
 		/* Scan the MySQL query string; check if SELECT is the first
 		word there */
@@ -4582,7 +4603,7 @@ row_search_check_if_query_cache_permitted(
 Read the AUTOINC column from the current row. If the value is less than
 0 and the type is not unsigned then we reset the value to 0. */
 static
-ib_longlong
+ib_ulonglong
 row_search_autoinc_read_column(
 /*===========================*/
 					/* out: value read from the column */
@@ -4593,10 +4614,8 @@ row_search_autoinc_read_column(
 {
 	ulint		len;
 	const byte*	data;
-	ib_longlong	value;
+	ib_ulonglong	value;
 	mem_heap_t*	heap = NULL;
-	/* Our requirement is that dest should be word aligned. */
-	byte		dest[sizeof(value)];
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
 	ulint*		offsets	= offsets_;
 
@@ -4614,41 +4633,14 @@ row_search_autoinc_read_column(
 	ut_a(len != UNIV_SQL_NULL);
 	ut_a(len <= sizeof value);
 
-	mach_read_int_type(dest, data, len, unsigned_type);
-
-	/* The assumption here is that the AUTOINC value can't be negative
-	and that dest is word aligned. */
-	switch (len) {
-	case 8:
-		value = *(ib_longlong*) dest;
-		break;
-
-	case 4:
-		value = *(ib_uint32_t*) dest;
-		break;
-
-	case 3:
-		value = *(ib_uint32_t*) dest;
-		value &= 0xFFFFFF;
-		break;
-
-	case 2:
-		value = *(uint16 *) dest;
-		break;
-
-	case 1:
-		value = *dest;
-		break;
-
-	default:
-		ut_error;
-	}
+	value = mach_read_int_type(data, len, unsigned_type);
 
 	if (UNIV_LIKELY_NULL(heap)) {
 		mem_heap_free(heap);
 	}
 
-	if (!unsigned_type && value < 0) {
+	/* We assume that the autoinc counter can't be negative. */
+	if (!unsigned_type && (ib_longlong) value < 0) {
 		value = 0;
 	}
 
@@ -4687,7 +4679,7 @@ row_search_max_autoinc(
 					column name can't be found in index */
 	dict_index_t*	index,		/* in: index to search */
 	const char*	col_name,	/* in: name of autoinc column */
-	ib_longlong*	value)		/* out: AUTOINC value read */
+	ib_ulonglong*	value)		/* out: AUTOINC value read */
 {
 	ulint		i;
 	ulint		n_cols;

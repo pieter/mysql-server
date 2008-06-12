@@ -202,13 +202,13 @@ srv_parse_data_file_paths_and_sizes(
 
 		str = srv_parse_megabytes(str, &size);
 
-		if (0 == memcmp(str, ":autoextend",
-				(sizeof ":autoextend") - 1)) {
+		if (0 == strncmp(str, ":autoextend",
+				 (sizeof ":autoextend") - 1)) {
 
 			str += (sizeof ":autoextend") - 1;
 
-			if (0 == memcmp(str, ":max:",
-					(sizeof ":max:") - 1)) {
+			if (0 == strncmp(str, ":max:",
+					 (sizeof ":max:") - 1)) {
 
 				str += (sizeof ":max:") - 1;
 
@@ -290,14 +290,15 @@ srv_parse_data_file_paths_and_sizes(
 		(*data_file_names)[i] = path;
 		(*data_file_sizes)[i] = size;
 
-		if (0 == memcmp(str, ":autoextend",
-				(sizeof ":autoextend") - 1)) {
+		if (0 == strncmp(str, ":autoextend",
+				 (sizeof ":autoextend") - 1)) {
 
 			*is_auto_extending = TRUE;
 
 			str += (sizeof ":autoextend") - 1;
 
-			if (0 == memcmp(str, ":max:", (sizeof ":max:") - 1)) {
+			if (0 == strncmp(str, ":max:",
+					 (sizeof ":max:") - 1)) {
 
 				str += (sizeof ":max:") - 1;
 
@@ -1122,12 +1123,12 @@ innobase_start_or_create_for_mysql(void)
 	if (srv_file_flush_method_str == NULL) {
 		/* These are the default options */
 
-		srv_unix_file_flush_method = SRV_UNIX_FDATASYNC;
+		srv_unix_file_flush_method = SRV_UNIX_FSYNC;
 
 		srv_win_file_flush_method = SRV_WIN_IO_UNBUFFERED;
 #ifndef __WIN__
-	} else if (0 == ut_strcmp(srv_file_flush_method_str, "fdatasync")) {
-		srv_unix_file_flush_method = SRV_UNIX_FDATASYNC;
+	} else if (0 == ut_strcmp(srv_file_flush_method_str, "fsync")) {
+		srv_unix_file_flush_method = SRV_UNIX_FSYNC;
 
 	} else if (0 == ut_strcmp(srv_file_flush_method_str, "O_DSYNC")) {
 		srv_unix_file_flush_method = SRV_UNIX_O_DSYNC;

@@ -135,7 +135,7 @@ static my_bool	innobase_locks_unsafe_for_binlog	= FALSE;
 static my_bool	innobase_rollback_on_timeout		= FALSE;
 static my_bool	innobase_create_status_file		= FALSE;
 static my_bool innobase_stats_on_metadata		= TRUE;
-static my_bool	innobase_use_adaptive_hash_indexes	= TRUE;
+static my_bool	innobase_adaptive_hash_index	= TRUE;
 
 static char*	internal_innobase_data_file_path	= NULL;
 
@@ -340,8 +340,10 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_buffer_pool_pages_flushed,  SHOW_LONG},
   {"buffer_pool_pages_free",
   (char*) &export_vars.innodb_buffer_pool_pages_free,	  SHOW_LONG},
+#ifdef UNIV_DEBUG
   {"buffer_pool_pages_latched",
   (char*) &export_vars.innodb_buffer_pool_pages_latched,  SHOW_LONG},
+#endif /* UNIV_DEBUG */
   {"buffer_pool_pages_misc",
   (char*) &export_vars.innodb_buffer_pool_pages_misc,	  SHOW_LONG},
   {"buffer_pool_pages_total",
@@ -606,7 +608,9 @@ convert_error_code_to_mysql(
 		tell it also to MySQL so that MySQL knows to empty the
 		cached binlog for this transaction */
 
-                thd_mark_transaction_to_rollback(thd, TRUE);
+		if (thd) {
+			thd_mark_transaction_to_rollback(thd, TRUE);
+		}
 
 		return(HA_ERR_LOCK_DEADLOCK);
 	} else if (error == (int) DB_LOCK_WAIT_TIMEOUT) {
@@ -615,8 +619,10 @@ convert_error_code_to_mysql(
 		latest SQL statement in a lock wait timeout. Previously, we
 		rolled back the whole transaction. */
 
-                thd_mark_transaction_to_rollback(thd,
-                                             (bool)row_rollback_on_timeout);
+		if (thd) {
+			thd_mark_transaction_to_rollback(
+				thd, (bool)row_rollback_on_timeout);
+		}
 
 		return(HA_ERR_LOCK_WAIT_TIMEOUT);
 
@@ -668,7 +674,9 @@ convert_error_code_to_mysql(
  		tell it also to MySQL so that MySQL knows to empty the
  		cached binlog for this transaction */
 
-                thd_mark_transaction_to_rollback(thd, TRUE);
+		if (thd) {
+			thd_mark_transaction_to_rollback(thd, TRUE);
+		}
 
     		return(HA_ERR_LOCK_TABLE_FULL);
 	} else if (error == DB_TOO_MANY_CONCURRENT_TRXS) {
@@ -1635,7 +1643,7 @@ innobase_init(
 	srv_stats_on_metadata = (ibool) innobase_stats_on_metadata;
 
 	srv_use_adaptive_hash_indexes =
-		(ibool) innobase_use_adaptive_hash_indexes;
+		(ibool) innobase_adaptive_hash_index;
 
 	srv_print_verbose_log = mysqld_embedded ? 0 : 1;
 
@@ -2283,6 +2291,8 @@ ha_innobase::open(
 	dict_table_t*	ib_table;
 	char		norm_name[1000];
 	THD*		thd;
+	ulint		retries = 0;
+	char*		is_part = NULL;
 
 	DBUG_ENTER("ha_innobase::open");
 
@@ -2316,11 +2326,29 @@ ha_innobase::open(
 		DBUG_RETURN(1);
 	}
 
+	/* We look for pattern #P# to see if the table is partitioned
+	MySQL table. The retry logic for partitioned tables is a
+	workaround for http://bugs.mysql.com/bug.php?id=33349. Look
+	at support issue https://support.mysql.com/view.php?id=21080
+	for more details. */
+	is_part = strstr(norm_name, "#P#");
+retry:
 	/* Get pointer to a table object in InnoDB dictionary cache */
-
 	ib_table = dict_table_get(norm_name, TRUE);
-
+	
 	if (NULL == ib_table) {
+		if (is_part && retries < 10) {
+			++retries;
+			os_thread_sleep(100000);
+			goto retry;
+		}
+
+		if (is_part) {
+			sql_print_error("Failed to open table %s after "
+					"%lu attemtps.\n", norm_name,
+					retries);
+		}
+
 		sql_print_error("Cannot find or open table %s from\n"
 				"the internal data dictionary of InnoDB "
 				"though the .frm file for the\n"
@@ -3305,7 +3333,8 @@ ha_innobase::innobase_autoinc_lock(void)
 		old style only if another transaction has already acquired
 		the AUTOINC lock on behalf of a LOAD FILE or INSERT ... SELECT
 		etc. type of statement. */
-		if (thd_sql_command(user_thd) == SQLCOM_INSERT) {
+		if (thd_sql_command(user_thd) == SQLCOM_INSERT
+		    || thd_sql_command(user_thd) == SQLCOM_REPLACE) {
 			dict_table_t*	table = prebuilt->table;
 
 			/* Acquire the AUTOINC mutex. */
@@ -3576,7 +3605,19 @@ no_commit:
 			if (auto_inc > prebuilt->last_value) {
 set_max_autoinc:
 				ut_a(prebuilt->table->autoinc_increment > 0);
-				auto_inc += prebuilt->table->autoinc_increment;
+
+				ulonglong	have;
+				ulonglong	need;
+
+				/* Check for overflow conditions. */
+				need = prebuilt->table->autoinc_increment;
+				have = ~0x0ULL - auto_inc;
+
+				if (have < need) {
+					need = have;
+				}
+
+				auto_inc += need;
 
 				err = innobase_set_max_autoinc(auto_inc);
 
@@ -3771,6 +3812,8 @@ ha_innobase::update_row(
 
 	ut_a(prebuilt->trx == trx);
 
+	ha_statistic_increment(&SSV::ha_update_count);
+
 	if (table->timestamp_field_type & TIMESTAMP_AUTO_SET_ON_UPDATE)
 		table->timestamp_field->set_time();
 
@@ -3826,6 +3869,16 @@ ha_innobase::update_row(
 
 	error = convert_error_code_to_mysql(error, user_thd);
 
+	if (error == 0 /* success */
+	    && uvect->n_fields == 0 /* no columns were updated */) {
+
+		/* This is the same as success, but instructs
+		MySQL that the row is not really updated and it
+		should not increase the count of updated rows.
+		This is fix for http://bugs.mysql.com/29157 */
+		error = HA_ERR_RECORD_IS_THE_SAME;
+	}
+
 	/* Tell InnoDB server that there might be work for
 	utility threads: */
 
@@ -3849,6 +3902,8 @@ ha_innobase::delete_row(
 	DBUG_ENTER("ha_innobase::delete_row");
 
 	ut_a(prebuilt->trx == trx);
+
+	ha_statistic_increment(&SSV::ha_delete_count);
 
 	/* Only if the table has an AUTOINC column */
 	if (table->found_next_number_field && record == table->record[0]) {
@@ -4653,6 +4708,12 @@ innodb_check_for_record_too_big_error(
 	}
 }
 
+/* limit innodb monitor access to users with PROCESS privilege.
+See http://bugs.mysql.com/32710 for expl. why we choose PROCESS. */
+#define IS_MAGIC_TABLE_AND_USER_DENIED_ACCESS(table_name, thd) \
+	(row_is_magic_monitor_table(table_name) \
+	 && check_global_access(thd, PROCESS_ACL))
+
 /*********************************************************************
 Creates a table definition to an InnoDB database. */
 static
@@ -4688,6 +4749,12 @@ create_table_def(
 
 	DBUG_ENTER("create_table_def");
 	DBUG_PRINT("enter", ("table_name: %s", table_name));
+
+	ut_a(trx->mysql_thd != NULL);
+	if (IS_MAGIC_TABLE_AND_USER_DENIED_ACCESS(table_name,
+						  (THD*) trx->mysql_thd)) {
+		DBUG_RETURN(HA_ERR_GENERIC);
+	}
 
 	n_cols = form->s->fields;
 
@@ -4967,6 +5034,29 @@ ha_innobase::create(
 	DBUG_ENTER("ha_innobase::create");
 
 	DBUG_ASSERT(thd != NULL);
+	DBUG_ASSERT(create_info != NULL);
+
+#ifdef __WIN__
+	/* Names passed in from server are in two formats:
+	1. <database_name>/<table_name>: for normal table creation
+	2. full path: for temp table creation, or sym link
+
+	When srv_file_per_table is on, check for full path pattern, i.e.
+	X:\dir\...,		X is a driver letter, or
+	\\dir1\dir2\...,	UNC path
+	returns error if it is in full path format, but not creating a temp.
+	table. Currently InnoDB does not support symbolic link on Windows. */
+
+	if (srv_file_per_table
+	    && (!create_info->options & HA_LEX_CREATE_TMP_TABLE)) {
+
+		if ((name[1] == ':')
+		    || (name[0] == '\\' && name[1] == '\\')) {
+			sql_print_error("Cannot create table %s\n", name);
+			DBUG_RETURN(HA_ERR_GENERIC);
+		}
+	}
+#endif
 
 	if (form->s->fields > 1000) {
 		/* The limit probably should be REC_MAX_N_FIELDS - 3 = 1020,
@@ -5101,8 +5191,15 @@ ha_innobase::create(
 
 	DBUG_ASSERT(innobase_table != 0);
 
-	if ((create_info->used_fields & HA_CREATE_USED_AUTO) &&
-	   (create_info->auto_increment_value != 0)) {
+	/* Note: We can't call update_thd() as prebuilt will not be
+	setup at this stage and so we use thd. */
+
+	/* We need to copy the AUTOINC value from the old table if
+	this is an ALTER TABLE. */
+
+	if (((create_info->used_fields & HA_CREATE_USED_AUTO)
+	    || thd_sql_command(thd) == SQLCOM_ALTER_TABLE)
+	    && create_info->auto_increment_value != 0) {
 
 		/* Query was ALTER TABLE...AUTO_INCREMENT = x; or
 		CREATE TABLE ...AUTO_INCREMENT = x; Find out a table
@@ -5229,6 +5326,14 @@ ha_innobase::delete_table(
 
 	DBUG_ENTER("ha_innobase::delete_table");
 
+	/* Strangely, MySQL passes the table name without the '.frm'
+	extension, in contrast to ::create */
+	normalize_table_name(norm_name, name);
+
+	if (IS_MAGIC_TABLE_AND_USER_DENIED_ACCESS(norm_name, thd)) {
+		DBUG_RETURN(HA_ERR_GENERIC);
+	}
+
 	/* Get the transaction associated with the current thd, or create one
 	if not yet created */
 
@@ -5261,11 +5366,6 @@ ha_innobase::delete_table(
 	name_len = strlen(name);
 
 	assert(name_len < 1000);
-
-	/* Strangely, MySQL passes the table name without the '.frm'
-	extension, in contrast to ::create */
-
-	normalize_table_name(norm_name, name);
 
 	/* Drop the table in InnoDB */
 
@@ -5756,6 +5856,13 @@ ha_innobase::info(
 			n_rows++;
 		}
 
+		/* Fix bug#29507: TRUNCATE shows too many rows affected.
+		Do not show the estimates for TRUNCATE command. */
+		if (thd_sql_command(user_thd) == SQLCOM_TRUNCATE) {
+
+			n_rows = 0;
+		}
+
 		stats.records = (ha_rows)n_rows;
 		stats.deleted = 0;
 		stats.data_file_length = ((ulonglong)
@@ -5764,7 +5871,9 @@ ha_innobase::info(
 		stats.index_file_length = ((ulonglong)
 				ib_table->stat_sum_of_other_index_sizes)
 					* UNIV_PAGE_SIZE;
-		stats.delete_length = 0;
+		stats.delete_length =
+			fsp_get_available_space_in_free_extents(
+				ib_table->space) * 1024;
 		stats.check_time = 0;
 
 		if (stats.records == 0) {
@@ -5847,7 +5956,7 @@ ha_innobase::info(
 	}
 
 	if (flag & HA_STATUS_AUTO && table->found_next_number_field) {
-		longlong	auto_inc;
+		ulonglong	auto_inc;
 		int		ret;
 
 		/* The following function call can the first time fail in
@@ -7211,9 +7320,9 @@ ha_innobase::innobase_read_and_init_auto_inc(
 /*=========================================*/
 						/* out: 0 or generic MySQL
 						error code */
-        longlong*	value)			/* out: the autoinc value */
+        ulonglong*	value)			/* out: the autoinc value */
 {
-	longlong	auto_inc;
+	ulonglong	auto_inc;
 	ibool		stmt_start;
 	int		mysql_error = 0;
 	dict_table_t*	innodb_table = prebuilt->table;
@@ -7264,7 +7373,9 @@ ha_innobase::innobase_read_and_init_auto_inc(
 			index, autoinc_col_name, &auto_inc);
 
 		if (error == DB_SUCCESS) {
-			++auto_inc;
+			if (auto_inc < ~0x0ULL) {
+				++auto_inc;
+			}
 			dict_table_autoinc_initialize(innodb_table, auto_inc);
 		} else {
 			ut_print_timestamp(stderr);
@@ -7303,6 +7414,7 @@ On return if there is no error then the tables AUTOINC lock is locked.*/
 
 ulong
 ha_innobase::innobase_get_auto_increment(
+/*=====================================*/
 	ulonglong*	value)		/* out: autoinc value */
 {
 	ulong		error;
@@ -7316,14 +7428,14 @@ ha_innobase::innobase_get_auto_increment(
 		error = innobase_autoinc_lock();
 
 		if (error == DB_SUCCESS) {
-			ib_longlong	autoinc;
+			ulonglong	autoinc;
 
 			/* Determine the first value of the interval */
 			autoinc = dict_table_autoinc_read(prebuilt->table);
 
 			/* We need to initialize the AUTO-INC value, for
 			that we release all locks.*/
-			if (autoinc <= 0) {
+			if (autoinc == 0) {
 				trx_t*		trx;
 
 				trx = prebuilt->trx;
@@ -7342,14 +7454,11 @@ ha_innobase::innobase_get_auto_increment(
 				mysql_error = innobase_read_and_init_auto_inc(
 					&autoinc);
 
-				if (!mysql_error) {
-					/* Should have read the proper value */
-					ut_a(autoinc > 0);
-				} else {
+				if (mysql_error) {
 					error = DB_ERROR;
 				}
 			} else {
-				*value = (ulonglong) autoinc;
+				*value = autoinc;
 			}
 		/* A deadlock error during normal processing is OK
 		and can be ignored. */
@@ -7434,10 +7543,19 @@ ha_innobase::get_auto_increment(
 	/* With old style AUTOINC locking we only update the table's
 	AUTOINC counter after attempting to insert the row. */
 	if (innobase_autoinc_lock_mode != AUTOINC_OLD_STYLE_LOCKING) {
+		ulonglong	have;
+		ulonglong	need;
+
+		/* Check for overflow conditions. */
+		need = *nb_reserved_values * increment;
+		have = ~0x0ULL - *first_value;
+
+		if (have < need) {
+			need = have;
+		}
 
 		/* Compute the last value in the interval */
-		prebuilt->last_value = *first_value +
-		    (*nb_reserved_values * increment);
+		prebuilt->last_value = *first_value + need;
 
 		ut_a(prebuilt->last_value >= *first_value);
 
@@ -7911,7 +8029,7 @@ bool ha_innobase::check_if_incompatible_data(
 	}
 
 	/* Check that row format didn't change */
-	if ((info->used_fields & HA_CREATE_USED_AUTO) &&
+	if ((info->used_fields & HA_CREATE_USED_ROW_FORMAT) &&
 		get_row_type() != info->row_type) {
 
 		return COMPATIBLE_DATA_NO;
@@ -8026,9 +8144,10 @@ static MYSQL_SYSVAR_BOOL(stats_on_metadata, innobase_stats_on_metadata,
   "Enable statistics gathering for metadata commands such as SHOW TABLE STATUS (on by default)",
   NULL, NULL, TRUE);
 
-static MYSQL_SYSVAR_BOOL(use_adaptive_hash_indexes, innobase_use_adaptive_hash_indexes,
+static MYSQL_SYSVAR_BOOL(adaptive_hash_index, innobase_adaptive_hash_index,
   PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
-  "Enable the InnoDB adaptive hash indexes (enabled by default)",
+  "Enable InnoDB adaptive hash index (enabled by default).  "
+  "Disable with --skip-innodb-adaptive-hash-index.",
   NULL, NULL, TRUE);
 
 static MYSQL_SYSVAR_LONG(additional_mem_pool_size, innobase_additional_mem_pool_size,
@@ -8118,10 +8237,11 @@ static MYSQL_SYSVAR_STR(data_file_path, innobase_data_file_path,
 
 static MYSQL_SYSVAR_LONG(autoinc_lock_mode, innobase_autoinc_lock_mode,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "The AUTOINC lock modes supported by InnoDB:\n"
-  "  0 => Old style AUTOINC locking (for backward compatibility)\n"
-  "  1 => New style AUTOINC locking\n"
-  "  2 => No AUTOINC locking (unsafe for SBR)",
+  "The AUTOINC lock modes supported by InnoDB:               "
+  "0 => Old style AUTOINC locking (for backward"
+  " compatibility)                                           "
+  "1 => New style AUTOINC locking                            "
+  "2 => No AUTOINC locking (unsafe for SBR)",
   NULL, NULL,
   AUTOINC_NEW_STYLE_LOCKING,	/* Default setting */
   AUTOINC_OLD_STYLE_LOCKING,	/* Minimum value */
@@ -8159,7 +8279,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(open_files),
   MYSQL_SYSVAR(rollback_on_timeout),
   MYSQL_SYSVAR(stats_on_metadata),
-  MYSQL_SYSVAR(use_adaptive_hash_indexes),
+  MYSQL_SYSVAR(adaptive_hash_index),
   MYSQL_SYSVAR(status_file),
   MYSQL_SYSVAR(support_xa),
   MYSQL_SYSVAR(sync_spin_loops),

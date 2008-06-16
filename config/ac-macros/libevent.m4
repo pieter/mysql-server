@@ -22,7 +22,8 @@ AC_DEFUN([MYSQL_USE_BUNDLED_LIBEVENT], [
   AC_DEFINE([HAVE_LIBEVENT], [1], [If we want to use libevent and have connection pooling])
   AC_MSG_RESULT([using bundled libevent])
 
-  dnl Use builtin include to workaround path problems on older versions of aclocal.
+  dnl Get the upstream file with the original libevent configure macros.
+  dnl Use builtin include for this, to work around path problems in old versions of aclocal.
   builtin([include],[config/ac-macros/libevent_configure.m4])
 ])
 

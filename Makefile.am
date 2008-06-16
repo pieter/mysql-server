@@ -17,9 +17,14 @@
 
 AUTOMAKE_OPTIONS =	foreign
 
-# These are built from source in the Docs directory
+# Files in the first two lines are built from source in the Docs directory,
+# "CMakeLists.txt" is for Windows only,
+# "libevent_configure.m4" is needed in sources but should be evaluated only
+#    if "--with-libevent" is given (handled in "config/ac-macros/libevent.m4").
 EXTRA_DIST =		INSTALL-SOURCE INSTALL-WIN-SOURCE \
-			README COPYING EXCEPTIONS-CLIENT CMakeLists.txt
+			README COPYING EXCEPTIONS-CLIENT \
+			CMakeLists.txt \
+			config/ac-macros/libevent_configure.m4
 
 SUBDIRS =		. include @docs_dirs@ @zlib_dir@ \
 			@readline_topdir@ sql-common scripts \
